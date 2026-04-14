@@ -13,11 +13,11 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:8000}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:8001}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     container_name: averturas-web
     ports:
-      - "8080:80"
+      - "8082:80"
     depends_on:
       - kong
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
     container_name: averturas-db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
@@ -47,7 +47,7 @@ services:
     container_name: averturas-kong
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml

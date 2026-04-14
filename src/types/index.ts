@@ -120,6 +120,24 @@ export interface Operacion {
   updated_at: string;
 }
 
+export interface Producto {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  tipo: TipoOperacion;
+  tipo_abertura_id: string | null;
+  tipo_abertura?: TipoAbertura;
+  sistema_id: string | null;
+  sistema?: Sistema;
+  ancho: number | null;
+  alto: number | null;
+  costo_base: number;
+  precio_base: number;
+  precio_por_m2: boolean;
+  activo: boolean;
+  created_at: string;
+}
+
 export interface DashboardStats {
   presupuestos_hoy: number;
   ventas_mes: number;

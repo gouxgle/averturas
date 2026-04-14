@@ -1,0 +1,7 @@
+node_modules
+dist
+.git
+.env
+.env.local
+docker/supabase-selfhosted/volumes
+docker/supabase-selfhosted/.env

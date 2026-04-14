@@ -1,18 +1,21 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ClipboardList, Package,
-  BarChart2, Settings, LogOut, Building2, ChevronRight
+  BarChart2, Settings, LogOut, Building2, ChevronRight,
+  FileText, ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { to: '/',           label: 'Dashboard',    icon: LayoutDashboard },
-  { to: '/operaciones',label: 'Operaciones',  icon: ClipboardList },
-  { to: '/clientes',   label: 'Clientes',     icon: Users },
-  { to: '/stock',      label: 'Stock',        icon: Package },
-  { to: '/reportes',   label: 'Reportes',     icon: BarChart2 },
-  { to: '/configuracion', label: 'Configuración', icon: Settings },
+  { to: '/dashboard',      label: 'Dashboard',      icon: LayoutDashboard },
+  { to: '/presupuestos',   label: 'Presupuestos',   icon: FileText },
+  { to: '/operaciones',    label: 'Operaciones',    icon: ClipboardList },
+  { to: '/clientes',       label: 'Clientes',       icon: Users },
+  { to: '/productos',      label: 'Productos',      icon: ShoppingBag },
+  { to: '/stock',          label: 'Stock',          icon: Package },
+  { to: '/reportes',       label: 'Reportes',       icon: BarChart2 },
+  { to: '/configuracion',  label: 'Configuración',  icon: Settings },
 ];
 
 export function Sidebar() {
@@ -45,7 +48,7 @@ export function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === '/dashboard'}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group',

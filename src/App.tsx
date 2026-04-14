@@ -14,6 +14,10 @@ import { ClienteDetalle } from '@/pages/ClienteDetalle';
 import { Stock } from '@/pages/Stock';
 import { Reportes } from '@/pages/Reportes';
 import { Configuracion } from '@/pages/Configuracion';
+import { Productos } from '@/pages/Productos';
+import { NuevoProducto } from '@/pages/NuevoProducto';
+import { Presupuestos } from '@/pages/Presupuestos';
+import { NuevoPresupuesto } from '@/pages/NuevoPresupuesto';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -36,6 +40,11 @@ export default function App() {
                 <Route path="/clientes" element={<Clientes />} />
                 <Route path="/clientes/nuevo" element={<NuevoCliente />} />
                 <Route path="/clientes/:id" element={<ClienteDetalle />} />
+                <Route path="/presupuestos" element={<Presupuestos />} />
+                <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />
+                <Route path="/productos" element={<Productos />} />
+                <Route path="/productos/nuevo" element={<NuevoProducto />} />
+                <Route path="/productos/:id" element={<NuevoProducto />} />
                 <Route path="/stock" element={<Stock />} />
                 <Route path="/reportes" element={<Reportes />} />
                 <Route path="/configuracion" element={<Configuracion />} />
