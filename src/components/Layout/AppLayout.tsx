@@ -4,7 +4,7 @@ import { Toaster } from 'sonner';
 
 export function AppLayout() {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
       <main className="flex-1 overflow-auto">
         <Outlet />

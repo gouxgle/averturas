@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, ClipboardList } from 'lucide-react';
+import { Plus, Search, ArrowRight, Hammer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, EstadoOperacion, TipoOperacion } from '@/types';
@@ -70,16 +70,20 @@ export function Operaciones() {
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Operaciones</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Presupuestos y ventas</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Hammer size={20} className="text-amber-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Operaciones</h1>
+            <p className="text-sm text-gray-500">Seguimiento de producción y entregas</p>
+          </div>
         </div>
         <Link
           to="/operaciones/nueva"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
         >
-          <Plus size={16} />
-          Nueva operación
+          <Plus size={16} /> Nueva operación
         </Link>
       </div>
 
@@ -126,7 +130,7 @@ export function Operaciones() {
           </div>
         ) : operaciones.length === 0 ? (
           <div className="py-16 text-center">
-            <ClipboardList size={32} className="text-gray-200 mx-auto mb-3" />
+            <Hammer size={32} className="text-gray-200 mx-auto mb-3" />
             <p className="text-sm text-gray-400 mb-1">No hay operaciones</p>
             <Link to="/operaciones/nueva" className="text-sm text-brand-600 hover:underline">
               Crear la primera

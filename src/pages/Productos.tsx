@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Package, Pencil, ToggleLeft, ToggleRight, Search } from 'lucide-react';
+import { Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, cn } from '@/lib/utils';
 import type { Producto, TipoOperacion } from '@/types';
@@ -56,13 +56,18 @@ export function Productos() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Productos</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Catálogo de aberturas y precios base</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
+            <Layers size={20} className="text-sky-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Productos</h1>
+            <p className="text-sm text-gray-500">Catálogo de aberturas y precios base</p>
+          </div>
         </div>
         <Link
           to="/productos/nuevo"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm"
+          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
         >
           <Plus size={16} /> Nuevo producto
         </Link>

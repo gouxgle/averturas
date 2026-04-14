@@ -78,13 +78,18 @@ export function Presupuestos() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Presupuestos</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Gestión de cotizaciones</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+            <FileText size={20} className="text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Presupuestos</h1>
+            <p className="text-sm text-gray-500">Gestión de cotizaciones</p>
+          </div>
         </div>
         <Link
           to="/presupuestos/nuevo"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm"
+          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
         >
           <Plus size={16} /> Nuevo presupuesto
         </Link>
