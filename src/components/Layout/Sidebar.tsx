@@ -104,7 +104,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
 ];
 
 export function Sidebar() {
-  const { profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   async function handleSignOut() {
@@ -112,8 +112,8 @@ export function Sidebar() {
     navigate('/login');
   }
 
-  const initials = profile?.nombre
-    ? profile.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const initials = user?.nombre
+    ? user.nombre.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U';
 
   return (
@@ -183,9 +183,9 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-200 truncate">
-              {profile?.nombre ?? 'Usuario'}
+              {user?.nombre ?? 'Usuario'}
             </p>
-            <p className="text-[10px] text-slate-500 capitalize">{profile?.role ?? ''}</p>
+            <p className="text-[10px] text-slate-500 capitalize">{user?.rol ?? ''}</p>
           </div>
           <button
             onClick={handleSignOut}
