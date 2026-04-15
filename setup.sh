@@ -25,9 +25,8 @@ cat > "$ENV_FILE" <<EOF
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 
-# Puertos (cambiar si hay conflicto con otros servicios)
+# Puerto de la aplicación (cambiar si hay conflicto con otros servicios)
 APP_PORT=3000
-DB_PORT=5432
 EOF
 
 echo "✅ Archivo .env creado"
