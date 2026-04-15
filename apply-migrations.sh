@@ -1,48 +1,58 @@
 #!/bin/bash
-# Aplica las migraciones SQL al contenedor de la base de datos
-# Uso: bash apply-migrations.sh
+# ============================================================
+# Averturas — Aplicar migraciones y crear usuario admin
+# Ejecutar después de: docker compose up -d --build
+# ============================================================
+set -e
 
-ENV_FILE="docker/supabase-selfhosted/.env"
-
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Error: No se encontró $ENV_FILE"
-  echo "Primero corré: cd docker/supabase-selfhosted && bash setup.sh"
+if [ ! -f ".env" ]; then
+  echo "❌ No se encontró .env — ejecutar primero: bash setup.sh"
   exit 1
 fi
 
-source "$ENV_FILE"
+source .env
 
-if [ -z "$POSTGRES_PASSWORD" ]; then
-  echo "Error: POSTGRES_PASSWORD no está definido en $ENV_FILE"
-  exit 1
-fi
-
-MIGRATIONS_DIR="supabase/migrations"
-if [ ! -d "$MIGRATIONS_DIR" ]; then
-  echo "Error: No se encontró el directorio $MIGRATIONS_DIR"
-  exit 1
-fi
-
-OK=0
-ERRORS=0
-
-for FILE in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
-  echo -n "Aplicando $(basename $FILE)... "
-  docker exec -i averturas-db psql -U postgres -d postgres < "$FILE" > /dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    echo "OK"
-    OK=$((OK + 1))
-  else
-    echo "ERROR"
-    ERRORS=$((ERRORS + 1))
+echo "⏳ Esperando que la base de datos esté disponible..."
+for i in $(seq 1 30); do
+  if docker exec averturas-db pg_isready -U postgres -q 2>/dev/null; then
+    break
   fi
+  echo "  ... intento $i/30"
+  sleep 2
 done
 
-echo ""
-echo "Migraciones: $OK OK, $ERRORS con errores"
+echo "📦 Aplicando migraciones..."
+docker exec -i averturas-db psql -U postgres -d postgres \
+  < supabase/migrations/20260414000001_schema.sql
 
-if [ $ERRORS -gt 0 ]; then
-  echo ""
-  echo "Para ver el error de una migración específica:"
-  echo "  docker exec -i averturas-db psql -U postgres -d postgres < supabase/migrations/ARCHIVO.sql"
+docker exec -i averturas-db psql -U postgres -d postgres \
+  < supabase/migrations/20260414000002_seed.sql
+
+echo "👤 Creando usuario admin..."
+ADMIN_PASS="${ADMIN_PASSWORD:-admin1234}"
+
+HASH=$(docker exec averturas-app node -e "
+  const b = require('bcryptjs');
+  console.log(b.hashSync('${ADMIN_PASS}', 10));
+" 2>/dev/null)
+
+if [ -z "$HASH" ]; then
+  echo "⚠️  No se pudo generar el hash."
+  echo "   Asegurate de que 'docker compose up -d --build' haya terminado y volvé a intentar."
+  exit 1
 fi
+
+docker exec -i averturas-db psql -U postgres -d postgres <<SQL
+INSERT INTO usuarios (nombre, email, password_hash, rol)
+VALUES ('Administrador', 'admin@averturas.local', '${HASH}', 'admin')
+ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+SQL
+
+echo ""
+echo "✅ Listo. Sistema configurado."
+echo ""
+echo "   URL:         http://localhost:${APP_PORT:-3000}"
+echo "   Email:       admin@averturas.local"
+echo "   Contraseña:  ${ADMIN_PASS}"
+echo ""
+echo "⚠️  Cambiá la contraseña del admin después del primer ingreso."

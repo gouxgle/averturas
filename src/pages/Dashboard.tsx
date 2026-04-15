@@ -4,7 +4,7 @@ import {
   FileText, Users, TrendingUp, Clock, Plus, ArrowRight,
   Hammer, CheckCircle2, DollarSign, AlertCircle, Layers
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { Operacion } from '@/types';
@@ -40,35 +40,24 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 export function Dashboard() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ presupuestos_activos: 0, ventas_mes: 0, monto_mes: 0, clientes_total: 0 });
   const [recientes, setRecientes] = useState<Operacion[]>([]);
   const [pendientes, setPendientes] = useState<Operacion[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadData(); }, []);
-
-  async function loadData() {
-    const primerDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-    const [
-      { count: presupuestos_activos },
-      { data: ventasMes },
-      { count: clientes_total },
-      { data: ultimasOps },
-      { data: opsPendientes },
-    ] = await Promise.all([
-      supabase.from('operaciones').select('*', { count: 'exact', head: true }).in('estado', ['presupuesto', 'enviado', 'aprobado']),
-      supabase.from('operaciones').select('precio_total').in('estado', ['aprobado', 'en_produccion', 'listo', 'instalado', 'entregado']).gte('created_at', primerDiaMes),
-      supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('activo', true),
-      supabase.from('operaciones').select('*, cliente:clientes(nombre, apellido)').order('created_at', { ascending: false }).limit(5),
-      supabase.from('operaciones').select('*, cliente:clientes(nombre, apellido)').in('estado', ['presupuesto', 'enviado']).order('created_at', { ascending: true }).limit(5),
-    ]);
-    const monto_mes = (ventasMes ?? []).reduce((s, o) => s + (o.precio_total ?? 0), 0);
-    setStats({ presupuestos_activos: presupuestos_activos ?? 0, ventas_mes: (ventasMes ?? []).length, monto_mes, clientes_total: clientes_total ?? 0 });
-    setRecientes((ultimasOps ?? []) as unknown as Operacion[]);
-    setPendientes((opsPendientes ?? []) as unknown as Operacion[]);
-    setLoading(false);
-  }
+  useEffect(() => {
+    Promise.all([
+      api.get<Stats>('/dashboard/stats'),
+      api.get<Operacion[]>('/dashboard/recientes'),
+      api.get<Operacion[]>('/dashboard/pendientes'),
+    ]).then(([s, r, p]) => {
+      setStats(s);
+      setRecientes(r);
+      setPendientes(p);
+      setLoading(false);
+    });
+  }, []);
 
   const hora = new Date().getHours();
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
@@ -77,7 +66,7 @@ export function Dashboard() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{saludo}, {profile?.nombre ?? 'usuario'} 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{saludo}, {user?.nombre ?? 'usuario'} 👋</h1>
           <p className="text-sm text-gray-500 mt-0.5 capitalize">
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
@@ -94,10 +83,10 @@ export function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Presupuestos activos" value={stats.presupuestos_activos} icon={FileText}   gradient="from-violet-500 to-violet-600" href="/presupuestos" />
+          <StatCard label="Presupuestos activos" value={stats.presupuestos_activos} icon={FileText}    gradient="from-violet-500 to-violet-600" href="/presupuestos" />
           <StatCard label="Ventas este mes"       value={stats.ventas_mes}           icon={CheckCircle2} gradient="from-emerald-500 to-emerald-600" />
-          <StatCard label="Facturado mes"          value={formatCurrency(stats.monto_mes)} icon={DollarSign}  gradient="from-blue-500 to-blue-600" />
-          <StatCard label="Clientes activos"       value={stats.clientes_total}       icon={Users}     gradient="from-amber-500 to-orange-500"  href="/clientes" />
+          <StatCard label="Facturado mes"          value={formatCurrency(stats.monto_mes)} icon={DollarSign} gradient="from-blue-500 to-blue-600" />
+          <StatCard label="Clientes activos"       value={stats.clientes_total}       icon={Users}      gradient="from-amber-500 to-orange-500" href="/clientes" />
         </div>
       )}
 

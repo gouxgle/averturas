@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { CategoriaCliente } from '@/types';
 
 export function NuevoCliente() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
@@ -26,9 +24,7 @@ export function NuevoCliente() {
   });
 
   useEffect(() => {
-    supabase.from('categorias_cliente').select('*').order('orden').then(({ data }) => {
-      setCategorias((data ?? []) as CategoriaCliente[]);
-    });
+    api.get<CategoriaCliente[]>('/catalogo/categorias-cliente').then(setCategorias);
   }, []);
 
   function set(field: string, value: string) {
@@ -39,23 +35,11 @@ export function NuevoCliente() {
     if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return; }
     setSaving(true);
     try {
-      const { data, error } = await supabase.from('clientes').insert({
-        nombre: form.nombre.trim(),
-        apellido: form.apellido.trim() || null,
-        razon_social: form.razon_social.trim() || null,
-        telefono: form.telefono.trim() || null,
-        email: form.email.trim() || null,
-        direccion: form.direccion.trim() || null,
-        localidad: form.localidad.trim() || null,
-        categoria_id: form.categoria_id || null,
-        notas: form.notas.trim() || null,
-        created_by: user?.id,
-      }).select().single();
-      if (error) throw error;
+      const data = await api.post<{ id: string }>('/clientes', form);
       toast.success('Cliente creado');
       navigate(`/clientes/${data.id}`);
-    } catch {
-      toast.error('Error al guardar el cliente');
+    } catch (e) {
+      toast.error((e as Error).message || 'Error al guardar el cliente');
     } finally {
       setSaving(false);
     }

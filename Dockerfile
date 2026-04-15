@@ -1,25 +1,29 @@
-FROM node:20-alpine AS builder
-
+# ── Etapa 1: build del frontend ──────────────────────────────
+FROM node:20-alpine AS frontend-build
 WORKDIR /app
-
-COPY package*.json ./
+COPY package.json package-lock.json* bun.lock* ./
 RUN npm install --legacy-peer-deps
-
 COPY . .
-
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-
 RUN npm run build
 
-FROM nginx:alpine
+# ── Etapa 2: build del backend ────────────────────────────────
+FROM node:20-alpine AS server-build
+WORKDIR /server
+COPY server/package.json ./
+RUN npm install
+COPY server/ .
+RUN npm run build
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# ── Etapa 3: imagen final ─────────────────────────────────────
+FROM node:20-alpine
+WORKDIR /app
 
-EXPOSE 80
+COPY --from=server-build /server/node_modules ./node_modules
+COPY --from=server-build /server/dist ./dist
 
-CMD ["nginx", "-g", "daemon off;"]
+# Frontend build → el servidor lo sirve como archivos estáticos
+COPY --from=frontend-build /app/dist ./public
+
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "dist/index.js"]

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Phone, ArrowRight, TrendingUp } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { Cliente } from '@/types';
 
@@ -11,24 +11,15 @@ export function Clientes() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const loadClientes = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    let q = supabase
-      .from('clientes')
-      .select('*, categoria:categorias_cliente(nombre, color)')
-      .eq('activo', true)
-      .order('ultima_interaccion', { ascending: false, nullsFirst: false });
-
-    if (search.trim()) {
-      q = q.or(`nombre.ilike.%${search}%,apellido.ilike.%${search}%,telefono.ilike.%${search}%`);
-    }
-
-    const { data } = await q.limit(50);
-    setClientes((data ?? []) as unknown as Cliente[]);
+    const params = search.trim() ? `?search=${encodeURIComponent(search)}` : '';
+    const data = await api.get<Cliente[]>(`/clientes${params}`);
+    setClientes(data);
     setLoading(false);
   }, [search]);
 
-  useEffect(() => { loadClientes(); }, [loadClientes]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
@@ -90,14 +81,11 @@ export function Clientes() {
                 onClick={() => navigate(`/clientes/${cliente.id}`)}
                 className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left group"
               >
-                {/* Avatar */}
                 <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
                   <span className="text-sm font-bold text-brand-700">
                     {cliente.nombre[0].toUpperCase()}
                   </span>
                 </div>
-
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-gray-800 truncate">
@@ -129,8 +117,6 @@ export function Clientes() {
                     )}
                   </div>
                 </div>
-
-                {/* Stats */}
                 <div className="text-right shrink-0">
                   <div className="flex items-center gap-1 text-xs text-gray-500 justify-end">
                     <TrendingUp size={11} />
@@ -142,7 +128,6 @@ export function Clientes() {
                     </p>
                   )}
                 </div>
-
                 <ArrowRight size={14} className="text-gray-300 group-hover:text-gray-500 shrink-0" />
               </button>
             ))}

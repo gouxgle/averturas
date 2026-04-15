@@ -1,16 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Save, BookOpen, X, ChevronRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TipoOperacion, Cliente, TipoAbertura, Sistema, Proveedor, Producto } from '@/types';
 
 const TIPOS: { value: TipoOperacion; label: string; desc: string }[] = [
-  { value: 'estandar',           label: 'Estándar',     desc: 'Aberturas de medidas de stock' },
-  { value: 'a_medida_proveedor', label: 'A medida',     desc: 'Medida especial, encargada a proveedor' },
-  { value: 'fabricacion_propia', label: 'Fabricación',  desc: 'Fabricado en taller propio' },
+  { value: 'estandar',           label: 'Estándar',    desc: 'Aberturas de medidas de stock' },
+  { value: 'a_medida_proveedor', label: 'A medida',    desc: 'Medida especial, encargada a proveedor' },
+  { value: 'fabricacion_propia', label: 'Fabricación', desc: 'Fabricado en taller propio' },
 ];
 
 interface ItemForm {
@@ -45,66 +44,55 @@ function emptyItem(): ItemForm {
 function calcPrecioM2(item: ItemForm): number {
   if (!item.precio_por_m2 || !item.precio_base_m2) return item.precio_unitario;
   const ancho = parseFloat(item.medida_ancho) || 0;
-  const alto = parseFloat(item.medida_alto) || 0;
+  const alto  = parseFloat(item.medida_alto)  || 0;
   if (!ancho || !alto) return item.precio_unitario;
   return Math.round(item.precio_base_m2 * (ancho / 100) * (alto / 100));
 }
 
 export function NuevoPresupuesto() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
 
-  // Catálogos
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes]         = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
-  const [sistemas, setSistemas] = useState<Sistema[]>([]);
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [catalogo, setCatalogo] = useState<Producto[]>([]);
+  const [sistemas, setSistemas]         = useState<Sistema[]>([]);
+  const [proveedores, setProveedores]   = useState<Proveedor[]>([]);
+  const [catalogo, setCatalogo]         = useState<Producto[]>([]);
 
-  // Form
-  const [tipo, setTipo] = useState<TipoOperacion>('estandar');
-  const [clienteId, setClienteId] = useState(searchParams.get('cliente_id') ?? '');
+  const [tipo, setTipo]                 = useState<TipoOperacion>('estandar');
+  const [clienteId, setClienteId]       = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSearch, setClienteSearch] = useState('');
   const [showClienteList, setShowClienteList] = useState(false);
-  const [proveedorId, setProveedorId] = useState('');
-  const [notas, setNotas] = useState('');
+  const [proveedorId, setProveedorId]   = useState('');
+  const [notas, setNotas]               = useState('');
   const [notasInternas, setNotasInternas] = useState('');
   const [fechaValidez, setFechaValidez] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   });
-  const [items, setItems] = useState<ItemForm[]>([emptyItem()]);
-
-  // Catálogo panel
-  const [showCatalog, setShowCatalog] = useState(false);
+  const [items, setItems]               = useState<ItemForm[]>([emptyItem()]);
+  const [showCatalog, setShowCatalog]   = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
 
   useEffect(() => {
-    const clienteIdParam = searchParams.get('cliente_id');
-    if (clienteIdParam) {
-      supabase.from('clientes').select('id, nombre, apellido, telefono').eq('id', clienteIdParam).single()
-        .then(({ data }) => { if (data) setClientes([data as Cliente]); });
-    }
-
     Promise.all([
-      supabase.from('clientes').select('id, nombre, apellido, telefono').eq('activo', true).order('nombre'),
-      supabase.from('tipos_abertura').select('*').eq('activo', true).order('orden'),
-      supabase.from('sistemas').select('*').eq('activo', true).order('nombre'),
-      supabase.from('proveedores').select('*').eq('activo', true).order('nombre'),
-      supabase.from('catalogo_productos').select('*, tipo_abertura:tipos_abertura(nombre), sistema:sistemas(nombre)').eq('activo', true).order('tipo').order('nombre'),
-    ]).then(([{ data: c }, { data: ta }, { data: s }, { data: p }, { data: cat }]) => {
-      setClientes((c ?? []) as Cliente[]);
-      setTiposAbertura((ta ?? []) as TipoAbertura[]);
-      setSistemas((s ?? []) as Sistema[]);
-      setProveedores((p ?? []) as Proveedor[]);
-      setCatalogo((cat ?? []) as unknown as Producto[]);
+      api.get<Cliente[]>('/clientes'),
+      api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
+      api.get<Sistema[]>('/catalogo/sistemas'),
+      api.get<Proveedor[]>('/catalogo/proveedores'),
+      api.get<Producto[]>('/catalogo/productos'),
+    ]).then(([c, ta, s, p, cat]) => {
+      setClientes(c);
+      setTiposAbertura(ta);
+      setSistemas(s);
+      setProveedores(p);
+      setCatalogo(cat);
     });
   }, []);
 
   const catalogoFiltrado = catalogo.filter(p => {
-    const matchTipo = p.tipo === tipo;
+    const matchTipo   = p.tipo === tipo;
     const matchSearch = !catalogSearch.trim() || p.nombre.toLowerCase().includes(catalogSearch.toLowerCase());
     return matchTipo && matchSearch;
   });
@@ -118,7 +106,6 @@ export function NuevoPresupuesto() {
     setItems(prev => prev.map(item => {
       if (item._key !== key) return item;
       const updated = { ...item, [field]: value };
-      // Auto-calcular precio si es por m² y cambiaron las medidas
       if ((field === 'medida_ancho' || field === 'medida_alto') && updated.precio_por_m2) {
         updated.precio_unitario = calcPrecioM2(updated);
       }
@@ -134,29 +121,23 @@ export function NuevoPresupuesto() {
       sistema_id: producto.sistema_id ?? '',
       descripcion: producto.nombre,
       medida_ancho: producto.ancho ? String(producto.ancho) : '',
-      medida_alto: producto.alto ? String(producto.alto) : '',
+      medida_alto:  producto.alto  ? String(producto.alto)  : '',
       cantidad: 1,
-      costo_unitario: producto.costo_base,
+      costo_unitario:  producto.costo_base,
       precio_unitario: producto.precio_base,
-      precio_por_m2: producto.precio_por_m2,
-      precio_base_m2: producto.precio_por_m2 ? producto.precio_base : 0,
-      incluye_instalacion: false,
-      costo_instalacion: 0,
-      precio_instalacion: 0,
+      precio_por_m2:   producto.precio_por_m2,
+      precio_base_m2:  producto.precio_por_m2 ? producto.precio_base : 0,
+      incluye_instalacion: false, costo_instalacion: 0, precio_instalacion: 0,
     };
     setItems(prev => {
       const soloVacios = prev.filter(i => i.descripcion.trim() === '');
       const conContenido = prev.filter(i => i.descripcion.trim() !== '');
-      return soloVacios.length === prev.length
-        ? [newItem]
-        : [...conContenido, newItem];
+      return soloVacios.length === prev.length ? [newItem] : [...conContenido, newItem];
     });
   }
 
-  const costoTotal = items.reduce((s, it) =>
-    s + (it.costo_unitario + (it.incluye_instalacion ? it.costo_instalacion : 0)) * it.cantidad, 0);
-  const precioTotal = items.reduce((s, it) =>
-    s + (it.precio_unitario + (it.incluye_instalacion ? it.precio_instalacion : 0)) * it.cantidad, 0);
+  const costoTotal  = items.reduce((s, it) => s + (it.costo_unitario  + (it.incluye_instalacion ? it.costo_instalacion  : 0)) * it.cantidad, 0);
+  const precioTotal = items.reduce((s, it) => s + (it.precio_unitario + (it.incluye_instalacion ? it.precio_instalacion : 0)) * it.cantidad, 0);
   const margen = precioTotal > 0 ? Math.round((precioTotal - costoTotal) / precioTotal * 100) : 0;
 
   async function handleSave() {
@@ -165,30 +146,21 @@ export function NuevoPresupuesto() {
 
     setSaving(true);
     try {
-      const { data: op, error } = await supabase.from('operaciones').insert({
+      const op = await api.post<{ id: string; numero: string }>('/operaciones', {
         tipo,
         estado: 'presupuesto',
         cliente_id: clienteId,
-        vendedor_id: user?.id,
         proveedor_id: proveedorId || null,
         incluye_instalacion: items.some(i => i.incluye_instalacion),
         notas: notas || null,
         notas_internas: notasInternas || null,
         fecha_validez: fechaValidez || null,
-        created_by: user?.id,
-      }).select().single();
-
-      if (error) throw error;
-
-      const itemsToInsert = items
-        .filter(it => it.descripcion.trim())
-        .map((it, idx) => ({
-          operacion_id: op.id,
+        items: items.filter(it => it.descripcion.trim()).map((it, idx) => ({
           tipo_abertura_id: it.tipo_abertura_id || null,
           sistema_id: it.sistema_id || null,
           descripcion: it.descripcion,
           medida_ancho: it.medida_ancho ? parseFloat(it.medida_ancho) : null,
-          medida_alto: it.medida_alto ? parseFloat(it.medida_alto) : null,
+          medida_alto:  it.medida_alto  ? parseFloat(it.medida_alto)  : null,
           cantidad: it.cantidad,
           costo_unitario: it.costo_unitario,
           precio_unitario: it.precio_unitario,
@@ -196,18 +168,12 @@ export function NuevoPresupuesto() {
           costo_instalacion: it.costo_instalacion,
           precio_instalacion: it.precio_instalacion,
           orden: idx,
-        }));
-
-      if (itemsToInsert.length > 0) {
-        const { error: itemsError } = await supabase.from('operacion_items').insert(itemsToInsert);
-        if (itemsError) throw itemsError;
-      }
-
+        })),
+      });
       toast.success(`Presupuesto ${op.numero} creado`);
       navigate(`/operaciones/${op.id}`);
     } catch (e) {
-      toast.error('Error al guardar el presupuesto');
-      console.error(e);
+      toast.error((e as Error).message || 'Error al guardar el presupuesto');
     } finally {
       setSaving(false);
     }
@@ -248,14 +214,10 @@ export function NuevoPresupuesto() {
         {clienteSeleccionado ? (
           <div className="flex items-center justify-between bg-brand-50 rounded-lg px-4 py-3 border border-brand-200">
             <div>
-              <p className="text-sm font-semibold text-brand-800">
-                {clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}
-              </p>
+              <p className="text-sm font-semibold text-brand-800">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}</p>
               <p className="text-xs text-brand-600">{clienteSeleccionado.telefono ?? '—'}</p>
             </div>
-            <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-brand-600 hover:underline">
-              Cambiar
-            </button>
+            <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-brand-600 hover:underline">Cambiar</button>
           </div>
         ) : (
           <div className="relative">
@@ -301,64 +263,43 @@ export function NuevoPresupuesto() {
         </div>
       )}
 
-      {/* Ítems + Catálogo */}
+      {/* Ítems */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        {/* Header items */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-700">Ítems del presupuesto</h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setShowCatalog(v => !v); setCatalogSearch(''); }}
-              className={cn(
-                'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all',
-                showCatalog
-                  ? 'bg-brand-600 text-white border-brand-600'
-                  : 'bg-white text-brand-600 border-brand-300 hover:bg-brand-50'
-              )}
-            >
+            <button onClick={() => { setShowCatalog(v => !v); setCatalogSearch(''); }}
+              className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all',
+                showCatalog ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-brand-600 border-brand-300 hover:bg-brand-50')}>
               <BookOpen size={13} />
               {showCatalog ? 'Cerrar catálogo' : 'Desde catálogo'}
             </button>
-            <button
-              onClick={() => setItems(prev => [...prev, emptyItem()])}
-              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all"
-            >
+            <button onClick={() => setItems(prev => [...prev, emptyItem()])}
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">
               <Plus size={13} /> Ítem manual
             </button>
           </div>
         </div>
 
-        {/* Panel catálogo */}
         {showCatalog && (
           <div className="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <input
-                type="text"
+              <input type="text"
                 placeholder={`Buscar en catálogo (${TIPOS.find(t => t.value === tipo)?.label ?? tipo})...`}
-                value={catalogSearch}
-                onChange={e => setCatalogSearch(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-                autoFocus
-              />
-              <button onClick={() => setShowCatalog(false)} className="p-1.5 text-gray-400 hover:text-gray-600">
-                <X size={16} />
-              </button>
+                value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white" autoFocus />
+              <button onClick={() => setShowCatalog(false)} className="p-1.5 text-gray-400 hover:text-gray-600"><X size={16} /></button>
             </div>
             {catalogoFiltrado.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-3">
                 No hay productos de tipo "{TIPOS.find(t => t.value === tipo)?.label}" en el catálogo.{' '}
-                <button onClick={() => navigate('/productos/nuevo')} className="text-brand-600 hover:underline">
-                  Agregar
-                </button>
+                <button onClick={() => navigate('/productos/nuevo')} className="text-brand-600 hover:underline">Agregar</button>
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                 {catalogoFiltrado.map(producto => (
-                  <button
-                    key={producto.id}
-                    onClick={() => addFromCatalog(producto)}
-                    className="flex items-center gap-3 text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-all group"
-                  >
+                  <button key={producto.id} onClick={() => addFromCatalog(producto)}
+                    className="flex items-center gap-3 text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-all group">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{producto.nombre}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -381,125 +322,89 @@ export function NuevoPresupuesto() {
           </div>
         )}
 
-        {/* Lista de ítems */}
         <div className="p-5 space-y-4">
           {items.map((item, i) => (
             <div key={item._key} className="border border-gray-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ítem {i + 1}</p>
                 {items.length > 1 && (
-                  <button onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
-                    className="text-red-400 hover:text-red-600 p-0.5">
+                  <button onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))} className="text-red-400 hover:text-red-600 p-0.5">
                     <Trash2 size={14} />
                   </button>
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Tipo de abertura</label>
-                  <select value={item.tipo_abertura_id} onChange={e => updateItem(item._key, 'tipo_abertura_id', e.target.value)}
-                    className={inputCls + ' bg-white'}>
+                  <select value={item.tipo_abertura_id} onChange={e => updateItem(item._key, 'tipo_abertura_id', e.target.value)} className={inputCls + ' bg-white'}>
                     <option value="">Seleccionar...</option>
                     {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Sistema / Línea</label>
-                  <select value={item.sistema_id} onChange={e => updateItem(item._key, 'sistema_id', e.target.value)}
-                    className={inputCls + ' bg-white'}>
+                  <select value={item.sistema_id} onChange={e => updateItem(item._key, 'sistema_id', e.target.value)} className={inputCls + ' bg-white'}>
                     <option value="">Seleccionar...</option>
                     {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                   </select>
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Descripción *</label>
                 <input type="text" value={item.descripcion} onChange={e => updateItem(item._key, 'descripcion', e.target.value)}
                   placeholder="Ej: Ventana batiente 2 hojas, vidrio DVH..." className={inputCls} />
               </div>
-
-              {/* Medidas (siempre para a_medida, opcional para estándar) */}
               {(tipo !== 'estandar' || item.producto_id) && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Ancho (cm){tipo === 'estandar' && item.producto_id && ' — referencia'}
-                    </label>
-                    <input type="number" value={item.medida_ancho}
-                      onChange={e => updateItem(item._key, 'medida_ancho', e.target.value)}
-                      placeholder="120" className={inputCls}
-                      readOnly={tipo === 'estandar' && !item.precio_por_m2} />
+                    <label className="block text-xs text-gray-500 mb-1">Ancho (cm)</label>
+                    <input type="number" value={item.medida_ancho} onChange={e => updateItem(item._key, 'medida_ancho', e.target.value)} placeholder="120" className={inputCls} />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Alto (cm){tipo === 'estandar' && item.producto_id && ' — referencia'}
-                    </label>
-                    <input type="number" value={item.medida_alto}
-                      onChange={e => updateItem(item._key, 'medida_alto', e.target.value)}
-                      placeholder="100" className={inputCls}
-                      readOnly={tipo === 'estandar' && !item.precio_por_m2} />
+                    <label className="block text-xs text-gray-500 mb-1">Alto (cm)</label>
+                    <input type="number" value={item.medida_alto} onChange={e => updateItem(item._key, 'medida_alto', e.target.value)} placeholder="100" className={inputCls} />
                   </div>
                 </div>
               )}
-
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
-                  <input type="number" min={1} value={item.cantidad}
-                    onChange={e => updateItem(item._key, 'cantidad', parseInt(e.target.value) || 1)}
-                    className={inputCls} />
+                  <input type="number" min={1} value={item.cantidad} onChange={e => updateItem(item._key, 'cantidad', parseInt(e.target.value) || 1)} className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Costo unitario</label>
-                  <input type="number" min={0} value={item.costo_unitario}
-                    onChange={e => updateItem(item._key, 'costo_unitario', parseFloat(e.target.value) || 0)}
-                    className={inputCls} />
+                  <input type="number" min={0} value={item.costo_unitario} onChange={e => updateItem(item._key, 'costo_unitario', parseFloat(e.target.value) || 0)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Precio unitario{item.precio_por_m2 && ' (auto/m²)'}
-                  </label>
-                  <input type="number" min={0} value={item.precio_unitario}
-                    onChange={e => updateItem(item._key, 'precio_unitario', parseFloat(e.target.value) || 0)}
+                  <label className="block text-xs text-gray-500 mb-1">Precio unitario{item.precio_por_m2 && ' (auto/m²)'}</label>
+                  <input type="number" min={0} value={item.precio_unitario} onChange={e => updateItem(item._key, 'precio_unitario', parseFloat(e.target.value) || 0)}
                     className={cn(inputCls, item.precio_por_m2 && 'bg-blue-50 border-blue-200')} />
                 </div>
               </div>
-
               {item.precio_por_m2 && item.medida_ancho && item.medida_alto && (
                 <p className="text-xs text-blue-600">
-                  Precio por m²: {formatCurrency(item.precio_base_m2)}/m² × {(parseFloat(item.medida_ancho) / 100).toFixed(2)}m × {(parseFloat(item.medida_alto) / 100).toFixed(2)}m = {formatCurrency(item.precio_unitario)}
+                  {formatCurrency(item.precio_base_m2)}/m² × {(parseFloat(item.medida_ancho)/100).toFixed(2)}m × {(parseFloat(item.medida_alto)/100).toFixed(2)}m = {formatCurrency(item.precio_unitario)}
                 </p>
               )}
-
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={item.incluye_instalacion}
-                  onChange={e => updateItem(item._key, 'incluye_instalacion', e.target.checked)}
-                  className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(item._key, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                 <span className="text-xs text-gray-600">Incluye instalación</span>
               </label>
-
               {item.incluye_instalacion && (
                 <div className="grid grid-cols-2 gap-3 pl-5">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Costo instalación</label>
-                    <input type="number" min={0} value={item.costo_instalacion}
-                      onChange={e => updateItem(item._key, 'costo_instalacion', parseFloat(e.target.value) || 0)}
-                      className={inputCls} />
+                    <input type="number" min={0} value={item.costo_instalacion} onChange={e => updateItem(item._key, 'costo_instalacion', parseFloat(e.target.value) || 0)} className={inputCls} />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Precio instalación</label>
-                    <input type="number" min={0} value={item.precio_instalacion}
-                      onChange={e => updateItem(item._key, 'precio_instalacion', parseFloat(e.target.value) || 0)}
-                      className={inputCls} />
+                    <input type="number" min={0} value={item.precio_instalacion} onChange={e => updateItem(item._key, 'precio_instalacion', parseFloat(e.target.value) || 0)} className={inputCls} />
                   </div>
                 </div>
               )}
             </div>
           ))}
 
-          {/* Totales */}
           <div className="border-t border-gray-100 pt-4 flex justify-end">
             <div className="space-y-1.5 text-right">
               <div className="flex gap-8">
@@ -512,8 +417,7 @@ export function NuevoPresupuesto() {
               </div>
               <div className="flex gap-8">
                 <span className="text-sm text-gray-500">Margen:</span>
-                <span className={cn('text-sm font-semibold w-28 text-right',
-                  margen >= 30 ? 'text-green-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>
+                <span className={cn('text-sm font-semibold w-28 text-right', margen >= 30 ? 'text-green-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>
                   {margen}%
                 </span>
               </div>
@@ -522,7 +426,6 @@ export function NuevoPresupuesto() {
         </div>
       </div>
 
-      {/* Notas y validez */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm grid grid-cols-2 gap-4">
         <div className="space-y-3">
           <div>
@@ -546,12 +449,8 @@ export function NuevoPresupuesto() {
         </div>
       </div>
 
-      {/* Acciones */}
       <div className="flex justify-end gap-3">
-        <button onClick={() => navigate(-1)}
-          className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-          Cancelar
-        </button>
+        <button onClick={() => navigate(-1)} className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
         <button onClick={handleSave} disabled={saving}
           className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
           <Save size={15} />

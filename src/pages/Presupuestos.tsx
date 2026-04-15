@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, EstadoOperacion } from '@/types';
 
 const FILTROS: { value: 'activos' | EstadoOperacion; label: string }[] = [
-  { value: 'activos',      label: 'Activos' },
-  { value: 'presupuesto',  label: 'Borrador' },
-  { value: 'enviado',      label: 'Enviados' },
-  { value: 'aprobado',     label: 'Aprobados' },
+  { value: 'activos',     label: 'Activos' },
+  { value: 'presupuesto', label: 'Borrador' },
+  { value: 'enviado',     label: 'Enviados' },
+  { value: 'aprobado',    label: 'Aprobados' },
 ];
 
 const ESTADO_COLOR: Record<string, string> = {
@@ -46,23 +46,15 @@ export function Presupuestos() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let q = supabase
-      .from('operaciones')
-      .select('*, cliente:clientes(id, nombre, apellido, telefono)')
-      .order('created_at', { ascending: false });
-
+    const params = new URLSearchParams();
     if (filtro === 'activos') {
-      q = q.in('estado', ['presupuesto', 'enviado', 'aprobado']);
+      params.set('estados', 'presupuesto,enviado,aprobado');
     } else {
-      q = q.eq('estado', filtro);
+      params.set('estado', filtro);
     }
-
-    if (search.trim()) {
-      q = q.or(`numero.ilike.%${search}%`);
-    }
-
-    const { data } = await q.limit(50);
-    setPresupuestos((data ?? []) as unknown as Operacion[]);
+    if (search.trim()) params.set('search', search);
+    const data = await api.get<Operacion[]>(`/operaciones?${params}`);
+    setPresupuestos(data);
     setLoading(false);
   }, [filtro, search]);
 
@@ -70,7 +62,7 @@ export function Presupuestos() {
 
   async function cambiarEstado(op: Operacion, nuevoEstado: EstadoOperacion) {
     setCambiando(op.id);
-    await supabase.from('operaciones').update({ estado: nuevoEstado }).eq('id', op.id);
+    await api.patch(`/operaciones/${op.id}/estado`, { estado: nuevoEstado });
     setPresupuestos(prev => prev.map(p => p.id === op.id ? { ...p, estado: nuevoEstado } : p));
     setCambiando(null);
   }
@@ -95,7 +87,6 @@ export function Presupuestos() {
         </Link>
       </div>
 
-      {/* Filtros */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {FILTROS.map(({ value, label }) => (
           <button
@@ -113,7 +104,6 @@ export function Presupuestos() {
         ))}
       </div>
 
-      {/* Buscador */}
       <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -125,7 +115,6 @@ export function Presupuestos() {
         />
       </div>
 
-      {/* Lista */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="divide-y divide-gray-50">
@@ -154,7 +143,6 @@ export function Presupuestos() {
 
               return (
                 <div key={op.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors group">
-                  {/* Número y tipo */}
                   <div className="w-32 shrink-0">
                     <button
                       onClick={() => navigate(`/operaciones/${op.id}`)}
@@ -165,7 +153,6 @@ export function Presupuestos() {
                     <p className="text-xs text-gray-400 mt-0.5">{TIPO_LABEL[op.tipo]}</p>
                   </div>
 
-                  {/* Cliente */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">
                       {cliente?.nombre} {cliente?.apellido ?? ''}
@@ -189,25 +176,21 @@ export function Presupuestos() {
                     </div>
                   </div>
 
-                  {/* Estado */}
                   <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium shrink-0', ESTADO_COLOR[op.estado] ?? 'bg-gray-100 text-gray-700')}>
                     {ESTADO_LABEL[op.estado] ?? op.estado}
                   </span>
 
-                  {/* Precio */}
                   <div className="text-right w-28 shrink-0">
                     <p className="text-sm font-bold text-gray-800">{formatCurrency(op.precio_total)}</p>
                     {op.margen > 0 && <p className="text-xs text-gray-400">{op.margen}% margen</p>}
                   </div>
 
-                  {/* Acciones rápidas */}
                   <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     {op.estado === 'presupuesto' && (
                       <button
                         onClick={() => cambiarEstado(op, 'enviado')}
                         disabled={cambiando === op.id}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50"
-                        title="Marcar como enviado al cliente"
                       >
                         <Send size={12} /> Enviar
                       </button>
@@ -217,7 +200,6 @@ export function Presupuestos() {
                         onClick={() => cambiarEstado(op, 'aprobado')}
                         disabled={cambiando === op.id}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-50"
-                        title="Marcar como aprobado por el cliente"
                       >
                         <CheckCircle size={12} /> Aprobar
                       </button>
@@ -225,7 +207,6 @@ export function Presupuestos() {
                     <button
                       onClick={() => navigate(`/operaciones/${op.id}`)}
                       className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 transition-colors"
-                      title="Ver detalle"
                     >
                       <ArrowRight size={14} />
                     </button>

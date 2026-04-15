@@ -1,19 +1,19 @@
 # Dependencies
 node_modules/
+server/node_modules/
 
 # Build output
 dist/
 dist-ssr/
+server/dist/
 
 # Environment files (secretos - nunca al repo)
 .env
 .env.local
 .env.production
-docker/supabase-selfhosted/.env
 
-# Database volumes (datos locales)
-docker/supabase-selfhosted/volumes/db/data/
-docker/supabase-selfhosted/volumes/storage/
+# Data de producción
+data/
 
 # Logs
 logs/
@@ -36,3 +36,8 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Supabase legacy (ya no se usa, dejar de trackear si existe)
+docker/supabase-selfhosted/volumes/db/data/
+docker/supabase-selfhosted/volumes/storage/
+docker/supabase-selfhosted/.env

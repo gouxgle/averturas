@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, User, ChevronRight, Package, DollarSign } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, OperacionItem, EstadoOperacion } from '@/types';
 
@@ -48,25 +48,22 @@ interface EstadoHistorial {
   created_at: string;
 }
 
+interface OperacionDetalle extends Operacion {
+  items: OperacionItem[];
+  historial: EstadoHistorial[];
+}
+
 export function OperacionDetalle() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [operacion, setOperacion] = useState<Operacion | null>(null);
-  const [items, setItems] = useState<OperacionItem[]>([]);
-  const [historial, setHistorial] = useState<EstadoHistorial[]>([]);
+  const [operacion, setOperacion] = useState<OperacionDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
 
   async function load() {
     if (!id) return;
-    const [{ data: op }, { data: its }, { data: hist }] = await Promise.all([
-      supabase.from('operaciones').select('*, cliente:clientes(id, nombre, apellido, telefono)').eq('id', id).single(),
-      supabase.from('operacion_items').select('*').eq('operacion_id', id).order('orden'),
-      supabase.from('estados_historial').select('*').eq('operacion_id', id).order('created_at', { ascending: false }),
-    ]);
-    setOperacion(op as unknown as Operacion);
-    setItems((its ?? []) as unknown as OperacionItem[]);
-    setHistorial((hist ?? []) as EstadoHistorial[]);
+    const data = await api.get<OperacionDetalle>(`/operaciones/${id}`);
+    setOperacion(data);
     setLoading(false);
   }
 
@@ -77,7 +74,7 @@ export function OperacionDetalle() {
     const siguiente = SIGUIENTE_ESTADO[operacion.estado];
     if (!siguiente) return;
     setCambiandoEstado(true);
-    await supabase.from('operaciones').update({ estado: siguiente }).eq('id', operacion.id);
+    await api.patch(`/operaciones/${operacion.id}/estado`, { estado: siguiente });
     await load();
     setCambiandoEstado(false);
   }
@@ -86,7 +83,7 @@ export function OperacionDetalle() {
     if (!operacion || operacion.estado === 'cancelado') return;
     if (!confirm('¿Cancelar esta operación?')) return;
     setCambiandoEstado(true);
-    await supabase.from('operaciones').update({ estado: 'cancelado' }).eq('id', operacion.id);
+    await api.patch(`/operaciones/${operacion.id}/estado`, { estado: 'cancelado' });
     await load();
     setCambiandoEstado(false);
   }
@@ -115,7 +112,6 @@ export function OperacionDetalle() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/operaciones')} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft size={18} className="text-gray-600" />
@@ -130,23 +126,16 @@ export function OperacionDetalle() {
           </div>
           <p className="text-sm text-gray-500 mt-0.5">Creada el {formatDate(operacion.created_at)}</p>
         </div>
-        {/* Acciones de estado */}
         <div className="flex items-center gap-2">
           {operacion.estado !== 'cancelado' && operacion.estado !== 'entregado' && (
-            <button
-              onClick={cancelar}
-              disabled={cambiandoEstado}
-              className="px-3 py-2 text-xs border border-red-200 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
-            >
+            <button onClick={cancelar} disabled={cambiandoEstado}
+              className="px-3 py-2 text-xs border border-red-200 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50">
               Cancelar
             </button>
           )}
           {siguiente && (
-            <button
-              onClick={avanzarEstado}
-              disabled={cambiandoEstado}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm rounded-lg font-medium"
-            >
+            <button onClick={avanzarEstado} disabled={cambiandoEstado}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm rounded-lg font-medium">
               {ESTADOS.find(e => e.value === siguiente)?.label}
               <ChevronRight size={14} />
             </button>
@@ -155,9 +144,7 @@ export function OperacionDetalle() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Columna izquierda */}
         <div className="space-y-4">
-          {/* Cliente */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
             <div className="flex items-center gap-3">
@@ -179,7 +166,6 @@ export function OperacionDetalle() {
             </div>
           </div>
 
-          {/* Totales */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Totales</h3>
             <div className="flex justify-between text-sm">
@@ -203,7 +189,6 @@ export function OperacionDetalle() {
             )}
           </div>
 
-          {/* Datos adicionales */}
           {(operacion.notas || operacion.fecha_validez) && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-2">
               {operacion.fecha_validez && (
@@ -222,15 +207,13 @@ export function OperacionDetalle() {
           )}
         </div>
 
-        {/* Columna derecha: items + historial */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Items */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
               <Package size={15} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-800">Ítems</h2>
             </div>
-            {items.length === 0 ? (
+            {operacion.items.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <p className="text-sm text-gray-400">Sin ítems</p>
               </div>
@@ -246,7 +229,7 @@ export function OperacionDetalle() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {items.map(item => (
+                    {operacion.items.map(item => (
                       <tr key={item.id}>
                         <td className="px-5 py-3.5">
                           <p className="font-medium text-gray-800">{item.descripcion}</p>
@@ -267,14 +250,13 @@ export function OperacionDetalle() {
             )}
           </div>
 
-          {/* Historial de estados */}
-          {historial.length > 0 && (
+          {operacion.historial.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="text-sm font-semibold text-gray-800">Historial de estados</h2>
               </div>
               <div className="divide-y divide-gray-50">
-                {historial.map(h => (
+                {operacion.historial.map(h => (
                   <div key={h.id} className="px-5 py-3 flex items-center gap-3">
                     <div className="flex items-center gap-2 flex-1">
                       {h.estado_anterior && (

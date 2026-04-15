@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, Edit2, Plus, MessageCircle, ClipboardList } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft, Phone, Mail, MapPin, Plus, MessageCircle, ClipboardList } from 'lucide-react';
+import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Cliente, Operacion } from '@/types';
 
@@ -27,49 +27,37 @@ interface Interaccion {
   tipo: string;
   descripcion: string;
   created_at: string;
-  created_by_profile?: { nombre: string } | null;
+  created_by_usuario?: { nombre: string } | null;
+}
+
+interface ClienteConDetalle extends Cliente {
+  operaciones: Operacion[];
+  interacciones: Interaccion[];
 }
 
 export function ClienteDetalle() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [cliente, setCliente] = useState<Cliente | null>(null);
-  const [operaciones, setOperaciones] = useState<Operacion[]>([]);
-  const [interacciones, setInteracciones] = useState<Interaccion[]>([]);
+  const [data, setData] = useState<ClienteConDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [notaTexto, setNotaTexto] = useState('');
   const [savingNota, setSavingNota] = useState(false);
 
-  useEffect(() => {
+  async function load() {
     if (!id) return;
-    Promise.all([
-      supabase.from('clientes').select('*, categoria:categorias_cliente(nombre, color)').eq('id', id).single(),
-      supabase.from('operaciones').select('*').eq('cliente_id', id).order('created_at', { ascending: false }),
-      supabase.from('interacciones').select('*, created_by_profile:profiles(nombre)').eq('cliente_id', id).order('created_at', { ascending: false }).limit(20),
-    ]).then(([{ data: c }, { data: ops }, { data: ints }]) => {
-      setCliente(c as unknown as Cliente);
-      setOperaciones((ops ?? []) as unknown as Operacion[]);
-      setInteracciones((ints ?? []) as Interaccion[]);
-      setLoading(false);
-    });
-  }, [id]);
+    const result = await api.get<ClienteConDetalle>(`/clientes/${id}`);
+    setData(result);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, [id]);
 
   async function agregarNota() {
     if (!notaTexto.trim() || !id) return;
     setSavingNota(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('interacciones').insert({
-      cliente_id: id,
-      tipo: 'nota',
-      descripcion: notaTexto.trim(),
-      created_by: user?.id,
-    });
+    await api.post('/interacciones', { cliente_id: id, tipo: 'nota', descripcion: notaTexto.trim() });
     setNotaTexto('');
-    // Reload interacciones
-    const { data } = await supabase.from('interacciones')
-      .select('*, created_by_profile:profiles(nombre)')
-      .eq('cliente_id', id).order('created_at', { ascending: false }).limit(20);
-    setInteracciones((data ?? []) as Interaccion[]);
+    await load();
     setSavingNota(false);
   }
 
@@ -82,7 +70,7 @@ export function ClienteDetalle() {
     );
   }
 
-  if (!cliente) {
+  if (!data) {
     return (
       <div className="p-6 max-w-5xl mx-auto text-center py-20">
         <p className="text-gray-400">Cliente no encontrado</p>
@@ -91,11 +79,11 @@ export function ClienteDetalle() {
     );
   }
 
+  const { operaciones, interacciones, ...cliente } = data;
   const nombreCompleto = `${cliente.nombre}${cliente.apellido ? ` ${cliente.apellido}` : ''}`;
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/clientes')} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft size={18} className="text-gray-600" />
@@ -113,9 +101,7 @@ export function ClienteDetalle() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Columna izquierda: info + stats */}
         <div className="space-y-4">
-          {/* Datos de contacto */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
             {(cliente.categoria as any) && (
               <span
@@ -151,7 +137,6 @@ export function ClienteDetalle() {
             )}
           </div>
 
-          {/* Stats */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Historial</h3>
             <div className="flex justify-between text-sm">
@@ -171,9 +156,7 @@ export function ClienteDetalle() {
           </div>
         </div>
 
-        {/* Columna derecha: operaciones + notas */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Operaciones */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
               <ClipboardList size={15} className="text-brand-500" />
@@ -206,13 +189,11 @@ export function ClienteDetalle() {
             )}
           </div>
 
-          {/* Interacciones / Notas */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
               <MessageCircle size={15} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-800">Notas e interacciones</h2>
             </div>
-            {/* Input nueva nota */}
             <div className="px-5 py-4 border-b border-gray-100 flex gap-3">
               <textarea
                 value={notaTexto}
@@ -239,7 +220,7 @@ export function ClienteDetalle() {
                   <p className="text-sm text-gray-700">{int.descripcion}</p>
                   <p className="text-xs text-gray-400 mt-1">
                     {formatDate(int.created_at)}
-                    {int.created_by_profile?.nombre ? ` · ${int.created_by_profile.nombre}` : ''}
+                    {int.created_by_usuario?.nombre ? ` · ${int.created_by_usuario.nombre}` : ''}
                   </p>
                 </div>
               ))}

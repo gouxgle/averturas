@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Search, ArrowRight, Hammer } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, EstadoOperacion, TipoOperacion } from '@/types';
 
@@ -27,16 +27,16 @@ const ESTADO_COLOR: Record<string, string> = {
   cancelado:     'bg-red-100 text-red-700',
 };
 
-const TIPO_LABEL: Record<TipoOperacion, string> = {
-  estandar:           'Estándar',
-  a_medida_proveedor: 'A medida',
-  fabricacion_propia: 'Fabricación propia',
-};
-
 const TIPO_COLOR: Record<TipoOperacion, string> = {
   estandar:           'bg-sky-50 text-sky-700 border-sky-200',
   a_medida_proveedor: 'bg-violet-50 text-violet-700 border-violet-200',
   fabricacion_propia: 'bg-orange-50 text-orange-700 border-orange-200',
+};
+
+const TIPO_LABEL: Record<TipoOperacion, string> = {
+  estandar:           'Estándar',
+  a_medida_proveedor: 'A medida',
+  fabricacion_propia: 'Fabricación propia',
 };
 
 export function Operaciones() {
@@ -47,28 +47,20 @@ export function Operaciones() {
 
   const estadoFiltro = (searchParams.get('estado') ?? 'todos') as EstadoOperacion | 'todos';
 
-  const loadOperaciones = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    let q = supabase
-      .from('operaciones')
-      .select('*, cliente:clientes(id, nombre, apellido, telefono)')
-      .order('created_at', { ascending: false });
-
-    if (estadoFiltro !== 'todos') q = q.eq('estado', estadoFiltro);
-    if (search.trim()) {
-      q = q.or(`numero.ilike.%${search}%`);
-    }
-
-    const { data } = await q.limit(50);
-    setOperaciones((data ?? []) as unknown as Operacion[]);
+    const params = new URLSearchParams();
+    if (estadoFiltro !== 'todos') params.set('estado', estadoFiltro);
+    if (search.trim()) params.set('search', search);
+    const data = await api.get<Operacion[]>(`/operaciones?${params}`);
+    setOperaciones(data);
     setLoading(false);
   }, [estadoFiltro, search]);
 
-  useEffect(() => { loadOperaciones(); }, [loadOperaciones]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -87,8 +79,7 @@ export function Operaciones() {
         </Link>
       </div>
 
-      {/* Filtros de estado */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
         {ESTADOS.map(({ value, label }) => (
           <button
             key={value}
@@ -105,7 +96,6 @@ export function Operaciones() {
         ))}
       </div>
 
-      {/* Buscador */}
       <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -117,7 +107,6 @@ export function Operaciones() {
         />
       </div>
 
-      {/* Lista */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="divide-y divide-gray-50">
@@ -144,15 +133,12 @@ export function Operaciones() {
                 to={`/operaciones/${op.id}`}
                 className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors group"
               >
-                {/* Número y tipo */}
                 <div className="w-28 shrink-0">
                   <p className="text-sm font-bold text-gray-800">{op.numero}</p>
                   <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', TIPO_COLOR[op.tipo])}>
                     {TIPO_LABEL[op.tipo]}
                   </span>
                 </div>
-
-                {/* Cliente */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">
                     {(op.cliente as any)?.nombre} {(op.cliente as any)?.apellido ?? ''}
@@ -161,22 +147,17 @@ export function Operaciones() {
                     {(op.cliente as any)?.telefono ?? '—'} · {formatDate(op.created_at)}
                   </p>
                 </div>
-
-                {/* Estado */}
                 <div className="shrink-0">
                   <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium', ESTADO_COLOR[op.estado])}>
                     {ESTADOS.find(e => e.value === op.estado)?.label ?? op.estado}
                   </span>
                 </div>
-
-                {/* Precio y margen */}
                 <div className="text-right shrink-0 w-28">
                   <p className="text-sm font-bold text-gray-800">{formatCurrency(op.precio_total)}</p>
                   <p className="text-xs text-gray-400">
                     {op.margen > 0 ? `${op.margen}% margen` : '—'}
                   </p>
                 </div>
-
                 <ArrowRight size={14} className="text-gray-300 group-hover:text-gray-500 shrink-0" />
               </Link>
             ))}

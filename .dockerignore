@@ -1,7 +1,11 @@
 node_modules
+server/node_modules
 dist
-.git
+server/dist
+data
 .env
-.env.local
-docker/supabase-selfhosted/volumes
-docker/supabase-selfhosted/.env
+.env.*
+*.log
+docker/supabase-selfhosted/volumes/db/data
+docker/supabase-selfhosted/volumes/storage
+.git

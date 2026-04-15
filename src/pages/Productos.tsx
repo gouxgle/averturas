@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import type { Producto, TipoOperacion } from '@/types';
 
@@ -18,8 +18,8 @@ const TIPO_COLOR: Record<TipoOperacion, string> = {
 };
 
 const FILTROS: { value: TipoOperacion | 'todos'; label: string }[] = [
-  { value: 'todos',           label: 'Todos' },
-  { value: 'estandar',        label: 'Estándar' },
+  { value: 'todos',              label: 'Todos' },
+  { value: 'estandar',          label: 'Estándar' },
   { value: 'a_medida_proveedor', label: 'A medida' },
   { value: 'fabricacion_propia', label: 'Fabricación' },
 ];
@@ -32,25 +32,19 @@ export function Productos() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let q = supabase
-      .from('catalogo_productos')
-      .select('*, tipo_abertura:tipos_abertura(nombre), sistema:sistemas(nombre)')
-      .order('tipo')
-      .order('nombre');
-
-    if (filtro !== 'todos') q = q.eq('tipo', filtro);
-    if (search.trim()) q = q.ilike('nombre', `%${search}%`);
-
-    const { data } = await q;
-    setProductos((data ?? []) as unknown as Producto[]);
+    const params = new URLSearchParams();
+    if (filtro !== 'todos') params.set('tipo', filtro);
+    if (search.trim()) params.set('search', search);
+    const data = await api.get<Producto[]>(`/productos?${params}`);
+    setProductos(data);
     setLoading(false);
   }, [filtro, search]);
 
   useEffect(() => { load(); }, [load]);
 
   async function toggleActivo(producto: Producto) {
-    await supabase.from('catalogo_productos').update({ activo: !producto.activo }).eq('id', producto.id);
-    setProductos(prev => prev.map(p => p.id === producto.id ? { ...p, activo: !p.activo } : p));
+    const { activo } = await api.patch<{ id: string; activo: boolean }>(`/productos/${producto.id}/toggle`);
+    setProductos(prev => prev.map(p => p.id === producto.id ? { ...p, activo } : p));
   }
 
   return (
@@ -73,7 +67,6 @@ export function Productos() {
         </Link>
       </div>
 
-      {/* Filtros */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {FILTROS.map(({ value, label }) => (
           <button
@@ -91,7 +84,6 @@ export function Productos() {
         ))}
       </div>
 
-      {/* Buscador */}
       <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -103,7 +95,6 @@ export function Productos() {
         />
       </div>
 
-      {/* Lista */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="divide-y divide-gray-50">
@@ -134,14 +125,11 @@ export function Productos() {
                   !p.activo && 'opacity-50 bg-gray-50'
                 )}
               >
-                {/* Tipo badge */}
                 <div className="w-28 shrink-0">
                   <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', TIPO_COLOR[p.tipo])}>
                     {TIPO_LABEL[p.tipo]}
                   </span>
                 </div>
-
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">{p.nombre}</p>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
@@ -159,8 +147,6 @@ export function Productos() {
                     )}
                   </div>
                 </div>
-
-                {/* Precios */}
                 <div className="text-right shrink-0 w-36">
                   <p className="text-sm font-semibold text-gray-800">
                     {formatCurrency(p.precio_base)}
@@ -168,8 +154,6 @@ export function Productos() {
                   </p>
                   <p className="text-xs text-gray-400">costo: {formatCurrency(p.costo_base)}</p>
                 </div>
-
-                {/* Acciones */}
                 <div className="flex items-center gap-2 shrink-0">
                   <Link
                     to={`/productos/${p.id}`}

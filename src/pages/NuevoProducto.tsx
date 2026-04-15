@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TipoOperacion, TipoAbertura, Sistema } from '@/types';
@@ -37,30 +37,28 @@ export function NuevoProducto() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('tipos_abertura').select('*').eq('activo', true).order('orden'),
-      supabase.from('sistemas').select('*').eq('activo', true).order('nombre'),
-    ]).then(([{ data: ta }, { data: s }]) => {
-      setTiposAbertura((ta ?? []) as TipoAbertura[]);
-      setSistemas((s ?? []) as Sistema[]);
+      api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
+      api.get<Sistema[]>('/catalogo/sistemas'),
+    ]).then(([ta, s]) => {
+      setTiposAbertura(ta);
+      setSistemas(s);
     });
 
     if (isEdit && id) {
-      supabase.from('catalogo_productos').select('*').eq('id', id).single().then(({ data }) => {
-        if (data) {
-          setForm({
-            nombre: data.nombre,
-            descripcion: data.descripcion ?? '',
-            tipo: data.tipo as TipoOperacion,
-            tipo_abertura_id: data.tipo_abertura_id ?? '',
-            sistema_id: data.sistema_id ?? '',
-            ancho: data.ancho ? String(data.ancho) : '',
-            alto: data.alto ? String(data.alto) : '',
-            costo_base: String(data.costo_base),
-            precio_base: String(data.precio_base),
-            precio_por_m2: data.precio_por_m2 ?? false,
-            activo: data.activo ?? true,
-          });
-        }
+      api.get<any>(`/productos/${id}`).then(data => {
+        setForm({
+          nombre: data.nombre,
+          descripcion: data.descripcion ?? '',
+          tipo: data.tipo,
+          tipo_abertura_id: data.tipo_abertura_id ?? '',
+          sistema_id: data.sistema_id ?? '',
+          ancho: data.ancho ? String(data.ancho) : '',
+          alto: data.alto ? String(data.alto) : '',
+          costo_base: String(data.costo_base),
+          precio_base: String(data.precio_base),
+          precio_por_m2: data.precio_por_m2 ?? false,
+          activo: data.activo ?? true,
+        });
       });
     }
   }, [id, isEdit]);
@@ -94,17 +92,15 @@ export function NuevoProducto() {
       };
 
       if (isEdit && id) {
-        const { error } = await supabase.from('catalogo_productos').update(payload).eq('id', id);
-        if (error) throw error;
+        await api.put(`/productos/${id}`, payload);
         toast.success('Producto actualizado');
       } else {
-        const { error } = await supabase.from('catalogo_productos').insert(payload);
-        if (error) throw error;
+        await api.post('/productos', payload);
         toast.success('Producto creado');
       }
       navigate('/productos');
-    } catch {
-      toast.error('Error al guardar el producto');
+    } catch (e) {
+      toast.error((e as Error).message || 'Error al guardar el producto');
     } finally {
       setSaving(false);
     }
@@ -122,7 +118,6 @@ export function NuevoProducto() {
         <h1 className="text-xl font-bold text-gray-800">{isEdit ? 'Editar producto' : 'Nuevo producto'}</h1>
       </div>
 
-      {/* Tipo */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Tipo de producto *</h2>
         <div className="grid grid-cols-3 gap-3">
@@ -144,10 +139,8 @@ export function NuevoProducto() {
         </div>
       </div>
 
-      {/* Datos del producto */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">Datos del producto</h2>
-
         <div>
           <label className={labelClass}>Nombre *</label>
           <input
@@ -158,7 +151,6 @@ export function NuevoProducto() {
             className={inputClass}
           />
         </div>
-
         <div>
           <label className={labelClass}>Descripción</label>
           <textarea
@@ -169,7 +161,6 @@ export function NuevoProducto() {
             className={inputClass + ' resize-none'}
           />
         </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Tipo de abertura</label>
@@ -186,24 +177,18 @@ export function NuevoProducto() {
             </select>
           </div>
         </div>
-
-        {/* Medidas (solo para estándar) */}
         {form.tipo === 'estandar' && (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Ancho (cm)</label>
-              <input type="number" value={form.ancho} onChange={e => set('ancho', e.target.value)}
-                placeholder="120" className={inputClass} />
+              <input type="number" value={form.ancho} onChange={e => set('ancho', e.target.value)} placeholder="120" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Alto (cm)</label>
-              <input type="number" value={form.alto} onChange={e => set('alto', e.target.value)}
-                placeholder="100" className={inputClass} />
+              <input type="number" value={form.alto} onChange={e => set('alto', e.target.value)} placeholder="100" className={inputClass} />
             </div>
           </div>
         )}
-
-        {/* Precio por m² (para a_medida y fabricacion) */}
         {form.tipo !== 'estandar' && (
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <input
@@ -218,7 +203,6 @@ export function NuevoProducto() {
         )}
       </div>
 
-      {/* Precios */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">
           Precios base{form.precio_por_m2 && ' (por m²)'}
@@ -226,13 +210,11 @@ export function NuevoProducto() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Costo *</label>
-            <input type="number" min={0} value={form.costo_base} onChange={e => set('costo_base', e.target.value)}
-              placeholder="0" className={inputClass} />
+            <input type="number" min={0} value={form.costo_base} onChange={e => set('costo_base', e.target.value)} placeholder="0" className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>Precio de venta *</label>
-            <input type="number" min={0} value={form.precio_base} onChange={e => set('precio_base', e.target.value)}
-              placeholder="0" className={inputClass} />
+            <input type="number" min={0} value={form.precio_base} onChange={e => set('precio_base', e.target.value)} placeholder="0" className={inputClass} />
           </div>
         </div>
         {precio > 0 && (
@@ -247,8 +229,7 @@ export function NuevoProducto() {
       </div>
 
       <div className="flex justify-end gap-3">
-        <button onClick={() => navigate('/productos')}
-          className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+        <button onClick={() => navigate('/productos')} className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
           Cancelar
         </button>
         <button onClick={handleSave} disabled={saving}
