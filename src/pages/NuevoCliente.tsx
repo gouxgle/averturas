@@ -1,9 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft, Save, User, Building2, Phone, Mail,
-  MapPin, Tag, FileText, CreditCard, Hash,
-} from 'lucide-react';
+import { ArrowLeft, Save, User, Building2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -11,11 +8,31 @@ import type { CategoriaCliente } from '@/types';
 
 type TipoPersona = 'fisica' | 'juridica';
 
+// Avanza al siguiente campo al presionar Enter
+function useEnterAdvance() {
+  function onKey(e: KeyboardEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
+    if (e.key !== 'Enter') return;
+    const form = (e.target as HTMLElement).closest('[data-form]');
+    if (!form) return;
+    const fields = Array.from(
+      form.querySelectorAll<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled])')
+    );
+    const idx = fields.indexOf(e.target as HTMLElement);
+    if (idx >= 0 && idx < fields.length - 1) {
+      e.preventDefault();
+      (fields[idx + 1] as HTMLElement).focus();
+    }
+  }
+  return onKey;
+}
+
 export function NuevoCliente() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
   const [categorias, setCategorias] = useState<CategoriaCliente[]>([]);
+  const primerCampoRef = useRef<HTMLInputElement>(null);
+  const onKey = useEnterAdvance();
 
   const [form, setForm] = useState({
     tipo_persona: 'fisica' as TipoPersona,
@@ -35,12 +52,21 @@ export function NuevoCliente() {
     api.get<CategoriaCliente[]>('/catalogo/categorias-cliente').then(setCategorias);
   }, []);
 
-  function set(field: string, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }));
+  // Al cambiar tipo, enfoca el primer campo de identificación
+  function setTipo(tipo: TipoPersona) {
+    setForm(prev => ({
+      ...prev,
+      tipo_persona: tipo,
+      apellido: '',
+      nombre: '',
+      razon_social: '',
+      documento_nro: '',
+    }));
+    setTimeout(() => primerCampoRef.current?.focus(), 50);
   }
 
-  function setTipo(tipo: TipoPersona) {
-    setForm(prev => ({ ...prev, tipo_persona: tipo, documento_nro: '', nombre: '', apellido: '', razon_social: '' }));
+  function set(field: string, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
   }
 
   async function handleSave() {
@@ -61,219 +87,180 @@ export function NuevoCliente() {
 
   const esFisica = form.tipo_persona === 'fisica';
 
-  return (
-    <div className="p-6 max-w-2xl mx-auto space-y-5">
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white';
+  const labelCls = 'block text-[11px] font-medium text-gray-400 mb-1 uppercase tracking-wide';
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft size={18} className="text-gray-600" />
+  return (
+    // data-form marca el contenedor para la navegación con Enter
+    <div className="h-full flex flex-col p-5 max-w-3xl mx-auto" data-form>
+
+      {/* ── Header con acciones integradas ── */}
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+        >
+          <ArrowLeft size={17} className="text-gray-500" />
         </button>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-            <User size={18} className="text-emerald-600" />
+
+        <div className="flex items-center gap-2.5 flex-1">
+          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+            <User size={16} className="text-emerald-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Nuevo cliente</h1>
-            <p className="text-xs text-gray-500">Completá los datos del cliente</p>
+            <h1 className="text-base font-bold text-gray-900 leading-tight">Nuevo cliente</h1>
+            <p className="text-[11px] text-gray-400">Tab o Enter para avanzar entre campos</p>
           </div>
         </div>
-      </div>
 
-      {/* Tipo de persona */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Tipo de cliente</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => setTipo('fisica')}
-            className={cn(
-              'flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all',
-              esFisica
-                ? 'border-emerald-500 bg-emerald-50'
-                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-            )}
+            onClick={() => navigate(-1)}
+            className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors"
           >
-            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
-              esFisica ? 'bg-emerald-500' : 'bg-gray-100')}>
-              <User size={18} className={esFisica ? 'text-white' : 'text-gray-400'} />
-            </div>
-            <div>
-              <p className={cn('text-sm font-semibold', esFisica ? 'text-emerald-700' : 'text-gray-600')}>
-                Persona física
-              </p>
-              <p className="text-xs text-gray-400">DNI · Apellido y nombre</p>
-            </div>
+            Cancelar
           </button>
-
           <button
             type="button"
-            onClick={() => setTipo('juridica')}
-            className={cn(
-              'flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all',
-              !esFisica
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-            )}
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm transition-all"
           >
-            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
-              !esFisica ? 'bg-blue-500' : 'bg-gray-100')}>
-              <Building2 size={18} className={!esFisica ? 'text-white' : 'text-gray-400'} />
-            </div>
-            <div>
-              <p className={cn('text-sm font-semibold', !esFisica ? 'text-blue-700' : 'text-gray-600')}>
-                Empresa
-              </p>
-              <p className="text-xs text-gray-400">CUIT · Razón social</p>
-            </div>
+            <Save size={14} />
+            {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
       </div>
 
-      {/* Identificación */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className={cn('flex items-center gap-2.5 px-4 py-3 border-b border-gray-100',
-          esFisica ? 'bg-emerald-50' : 'bg-blue-50')}>
-          {esFisica
-            ? <User size={15} className="text-emerald-600" />
-            : <Building2 size={15} className="text-blue-600" />}
-          <p className={cn('text-xs font-semibold uppercase tracking-wider',
-            esFisica ? 'text-emerald-700' : 'text-blue-700')}>
-            {esFisica ? 'Datos personales' : 'Datos de la empresa'}
-          </p>
-        </div>
-        <div className="p-4 space-y-4">
-          {esFisica ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Apellido *</label>
-                <input
-                  value={form.apellido}
-                  onChange={e => set('apellido', e.target.value)}
-                  autoFocus
-                  placeholder="García"
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Nombre</label>
-                <input
-                  value={form.nombre}
-                  onChange={e => set('nombre', e.target.value)}
-                  placeholder="Juan"
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Razón social *</label>
+      {/* ── Tipo de persona: toggle compacto ── */}
+      <div className="flex items-center gap-2 mb-4 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setTipo('fisica')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all',
+            esFisica
+              ? 'bg-white text-emerald-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <User size={14} className={esFisica ? 'text-emerald-600' : 'text-gray-400'} />
+          Persona física
+        </button>
+        <button
+          type="button"
+          onClick={() => setTipo('juridica')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all',
+            !esFisica
+              ? 'bg-white text-blue-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <Building2 size={14} className={!esFisica ? 'text-blue-600' : 'text-gray-400'} />
+          Empresa
+        </button>
+      </div>
+
+      {/* ── Formulario principal ── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex-1 p-5 space-y-4">
+
+        {/* Fila 1: Identificación */}
+        {esFisica ? (
+          <div className="grid grid-cols-12 gap-3">
+            <div className="col-span-4">
+              <label className={labelCls}>Apellido *</label>
               <input
+                ref={primerCampoRef}
+                autoFocus
+                value={form.apellido}
+                onChange={e => set('apellido', e.target.value)}
+                onKeyDown={onKey}
+                placeholder="García"
+                className={inputCls}
+              />
+            </div>
+            <div className="col-span-4">
+              <label className={labelCls}>Nombre</label>
+              <input
+                value={form.nombre}
+                onChange={e => set('nombre', e.target.value)}
+                onKeyDown={onKey}
+                placeholder="Juan"
+                className={inputCls}
+              />
+            </div>
+            <div className="col-span-4">
+              <label className={labelCls}>DNI</label>
+              <input
+                value={form.documento_nro}
+                onChange={e => set('documento_nro', e.target.value)}
+                onKeyDown={onKey}
+                placeholder="12.345.678"
+                className={inputCls}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-12 gap-3">
+            <div className="col-span-8">
+              <label className={labelCls}>Razón social *</label>
+              <input
+                ref={primerCampoRef}
+                autoFocus
                 value={form.razon_social}
                 onChange={e => set('razon_social', e.target.value)}
-                autoFocus
+                onKeyDown={onKey}
                 placeholder="García Construcciones SRL"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputCls}
               />
             </div>
-          )}
+            <div className="col-span-4">
+              <label className={labelCls}>CUIT</label>
+              <input
+                value={form.documento_nro}
+                onChange={e => set('documento_nro', e.target.value)}
+                onKeyDown={onKey}
+                placeholder="20-12345678-9"
+                className={inputCls}
+              />
+            </div>
+          </div>
+        )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-              <Hash size={11} />
-              {esFisica ? 'DNI' : 'CUIT'}
-            </label>
+        {/* Fila 2: Contacto */}
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-4">
+            <label className={labelCls}>Teléfono</label>
             <input
-              value={form.documento_nro}
-              onChange={e => set('documento_nro', e.target.value)}
-              placeholder={esFisica ? '12.345.678' : '20-12345678-9'}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              value={form.telefono}
+              onChange={e => set('telefono', e.target.value)}
+              onKeyDown={onKey}
+              type="tel"
+              placeholder="3704 123456"
+              className={inputCls}
             />
           </div>
-        </div>
-      </div>
-
-      {/* Contacto */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <Phone size={15} className="text-gray-500" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Contacto</p>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-                <Phone size={11} /> Teléfono
-              </label>
-              <input
-                value={form.telefono}
-                onChange={e => set('telefono', e.target.value)}
-                type="tel"
-                placeholder="3704 123456"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-                <Mail size={11} /> Email
-              </label>
-              <input
-                value={form.email}
-                onChange={e => set('email', e.target.value)}
-                type="email"
-                placeholder="juan@email.com"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
+          <div className="col-span-4">
+            <label className={labelCls}>Email</label>
+            <input
+              value={form.email}
+              onChange={e => set('email', e.target.value)}
+              onKeyDown={onKey}
+              type="email"
+              placeholder="juan@email.com"
+              className={inputCls}
+            />
           </div>
-        </div>
-      </div>
-
-      {/* Ubicación */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <MapPin size={15} className="text-gray-500" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ubicación</p>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Dirección</label>
-              <input
-                value={form.direccion}
-                onChange={e => set('direccion', e.target.value)}
-                placeholder="Av. San Martín 123"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Localidad</label>
-              <input
-                value={form.localidad}
-                onChange={e => set('localidad', e.target.value)}
-                placeholder="Formosa"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Categoría y notas */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <Tag size={15} className="text-gray-500" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Categoría y notas</p>
-        </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-              <CreditCard size={11} /> Categoría
-            </label>
+          <div className="col-span-4">
+            <label className={labelCls}>Categoría</label>
             <select
               value={form.categoria_id}
               onChange={e => set('categoria_id', e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              onKeyDown={onKey}
+              className={inputCls}
             >
               <option value="">Sin categoría</option>
               {categorias.map(c => (
@@ -281,32 +268,43 @@ export function NuevoCliente() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-              <FileText size={11} /> Notas
-            </label>
-            <textarea
-              value={form.notas}
-              onChange={e => set('notas', e.target.value)}
-              rows={3}
-              placeholder="Observaciones sobre el cliente..."
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+        </div>
+
+        {/* Fila 3: Ubicación */}
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-8">
+            <label className={labelCls}>Dirección</label>
+            <input
+              value={form.direccion}
+              onChange={e => set('direccion', e.target.value)}
+              onKeyDown={onKey}
+              placeholder="Av. San Martín 123"
+              className={inputCls}
+            />
+          </div>
+          <div className="col-span-4">
+            <label className={labelCls}>Localidad</label>
+            <input
+              value={form.localidad}
+              onChange={e => set('localidad', e.target.value)}
+              onKeyDown={onKey}
+              placeholder="Formosa"
+              className={inputCls}
             />
           </div>
         </div>
-      </div>
 
-      {/* Acciones */}
-      <div className="flex justify-end gap-3 pb-2">
-        <button onClick={() => navigate(-1)}
-          className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-          Cancelar
-        </button>
-        <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-xl text-sm font-medium shadow-sm transition-all">
-          <Save size={15} />
-          {saving ? 'Guardando...' : 'Guardar cliente'}
-        </button>
+        {/* Fila 4: Notas */}
+        <div>
+          <label className={labelCls}>Notas</label>
+          <textarea
+            value={form.notas}
+            onChange={e => set('notas', e.target.value)}
+            rows={3}
+            placeholder="Observaciones sobre el cliente..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+          />
+        </div>
       </div>
     </div>
   );
