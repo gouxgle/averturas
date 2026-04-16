@@ -11,7 +11,7 @@ clientes.get('/', async (c) => {
   if (search.trim()) {
     params.push(`%${search}%`);
     const n = params.length;
-    where += ` AND (c.nombre ILIKE $${n} OR c.apellido ILIKE $${n} OR c.telefono ILIKE $${n})`;
+    where += ` AND (c.nombre ILIKE $${n} OR c.apellido ILIKE $${n} OR c.razon_social ILIKE $${n} OR c.telefono ILIKE $${n} OR c.documento_nro ILIKE $${n})`;
   }
 
   const { rows } = await db.query(`
@@ -22,7 +22,7 @@ clientes.get('/', async (c) => {
     FROM clientes c
     LEFT JOIN categorias_cliente cat ON cat.id = c.categoria_id
     ${where}
-    ORDER BY c.ultima_interaccion DESC NULLS LAST
+    ORDER BY c.ultima_interaccion DESC NULLS LAST, c.apellido ASC, c.nombre ASC
     LIMIT 100
   `, params);
 
@@ -69,14 +69,16 @@ clientes.post('/', async (c) => {
 
   const { rows: [row] } = await db.query(`
     INSERT INTO clientes
-      (nombre, apellido, razon_social, telefono, email, direccion, localidad,
-       categoria_id, notas, created_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      (tipo_persona, nombre, apellido, razon_social, documento_nro,
+       telefono, email, direccion, localidad, categoria_id, notas, created_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     RETURNING *
   `, [
-    body.nombre?.trim(),
+    body.tipo_persona?.trim() || 'fisica',
+    body.nombre?.trim() || null,
     body.apellido?.trim() || null,
     body.razon_social?.trim() || null,
+    body.documento_nro?.trim() || null,
     body.telefono?.trim() || null,
     body.email?.trim() || null,
     body.direccion?.trim() || null,
@@ -95,20 +97,24 @@ clientes.put('/:id', async (c) => {
 
   const { rows: [row] } = await db.query(`
     UPDATE clientes SET
-      nombre       = $1,
-      apellido     = $2,
-      razon_social = $3,
-      telefono     = $4,
-      email        = $5,
-      direccion    = $6,
-      localidad    = $7,
-      categoria_id = $8,
-      notas        = $9
-    WHERE id = $10 RETURNING *
+      tipo_persona  = $1,
+      nombre        = $2,
+      apellido      = $3,
+      razon_social  = $4,
+      documento_nro = $5,
+      telefono      = $6,
+      email         = $7,
+      direccion     = $8,
+      localidad     = $9,
+      categoria_id  = $10,
+      notas         = $11
+    WHERE id = $12 RETURNING *
   `, [
-    body.nombre?.trim(),
+    body.tipo_persona?.trim() || 'fisica',
+    body.nombre?.trim() || null,
     body.apellido?.trim() || null,
     body.razon_social?.trim() || null,
+    body.documento_nro?.trim() || null,
     body.telefono?.trim() || null,
     body.email?.trim() || null,
     body.direccion?.trim() || null,

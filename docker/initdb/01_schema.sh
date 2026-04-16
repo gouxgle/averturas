@@ -4,3 +4,4 @@
 set -e
 psql -U postgres -d postgres -f /migrations/20260414000001_schema.sql
 psql -U postgres -d postgres -f /migrations/20260414000002_seed.sql
+psql -U postgres -d postgres -f /migrations/20260415000001_clientes_documento.sql

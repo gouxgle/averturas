@@ -30,9 +30,11 @@ export interface CategoriaCliente {
 
 export interface Cliente {
   id: string;
-  nombre: string;
+  tipo_persona: 'fisica' | 'juridica';
+  nombre: string | null;
   apellido: string | null;
   razon_social: string | null;
+  documento_nro: string | null;
   telefono: string | null;
   email: string | null;
   direccion: string | null;
