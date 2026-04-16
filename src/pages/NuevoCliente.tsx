@@ -47,6 +47,8 @@ export function NuevoCliente() {
     direccion: '',
     localidad: '',
     categoria_id: '',
+    estado: 'activo',
+    origen: '',
     notas: '',
   });
 
@@ -237,16 +239,42 @@ export function NuevoCliente() {
       <div className="grid grid-cols-2 gap-4">
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <SectionHeader icon={Tag} label="Categoría" />
-          <div className="p-4">
-            <label className={labelCls}>Tipo de cliente</label>
-            <select value={form.categoria_id} onChange={e => set('categoria_id', e.target.value)}
-              onKeyDown={onKey} className={inputCls}>
-              <option value="">Sin categoría</option>
-              {categorias.map(c => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </select>
+          <SectionHeader icon={Tag} label="Clasificación" />
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Estado</label>
+                <select value={form.estado} onChange={e => set('estado', e.target.value)}
+                  onKeyDown={onKey} className={inputCls}>
+                  <option value="prospecto">Prospecto</option>
+                  <option value="activo">Activo</option>
+                  <option value="recurrente">Recurrente</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Categoría</label>
+                <select value={form.categoria_id} onChange={e => set('categoria_id', e.target.value)}
+                  onKeyDown={onKey} className={inputCls}>
+                  <option value="">Sin categoría</option>
+                  {categorias.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Origen</label>
+                <select value={form.origen} onChange={e => set('origen', e.target.value)}
+                  onKeyDown={onKey} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="recomendacion">Recomendación</option>
+                  <option value="redes">Redes sociales</option>
+                  <option value="web">Web / Google</option>
+                  <option value="visita">Visita directa</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 

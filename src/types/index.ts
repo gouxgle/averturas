@@ -28,6 +28,10 @@ export interface CategoriaCliente {
   color: string;
 }
 
+export type EstadoCliente = 'prospecto' | 'activo' | 'recurrente' | 'inactivo' | 'perdido';
+export type TipoInteraccion = 'nota' | 'llamada' | 'visita' | 'whatsapp' | 'email' | 'presupuesto_enviado' | 'operacion_completada' | 'reclamo' | 'garantia';
+export type PrioridadTarea = 'alta' | 'normal' | 'baja';
+
 export interface Cliente {
   id: string;
   tipo_persona: 'fisica' | 'juridica';
@@ -41,12 +45,38 @@ export interface Cliente {
   localidad: string | null;
   categoria_id: string | null;
   categoria?: CategoriaCliente;
+  estado: EstadoCliente;
+  origen: string | null;
+  fecha_nacimiento: string | null;
   notas: string | null;
   ultima_interaccion: string | null;
+  dias_sin_contacto: number | null;
   valor_total_historico: number;
   operaciones_count?: number;
   activo: boolean;
   created_at: string;
+}
+
+export interface Interaccion {
+  id: string;
+  cliente_id: string;
+  tipo: TipoInteraccion;
+  descripcion: string;
+  created_at: string;
+  created_by_usuario?: { nombre: string } | null;
+}
+
+export interface Tarea {
+  id: string;
+  cliente_id: string;
+  descripcion: string;
+  vencimiento: string | null;
+  prioridad: PrioridadTarea;
+  completada: boolean;
+  completada_at: string | null;
+  created_at: string;
+  created_by_usuario?: { nombre: string } | null;
+  cliente?: { id: string; nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
 
 export interface TipoAbertura {
