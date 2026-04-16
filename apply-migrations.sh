@@ -1,7 +1,9 @@
 #!/bin/bash
 # ============================================================
-# Averturas — Aplicar migraciones y crear usuario admin
-# Ejecutar después de: docker compose up -d --build
+# Averturas — Aplicar migraciones a una DB ya existente
+# Usar cuando: hay migraciones nuevas y la DB ya tiene datos
+# En deploy desde cero NO hace falta: las migraciones corren
+# automáticamente al iniciar el contenedor de PostgreSQL.
 # ============================================================
 set -e
 
@@ -28,31 +30,11 @@ docker exec -i averturas-db psql -U postgres -d postgres \
 docker exec -i averturas-db psql -U postgres -d postgres \
   < supabase/migrations/20260414000002_seed.sql
 
-echo "👤 Creando usuario admin..."
-ADMIN_PASS="${ADMIN_PASSWORD:-admin1234}"
-
-HASH=$(docker exec averturas-app node -e "
-  const b = require('bcryptjs');
-  console.log(b.hashSync('${ADMIN_PASS}', 10));
-" 2>/dev/null)
-
-if [ -z "$HASH" ]; then
-  echo "⚠️  No se pudo generar el hash."
-  echo "   Asegurate de que 'docker compose up -d --build' haya terminado y volvé a intentar."
-  exit 1
-fi
-
-docker exec -i averturas-db psql -U postgres -d postgres <<SQL
-INSERT INTO usuarios (nombre, email, password_hash, rol)
-VALUES ('Administrador', 'admin@averturas.local', '${HASH}', 'admin')
-ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
-SQL
-
 echo ""
-echo "✅ Listo. Sistema configurado."
+echo "✅ Migraciones aplicadas."
 echo ""
 echo "   URL:         http://localhost:${APP_PORT:-3000}"
 echo "   Email:       admin@averturas.local"
-echo "   Contraseña:  ${ADMIN_PASS}"
+echo "   Contraseña:  admin1234"
 echo ""
 echo "⚠️  Cambiá la contraseña del admin después del primer ingreso."
