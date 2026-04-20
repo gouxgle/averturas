@@ -118,24 +118,36 @@ export function NuevoCliente() {
     <div className="p-5 max-w-4xl mx-auto space-y-4" data-form>
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={() => navigate(-1)}
-          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
-          <ArrowLeft size={17} className="text-gray-500" />
-        </button>
-
-        <div className="flex items-center gap-2.5 flex-1">
-          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-            <User size={16} className="text-emerald-600" />
+      <div className="flex flex-col gap-2">
+        {/* Fila 1: back + título + botones */}
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => navigate(-1)}
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
+            <ArrowLeft size={17} className="text-gray-500" />
+          </button>
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+              <User size={16} className="text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-gray-900 leading-tight">Nuevo cliente</h1>
+              <p className="text-[11px] text-gray-400 hidden sm:block">Enter o Tab para avanzar entre campos</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold text-gray-900 leading-tight">Nuevo cliente</h1>
-            <p className="text-[11px] text-gray-400">Enter o Tab para avanzar entre campos</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={() => navigate(-1)}
+              className="hidden sm:block px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleSave} disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm transition-all">
+              <Save size={14} />
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
           </div>
         </div>
-
-        {/* Toggle tipo — en el header para no ocupar fila aparte */}
-        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+        {/* Fila 2: toggle tipo */}
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl self-start">
           <button type="button" onClick={() => setTipo('fisica')}
             className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
               esFisica ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
@@ -147,18 +159,6 @@ export function NuevoCliente() {
               !esFisica ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
             <Building2 size={13} className={!esFisica ? 'text-blue-600' : 'text-gray-400'} />
             Empresa
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button type="button" onClick={() => navigate(-1)}
-            className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors">
-            Cancelar
-          </button>
-          <button type="button" onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm transition-all">
-            <Save size={14} />
-            {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -176,33 +176,33 @@ export function NuevoCliente() {
         />
         <div className="p-4">
           {esFisica ? (
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div>
                 <label className={labelCls}>Apellido *</label>
                 <input ref={primerCampoRef} autoFocus value={form.apellido}
                   onChange={e => set('apellido', e.target.value)} onKeyDown={onKey}
                   placeholder="García" className={inputCls} />
               </div>
-              <div className="col-span-4">
+              <div>
                 <label className={labelCls}>Nombre</label>
                 <input value={form.nombre} onChange={e => set('nombre', e.target.value)}
                   onKeyDown={onKey} placeholder="Juan" className={inputCls} />
               </div>
-              <div className="col-span-4">
+              <div>
                 <label className={labelCls}>
                   <span className="inline-flex items-center gap-1"><Hash size={10} />DNI</span>
                 </label>
                 <input value={form.documento_nro} onChange={e => set('documento_nro', e.target.value)}
                   onKeyDown={onKey} placeholder="12.345.678" className={inputCls} />
               </div>
-              <div className="col-span-4">
+              <div>
                 <label className={labelCls}>
                   <span className="inline-flex items-center gap-1"><Calendar size={10} />Fecha de nacimiento</span>
                 </label>
                 <input type="date" value={form.fecha_nacimiento} onChange={e => set('fecha_nacimiento', e.target.value)}
                   onKeyDown={onKey} className={inputCls} />
               </div>
-              <div className="col-span-4">
+              <div>
                 <label className={labelCls}>Género</label>
                 <select value={form.genero} onChange={e => set('genero', e.target.value)}
                   onKeyDown={onKey} className={inputCls}>
@@ -214,14 +214,14 @@ export function NuevoCliente() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
                 <label className={labelCls}>Razón social *</label>
                 <input ref={primerCampoRef} autoFocus value={form.razon_social}
                   onChange={e => set('razon_social', e.target.value)} onKeyDown={onKey}
                   placeholder="García Construcciones SRL" className={inputCls} />
               </div>
-              <div className="col-span-4">
+              <div>
                 <label className={labelCls}>
                   <span className="inline-flex items-center gap-1"><Hash size={10} />CUIT</span>
                 </label>
@@ -234,11 +234,11 @@ export function NuevoCliente() {
       </div>
 
       {/* ── Fila 2: Contacto | Ubicación ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Phone} label="Contacto" />
-          <div className="p-4 grid grid-cols-3 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className={cn(labelCls, 'flex items-center gap-1')}>
                 <Phone size={10} />Celular / WhatsApp
@@ -263,7 +263,7 @@ export function NuevoCliente() {
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={MapPin} label="Ubicación" />
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Dirección</label>
               <input value={form.direccion} onChange={e => set('direccion', e.target.value)}
@@ -279,12 +279,12 @@ export function NuevoCliente() {
       </div>
 
       {/* ── Fila 3: Categoría | Notas ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Tag} label="Clasificación" />
           <div className="p-4 space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Estado</label>
                 <select value={form.estado} onChange={e => set('estado', e.target.value)}
@@ -319,7 +319,7 @@ export function NuevoCliente() {
               </div>
             </div>
             {/* Fidelización */}
-            <div className="grid grid-cols-3 gap-3 pt-1 border-t border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-gray-100">
               <div>
                 <label className={cn(labelCls, 'flex items-center gap-1')}>
                   <Heart size={10} />Preferencia contacto

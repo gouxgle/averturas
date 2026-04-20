@@ -66,9 +66,9 @@ export function Clientes() {
     <div className="p-5 max-w-5xl mx-auto space-y-4">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
             <Users size={18} className="text-emerald-600" />
           </div>
           <div>
@@ -77,14 +77,14 @@ export function Clientes() {
           </div>
         </div>
         <Link to="/clientes/nuevo"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all">
+          className="flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all sm:w-auto w-full">
           <Plus size={15} /> Nuevo cliente
         </Link>
       </div>
 
       {/* Stats rápidas */}
       {!loading && clientes.length > 0 && (
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {([
             { label: 'Total',      valor: clientes.length, color: 'bg-gray-50 border-gray-200', icon: <Users size={14} className="text-gray-500" /> },
             { label: 'Prospectos', valor: byEstado('prospecto'),  color: 'bg-gray-50 border-gray-200',    icon: <User size={14} className="text-gray-500" /> },
@@ -104,14 +104,14 @@ export function Clientes() {
       )}
 
       {/* Búsqueda + filtros */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="Buscar por nombre, DNI/CUIT, teléfono..."
             value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white shadow-sm" />
         </div>
-        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+        <div className="flex items-center flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
           {FILTROS.map(f => (
             <button key={f.valor} onClick={() => setFiltroEstado(f.valor)}
               className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
