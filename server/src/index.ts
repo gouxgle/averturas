@@ -55,5 +55,5 @@ app.get('*', (c) => {
 
 const PORT = parseInt(process.env.PORT ?? '3000');
 serve({ fetch: app.fetch, port: PORT }, () => {
-  console.log(`✓ Averturas API corriendo en http://0.0.0.0:${PORT}`);
+  console.log(`✓ Aberturas API corriendo en http://0.0.0.0:${PORT}`);
 });

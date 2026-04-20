@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'averturas_token';
+const TOKEN_KEY = 'aberturas_token';
 
 export const tokenStorage = {
   get: () => localStorage.getItem(TOKEN_KEY),

@@ -96,8 +96,8 @@ clientes.post('/', async (c) => {
     INSERT INTO clientes
       (tipo_persona, nombre, apellido, razon_social, documento_nro,
        telefono, email, direccion, localidad, categoria_id,
-       estado, origen, fecha_nacimiento, notas, created_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       estado, origen, fecha_nacimiento, genero, notas, created_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
     RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
@@ -113,6 +113,7 @@ clientes.post('/', async (c) => {
     body.estado?.trim() || 'activo',
     body.origen?.trim() || null,
     body.fecha_nacimiento || null,
+    body.genero?.trim() || null,
     body.notas?.trim() || null,
     user.id,
   ]);
@@ -139,8 +140,9 @@ clientes.put('/:id', async (c) => {
       estado          = $11,
       origen          = $12,
       fecha_nacimiento= $13,
-      notas           = $14
-    WHERE id = $15 RETURNING *
+      genero          = $14,
+      notas           = $15
+    WHERE id = $16 RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
     body.nombre?.trim() || null,
@@ -155,6 +157,7 @@ clientes.put('/:id', async (c) => {
     body.estado?.trim() || 'activo',
     body.origen?.trim() || null,
     body.fecha_nacimiento || null,
+    body.genero?.trim() || null,
     body.notas?.trim() || null,
     id,
   ]);

@@ -125,7 +125,7 @@ export function Sidebar() {
             <LayoutGrid size={18} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-white tracking-wide leading-tight">AVERTURAS</p>
+            <p className="text-sm font-bold text-white tracking-wide leading-tight">ABERTURAS</p>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest">Gestión</p>
           </div>
         </div>

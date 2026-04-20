@@ -1,4 +1,4 @@
-# Averturas — Sistema de gestión
+# Aberturas — Sistema de gestión
 
 Sistema CRM y de operaciones para negocio de venta e instalación de aberturas.
 Stack: React + TypeScript + Vite + Tailwind + Supabase self-hosted + Docker.
@@ -26,8 +26,8 @@ Stack: React + TypeScript + Vite + Tailwind + Supabase self-hosted + Docker.
 **1. Clonar el repositorio**
 
 ```bash
-git clone git@github.com:gouxgle/averturas.git
-cd averturas
+git clone git@github.com:gouxgle/aberturas.git
+cd aberturas
 ```
 
 **2. Generar secretos y configuración**
@@ -65,7 +65,7 @@ Esperar ~15 segundos a que la DB esté lista, luego crear los roles internos de 
 ```bash
 source docker/supabase-selfhosted/.env
 
-docker exec -i averturas-db psql -U postgres -d postgres <<'SQL'
+docker exec -i aberturas-db psql -U postgres -d postgres <<'SQL'
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN NOINHERIT; END IF;
@@ -79,7 +79,7 @@ END $$;
 SQL
 
 # Setear passwords con el valor generado
-docker exec -i averturas-db psql -U postgres -d postgres -c "
+docker exec -i aberturas-db psql -U postgres -d postgres -c "
   ALTER ROLE authenticator WITH PASSWORD '${POSTGRES_PASSWORD}';
   ALTER ROLE supabase_auth_admin WITH PASSWORD '${POSTGRES_PASSWORD}';
   ALTER ROLE supabase_storage_admin WITH PASSWORD '${POSTGRES_PASSWORD}';
@@ -116,7 +116,7 @@ curl -s -X POST http://localhost:8001/auth/v1/admin/users \
   -H "apikey: ${SERVICE_ROLE_KEY}" \
   -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@averturas.local","password":"Admin1234!","email_confirm":true}'
+  -d '{"email":"admin@aberturas.local","password":"Admin1234!","email_confirm":true}'
 
 # Obtener el UUID del usuario recién creado
 USER_ID=$(curl -s http://localhost:8001/auth/v1/admin/users \
@@ -125,8 +125,8 @@ USER_ID=$(curl -s http://localhost:8001/auth/v1/admin/users \
   python3 -c "import sys,json; users=json.load(sys.stdin)['users']; print(users[0]['id'])")
 
 # Crear perfil
-docker exec -i averturas-db psql -U postgres -d postgres -c \
-  "INSERT INTO public.profiles (id, nombre, email, role, activo) VALUES ('${USER_ID}', 'Admin', 'admin@averturas.local', 'admin', true);"
+docker exec -i aberturas-db psql -U postgres -d postgres -c \
+  "INSERT INTO public.profiles (id, nombre, email, role, activo) VALUES ('${USER_ID}', 'Admin', 'admin@aberturas.local', 'admin', true);"
 ```
 
 ---
@@ -140,14 +140,14 @@ docker exec -i averturas-db psql -U postgres -d postgres -c \
 | PostgreSQL | localhost:5433              |
 
 **Credenciales por defecto:**
-- Email: `admin@averturas.local`
+- Email: `admin@aberturas.local`
 - Contraseña: `Admin1234!` (cambiar después del primer login)
 
 ---
 
 ## Puertos
 
-Averturas usa puertos alternativos para no pisar otros servicios:
+Aberturas usa puertos alternativos para no pisar otros servicios:
 
 | Servicio   | Puerto |
 |------------|--------|
@@ -179,7 +179,7 @@ npm run dev
 ## Estructura
 
 ```
-averturas/
+aberturas/
 ├── src/
 │   ├── pages/          # Vistas principales
 │   ├── components/     # Layout, componentes reutilizables

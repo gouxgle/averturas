@@ -48,6 +48,7 @@ export interface Cliente {
   estado: EstadoCliente;
   origen: string | null;
   fecha_nacimiento: string | null;
+  genero: 'masculino' | 'femenino' | 'otro' | null;
   notas: string | null;
   ultima_interaccion: string | null;
   dias_sin_contacto: number | null;

@@ -7,6 +7,7 @@ psql -U postgres -d postgres -f /migrations/20260414000001_schema.sql
 psql -U postgres -d postgres -f /migrations/20260414000002_seed.sql
 psql -U postgres -d postgres -f /migrations/20260415000001_clientes_documento.sql
 psql -U postgres -d postgres -f /migrations/20260415000002_crm_clientes.sql
+psql -U postgres -d postgres -f /migrations/20260419000001_clientes_genero.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -18,7 +19,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260414000001_schema.sql'),
   ('20260414000002_seed.sql'),
   ('20260415000001_clientes_documento.sql'),
-  ('20260415000002_crm_clientes.sql')
+  ('20260415000002_crm_clientes.sql'),
+  ('20260419000001_clientes_genero.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

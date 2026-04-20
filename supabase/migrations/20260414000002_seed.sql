@@ -40,7 +40,7 @@ INSERT INTO categorias_cliente (nombre, color, orden) VALUES
 INSERT INTO usuarios (nombre, email, password_hash, rol)
 VALUES (
   'Administrador',
-  'admin@averturas.local',
+  'admin@aberturas.local',
   '$2a$10$dQnmVvCLghUbRWu1Vp0BFudixqzW75a0w6.5yi8EEzJFil32c7h96',
   'admin'
 ) ON CONFLICT (email) DO NOTHING;

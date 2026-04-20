@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Averturas — Migrador inteligente
+# Aberturas — Migrador inteligente
 # Aplica solo las migraciones pendientes, sin tocar datos existentes.
 # Usar después de cada git pull para actualizar la DB en la VM.
 #
@@ -18,7 +18,7 @@ source .env
 
 echo "⏳ Verificando conexión a la base de datos..."
 for i in $(seq 1 20); do
-  if docker exec averturas-db pg_isready -U postgres -q 2>/dev/null; then
+  if docker exec aberturas-db pg_isready -U postgres -q 2>/dev/null; then
     break
   fi
   if [ $i -eq 20 ]; then
@@ -29,7 +29,7 @@ for i in $(seq 1 20); do
 done
 
 # ── 1. Crear tabla de tracking si no existe ───────────────────
-docker exec -i averturas-db psql -U postgres -d postgres <<'SQL' > /dev/null
+docker exec -i aberturas-db psql -U postgres -d postgres <<'SQL' > /dev/null
 CREATE TABLE IF NOT EXISTS schema_migrations (
   filename   TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -39,7 +39,7 @@ SQL
 # ── 2. Auto-detectar migraciones ya aplicadas (para DBs sin tracking) ──
 # Detecta el estado real de la DB y marca como aplicadas las migraciones
 # que claramente ya corrieron (evita volver a correr CREATE TABLE, etc.)
-docker exec -i averturas-db psql -U postgres -d postgres <<'SQL' > /dev/null
+docker exec -i aberturas-db psql -U postgres -d postgres <<'SQL' > /dev/null
 DO $$
 BEGIN
   -- Schema inicial (tablas principales)
@@ -93,15 +93,15 @@ PENDIENTES=0
 for file in $(ls supabase/migrations/*.sql | sort); do
   filename=$(basename "$file")
 
-  applied=$(docker exec averturas-db psql -U postgres -d postgres -tAc \
+  applied=$(docker exec aberturas-db psql -U postgres -d postgres -tAc \
     "SELECT COUNT(*) FROM schema_migrations WHERE filename = '$filename';" 2>/dev/null)
 
   if [ "$applied" = "1" ]; then
     echo "  ✓  $filename"
   else
     echo "  ⏳ $filename — aplicando..."
-    docker exec -i averturas-db psql -U postgres -d postgres < "$file"
-    docker exec averturas-db psql -U postgres -d postgres -c \
+    docker exec -i aberturas-db psql -U postgres -d postgres < "$file"
+    docker exec aberturas-db psql -U postgres -d postgres -c \
       "INSERT INTO schema_migrations (filename) VALUES ('$filename') ON CONFLICT DO NOTHING;" > /dev/null
     echo "  ✅ $filename — aplicada"
     PENDIENTES=$((PENDIENTES + 1))

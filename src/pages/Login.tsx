@@ -32,7 +32,7 @@ export function Login() {
           <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
             <Building2 className="text-white" size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Averturas</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Aberturas</h1>
           <p className="text-sm text-gray-500 mt-1">Sistema de gestión</p>
         </div>
 

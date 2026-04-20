@@ -1,5 +1,5 @@
 -- ============================================================
--- Averturas — Schema principal (sin dependencias Supabase)
+-- Aberturas — Schema principal (sin dependencias Supabase)
 -- ============================================================
 
 -- ENUMs
@@ -41,7 +41,7 @@ CREATE TABLE empresa (
   logo_url    TEXT,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-INSERT INTO empresa (nombre) VALUES ('Averturas');
+INSERT INTO empresa (nombre) VALUES ('Aberturas');
 
 -- ── Catálogo de referencia ───────────────────────────────────
 CREATE TABLE tipos_abertura (

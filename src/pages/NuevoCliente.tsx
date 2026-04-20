@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, User, Building2,
-  Phone, Mail, MapPin, Tag, FileText, Hash,
+  Phone, Mail, MapPin, Tag, FileText, Hash, Calendar,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -42,6 +42,8 @@ export function NuevoCliente() {
     nombre: searchParams.get('nombre') ?? '',
     razon_social: '',
     documento_nro: '',
+    fecha_nacimiento: '',
+    genero: '',
     telefono: '',
     email: '',
     direccion: '',
@@ -57,7 +59,7 @@ export function NuevoCliente() {
   }, []);
 
   function setTipo(tipo: TipoPersona) {
-    setForm(prev => ({ ...prev, tipo_persona: tipo, apellido: '', nombre: '', razon_social: '', documento_nro: '' }));
+    setForm(prev => ({ ...prev, tipo_persona: tipo, apellido: '', nombre: '', razon_social: '', documento_nro: '', fecha_nacimiento: '', genero: '' }));
     setTimeout(() => primerCampoRef.current?.focus(), 50);
   }
 
@@ -65,13 +67,23 @@ export function NuevoCliente() {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
+  function titleCase(str: string) {
+    return str.trim().replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
+  }
+
   async function handleSave() {
     const esFisica = form.tipo_persona === 'fisica';
     if (esFisica && !form.apellido.trim()) { toast.error('El apellido es requerido'); return; }
     if (!esFisica && !form.razon_social.trim()) { toast.error('La razón social es requerida'); return; }
     setSaving(true);
+    const payload = {
+      ...form,
+      apellido:     titleCase(form.apellido),
+      nombre:       titleCase(form.nombre),
+      razon_social: titleCase(form.razon_social),
+    };
     try {
-      const data = await api.post<{ id: string }>('/clientes', form);
+      const data = await api.post<{ id: string }>('/clientes', payload);
       toast.success('Cliente creado');
       navigate(`/clientes/${data.id}`);
     } catch (e) {
@@ -175,6 +187,23 @@ export function NuevoCliente() {
                 </label>
                 <input value={form.documento_nro} onChange={e => set('documento_nro', e.target.value)}
                   onKeyDown={onKey} placeholder="12.345.678" className={inputCls} />
+              </div>
+              <div className="col-span-4">
+                <label className={labelCls}>
+                  <span className="inline-flex items-center gap-1"><Calendar size={10} />Fecha de nacimiento</span>
+                </label>
+                <input type="date" value={form.fecha_nacimiento} onChange={e => set('fecha_nacimiento', e.target.value)}
+                  onKeyDown={onKey} className={inputCls} />
+              </div>
+              <div className="col-span-4">
+                <label className={labelCls}>Género</label>
+                <select value={form.genero} onChange={e => set('genero', e.target.value)}
+                  onKeyDown={onKey} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="masculino">Masculino</option>
+                  <option value="femenino">Femenino</option>
+                  <option value="otro">Otro</option>
+                </select>
               </div>
             </div>
           ) : (
