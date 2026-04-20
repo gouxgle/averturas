@@ -24,9 +24,13 @@ clientes.get('/', async (c) => {
       EXTRACT(DAY FROM now() - c.ultima_interaccion)::int AS dias_sin_contacto,
       CASE WHEN cat.id IS NOT NULL
         THEN json_build_object('id', cat.id, 'nombre', cat.nombre, 'color', cat.color)
-        ELSE NULL END AS categoria
+        ELSE NULL END AS categoria,
+      CASE WHEN ref.id IS NOT NULL
+        THEN json_build_object('id', ref.id, 'apellido', ref.apellido, 'nombre', ref.nombre, 'razon_social', ref.razon_social, 'tipo_persona', ref.tipo_persona)
+        ELSE NULL END AS referido_por
     FROM clientes c
     LEFT JOIN categorias_cliente cat ON cat.id = c.categoria_id
+    LEFT JOIN clientes ref ON ref.id = c.referido_por_id
     ${where}
     ORDER BY c.ultima_interaccion DESC NULLS LAST, c.apellido ASC, c.nombre ASC
     LIMIT 200
@@ -49,9 +53,13 @@ clientes.get('/:id', async (c) => {
         EXTRACT(DAY FROM now() - c.ultima_interaccion)::int AS dias_sin_contacto,
         CASE WHEN cat.id IS NOT NULL
           THEN json_build_object('id', cat.id, 'nombre', cat.nombre, 'color', cat.color)
-          ELSE NULL END AS categoria
+          ELSE NULL END AS categoria,
+        CASE WHEN ref.id IS NOT NULL
+          THEN json_build_object('id', ref.id, 'apellido', ref.apellido, 'nombre', ref.nombre, 'razon_social', ref.razon_social, 'tipo_persona', ref.tipo_persona)
+          ELSE NULL END AS referido_por
       FROM clientes c
       LEFT JOIN categorias_cliente cat ON cat.id = c.categoria_id
+      LEFT JOIN clientes ref ON ref.id = c.referido_por_id
       WHERE c.id = $1
     `, [id]),
     db.query(`
@@ -96,8 +104,9 @@ clientes.post('/', async (c) => {
     INSERT INTO clientes
       (tipo_persona, nombre, apellido, razon_social, documento_nro,
        telefono, email, direccion, localidad, categoria_id,
-       estado, origen, fecha_nacimiento, genero, notas, created_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       estado, origen, fecha_nacimiento, genero,
+       preferencia_contacto, acepta_marketing, referido_por_id, notas, created_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
     RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
@@ -114,6 +123,9 @@ clientes.post('/', async (c) => {
     body.origen?.trim() || null,
     body.fecha_nacimiento || null,
     body.genero?.trim() || null,
+    body.preferencia_contacto?.trim() || null,
+    body.acepta_marketing ?? true,
+    body.referido_por_id || null,
     body.notas?.trim() || null,
     user.id,
   ]);
@@ -140,9 +152,12 @@ clientes.put('/:id', async (c) => {
       estado          = $11,
       origen          = $12,
       fecha_nacimiento= $13,
-      genero          = $14,
-      notas           = $15
-    WHERE id = $16 RETURNING *
+      genero               = $14,
+      preferencia_contacto = $15,
+      acepta_marketing     = $16,
+      referido_por_id      = $17,
+      notas                = $18
+    WHERE id = $19 RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
     body.nombre?.trim() || null,
@@ -158,6 +173,9 @@ clientes.put('/:id', async (c) => {
     body.origen?.trim() || null,
     body.fecha_nacimiento || null,
     body.genero?.trim() || null,
+    body.preferencia_contacto?.trim() || null,
+    body.acepta_marketing ?? true,
+    body.referido_por_id || null,
     body.notas?.trim() || null,
     id,
   ]);

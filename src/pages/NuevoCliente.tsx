@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, User, Building2,
-  Phone, Mail, MapPin, Tag, FileText, Hash, Calendar,
+  Phone, Mail, MapPin, Tag, FileText, Hash, Calendar, Heart,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { CategoriaCliente } from '@/types';
+import type { CategoriaCliente, Cliente } from '@/types';
 
 type TipoPersona = 'fisica' | 'juridica';
 
@@ -33,6 +33,7 @@ export function NuevoCliente() {
   const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
   const [categorias, setCategorias] = useState<CategoriaCliente[]>([]);
+  const [clientesRef, setClientesRef] = useState<Cliente[]>([]);
   const primerCampoRef = useRef<HTMLInputElement>(null);
   const onKey = useEnterAdvance();
 
@@ -51,15 +52,20 @@ export function NuevoCliente() {
     categoria_id: '',
     estado: 'activo',
     origen: '',
+    preferencia_contacto: '',
+    acepta_marketing: true as boolean,
+    referido_por_id: '',
     notas: '',
   });
 
   useEffect(() => {
     api.get<CategoriaCliente[]>('/catalogo/categorias-cliente').then(setCategorias);
+    api.get<Cliente[]>('/clientes').then(setClientesRef);
   }, []);
 
   function setTipo(tipo: TipoPersona) {
     setForm(prev => ({ ...prev, tipo_persona: tipo, apellido: '', nombre: '', razon_social: '', documento_nro: '', fecha_nacimiento: '', genero: '' }));
+
     setTimeout(() => primerCampoRef.current?.focus(), 50);
   }
 
@@ -302,6 +308,44 @@ export function NuevoCliente() {
                   <option value="visita">Visita directa</option>
                   <option value="otro">Otro</option>
                 </select>
+              </div>
+            </div>
+            {/* Fidelización */}
+            <div className="grid grid-cols-3 gap-3 pt-1 border-t border-gray-100">
+              <div>
+                <label className={cn(labelCls, 'flex items-center gap-1')}>
+                  <Heart size={10} />Preferencia contacto
+                </label>
+                <select value={form.preferencia_contacto} onChange={e => set('preferencia_contacto', e.target.value)}
+                  onKeyDown={onKey} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="llamada">Llamada</option>
+                  <option value="email">Email</option>
+                  <option value="visita">Visita</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Referido por</label>
+                <select value={form.referido_por_id} onChange={e => set('referido_por_id', e.target.value)}
+                  onKeyDown={onKey} className={inputCls}>
+                  <option value="">—</option>
+                  {clientesRef.map(c => {
+                    const label = c.tipo_persona === 'juridica'
+                      ? c.razon_social
+                      : [c.apellido, c.nombre].filter(Boolean).join(', ');
+                    return <option key={c.id} value={c.id}>{label}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="flex flex-col justify-end">
+                <label className={labelCls}>Marketing</label>
+                <label className="flex items-center gap-2 cursor-pointer h-[36px]">
+                  <input type="checkbox" checked={form.acepta_marketing}
+                    onChange={e => setForm(prev => ({ ...prev, acepta_marketing: e.target.checked }))}
+                    className="w-4 h-4 rounded accent-brand-600" />
+                  <span className="text-sm text-gray-600">Acepta comunicaciones</span>
+                </label>
               </div>
             </div>
           </div>

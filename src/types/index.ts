@@ -49,6 +49,10 @@ export interface Cliente {
   origen: string | null;
   fecha_nacimiento: string | null;
   genero: 'masculino' | 'femenino' | 'otro' | null;
+  preferencia_contacto: 'whatsapp' | 'llamada' | 'email' | 'visita' | null;
+  acepta_marketing: boolean;
+  referido_por_id: string | null;
+  referido_por?: { id: string; apellido: string | null; nombre: string | null; razon_social: string | null; tipo_persona: string } | null;
   notas: string | null;
   ultima_interaccion: string | null;
   dias_sin_contacto: number | null;
