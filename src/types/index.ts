@@ -40,6 +40,7 @@ export interface Cliente {
   razon_social: string | null;
   documento_nro: string | null;
   telefono: string | null;
+  telefono_fijo: string | null;
   email: string | null;
   direccion: string | null;
   localidad: string | null;

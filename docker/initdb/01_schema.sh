@@ -9,6 +9,7 @@ psql -U postgres -d postgres -f /migrations/20260415000001_clientes_documento.sq
 psql -U postgres -d postgres -f /migrations/20260415000002_crm_clientes.sql
 psql -U postgres -d postgres -f /migrations/20260419000001_clientes_genero.sql
 psql -U postgres -d postgres -f /migrations/20260419000002_clientes_fidelizacion.sql
+psql -U postgres -d postgres -f /migrations/20260420000001_clientes_telefono_fijo.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -22,7 +23,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260415000001_clientes_documento.sql'),
   ('20260415000002_crm_clientes.sql'),
   ('20260419000001_clientes_genero.sql'),
-  ('20260419000002_clientes_fidelizacion.sql')
+  ('20260419000002_clientes_fidelizacion.sql'),
+  ('20260420000001_clientes_telefono_fijo.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

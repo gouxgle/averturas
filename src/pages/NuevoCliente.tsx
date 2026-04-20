@@ -46,6 +46,7 @@ export function NuevoCliente() {
     fecha_nacimiento: '',
     genero: '',
     telefono: '',
+    telefono_fijo: '',
     email: '',
     direccion: '',
     localidad: '',
@@ -237,11 +238,18 @@ export function NuevoCliente() {
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Phone} label="Contacto" />
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-3 gap-3">
             <div>
-              <label className={labelCls}>Teléfono</label>
+              <label className={cn(labelCls, 'flex items-center gap-1')}>
+                <Phone size={10} />Celular / WhatsApp
+              </label>
               <input value={form.telefono} onChange={e => set('telefono', e.target.value)}
                 onKeyDown={onKey} type="tel" placeholder="3704 123456" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Tel. fijo (opcional)</label>
+              <input value={form.telefono_fijo} onChange={e => set('telefono_fijo', e.target.value)}
+                onKeyDown={onKey} type="tel" placeholder="3717 123456" className={inputCls} />
             </div>
             <div>
               <label className={cn(labelCls, 'flex items-center gap-1')}>

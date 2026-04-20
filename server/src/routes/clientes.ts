@@ -103,10 +103,10 @@ clientes.post('/', async (c) => {
   const { rows: [row] } = await db.query(`
     INSERT INTO clientes
       (tipo_persona, nombre, apellido, razon_social, documento_nro,
-       telefono, email, direccion, localidad, categoria_id,
+       telefono, telefono_fijo, email, direccion, localidad, categoria_id,
        estado, origen, fecha_nacimiento, genero,
        preferencia_contacto, acepta_marketing, referido_por_id, notas, created_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
     RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
@@ -115,6 +115,7 @@ clientes.post('/', async (c) => {
     body.razon_social?.trim() || null,
     body.documento_nro?.trim() || null,
     body.telefono?.trim() || null,
+    body.telefono_fijo?.trim() || null,
     body.email?.trim() || null,
     body.direccion?.trim() || null,
     body.localidad?.trim() || null,
@@ -145,19 +146,20 @@ clientes.put('/:id', async (c) => {
       razon_social    = $4,
       documento_nro   = $5,
       telefono        = $6,
-      email           = $7,
-      direccion       = $8,
-      localidad       = $9,
-      categoria_id    = $10,
-      estado          = $11,
-      origen          = $12,
-      fecha_nacimiento= $13,
-      genero               = $14,
-      preferencia_contacto = $15,
-      acepta_marketing     = $16,
-      referido_por_id      = $17,
-      notas                = $18
-    WHERE id = $19 RETURNING *
+      telefono_fijo   = $7,
+      email           = $8,
+      direccion       = $9,
+      localidad       = $10,
+      categoria_id    = $11,
+      estado          = $12,
+      origen          = $13,
+      fecha_nacimiento= $14,
+      genero               = $15,
+      preferencia_contacto = $16,
+      acepta_marketing     = $17,
+      referido_por_id      = $18,
+      notas                = $19
+    WHERE id = $20 RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
     body.nombre?.trim() || null,
@@ -165,6 +167,7 @@ clientes.put('/:id', async (c) => {
     body.razon_social?.trim() || null,
     body.documento_nro?.trim() || null,
     body.telefono?.trim() || null,
+    body.telefono_fijo?.trim() || null,
     body.email?.trim() || null,
     body.direccion?.trim() || null,
     body.localidad?.trim() || null,
