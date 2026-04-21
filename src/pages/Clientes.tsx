@@ -77,7 +77,7 @@ export function Clientes() {
           </div>
         </div>
         <Link to="/clientes/nuevo"
-          className="flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all sm:w-auto w-full">
+          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all sm:w-auto w-full">
           <Plus size={15} /> Nuevo cliente
         </Link>
       </div>
@@ -109,7 +109,7 @@ export function Clientes() {
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="Buscar por nombre, DNI/CUIT, teléfono..."
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white shadow-sm" />
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white shadow-sm" />
         </div>
         <div className="flex items-center flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
           {FILTROS.map(f => (
@@ -147,7 +147,7 @@ export function Clientes() {
               {search || filtroEstado ? 'Sin resultados' : 'No hay clientes todavía'}
             </p>
             {!search && !filtroEstado && (
-              <Link to="/clientes/nuevo" className="text-sm text-brand-600 hover:underline">Agregar el primero</Link>
+              <Link to="/clientes/nuevo" className="text-sm text-emerald-600 hover:underline">Agregar el primero</Link>
             )}
           </div>
         ) : (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Hammer } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -113,17 +113,20 @@ export function NuevaOperacion() {
     }
   }
 
-  const cls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
+  const cls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500';
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft size={18} className="text-gray-600" />
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <ArrowLeft size={17} className="text-gray-500" />
         </button>
+        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+          <Hammer size={17} className="text-amber-600" />
+        </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Nueva operación</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Presupuesto o venta</p>
+          <h1 className="text-base font-bold text-gray-900">Nueva operación</h1>
+          <p className="text-xs text-gray-400">Presupuesto o venta</p>
         </div>
       </div>
 
@@ -133,8 +136,8 @@ export function NuevaOperacion() {
           {TIPOS.map(t => (
             <button key={t.value} onClick={() => setTipo(t.value)}
               className={cn('text-left p-4 rounded-lg border-2 transition-all',
-                tipo === t.value ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300')}>
-              <p className={cn('text-sm font-semibold', tipo === t.value ? 'text-brand-700' : 'text-gray-700')}>{t.label}</p>
+                tipo === t.value ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300')}>
+              <p className={cn('text-sm font-semibold', tipo === t.value ? 'text-amber-700' : 'text-gray-700')}>{t.label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
             </button>
           ))}
@@ -144,12 +147,12 @@ export function NuevaOperacion() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Cliente *</h2>
         {clienteSeleccionado ? (
-          <div className="flex items-center justify-between bg-brand-50 rounded-lg px-4 py-3 border border-brand-200">
+          <div className="flex items-center justify-between bg-amber-50 rounded-lg px-4 py-3 border border-amber-200">
             <div>
-              <p className="text-sm font-semibold text-brand-800">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}</p>
-              <p className="text-xs text-brand-600">{clienteSeleccionado.telefono ?? '—'}</p>
+              <p className="text-sm font-semibold text-amber-800">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}</p>
+              <p className="text-xs text-amber-600">{clienteSeleccionado.telefono ?? '—'}</p>
             </div>
-            <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-brand-600 hover:underline">Cambiar</button>
+            <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-amber-600 hover:underline">Cambiar</button>
           </div>
         ) : (
           <div className="relative">
@@ -157,12 +160,12 @@ export function NuevaOperacion() {
               value={clienteSearch}
               onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
               onFocus={() => setShowClienteList(true)}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
             {showClienteList && clienteSearch && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                 {clientesFiltrados.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500">No encontrado.{' '}
-                    <button className="text-brand-600 hover:underline" onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>Crear cliente</button>
+                    <button className="text-amber-600 hover:underline" onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>Crear cliente</button>
                   </div>
                 ) : clientesFiltrados.slice(0, 8).map(c => (
                   <button key={c.id} onClick={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
@@ -181,7 +184,7 @@ export function NuevaOperacion() {
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">Proveedor</h2>
           <select value={proveedorId} onChange={e => setProveedorId(e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
             <option value="">Seleccionar proveedor...</option>
             {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
@@ -192,7 +195,7 @@ export function NuevaOperacion() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">Detalle de ítems</h2>
           <button onClick={() => setItems(prev => [...prev, emptyItem()])}
-            className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 font-medium">
+            className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium">
             <Plus size={14} /> Agregar ítem
           </button>
         </div>
@@ -255,7 +258,7 @@ export function NuevaOperacion() {
               </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(i, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+              <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(i, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
               <span className="text-xs text-gray-600">Incluye instalación</span>
             </label>
             {item.incluye_instalacion && (
@@ -297,26 +300,26 @@ export function NuevaOperacion() {
             <label className="block text-xs font-medium text-gray-500 mb-1">Notas para el cliente</label>
             <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={3}
               placeholder="Condiciones, aclaraciones..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Notas internas</label>
             <textarea value={notasInternas} onChange={e => setNotasInternas(e.target.value)} rows={3}
               placeholder="Solo para el equipo..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Válido hasta</label>
           <input type="date" value={fechaValidez} onChange={e => setFechaValidez(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
         </div>
       </div>
 
       <div className="flex justify-end gap-3">
         <button onClick={() => navigate(-1)} className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">Cancelar</button>
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+          className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
           <Save size={15} />
           {saving ? 'Guardando...' : 'Guardar operación'}
         </button>

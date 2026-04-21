@@ -40,7 +40,7 @@ export function AppLayout() {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center">
               <LayoutGrid size={14} className="text-white" />
             </div>
             <span className="text-sm font-bold text-white tracking-wide">ABERTURAS</span>

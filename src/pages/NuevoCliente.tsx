@@ -102,7 +102,7 @@ export function NuevoCliente() {
 
   const esFisica = form.tipo_persona === 'fisica';
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white';
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white';
   const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
 
   const SectionHeader = ({ icon: Icon, label, color = 'text-gray-500', bg = 'bg-gray-50' }: {
@@ -140,7 +140,7 @@ export function NuevoCliente() {
               Cancelar
             </button>
             <button type="button" onClick={handleSave} disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm transition-all">
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm transition-all">
               <Save size={14} />
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
@@ -351,7 +351,7 @@ export function NuevoCliente() {
                 <label className="flex items-center gap-2 cursor-pointer h-[36px]">
                   <input type="checkbox" checked={form.acepta_marketing}
                     onChange={e => setForm(prev => ({ ...prev, acepta_marketing: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-brand-600" />
+                    className="w-4 h-4 rounded accent-emerald-600" />
                   <span className="text-sm text-gray-600">Acepta comunicaciones</span>
                 </label>
               </div>
@@ -364,7 +364,7 @@ export function NuevoCliente() {
           <div className="p-4">
             <textarea value={form.notas} onChange={e => set('notas', e.target.value)}
               rows={2} placeholder="Observaciones sobre el cliente..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
           </div>
         </div>
       </div>

@@ -61,7 +61,7 @@ export function Productos() {
         </div>
         <Link
           to="/productos/nuevo"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
+          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
         >
           <Plus size={16} /> Nuevo producto
         </Link>
@@ -75,8 +75,8 @@ export function Productos() {
             className={cn(
               'whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-medium border transition-all',
               filtro === value
-                ? 'bg-brand-600 text-white border-brand-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300 hover:text-brand-600'
+                ? 'bg-sky-600 text-white border-sky-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-sky-300 hover:text-sky-600'
             )}
           >
             {label}
@@ -91,7 +91,7 @@ export function Productos() {
           placeholder="Buscar por nombre..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
         />
       </div>
 
@@ -111,7 +111,7 @@ export function Productos() {
           <div className="py-16 text-center">
             <Package size={32} className="text-gray-200 mx-auto mb-3" />
             <p className="text-sm text-gray-400 mb-1">No hay productos en el catálogo</p>
-            <Link to="/productos/nuevo" className="text-sm text-brand-600 hover:underline">
+            <Link to="/productos/nuevo" className="text-sm text-sky-600 hover:underline">
               Agregar el primero
             </Link>
           </div>
@@ -159,7 +159,7 @@ export function Productos() {
                 <div className="flex items-center gap-2 shrink-0">
                   <Link
                     to={`/productos/${p.id}`}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-brand-600 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-sky-600 transition-colors"
                     title="Editar"
                   >
                     <Pencil size={15} />

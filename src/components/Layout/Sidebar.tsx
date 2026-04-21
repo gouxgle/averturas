@@ -68,7 +68,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Logo + close button mobile */}
       <div className="h-16 flex items-center px-4 border-b border-slate-700/50 shrink-0">
         <div className="flex items-center gap-3 flex-1">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shrink-0">
             <LayoutGrid size={18} className="text-white" />
           </div>
           <div>
@@ -135,7 +135,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* User */}
       <div className="p-3 border-t border-slate-700/50 shrink-0">
         <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shrink-0 shadow-sm">
             <span className="text-xs font-bold text-white">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">

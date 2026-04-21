@@ -157,7 +157,7 @@ export function ClienteDetalle() {
     return (
       <div className="p-6 text-center py-20">
         <p className="text-gray-400">Cliente no encontrado</p>
-        <button onClick={() => navigate('/clientes')} className="text-brand-600 text-sm mt-2 hover:underline">Volver</button>
+        <button onClick={() => navigate('/clientes')} className="text-emerald-600 text-sm mt-2 hover:underline">Volver</button>
       </div>
     );
   }
@@ -222,12 +222,12 @@ export function ClienteDetalle() {
                 </span>
               )}
               {cliente.telefono && (
-                <a href={`tel:${cliente.telefono}`} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-600">
+                <a href={`tel:${cliente.telefono}`} className="flex items-center gap-1 text-xs text-gray-500 hover:text-emerald-600">
                   <Phone size={11} /> {cliente.telefono}
                 </a>
               )}
               {cliente.email && (
-                <a href={`mailto:${cliente.email}`} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-600">
+                <a href={`mailto:${cliente.email}`} className="flex items-center gap-1 text-xs text-gray-500 hover:text-emerald-600">
                   <Mail size={11} /> {cliente.email}
                 </a>
               )}
@@ -266,7 +266,7 @@ export function ClienteDetalle() {
             </Link>
             <Link
               to={`/operaciones/nueva?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
-              className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">
               <Plus size={14} /> Nueva operación
             </Link>
           </div>
@@ -304,13 +304,13 @@ export function ClienteDetalle() {
                   value={nuevaTarea.descripcion}
                   onChange={e => setNuevaTarea(p => ({ ...p, descripcion: e.target.value }))}
                   placeholder="Descripción de la tarea..."
-                  className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   onKeyDown={e => { if (e.key === 'Enter') guardarTarea(); if (e.key === 'Escape') setMostrarFormTarea(false); }}
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <input type="date" value={nuevaTarea.vencimiento}
                     onChange={e => setNuevaTarea(p => ({ ...p, vencimiento: e.target.value }))}
-                    className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                   <select value={nuevaTarea.prioridad}
                     onChange={e => setNuevaTarea(p => ({ ...p, prioridad: e.target.value }))}
                     className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none bg-white">
@@ -321,7 +321,7 @@ export function ClienteDetalle() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={guardarTarea} disabled={savingTarea || !nuevaTarea.descripcion.trim()}
-                    className="flex-1 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs rounded-lg font-medium">
+                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs rounded-lg font-medium">
                     {savingTarea ? '...' : 'Guardar tarea'}
                   </button>
                   <button onClick={() => setMostrarFormTarea(false)}
@@ -383,7 +383,7 @@ export function ClienteDetalle() {
           {/* Operaciones resumen */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-              <ClipboardList size={14} className="text-brand-500" />
+              <ClipboardList size={14} className="text-emerald-500" />
               <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Operaciones</span>
               <span className="ml-auto text-xs text-gray-400">{operaciones.length}</span>
             </div>
@@ -457,10 +457,10 @@ export function ClienteDetalle() {
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); guardarInteraccion(); } }}
                 rows={2}
                 placeholder={`Registrar ${TIPO_INTERACCION[tipoSeleccionado].label.toLowerCase()}... (Enter para guardar, Shift+Enter para nueva línea)`}
-                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <button onClick={guardarInteraccion} disabled={savingInt || !textoInteraccion.trim()}
-                className="self-end px-3 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-sm rounded-lg transition-all shrink-0">
+                className="self-end px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm rounded-lg transition-all shrink-0">
                 {savingInt ? '...' : 'Guardar'}
               </button>
             </div>
@@ -518,12 +518,12 @@ export function ClienteDetalle() {
                     return (
                       <Link key={`op-${op.id}`} to={`/operaciones/${op.id}`}
                         className="flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                        <div className="w-7 h-7 rounded-lg bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
-                          <ClipboardList size={13} className="text-brand-500" />
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
+                          <ClipboardList size={13} className="text-emerald-500" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] font-semibold text-brand-600">Operación</span>
+                            <span className="text-[11px] font-semibold text-emerald-600">Operación</span>
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', colorClass)}>
                               {ESTADO_OP_LABEL[op.tipo]}
                             </span>

@@ -72,7 +72,7 @@ export function Dashboard() {
           </p>
         </div>
         <Link to="/presupuestos/nuevo"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md">
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md">
           <Plus size={16} /> Nuevo presupuesto
         </Link>
       </div>
@@ -208,7 +208,7 @@ function SectionCard({ title, subtitle, subtitleColor = 'text-gray-400', iconBg,
             {subtitle && <p className={`text-xs ${subtitleColor}`}>{subtitle}</p>}
           </div>
         </div>
-        <Link to={href} className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
+        <Link to={href} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
           {hrefLabel} <ArrowRight size={12} />
         </Link>
       </div>
@@ -217,7 +217,7 @@ function SectionCard({ title, subtitle, subtitleColor = 'text-gray-400', iconBg,
           <div className={`w-12 h-12 rounded-2xl ${emptyBg} flex items-center justify-center mx-auto mb-3`}>{emptyIcon}</div>
           <p className="text-sm font-medium text-gray-600">{emptyTitle}</p>
           {emptyHref
-            ? <Link to={emptyHref} className="text-xs text-brand-600 hover:underline mt-0.5 block">{emptyDesc}</Link>
+            ? <Link to={emptyHref} className="text-xs text-indigo-600 hover:underline mt-0.5 block">{emptyDesc}</Link>
             : <p className="text-xs text-gray-400 mt-0.5">{emptyDesc}</p>
           }
         </div>

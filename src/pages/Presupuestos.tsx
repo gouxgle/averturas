@@ -81,7 +81,7 @@ export function Presupuestos() {
         </div>
         <Link
           to="/presupuestos/nuevo"
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
+          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all"
         >
           <Plus size={16} /> Nuevo presupuesto
         </Link>
@@ -95,8 +95,8 @@ export function Presupuestos() {
             className={cn(
               'whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-medium border transition-all',
               filtro === value
-                ? 'bg-brand-600 text-white border-brand-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300 hover:text-brand-600'
+                ? 'bg-violet-600 text-white border-violet-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:text-violet-600'
             )}
           >
             {label}
@@ -111,7 +111,7 @@ export function Presupuestos() {
           placeholder="Buscar por número..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
         />
       </div>
 
@@ -129,7 +129,7 @@ export function Presupuestos() {
           <div className="py-16 text-center">
             <FileText size={32} className="text-gray-200 mx-auto mb-3" />
             <p className="text-sm text-gray-400 mb-1">No hay presupuestos</p>
-            <Link to="/presupuestos/nuevo" className="text-sm text-brand-600 hover:underline">
+            <Link to="/presupuestos/nuevo" className="text-sm text-violet-600 hover:underline">
               Crear el primero
             </Link>
           </div>
@@ -146,7 +146,7 @@ export function Presupuestos() {
                   <div className="w-32 shrink-0">
                     <button
                       onClick={() => navigate(`/operaciones/${op.id}`)}
-                      className="text-sm font-bold text-gray-800 hover:text-brand-600 transition-colors text-left"
+                      className="text-sm font-bold text-gray-800 hover:text-violet-600 transition-colors text-left"
                     >
                       {op.numero}
                     </button>

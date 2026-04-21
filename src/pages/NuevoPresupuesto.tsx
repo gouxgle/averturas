@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, BookOpen, X, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, BookOpen, X, ChevronRight, FileText } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -179,7 +179,7 @@ export function NuevoPresupuesto() {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500';
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
@@ -187,6 +187,9 @@ export function NuevoPresupuesto() {
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft size={18} className="text-gray-600" />
         </button>
+        <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
+          <FileText size={18} className="text-violet-600" />
+        </div>
         <div>
           <h1 className="text-xl font-bold text-gray-800">Nuevo presupuesto</h1>
           <p className="text-sm text-gray-500 mt-0.5">Cotización para cliente</p>
@@ -200,8 +203,8 @@ export function NuevoPresupuesto() {
           {TIPOS.map(t => (
             <button key={t.value} onClick={() => { setTipo(t.value); setShowCatalog(false); }}
               className={cn('text-left p-4 rounded-lg border-2 transition-all',
-                tipo === t.value ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300')}>
-              <p className={cn('text-sm font-semibold', tipo === t.value ? 'text-brand-700' : 'text-gray-700')}>{t.label}</p>
+                tipo === t.value ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-gray-300')}>
+              <p className={cn('text-sm font-semibold', tipo === t.value ? 'text-violet-700' : 'text-gray-700')}>{t.label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
             </button>
           ))}
@@ -212,12 +215,12 @@ export function NuevoPresupuesto() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Cliente *</h2>
         {clienteSeleccionado ? (
-          <div className="flex items-center justify-between bg-brand-50 rounded-lg px-4 py-3 border border-brand-200">
+          <div className="flex items-center justify-between bg-violet-50 rounded-lg px-4 py-3 border border-violet-200">
             <div>
-              <p className="text-sm font-semibold text-brand-800">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}</p>
-              <p className="text-xs text-brand-600">{clienteSeleccionado.telefono ?? '—'}</p>
+              <p className="text-sm font-semibold text-violet-800">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}</p>
+              <p className="text-xs text-violet-600">{clienteSeleccionado.telefono ?? '—'}</p>
             </div>
-            <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-brand-600 hover:underline">Cambiar</button>
+            <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-violet-600 hover:underline">Cambiar</button>
           </div>
         ) : (
           <div className="relative">
@@ -227,14 +230,14 @@ export function NuevoPresupuesto() {
               value={clienteSearch}
               onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
               onFocus={() => setShowClienteList(true)}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
             {showClienteList && clienteSearch && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                 {clientesFiltrados.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500">
                     No encontrado.{' '}
-                    <button className="text-brand-600 hover:underline" onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
+                    <button className="text-violet-600 hover:underline" onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
                       Crear cliente
                     </button>
                   </div>
@@ -256,7 +259,7 @@ export function NuevoPresupuesto() {
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">Proveedor</h2>
           <select value={proveedorId} onChange={e => setProveedorId(e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
             <option value="">Seleccionar proveedor...</option>
             {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
@@ -270,7 +273,7 @@ export function NuevoPresupuesto() {
           <div className="flex items-center gap-2">
             <button onClick={() => { setShowCatalog(v => !v); setCatalogSearch(''); }}
               className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all',
-                showCatalog ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-brand-600 border-brand-300 hover:bg-brand-50')}>
+                showCatalog ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-violet-600 border-violet-300 hover:bg-violet-50')}>
               <BookOpen size={13} />
               {showCatalog ? 'Cerrar catálogo' : 'Desde catálogo'}
             </button>
@@ -287,19 +290,19 @@ export function NuevoPresupuesto() {
               <input type="text"
                 placeholder={`Buscar en catálogo (${TIPOS.find(t => t.value === tipo)?.label ?? tipo})...`}
                 value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white" autoFocus />
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" autoFocus />
               <button onClick={() => setShowCatalog(false)} className="p-1.5 text-gray-400 hover:text-gray-600"><X size={16} /></button>
             </div>
             {catalogoFiltrado.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-3">
                 No hay productos de tipo "{TIPOS.find(t => t.value === tipo)?.label}" en el catálogo.{' '}
-                <button onClick={() => navigate('/productos/nuevo')} className="text-brand-600 hover:underline">Agregar</button>
+                <button onClick={() => navigate('/productos/nuevo')} className="text-violet-600 hover:underline">Agregar</button>
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                 {catalogoFiltrado.map(producto => (
                   <button key={producto.id} onClick={() => addFromCatalog(producto)}
-                    className="flex items-center gap-3 text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-all group">
+                    className="flex items-center gap-3 text-left p-3 bg-white rounded-lg border border-gray-200 hover:border-violet-400 hover:bg-violet-50 transition-all group">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{producto.nombre}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -313,7 +316,7 @@ export function NuevoPresupuesto() {
                         {formatCurrency(producto.precio_base)}
                         {producto.precio_por_m2 && <span className="text-xs font-normal text-gray-400">/m²</span>}
                       </p>
-                      <ChevronRight size={14} className="text-gray-300 group-hover:text-brand-500 ml-auto mt-0.5" />
+                      <ChevronRight size={14} className="text-gray-300 group-hover:text-violet-500 ml-auto mt-0.5" />
                     </div>
                   </button>
                 ))}
@@ -387,7 +390,7 @@ export function NuevoPresupuesto() {
                 </p>
               )}
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(item._key, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(item._key, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
                 <span className="text-xs text-gray-600">Incluye instalación</span>
               </label>
               {item.incluye_instalacion && (
@@ -432,19 +435,19 @@ export function NuevoPresupuesto() {
             <label className="block text-xs font-medium text-gray-500 mb-1">Notas para el cliente</label>
             <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={3}
               placeholder="Condiciones, aclaraciones, formas de pago..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Notas internas</label>
             <textarea value={notasInternas} onChange={e => setNotasInternas(e.target.value)} rows={2}
               placeholder="Solo para el equipo..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Válido hasta</label>
           <input type="date" value={fechaValidez} onChange={e => setFechaValidez(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
           <p className="text-xs text-gray-400 mt-1.5">Por defecto 30 días desde hoy</p>
         </div>
       </div>
@@ -452,7 +455,7 @@ export function NuevoPresupuesto() {
       <div className="flex justify-end gap-3">
         <button onClick={() => navigate(-1)} className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
+          className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
           <Save size={15} />
           {saving ? 'Guardando...' : 'Guardar presupuesto'}
         </button>

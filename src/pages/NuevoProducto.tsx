@@ -171,13 +171,13 @@ export function NuevoProducto() {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white';
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white';
   const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
 
-  const SectionHeader = ({ icon: Icon, label }: { icon: React.ElementType; label: string }) => (
-    <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-      <Icon size={13} className="text-gray-500" />
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{label}</span>
+  const SectionHeader = ({ icon: Icon, label, primary = false }: { icon: React.ElementType; label: string; primary?: boolean }) => (
+    <div className={cn('flex items-center gap-2 px-4 py-2.5 border-b', primary ? 'bg-sky-50 border-sky-100' : 'bg-gray-50 border-gray-100')}>
+      <Icon size={13} className={primary ? 'text-sky-500' : 'text-gray-400'} />
+      <span className={cn('text-[11px] font-semibold uppercase tracking-wider', primary ? 'text-sky-600' : 'text-gray-500')}>{label}</span>
     </div>
   );
 
@@ -201,7 +201,7 @@ export function NuevoProducto() {
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
+            className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
             <Save size={14} />
             {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
           </button>
@@ -210,7 +210,7 @@ export function NuevoProducto() {
 
       {/* Categoría */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <SectionHeader icon={Tag} label="Categoría de producto *" />
+        <SectionHeader icon={Tag} label="Categoría de producto *" primary />
         <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {CATEGORIAS.map(t => (
             <button key={t.value} onClick={() => {
@@ -220,9 +220,9 @@ export function NuevoProducto() {
               set('alto', '');
             }}
               className={cn('text-left p-3.5 rounded-lg border-2 transition-all',
-                form.tipo === t.value ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
+                form.tipo === t.value ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
               )}>
-              <p className={cn('text-sm font-semibold', form.tipo === t.value ? 'text-brand-700' : 'text-gray-700')}>
+              <p className={cn('text-sm font-semibold', form.tipo === t.value ? 'text-sky-700' : 'text-gray-700')}>
                 {t.label}
               </p>
               <p className="text-xs text-gray-500 mt-0.5 leading-tight">{t.desc}</p>
@@ -233,7 +233,7 @@ export function NuevoProducto() {
 
       {/* Datos principales */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <SectionHeader icon={Package} label="Datos del producto" />
+        <SectionHeader icon={Package} label="Datos del producto" primary />
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
@@ -289,7 +289,7 @@ export function NuevoProducto() {
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <input type="checkbox" checked={form.precio_por_m2}
                 onChange={e => set('precio_por_m2', e.target.checked)}
-                className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                className="rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
               <span className="text-sm text-gray-700">Precio base por m²</span>
               <span className="text-xs text-gray-400">(se multiplica por medidas del presupuesto)</span>
             </label>

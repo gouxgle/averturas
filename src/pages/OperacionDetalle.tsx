@@ -101,7 +101,7 @@ export function OperacionDetalle() {
     return (
       <div className="p-6 max-w-5xl mx-auto text-center py-20">
         <p className="text-gray-400">Operación no encontrada</p>
-        <button onClick={() => navigate('/operaciones')} className="text-brand-600 text-sm mt-2 hover:underline">Volver</button>
+        <button onClick={() => navigate('/operaciones')} className="text-amber-600 text-sm mt-2 hover:underline">Volver</button>
       </div>
     );
   }
@@ -135,7 +135,7 @@ export function OperacionDetalle() {
           )}
           {siguiente && (
             <button onClick={avanzarEstado} disabled={cambiandoEstado}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm rounded-lg font-medium">
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm rounded-lg font-medium">
               {ESTADOS.find(e => e.value === siguiente)?.label}
               <ChevronRight size={14} />
             </button>
@@ -148,13 +148,13 @@ export function OperacionDetalle() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center">
-                <User size={15} className="text-brand-700" />
+              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+                <User size={15} className="text-amber-700" />
               </div>
               <div>
                 {cliente ? (
                   <>
-                    <Link to={`/clientes/${cliente.id}`} className="text-sm font-semibold text-gray-800 hover:text-brand-600">
+                    <Link to={`/clientes/${cliente.id}`} className="text-sm font-semibold text-gray-800 hover:text-amber-600">
                       {cliente.nombre} {cliente.apellido ?? ''}
                     </Link>
                     {cliente.telefono && <p className="text-xs text-gray-400">{cliente.telefono}</p>}
