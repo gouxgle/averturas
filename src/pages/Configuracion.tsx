@@ -345,9 +345,9 @@ function PanelColores() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Tab = 'tipos_abertura' | 'sistemas' | 'colores';
+type Panel = 'tipos_abertura' | 'sistemas' | 'colores' | null;
 
-const ACTIVE_TABS: { id: Tab; label: string; icon: typeof Layers; desc: string }[] = [
+const CATALOG_BTNS: { id: Exclude<Panel, null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
@@ -360,7 +360,11 @@ const PENDING = [
 ];
 
 export function Configuracion() {
-  const [tab, setTab] = useState<Tab>('tipos_abertura');
+  const [openPanel, setOpenPanel] = useState<Panel>(null);
+
+  function togglePanel(id: Exclude<Panel, null>) {
+    setOpenPanel(prev => (prev === id ? null : id));
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -375,40 +379,9 @@ export function Configuracion() {
         </div>
       </div>
 
-      {/* Catálogo de productos */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-700">Catálogo de productos</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Opciones disponibles en los desplegables al crear productos</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-gray-100 bg-gray-50">
-          {ACTIVE_TABS.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => setTab(id)}
-              className={cn(
-                'flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
-                tab === id
-                  ? 'border-slate-700 text-slate-700 bg-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              )}>
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Panel content */}
-        <div className="p-5">
-          {tab === 'tipos_abertura' && <PanelTiposAbertura />}
-          {tab === 'sistemas'       && <PanelSistemas />}
-          {tab === 'colores'        && <PanelColores />}
-        </div>
-      </div>
-
       {/* Próximamente */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Próximamente</h2>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">General</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {PENDING.map(({ icon: Icon, label, desc, color, bg }) => (
             <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 opacity-60 cursor-not-allowed">
@@ -420,6 +393,43 @@ export function Configuracion() {
               <span className="inline-block mt-3 text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-wide">
                 Próximamente
               </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Catálogo de productos */}
+      <div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Catálogo de productos</h2>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {CATALOG_BTNS.map(({ id, label, icon: Icon, desc }, idx) => (
+            <div key={id}>
+              {idx > 0 && <div className="border-t border-gray-100" />}
+              <button
+                onClick={() => togglePanel(id)}
+                className={cn(
+                  'w-full flex items-center justify-between px-5 py-4 text-left transition-colors',
+                  openPanel === id ? 'bg-slate-50' : 'hover:bg-gray-50'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', openPanel === id ? 'bg-slate-200' : 'bg-gray-100')}>
+                    <Icon size={16} className={openPanel === id ? 'text-slate-700' : 'text-gray-500'} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{label}</p>
+                    <p className="text-xs text-gray-400">{desc}</p>
+                  </div>
+                </div>
+                <X size={16} className={cn('text-gray-400 transition-transform', openPanel === id ? 'rotate-0' : 'rotate-45')} />
+              </button>
+              {openPanel === id && (
+                <div className="px-5 pb-5 pt-2 border-t border-gray-100">
+                  {id === 'tipos_abertura' && <PanelTiposAbertura />}
+                  {id === 'sistemas'       && <PanelSistemas />}
+                  {id === 'colores'        && <PanelColores />}
+                </div>
+              )}
             </div>
           ))}
         </div>
