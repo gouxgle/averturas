@@ -121,30 +121,32 @@ export function Productos() {
               <div
                 key={p.id}
                 className={cn(
-                  'flex items-center gap-4 px-5 py-4 transition-colors',
+                  'flex items-center gap-3 px-4 py-3 transition-colors',
                   !p.activo && 'opacity-50 bg-gray-50'
                 )}
               >
-                <div className="w-28 shrink-0">
+                {/* Imagen thumbnail */}
+                <div className="w-10 h-10 shrink-0 rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
+                  {p.imagen_url
+                    ? <img src={p.imagen_url} alt="" className="w-full h-full object-cover" />
+                    : <Package size={16} className="text-gray-300" />}
+                </div>
+                <div className="w-24 shrink-0">
                   <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', TIPO_COLOR[p.tipo])}>
                     {TIPO_LABEL[p.tipo]}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{p.nombre}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
-                    {(p.tipo_abertura as any)?.nombre && (
-                      <span>{(p.tipo_abertura as any).nombre}</span>
-                    )}
-                    {(p.sistema as any)?.nombre && (
-                      <span>· {(p.sistema as any).nombre}</span>
-                    )}
-                    {p.ancho && p.alto && (
-                      <span>· {p.ancho} × {p.alto} cm</span>
-                    )}
-                    {p.precio_por_m2 && (
-                      <span className="text-violet-500">· precio/m²</span>
-                    )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{p.nombre}</p>
+                    {p.codigo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono">{p.codigo}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400 flex-wrap">
+                    {(p.tipo_abertura as any)?.nombre && <span>{(p.tipo_abertura as any).nombre}</span>}
+                    {(p.sistema as any)?.nombre && <span>· {(p.sistema as any).nombre}</span>}
+                    {p.color && <span>· {p.color}</span>}
+                    {p.ancho && p.alto && <span>· {p.ancho} × {p.alto} cm</span>}
+                    {p.precio_por_m2 && <span className="text-violet-500">· precio/m²</span>}
                   </div>
                 </div>
                 <div className="text-right shrink-0 w-36">

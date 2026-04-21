@@ -35,6 +35,8 @@ services:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
       JWT_SECRET:   ${JWT_SECRET}
       NODE_ENV:     production
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy

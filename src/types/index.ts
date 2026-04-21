@@ -173,6 +173,17 @@ export interface Producto {
   precio_base: number;
   precio_por_m2: boolean;
   activo: boolean;
+  codigo: string | null;
+  color: string | null;
+  stock_inicial: number;
+  stock_minimo: number;
+  proveedor_id: string | null;
+  proveedor?: Proveedor;
+  imagen_url: string | null;
+  desc_corta: string | null;
+  desc_larga: string | null;
+  desc_materiales: string | null;
+  desc_instalacion: string | null;
   created_at: string;
 }
 

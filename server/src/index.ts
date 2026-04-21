@@ -40,6 +40,9 @@ apiAuth.route('/tareas',        tareasRoutes);
 api.route('/', apiAuth);
 app.route('/api', api);
 
+// ── Servir uploads (imágenes productos, etc.) ─────────────────
+app.use('/uploads/*', serveStatic({ root: '.' }));
+
 // ── Servir frontend estático ──────────────────────────────────
 app.use('*', serveStatic({ root: './public' }));
 
