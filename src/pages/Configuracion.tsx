@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Truck, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Truck, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,7 @@ interface TipoAbertura { id: string; nombre: string; descripcion: string | null;
 interface Sistema { id: string; nombre: string; material: string | null; descripcion: string | null; activo: boolean; }
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
 interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; }
+interface Usuario { id: string; nombre: string; email: string; rol: 'admin' | 'vendedor' | 'consulta'; activo: boolean; created_at: string; }
 
 // ── Small inline form ─────────────────────────────────────────────────────────
 
@@ -421,23 +423,208 @@ function PanelEmpresa() {
   );
 }
 
+// ── Panel: Usuarios ──────────────────────────────────────────────────────────
+
+const ROL_LABELS: Record<string, string> = { admin: 'Administrador', vendedor: 'Vendedor', consulta: 'Solo lectura' };
+const ROL_COLORS: Record<string, string> = {
+  admin:    'bg-violet-100 text-violet-700',
+  vendedor: 'bg-sky-100 text-sky-700',
+  consulta: 'bg-gray-100 text-gray-600',
+};
+
+const emptyUserForm = () => ({ nombre: '', email: '', password: '', rol: 'vendedor' as Usuario['rol'] });
+
+function UserForm({ initial, onSave, onCancel, isEdit, currentUserId }: {
+  initial: { nombre: string; email: string; password: string; rol: Usuario['rol'] };
+  onSave: (vals: typeof initial) => Promise<void>;
+  onCancel: () => void;
+  isEdit: boolean;
+  currentUserId?: string;
+}) {
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+
+  function set(field: string, value: string) { setForm(p => ({ ...p, [field]: value })); }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try { await onSave(form); } finally { setSaving(false); }
+  }
+
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white';
+  const labelCls = 'block text-xs font-medium text-gray-500 mb-1';
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Nombre *</label>
+          <input required type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)} className={inputCls} placeholder="Juan Pérez" />
+        </div>
+        <div>
+          <label className={labelCls}>Email *</label>
+          <input required type="email" value={form.email} onChange={e => set('email', e.target.value)} className={inputCls} placeholder="juan@empresa.com" />
+        </div>
+        <div className="relative">
+          <label className={labelCls}>{isEdit ? 'Nueva contraseña (dejar vacío = no cambiar)' : 'Contraseña *'}</label>
+          <input
+            type={showPwd ? 'text' : 'password'}
+            required={!isEdit}
+            value={form.password}
+            onChange={e => set('password', e.target.value)}
+            className={inputCls + ' pr-9'}
+            placeholder={isEdit ? '••••••••' : 'Mínimo 6 caracteres'}
+          />
+          <button type="button" onClick={() => setShowPwd(v => !v)}
+            className="absolute right-2.5 bottom-2 text-gray-400 hover:text-gray-600">
+            {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+        <div>
+          <label className={labelCls}>Rol *</label>
+          <select value={form.rol} onChange={e => set('rol', e.target.value)} className={inputCls}>
+            <option value="admin">Administrador</option>
+            <option value="vendedor">Vendedor</option>
+            <option value="consulta">Solo lectura</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-1">
+        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100">
+          Cancelar
+        </button>
+        <button type="submit" disabled={saving}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white text-sm rounded-lg font-medium">
+          <Check size={14} /> {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear usuario'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      const data = await api.get<Usuario[]>('/usuarios');
+      setUsuarios(data);
+    } catch { /* non-admin sees nothing */ }
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(vals: ReturnType<typeof emptyUserForm>) {
+    await api.post('/usuarios', vals);
+    toast.success('Usuario creado');
+    setAdding(false);
+    load();
+  }
+
+  async function handleEdit(id: string, vals: ReturnType<typeof emptyUserForm>) {
+    await api.put(`/usuarios/${id}`, { ...vals, activo: true });
+    toast.success('Usuario actualizado');
+    setEditId(null);
+    load();
+  }
+
+  async function toggleActivo(u: Usuario) {
+    try {
+      await api.put(`/usuarios/${u.id}`, { nombre: u.nombre, email: u.email, rol: u.rol, activo: !u.activo, password: '' });
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 py-4">Cargando...</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">{usuarios.filter(u => u.activo).length} activos · {usuarios.length} total</p>
+        <button onClick={() => { setAdding(true); setEditId(null); }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
+          <Plus size={13} /> Nuevo usuario
+        </button>
+      </div>
+
+      {adding && (
+        <UserForm
+          initial={emptyUserForm()}
+          onSave={handleAdd}
+          onCancel={() => setAdding(false)}
+          isEdit={false}
+          currentUserId={currentUserId}
+        />
+      )}
+
+      <div className="divide-y divide-gray-100">
+        {usuarios.map(u => (
+          <div key={u.id} className={cn('py-3', !u.activo && 'opacity-50')}>
+            {editId === u.id ? (
+              <UserForm
+                initial={{ nombre: u.nombre, email: u.email, password: '', rol: u.rol }}
+                onSave={vals => handleEdit(u.id, vals)}
+                onCancel={() => setEditId(null)}
+                isEdit={true}
+                currentUserId={currentUserId}
+              />
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-semibold text-slate-600">{u.nombre.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-800">{u.nombre}</p>
+                    <span className={cn('text-[11px] font-medium px-1.5 py-0.5 rounded-full', ROL_COLORS[u.rol])}>
+                      {ROL_LABELS[u.rol]}
+                    </span>
+                    {u.id === currentUserId && (
+                      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Vos</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400">{u.email}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => { setEditId(u.id); setAdding(false); }}
+                    className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => toggleActivo(u)}
+                    className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100"
+                    title={u.activo ? 'Desactivar' : 'Activar'}>
+                    {u.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {usuarios.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin usuarios</p>}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'tipos_abertura' | 'sistemas' | 'colores' | null;
+type Panel = 'empresa' | 'usuarios' | 'tipos_abertura' | 'sistemas' | 'colores' | null;
 
-const GENERAL_BTNS: { id: 'empresa'; label: string; icon: typeof Building2; desc: string }[] = [
-  { id: 'empresa', label: 'Empresa', icon: Building2, desc: 'Datos del negocio, CUIT, contacto' },
-];
-
-const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | null>; label: string; icon: typeof Layers; desc: string }[] = [
+const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
 ];
 
 const PENDING = [
-  { icon: Users, label: 'Usuarios',    desc: 'Accesos y permisos del equipo',  color: 'text-blue-600',  bg: 'bg-blue-100' },
-  { icon: Truck, label: 'Proveedores', desc: 'Gestión de proveedores',         color: 'text-amber-600', bg: 'bg-amber-100' },
+  { icon: Truck, label: 'Proveedores', desc: 'Gestión de proveedores', color: 'text-amber-600', bg: 'bg-amber-100' },
 ];
 
 function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }: {
@@ -475,6 +662,7 @@ function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }
 
 export function Configuracion() {
   const [openPanel, setOpenPanel] = useState<Panel>(null);
+  const { user } = useAuth();
 
   function togglePanel(id: Exclude<Panel, null>) {
     setOpenPanel(prev => (prev === id ? null : id));
@@ -497,18 +685,21 @@ export function Configuracion() {
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">General</h2>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {GENERAL_BTNS.map(({ id, label, icon, desc }) => (
-            <AccordionItem key={id} id={id} label={label} icon={icon} desc={desc}
-              open={openPanel === id} onToggle={() => togglePanel(id)}>
-              <PanelEmpresa />
-            </AccordionItem>
-          ))}
+          <AccordionItem id="empresa" label="Empresa" icon={Building2} desc="Datos del negocio, CUIT, contacto"
+            open={openPanel === 'empresa'} onToggle={() => togglePanel('empresa')}>
+            <PanelEmpresa />
+          </AccordionItem>
+          <div className="border-t border-gray-100" />
+          <AccordionItem id="usuarios" label="Usuarios" icon={Users} desc="Accesos y roles del equipo"
+            open={openPanel === 'usuarios'} onToggle={() => togglePanel('usuarios')}>
+            <PanelUsuarios currentUserId={user?.id ?? ''} />
+          </AccordionItem>
         </div>
       </div>
 
       {/* Próximamente */}
       {PENDING.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
           {PENDING.map(({ icon: Icon, label, desc, color, bg }) => (
             <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 opacity-50 cursor-not-allowed">
               <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-3`}>

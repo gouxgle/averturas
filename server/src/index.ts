@@ -13,6 +13,7 @@ import dashboardRoutes    from './routes/dashboard.js';
 import interaccionesRoutes from './routes/interacciones.js';
 import tareasRoutes        from './routes/tareas.js';
 import empresaRoutes       from './routes/empresa.js';
+import usuariosRoutes      from './routes/usuarios.js';
 import { authMiddleware } from './middleware/auth.js';
 
 const app = new Hono();
@@ -38,6 +39,7 @@ apiAuth.route('/dashboard',     dashboardRoutes);
 apiAuth.route('/interacciones', interaccionesRoutes);
 apiAuth.route('/tareas',        tareasRoutes);
 apiAuth.route('/empresa',       empresaRoutes);
+apiAuth.route('/usuarios',      usuariosRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);
