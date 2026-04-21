@@ -1,0 +1,135 @@
+================================================================================
+ABERTURAS — REGISTRO DE CAMBIOS
+================================================================================
+Historial cronológico de modificaciones del sistema.
+Formato: [TIPO] Descripción — Detalle técnico
+--------------------------------------------------------------------------------
+
+================================================================================
+2026-04-20
+================================================================================
+
+[FEAT] Productos — nuevos campos, imagen, stock, proveedor
+  · Nuevo campo: Código de producto (texto libre, único)
+  · Nuevo campo: Color (menú desplegable — Blanco, Negro, Gris oscuro, etc.)
+  · Nuevo campo: Stock inicial y Stock mínimo (con alerta visual)
+  · Nuevo campo: Proveedor (selector desde lista de proveedores)
+  · Nuevo campo: Imagen del producto (upload desde galería, se guarda en /uploads/productos/)
+  · Nuevo campo: 4 descripciones — Corta, Larga, Materiales, Instalación
+  · UI: "Tipo de producto" renombrado a "Categoría de producto"
+  · UI: "Sistema / Línea" renombrado a "Sistema"
+  · Lista de productos: muestra thumbnail, código en badge, color
+  · Backend: endpoint POST /api/productos/upload-imagen
+  · Docker: volumen ./uploads:/app/uploads para persistencia de imágenes
+  · Migración: 20260420000002_productos_nuevos_campos.sql
+
+[FEAT] Diseño responsive — soporte mobile y desktop
+  · Sidebar: oculta en mobile, abre como drawer con overlay al tocar hamburger
+  · Sidebar: botón X para cerrar, se cierra al navegar
+  · Top bar mobile: hamburguer + logo visible sin sidebar
+  · Clientes: header apilado en mobile, botón "Nuevo cliente" ancho completo
+  · Clientes: stats grid 2 cols mobile → 3 cols tablet → 5 cols desktop
+  · Clientes: filtros con wrap para que no desborden en pantallas chicas
+  · NuevoCliente: header en 2 filas, grids 1→2→3 columnas según breakpoint
+  · Secciones Contacto/Ubicación/Clasificación/Notas apiladas en mobile
+
+[FEAT] Clientes — campo Teléfono fijo
+  · Sección Contacto ahora tiene 3 campos: Celular/WhatsApp · Tel. fijo (opcional) · Email
+  · Migración: 20260420000001_clientes_telefono_fijo.sql
+
+[CHORE] Script deploy.sh
+  · Un solo comando para actualizar la VM: git pull + migrate + rebuild + restart
+  · Uso: bash deploy.sh
+
+================================================================================
+2026-04-19
+================================================================================
+
+[FIX] Corrección ortográfica — Averturas → Aberturas
+  · Renombrado en 15 archivos: código, configuración, Docker, SQL, UI
+  · Directorio del proyecto renombrado de Averturas/ a Aberturas/
+  · Containers Docker renombrados: aberturas-db, aberturas-app
+
+[FEAT] Clientes — campos de fidelización
+  · Nuevo campo: Fecha de nacimiento (para recordatorios de cumpleaños)
+  · Nuevo campo: Género (Masculino / Femenino / Otro) — solo personas físicas
+  · Nuevo campo: Preferencia de contacto (WhatsApp / Llamada / Email / Visita)
+  · Nuevo campo: Acepta comunicaciones de marketing (checkbox)
+  · Nuevo campo: Referido por (selector de clientes existentes — cadena de referidos)
+  · Migración: 20260419000001_clientes_genero.sql
+  · Migración: 20260419000002_clientes_fidelizacion.sql
+
+================================================================================
+2026-04-16
+================================================================================
+
+[FEAT] NuevoCliente — formulario optimizado para carga rápida
+  · Enter avanza al siguiente campo (hook useEnterAdvance)
+  · Toggle Persona física / Empresa en el header del form
+  · Layout sin scroll en 1280×1024
+  · Secciones: Identificación (full width) · Contacto · Ubicación · Clasificación · Notas
+  · Normalización automática a Title Case al guardar (García, Juan)
+  · Formato de nombre: Apellido, Nombre
+
+[FEAT] Módulo Clientes — tipo persona, DNI/CUIT
+  · Nuevo campo: tipo_persona (física / jurídica)
+  · Nuevo campo: documento_nro (DNI para físicas, CUIT para jurídicas)
+  · Label e ícono cambian según tipo de persona
+  · Migración: 20260415000001_clientes_documento.sql
+
+[FEAT] CRM — trazabilidad completa del cliente
+  · Nuevo campo clientes: estado (Prospecto / Activo / Recurrente / Inactivo / Perdido)
+  · Nuevo campo clientes: origen (Recomendación / Redes / Web / Visita / Otro)
+  · Nuevo campo clientes: fecha_nacimiento
+  · Nueva tabla: tareas (vencimiento, prioridad, completada)
+  · Interacciones ampliadas: nota, llamada, visita, whatsapp, email,
+    presupuesto_enviado, operacion_completada, reclamo, garantía
+  · ClienteDetalle: panel de tareas, timeline cronológico de interacciones + operaciones
+  · Clientes lista: badge de estado, días sin contacto con color (verde≤7d/amarillo≤30d/rojo>30d)
+  · Dashboard: nuevas métricas — prospectos, sin_contacto_30, tareas_vencidas
+  · Migración: 20260415000002_crm_clientes.sql
+
+[FEAT] Sistema de migraciones con tracking
+  · Script migrate.sh — aplica solo migraciones pendientes sin pisar datos
+  · Tabla schema_migrations para tracking de versiones aplicadas
+  · Auto-detección de migraciones ya aplicadas en DBs sin tracking previo
+  · Seguro para correr sobre VMs con datos existentes
+
+[FIX] Auto-inicialización de DB en primer deploy
+  · Script docker/initdb/01_schema.sh ejecutado automáticamente por PostgreSQL
+  · Admin creado desde seed.sql con hash bcrypt (no requiere setup manual)
+  · Acceso DBeaver: puerto 5432 expuesto en localhost
+
+================================================================================
+2026-04-14
+================================================================================
+
+[REFACTOR] Reemplazo Supabase self-hosted por backend Node.js + Hono
+  · Stack: Node.js + Hono + node-postgres (pg) + JWT + bcryptjs
+  · Un solo container Docker (frontend Vite buildado + API en el mismo proceso)
+  · Sin dependencias externas — todo corre en la VM propia
+
+[FEAT] Módulos base del sistema
+  · Módulo Productos — catálogo con precios, tipos, sistemas, medidas
+  · Módulo Presupuestos — generación y seguimiento
+  · Módulo Operaciones — estados de trabajo
+  · Módulo Clientes — CRM base
+  · Dashboard — estadísticas de presupuestos y ventas
+
+[FEAT] Sistema base — Etapa 1
+  · Autenticación JWT con roles (admin / vendedor / consulta)
+  · Schema PostgreSQL completo — clientes, operaciones, catálogo, usuarios
+  · Seed con datos de referencia (tipos de abertura, sistemas, materiales)
+
+[STYLE] Rediseño visual completo
+  · Sidebar oscura (slate-900) con grupos de navegación
+  · Paleta de colores por módulo (emerald=clientes, sky=productos, violet=presupuestos)
+  · Componentes con bordes suaves, sombras y badges de estado
+
+[SECURITY] DB sin puerto expuesto al host
+  · PostgreSQL solo accesible desde red interna Docker
+  · JWT_SECRET configurable por variable de entorno
+
+================================================================================
+FIN DEL REGISTRO
+================================================================================
