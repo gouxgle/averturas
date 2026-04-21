@@ -180,10 +180,10 @@ export interface Producto {
   proveedor_id: string | null;
   proveedor?: Proveedor;
   imagen_url: string | null;
-  desc_corta: string | null;
-  desc_larga: string | null;
-  desc_materiales: string | null;
-  desc_instalacion: string | null;
+  caracteristica_1: string | null;
+  caracteristica_2: string | null;
+  caracteristica_3: string | null;
+  caracteristica_4: string | null;
   created_at: string;
 }
 

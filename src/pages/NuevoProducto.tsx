@@ -46,10 +46,10 @@ export function NuevoProducto() {
     precio_base: '',
     precio_por_m2: false,
     imagen_url: '',
-    desc_corta: '',
-    desc_larga: '',
-    desc_materiales: '',
-    desc_instalacion: '',
+    caracteristica_1: '',
+    caracteristica_2: '',
+    caracteristica_3: '',
+    caracteristica_4: '',
     activo: true,
   });
 
@@ -83,10 +83,10 @@ export function NuevoProducto() {
           precio_base:      String(data.precio_base),
           precio_por_m2:    data.precio_por_m2 ?? false,
           imagen_url:       data.imagen_url ?? '',
-          desc_corta:       data.desc_corta ?? '',
-          desc_larga:       data.desc_larga ?? '',
-          desc_materiales:  data.desc_materiales ?? '',
-          desc_instalacion: data.desc_instalacion ?? '',
+          caracteristica_1:       data.caracteristica_1 ?? '',
+          caracteristica_2:       data.caracteristica_2 ?? '',
+          caracteristica_3:  data.caracteristica_3 ?? '',
+          caracteristica_4: data.caracteristica_4 ?? '',
           activo:           data.activo ?? true,
         });
       });
@@ -149,10 +149,10 @@ export function NuevoProducto() {
         precio_base:      parseFloat(form.precio_base),
         precio_por_m2:    form.precio_por_m2,
         imagen_url:       form.imagen_url || null,
-        desc_corta:       form.desc_corta.trim() || null,
-        desc_larga:       form.desc_larga.trim() || null,
-        desc_materiales:  form.desc_materiales.trim() || null,
-        desc_instalacion: form.desc_instalacion.trim() || null,
+        caracteristica_1:       form.caracteristica_1.trim() || null,
+        caracteristica_2:       form.caracteristica_2.trim() || null,
+        caracteristica_3:  form.caracteristica_3.trim() || null,
+        caracteristica_4: form.caracteristica_4.trim() || null,
         activo:           form.activo,
       };
 
@@ -389,36 +389,33 @@ export function NuevoProducto() {
 
       {/* 4 Descripciones */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <SectionHeader icon={FileText} label="Descripciones" />
+        <SectionHeader icon={FileText} label="Características del producto" />
         <div className="p-4 space-y-3">
+          <p className="text-[11px] text-gray-400">Se muestran en el detalle del producto y en la tienda online.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Descripción corta</label>
-              <textarea value={form.desc_corta} onChange={e => set('desc_corta', e.target.value)}
-                rows={2} placeholder="Resumen breve para listados y tienda..."
-                className={inputCls + ' resize-none'} />
+              <label className={labelCls}>Característica 1</label>
+              <input value={form.caracteristica_1} onChange={e => set('caracteristica_1', e.target.value)}
+                placeholder="Ej: Doble vidriado hermético" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Descripción larga</label>
-              <textarea value={form.desc_larga} onChange={e => set('desc_larga', e.target.value)}
-                rows={2} placeholder="Descripción completa del producto..."
-                className={inputCls + ' resize-none'} />
+              <label className={labelCls}>Característica 2</label>
+              <input value={form.caracteristica_2} onChange={e => set('caracteristica_2', e.target.value)}
+                placeholder="Ej: Perfil de aluminio serie 25" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Materiales</label>
-              <textarea value={form.desc_materiales} onChange={e => set('desc_materiales', e.target.value)}
-                rows={2} placeholder="Aluminio serie 20, vidrio 4mm DVH..."
-                className={inputCls + ' resize-none'} />
+              <label className={labelCls}>Característica 3</label>
+              <input value={form.caracteristica_3} onChange={e => set('caracteristica_3', e.target.value)}
+                placeholder="Ej: Burlete de goma incluido" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Instalación</label>
-              <textarea value={form.desc_instalacion} onChange={e => set('desc_instalacion', e.target.value)}
-                rows={2} placeholder="Instrucciones o notas de instalación..."
-                className={inputCls + ' resize-none'} />
+              <label className={labelCls}>Característica 4</label>
+              <input value={form.caracteristica_4} onChange={e => set('caracteristica_4', e.target.value)}
+                placeholder="Ej: Apertura tipo batiente" className={inputCls} />
             </div>
           </div>
           <div>
-            <label className={labelCls}>Notas internas</label>
+            <label className={labelCls}>Descripción / Notas internas</label>
             <textarea value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
               rows={2} placeholder="Notas internas, referencias de proveedor..."
               className={inputCls + ' resize-none'} />

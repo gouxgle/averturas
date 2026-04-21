@@ -78,7 +78,7 @@ productos.post('/', async (c) => {
       (nombre, descripcion, tipo, tipo_abertura_id, sistema_id,
        ancho, alto, costo_base, precio_base, precio_por_m2, activo,
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
-       imagen_url, desc_corta, desc_larga, desc_materiales, desc_instalacion)
+       imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
     RETURNING *
   `, [
@@ -99,10 +99,10 @@ productos.post('/', async (c) => {
     b.stock_minimo ?? 0,
     b.proveedor_id || null,
     b.imagen_url || null,
-    b.desc_corta?.trim() || null,
-    b.desc_larga?.trim() || null,
-    b.desc_materiales?.trim() || null,
-    b.desc_instalacion?.trim() || null,
+    b.caracteristica_1?.trim() || null,
+    b.caracteristica_2?.trim() || null,
+    b.caracteristica_3?.trim() || null,
+    b.caracteristica_4?.trim() || null,
   ]);
   return c.json(row, 201);
 });
@@ -128,10 +128,10 @@ productos.put('/:id', async (c) => {
       stock_minimo     = $15,
       proveedor_id     = $16,
       imagen_url       = $17,
-      desc_corta       = $18,
-      desc_larga       = $19,
-      desc_materiales  = $20,
-      desc_instalacion = $21
+      caracteristica_1       = $18,
+      caracteristica_2       = $19,
+      caracteristica_3  = $20,
+      caracteristica_4 = $21
     WHERE id = $22 RETURNING *
   `, [
     b.nombre?.trim(),
@@ -151,10 +151,10 @@ productos.put('/:id', async (c) => {
     b.stock_minimo ?? 0,
     b.proveedor_id || null,
     b.imagen_url || null,
-    b.desc_corta?.trim() || null,
-    b.desc_larga?.trim() || null,
-    b.desc_materiales?.trim() || null,
-    b.desc_instalacion?.trim() || null,
+    b.caracteristica_1?.trim() || null,
+    b.caracteristica_2?.trim() || null,
+    b.caracteristica_3?.trim() || null,
+    b.caracteristica_4?.trim() || null,
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
