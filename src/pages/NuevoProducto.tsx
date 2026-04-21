@@ -12,11 +12,6 @@ const CATEGORIAS: { value: TipoOperacion; label: string; desc: string }[] = [
   { value: 'fabricacion_propia', label: 'Fabricación propia', desc: 'Fabricado en taller propio' },
 ];
 
-const COLORES = [
-  'Blanco', 'Negro', 'Gris oscuro', 'Gris plata', 'Natural', 'Bronce',
-  'Champagne', 'Arena', 'Madera natural', 'Nogal', 'Roble', 'Otro',
-];
-
 export function NuevoProducto() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -28,6 +23,7 @@ export function NuevoProducto() {
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
   const [sistemas, setSistemas] = useState<Sistema[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [colores, setColores] = useState<{ id: string; nombre: string; hex: string | null }[]>([]);
 
   const [form, setForm] = useState({
     nombre: '',
@@ -58,10 +54,12 @@ export function NuevoProducto() {
       api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
       api.get<Sistema[]>('/catalogo/sistemas'),
       api.get<Proveedor[]>('/catalogo/proveedores'),
-    ]).then(([ta, s, prov]) => {
+      api.get<{ id: string; nombre: string; hex: string | null }[]>('/catalogo/colores'),
+    ]).then(([ta, s, prov, col]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setProveedores(prov);
+      setColores(col);
     });
 
     if (isEdit && id) {
@@ -267,7 +265,7 @@ export function NuevoProducto() {
               <label className={labelCls}>Color</label>
               <select value={form.color} onChange={e => set('color', e.target.value)} className={inputCls}>
                 <option value="">—</option>
-                {COLORES.map(c => <option key={c} value={c}>{c}</option>)}
+                {colores.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
               </select>
             </div>
           </div>

@@ -3,19 +3,116 @@ import { db } from '../db.js';
 
 const catalogo = new Hono();
 
+// ── Tipos de abertura ─────────────────────────────────────────────────────────
+
 catalogo.get('/tipos-abertura', async (c) => {
+  const all = c.req.query('all') === '1';
   const { rows } = await db.query(
-    `SELECT * FROM tipos_abertura WHERE activo = true ORDER BY orden, nombre`
+    `SELECT * FROM tipos_abertura ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
   );
   return c.json(rows);
 });
 
-catalogo.get('/sistemas', async (c) => {
+catalogo.post('/tipos-abertura', async (c) => {
+  const { nombre, descripcion, icono, orden } = await c.req.json();
+  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
   const { rows } = await db.query(
-    `SELECT * FROM sistemas WHERE activo = true ORDER BY nombre`
+    `INSERT INTO tipos_abertura (nombre, descripcion, icono, orden)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [nombre.trim(), descripcion || null, icono || null, orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/tipos-abertura/:id', async (c) => {
+  const { nombre, descripcion, icono, orden, activo } = await c.req.json();
+  const { rows } = await db.query(
+    `UPDATE tipos_abertura SET nombre=$1, descripcion=$2, icono=$3, orden=$4, activo=$5
+     WHERE id=$6 RETURNING *`,
+    [nombre?.trim(), descripcion || null, icono || null, orden ?? 0, activo ?? true, c.req.param('id')]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+catalogo.delete('/tipos-abertura/:id', async (c) => {
+  await db.query(`UPDATE tipos_abertura SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+// ── Sistemas ──────────────────────────────────────────────────────────────────
+
+catalogo.get('/sistemas', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM sistemas ${all ? '' : 'WHERE activo = true'} ORDER BY nombre`
   );
   return c.json(rows);
 });
+
+catalogo.post('/sistemas', async (c) => {
+  const { nombre, material, descripcion } = await c.req.json();
+  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const { rows } = await db.query(
+    `INSERT INTO sistemas (nombre, material, descripcion)
+     VALUES ($1, $2, $3) RETURNING *`,
+    [nombre.trim(), material || null, descripcion || null]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/sistemas/:id', async (c) => {
+  const { nombre, material, descripcion, activo } = await c.req.json();
+  const { rows } = await db.query(
+    `UPDATE sistemas SET nombre=$1, material=$2, descripcion=$3, activo=$4
+     WHERE id=$5 RETURNING *`,
+    [nombre?.trim(), material || null, descripcion || null, activo ?? true, c.req.param('id')]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+catalogo.delete('/sistemas/:id', async (c) => {
+  await db.query(`UPDATE sistemas SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+// ── Colores ───────────────────────────────────────────────────────────────────
+
+catalogo.get('/colores', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM colores ${all ? '' : 'WHERE activo = true'} ORDER BY nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/colores', async (c) => {
+  const { nombre, hex } = await c.req.json();
+  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const { rows } = await db.query(
+    `INSERT INTO colores (nombre, hex) VALUES ($1, $2) RETURNING *`,
+    [nombre.trim(), hex || null]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/colores/:id', async (c) => {
+  const { nombre, hex, activo } = await c.req.json();
+  const { rows } = await db.query(
+    `UPDATE colores SET nombre=$1, hex=$2, activo=$3 WHERE id=$4 RETURNING *`,
+    [nombre?.trim(), hex || null, activo ?? true, c.req.param('id')]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+catalogo.delete('/colores/:id', async (c) => {
+  await db.query(`UPDATE colores SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+// ── Otros ─────────────────────────────────────────────────────────────────────
 
 catalogo.get('/categorias-cliente', async (c) => {
   const { rows } = await db.query(
