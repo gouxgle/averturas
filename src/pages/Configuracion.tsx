@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Truck, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Truck, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 interface TipoAbertura { id: string; nombre: string; descripcion: string | null; icono: string | null; orden: number; activo: boolean; }
 interface Sistema { id: string; nombre: string; material: string | null; descripcion: string | null; activo: boolean; }
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
+interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; }
 
 // ── Small inline form ─────────────────────────────────────────────────────────
 
@@ -343,21 +344,134 @@ function PanelColores() {
   );
 }
 
+// ── Panel: Empresa ────────────────────────────────────────────────────────────
+
+function PanelEmpresa() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ nombre: '', cuit: '', telefono: '', email: '', direccion: '' });
+
+  useEffect(() => {
+    api.get<Empresa>('/empresa').then(data => {
+      if (data) setForm({
+        nombre:    data.nombre    ?? '',
+        cuit:      data.cuit      ?? '',
+        telefono:  data.telefono  ?? '',
+        email:     data.email     ?? '',
+        direccion: data.direccion ?? '',
+      });
+      setLoading(false);
+    });
+  }, []);
+
+  function set(field: string, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return; }
+    setSaving(true);
+    try {
+      await api.put('/empresa', form);
+      toast.success('Datos de empresa guardados');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 py-4">Cargando...</p>;
+
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white';
+  const labelCls = 'block text-xs font-medium text-gray-500 mb-1';
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className={labelCls}>Nombre / Razón social *</label>
+          <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)} className={inputCls} placeholder="Aberturas del Valle" />
+        </div>
+        <div>
+          <label className={labelCls}>CUIT</label>
+          <input type="text" value={form.cuit} onChange={e => set('cuit', e.target.value)} className={inputCls} placeholder="20-12345678-9" />
+        </div>
+        <div>
+          <label className={labelCls}>Teléfono</label>
+          <input type="text" value={form.telefono} onChange={e => set('telefono', e.target.value)} className={inputCls} placeholder="+54 9 11 1234-5678" />
+        </div>
+        <div>
+          <label className={labelCls}>Email</label>
+          <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={inputCls} placeholder="info@empresa.com" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Dirección</label>
+          <input type="text" value={form.direccion} onChange={e => set('direccion', e.target.value)} className={inputCls} placeholder="Av. Siempreviva 742, Buenos Aires" />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white text-sm rounded-lg font-medium">
+          <Save size={14} />
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'tipos_abertura' | 'sistemas' | 'colores' | null;
+type Panel = 'empresa' | 'tipos_abertura' | 'sistemas' | 'colores' | null;
 
-const CATALOG_BTNS: { id: Exclude<Panel, null>; label: string; icon: typeof Layers; desc: string }[] = [
+const GENERAL_BTNS: { id: 'empresa'; label: string; icon: typeof Building2; desc: string }[] = [
+  { id: 'empresa', label: 'Empresa', icon: Building2, desc: 'Datos del negocio, CUIT, contacto' },
+];
+
+const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
 ];
 
 const PENDING = [
-  { icon: Building2, label: 'Empresa',     desc: 'Datos del negocio, logo, CUIT',  color: 'text-slate-600', bg: 'bg-slate-100' },
-  { icon: Users,     label: 'Usuarios',    desc: 'Accesos y permisos del equipo',  color: 'text-blue-600',  bg: 'bg-blue-100' },
-  { icon: Truck,     label: 'Proveedores', desc: 'Gestión de proveedores',         color: 'text-amber-600', bg: 'bg-amber-100' },
+  { icon: Users, label: 'Usuarios',    desc: 'Accesos y permisos del equipo',  color: 'text-blue-600',  bg: 'bg-blue-100' },
+  { icon: Truck, label: 'Proveedores', desc: 'Gestión de proveedores',         color: 'text-amber-600', bg: 'bg-amber-100' },
 ];
+
+function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }: {
+  id: string; label: string; icon: React.ElementType; desc: string;
+  open: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className={cn(
+          'w-full flex items-center justify-between px-5 py-4 text-left transition-colors',
+          open ? 'bg-slate-50' : 'hover:bg-gray-50'
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', open ? 'bg-slate-200' : 'bg-gray-100')}>
+            <Icon size={16} className={open ? 'text-slate-700' : 'text-gray-500'} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">{label}</p>
+            <p className="text-xs text-gray-400">{desc}</p>
+          </div>
+        </div>
+        <X size={16} className={cn('text-gray-400 transition-transform', open ? 'rotate-0' : 'rotate-45')} />
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-2 border-t border-gray-100">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Configuracion() {
   const [openPanel, setOpenPanel] = useState<Panel>(null);
@@ -379,12 +493,24 @@ export function Configuracion() {
         </div>
       </div>
 
-      {/* Próximamente */}
+      {/* General */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">General</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {GENERAL_BTNS.map(({ id, label, icon, desc }) => (
+            <AccordionItem key={id} id={id} label={label} icon={icon} desc={desc}
+              open={openPanel === id} onToggle={() => togglePanel(id)}>
+              <PanelEmpresa />
+            </AccordionItem>
+          ))}
+        </div>
+      </div>
+
+      {/* Próximamente */}
+      {PENDING.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {PENDING.map(({ icon: Icon, label, desc, color, bg }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 opacity-60 cursor-not-allowed">
+            <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 opacity-50 cursor-not-allowed">
               <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-3`}>
                 <Icon size={20} className={color} />
               </div>
@@ -396,40 +522,21 @@ export function Configuracion() {
             </div>
           ))}
         </div>
-      </div>
+      )}
 
       {/* Catálogo de productos */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Catálogo de productos</h2>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {CATALOG_BTNS.map(({ id, label, icon: Icon, desc }, idx) => (
+          {CATALOG_BTNS.map(({ id, label, icon, desc }, idx) => (
             <div key={id}>
               {idx > 0 && <div className="border-t border-gray-100" />}
-              <button
-                onClick={() => togglePanel(id)}
-                className={cn(
-                  'w-full flex items-center justify-between px-5 py-4 text-left transition-colors',
-                  openPanel === id ? 'bg-slate-50' : 'hover:bg-gray-50'
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', openPanel === id ? 'bg-slate-200' : 'bg-gray-100')}>
-                    <Icon size={16} className={openPanel === id ? 'text-slate-700' : 'text-gray-500'} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{label}</p>
-                    <p className="text-xs text-gray-400">{desc}</p>
-                  </div>
-                </div>
-                <X size={16} className={cn('text-gray-400 transition-transform', openPanel === id ? 'rotate-0' : 'rotate-45')} />
-              </button>
-              {openPanel === id && (
-                <div className="px-5 pb-5 pt-2 border-t border-gray-100">
-                  {id === 'tipos_abertura' && <PanelTiposAbertura />}
-                  {id === 'sistemas'       && <PanelSistemas />}
-                  {id === 'colores'        && <PanelColores />}
-                </div>
-              )}
+              <AccordionItem id={id} label={label} icon={icon} desc={desc}
+                open={openPanel === id} onToggle={() => togglePanel(id)}>
+                {id === 'tipos_abertura' && <PanelTiposAbertura />}
+                {id === 'sistemas'       && <PanelSistemas />}
+                {id === 'colores'        && <PanelColores />}
+              </AccordionItem>
             </div>
           ))}
         </div>
