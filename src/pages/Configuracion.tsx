@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Truck, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, Globe, MapPin, Hash } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -12,12 +12,6 @@ interface Sistema { id: string; nombre: string; material: string | null; descrip
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
 interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; }
 interface Usuario { id: string; nombre: string; email: string; rol: 'admin' | 'vendedor' | 'consulta'; activo: boolean; created_at: string; }
-interface Proveedor {
-  id: string; nombre: string; tipo: string | null; contacto: string | null;
-  telefono: string | null; email: string | null; cuit: string | null;
-  direccion: string | null; localidad: string | null; provincia: string | null;
-  web: string | null; materiales: string[]; notas: string | null; activo: boolean;
-}
 
 // ── Small inline form ─────────────────────────────────────────────────────────
 
@@ -619,292 +613,14 @@ function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
   );
 }
 
-// ── Panel: Proveedores ────────────────────────────────────────────────────────
-
-const TIPO_PROVEEDOR = ['Fabricante', 'Revendedor', 'Importador'];
-const MATERIALES_OPTS = ['Aluminio', 'PVC', 'Vidrio', 'Herrajes', 'Mosquiteros', 'Persianas', 'Portones', 'Otros'];
-const TIPO_COLORS: Record<string, string> = {
-  Fabricante: 'bg-violet-100 text-violet-700',
-  Revendedor: 'bg-sky-100 text-sky-700',
-  Importador: 'bg-amber-100 text-amber-700',
-};
-
-const emptyProveedor = (): Omit<Proveedor, 'id' | 'activo'> => ({
-  nombre: '', tipo: '', contacto: '', telefono: '', email: '', cuit: '',
-  direccion: '', localidad: '', provincia: '', web: '', materiales: [], notas: '',
-});
-
-function ProveedorForm({ initial, onSave, onCancel }: {
-  initial: Omit<Proveedor, 'id' | 'activo'>;
-  onSave: (vals: Omit<Proveedor, 'id' | 'activo'>) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [form, setForm] = useState(initial);
-  const [saving, setSaving] = useState(false);
-
-  function set(field: string, value: unknown) { setForm(p => ({ ...p, [field]: value })); }
-
-  function toggleMaterial(mat: string) {
-    setForm(p => ({
-      ...p,
-      materiales: p.materiales.includes(mat)
-        ? p.materiales.filter(m => m !== mat)
-        : [...p.materiales, mat],
-    }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.nombre.trim()) { toast.error('Nombre requerido'); return; }
-    setSaving(true);
-    try { await onSave(form); } finally { setSaving(false); }
-  }
-
-  const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white';
-  const lbl = 'block text-xs font-medium text-gray-500 mb-1';
-
-  return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-4">
-      {/* Fila 1: Nombre + Tipo */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="sm:col-span-2">
-          <label className={lbl}>Nombre / Razón social *</label>
-          <input required type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
-            className={inp} placeholder="Ej: Aluminios del Norte S.A." />
-        </div>
-        <div>
-          <label className={lbl}>Tipo de proveedor</label>
-          <select value={form.tipo ?? ''} onChange={e => set('tipo', e.target.value)} className={inp}>
-            <option value="">— Sin especificar —</option>
-            {TIPO_PROVEEDOR.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Fila 2: Contacto + Tel + Email + CUIT */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className={lbl}>Persona de contacto</label>
-          <input type="text" value={form.contacto ?? ''} onChange={e => set('contacto', e.target.value)}
-            className={inp} placeholder="Nombre del vendedor / representante" />
-        </div>
-        <div>
-          <label className={lbl}>Teléfono</label>
-          <input type="text" value={form.telefono ?? ''} onChange={e => set('telefono', e.target.value)}
-            className={inp} placeholder="+54 9 11 1234-5678" />
-        </div>
-        <div>
-          <label className={lbl}>Email</label>
-          <input type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value)}
-            className={inp} placeholder="ventas@proveedor.com" />
-        </div>
-        <div>
-          <label className={lbl}>CUIT</label>
-          <input type="text" value={form.cuit ?? ''} onChange={e => set('cuit', e.target.value)}
-            className={inp} placeholder="30-12345678-9" />
-        </div>
-      </div>
-
-      {/* Fila 3: Dirección */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="sm:col-span-1">
-          <label className={lbl}>Dirección</label>
-          <input type="text" value={form.direccion ?? ''} onChange={e => set('direccion', e.target.value)}
-            className={inp} placeholder="Calle y número" />
-        </div>
-        <div>
-          <label className={lbl}>Localidad</label>
-          <input type="text" value={form.localidad ?? ''} onChange={e => set('localidad', e.target.value)}
-            className={inp} placeholder="Ciudad" />
-        </div>
-        <div>
-          <label className={lbl}>Provincia</label>
-          <input type="text" value={form.provincia ?? ''} onChange={e => set('provincia', e.target.value)}
-            className={inp} placeholder="Buenos Aires" />
-        </div>
-      </div>
-
-      {/* Web */}
-      <div>
-        <label className={lbl}>Sitio web</label>
-        <input type="url" value={form.web ?? ''} onChange={e => set('web', e.target.value)}
-          className={inp} placeholder="https://www.proveedor.com" />
-      </div>
-
-      {/* Materiales / rubros */}
-      <div>
-        <label className={lbl}>Materiales / rubros que provee</label>
-        <div className="flex flex-wrap gap-2 mt-1">
-          {MATERIALES_OPTS.map(mat => (
-            <button key={mat} type="button"
-              onClick={() => toggleMaterial(mat)}
-              className={cn(
-                'px-3 py-1 text-xs rounded-full border font-medium transition-colors',
-                form.materiales.includes(mat)
-                  ? 'bg-slate-700 text-white border-slate-700'
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-              )}>
-              {mat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Notas */}
-      <div>
-        <label className={lbl}>Notas internas</label>
-        <textarea value={form.notas ?? ''} onChange={e => set('notas', e.target.value)}
-          rows={2} className={inp + ' resize-none'}
-          placeholder="Condiciones comerciales, plazo de entrega, descuentos..." />
-      </div>
-
-      <div className="flex justify-end gap-2 pt-1">
-        <button type="button" onClick={onCancel}
-          className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100">
-          Cancelar
-        </button>
-        <button type="submit" disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white text-sm rounded-lg font-medium">
-          <Check size={14} /> {saving ? 'Guardando...' : 'Guardar proveedor'}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function PanelProveedores() {
-  const [items, setItems] = useState<Proveedor[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-
-  async function load() {
-    try {
-      const data = await api.get<Proveedor[]>('/catalogo/proveedores?all=1');
-      setItems(data);
-    } catch { /* */ }
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
-
-  async function handleAdd(vals: Omit<Proveedor, 'id' | 'activo'>) {
-    await api.post('/catalogo/proveedores', vals);
-    toast.success('Proveedor agregado');
-    setAdding(false);
-    load();
-  }
-
-  async function handleEdit(id: string, vals: Omit<Proveedor, 'id' | 'activo'>) {
-    const item = items.find(i => i.id === id)!;
-    await api.put(`/catalogo/proveedores/${id}`, { ...vals, activo: item.activo });
-    toast.success('Proveedor actualizado');
-    setEditId(null);
-    load();
-  }
-
-  async function toggleActivo(item: Proveedor) {
-    await api.put(`/catalogo/proveedores/${item.id}`, { ...item, activo: !item.activo });
-    load();
-  }
-
-  if (loading) return <p className="text-sm text-gray-400 py-4">Cargando...</p>;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activos · {items.length} total</p>
-        <button onClick={() => { setAdding(true); setEditId(null); }}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
-          <Plus size={13} /> Nuevo proveedor
-        </button>
-      </div>
-
-      {adding && (
-        <ProveedorForm initial={emptyProveedor()} onSave={handleAdd} onCancel={() => setAdding(false)} />
-      )}
-
-      <div className="divide-y divide-gray-100">
-        {items.map(item => (
-          <div key={item.id} className={cn('py-3', !item.activo && 'opacity-50')}>
-            {editId === item.id ? (
-              <ProveedorForm
-                initial={{ nombre: item.nombre, tipo: item.tipo, contacto: item.contacto, telefono: item.telefono,
-                  email: item.email, cuit: item.cuit, direccion: item.direccion, localidad: item.localidad,
-                  provincia: item.provincia, web: item.web, materiales: item.materiales, notas: item.notas }}
-                onSave={vals => handleEdit(item.id, vals)}
-                onCancel={() => setEditId(null)}
-              />
-            ) : (
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Truck size={16} className="text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-gray-800">{item.nombre}</p>
-                    {item.tipo && (
-                      <span className={cn('text-[11px] font-medium px-1.5 py-0.5 rounded-full', TIPO_COLORS[item.tipo] ?? 'bg-gray-100 text-gray-600')}>
-                        {item.tipo}
-                      </span>
-                    )}
-                    {item.materiales?.length > 0 && item.materiales.map(m => (
-                      <span key={m} className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{m}</span>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
-                    {item.contacto && <span className="text-xs text-gray-400">{item.contacto}</span>}
-                    {item.telefono && <span className="text-xs text-gray-400 flex items-center gap-1">{item.telefono}</span>}
-                    {item.email && <span className="text-xs text-gray-400">{item.email}</span>}
-                    {(item.localidad || item.provincia) && (
-                      <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                        <MapPin size={10} />
-                        {[item.localidad, item.provincia].filter(Boolean).join(', ')}
-                      </span>
-                    )}
-                    {item.cuit && (
-                      <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                        <Hash size={10} /> {item.cuit}
-                      </span>
-                    )}
-                    {item.web && (
-                      <a href={item.web} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-sky-500 hover:underline flex items-center gap-0.5">
-                        <Globe size={10} /> web
-                      </a>
-                    )}
-                  </div>
-                  {item.notas && <p className="text-xs text-gray-400 mt-1 italic">{item.notas}</p>}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => { setEditId(item.id); setAdding(false); }}
-                    className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => toggleActivo(item)}
-                    className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100"
-                    title={item.activo ? 'Desactivar' : 'Activar'}>
-                    {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin proveedores cargados</p>}
-      </div>
-    </div>
-  );
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'tipos_abertura' | 'sistemas' | 'colores' | 'proveedores' | null;
+type Panel = 'empresa' | 'usuarios' | 'tipos_abertura' | 'sistemas' | 'colores' | null;
 
 const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
-  { id: 'proveedores',    label: 'Proveedores',         icon: Truck,     desc: 'Fabricantes, revendedores e importadores' },
 ];
 
 function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }: {
@@ -989,7 +705,6 @@ export function Configuracion() {
                 {id === 'tipos_abertura' && <PanelTiposAbertura />}
                 {id === 'sistemas'       && <PanelSistemas />}
                 {id === 'colores'        && <PanelColores />}
-                {id === 'proveedores'    && <PanelProveedores />}
               </AccordionItem>
             </div>
           ))}
