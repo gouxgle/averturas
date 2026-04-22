@@ -34,7 +34,7 @@ stock.get('/', async (c) => {
 
   const { rows } = await db.query(`
     SELECT
-      p.id, p.nombre, p.codigo, p.stock_minimo, p.stock_inicial,
+      p.id, p.nombre, p.codigo, p.tipo, p.stock_minimo, p.stock_inicial,
       p.precio_base, p.costo_base, p.color, p.imagen_url,
       json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
       json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
@@ -45,7 +45,7 @@ stock.get('/', async (c) => {
     LEFT JOIN tipos_abertura ta     ON ta.id = p.tipo_abertura_id
     LEFT JOIN sistemas s            ON s.id  = p.sistema_id
     LEFT JOIN stock_movimientos m   ON m.producto_id = p.id
-    WHERE p.activo = true AND p.tipo = 'estandar'
+    WHERE p.activo = true
     ${searchClause}
     GROUP BY p.id, p.nombre, p.codigo, p.stock_minimo, p.stock_inicial,
              p.precio_base, p.costo_base, p.color, p.imagen_url,
@@ -69,7 +69,7 @@ stock.get('/alertas', async (c) => {
              (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual
       FROM catalogo_productos p
       LEFT JOIN stock_movimientos m ON m.producto_id = p.id
-      WHERE p.activo = true AND p.tipo = 'estandar'
+      WHERE p.activo = true
       GROUP BY p.id, p.stock_minimo, p.stock_inicial
     ) sub
   `);

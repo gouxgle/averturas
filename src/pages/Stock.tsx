@@ -12,6 +12,7 @@ interface ProductoStock {
   id: string;
   nombre: string;
   codigo: string | null;
+  tipo: 'estandar' | 'a_medida' | 'fabricacion_propia';
   color: string | null;
   imagen_url: string | null;
   stock_minimo: number;
@@ -668,7 +669,18 @@ function ProductoCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate">{producto.nombre}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate">{producto.nombre}</h3>
+                  {producto.tipo !== 'estandar' && (
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
+                      producto.tipo === 'fabricacion_propia'
+                        ? 'bg-purple-50 text-purple-600'
+                        : 'bg-sky-50 text-sky-600'
+                    }`}>
+                      {producto.tipo === 'fabricacion_propia' ? 'Fab. propia' : 'A medida'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   {producto.codigo && <span className="text-xs text-gray-400">{producto.codigo}</span>}
                   {producto.tipo_abertura && (
