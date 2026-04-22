@@ -355,64 +355,32 @@ export function NuevoProducto() {
             {/* Vidrio */}
             <div>
               <label className={labelCls}>Vidrio</label>
-              <div className="flex flex-wrap gap-2">
-                {VIDRIO_OPTS.map(v => (
-                  <button key={v} type="button"
-                    onClick={() => set('vidrio', form.vidrio === v ? '' : v)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                      form.vidrio === v
-                        ? 'border-sky-500 bg-sky-50 text-sky-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    )}>
-                    {v}
-                  </button>
-                ))}
-              </div>
+              <select value={form.vidrio} onChange={e => set('vidrio', e.target.value)} className={inputCls}>
+                <option value="">— Sin especificar —</option>
+                {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
             </div>
 
             {/* Premarco + Accesorios */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Premarco</label>
-                <div className="flex gap-3">
-                  {(['Sí', 'No'] as const).map(op => (
-                    <label key={op} className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer transition-all flex-1 justify-center',
-                      (op === 'Sí') === form.premarco ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
-                    )}>
-                      <input type="radio" name="premarco"
-                        checked={(op === 'Sí') === form.premarco}
-                        onChange={() => set('premarco', op === 'Sí')}
-                        className="accent-sky-600" />
-                      <span className={cn('text-sm font-semibold', (op === 'Sí') === form.premarco ? 'text-sky-700' : 'text-gray-700')}>{op}</span>
-                    </label>
-                  ))}
-                </div>
+                <select value={form.premarco ? 'si' : 'no'} onChange={e => set('premarco', e.target.value === 'si')} className={inputCls}>
+                  <option value="no">No</option>
+                  <option value="si">Sí</option>
+                </select>
               </div>
 
               <div>
                 <label className={labelCls}>Accesorios</label>
-                <div className="flex flex-wrap gap-2">
-                  {ACCESORIO_OPTS.map(a => {
-                    const checked = form.accesorios.includes(a);
-                    return (
-                      <button key={a} type="button"
-                        onClick={() => set('accesorios', checked
-                          ? form.accesorios.filter(x => x !== a)
-                          : [...form.accesorios, a]
-                        )}
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                          checked
-                            ? 'border-sky-500 bg-sky-50 text-sky-700'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        )}>
-                        {a}
-                      </button>
-                    );
-                  })}
-                </div>
+                <select multiple value={form.accesorios}
+                  onChange={e => set('accesorios', Array.from(e.target.selectedOptions).map(o => o.value))}
+                  className={inputCls + ' h-24'}>
+                  {ACCESORIO_OPTS.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-400 mt-1">Ctrl+clic para seleccionar varios</p>
               </div>
             </div>
 
