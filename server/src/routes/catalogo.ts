@@ -122,10 +122,54 @@ catalogo.get('/categorias-cliente', async (c) => {
 });
 
 catalogo.get('/proveedores', async (c) => {
+  const all = c.req.query('all') === '1';
   const { rows } = await db.query(
-    `SELECT * FROM proveedores WHERE activo = true ORDER BY nombre`
+    `SELECT * FROM proveedores ${all ? '' : 'WHERE activo = true'} ORDER BY nombre`
   );
   return c.json(rows);
+});
+
+catalogo.post('/proveedores', async (c) => {
+  const b = await c.req.json();
+  if (!b.nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const { rows } = await db.query(
+    `INSERT INTO proveedores (nombre, tipo, contacto, telefono, email, cuit, direccion, localidad, provincia, web, materiales, notas)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+    [
+      b.nombre.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
+      b.email || null, b.cuit || null, b.direccion || null, b.localidad || null,
+      b.provincia || null, b.web || null,
+      Array.isArray(b.materiales) ? b.materiales : [],
+      b.notas || null,
+    ]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/proveedores/:id', async (c) => {
+  const b = await c.req.json();
+  const { rows } = await db.query(
+    `UPDATE proveedores
+     SET nombre=$1, tipo=$2, contacto=$3, telefono=$4, email=$5, cuit=$6,
+         direccion=$7, localidad=$8, provincia=$9, web=$10, materiales=$11,
+         notas=$12, activo=$13
+     WHERE id=$14 RETURNING *`,
+    [
+      b.nombre?.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
+      b.email || null, b.cuit || null, b.direccion || null, b.localidad || null,
+      b.provincia || null, b.web || null,
+      Array.isArray(b.materiales) ? b.materiales : [],
+      b.notas || null, b.activo ?? true,
+      c.req.param('id'),
+    ]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+catalogo.delete('/proveedores/:id', async (c) => {
+  await db.query(`UPDATE proveedores SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
 });
 
 catalogo.get('/productos', async (c) => {
