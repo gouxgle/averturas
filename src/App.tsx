@@ -18,6 +18,7 @@ import { Productos } from '@/pages/Productos';
 import { NuevoProducto } from '@/pages/NuevoProducto';
 import { Presupuestos } from '@/pages/Presupuestos';
 import { NuevoPresupuesto } from '@/pages/NuevoPresupuesto';
+import { Proveedores } from '@/pages/Proveedores';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -46,6 +47,7 @@ export default function App() {
                 <Route path="/productos/nuevo" element={<NuevoProducto />} />
                 <Route path="/productos/:id" element={<NuevoProducto />} />
                 <Route path="/stock" element={<Stock />} />
+                <Route path="/proveedores" element={<Proveedores />} />
                 <Route path="/reportes" element={<Reportes />} />
                 <Route path="/configuracion" element={<Configuracion />} />
               </Route>
