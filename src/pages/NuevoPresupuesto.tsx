@@ -22,15 +22,16 @@ const ESTADOS: { value: EstadoOperacion; label: string; color: string }[] = [
   { value: 'entregado',     label: 'Terminado',     color: 'bg-emerald-100 text-emerald-700' },
 ];
 
-const VIDRIO_OPTS   = ['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'];
+const VIDRIO_OPTS    = ['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'];
 const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
-const FORMA_PAGO    = ['Contado', 'Cuotas', 'Mixto'];
-const COLORES_ITEM  = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
+const FORMA_PAGO     = ['Contado', 'Tarjeta de crédito', 'Débito', 'Cheque', 'Transferencia'];
+const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
 
 // ── Ítem vacío ────────────────────────────────────────────────────────────────
 
 interface ItemForm {
   _key: string;
+  tipo_item: 'estandar' | 'a_medida';
   tipo_abertura_id: string;
   sistema_id: string;
   descripcion: string;
@@ -52,6 +53,7 @@ interface ItemForm {
 function emptyItem(): ItemForm {
   return {
     _key: crypto.randomUUID(),
+    tipo_item: 'a_medida',
     tipo_abertura_id: '', sistema_id: '', descripcion: '',
     medida_ancho: '', medida_alto: '',
     cantidad: 1,
@@ -107,6 +109,8 @@ function ItemCard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.tipo_abertura_id, item.sistema_id, item.medida_ancho, item.medida_alto]);
 
+  const esMedida = item.tipo_item === 'a_medida';
+
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       {/* Header del ítem */}
@@ -118,6 +122,10 @@ function ItemCard({
         <div className="flex items-center gap-2">
           <ChevronDown size={15} className={cn('text-gray-400 transition-transform', open ? 'rotate-0' : '-rotate-90')} />
           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Ítem {idx + 1}</span>
+          <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide',
+            esMedida ? 'bg-violet-100 text-violet-600' : 'bg-sky-100 text-sky-600')}>
+            {esMedida ? 'A medida' : 'Estándar'}
+          </span>
           {item.descripcion && <span className="text-xs text-gray-500 hidden sm:inline">— {item.descripcion}</span>}
         </div>
         <div className="flex items-center gap-3">
@@ -135,7 +143,21 @@ function ItemCard({
 
       {open && (
         <div className="p-4 space-y-3">
-          {/* Fila 1: Tipo + Sistema + Cantidad + Color */}
+          {/* Tipo de ítem */}
+          <div className="flex gap-2">
+            {(['estandar', 'a_medida'] as const).map(t => (
+              <button key={t} type="button"
+                onClick={() => up('tipo_item', t)}
+                className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                  item.tipo_item === t
+                    ? t === 'estandar' ? 'bg-sky-600 text-white border-sky-600' : 'bg-violet-600 text-white border-violet-600'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300')}>
+                {t === 'estandar' ? 'Producto estándar' : 'A medida / Fabricación'}
+              </button>
+            ))}
+          </div>
+
+          {/* Fila 1: Tipo abertura + Sistema + Color + Cantidad */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className={label}>Tipo de abertura</label>
@@ -168,44 +190,46 @@ function ItemCard({
             </div>
           </div>
 
-          {/* Fila 2: Medidas + Vidrio + Premarco + Instalación + Origen */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div>
-              <label className={label}>Ancho (m)</label>
-              <input type="number" step="0.01" value={item.medida_ancho}
-                onChange={e => up('medida_ancho', e.target.value)}
-                placeholder="1.20" className={inp} />
+          {/* Campos exclusivos A medida */}
+          {esMedida && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-violet-50/50 rounded-lg p-3 border border-violet-100">
+              <div>
+                <label className={label}>Ancho (m)</label>
+                <input type="number" step="0.01" value={item.medida_ancho}
+                  onChange={e => up('medida_ancho', e.target.value)}
+                  placeholder="1.20" className={inp} />
+              </div>
+              <div>
+                <label className={label}>Alto (m)</label>
+                <input type="number" step="0.01" value={item.medida_alto}
+                  onChange={e => up('medida_alto', e.target.value)}
+                  placeholder="2.05" className={inp} />
+              </div>
+              <div>
+                <label className={label}>Vidrio</label>
+                <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={sel}>
+                  <option value="">—</option>
+                  {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={label}>Premarco</label>
+                <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={sel}>
+                  <option value="no">No</option>
+                  <option value="si">Sí</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>Origen</label>
+                <select value={item.origen} onChange={e => up('origen', e.target.value)} className={sel}>
+                  <option value="proveedor">Proveedor</option>
+                  <option value="fabricacion">Fabricación propia</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={label}>Alto (m)</label>
-              <input type="number" step="0.01" value={item.medida_alto}
-                onChange={e => up('medida_alto', e.target.value)}
-                placeholder="2.05" className={inp} />
-            </div>
-            <div>
-              <label className={label}>Vidrio</label>
-              <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={sel}>
-                <option value="">—</option>
-                {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={label}>Premarco</label>
-              <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={sel}>
-                <option value="no">No</option>
-                <option value="si">Sí</option>
-              </select>
-            </div>
-            <div>
-              <label className={label}>Origen</label>
-              <select value={item.origen} onChange={e => up('origen', e.target.value)} className={sel}>
-                <option value="proveedor">Proveedor</option>
-                <option value="fabricacion">Fabricación</option>
-              </select>
-            </div>
-          </div>
+          )}
 
-          {/* Fila 3: Costos */}
+          {/* Fila costos */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <label className={label}>Costo unitario</label>
@@ -244,7 +268,7 @@ function ItemCard({
 
           {/* Instalación costos (condicional) */}
           {item.incluye_instalacion && (
-            <div className="grid grid-cols-2 gap-3 pl-0 bg-violet-50 rounded-lg p-3">
+            <div className="grid grid-cols-2 gap-3 bg-violet-50 rounded-lg p-3">
               <div>
                 <label className={label}>Costo instalación</label>
                 <input type="number" min={0} value={item.costo_instalacion}
