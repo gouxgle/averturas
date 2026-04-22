@@ -135,6 +135,21 @@ export function ClienteDetalle() {
     await load();
   }
 
+  async function handleEliminar() {
+    if (!cliente) return;
+    const nombre = cliente.tipo_persona === 'juridica'
+      ? cliente.razon_social
+      : [cliente.apellido, cliente.nombre].filter(Boolean).join(' ');
+    if (!window.confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api.delete(`/clientes/${id}`);
+      toast.success('Cliente eliminado');
+      navigate('/clientes');
+    } catch (e) {
+      toast.error((e as Error).message || 'No se pudo eliminar');
+    }
+  }
+
   // Seleccionar tipo y enfocar textarea
   function seleccionarTipo(tipo: TipoInteraccion) {
     setTipoSeleccionado(tipo);
@@ -264,6 +279,10 @@ export function ClienteDetalle() {
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Editar cliente">
               <Edit3 size={16} className="text-gray-500" />
             </Link>
+            <button onClick={handleEliminar}
+              className="p-2 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar cliente">
+              <Trash2 size={16} className="text-gray-400 hover:text-red-500" />
+            </button>
             <Link
               to={`/operaciones/nueva?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">

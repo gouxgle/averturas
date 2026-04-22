@@ -187,4 +187,31 @@ clientes.put('/:id', async (c) => {
   return c.json(row);
 });
 
+// Validar DNI único — DEBE ir antes de /:id para no ser capturado por el param
+clientes.get('/validar-dni', async (c) => {
+  const dni = c.req.query('dni')?.trim();
+  const excluirId = c.req.query('excluir_id');
+  if (!dni) return c.json({ existe: false });
+  let q = `SELECT id, nombre, apellido, razon_social FROM clientes WHERE documento_nro = $1`;
+  const params: unknown[] = [dni];
+  if (excluirId) { params.push(excluirId); q += ` AND id != $2`; }
+  const { rows } = await db.query(q, params);
+  return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
+});
+
+clientes.delete('/:id', async (c) => {
+  const { id } = c.req.param();
+  const { rows: [op] } = await db.query(
+    `SELECT COUNT(*) AS n FROM operaciones WHERE cliente_id = $1`, [id]
+  );
+  if (parseInt(op.n) > 0) {
+    return c.json({ error: 'El cliente tiene operaciones asociadas y no puede eliminarse' }, 409);
+  }
+  const { rows: [row] } = await db.query(
+    `DELETE FROM clientes WHERE id = $1 RETURNING id`, [id]
+  );
+  if (!row) return c.json({ error: 'Cliente no encontrado' }, 404);
+  return c.json({ ok: true });
+});
+
 export default clientes;
