@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
-  MapPin, Hash, RefreshCw, ChevronDown, Search
+  MapPin, Hash, RefreshCw, Search, X as XIcon
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -103,6 +103,9 @@ export function NuevoRemito() {
   const [fechaEntregaEst, setFechaEntregaEst] = useState('');
   const [notas, setNotas]                 = useState('');
   const [items, setItems]                 = useState<RemitoItem[]>([emptyItem()]);
+  // búsqueda de producto por posición de ítem
+  const [prodSearch, setProdSearch]       = useState<string[]>(['']);
+  const [prodOpen, setProdOpen]           = useState<boolean[]>([false]);
 
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
   const clientesFiltrados   = clientes.filter(c =>
@@ -134,14 +137,17 @@ export function NuevoRemito() {
       setFechaEmision(r.fecha_emision.split('T')[0]);
       setFechaEntregaEst(r.fecha_entrega_est?.split('T')[0] ?? '');
       setNotas(r.notas ?? '');
-      setItems(r.items.map(it => ({
+      const mappedItems = r.items.map(it => ({
         producto_id:     it.producto_id,
         descripcion:     it.descripcion,
         cantidad:        it.cantidad,
         precio_unitario: it.precio_unitario != null ? String(it.precio_unitario) : '',
         estado_producto: it.estado_producto,
         notas_item:      it.notas_item ?? '',
-      })));
+      }));
+      setItems(mappedItems);
+      setProdSearch(r.items.map(it => it.producto?.nombre ?? ''));
+      setProdOpen(r.items.map(() => false));
     }).catch(() => { toast.error('Error al cargar remito'); navigate('/remitos'); });
   }, [id, isEdit, navigate]);
 
@@ -150,6 +156,10 @@ export function NuevoRemito() {
   }
 
   function seleccionarProducto(i: number, productoId: string) {
+    if (!productoId) {
+      setItems(prev => prev.map((item, idx) => idx !== i ? item : { ...item, producto_id: '' }));
+      return;
+    }
     const p = productos.find(x => x.id === productoId);
     setItems(prev => prev.map((item, idx) => idx !== i ? item : {
       ...item,
@@ -159,8 +169,22 @@ export function NuevoRemito() {
     }));
   }
 
-  function addItem() { setItems(prev => [...prev, emptyItem()]); }
-  function removeItem(i: number) { setItems(prev => prev.filter((_, idx) => idx !== i)); }
+  function addItem() {
+    setItems(prev => [...prev, emptyItem()]);
+    setProdSearch(prev => [...prev, '']);
+    setProdOpen(prev => [...prev, false]);
+  }
+  function removeItem(i: number) {
+    setItems(prev => prev.filter((_, idx) => idx !== i));
+    setProdSearch(prev => prev.filter((_, idx) => idx !== i));
+    setProdOpen(prev => prev.filter((_, idx) => idx !== i));
+  }
+  function setProdSearchAt(i: number, v: string) {
+    setProdSearch(prev => prev.map((s, idx) => idx === i ? v : s));
+  }
+  function setProdOpenAt(i: number, v: boolean) {
+    setProdOpen(prev => prev.map((s, idx) => idx === i ? v : s));
+  }
 
   const precioTotal = items.reduce((s, it) => {
     const p = parseFloat(it.precio_unitario) || 0;
@@ -300,24 +324,65 @@ export function NuevoRemito() {
               {items.map((item, i) => (
                 <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
                   <div className="grid grid-cols-12 gap-2 mb-2">
-                    {/* Selector producto */}
+                    {/* Selector producto con búsqueda */}
                     <div className="col-span-5">
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Producto</label>
-                      <div className="relative">
-                        <select
-                          value={item.producto_id}
-                          onChange={e => seleccionarProducto(i, e.target.value)}
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none pr-6"
-                        >
-                          <option value="">Sin vincular</option>
-                          {productos.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.nombre}{p.codigo ? ` (${p.codigo})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      </div>
+                      {item.producto_id ? (
+                        <div className="flex items-center gap-1 px-2 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
+                          <span className="text-xs text-teal-800 flex-1 truncate">
+                            {productos.find(p => p.id === item.producto_id)?.nombre ?? '—'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { seleccionarProducto(i, ''); setProdSearchAt(i, ''); }}
+                            className="text-teal-400 hover:text-teal-600 flex-shrink-0">
+                            <XIcon size={10} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            value={prodSearch[i] ?? ''}
+                            onChange={e => { setProdSearchAt(i, e.target.value); setProdOpenAt(i, true); }}
+                            onFocus={() => setProdOpenAt(i, true)}
+                            onBlur={() => setTimeout(() => setProdOpenAt(i, false), 150)}
+                            placeholder="Buscar producto..."
+                            className="w-full pl-6 pr-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                          {prodOpen[i] && (
+                            <div className="absolute z-30 left-0 right-0 mt-0.5 bg-white rounded-xl border border-gray-200 shadow-lg max-h-44 overflow-y-auto">
+                              {productos
+                                .filter(p => {
+                                  const q = (prodSearch[i] ?? '').toLowerCase();
+                                  return !q || p.nombre.toLowerCase().includes(q) || (p.codigo ?? '').toLowerCase().includes(q);
+                                })
+                                .slice(0, 10)
+                                .map(p => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onMouseDown={() => {
+                                      seleccionarProducto(i, p.id);
+                                      setProdSearchAt(i, p.nombre);
+                                      setProdOpenAt(i, false);
+                                    }}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs border-b border-gray-50 last:border-0">
+                                    <span className="font-medium text-gray-800">{p.nombre}</span>
+                                    {p.codigo && <span className="text-gray-400 ml-1.5">{p.codigo}</span>}
+                                    <span className="text-gray-300 ml-1.5 capitalize">{p.tipo.replace('_', ' ')}</span>
+                                  </button>
+                                ))}
+                              {productos.filter(p => {
+                                const q = (prodSearch[i] ?? '').toLowerCase();
+                                return !q || p.nombre.toLowerCase().includes(q) || (p.codigo ?? '').toLowerCase().includes(q);
+                              }).length === 0 && (
+                                <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Descripción */}
