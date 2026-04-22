@@ -1,5 +1,6 @@
 export type TipoOperacion = 'estandar' | 'a_medida_proveedor' | 'fabricacion_propia';
 export type EstadoOperacion =
+  | 'consulta'
   | 'presupuesto'
   | 'enviado'
   | 'aprobado'
@@ -131,6 +132,13 @@ export interface OperacionItem {
   precio_unitario: number;
   precio_total: number;
   incluye_instalacion: boolean;
+  costo_instalacion: number;
+  precio_instalacion: number;
+  vidrio: string | null;
+  premarco: boolean;
+  origen: string | null;
+  color: string | null;
+  accesorios: string[];
   notas: string | null;
 }
 
@@ -150,6 +158,9 @@ export interface Operacion {
   precio_total: number;
   margen: number;
   incluye_instalacion: boolean;
+  tipo_proyecto: string | null;
+  forma_pago: string | null;
+  tiempo_entrega: number | null;
   fecha_validez: string | null;
   fecha_entrega_estimada: string | null;
   notas: string | null;

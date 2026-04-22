@@ -87,20 +87,24 @@ operaciones.post('/', async (c) => {
     const { rows: [op] } = await client.query(`
       INSERT INTO operaciones
         (tipo, estado, cliente_id, vendedor_id, proveedor_id,
-         incluye_instalacion, notas, notas_internas, fecha_validez, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         incluye_instalacion, notas, notas_internas, fecha_validez, created_by,
+         tipo_proyecto, forma_pago, tiempo_entrega)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *
     `, [
-      b.tipo,
+      b.tipo ?? 'a_medida_proveedor',
       b.estado ?? 'presupuesto',
       b.cliente_id,
       user.id,
       b.proveedor_id || null,
-      b.incluye_instalacion ?? false,
+      b.items?.some((i: any) => i.incluye_instalacion) ?? false,
       b.notas || null,
       b.notas_internas || null,
       b.fecha_validez || null,
       user.id,
+      b.tipo_proyecto || null,
+      b.forma_pago || null,
+      b.tiempo_entrega ? parseInt(b.tiempo_entrega) : null,
     ]);
 
     if (b.items?.length) {
@@ -109,14 +113,15 @@ operaciones.post('/', async (c) => {
           INSERT INTO operacion_items
             (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
-             incluye_instalacion, costo_instalacion, precio_instalacion)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+             incluye_instalacion, costo_instalacion, precio_instalacion,
+             vidrio, premarco, origen, color, accesorios)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
         `, [
           op.id,
           idx,
           item.tipo_abertura_id || null,
           item.sistema_id || null,
-          item.descripcion,
+          item.descripcion || '',
           item.medida_ancho ? parseFloat(item.medida_ancho) : null,
           item.medida_alto  ? parseFloat(item.medida_alto)  : null,
           item.cantidad ?? 1,
@@ -125,6 +130,11 @@ operaciones.post('/', async (c) => {
           item.incluye_instalacion ?? false,
           item.costo_instalacion ?? 0,
           item.precio_instalacion ?? 0,
+          item.vidrio || null,
+          item.premarco ?? false,
+          item.origen || null,
+          item.color || null,
+          item.accesorios ?? [],
         ]);
       }
     }
