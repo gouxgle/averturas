@@ -50,9 +50,14 @@ interface ItemForm {
   accesorios: string[];
 }
 
+function uuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
 function emptyItem(): ItemForm {
   return {
-    _key: crypto.randomUUID(),
+    _key: uuid(),
     tipo_item: 'a_medida',
     tipo_abertura_id: '', sistema_id: '', descripcion: '',
     medida_ancho: '', medida_alto: '',
