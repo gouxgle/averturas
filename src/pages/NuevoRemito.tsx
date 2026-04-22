@@ -114,13 +114,8 @@ export function NuevoRemito() {
   );
 
   useEffect(() => {
-    Promise.all([
-      api.get<Cliente[]>('/clientes'),
-      api.get<{ id: string; nombre: string; codigo: string | null; tipo: string; precio_base: number | null }[]>('/catalogo/productos?tipo=todos'),
-    ]).then(([cls, prods]) => {
-      setClientes(cls);
-      setProductos(prods as Producto[]);
-    });
+    api.get<Cliente[]>('/clientes').then(setClientes).catch(() => {});
+    api.get<Producto[]>('/catalogo/productos').then(setProductos).catch(() => {});
   }, []);
 
   // Cargar datos en modo edición
