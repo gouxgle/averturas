@@ -12,6 +12,9 @@ psql -U postgres -d postgres -f /migrations/20260419000002_clientes_fidelizacion
 psql -U postgres -d postgres -f /migrations/20260420000001_clientes_telefono_fijo.sql
 psql -U postgres -d postgres -f /migrations/20260420000002_productos_nuevos_campos.sql
 psql -U postgres -d postgres -f /migrations/20260420000003_productos_caracteristicas.sql
+psql -U postgres -d postgres -f /migrations/20260421000001_productos_medida_fields.sql
+psql -U postgres -d postgres -f /migrations/20260421000002_presupuesto_campos.sql
+psql -U postgres -d postgres -f /migrations/20260421000003_proveedores_campos.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -28,7 +31,10 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260419000002_clientes_fidelizacion.sql'),
   ('20260420000001_clientes_telefono_fijo.sql'),
   ('20260420000002_productos_nuevos_campos.sql'),
-  ('20260420000003_productos_caracteristicas.sql')
+  ('20260420000003_productos_caracteristicas.sql'),
+  ('20260421000001_productos_medida_fields.sql'),
+  ('20260421000002_presupuesto_campos.sql'),
+  ('20260421000003_proveedores_campos.sql')
 ON CONFLICT DO NOTHING;
 SQL
 
