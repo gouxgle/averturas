@@ -140,7 +140,22 @@ export function NuevoCliente() {
     const esFisica = form.tipo_persona === 'fisica';
     if (esFisica && !form.apellido.trim()) { toast.error('El apellido es requerido'); return; }
     if (!esFisica && !form.razon_social.trim()) { toast.error('La razón social es requerida'); return; }
-    if (dniWarning) { toast.error('DNI/CUIT ya registrado en otro cliente'); return; }
+
+    // Re-validar DNI en el momento de guardar (no solo on-blur)
+    const dniClean = form.documento_nro.replace(/\D/g, '');
+    if (dniClean.length >= 6) {
+      try {
+        const res = await api.get<{ existe: boolean; cliente: { nombre: string | null; apellido: string | null; razon_social: string | null } | null }>(
+          `/clientes/validar-dni?dni=${encodeURIComponent(dniClean)}${isEdit ? `&excluir_id=${editId}` : ''}`
+        );
+        if (res.existe && res.cliente) {
+          const nombre = res.cliente.razon_social ?? [res.cliente.apellido, res.cliente.nombre].filter(Boolean).join(', ');
+          toast.error(`DNI/CUIT ya registrado: ${nombre}`);
+          setDniWarning(`Ya existe: ${nombre}`);
+          return;
+        }
+      } catch { /* red error — dejamos pasar */ }
+    }
 
     setSaving(true);
     const payload = {
