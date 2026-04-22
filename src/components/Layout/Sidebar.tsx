@@ -26,6 +26,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     items: [
       { to: '/presupuestos',  label: 'Presupuestos',   icon: FileText,        activeColor: 'text-violet-400',  activeBg: 'bg-violet-500/10' },
       { to: '/operaciones',   label: 'Operaciones',    icon: Hammer,          activeColor: 'text-amber-400',   activeBg: 'bg-amber-500/10' },
+      { to: '/remitos',       label: 'Remitos',        icon: Truck,           activeColor: 'text-teal-400',    activeBg: 'bg-teal-500/10' },
       { to: '/clientes',      label: 'Clientes',       icon: Users,           activeColor: 'text-emerald-400', activeBg: 'bg-emerald-500/10' },
     ],
   },

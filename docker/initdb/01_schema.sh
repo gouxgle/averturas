@@ -16,6 +16,7 @@ psql -U postgres -d postgres -f /migrations/20260421000001_productos_medida_fiel
 psql -U postgres -d postgres -f /migrations/20260421000002_presupuesto_campos.sql
 psql -U postgres -d postgres -f /migrations/20260421000003_proveedores_campos.sql
 psql -U postgres -d postgres -f /migrations/20260422000001_stock_module.sql
+psql -U postgres -d postgres -f /migrations/20260422000002_remitos.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -36,7 +37,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260421000001_productos_medida_fields.sql'),
   ('20260421000002_presupuesto_campos.sql'),
   ('20260421000003_proveedores_campos.sql'),
-  ('20260422000001_stock_module.sql')
+  ('20260422000001_stock_module.sql'),
+  ('20260422000002_remitos.sql')
 ON CONFLICT DO NOTHING;
 SQL
 
