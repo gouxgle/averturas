@@ -7,10 +7,12 @@ import { toast } from 'sonner';
 import type { TipoOperacion, TipoAbertura, Sistema, Proveedor } from '@/types';
 
 const CATEGORIAS: { value: TipoOperacion; label: string; desc: string }[] = [
-  { value: 'estandar',           label: 'Estándar',           desc: 'Medida de stock, dimensiones fijas' },
-  { value: 'a_medida_proveedor', label: 'A medida',           desc: 'Se encarga al proveedor según medida' },
-  { value: 'fabricacion_propia', label: 'Fabricación propia', desc: 'Fabricado en taller propio' },
+  { value: 'estandar',           label: 'Estándar',                 desc: 'Medida de stock, dimensiones fijas' },
+  { value: 'a_medida_proveedor', label: 'A medida / Fabricación',   desc: 'Producto a pedido — proveedor o taller propio' },
 ];
+
+const VIDRIO_OPTS = ['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'];
+const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
 
 export function NuevoProducto() {
   const navigate = useNavigate();
@@ -46,6 +48,11 @@ export function NuevoProducto() {
     caracteristica_2: '',
     caracteristica_3: '',
     caracteristica_4: '',
+    // a medida / fabricacion
+    origen: 'proveedor' as 'proveedor' | 'fabricacion',
+    vidrio: '',
+    premarco: false,
+    accesorios: [] as string[],
     activo: true,
   });
 
@@ -81,10 +88,14 @@ export function NuevoProducto() {
           precio_base:      String(data.precio_base),
           precio_por_m2:    data.precio_por_m2 ?? false,
           imagen_url:       data.imagen_url ?? '',
-          caracteristica_1:       data.caracteristica_1 ?? '',
-          caracteristica_2:       data.caracteristica_2 ?? '',
-          caracteristica_3:  data.caracteristica_3 ?? '',
+          caracteristica_1: data.caracteristica_1 ?? '',
+          caracteristica_2: data.caracteristica_2 ?? '',
+          caracteristica_3: data.caracteristica_3 ?? '',
           caracteristica_4: data.caracteristica_4 ?? '',
+          origen:           data.tipo === 'fabricacion_propia' ? 'fabricacion' : 'proveedor',
+          vidrio:           data.vidrio ?? '',
+          premarco:         data.premarco ?? false,
+          accesorios:       data.accesorios ?? [],
           activo:           data.activo ?? true,
         });
       });
@@ -130,11 +141,15 @@ export function NuevoProducto() {
 
     setSaving(true);
     try {
+      const tipoFinal: TipoOperacion = form.tipo === 'estandar'
+        ? 'estandar'
+        : form.origen === 'fabricacion' ? 'fabricacion_propia' : 'a_medida_proveedor';
+
       const payload = {
         nombre:           form.nombre.trim(),
         codigo:           form.codigo.trim() || null,
         descripcion:      form.descripcion.trim() || null,
-        tipo:             form.tipo,
+        tipo:             tipoFinal,
         tipo_abertura_id: form.tipo_abertura_id || null,
         sistema_id:       form.sistema_id || null,
         color:            form.color || null,
@@ -147,10 +162,13 @@ export function NuevoProducto() {
         precio_base:      parseFloat(form.precio_base),
         precio_por_m2:    form.precio_por_m2,
         imagen_url:       form.imagen_url || null,
-        caracteristica_1:       form.caracteristica_1.trim() || null,
-        caracteristica_2:       form.caracteristica_2.trim() || null,
-        caracteristica_3:  form.caracteristica_3.trim() || null,
+        caracteristica_1: form.caracteristica_1.trim() || null,
+        caracteristica_2: form.caracteristica_2.trim() || null,
+        caracteristica_3: form.caracteristica_3.trim() || null,
         caracteristica_4: form.caracteristica_4.trim() || null,
+        vidrio:           form.tipo !== 'estandar' ? (form.vidrio || null) : null,
+        premarco:         form.tipo !== 'estandar' ? form.premarco : false,
+        accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
       };
 
@@ -209,7 +227,7 @@ export function NuevoProducto() {
       {/* Categoría */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <SectionHeader icon={Tag} label="Categoría de producto *" primary />
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CATEGORIAS.map(t => (
             <button key={t.value} onClick={() => {
               set('tipo', t.value);
@@ -294,6 +312,113 @@ export function NuevoProducto() {
           )}
         </div>
       </div>
+
+      {/* A medida / Fabricación — campos extra */}
+      {form.tipo !== 'estandar' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <SectionHeader icon={Ruler} label="Detalles a medida / fabricación" primary />
+          <div className="p-4 space-y-4">
+
+            {/* Origen — reemplaza el tipo */}
+            <div>
+              <label className={labelCls}>Origen *</label>
+              <div className="flex gap-3">
+                {(['proveedor', 'fabricacion'] as const).map(op => (
+                  <label key={op} className={cn(
+                    'flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 cursor-pointer transition-all flex-1 justify-center',
+                    form.origen === op ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
+                  )}>
+                    <input type="radio" name="origen" value={op}
+                      checked={form.origen === op}
+                      onChange={() => set('origen', op)}
+                      className="accent-sky-600" />
+                    <span className={cn('text-sm font-semibold', form.origen === op ? 'text-sky-700' : 'text-gray-700')}>
+                      {op === 'proveedor' ? 'Proveedor' : 'Fabricación propia'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Medidas */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Ancho (cm)</label>
+                <input type="number" value={form.ancho} onChange={e => set('ancho', e.target.value)} placeholder="120" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Alto (cm)</label>
+                <input type="number" value={form.alto} onChange={e => set('alto', e.target.value)} placeholder="100" className={inputCls} />
+              </div>
+            </div>
+
+            {/* Vidrio */}
+            <div>
+              <label className={labelCls}>Vidrio</label>
+              <div className="flex flex-wrap gap-2">
+                {VIDRIO_OPTS.map(v => (
+                  <button key={v} type="button"
+                    onClick={() => set('vidrio', form.vidrio === v ? '' : v)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                      form.vidrio === v
+                        ? 'border-sky-500 bg-sky-50 text-sky-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    )}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Premarco + Accesorios */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Premarco</label>
+                <div className="flex gap-3">
+                  {(['Sí', 'No'] as const).map(op => (
+                    <label key={op} className={cn(
+                      'flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer transition-all flex-1 justify-center',
+                      (op === 'Sí') === form.premarco ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
+                    )}>
+                      <input type="radio" name="premarco"
+                        checked={(op === 'Sí') === form.premarco}
+                        onChange={() => set('premarco', op === 'Sí')}
+                        className="accent-sky-600" />
+                      <span className={cn('text-sm font-semibold', (op === 'Sí') === form.premarco ? 'text-sky-700' : 'text-gray-700')}>{op}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Accesorios</label>
+                <div className="flex flex-wrap gap-2">
+                  {ACCESORIO_OPTS.map(a => {
+                    const checked = form.accesorios.includes(a);
+                    return (
+                      <button key={a} type="button"
+                        onClick={() => set('accesorios', checked
+                          ? form.accesorios.filter(x => x !== a)
+                          : [...form.accesorios, a]
+                        )}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                          checked
+                            ? 'border-sky-500 bg-sky-50 text-sky-700'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        )}>
+                        {a}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Stock + Proveedor */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

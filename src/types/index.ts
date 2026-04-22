@@ -184,6 +184,9 @@ export interface Producto {
   caracteristica_2: string | null;
   caracteristica_3: string | null;
   caracteristica_4: string | null;
+  vidrio: string | null;
+  premarco: boolean;
+  accesorios: string[];
   created_at: string;
 }
 
