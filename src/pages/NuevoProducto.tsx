@@ -607,6 +607,42 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
           </div>
         </div>
       )}
+
+      {/* Panel 8 — Comercial */}
+      {tp && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Comercial</span>
+          </div>
+          <div className="p-4 space-y-4">
+            <div>
+              <label className={labelCls}>Instalación</label>
+              <BtnGroup
+                options={[
+                  { v: 'si',       l: 'Sí' },
+                  { v: 'no',       l: 'No' },
+                  { v: 'opcional', l: 'Opcional' },
+                ]}
+                value={atributos.instalacion as string ?? ''}
+                onChange={v => setAttr('instalacion', v)}
+                cols={3}
+                small
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Entrega</label>
+              <BtnCheck
+                options={[
+                  { v: 'retiro_local',    l: 'Retiro en local' },
+                  { v: 'envio_disponible',l: 'Envío disponible' },
+                ]}
+                values={atributos.entrega as string[] ?? []}
+                onChange={v => setAttr('entrega', v)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -913,12 +949,13 @@ export function NuevoProducto() {
               <input type="number" step="0.01" value={form.ancho} onChange={e => set('ancho', e.target.value)}
                 placeholder="Calculado automático o manual"
                 className={inputCls} />
-              <p className="text-[10px] text-gray-400 mt-1">Se auto-completa desde configuración de hojas</p>
+              <p className="text-[10px] text-gray-400 mt-1">Medida exterior de marco · se auto-completa desde config. de hojas</p>
             </div>
             <div>
               <label className={labelCls}>Alto (m)</label>
               <input type="number" step="0.01" value={form.alto} onChange={e => set('alto', e.target.value)}
                 placeholder="2.00" className={inputCls} />
+              <p className="text-[10px] text-gray-400 mt-1">Medida exterior de marco</p>
             </div>
           </div>
         </div>
