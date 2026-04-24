@@ -117,8 +117,9 @@ clientes.post('/', async (c) => {
       (tipo_persona, nombre, apellido, razon_social, documento_nro,
        telefono, telefono_fijo, email, direccion, localidad, categoria_id,
        estado, origen, fecha_nacimiento, genero,
-       preferencia_contacto, acepta_marketing, referido_por_id, notas, created_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       preferencia_contacto, acepta_marketing, referido_por_id, notas, created_by,
+       dom_obra, dom_obra_localidad)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
     RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
@@ -141,6 +142,8 @@ clientes.post('/', async (c) => {
     body.referido_por_id || null,
     body.notas?.trim() || null,
     user.id,
+    body.dom_obra?.trim() || null,
+    body.dom_obra_localidad?.trim() || null,
   ]);
 
   return c.json(row, 201);
@@ -170,8 +173,10 @@ clientes.put('/:id', async (c) => {
       preferencia_contacto = $16,
       acepta_marketing     = $17,
       referido_por_id      = $18,
-      notas                = $19
-    WHERE id = $20 RETURNING *
+      notas                = $19,
+      dom_obra             = $20,
+      dom_obra_localidad   = $21
+    WHERE id = $22 RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
     body.nombre?.trim() || null,
@@ -192,6 +197,8 @@ clientes.put('/:id', async (c) => {
     body.acepta_marketing ?? true,
     body.referido_por_id || null,
     body.notas?.trim() || null,
+    body.dom_obra?.trim() || null,
+    body.dom_obra_localidad?.trim() || null,
     id,
   ]);
 

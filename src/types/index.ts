@@ -45,6 +45,8 @@ export interface Cliente {
   email: string | null;
   direccion: string | null;
   localidad: string | null;
+  dom_obra: string | null;
+  dom_obra_localidad: string | null;
   categoria_id: string | null;
   categoria?: CategoriaCliente;
   estado: EstadoCliente;

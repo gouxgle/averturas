@@ -45,6 +45,8 @@ const emptyForm = (nombre = '') => ({
   email:                '',
   direccion:            '',
   localidad:            '',
+  dom_obra:             '',
+  dom_obra_localidad:   '',
   categoria_id:         '',
   estado:               'activo',
   origen:               '',
@@ -91,6 +93,8 @@ export function NuevoCliente() {
             email:                c.email             ?? '',
             direccion:            c.direccion         ?? '',
             localidad:            c.localidad         ?? '',
+            dom_obra:             c.dom_obra          ?? '',
+            dom_obra_localidad:   c.dom_obra_localidad ?? '',
             categoria_id:         c.categoria_id      ?? '',
             estado:               c.estado,
             origen:               c.origen            ?? '',
@@ -367,17 +371,37 @@ export function NuevoCliente() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <SectionHeader icon={MapPin} label="Ubicación" />
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <SectionHeader icon={MapPin} label="Domicilios" />
+          <div className="p-4 space-y-4">
             <div>
-              <label className={labelCls}>Dirección</label>
-              <input value={form.direccion} onChange={e => set('direccion', e.target.value)}
-                onKeyDown={onKey} placeholder="Av. San Martín 123" className={inputCls} />
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Domicilio particular</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Dirección</label>
+                  <input value={form.direccion} onChange={e => set('direccion', e.target.value)}
+                    onKeyDown={onKey} placeholder="Av. San Martín 123" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Localidad</label>
+                  <input value={form.localidad} onChange={e => set('localidad', e.target.value)}
+                    onKeyDown={onKey} placeholder="Formosa" className={inputCls} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Localidad</label>
-              <input value={form.localidad} onChange={e => set('localidad', e.target.value)}
-                onKeyDown={onKey} placeholder="Formosa" className={inputCls} />
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Domicilio de obra <span className="normal-case font-normal">(opcional)</span></p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Dirección obra</label>
+                  <input value={form.dom_obra} onChange={e => set('dom_obra', e.target.value)}
+                    onKeyDown={onKey} placeholder="Calle Los Álamos 456" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Localidad obra</label>
+                  <input value={form.dom_obra_localidad} onChange={e => set('dom_obra_localidad', e.target.value)}
+                    onKeyDown={onKey} placeholder="Formosa" className={inputCls} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
