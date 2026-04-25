@@ -16,6 +16,7 @@ import empresaRoutes       from './routes/empresa.js';
 import usuariosRoutes      from './routes/usuarios.js';
 import stockRoutes         from './routes/stock.js';
 import remitosRoutes       from './routes/remitos.js';
+import recibosRoutes       from './routes/recibos.js';
 import { authMiddleware } from './middleware/auth.js';
 
 const app = new Hono();
@@ -44,6 +45,7 @@ apiAuth.route('/empresa',       empresaRoutes);
 apiAuth.route('/usuarios',      usuariosRoutes);
 apiAuth.route('/stock',         stockRoutes);
 apiAuth.route('/remitos',       remitosRoutes);
+apiAuth.route('/recibos',       recibosRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);

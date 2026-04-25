@@ -4,9 +4,10 @@ import { db } from '../db.js';
 const operaciones = new Hono();
 
 operaciones.get('/', async (c) => {
-  const estado  = c.req.query('estado');
-  const estados = c.req.query('estados'); // comma-separated
-  const search  = c.req.query('search') ?? '';
+  const estado     = c.req.query('estado');
+  const estados    = c.req.query('estados');    // comma-separated
+  const search     = c.req.query('search')     ?? '';
+  const cliente_id = c.req.query('cliente_id') ?? '';
   const params: unknown[] = [];
   let where = 'WHERE 1=1';
 
@@ -24,6 +25,11 @@ operaciones.get('/', async (c) => {
   if (search.trim()) {
     params.push(`%${search}%`);
     where += ` AND o.numero ILIKE $${params.length}`;
+  }
+
+  if (cliente_id) {
+    params.push(cliente_id);
+    where += ` AND o.cliente_id = $${params.length}`;
   }
 
   const { rows } = await db.query(`
