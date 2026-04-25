@@ -38,10 +38,10 @@ const CONFIG_HOJAS = [
 ];
 
 const ANCHOS_HOJA: Record<string, number[]> = {
-  hoja_simple:      [0.80, 0.85, 0.90],
-  hoja_y_media:     [0.80, 0.85, 0.90],
-  dos_hojas:        [0.80, 0.90],
-  puerta_pano_fijo: [0.80, 0.85, 0.90],
+  hoja_simple:      [80, 85, 90],
+  hoja_y_media:     [80, 85, 90],
+  dos_hojas:        [80, 90],
+  puerta_pano_fijo: [80, 85, 90],
 };
 
 const TIPO_PROVISION = [
@@ -126,7 +126,7 @@ const CATEGORIAS: { value: TipoOperacion; label: string; desc: string }[] = [
 function calcAncho(config: string, anchHoja: number): number {
   if (config === 'dos_hojas')        return anchHoja * 2;
   if (config === 'hoja_y_media')     return anchHoja + anchHoja / 2;
-  if (config === 'puerta_pano_fijo') return anchHoja + 0.30;
+  if (config === 'puerta_pano_fijo') return anchHoja + 30;
   return anchHoja;
 }
 
@@ -363,12 +363,12 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                           'px-3 py-2 rounded-lg border text-sm font-mono text-center transition-all',
                           anchHoja === a ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
                         )}>
-                        {a.toFixed(2)} m
+                        {a} cm
                       </button>
                     ))}
                   </div>
-                  {cfg === 'puerta_pano_fijo' && <p className="text-[10px] text-gray-400 mt-2">+ paño fijo: <strong>0.30 m</strong></p>}
-                  {anchHoja > 0 && <p className="text-[10px] text-sky-600 font-semibold mt-1.5">Total: {calcAncho(cfg, anchHoja).toFixed(2)} m</p>}
+                  {cfg === 'puerta_pano_fijo' && <p className="text-[10px] text-gray-400 mt-2">+ paño fijo: <strong>30 cm</strong></p>}
+                  {anchHoja > 0 && <p className="text-[10px] text-sky-600 font-semibold mt-1.5">Total: {calcAncho(cfg, anchHoja)} cm</p>}
                 </>
               ) : (
                 <p className="text-xs text-gray-400 italic">Seleccioná configuración primero</p>
@@ -746,6 +746,11 @@ export function NuevoProducto() {
     }
   }, [id, isEdit]);
 
+  // Default alto = 200 cm al detectar puerta (solo si campo vacío)
+  useEffect(() => {
+    if (esPuerta && !form.alto) set('alto', '200');
+  }, [esPuerta]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -934,23 +939,35 @@ export function NuevoProducto() {
         />
       )}
 
-      {/* Medidas para puertas — alto siempre manual */}
+      {/* Medidas para puertas */}
       {esPuerta && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <SectionHeader icon={Ruler} label="Medidas" />
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
+          <div className="p-4 grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Ancho total (m)</label>
-              <input type="number" step="0.01" value={form.ancho} onChange={e => set('ancho', e.target.value)}
-                placeholder="Calculado automático o manual"
-                className={inputCls} />
-              <p className="text-[10px] text-gray-400 mt-1">Medida exterior de marco · se auto-completa desde config. de hojas</p>
+              <label className={labelCls}>Ancho total</label>
+              <div className={cn(
+                'w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-600 flex items-center justify-between',
+                form.ancho ? 'border-emerald-300' : 'border-gray-200'
+              )}>
+                {form.ancho
+                  ? <span className="font-mono font-semibold text-gray-800">{form.ancho} cm</span>
+                  : <span className="italic text-gray-400 text-xs">Elegir config. de hojas →</span>
+                }
+                {form.ancho && <Check size={12} className="text-emerald-500 shrink-0" />}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Calculado · medida exterior de marco</p>
             </div>
             <div>
-              <label className={labelCls}>Alto (m)</label>
-              <input type="number" step="0.01" value={form.alto} onChange={e => set('alto', e.target.value)}
-                placeholder="2.00" className={inputCls} />
-              <p className="text-[10px] text-gray-400 mt-1">Medida exterior de marco</p>
+              <label className={labelCls}>Alto *</label>
+              <div className="relative">
+                <input type="number" min={100} max={400} value={form.alto}
+                  onChange={e => set('alto', e.target.value)}
+                  placeholder="200"
+                  className={inputCls + ' pr-8'} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">cm</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Medida exterior de marco · estándar 200 cm</p>
             </div>
           </div>
         </div>
