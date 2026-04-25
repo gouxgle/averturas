@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
-  Ruler, DollarSign, FileText, Boxes, DoorOpen
+  Ruler, DollarSign, FileText, Boxes, DoorOpen, Check
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -182,6 +182,47 @@ function BtnCheck({ options, values, onChange }: {
   );
 }
 
+// ── FieldCard: tarjeta por atributo con indicador de completado ──
+function FieldCard({ title, complete, optional = false, children }: {
+  title: string;
+  complete: boolean;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn(
+      'rounded-xl border overflow-hidden transition-all duration-150',
+      complete ? 'border-emerald-300' : 'border-gray-200'
+    )}>
+      <div className={cn(
+        'flex items-center justify-between px-3 py-2 border-b',
+        complete ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'
+      )}>
+        <span className={cn(
+          'text-[10px] font-semibold uppercase tracking-wider',
+          complete ? 'text-emerald-700' : 'text-gray-400'
+        )}>
+          {title}
+          {optional && <span className="normal-case font-normal ml-1 opacity-60">(opc.)</span>}
+        </span>
+        {complete && <Check size={10} className="text-emerald-500 shrink-0" />}
+      </div>
+      <div className="p-3 bg-white">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 shrink-0">{label}</span>
+      <div className="flex-1 h-px bg-gray-100" />
+    </div>
+  );
+}
+
 // ── Sección puertas ───────────────────────────────────────────
 function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, colorActual }: {
   atributos: Atributos;
@@ -194,13 +235,32 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
   const cfg         = atributos.config_hojas as string ?? '';
   const anchHoja    = atributos.ancho_hoja as number ?? 0;
   const linea       = atributos.linea as string ?? '';
-  const vidIncluye  = atributos.vidrio_incluye as boolean ?? false;
+  const vidIncluye  = atributos.vidrio_incluye;
   const componentes = atributos.componentes as string[] ?? [];
+  const tieneModelos = Boolean(MODELO[tp]);
+  const coloresDsp   = COLORES_PUERTA[tp] ?? [];
 
-  const tieneModelos  = Boolean(MODELO[tp]);
-  const coloresDsp    = COLORES_PUERTA[tp] ?? [];
-
-  const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
+  // Progreso: campos requeridos completados
+  const progressFields = [
+    tp !== '',
+    Boolean(atributos.uso),
+    cfg !== '',
+    anchHoja > 0,
+    Boolean(atributos.hoja_principal),
+    Boolean(atributos.tipo_provision),
+    Boolean(atributos.estructura),
+    tp !== 'aluminio' || linea !== '',
+    !MODELO[tp] || Boolean(atributos.modelo),
+    Boolean(atributos.apertura),
+    atributos.vidrio_incluye !== undefined,
+    Boolean(atributos.herrajes),
+    atributos.cerradura !== undefined,
+    colorActual !== '',
+    Boolean(atributos.instalacion),
+  ];
+  const completed = progressFields.filter(Boolean).length;
+  const total     = progressFields.length;
+  const pct       = Math.round(completed / total * 100);
 
   function handleAnchoHoja(v: number) {
     setAttr('ancho_hoja', v);
@@ -212,7 +272,6 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
   }
   function handleTipoPuerta(v: string) {
     setAttr('tipo_puerta', v);
-    // reset campos que dependen del tipo
     setAttr('linea', '');
     setAttr('espesor', '');
     setAttr('modelo', '');
@@ -221,427 +280,363 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
     onColorChange('');
   }
 
+  const btn = (active: boolean) => cn(
+    'px-2 py-2 rounded-lg border text-xs text-left leading-tight transition-all',
+    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
 
-      {/* Panel 1 — Tipo + Uso */}
-      <div className="bg-white rounded-xl border border-sky-200 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-sky-50 border-sky-100">
-          <DoorOpen size={13} className="text-sky-500" />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-600">Tipo de puerta</span>
+      {/* Barra de progreso */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+            <DoorOpen size={13} className="text-sky-500" />
+            Atributos de puerta
+          </span>
+          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-gray-400')}>
+            {completed}/{total}
+            {pct === 100 && <Check size={11} className="text-emerald-500" />}
+          </span>
         </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <label className={labelCls}>Tipo *</label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {TIPO_PUERTA.map(o => (
-                <button key={o.v} type="button" onClick={() => handleTipoPuerta(o.v)}
-                  className={cn(
-                    'px-2 py-2 rounded-lg border text-xs text-center transition-all leading-tight',
-                    tp === o.v
-                      ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                      : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                  )}>
-                  {o.l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Uso</label>
-            <BtnGroup options={USO_PUERTA} value={atributos.uso as string ?? ''} onChange={v => setAttr('uso', v)} cols={3} />
-          </div>
+        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div
+            className={cn('h-1.5 rounded-full transition-all duration-300',
+              pct === 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-sky-400' : pct >= 30 ? 'bg-amber-400' : 'bg-gray-300'
+            )}
+            style={{ width: `${Math.max(pct, 2)}%` }}
+          />
         </div>
       </div>
 
-      {/* Panel 2 — Configuración de hojas (después de tipo) */}
-      {tp && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Configuración de hojas</span>
-          </div>
-          <div className="p-4 space-y-4">
-
-            <div>
-              <label className={labelCls}>Configuración</label>
-              <BtnGroup options={CONFIG_HOJAS} value={cfg} onChange={handleConfig} cols={4} small />
-            </div>
-
-            {cfg && (
-              <div>
-                <label className={labelCls}>
-                  {cfg === 'puerta_pano_fijo' ? 'Ancho puerta' : cfg === 'dos_hojas' ? 'Ancho por hoja' : 'Ancho hoja'}
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {(ANCHOS_HOJA[cfg] ?? []).map(a => (
-                    <button key={a} type="button" onClick={() => handleAnchoHoja(a)}
-                      className={cn(
-                        'px-4 py-2 rounded-lg border text-sm font-mono transition-all',
-                        anchHoja === a
-                          ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold'
-                          : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                      )}>
-                      {a.toFixed(2)} m
-                    </button>
-                  ))}
-                </div>
-                {cfg === 'puerta_pano_fijo' && (
-                  <p className="text-xs text-gray-400 mt-1.5">Paño fijo: <strong>0.30 m</strong> (fijo)</p>
-                )}
-                {cfg && anchHoja > 0 && (
-                  <p className="text-xs text-sky-600 mt-1.5 font-medium">
-                    Ancho total: {calcAncho(cfg, anchHoja).toFixed(2)} m
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div>
-              <label className={labelCls}>Hoja principal</label>
-              <BtnGroup
-                options={[{ v: 'izquierda', l: '← Izquierda' }, { v: 'derecha', l: 'Derecha →' }]}
-                value={atributos.hoja_principal as string ?? ''}
-                onChange={v => setAttr('hoja_principal', v)}
-                cols={2}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Panel 3 — Provisión + Estructura */}
-      {tp && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Provisión y estructura</span>
-          </div>
-          <div className="p-4 space-y-4">
-
-            <div>
-              <label className={labelCls}>Tipo de provisión</label>
-              <BtnGroup options={TIPO_PROVISION} value={atributos.tipo_provision as string ?? ''} onChange={v => setAttr('tipo_provision', v)} cols={3} small />
-            </div>
-
-            <div>
-              <label className={labelCls}>Estructura</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {ESTRUCTURA.map(o => (
-                  <button key={o.v} type="button" onClick={() => setAttr('estructura', o.v)}
-                    className={cn(
-                      'px-2.5 py-2 rounded-lg border text-xs text-left transition-all',
-                      atributos.estructura === o.v
-                        ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                        : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                    )}>
-                    {o.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Línea — solo aluminio */}
-            {tp === 'aluminio' && (
-              <div>
-                <label className={labelCls}>Línea (aluminio)</label>
-                <BtnGroup options={LINEA_ALUM} value={linea} onChange={v => { setAttr('linea', v); setAttr('espesor', ''); }} cols={3} small />
-              </div>
-            )}
-
-            {/* Espesor — solo Herrero */}
-            {tp === 'aluminio' && linea === 'herrero' && (
-              <div>
-                <label className={labelCls}>Espesor (Herrero)</label>
-                <div className="flex gap-2">
-                  {ESPESOR.map(e => (
-                    <button key={e} type="button" onClick={() => setAttr('espesor', e)}
-                      className={cn(
-                        'flex-1 py-2 rounded-lg border text-sm font-medium transition-all',
-                        atributos.espesor === e
-                          ? 'border-sky-500 bg-sky-50 text-sky-800'
-                          : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                      )}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Panel 4 — Modelo y apertura */}
-      {tp && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Modelo y apertura</span>
-          </div>
-          <div className="p-4 space-y-4">
-
-            {tieneModelos && (
-              <div>
-                <label className={labelCls}>Modelo</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {(MODELO[tp] ?? []).map(m => (
-                    <button key={m} type="button" onClick={() => setAttr('modelo', m)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-lg border text-xs transition-all',
-                        atributos.modelo === m
-                          ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                          : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                      )}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Modelo comercial — solo placa */}
-            {tp === 'placa' && (
-              <div>
-                <label className={labelCls}>Modelo comercial</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {MODELO_COMERCIAL.map(m => (
-                    <button key={m} type="button" onClick={() => setAttr('modelo_comercial', m)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-lg border text-xs transition-all',
-                        atributos.modelo_comercial === m
-                          ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                          : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                      )}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Subtipo granero */}
-            {tp === 'granero' && (
-              <div>
-                <label className={labelCls}>Subtipo granero</label>
-                <BtnGroup
-                  options={[{ v: 'mdf', l: 'MDF' }, { v: 'aluminio', l: 'Aluminio' }]}
-                  value={atributos.subtipo_granero as string ?? ''}
-                  onChange={v => setAttr('subtipo_granero', v)}
-                  cols={2}
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Diseño de hoja</label>
-                <div className="flex gap-2">
-                  {DISEÑO_HOJA.map(d => (
-                    <button key={d} type="button" onClick={() => setAttr('diseno_hoja', d)}
-                      className={cn(
-                        'flex-1 py-2 rounded-lg border text-xs font-medium transition-all',
-                        atributos.diseno_hoja === d
-                          ? 'border-sky-500 bg-sky-50 text-sky-800'
-                          : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                      )}>
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className={labelCls}>Config. estructural</label>
-                <div className="flex flex-col gap-1.5">
-                  {CFG_ESTRUC.map(c => (
-                    <button key={c} type="button" onClick={() => setAttr('config_estructural', c)}
-                      className={cn(
-                        'py-2 rounded-lg border text-xs font-medium transition-all',
-                        atributos.config_estructural === c
-                          ? 'border-sky-500 bg-sky-50 text-sky-800'
-                          : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                      )}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Apertura</label>
-              <BtnGroup options={APERTURA} value={atributos.apertura as string ?? ''} onChange={v => setAttr('apertura', v)} cols={4} small />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Panel 5 — Vidrio */}
-      {tp && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Vidrio</span>
-          </div>
-          <div className="p-4 space-y-3">
-            <div className="flex gap-3">
-              {[{ v: true, l: 'Con vidrio' }, { v: false, l: 'Sin vidrio' }].map(o => (
-                <button key={String(o.v)} type="button" onClick={() => setAttr('vidrio_incluye', o.v)}
-                  className={cn(
-                    'flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all',
-                    vidIncluye === o.v
-                      ? 'border-sky-500 bg-sky-50 text-sky-800'
-                      : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                  )}>
+      {/* ── Identificación ── */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="col-span-2">
+          <FieldCard title="Tipo de puerta" complete={tp !== ''}>
+            <div className="grid grid-cols-4 gap-1.5">
+              {TIPO_PUERTA.map(o => (
+                <button key={o.v} type="button" onClick={() => handleTipoPuerta(o.v)} className={btn(tp === o.v)}>
                   {o.l}
                 </button>
               ))}
             </div>
-            {vidIncluye && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Tipo de vidrio</label>
-                  <div className="flex flex-col gap-1.5">
-                    {VIDRIO_TIPO.map(v => (
-                      <button key={v} type="button" onClick={() => setAttr('vidrio_tipo', v)}
-                        className={cn(
-                          'py-1.5 px-2 rounded-lg border text-xs text-left transition-all',
-                          atributos.vidrio_tipo === v
-                            ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                            : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                        )}>
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Formato</label>
-                  <div className="flex flex-col gap-1.5">
-                    {VIDRIO_FMT.map(v => (
-                      <button key={v} type="button" onClick={() => setAttr('vidrio_formato', v)}
-                        className={cn(
-                          'py-1.5 px-2 rounded-lg border text-xs text-left transition-all',
-                          atributos.vidrio_formato === v
-                            ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                            : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                        )}>
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          </FieldCard>
         </div>
-      )}
-
-      {/* Panel 6 — Herrajes, cerradura, componentes */}
-      {tp && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Herrajes y accesorios</span>
+        <FieldCard title="Uso" complete={Boolean(atributos.uso)}>
+          <div className="flex flex-col gap-1.5">
+            {USO_PUERTA.map(o => (
+              <button key={o.v} type="button" onClick={() => setAttr('uso', o.v)} className={btn(atributos.uso === o.v)}>
+                {o.l}
+              </button>
+            ))}
           </div>
-          <div className="p-4 space-y-4">
-            <div>
-              <label className={labelCls}>Tipo de herrajes</label>
-              <div className="flex flex-col gap-1.5">
-                {HERRAJES.map(h => (
-                  <button key={h.v} type="button" onClick={() => setAttr('herrajes', h.v)}
-                    className={cn(
-                      'py-2 px-3 rounded-lg border text-xs text-left transition-all',
-                      atributos.herrajes === h.v
-                        ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                        : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                    )}>
-                    {h.l}
+        </FieldCard>
+      </div>
+
+      {/* ── Configuración de hojas ── */}
+      {tp && (
+        <>
+          <SectionDivider label="Configuración de hojas" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <FieldCard title="Tipo de configuración" complete={cfg !== ''}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {CONFIG_HOJAS.map(o => (
+                  <button key={o.v} type="button" onClick={() => handleConfig(o.v)} className={btn(cfg === o.v)}>
+                    <span className="block">{o.l}</span>
+                    <span className="block text-[10px] opacity-50 mt-0.5">{o.sub}</span>
                   </button>
                 ))}
               </div>
-            </div>
+            </FieldCard>
 
-            <div>
-              <label className={labelCls}>Cerradura</label>
-              <div className="flex gap-3">
-                {[{ v: true, l: 'Con cerradura' }, { v: false, l: 'Sin cerradura' }].map(o => (
-                  <button key={String(o.v)} type="button" onClick={() => setAttr('cerradura', o.v)}
-                    className={cn(
-                      'flex-1 py-2 rounded-lg border text-sm font-medium transition-all',
-                      atributos.cerradura === o.v
-                        ? 'border-sky-500 bg-sky-50 text-sky-800'
-                        : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                    )}>
+            <FieldCard
+              title={cfg === 'puerta_pano_fijo' ? 'Ancho puerta' : cfg === 'dos_hojas' ? 'Ancho por hoja' : 'Ancho de hoja'}
+              complete={anchHoja > 0}
+            >
+              {cfg ? (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    {(ANCHOS_HOJA[cfg] ?? []).map(a => (
+                      <button key={a} type="button" onClick={() => handleAnchoHoja(a)}
+                        className={cn(
+                          'px-3 py-2 rounded-lg border text-sm font-mono text-center transition-all',
+                          anchHoja === a ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+                        )}>
+                        {a.toFixed(2)} m
+                      </button>
+                    ))}
+                  </div>
+                  {cfg === 'puerta_pano_fijo' && <p className="text-[10px] text-gray-400 mt-2">+ paño fijo: <strong>0.30 m</strong></p>}
+                  {anchHoja > 0 && <p className="text-[10px] text-sky-600 font-semibold mt-1.5">Total: {calcAncho(cfg, anchHoja).toFixed(2)} m</p>}
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 italic">Seleccioná configuración primero</p>
+              )}
+            </FieldCard>
+
+            <FieldCard title="Hoja principal" complete={Boolean(atributos.hoja_principal)}>
+              <div className="flex flex-col gap-1.5">
+                {[{ v: 'izquierda', l: '← Izquierda' }, { v: 'derecha', l: 'Derecha →' }].map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('hoja_principal', o.v)} className={btn(atributos.hoja_principal === o.v)}>
                     {o.l}
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Componentes incluidos</label>
-              <BtnCheck options={COMPONENTES} values={componentes} onChange={v => setAttr('componentes', v)} />
-            </div>
+            </FieldCard>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Panel 7 — Color específico puerta */}
-      {tp && coloresDsp.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Color</span>
+      {/* ── Construcción ── */}
+      {tp && (
+        <>
+          <SectionDivider label="Construcción" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldCard title="Tipo de provisión" complete={Boolean(atributos.tipo_provision)}>
+              <div className="flex flex-col gap-1.5">
+                {TIPO_PROVISION.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('tipo_provision', o.v)} className={btn(atributos.tipo_provision === o.v)}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Estructura" complete={Boolean(atributos.estructura)}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {ESTRUCTURA.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('estructura', o.v)} className={btn(atributos.estructura === o.v)}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
           </div>
-          <div className="p-4">
+
+          {tp === 'aluminio' && (
+            <div className={cn('grid gap-3', linea === 'herrero' ? 'sm:grid-cols-2' : 'grid-cols-1')}>
+              <FieldCard title="Línea (aluminio)" complete={linea !== ''}>
+                <div className="flex gap-1.5">
+                  {LINEA_ALUM.map(o => (
+                    <button key={o.v} type="button" onClick={() => { setAttr('linea', o.v); setAttr('espesor', ''); }}
+                      className={cn('flex-1 px-2 py-2 rounded-lg border text-xs text-center transition-all',
+                        linea === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+              </FieldCard>
+              {linea === 'herrero' && (
+                <FieldCard title="Espesor (Herrero)" complete={Boolean(atributos.espesor)}>
+                  <div className="flex gap-2">
+                    {ESPESOR.map(e => (
+                      <button key={e} type="button" onClick={() => setAttr('espesor', e)}
+                        className={cn('flex-1 py-2 rounded-lg border text-sm font-medium transition-all',
+                          atributos.espesor === e ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </FieldCard>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Modelo y apertura ── */}
+      {tp && (
+        <>
+          <SectionDivider label="Modelo y apertura" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {tieneModelos && (
+              <FieldCard title="Modelo" complete={Boolean(atributos.modelo)}>
+                <div className="flex flex-wrap gap-1.5">
+                  {(MODELO[tp] ?? []).map(m => (
+                    <button key={m} type="button" onClick={() => setAttr('modelo', m)}
+                      className={cn('px-3 py-1.5 rounded-lg border text-xs transition-all',
+                        atributos.modelo === m ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </FieldCard>
+            )}
+            {tp === 'placa' && (
+              <FieldCard title="Modelo comercial" complete={Boolean(atributos.modelo_comercial)} optional>
+                <div className="flex flex-wrap gap-1.5">
+                  {MODELO_COMERCIAL.map(m => (
+                    <button key={m} type="button" onClick={() => setAttr('modelo_comercial', m)}
+                      className={cn('px-2.5 py-1.5 rounded-lg border text-xs transition-all',
+                        atributos.modelo_comercial === m ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </FieldCard>
+            )}
+            {tp === 'granero' && (
+              <FieldCard title="Subtipo granero" complete={Boolean(atributos.subtipo_granero)}>
+                <div className="flex gap-2">
+                  {[{ v: 'mdf', l: 'MDF' }, { v: 'aluminio', l: 'Aluminio' }].map(o => (
+                    <button key={o.v} type="button" onClick={() => setAttr('subtipo_granero', o.v)}
+                      className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
+                        atributos.subtipo_granero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+              </FieldCard>
+            )}
+            <FieldCard title="Diseño de hoja" complete={Boolean(atributos.diseno_hoja)} optional>
+              <div className="flex gap-1.5">
+                {DISEÑO_HOJA.map(d => (
+                  <button key={d} type="button" onClick={() => setAttr('diseno_hoja', d)}
+                    className={cn('flex-1 py-2 rounded-lg border text-xs font-medium transition-all',
+                      atributos.diseno_hoja === d ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Config. estructural" complete={Boolean(atributos.config_estructural)} optional>
+              <div className="flex flex-col gap-1.5">
+                {CFG_ESTRUC.map(c => (
+                  <button key={c} type="button" onClick={() => setAttr('config_estructural', c)}
+                    className={cn('py-2 rounded-lg border text-xs font-medium transition-all',
+                      atributos.config_estructural === c ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Apertura" complete={Boolean(atributos.apertura)}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {APERTURA.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('apertura', o.v)} className={btn(atributos.apertura === o.v)}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+          </div>
+        </>
+      )}
+
+      {/* ── Vidrio ── */}
+      {tp && (
+        <>
+          <SectionDivider label="Vidrio" />
+          <div className={cn('grid gap-3', vidIncluye === true ? 'sm:grid-cols-3' : 'grid-cols-1')}>
+            <FieldCard title="¿Incluye vidrio?" complete={atributos.vidrio_incluye !== undefined}>
+              <div className="flex gap-2">
+                {[{ v: true, l: 'Con vidrio' }, { v: false, l: 'Sin vidrio' }].map(o => (
+                  <button key={String(o.v)} type="button" onClick={() => setAttr('vidrio_incluye', o.v)}
+                    className={cn('flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all',
+                      vidIncluye === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            {vidIncluye === true && (
+              <>
+                <FieldCard title="Tipo de vidrio" complete={Boolean(atributos.vidrio_tipo)}>
+                  <div className="flex flex-col gap-1.5">
+                    {VIDRIO_TIPO.map(v => (
+                      <button key={v} type="button" onClick={() => setAttr('vidrio_tipo', v)} className={btn(atributos.vidrio_tipo === v)}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </FieldCard>
+                <FieldCard title="Formato" complete={Boolean(atributos.vidrio_formato)}>
+                  <div className="flex flex-col gap-1.5">
+                    {VIDRIO_FMT.map(v => (
+                      <button key={v} type="button" onClick={() => setAttr('vidrio_formato', v)} className={btn(atributos.vidrio_formato === v)}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </FieldCard>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Herrajes y accesorios ── */}
+      {tp && (
+        <>
+          <SectionDivider label="Herrajes y accesorios" />
+          <FieldCard title="Tipo de herrajes" complete={Boolean(atributos.herrajes)}>
+            <div className="flex flex-col gap-1.5">
+              {HERRAJES.map(h => (
+                <button key={h.v} type="button" onClick={() => setAttr('herrajes', h.v)} className={btn(atributos.herrajes === h.v)}>
+                  {h.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+          <div className="grid grid-cols-2 gap-3">
+            <FieldCard title="Cerradura" complete={atributos.cerradura !== undefined}>
+              <div className="flex gap-2">
+                {[{ v: true, l: 'Con cerradura' }, { v: false, l: 'Sin cerradura' }].map(o => (
+                  <button key={String(o.v)} type="button" onClick={() => setAttr('cerradura', o.v)}
+                    className={cn('flex-1 py-2 rounded-lg border text-xs font-medium transition-all',
+                      atributos.cerradura === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Componentes incluidos" complete={componentes.length > 0} optional>
+              <BtnCheck options={COMPONENTES} values={componentes} onChange={v => setAttr('componentes', v)} />
+            </FieldCard>
+          </div>
+        </>
+      )}
+
+      {/* ── Color ── */}
+      {tp && coloresDsp.length > 0 && (
+        <>
+          <SectionDivider label="Color" />
+          <FieldCard title="Color" complete={colorActual !== ''}>
             <div className="flex flex-wrap gap-2">
               {coloresDsp.map(c => (
                 <button key={c} type="button" onClick={() => onColorChange(c)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg border text-sm transition-all',
-                    colorActual === c
-                      ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-                      : 'border-gray-200 text-gray-600 hover:border-sky-300'
-                  )}>
+                  className={cn('px-3 py-1.5 rounded-lg border text-sm transition-all',
+                    colorActual === c ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
                   {c}
                 </button>
               ))}
             </div>
-          </div>
-        </div>
+          </FieldCard>
+        </>
       )}
 
-      {/* Panel 8 — Comercial */}
+      {/* ── Comercial ── */}
       {tp && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Comercial</span>
-          </div>
-          <div className="p-4 space-y-4">
-            <div>
-              <label className={labelCls}>Instalación</label>
+        <>
+          <SectionDivider label="Comercial" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldCard title="Instalación" complete={Boolean(atributos.instalacion)}>
               <BtnGroup
-                options={[
-                  { v: 'si',       l: 'Sí' },
-                  { v: 'no',       l: 'No' },
-                  { v: 'opcional', l: 'Opcional' },
-                ]}
+                options={[{ v: 'si', l: 'Sí' }, { v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }]}
                 value={atributos.instalacion as string ?? ''}
                 onChange={v => setAttr('instalacion', v)}
-                cols={3}
-                small
+                cols={3} small
               />
-            </div>
-            <div>
-              <label className={labelCls}>Entrega</label>
+            </FieldCard>
+            <FieldCard title="Entrega" complete={(atributos.entrega as string[] ?? []).length > 0} optional>
               <BtnCheck
-                options={[
-                  { v: 'retiro_local',    l: 'Retiro en local' },
-                  { v: 'envio_disponible',l: 'Envío disponible' },
-                ]}
+                options={[{ v: 'retiro_local', l: 'Retiro en local' }, { v: 'envio_disponible', l: 'Envío disponible' }]}
                 values={atributos.entrega as string[] ?? []}
                 onChange={v => setAttr('entrega', v)}
               />
-            </div>
+            </FieldCard>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
