@@ -1,15 +1,29 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Building2 } from 'lucide-react';
+
+// Logo mark: 2×2 cuadros en colores de marca (versión fondo claro)
+function LogoMarkColor({ size = 56 }: { size?: number }) {
+  const gap = Math.round(size * 0.083);
+  const sq  = Math.round((size - gap * 3) / 2);
+  const r   = Math.round(sq * 0.22);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
+      <rect x={gap} y={gap} width={sq} height={sq} rx={r} fill="#031d49" />
+      <rect x={gap * 2 + sq} y={gap} width={sq} height={sq} rx={r} fill="#e31e24" />
+      <rect x={gap} y={gap * 2 + sq} width={sq} height={sq} rx={r} fill="#fcfcfc" stroke="#d1d5db" strokeWidth="1" />
+      <rect x={gap * 2 + sq} y={gap * 2 + sq} width={sq} height={sq} rx={r} fill="#000000" />
+    </svg>
+  );
+}
 
 export function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,64 +38,98 @@ export function Login() {
     }
   }
 
+  const inputCls = 'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none transition-all';
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
-            <Building2 className="text-white" size={24} />
+    <div className="min-h-screen flex" style={{ backgroundColor: '#f0f2f5' }}>
+
+      {/* Panel lateral decorativo (visible en md+) */}
+      <div className="hidden md:flex flex-col items-center justify-center w-80 shrink-0"
+        style={{ backgroundColor: '#031d49' }}>
+        <LogoMarkColor size={72} />
+        <p className="mt-5 text-xl font-extrabold text-white tracking-wide">CÉSAR BRÍTEZ</p>
+        <p className="text-sm font-medium tracking-widest uppercase mt-1" style={{ color: '#e31e24' }}>
+          Aberturas
+        </p>
+        <p className="text-xs mt-6 text-center px-6" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          Aberturas bien pensadas.
+        </p>
+      </div>
+
+      {/* Panel login */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+
+          {/* Logo visible solo en mobile */}
+          <div className="flex flex-col items-center mb-8 md:hidden">
+            <LogoMarkColor size={56} />
+            <p className="mt-3 text-lg font-extrabold tracking-wide" style={{ color: '#031d49' }}>
+              CÉSAR BRÍTEZ
+            </p>
+            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#e31e24' }}>
+              Aberturas
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Aberturas</h1>
-          <p className="text-sm text-gray-500 mt-1">Sistema de gestión</p>
-        </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                placeholder="tu@email.com"
-              />
-            </div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-7 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Bienvenido</h2>
+            <p className="text-sm text-gray-500 mb-6">Ingresá tus credenciales para continuar</p>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-                <p className="text-sm text-red-600">{error}</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                  className={inputCls}
+                  style={{ '--tw-ring-color': '#031d49' } as React.CSSProperties}
+                  onFocus={e => (e.target.style.borderColor = '#031d49')}
+                  onBlur={e => (e.target.style.borderColor = '')}
+                  placeholder="tu@email.com"
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors"
-            >
-              {loading ? 'Ingresando...' : 'Ingresar'}
-            </button>
-          </form>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className={inputCls}
+                  onFocus={e => (e.target.style.borderColor = '#031d49')}
+                  onBlur={e => (e.target.style.borderColor = '')}
+                  placeholder="••••••••"
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full disabled:opacity-60 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-opacity mt-2"
+                style={{ backgroundColor: '#031d49' }}
+              >
+                {loading ? 'Ingresando...' : 'Ingresar'}
+              </button>
+            </form>
+          </div>
+
+          <p className="text-center text-[11px] text-gray-400 mt-6">
+            César Brítez Aberturas · Formosa Capital
+          </p>
         </div>
       </div>
     </div>

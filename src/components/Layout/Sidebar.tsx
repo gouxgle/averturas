@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
   FileText, Hammer, Layers, Boxes, TrendingUp,
-  SlidersHorizontal, ChevronRight, LogOut, LayoutGrid, X, Truck, Receipt
+  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -48,6 +48,25 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   },
 ];
 
+// Logo mark: 2×2 cuadros redondeados (versión para fondo oscuro)
+function LogoMark({ size = 36 }: { size?: number }) {
+  const gap = Math.round(size * 0.083);   // ~3px para 36px
+  const sq  = Math.round((size - gap * 3) / 2);
+  const r   = Math.round(sq * 0.22);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
+      {/* Top-left: blanco brillante */}
+      <rect x={gap} y={gap} width={sq} height={sq} rx={r} fill="rgba(255,255,255,0.90)" />
+      {/* Top-right: rojo marca */}
+      <rect x={gap * 2 + sq} y={gap} width={sq} height={sq} rx={r} fill="#e31e24" />
+      {/* Bottom-left: blanco semitransparente */}
+      <rect x={gap} y={gap * 2 + sq} width={sq} height={sq} rx={r} fill="rgba(255,255,255,0.45)" />
+      {/* Bottom-right: blanco muy tenue */}
+      <rect x={gap * 2 + sq} y={gap * 2 + sq} width={sq} height={sq} rx={r} fill="rgba(255,255,255,0.20)" />
+    </svg>
+  );
+}
+
 interface SidebarProps {
   onClose?: () => void;
 }
@@ -66,23 +85,26 @@ export function Sidebar({ onClose }: SidebarProps) {
     : 'U';
 
   return (
-    <aside className="w-64 lg:w-60 h-full min-h-screen bg-slate-900 flex flex-col select-none">
+    <aside className="w-64 lg:w-60 h-full min-h-screen flex flex-col select-none" style={{ backgroundColor: '#031d49' }}>
 
-      {/* Logo + close button mobile */}
-      <div className="h-16 flex items-center px-4 border-b border-slate-700/50 shrink-0">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shrink-0">
-            <LayoutGrid size={18} className="text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white tracking-wide leading-tight">ABERTURAS</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Gestión</p>
+      {/* Header: logo + nombre empresa */}
+      <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <LogoMark size={36} />
+          <div className="min-w-0">
+            <p className="text-[13px] font-extrabold text-white tracking-wide leading-tight truncate">
+              CÉSAR BRÍTEZ
+            </p>
+            <p className="text-[10px] font-medium tracking-widest uppercase" style={{ color: '#e31e24' }}>
+              Aberturas
+            </p>
           </div>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors ml-2"
+            className="lg:hidden p-1.5 rounded-lg transition-colors ml-2"
+            style={{ color: 'rgba(255,255,255,0.4)' }}
             aria-label="Cerrar menú"
           >
             <X size={16} />
@@ -95,7 +117,8 @@ export function Sidebar({ onClose }: SidebarProps) {
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi} className={gi > 0 ? 'pt-3' : ''}>
             {group.label && (
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-3 pb-1.5 pt-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest px-3 pb-1.5 pt-1"
+                style={{ color: 'rgba(255,255,255,0.30)' }}>
                 {group.label}
               </p>
             )}
@@ -108,11 +131,10 @@ export function Sidebar({ onClose }: SidebarProps) {
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative',
-                    isActive
-                      ? cn('text-white', activeBg)
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    isActive ? cn('text-white', activeBg) : 'hover:bg-white/5'
                   )
                 }
+                style={({ isActive }) => isActive ? {} : { color: 'rgba(255,255,255,0.55)' }}
               >
                 {({ isActive }) => (
                   <>
@@ -121,8 +143,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                     )}
                     <span className={cn(
                       'w-7 h-7 rounded-lg flex items-center justify-center transition-colors',
-                      isActive ? cn('bg-slate-700/50', activeColor) : 'text-slate-500 group-hover:text-slate-300'
-                    )}>
+                      isActive ? cn('bg-white/10', activeColor) : 'group-hover:text-white/80'
+                    )} style={isActive ? {} : { color: 'rgba(255,255,255,0.40)' }}>
                       <Icon size={16} />
                     </span>
                     <span className="flex-1">{label}</span>
@@ -135,20 +157,27 @@ export function Sidebar({ onClose }: SidebarProps) {
         ))}
       </nav>
 
-      {/* User */}
-      <div className="p-3 border-t border-slate-700/50 shrink-0">
-        <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shrink-0 shadow-sm">
+      {/* Usuario */}
+      <div className="p-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2.5 p-2.5 rounded-xl transition-colors"
+          style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
+            style={{ backgroundColor: '#e31e24' }}>
             <span className="text-xs font-bold text-white">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-200 truncate">{user?.nombre ?? 'Usuario'}</p>
-            <p className="text-[10px] text-slate-500 capitalize">{user?.rol ?? ''}</p>
+            <p className="text-xs font-semibold truncate" style={{ color: 'rgba(255,255,255,0.90)' }}>
+              {user?.nombre ?? 'Usuario'}
+            </p>
+            <p className="text-[10px] capitalize" style={{ color: 'rgba(255,255,255,0.40)' }}>
+              {user?.rol ?? ''}
+            </p>
           </div>
           <button
             onClick={handleSignOut}
             title="Cerrar sesión"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-700 transition-colors"
+            className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+            style={{ color: 'rgba(255,255,255,0.35)' }}
           >
             <LogOut size={14} />
           </button>
