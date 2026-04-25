@@ -19,6 +19,7 @@ psql -U postgres -d postgres -f /migrations/20260422000001_stock_module.sql
 psql -U postgres -d postgres -f /migrations/20260422000002_remitos.sql
 psql -U postgres -d postgres -f /migrations/20260423000001_atributos_jsonb.sql
 psql -U postgres -d postgres -f /migrations/20260424000001_clientes_domicilio_obra.sql
+psql -U postgres -d postgres -f /migrations/20260424000002_catalogo_atributos_schema.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -42,7 +43,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260422000001_stock_module.sql'),
   ('20260422000002_remitos.sql'),
   ('20260423000001_atributos_jsonb.sql'),
-  ('20260424000001_clientes_domicilio_obra.sql')
+  ('20260424000001_clientes_domicilio_obra.sql'),
+  ('20260424000002_catalogo_atributos_schema.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

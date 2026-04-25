@@ -277,6 +277,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
     setAttr('modelo', '');
     setAttr('modelo_comercial', '');
     setAttr('subtipo_granero', '');
+    setAttr('componentes', ['herrajes_completos']);
     onColorChange('');
   }
 
@@ -288,8 +289,8 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
   return (
     <div className="space-y-3">
 
-      {/* Barra de progreso */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+      {/* Barra de progreso — sticky */}
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
             <DoorOpen size={13} className="text-sky-500" />
@@ -1125,11 +1126,21 @@ export function NuevoProducto() {
               <label className={labelCls}>Costo *</label>
               <input type="number" min={0} value={form.costo_base}
                 onChange={e => set('costo_base', e.target.value)} placeholder="0" className={inputCls} />
+              {costo > 0 && (
+                <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                  $ {costo.toLocaleString('es-AR')}
+                </p>
+              )}
             </div>
             <div>
               <label className={labelCls}>Precio de venta *</label>
               <input type="number" min={0} value={form.precio_base}
                 onChange={e => set('precio_base', e.target.value)} placeholder="0" className={inputCls} />
+              {precio > 0 && (
+                <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                  $ {precio.toLocaleString('es-AR')}
+                </p>
+              )}
             </div>
           </div>
           {precio > 0 && (
@@ -1195,6 +1206,19 @@ export function NuevoProducto() {
               className={inputCls + ' resize-none'} />
           </div>
         </div>
+      </div>
+
+      {/* Botón guardar al final */}
+      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+        <button onClick={() => navigate('/productos')}
+          className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
+          Cancelar
+        </button>
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-sm">
+          <Save size={15} />
+          {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
+        </button>
       </div>
 
     </div>
