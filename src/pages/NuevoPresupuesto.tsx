@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -27,10 +27,27 @@ const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
 const FORMA_PAGO     = ['Contado', 'Tarjeta de crédito', 'Débito', 'Cheque', 'Transferencia'];
 const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
 
+// ── Tipos ────────────────────────────────────────────────────────────────────
+
+interface CatalogProduct {
+  id: string;
+  nombre: string;
+  codigo: string | null;
+  costo_base: number;
+  precio_base: number;
+  tipo_abertura_id: string | null;
+  sistema_id: string | null;
+  color: string | null;
+  vidrio: string | null;
+  premarco: boolean;
+  accesorios: string[];
+}
+
 // ── Ítem vacío ────────────────────────────────────────────────────────────────
 
 interface ItemForm {
   _key: string;
+  producto_id: string;   // id de catálogo — '' si ítem manual
   tipo_item: 'estandar' | 'a_medida';
   tipo_abertura_id: string;
   sistema_id: string;
@@ -58,7 +75,8 @@ function uuid() {
 function emptyItem(): ItemForm {
   return {
     _key: uuid(),
-    tipo_item: 'a_medida',
+    producto_id: '',
+    tipo_item: 'estandar',
     tipo_abertura_id: '', sistema_id: '', descripcion: '',
     medida_ancho: '', medida_alto: '',
     cantidad: 1,
@@ -97,8 +115,6 @@ function ItemCard({
   const up = (f: keyof ItemForm, v: unknown) => onChange(item._key, f, v);
 
   const precioItem = itemPrecioTotal(item);
-  const costoItem  = itemCostoTotal(item);
-  const margenItem = precioItem > 0 ? Math.round((precioItem - costoItem) / precioItem * 100) : 0;
 
   const sel   = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
   const inp   = sel;
@@ -234,13 +250,8 @@ function ItemCard({
             </div>
           )}
 
-          {/* Fila costos */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label className={label}>Costo unitario</label>
-              <input type="number" min={0} value={item.costo_unitario}
-                onChange={e => up('costo_unitario', parseFloat(e.target.value) || 0)} className={inp} />
-            </div>
+          {/* Fila precios */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div>
               <label className={label}>Precio de venta</label>
               <input type="number" min={0} value={item.precio_unitario}
@@ -256,29 +267,28 @@ function ItemCard({
             </div>
             <div>
               <label className={label}>Accesorios</label>
-              <select multiple value={item.accesorios}
-                onChange={e => up('accesorios', Array.from(e.target.selectedOptions).map(o => o.value))}
-                className={sel + ' h-[38px] overflow-hidden'}
-                style={{ height: '38px' }}
-                size={1}
-                onClick={e => {
-                  const el = e.currentTarget;
-                  el.size = el.size === 1 ? ACCESORIO_OPTS.length : 1;
-                }}
-                onBlur={e => { e.currentTarget.size = 1; }}>
-                {ACCESORIO_OPTS.map(a => <option key={a} value={a}>{item.accesorios.includes(a) ? '✓ ' : ''}{a}</option>)}
-              </select>
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1.5">
+                {ACCESORIO_OPTS.map(a => (
+                  <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox"
+                      checked={item.accesorios.includes(a)}
+                      onChange={e => up('accesorios',
+                        e.target.checked
+                          ? [...item.accesorios, a]
+                          : item.accesorios.filter(x => x !== a)
+                      )}
+                      className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
+                    />
+                    <span className="text-xs text-gray-600">{a}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Instalación costos (condicional) */}
+          {/* Precio instalación (condicional) */}
           {item.incluye_instalacion && (
-            <div className="grid grid-cols-2 gap-3 bg-violet-50 rounded-lg p-3">
-              <div>
-                <label className={label}>Costo instalación</label>
-                <input type="number" min={0} value={item.costo_instalacion}
-                  onChange={e => up('costo_instalacion', parseFloat(e.target.value) || 0)} className={inp} />
-              </div>
+            <div className="grid grid-cols-1 gap-3 bg-violet-50 rounded-lg p-3">
               <div>
                 <label className={label}>Precio instalación</label>
                 <input type="number" min={0} value={item.precio_instalacion}
@@ -287,12 +297,10 @@ function ItemCard({
             </div>
           )}
 
-          {/* Margen del ítem */}
+          {/* Total del ítem */}
           {precioItem > 0 && (
             <div className="flex items-center gap-4 text-xs text-gray-500 pt-1 border-t border-gray-100">
-              <span>Precio: <span className="font-semibold text-gray-700">{formatCurrency(precioItem)}</span></span>
-              <span>Costo: <span className="font-medium">{formatCurrency(costoItem)}</span></span>
-              <span>Margen: <span className={cn('font-semibold', margenItem >= 30 ? 'text-green-600' : margenItem >= 15 ? 'text-amber-600' : 'text-red-600')}>{margenItem}%</span></span>
+              <span>Subtotal: <span className="font-semibold text-gray-700">{formatCurrency(precioItem)}</span></span>
             </div>
           )}
         </div>
@@ -322,14 +330,22 @@ export function NuevoPresupuesto() {
   const [formaPago, setFormaPago]         = useState('');
   const [tiempoEntrega, setTiempoEntrega] = useState('');
   const [fechaValidez, setFechaValidez]   = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 30);
+    const d = new Date(); d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   });
+  const [validezDias, setValidezDias]     = useState<number | 'custom'>(7);
   const [notas, setNotas]                 = useState('');
   const [notasInternas, setNotasInternas] = useState('');
 
   // Ítems
-  const [items, setItems] = useState<ItemForm[]>([emptyItem()]);
+  const [items, setItems] = useState<ItemForm[]>([]);
+
+  // Buscador por código / scanner
+  const [codigoSearch,    setCodigoSearch]    = useState('');
+  const [codigoResults,   setCodigoResults]   = useState<CatalogProduct[]>([]);
+  const [showCodigo,      setShowCodigo]      = useState(false);
+  const [codigoLoading,   setCodigoLoading]   = useState(false);
+  const codigoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -355,9 +371,7 @@ export function NuevoPresupuesto() {
     setItems(prev => prev.map(it => it._key === key ? { ...it, [field]: value } : it));
   }
 
-  const costoTotal  = items.reduce((s, it) => s + itemCostoTotal(it), 0);
   const precioTotal = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
-  const margenTotal = precioTotal > 0 ? Math.round((precioTotal - costoTotal) / precioTotal * 100) : 0;
 
   // Derivar tipo de operacion desde items
   function derivarTipo() {
@@ -365,12 +379,75 @@ export function NuevoPresupuesto() {
     return tieneFab ? 'fabricacion_propia' : 'a_medida_proveedor';
   }
 
+  // Agrega ítem desde catálogo — si ya existe incrementa cantidad
+  function agregarProducto(p: CatalogProduct) {
+    setItems(prev => {
+      const existente = prev.find(it => it.producto_id === p.id);
+      if (existente) {
+        return prev.map(it =>
+          it.producto_id === p.id ? { ...it, cantidad: it.cantidad + 1 } : it
+        );
+      }
+      return [...prev, {
+        _key:                uuid(),
+        producto_id:         p.id,
+        tipo_item:           'estandar',
+        tipo_abertura_id:    p.tipo_abertura_id ?? '',
+        sistema_id:          p.sistema_id ?? '',
+        descripcion:         p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre,
+        medida_ancho:        '',
+        medida_alto:         '',
+        cantidad:            1,
+        costo_unitario:      Number(p.costo_base) || 0,
+        precio_unitario:     Number(p.precio_base) || 0,
+        incluye_instalacion: false,
+        costo_instalacion:   0,
+        precio_instalacion:  0,
+        vidrio:              p.vidrio   ?? '',
+        premarco:            p.premarco ?? false,
+        origen:              'proveedor',
+        color:               p.color    ?? '',
+        accesorios:          p.accesorios ?? [],
+      }];
+    });
+    setCodigoSearch('');
+    setCodigoResults([]);
+    setShowCodigo(false);
+    setTimeout(() => codigoRef.current?.focus(), 50);
+  }
+
+  const buscarCodigo = useCallback(async (q: string, exactOnEnter = false) => {
+    if (!q.trim()) { setCodigoResults([]); setShowCodigo(false); return; }
+    setCodigoLoading(true);
+    try {
+      const res = await api.get<CatalogProduct[]>(
+        `/catalogo/productos?search=${encodeURIComponent(q.trim())}`
+      );
+      // Scanner: si hay match exacto por código → auto-agregar
+      if (exactOnEnter) {
+        const exact = res.find(r => r.codigo?.toLowerCase() === q.trim().toLowerCase());
+        if (exact) { agregarProducto(exact); setCodigoLoading(false); return; }
+      }
+      setCodigoResults(res.slice(0, 8));
+      setShowCodigo(res.length > 0);
+    } catch {
+      setCodigoResults([]);
+    } finally {
+      setCodigoLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounce al escribir (no en Enter)
+  useEffect(() => {
+    if (!codigoSearch.trim()) { setCodigoResults([]); setShowCodigo(false); return; }
+    const t = setTimeout(() => buscarCodigo(codigoSearch, false), 300);
+    return () => clearTimeout(t);
+  }, [codigoSearch, buscarCodigo]);
+
   async function handleSave() {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
-    if (items.every(it => !it.tipo_abertura_id && !it.descripcion.trim())) {
-      toast.error('Agregá al menos un ítem con tipo de abertura');
-      return;
-    }
+    if (items.length === 0) { toast.error('Agregá al menos un ítem'); return; }
 
     setSaving(true);
     try {
@@ -523,62 +600,156 @@ export function NuevoPresupuesto() {
               placeholder="Ej: 15" className={inputCls} />
           </div>
           <div>
-            <label className={labelCls}>Válido hasta</label>
-            <input type="date" value={fechaValidez} onChange={e => setFechaValidez(e.target.value)} className={inputCls} />
+            <label className={labelCls}>Período de validez</label>
+            <div className="flex gap-1 mb-2">
+              {([7, 15, 30] as const).map(d => (
+                <button key={d} type="button"
+                  onClick={() => {
+                    setValidezDias(d);
+                    const f = new Date(); f.setDate(f.getDate() + d);
+                    setFechaValidez(f.toISOString().split('T')[0]);
+                  }}
+                  className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                    validezDias === d
+                      ? 'border-violet-500 bg-violet-50 text-violet-700'
+                      : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600')}>
+                  {d} días
+                </button>
+              ))}
+              <button type="button"
+                onClick={() => setValidezDias('custom')}
+                className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                  validezDias === 'custom'
+                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                    : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600')}>
+                Personalizada
+              </button>
+            </div>
+            {validezDias === 'custom' ? (
+              <input type="date" value={fechaValidez}
+                onChange={e => setFechaValidez(e.target.value)}
+                className={inputCls} />
+            ) : (
+              <p className="text-xs text-gray-500 px-1">
+                Vence: <span className="font-medium text-gray-700">
+                  {new Date(fechaValidez + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </span>
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {/* Sección: Ítems */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Ítems del presupuesto
-            <span className="ml-2 text-gray-400 font-normal normal-case">{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span>
-          </h2>
-          <button onClick={() => setItems(prev => [...prev, emptyItem()])}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium">
-            <Plus size={13} /> Agregar ítem
-          </button>
+        <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Ítems del presupuesto
+              <span className="ml-2 text-gray-400 font-normal normal-case">{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span>
+            </h2>
+            <button onClick={() => setItems(prev => [...prev, emptyItem()])}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium">
+              <Plus size={13} /> Ítem manual
+            </button>
+          </div>
+
+          {/* Buscador por código / lector */}
+          <div className="relative">
+            <div className="flex items-center gap-2 px-3 py-2 border border-violet-200 bg-violet-50 rounded-xl focus-within:ring-2 focus-within:ring-violet-400 focus-within:border-violet-400 transition-all">
+              <ScanLine size={15} className="text-violet-400 shrink-0" />
+              <input
+                ref={codigoRef}
+                value={codigoSearch}
+                onChange={e => setCodigoSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    buscarCodigo(codigoSearch, true);
+                  }
+                  if (e.key === 'Escape') { setCodigoSearch(''); setShowCodigo(false); }
+                }}
+                onFocus={() => codigoSearch && setShowCodigo(true)}
+                onBlur={() => setTimeout(() => setShowCodigo(false), 150)}
+                placeholder="Escanear código de barras o buscar por código / nombre de producto..."
+                className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-violet-300 focus:outline-none"
+              />
+              {codigoLoading
+                ? <Search size={13} className="text-violet-300 animate-pulse shrink-0" />
+                : codigoSearch && (
+                  <button onMouseDown={() => { setCodigoSearch(''); setCodigoResults([]); setShowCodigo(false); }}
+                    className="text-violet-300 hover:text-violet-500">
+                    ×
+                  </button>
+                )
+              }
+            </div>
+            <p className="text-[10px] text-violet-400 mt-0.5 ml-1">
+              Enter o lector de código → agrega automáticamente si hay coincidencia exacta
+            </p>
+
+            {/* Dropdown resultados */}
+            {showCodigo && codigoResults.length > 0 && (
+              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {codigoResults.map(p => (
+                  <button key={p.id} type="button"
+                    onMouseDown={() => agregarProducto(p)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {p.codigo && (
+                          <span className="font-mono text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">
+                            {p.codigo}
+                          </span>
+                        )}
+                        <span className="text-sm font-medium text-gray-800 truncate">{p.nombre}</span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-violet-700 shrink-0">
+                      {formatCurrency(Number(p.precio_base))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="p-4 space-y-3">
-          {items.map((item, idx) => (
-            <ItemCard
-              key={item._key}
-              item={item}
-              idx={idx}
-              tiposAbertura={tiposAbertura}
-              sistemas={sistemas}
-              coloresDB={coloresDB}
-              onChange={updateItem}
-              onRemove={key => setItems(prev => prev.filter(it => it._key !== key))}
-              canRemove={items.length > 1}
-            />
-          ))}
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <ScanLine size={28} className="text-violet-200 mb-3" />
+              <p className="text-sm text-gray-400 font-medium">Sin ítems</p>
+              <p className="text-xs text-gray-300 mt-1">
+                Escanear código de barras o buscar por nombre arriba
+              </p>
+            </div>
+          ) : (
+            items.map((item, idx) => (
+              <ItemCard
+                key={item._key}
+                item={item}
+                idx={idx}
+                tiposAbertura={tiposAbertura}
+                sistemas={sistemas}
+                coloresDB={coloresDB}
+                onChange={updateItem}
+                onRemove={key => setItems(prev => prev.filter(it => it._key !== key))}
+                canRemove={true}
+              />
+            ))
+          )}
         </div>
 
-        {/* Totales */}
-        <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
-          <div className="flex justify-end gap-8">
-            <div className="space-y-1 text-right">
-              <div className="flex gap-6 text-sm">
-                <span className="text-gray-500">Costo total:</span>
-                <span className="font-medium text-gray-700 w-28 text-right">{formatCurrency(costoTotal)}</span>
-              </div>
-              <div className="flex gap-6 text-sm">
-                <span className="text-gray-500">Precio total:</span>
-                <span className="font-bold text-gray-800 w-28 text-right">{formatCurrency(precioTotal)}</span>
-              </div>
-              <div className="flex gap-6 text-sm">
-                <span className="text-gray-500">Margen:</span>
-                <span className={cn('font-semibold w-28 text-right', margenTotal >= 30 ? 'text-green-600' : margenTotal >= 15 ? 'text-amber-600' : 'text-red-600')}>
-                  {margenTotal}% {precioTotal > 0 && <span className="text-gray-400 font-normal">({formatCurrency(precioTotal - costoTotal)})</span>}
-                </span>
-              </div>
+        {/* Total */}
+        {precioTotal > 0 && (
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 flex justify-end">
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-gray-500">Total presupuesto:</span>
+              <span className="text-xl font-bold text-gray-900">{formatCurrency(precioTotal)}</span>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Notas */}

@@ -63,6 +63,19 @@ function nombreCliente(c: Cliente) {
   return [c.apellido, c.nombre].filter(Boolean).join(', ') || '—';
 }
 
+// ── Componentes auxiliares ────────────────────────────────────
+function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100 rounded-t-xl">
+        <Icon size={13} className="text-gray-400" />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{title}</span>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
 // ── Página ────────────────────────────────────────────────────
 export function NuevoRecibo() {
   const navigate = useNavigate();
@@ -239,16 +252,6 @@ export function NuevoRecibo() {
   // ── Estilos comunes ───────────────────────────────────────
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white';
   const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
-
-  const SectionCard = ({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) => (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100">
-        <Icon size={13} className="text-gray-400" />
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{title}</span>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
