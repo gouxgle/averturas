@@ -6,6 +6,7 @@ import {
   History, X, Check, Info
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface ProductoStock {
@@ -82,14 +83,15 @@ function fmtFecha(iso: string) {
 
 // ── ModalIngreso ──────────────────────────────────────────────
 function ModalIngreso({
-  productos, proveedores, onClose, onSaved
+  productos, proveedores, onClose, onSaved, productoPreseleccionado
 }: {
   productos: ProductoStock[];
   proveedores: Proveedor[];
   onClose: () => void;
   onSaved: () => void;
+  productoPreseleccionado?: string;
 }) {
-  const [productoId, setProductoId] = useState('');
+  const [productoId, setProductoId] = useState(productoPreseleccionado ?? '');
   const [cantidad, setCantidad] = useState('');
   const [costoUnitario, setCostoUnitario] = useState('');
   const [proveedorId, setProveedorId] = useState('');
@@ -127,10 +129,10 @@ function ModalIngreso({
         notas:          notas         || null,
         lote_id:        loteMode === 'existente' ? loteId || null : null,
       });
+      toast.success('Ingreso de stock registrado');
       onSaved();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Error al guardar');
+      setError((e as Error).message || 'Error al guardar');
       setSaving(false);
     }
   }
@@ -272,13 +274,14 @@ function ModalIngreso({
 
 // ── ModalEgreso ───────────────────────────────────────────────
 function ModalEgreso({
-  productos, onClose, onSaved
+  productos, onClose, onSaved, productoPreseleccionado
 }: {
   productos: ProductoStock[];
   onClose: () => void;
   onSaved: () => void;
+  productoPreseleccionado?: string;
 }) {
-  const [productoId, setProductoId] = useState('');
+  const [productoId, setProductoId] = useState(productoPreseleccionado ?? '');
   const [tipo, setTipo] = useState<'egreso_remito' | 'egreso_retiro' | 'devolucion'>('egreso_remito');
   const [cantidad, setCantidad] = useState('');
   const [referenciaId, setReferenciaId] = useState('');
@@ -309,10 +312,10 @@ function ModalEgreso({
         motivo:         motivo       || null,
         notas:          notas        || null,
       });
+      toast.success('Egreso de stock registrado');
       onSaved();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Error al guardar');
+      setError((e as Error).message || 'Error al guardar');
       setSaving(false);
     }
   }
@@ -768,7 +771,9 @@ export function Stock() {
   const [filtro, setFiltro] = useState<'todos' | 'sin_stock' | 'bajo_minimo'>('todos');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<'ingreso' | 'egreso' | 'ajuste' | null>(null);
-  const [ajusteProducto, setAjusteProducto] = useState<string | undefined>();
+  const [ingresoProducto, setIngresoProducto] = useState<string | undefined>();
+  const [egresoProducto, setEgresoProducto]   = useState<string | undefined>();
+  const [ajusteProducto, setAjusteProducto]   = useState<string | undefined>();
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -789,6 +794,14 @@ export function Stock() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  function abrirIngreso(productoId?: string) {
+    setIngresoProducto(productoId);
+    setModal('ingreso');
+  }
+  function abrirEgreso(productoId?: string) {
+    setEgresoProducto(productoId);
+    setModal('egreso');
+  }
   function abrirAjuste(productoId?: string) {
     setAjusteProducto(productoId);
     setModal('ajuste');
@@ -825,11 +838,11 @@ export function Stock() {
           <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500" title="Actualizar">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={() => setModal('egreso')}
+          <button onClick={() => abrirEgreso()}
             className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-medium">
             <Minus size={14} /> Egresar
           </button>
-          <button onClick={() => setModal('ingreso')}
+          <button onClick={() => abrirIngreso()}
             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
             <Plus size={14} /> Ingresar
           </button>
@@ -913,8 +926,8 @@ export function Stock() {
             <ProductoCard
               key={p.id}
               producto={p}
-              onIngreso={() => setModal('ingreso')}
-              onEgreso={() => setModal('egreso')}
+              onIngreso={() => abrirIngreso(p.id)}
+              onEgreso={() => abrirEgreso(p.id)}
               onAjuste={() => abrirAjuste(p.id)}
             />
           ))}
@@ -928,6 +941,7 @@ export function Stock() {
           proveedores={proveedores}
           onClose={() => setModal(null)}
           onSaved={onSaved}
+          productoPreseleccionado={ingresoProducto}
         />
       )}
       {modal === 'egreso' && (
@@ -935,6 +949,7 @@ export function Stock() {
           productos={productos}
           onClose={() => setModal(null)}
           onSaved={onSaved}
+          productoPreseleccionado={egresoProducto}
         />
       )}
       {modal === 'ajuste' && (
