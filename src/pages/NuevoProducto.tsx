@@ -1307,7 +1307,8 @@ export function NuevoProducto() {
                 <input type="number" min={20} max={600} value={form.ancho}
                   onChange={e => set('ancho', e.target.value)}
                   placeholder="120"
-                  className={inputCls + ' pr-8'} />
+                  className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
+                    form.ancho ? 'border-emerald-300' : 'border-gray-200')} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">cm</span>
               </div>
             </div>
@@ -1317,7 +1318,8 @@ export function NuevoProducto() {
                 <input type="number" min={20} max={400} value={form.alto}
                   onChange={e => set('alto', e.target.value)}
                   placeholder="100"
-                  className={inputCls + ' pr-8'} />
+                  className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
+                    form.alto ? 'border-emerald-300' : 'border-gray-200')} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">cm</span>
               </div>
             </div>
