@@ -143,7 +143,6 @@ const CFG_ESPECIAL_VENTANA = [
 ];
 
 const CELOSIA_APERTURA = [
-  { v: 'no',        l: 'Sin celosía' },
   { v: 'corrediza', l: 'Corrediza' },
   { v: 'de_abrir',  l: 'De abrir' },
 ];
