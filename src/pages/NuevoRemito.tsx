@@ -2,12 +2,30 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
-  MapPin, Hash, RefreshCw, Search, X as XIcon
+  MapPin, Hash, RefreshCw, Search, X as XIcon,
+  FileText, CheckSquare, Square, Download
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { MontoInput } from '@/components/MontoInput';
 
 // ── Tipos ─────────────────────────────────────────────────────
+interface Operacion {
+  id: string;
+  numero: string;
+  estado: string;
+  precio_total: number;
+}
+
+interface OpItem {
+  id: string;
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  medida_ancho: number | null;
+  medida_alto: number | null;
+}
+
 interface Cliente {
   id: string;
   nombre: string | null;
@@ -86,9 +104,13 @@ export function NuevoRemito() {
   const [searchParams] = useSearchParams();
   const isEdit       = Boolean(id);
 
-  const [saving, setSaving]     = useState(false);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [saving, setSaving]         = useState(false);
+  const [clientes, setClientes]     = useState<Cliente[]>([]);
+  const [productos, setProductos]   = useState<Producto[]>([]);
+  const [operaciones, setOperaciones] = useState<Operacion[]>([]);
+  const [opItems, setOpItems]       = useState<OpItem[]>([]);
+  const [selectedOp, setSelectedOp] = useState<Set<number>>(new Set());
+  const [loadingOp, setLoadingOp]   = useState(false);
 
   // Campos
   const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
@@ -118,6 +140,29 @@ export function NuevoRemito() {
     api.get<Producto[]>('/catalogo/productos').then(setProductos).catch(() => {});
   }, []);
 
+  // Al cambiar cliente → cargar sus operaciones aprobadas/en producción/listas
+  useEffect(() => {
+    if (!clienteId) { setOperaciones([]); setOperacionId(''); setOpItems([]); setSelectedOp(new Set()); return; }
+    api.get<Operacion[]>(
+      `/operaciones?cliente_id=${clienteId}&estados=aprobado,en_produccion,listo,instalado`
+    ).then(setOperaciones).catch(() => setOperaciones([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteId]);
+
+  // Al cambiar operación → cargar sus ítems
+  useEffect(() => {
+    if (!operacionId) { setOpItems([]); setSelectedOp(new Set()); return; }
+    setLoadingOp(true);
+    api.get<{ items: OpItem[] }>(`/operaciones/${operacionId}`)
+      .then(d => {
+        setOpItems(d.items ?? []);
+        // Seleccionar todos por defecto
+        setSelectedOp(new Set((d.items ?? []).map((_, i) => i)));
+      })
+      .catch(() => setOpItems([]))
+      .finally(() => setLoadingOp(false));
+  }, [operacionId]);
+
   // Cargar datos en modo edición
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -145,6 +190,27 @@ export function NuevoRemito() {
       setProdOpen(r.items.map(() => false));
     }).catch(() => { toast.error('Error al cargar remito'); navigate('/remitos'); });
   }, [id, isEdit, navigate]);
+
+  function importarItemsOp() {
+    const seleccionados = opItems.filter((_, i) => selectedOp.has(i));
+    if (!seleccionados.length) { toast.error('Seleccioná al menos un ítem'); return; }
+    const nuevos: RemitoItem[] = seleccionados.map(it => {
+      const med = it.medida_ancho && it.medida_alto
+        ? ` (${it.medida_ancho}×${it.medida_alto}m)` : '';
+      return {
+        producto_id:    '',
+        descripcion:    it.descripcion + med,
+        cantidad:       it.cantidad,
+        precio_unitario: String(it.precio_unitario || ''),
+        estado_producto: 'nuevo',
+        notas_item:     '',
+      };
+    });
+    setItems(nuevos);
+    setProdSearch(nuevos.map(() => ''));
+    setProdOpen(nuevos.map(() => false));
+    toast.success(`${nuevos.length} ítem${nuevos.length > 1 ? 's' : ''} importado${nuevos.length > 1 ? 's' : ''}`);
+  }
 
   function updateItem(i: number, field: keyof RemitoItem, value: unknown) {
     setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
@@ -308,10 +374,123 @@ export function NuevoRemito() {
             )}
           </div>
 
+          {/* Presupuesto vinculado */}
+          {clienteId && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">2</span>
+                Presupuesto vinculado
+              </h2>
+
+              {operaciones.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No hay presupuestos aprobados para este cliente</p>
+              ) : (
+                <>
+                  <select
+                    value={operacionId}
+                    onChange={e => setOperacionId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 mb-3"
+                  >
+                    <option value="">— Sin vincular —</option>
+                    {operaciones.map(op => (
+                      <option key={op.id} value={op.id}>
+                        {op.numero} · {op.estado} · ${Number(op.precio_total).toLocaleString('es-AR')}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Ítems del presupuesto seleccionado */}
+                  {operacionId && (
+                    loadingOp ? (
+                      <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+                        <RefreshCw size={12} className="animate-spin" /> Cargando ítems...
+                      </div>
+                    ) : opItems.length > 0 ? (
+                      <div className="border border-gray-100 rounded-xl overflow-hidden">
+                        {/* Header con seleccionar todos */}
+                        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedOp.size === opItems.length) {
+                                setSelectedOp(new Set());
+                              } else {
+                                setSelectedOp(new Set(opItems.map((_, i) => i)));
+                              }
+                            }}
+                            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-teal-600 font-medium"
+                          >
+                            {selectedOp.size === opItems.length
+                              ? <CheckSquare size={13} className="text-teal-500" />
+                              : <Square size={13} />
+                            }
+                            {selectedOp.size === opItems.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                          </button>
+                          <span className="text-[10px] text-gray-400">{selectedOp.size} de {opItems.length} seleccionados</span>
+                        </div>
+
+                        {/* Lista de ítems */}
+                        {opItems.map((it, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setSelectedOp(prev => {
+                              const next = new Set(prev);
+                              next.has(i) ? next.delete(i) : next.add(i);
+                              return next;
+                            })}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b border-gray-50 last:border-0 transition-colors ${
+                              selectedOp.has(i) ? 'bg-teal-50/60' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            {selectedOp.has(i)
+                              ? <CheckSquare size={14} className="text-teal-500 shrink-0" />
+                              : <Square size={14} className="text-gray-300 shrink-0" />
+                            }
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-800 truncate">{it.descripcion}</p>
+                              {it.medida_ancho && it.medida_alto && (
+                                <p className="text-[10px] text-gray-400">{it.medida_ancho}×{it.medida_alto}m</p>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-semibold text-gray-700">×{it.cantidad}</p>
+                              {it.precio_unitario > 0 && (
+                                <p className="text-[10px] text-gray-400">${Number(it.precio_unitario).toLocaleString('es-AR')}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Botón importar */}
+                        <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                          <p className="text-[10px] text-gray-400">
+                            {selectedOp.size === opItems.length ? 'Entrega total' : `Entrega parcial (${selectedOp.size} ítem${selectedOp.size !== 1 ? 's' : ''})`}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={importarItemsOp}
+                            disabled={selectedOp.size === 0}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold"
+                          >
+                            <Download size={11} /> Importar ítems
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">El presupuesto no tiene ítems</p>
+                    )
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Ítems */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">2</span>
+              <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">
+                {clienteId ? '3' : '2'}
+              </span>
               Ítems del remito
             </h2>
 
@@ -406,10 +585,10 @@ export function NuevoRemito() {
                     {/* Precio */}
                     <div className="col-span-3">
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Precio unit.</label>
-                      <input type="number" min="0" step="0.01"
+                      <MontoInput
                         value={item.precio_unitario}
-                        onChange={e => updateItem(i, 'precio_unitario', e.target.value)}
-                        placeholder="0.00"
+                        onChange={v => updateItem(i, 'precio_unitario', v)}
+                        placeholder="0,00"
                         className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>

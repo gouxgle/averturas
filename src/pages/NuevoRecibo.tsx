@@ -7,6 +7,22 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { MontoInput } from '@/components/MontoInput';
+
+// ── Conceptos predefinidos ────────────────────────────────────
+const CONCEPTOS_PREDEFINIDOS = [
+  'Seña / Anticipo',
+  'Pago parcial',
+  'Cancelación de saldo',
+  'Pago a cuenta',
+  'Pago de instalación',
+  'Pago de materiales',
+  'Mano de obra',
+  'Medición y presupuesto',
+  'Entrega de mercadería',
+  'Flete / Traslado',
+  'Garantía / Servicio técnico',
+];
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Cliente {
@@ -424,17 +440,14 @@ export function NuevoRecibo() {
             <div>
               <label className={labelCls}>Monto total *</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input type="number" min={0} step={0.01} value={montoManual}
-                  onChange={e => setMontoManual(e.target.value)}
-                  placeholder="0.00"
-                  className={cn(inputCls, 'pl-7')} />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">$</span>
+                <MontoInput
+                  value={montoManual}
+                  onChange={setMontoManual}
+                  placeholder="0,00"
+                  className={cn(inputCls, 'pl-7 font-mono text-base font-semibold')}
+                />
               </div>
-              {parseFloat(montoManual) > 0 && (
-                <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                  $ {parseFloat(montoManual).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                </p>
-              )}
             </div>
           ) : (
             <>
@@ -452,12 +465,14 @@ export function NuevoRecibo() {
                       <option value="">— Producto —</option>
                       {productos.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.codigo ? ` (${p.codigo})` : ''}</option>)}
                     </select>
-                    <div className="relative w-36 shrink-0">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                      <input type="number" min={0} step={0.01} value={it.monto}
-                        onChange={e => updateItem(i, 'monto', e.target.value)}
-                        placeholder="0.00"
-                        className={cn(inputCls, 'pl-7 text-right font-mono')} />
+                    <div className="relative w-40 shrink-0">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">$</span>
+                      <MontoInput
+                        value={it.monto}
+                        onChange={v => updateItem(i, 'monto', v)}
+                        placeholder="0,00"
+                        className={cn(inputCls, 'pl-7 font-mono font-semibold')}
+                      />
                     </div>
                     {items.length > 1 && (
                       <button onClick={() => removeItem(i)}
@@ -510,9 +525,16 @@ export function NuevoRecibo() {
         <div className="space-y-3">
           <div>
             <label className={labelCls}>Concepto</label>
-            <input value={concepto} onChange={e => setConcepto(e.target.value)}
-              placeholder="Ej: Seña 50%, Pago final, Pago instalación..."
-              className={inputCls} />
+            <input
+              list="conceptos-list"
+              value={concepto}
+              onChange={e => setConcepto(e.target.value)}
+              placeholder="Seleccioná o escribí el concepto..."
+              className={inputCls}
+            />
+            <datalist id="conceptos-list">
+              {CONCEPTOS_PREDEFINIDOS.map(c => <option key={c} value={c} />)}
+            </datalist>
           </div>
           <div>
             <label className={labelCls}>Notas internas</label>

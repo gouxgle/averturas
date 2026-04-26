@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TipoOperacion, TipoAbertura, Sistema, Proveedor } from '@/types';
+import { MontoInput } from '@/components/MontoInput';
 
 // ── Tipos ─────────────────────────────────────────────────────
 type Atributos = Record<string, unknown>;
@@ -1478,23 +1479,13 @@ export function NuevoProducto() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Costo *</label>
-              <input type="number" min={0} value={form.costo_base}
-                onChange={e => set('costo_base', e.target.value)} placeholder="0" className={inputCls} />
-              {costo > 0 && (
-                <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                  $ {costo.toLocaleString('es-AR')}
-                </p>
-              )}
+              <MontoInput value={form.costo_base} onChange={v => set('costo_base', v)}
+                placeholder="0,00" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Precio de venta *</label>
-              <input type="number" min={0} value={form.precio_base}
-                onChange={e => set('precio_base', e.target.value)} placeholder="0" className={inputCls} />
-              {precio > 0 && (
-                <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                  $ {precio.toLocaleString('es-AR')}
-                </p>
-              )}
+              <MontoInput value={form.precio_base} onChange={v => set('precio_base', v)}
+                placeholder="0,00" className={inputCls} />
             </div>
           </div>
           {precio > 0 && (

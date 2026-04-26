@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { EstadoOperacion, Cliente, TipoAbertura, Sistema, Proveedor } from '@/types';
+import { MontoInput } from '@/components/MontoInput';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -254,8 +255,9 @@ function ItemCard({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div>
               <label className={label}>Precio de venta</label>
-              <input type="number" min={0} value={item.precio_unitario}
-                onChange={e => up('precio_unitario', parseFloat(e.target.value) || 0)} className={inp} />
+              <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
+                onChange={v => up('precio_unitario', parseFloat(v) || 0)}
+                placeholder="0,00" className={inp} />
             </div>
             <div>
               <label className={label}>Instalación</label>
@@ -291,8 +293,9 @@ function ItemCard({
             <div className="grid grid-cols-1 gap-3 bg-violet-50 rounded-lg p-3">
               <div>
                 <label className={label}>Precio instalación</label>
-                <input type="number" min={0} value={item.precio_instalacion}
-                  onChange={e => up('precio_instalacion', parseFloat(e.target.value) || 0)} className={inp} />
+                <MontoInput value={item.precio_instalacion ? String(item.precio_instalacion) : ''}
+                  onChange={v => up('precio_instalacion', parseFloat(v) || 0)}
+                  placeholder="0,00" className={inp} />
               </div>
             </div>
           )}

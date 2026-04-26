@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TipoOperacion, Cliente, TipoAbertura, Sistema, Proveedor } from '@/types';
+import { MontoInput } from '@/components/MontoInput';
 
 const TIPOS: { value: TipoOperacion; label: string; desc: string }[] = [
   { value: 'estandar',           label: 'Estándar',           desc: 'Abertura de stock disponible' },
@@ -250,11 +251,15 @@ export function NuevaOperacion() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Costo unitario</label>
-                <input type="number" min={0} value={item.costo_unitario} onChange={e => updateItem(i, 'costo_unitario', parseFloat(e.target.value) || 0)} className={cls} />
+                <MontoInput value={item.costo_unitario ? String(item.costo_unitario) : ''}
+                  onChange={v => updateItem(i, 'costo_unitario', parseFloat(v) || 0)}
+                  placeholder="0,00" className={cls} />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Precio unitario</label>
-                <input type="number" min={0} value={item.precio_unitario} onChange={e => updateItem(i, 'precio_unitario', parseFloat(e.target.value) || 0)} className={cls} />
+                <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
+                  onChange={v => updateItem(i, 'precio_unitario', parseFloat(v) || 0)}
+                  placeholder="0,00" className={cls} />
               </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -265,11 +270,15 @@ export function NuevaOperacion() {
               <div className="grid grid-cols-2 gap-3 pl-5">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Costo instalación</label>
-                  <input type="number" min={0} value={item.costo_instalacion} onChange={e => updateItem(i, 'costo_instalacion', parseFloat(e.target.value) || 0)} className={cls} />
+                  <MontoInput value={item.costo_instalacion ? String(item.costo_instalacion) : ''}
+                    onChange={v => updateItem(i, 'costo_instalacion', parseFloat(v) || 0)}
+                    placeholder="0,00" className={cls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Precio instalación</label>
-                  <input type="number" min={0} value={item.precio_instalacion} onChange={e => updateItem(i, 'precio_instalacion', parseFloat(e.target.value) || 0)} className={cls} />
+                  <MontoInput value={item.precio_instalacion ? String(item.precio_instalacion) : ''}
+                    onChange={v => updateItem(i, 'precio_instalacion', parseFloat(v) || 0)}
+                    placeholder="0,00" className={cls} />
                 </div>
               </div>
             )}

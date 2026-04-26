@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { MontoInput } from '@/components/MontoInput';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface ProductoStock {
@@ -181,8 +182,8 @@ function ModalIngreso({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Costo unitario</label>
-              <input type="number" min="0" step="0.01" value={costoUnitario} onChange={e => setCostoUnitario(e.target.value)}
-                placeholder="0.00"
+              <MontoInput value={costoUnitario} onChange={setCostoUnitario}
+                placeholder="0,00"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
           </div>
