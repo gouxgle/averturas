@@ -155,9 +155,11 @@ clientes.get('/:id/estado-cuenta', async (c) => {
       LEFT JOIN operacion_items oi ON oi.operacion_id = o.id
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id
-      WHERE o.cliente_id = $1 AND o.estado NOT IN ('cancelado')
+      WHERE o.cliente_id = $1 AND o.estado != 'cancelado'
       GROUP BY o.id
-      ORDER BY o.created_at DESC
+      ORDER BY
+        CASE WHEN o.estado IN ('aprobado','en_produccion','listo','instalado','entregado') THEN 0 ELSE 1 END,
+        o.created_at DESC
     `, [id]),
     db.query(`
       SELECT r.id, r.numero, r.fecha, r.monto_total, r.forma_pago,
@@ -208,18 +210,27 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     }
   }
 
+  const ESTADOS_APROBADOS = new Set(['aprobado','en_produccion','listo','instalado','entregado']);
+
   // Calcular totales por operacion y globales
   let totalPresupuestado = 0;
   let totalCobrado = 0;
+  let totalPendienteAprobacion = 0;
 
   const operacionesConDetalle = operaciones.map((op: any) => {
     const recibosOp = recibosMap[op.id] ?? [];
     const remitosOp = remitosMap[op.id] ?? [];
+    const generaSaldo = ESTADOS_APROBADOS.has(op.estado);
     const cobrado = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_total), 0);
-    const saldo = Number(op.precio_total) - cobrado;
-    totalPresupuestado += Number(op.precio_total);
-    totalCobrado += cobrado;
-    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado, saldo };
+    // saldo financiero solo aplica a operaciones aprobadas
+    const saldo = generaSaldo ? Number(op.precio_total) - cobrado : null;
+    if (generaSaldo) {
+      totalPresupuestado += Number(op.precio_total);
+      totalCobrado += cobrado;
+    } else {
+      totalPendienteAprobacion += Number(op.precio_total);
+    }
+    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado: generaSaldo ? cobrado : null, saldo, genera_saldo: generaSaldo };
   });
 
   const cobradoDirecto = recibosDirectos.reduce((s, r) => s + Number(r.monto_total), 0);
@@ -233,6 +244,7 @@ clientes.get('/:id/estado-cuenta', async (c) => {
       presupuestado: totalPresupuestado,
       cobrado: totalCobrado,
       saldo: totalPresupuestado - totalCobrado,
+      pendiente_aprobacion: totalPendienteAprobacion,
     },
   });
 });

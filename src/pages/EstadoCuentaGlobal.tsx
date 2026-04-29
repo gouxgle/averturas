@@ -20,8 +20,10 @@ interface ClienteResumen {
   tipo_persona: string;
   telefono: string;
   email: string;
-  operaciones_count: number;
-  total_presupuestado: number;
+  operaciones_count: number;    // aprobadas
+  pendientes_count: number;     // en espera de aprobación
+  pendientes_monto: number;
+  total_presupuestado: number;  // suma de aprobadas
   total_cobrado: number;
   saldo: number;
   compromisos_pendientes: number;
@@ -338,18 +340,34 @@ function ClienteRow({
           )}
         </td>
 
-        {/* Ops */}
+        {/* Ops aprobadas + pendientes */}
         <td className="px-3 py-3 text-center">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">
-            {cliente.operaciones_count}
-          </span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span title="Operaciones aprobadas"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+              {cliente.operaciones_count}
+            </span>
+            {Number(cliente.pendientes_count) > 0 && (
+              <span title={`${cliente.pendientes_count} pend. aprobación`}
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                {cliente.pendientes_count}
+              </span>
+            )}
+          </div>
         </td>
 
-        {/* Presupuestado */}
+        {/* Presupuestado (aprobado) */}
         <td className="px-3 py-3 text-right">
-          <span className="text-sm text-slate-700 font-medium">
-            {formatCurrency(Number(cliente.total_presupuestado))}
-          </span>
+          <div>
+            <span className="text-sm text-slate-700 font-medium">
+              {formatCurrency(Number(cliente.total_presupuestado))}
+            </span>
+            {Number(cliente.pendientes_monto) > 0 && (
+              <div className="text-[10px] text-amber-500 font-medium mt-0.5">
+                +{formatCurrency(Number(cliente.pendientes_monto))} pend.
+              </div>
+            )}
+          </div>
         </td>
 
         {/* Cobrado + barra */}

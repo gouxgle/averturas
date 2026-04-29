@@ -39,18 +39,30 @@ estadoCuenta.get('/', async (c) => {
       ops.total                                          AS total_presupuestado,
       COALESCE(rec.total, 0)                             AS total_cobrado,
       ops.total - COALESCE(rec.total, 0)                 AS saldo,
+      COALESCE(pend.count, 0)                            AS pendientes_count,
+      COALESCE(pend.total, 0)                            AS pendientes_monto,
       COALESCE(comp.total, 0)                            AS compromisos_pendientes,
       comp.proximo_vencimiento,
       comp.compromisos_vencidos,
       GREATEST(ops.ultima, COALESCE(rec.ultima, ops.ultima)) AS ultima_actividad
     FROM clientes c
     JOIN LATERAL (
+      -- Solo operaciones aprobadas (y estados posteriores) generan saldo
       SELECT COUNT(*)::int AS count,
              COALESCE(SUM(precio_total), 0) AS total,
              MAX(created_at) AS ultima
       FROM operaciones
-      WHERE cliente_id = c.id AND estado NOT IN ('cancelado')
+      WHERE cliente_id = c.id
+        AND estado IN ('aprobado','en_produccion','listo','instalado','entregado')
     ) ops ON ops.count > 0
+    LEFT JOIN LATERAL (
+      -- Pendientes de aprobación (solo para mostrar como referencia)
+      SELECT COUNT(*)::int AS count,
+             COALESCE(SUM(precio_total), 0) AS total
+      FROM operaciones
+      WHERE cliente_id = c.id
+        AND estado IN ('presupuesto','enviado','rechazado')
+    ) pend ON true
     LEFT JOIN LATERAL (
       SELECT COALESCE(SUM(monto_total), 0) AS total,
              MAX(created_at) AS ultima

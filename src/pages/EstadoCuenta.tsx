@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Printer, Receipt, Truck, TrendingUp, TrendingDown,
-  DollarSign, FileText, ChevronDown, ChevronUp, Check, AlertTriangle,
+  DollarSign, FileText, ChevronDown, ChevronUp, Check, AlertTriangle, Clock,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -54,6 +54,8 @@ interface RemitoResumen {
   medio_envio: string; fecha_entrega_real: string | null;
 }
 
+const ESTADOS_APROBADOS = new Set(['aprobado','en_produccion','listo','instalado','entregado']);
+
 interface OperacionDetalle {
   id: string; numero: string; tipo: string; estado: string;
   precio_total: number; costo_total: number;
@@ -62,14 +64,16 @@ interface OperacionDetalle {
   items: OpItem[];
   recibos: ReciboResumen[];
   remitos: RemitoResumen[];
-  cobrado: number; saldo: number;
+  cobrado: number | null;
+  saldo: number | null;
+  genera_saldo: boolean;
 }
 
 interface EstadoCuentaData {
   cliente: ClienteInfo;
   operaciones: OperacionDetalle[];
   recibos_directos: ReciboResumen[];
-  totales: { presupuestado: number; cobrado: number; saldo: number };
+  totales: { presupuestado: number; cobrado: number; saldo: number; pendiente_aprobacion: number };
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -124,17 +128,33 @@ function buildMonthlyData(operaciones: OperacionDetalle[], recibosDirectos: Reci
 // ── Componente tarjeta de operación ─────────────────────────
 function OperacionCard({ op }: { op: OperacionDetalle }) {
   const [open, setOpen] = useState(true);
-  const pct = pctCobrado(op.cobrado, Number(op.precio_total));
-  const cancelada = op.saldo <= 0.01;
+  const generaSaldo = op.genera_saldo;
+  const cobrado = Number(op.cobrado ?? 0);
+  const saldo   = op.saldo !== null ? Number(op.saldo) : null;
+  const pct = generaSaldo ? pctCobrado(cobrado, Number(op.precio_total)) : 0;
+  const saldada = saldo !== null && saldo <= 0.01;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className={cn(
+      'rounded-xl border shadow-sm overflow-hidden',
+      generaSaldo ? 'bg-white border-gray-200' : 'bg-amber-50/60 border-amber-200'
+    )}>
+      {/* Banner pendiente de aprobación */}
+      {!generaSaldo && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-100/80 border-b border-amber-200">
+          <Clock size={12} className="text-amber-600 shrink-0" />
+          <span className="text-xs font-semibold text-amber-700">
+            Pendiente de aprobación — no genera saldo hasta ser aprobado
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50/80 transition-colors text-left"
       >
-        <FileText size={16} className="text-gray-400 shrink-0" />
+        <FileText size={16} className={cn('shrink-0', generaSaldo ? 'text-gray-400' : 'text-amber-400')} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold text-gray-800">{op.numero}</span>
@@ -143,28 +163,33 @@ function OperacionCard({ op }: { op: OperacionDetalle }) {
             </span>
             <span className="text-xs text-gray-400">{formatDate(op.created_at)}</span>
           </div>
-          {/* Barra de progreso */}
-          <div className="mt-2 flex items-center gap-3">
-            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className={cn('h-full rounded-full transition-all', cancelada ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-gray-200')}
-                style={{ width: `${pct}%` }}
-              />
+          {/* Barra de progreso — solo para aprobadas */}
+          {generaSaldo && (
+            <div className="mt-2 flex items-center gap-3">
+              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all', saldada ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-gray-200')}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="text-xs font-semibold shrink-0" style={{ color: saldada ? GREEN : AMBER }}>
+                {pct}%
+              </span>
             </div>
-            <span className="text-xs font-semibold shrink-0" style={{ color: cancelada ? GREEN : AMBER }}>
-              {pct}%
-            </span>
-          </div>
+          )}
         </div>
         <div className="text-right shrink-0 ml-4">
           <p className="text-sm font-bold text-gray-800">{formatCurrency(Number(op.precio_total))}</p>
-          {!cancelada && (
-            <p className="text-xs text-amber-600 font-medium">Saldo: {formatCurrency(op.saldo)}</p>
+          {generaSaldo && saldo !== null && !saldada && (
+            <p className="text-xs text-amber-600 font-medium">Saldo: {formatCurrency(saldo)}</p>
           )}
-          {cancelada && (
+          {generaSaldo && saldada && (
             <p className="text-xs text-emerald-600 font-medium flex items-center gap-1 justify-end">
-              <Check size={11} /> Cancelado
+              <Check size={11} /> Saldado
             </p>
+          )}
+          {!generaSaldo && (
+            <p className="text-xs text-amber-500 font-medium">Sin saldo aún</p>
           )}
         </div>
         {open ? <ChevronUp size={15} className="text-gray-400 shrink-0" /> : <ChevronDown size={15} className="text-gray-400 shrink-0" />}
@@ -284,24 +309,26 @@ function OperacionCard({ op }: { op: OperacionDetalle }) {
             </div>
           )}
 
-          {/* Saldo footer */}
-          <div className={cn(
-            'flex items-center justify-between px-5 py-3 border-t',
-            cancelada ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
-          )}>
-            <div className="flex items-center gap-2">
-              {cancelada
-                ? <><Check size={14} className="text-emerald-600" /><span className="text-xs font-semibold text-emerald-700">Operación cancelada</span></>
-                : <><AlertTriangle size={14} className="text-amber-600" /><span className="text-xs font-semibold text-amber-700">Saldo pendiente</span></>
-              }
+          {/* Saldo footer — solo para aprobadas */}
+          {generaSaldo && (
+            <div className={cn(
+              'flex items-center justify-between px-5 py-3 border-t',
+              saldada ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
+            )}>
+              <div className="flex items-center gap-2">
+                {saldada
+                  ? <><Check size={14} className="text-emerald-600" /><span className="text-xs font-semibold text-emerald-700">Saldo cancelado</span></>
+                  : <><AlertTriangle size={14} className="text-amber-600" /><span className="text-xs font-semibold text-amber-700">Saldo pendiente</span></>
+                }
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Cobrado: <strong>{formatCurrency(cobrado)}</strong></p>
+                {!saldada && saldo !== null && (
+                  <p className="text-sm font-bold text-amber-700">Saldo: {formatCurrency(saldo)}</p>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Cobrado: <strong>{formatCurrency(op.cobrado)}</strong></p>
-              {!cancelada && (
-                <p className="text-sm font-bold text-amber-700">Saldo: {formatCurrency(op.saldo)}</p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -410,10 +437,14 @@ export function EstadoCuenta() {
               <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
                 <FileText size={13} className="text-blue-600" />
               </div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Presupuestado</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Aprobado</span>
             </div>
             <p className="text-lg font-bold text-gray-900 font-mono">{formatCurrency(totales.presupuestado)}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{operaciones.length} operación{operaciones.length !== 1 ? 'es' : ''}</p>
+            {totales.pendiente_aprobacion > 0 && (
+              <p className="text-[10px] text-amber-500 mt-0.5 font-medium">
+                +{formatCurrency(totales.pendiente_aprobacion)} pend.
+              </p>
+            )}
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
