@@ -39,6 +39,72 @@ clientes.get('/', async (c) => {
   return c.json(rows);
 });
 
+// POST /importar — importación masiva de clientes desde CSV/JSON
+clientes.post('/importar', async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json() as unknown[];
+
+  if (!Array.isArray(body) || body.length === 0) {
+    return c.json({ error: 'Se esperaba un array de clientes' }, 400);
+  }
+  if (body.length > 5000) {
+    return c.json({ error: 'Máximo 5000 registros por lote' }, 400);
+  }
+
+  let importados = 0;
+  let duplicados = 0;
+  let errores = 0;
+  const detalleErrores: { fila: number; nombre: string; error: string }[] = [];
+
+  for (let i = 0; i < body.length; i++) {
+    const r = body[i] as Record<string, string>;
+
+    const nombre     = r.nombre?.trim() || null;
+    const apellido   = r.apellido?.trim() || null;
+    const razon      = r.razon_social?.trim() || null;
+    const telefono   = r.telefono?.trim() || null;
+    const nombreDisp = [apellido, nombre].filter(Boolean).join(', ') || razon || `fila ${i + 1}`;
+
+    // Detectar duplicado por teléfono principal
+    if (telefono) {
+      const { rows: dup } = await db.query(
+        `SELECT id FROM clientes WHERE telefono = $1 LIMIT 1`, [telefono]
+      );
+      if (dup.length > 0) {
+        duplicados++;
+        continue;
+      }
+    }
+
+    try {
+      await db.query(`
+        INSERT INTO clientes
+          (tipo_persona, nombre, apellido, razon_social,
+           telefono, telefono_fijo, email, notas, origen, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      `, [
+        r.tipo_persona?.trim() || 'fisica',
+        nombre,
+        apellido,
+        razon,
+        telefono,
+        r.telefono_fijo?.trim() || null,
+        r.email?.trim() || null,
+        r.notas?.trim() || null,
+        r.origen?.trim() || 'importacion',
+        user.id,
+      ]);
+      importados++;
+    } catch (err: any) {
+      errores++;
+      detalleErrores.push({ fila: i + 1, nombre: nombreDisp, error: err.message ?? String(err) });
+      if (detalleErrores.length >= 20) break;
+    }
+  }
+
+  return c.json({ importados, duplicados, errores, detalleErrores });
+});
+
 // Debe estar ANTES de /:id — Hono matchea en orden de registro
 clientes.get('/validar-dni', async (c) => {
   const dni = c.req.query('dni')?.trim();

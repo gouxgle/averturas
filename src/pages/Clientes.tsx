@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Phone, ArrowRight, TrendingUp, User, Building2, Hash, Clock } from 'lucide-react';
+import { Plus, Upload, Search, Users, Phone, ArrowRight, TrendingUp, User, Building2, Hash, Clock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import type { Cliente, EstadoCliente } from '@/types';
@@ -76,10 +76,16 @@ export function Clientes() {
             <p className="text-xs text-gray-500">CRM · seguimiento comercial</p>
           </div>
         </div>
-        <Link to="/clientes/nuevo"
-          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all sm:w-auto w-full">
-          <Plus size={15} /> Nuevo cliente
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/clientes/importar"
+            className="flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold transition-all sm:w-auto w-full">
+            <Upload size={15} /> Importar
+          </Link>
+          <Link to="/clientes/nuevo"
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all sm:w-auto w-full">
+            <Plus size={15} /> Nuevo cliente
+          </Link>
+        </div>
       </div>
 
       {/* Stats rápidas */}
