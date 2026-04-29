@@ -15,6 +15,7 @@ const fmtFecha = (iso: string) =>
 interface Empresa {
   nombre: string; cuit: string | null; telefono: string | null;
   email: string | null; direccion: string | null; logo_url: string | null;
+  instagram: string | null;
 }
 
 interface RemitoData {
@@ -116,15 +117,15 @@ export function ImprimirRemito() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            {empresa?.logo_url
-              ? <img src={empresa.logo_url} alt="Logo" style={{ height: 52, marginBottom: 6 }} />
-              : <div style={{ color: NAVY, fontSize: 20, fontWeight: 900 }}>{empresa?.nombre ?? ''}</div>
-            }
-            {empresa?.logo_url && <div style={{ color: NAVY, fontWeight: 700, fontSize: 14 }}>{empresa.nombre}</div>}
-            {empresa?.cuit && <div style={{ color: '#555', fontSize: 11 }}>CUIT: {empresa.cuit}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <img src="/logochico.png" alt="Logo" style={{ height: 34 }} />
+              <div style={{ color: NAVY, fontSize: 15, fontWeight: 900 }}>{empresa?.nombre ?? ''}</div>
+            </div>
+            {empresa?.cuit     && <div style={{ color: '#555', fontSize: 11 }}>CUIT: {empresa.cuit}</div>}
             {empresa?.telefono && <div style={{ color: '#555', fontSize: 11 }}>Tel: {empresa.telefono}</div>}
-            {empresa?.email && <div style={{ color: '#555', fontSize: 11 }}>{empresa.email}</div>}
+            {empresa?.email    && <div style={{ color: '#555', fontSize: 11 }}>{empresa.email}</div>}
             {empresa?.direccion && <div style={{ color: '#555', fontSize: 11 }}>{empresa.direccion}</div>}
+            {(empresa as any)?.instagram && <div style={{ color: '#555', fontSize: 11 }}>Instagram: {(empresa as any).instagram}</div>}
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: RED, fontSize: 26, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -184,7 +185,7 @@ export function ImprimirRemito() {
               <th style={{ textAlign: 'center', padding: '8px 10px', fontSize: 11, fontWeight: 600 }}>Cant.</th>
               <th style={{ textAlign: 'center', padding: '8px 10px', fontSize: 11, fontWeight: 600 }}>Estado</th>
               <th style={{ textAlign: 'right', padding: '8px 10px', fontSize: 11, fontWeight: 600 }}>Precio</th>
-              <th style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, width: 24 }}>✓</th>
+              <th style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, width: 24 }}></th>
             </tr>
           </thead>
           <tbody>

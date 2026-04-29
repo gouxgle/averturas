@@ -15,6 +15,7 @@ const fmtFecha = (iso: string) =>
 interface Empresa {
   nombre: string; cuit: string | null; telefono: string | null;
   email: string | null; direccion: string | null; logo_url: string | null;
+  instagram: string | null;
 }
 
 interface Item {
@@ -73,13 +74,26 @@ export function ImprimirPresupuesto() {
   const clienteDireccion = [c.direccion, c.localidad].filter(Boolean).join(', ') || null;
 
   const fechaEmision = fmtFecha(op.created_at);
-  const fechaValidez = op.fecha_validez
-    ? fmtFecha(op.fecha_validez + 'T12:00:00')
-    : null;
+  const fechaValidez = op.fecha_validez ? fmtFecha(op.fecha_validez + 'T12:00:00') : null;
 
   const proformaNumero = op.numero.replace(/^OP-/, 'PRO-');
   const total = op.items.reduce((s, it) => s + Number(it.precio_total), 0);
   const hayInstalacion = op.items.some(it => it.incluye_instalacion);
+
+  // Logo: siempre /logochico.png como fuente primaria (igual que recibo)
+  const logoSrc = '/logochico.png';
+
+  // Instagram desde empresa si existe, fallback hardcoded
+  const instagram = (empresa as any)?.instagram ?? '@cesarbritez.ok';
+
+  const footerParts = [
+    empresa?.nombre,
+    empresa?.cuit ? `CUIT ${empresa.cuit}` : null,
+    empresa?.telefono ? `Tel: ${empresa.telefono}` : null,
+    empresa?.email,
+    empresa?.direccion,
+    instagram ? `Instagram: ${instagram}` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <>
@@ -111,68 +125,75 @@ export function ImprimirPresupuesto() {
       </div>
 
       {/* Document */}
-      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 p-8 shadow-lg" style={{ minHeight: '297mm' }}>
+      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 p-10 shadow-lg" style={{ minHeight: '297mm' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        {/* Header — mismo layout que recibo */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
-              {empresa?.logo_url && (
-                <img src={empresa.logo_url} alt="Logo" style={{ height: 36 }} />
-              )}
-              <div style={{ color: NAVY, fontSize: 15, fontWeight: 900, letterSpacing: -0.3 }}>{empresa?.nombre ?? ''}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <img src={logoSrc} alt="Logo" style={{ height: 34 }} />
+              <div style={{ color: NAVY, fontSize: 15, fontWeight: 900 }}>{empresa?.nombre ?? ''}</div>
             </div>
-            {empresa?.cuit     && <div style={{ color: '#555', fontSize: 11 }}>CUIT: {empresa.cuit}</div>}
-            {empresa?.telefono && <div style={{ color: '#555', fontSize: 11 }}>Tel: {empresa.telefono}</div>}
-            {empresa?.email    && <div style={{ color: '#555', fontSize: 11 }}>{empresa.email}</div>}
+            {empresa?.cuit      && <div style={{ color: '#555', fontSize: 11 }}>CUIT: {empresa.cuit}</div>}
+            {empresa?.telefono  && <div style={{ color: '#555', fontSize: 11 }}>Tel: {empresa.telefono}</div>}
+            {empresa?.email     && <div style={{ color: '#555', fontSize: 11 }}>{empresa.email}</div>}
             {empresa?.direccion && <div style={{ color: '#555', fontSize: 11 }}>{empresa.direccion}</div>}
-            <div style={{ color: '#555', fontSize: 11 }}>📲 Instagram: @cesarbritez.ok</div>
+            {instagram          && <div style={{ color: '#555', fontSize: 11 }}>Instagram: {instagram}</div>}
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: RED, fontSize: 26, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>
               Proforma
             </div>
-            <div style={{ color: NAVY, fontSize: 16, fontWeight: 700, marginTop: 2 }}>
+            <div style={{ color: NAVY, fontSize: 16, fontWeight: 700, marginTop: 4 }}>
               N°: {proformaNumero}
             </div>
-            <div style={{ color: '#666', fontSize: 11, marginTop: 2 }}>Fecha: {fechaEmision}</div>
+            <div style={{ color: '#666', fontSize: 11, marginTop: 4 }}>Fecha: {fechaEmision}</div>
             {fechaValidez && (
-              <div style={{ color: RED, fontSize: 11, fontWeight: 600 }}>Válido hasta: {fechaValidez}</div>
+              <div style={{ color: RED, fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+                Válido hasta: {fechaValidez}
+              </div>
             )}
             {op.tiempo_entrega && (
-              <div style={{ color: '#666', fontSize: 11 }}>Entrega estimada: {op.tiempo_entrega} días</div>
+              <div style={{ color: '#666', fontSize: 11, marginTop: 2 }}>
+                Entrega estimada: {op.tiempo_entrega} días
+              </div>
             )}
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ backgroundColor: NAVY, height: 2, marginBottom: 10 }} />
+        {/* Divider — mismo que recibo */}
+        <div style={{ backgroundColor: NAVY, height: 2, marginBottom: 20 }} />
 
-        {/* Cliente — 2 líneas */}
-        <div style={{ backgroundColor: '#f0f4fa', borderRadius: 6, padding: '7px 12px', marginBottom: 14, borderLeft: `3px solid ${NAVY}` }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 3 }}>Cliente</div>
-          {/* Línea 1: nombre + doc */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{clienteNombre}</span>
-            {clienteDoc && <span style={{ fontSize: 11, color: '#555' }}>{clienteDoc}</span>}
+        {/* Cliente — mismo estilo que recibo */}
+        <div style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: '10px 14px', marginBottom: 20, borderLeft: `4px solid ${NAVY}` }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 4 }}>
+            Cliente
           </div>
-          {/* Línea 2: tel + email */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{clienteNombre}</span>
+            {clienteDoc && (
+              <span style={{ fontSize: 11, color: '#555' }}>{clienteDoc}</span>
+            )}
+          </div>
           {(c.telefono || c.email) && (
-            <div style={{ display: 'flex', gap: 20, fontSize: 11, color: '#555' }}>
+            <div style={{ display: 'flex', gap: 18, fontSize: 11, color: '#555', marginTop: 2 }}>
               {c.telefono && <span>Tel: {c.telefono}</span>}
               {c.email    && <span>{c.email}</span>}
             </div>
           )}
-          {/* Línea 3: dirección */}
           {clienteDireccion && (
-            <div style={{ fontSize: 11, color: '#555' }}>{clienteDireccion}</div>
+            <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>{clienteDireccion}</div>
           )}
         </div>
 
-        {/* Items — sección DETALLE */}
+        {/* Detalle de ítems */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: NAVY, borderBottom: `2px solid ${NAVY}`, paddingBottom: 4, marginBottom: 10 }}>
-            🔹 Detalle
+          <div style={{
+            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+            letterSpacing: 1.5, color: NAVY,
+            borderBottom: `2px solid ${NAVY}`, paddingBottom: 4, marginBottom: 10,
+          }}>
+            Detalle
           </div>
 
           {op.items.map((item, i) => {
@@ -183,61 +204,58 @@ export function ImprimirPresupuesto() {
                   ? item.descripcion
                   : item.tipo_abertura_nombre)
               : item.descripcion;
+
             return (
               <div key={item.id} style={{
-                marginBottom: 10,
-                paddingBottom: 10,
+                marginBottom: 10, paddingBottom: 10,
                 borderBottom: i < op.items.length - 1 ? '1px solid #e8e8e8' : 'none',
               }}>
-                {/* Nombre del producto */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: NAVY }}>*</span>
+                {/* Título del ítem */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
-                    {titulo}
+                    {i + 1}. {titulo}
                   </span>
                   {item.cantidad > 1 && (
-                    <span style={{ fontSize: 11, color: '#888' }}>× {item.cantidad}</span>
+                    <span style={{ fontSize: 11, color: '#888' }}>x {item.cantidad}</span>
                   )}
                 </div>
 
-                {/* Detalles técnicos */}
-                <div style={{ paddingLeft: 14, lineHeight: 1.6 }}>
+                {/* Especificaciones técnicas */}
+                <div style={{ paddingLeft: 16, lineHeight: 1.65 }}>
                   {item.sistema_nombre && (
                     <div style={{ fontSize: 11, color: '#444' }}>Sistema: {item.sistema_nombre}</div>
                   )}
                   {(item.medida_ancho || item.medida_alto) && (
                     <div style={{ fontSize: 11, color: '#444' }}>
-                      Medida: {item.medida_ancho ?? '—'} × {item.medida_alto ?? '—'} m
+                      Medida: {item.medida_ancho ?? '—'} x {item.medida_alto ?? '—'} m
                     </div>
                   )}
                   {item.vidrio && (
                     <div style={{ fontSize: 11, color: '#444' }}>Vidrio: {item.vidrio}</div>
                   )}
-                  {item.accesorios && item.accesorios.length > 0 && (
-                    <div style={{ fontSize: 11, color: '#444' }}>
-                      Accesorios: Incluye {item.accesorios.join(' + ')}
-                    </div>
-                  )}
                   {item.color && (
                     <div style={{ fontSize: 11, color: '#444' }}>Color: {item.color}</div>
+                  )}
+                  {item.accesorios && item.accesorios.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#444' }}>
+                      Incluye: {item.accesorios.join(', ')}
+                    </div>
                   )}
                   {item.notas && (
                     <div style={{ fontSize: 10, color: '#888', fontStyle: 'italic' }}>{item.notas}</div>
                   )}
 
-                  {/* Precio + instalación */}
-                  <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  {/* Precio */}
+                  <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
-                      💰 {fmt(precioTotal)}
+                      {fmt(precioTotal)}
                     </span>
                     {item.cantidad > 1 && (
-                      <span style={{ fontSize: 10, color: '#888' }}>
-                        ({fmt(precioUnitFinal)} c/u)
-                      </span>
+                      <span style={{ fontSize: 10, color: '#888' }}>({fmt(precioUnitFinal)} c/u)</span>
                     )}
                     {item.incluye_instalacion && (
                       <span style={{ fontSize: 11, color: '#2d6a2d', fontWeight: 600 }}>
-                        ✔️ Incluye provisión e instalación
+                        Incluye provision e instalacion
                       </span>
                     )}
                   </div>
@@ -247,67 +265,69 @@ export function ImprimirPresupuesto() {
           })}
         </div>
 
-        {/* Resumen total */}
+        {/* Total — mismo estilo que recibo (borde en lugar de fondo oscuro) */}
         <div style={{
-          backgroundColor: NAVY, borderRadius: 8, padding: '10px 18px',
+          border: `2px solid ${NAVY}`, borderRadius: 10, padding: '14px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 14,
+          marginBottom: 20,
         }}>
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-            💰 Total general
+          <div>
+            <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Total general
+            </div>
+            <div style={{ color: NAVY, fontSize: 28, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>
+              {fmt(total)}
+            </div>
           </div>
-          <div style={{ color: 'white', fontSize: 20, fontWeight: 900, fontFamily: 'monospace' }}>
-            {fmt(total)}
-          </div>
-        </div>
-
-        {/* Forma de pago + Observaciones — fila compacta */}
-        <div style={{ display: 'grid', gridTemplateColumns: op.forma_pago ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 16 }}>
           {op.forma_pago && (
-            <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '8px 12px' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 5 }}>
-                💳 Forma de pago
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Forma de pago
               </div>
-              <div style={{ fontSize: 11, color: '#333', lineHeight: 1.7 }}>
-                <div>✔️ {op.forma_pago}</div>
-                <div>✔️ Beneficio por pago contado efectivo</div>
+              <div style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                {op.forma_pago}
               </div>
-            </div>
-          )}
-          {(op.notas || hayInstalacion) && (
-            <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '8px 12px' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 5 }}>
-                📝 Observaciones
-              </div>
-              <div style={{ fontSize: 11, color: '#444', lineHeight: 1.7 }}>
-                {hayInstalacion && (
-                  <div>• Algunas aberturas incluyen instalación según lo indicado</div>
-                )}
-                {op.notas && (
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{op.notas}</div>
-                )}
+              <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>
+                Beneficio por pago contado efectivo
               </div>
             </div>
           )}
         </div>
 
-        {/* Firma */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginTop: 24 }}>
+        {/* Observaciones */}
+        {(op.notas || hayInstalacion) && (
+          <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '8px 12px', marginBottom: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 4 }}>
+              Observaciones
+            </div>
+            <div style={{ fontSize: 11, color: '#444', lineHeight: 1.7 }}>
+              {hayInstalacion && (
+                <div>- Algunas aberturas incluyen instalacion segun lo indicado en el detalle.</div>
+              )}
+              {op.notas && (
+                <div style={{ whiteSpace: 'pre-wrap', marginTop: hayInstalacion ? 4 : 0 }}>{op.notas}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Firma — igual que recibo */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginTop: 40 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #aaa', paddingTop: 7, fontSize: 10, color: '#666' }}>
-              Firma y aclaración — Vendedor
+            <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
+              Firma y aclaración — {empresa?.nombre ?? 'Vendedor'}
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #aaa', paddingTop: 7, fontSize: 10, color: '#666' }}>
+            <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
               Firma y aclaración — Cliente
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ borderTop: `2px solid ${RED}`, marginTop: 20, paddingTop: 10, textAlign: 'center', fontSize: 9, color: '#999' }}>
-          {[empresa?.nombre, empresa?.cuit ? `CUIT ${empresa.cuit}` : null, empresa?.telefono ? `Tel: ${empresa.telefono}` : null, empresa?.email, empresa?.direccion, '📲 @cesarbritez.ok'].filter(Boolean).join(' · ')}
+        {/* Footer — mismo estilo que recibo */}
+        <div style={{ borderTop: `2px solid ${RED}`, marginTop: 28, paddingTop: 12, textAlign: 'center', fontSize: 10, color: '#999' }}>
+          {footerParts}
         </div>
       </div>
     </>
