@@ -55,8 +55,11 @@ operaciones.get('/:id', async (c) => {
     db.query(`
       SELECT o.*,
         json_build_object(
-          'id', c.id, 'nombre', c.nombre,
-          'apellido', c.apellido, 'telefono', c.telefono
+          'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
+          'telefono', c.telefono, 'email', c.email,
+          'direccion', c.direccion, 'localidad', c.localidad,
+          'documento_nro', c.documento_nro
         ) AS cliente
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
@@ -66,8 +69,12 @@ operaciones.get('/:id', async (c) => {
       SELECT oi.*,
         oi.medida_ancho AS ancho,
         oi.medida_alto  AS alto,
-        (oi.precio_unitario + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion ELSE 0 END) * oi.cantidad AS precio_total
+        (oi.precio_unitario + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion ELSE 0 END) * oi.cantidad AS precio_total,
+        ta.nombre AS tipo_abertura_nombre,
+        s.nombre  AS sistema_nombre
       FROM operacion_items oi
+      LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
+      LEFT JOIN sistemas s ON s.id = oi.sistema_id
       WHERE oi.operacion_id = $1
       ORDER BY oi.orden
     `, [id]),

@@ -23,6 +23,9 @@ import { Remitos } from '@/pages/Remitos';
 import { NuevoRemito } from '@/pages/NuevoRemito';
 import { Recibos } from '@/pages/Recibos';
 import { NuevoRecibo } from '@/pages/NuevoRecibo';
+import { ImprimirPresupuesto } from '@/pages/print/ImprimirPresupuesto';
+import { ImprimirRemito } from '@/pages/print/ImprimirRemito';
+import { ImprimirRecibo } from '@/pages/print/ImprimirRecibo';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -36,6 +39,10 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<ProtectedRoute />}>
+              {/* Páginas de impresión — sin AppLayout */}
+              <Route path="/imprimir/presupuesto/:id" element={<ImprimirPresupuesto />} />
+              <Route path="/imprimir/remito/:id"      element={<ImprimirRemito />} />
+              <Route path="/imprimir/recibo/:id"      element={<ImprimirRecibo />} />
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />

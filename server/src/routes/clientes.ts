@@ -59,6 +59,8 @@ clientes.get('/:id', async (c) => {
     { rows: operaciones },
     { rows: interacciones },
     { rows: tareas },
+    { rows: recibos },
+    { rows: remitos },
   ] = await Promise.all([
     db.query(`
       SELECT c.*,
@@ -102,10 +104,33 @@ clientes.get('/:id', async (c) => {
         t.vencimiento ASC,
         CASE t.prioridad WHEN 'alta' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END
     `, [id]),
+    db.query(`
+      SELECT r.id, r.numero, r.fecha, r.monto_total, r.forma_pago, r.estado,
+        r.operacion_id,
+        CASE WHEN op.id IS NOT NULL
+          THEN json_build_object('id', op.id, 'numero', op.numero)
+          ELSE NULL END AS operacion
+      FROM recibos r
+      LEFT JOIN operaciones op ON op.id = r.operacion_id
+      WHERE r.cliente_id = $1 AND r.estado != 'anulado'
+      ORDER BY r.fecha DESC, r.created_at DESC
+      LIMIT 50
+    `, [id]),
+    db.query(`
+      SELECT r.id, r.numero, r.fecha_emision, r.estado, r.operacion_id,
+        CASE WHEN op.id IS NOT NULL
+          THEN json_build_object('id', op.id, 'numero', op.numero)
+          ELSE NULL END AS operacion
+      FROM remitos r
+      LEFT JOIN operaciones op ON op.id = r.operacion_id
+      WHERE r.cliente_id = $1 AND r.estado != 'cancelado'
+      ORDER BY r.fecha_emision DESC, r.created_at DESC
+      LIMIT 50
+    `, [id]),
   ]);
 
   if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
-  return c.json({ ...cliente, operaciones, interacciones, tareas });
+  return c.json({ ...cliente, operaciones, interacciones, tareas, recibos, remitos });
 });
 
 clientes.post('/', async (c) => {

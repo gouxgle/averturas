@@ -4,7 +4,7 @@ import {
   ArrowLeft, Phone, Mail, MapPin, Plus, MessageSquare, PhoneCall,
   Navigation, MessageCircle, Send, FileText, CheckCircle2, AlertTriangle,
   Shield, Building2, User, Hash, Calendar, Clock, Trash2,
-  ChevronDown, ClipboardList, TrendingUp, Edit3,
+  ChevronDown, ClipboardList, TrendingUp, Edit3, Receipt, Truck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -64,10 +64,23 @@ function diasColor(dias: number | null) {
 }
 
 // ── Tipos internos ───────────────────────────────────────────
+interface ReciboCliente {
+  id: string; numero: string; fecha: string;
+  monto_total: number; forma_pago: string; estado: string;
+  operacion_id: string | null;
+  operacion: { id: string; numero: string } | null;
+}
+interface RemitoCliente {
+  id: string; numero: string; fecha_emision: string; estado: string;
+  operacion_id: string | null;
+  operacion: { id: string; numero: string } | null;
+}
 interface ClienteConDetalle extends Cliente {
   operaciones: Operacion[];
   interacciones: Interaccion[];
   tareas: Tarea[];
+  recibos: ReciboCliente[];
+  remitos: RemitoCliente[];
 }
 
 // ── Componente principal ─────────────────────────────────────
@@ -177,7 +190,7 @@ export function ClienteDetalle() {
     );
   }
 
-  const { operaciones, interacciones, tareas, ...cliente } = data;
+  const { operaciones, interacciones, tareas, recibos, remitos, ...cliente } = data;
   const estadoInfo = ESTADO_CLIENTE[cliente.estado] ?? ESTADO_CLIENTE.activo;
   const esEmpresa = cliente.tipo_persona === 'juridica';
   const nombre = nombreMostrado(cliente);
@@ -431,6 +444,75 @@ export function ClienteDetalle() {
               </span>
               <span className="text-sm font-bold text-gray-700">{formatCurrency(cliente.valor_total_historico ?? 0)}</span>
             </div>
+          </div>
+
+          {/* Recibos */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+              <Receipt size={14} className="text-emerald-500" />
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">Recibos</span>
+              <span className="text-xs text-gray-400">{recibos.length}</span>
+            </div>
+            {recibos.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">Sin recibos</p>
+            ) : (
+              <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+                {recibos.map(r => (
+                  <Link key={r.id} to={`/recibos/${r.id}/editar`}
+                    className="flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-700">{r.numero}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {formatDate(r.fecha)}
+                        {r.operacion && ` · ${r.operacion.numero}`}
+                      </p>
+                    </div>
+                    <p className="text-xs font-bold text-emerald-700 shrink-0">{formatCurrency(Number(r.monto_total))}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+            <div className="px-3 py-2 border-t border-gray-50 flex items-center justify-between">
+              <span className="text-xs text-gray-400">Total cobrado</span>
+              <span className="text-sm font-bold text-emerald-700">
+                {formatCurrency(recibos.reduce((s, r) => s + Number(r.monto_total), 0))}
+              </span>
+            </div>
+          </div>
+
+          {/* Remitos */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+              <Truck size={14} className="text-blue-500" />
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">Remitos</span>
+              <span className="text-xs text-gray-400">{remitos.length}</span>
+            </div>
+            {remitos.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">Sin remitos</p>
+            ) : (
+              <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+                {remitos.map(rm => (
+                  <Link key={rm.id} to={`/remitos/${rm.id}/editar`}
+                    className="flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-700">{rm.numero}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {formatDate(rm.fecha_emision)}
+                        {rm.operacion && ` · ${rm.operacion.numero}`}
+                      </p>
+                    </div>
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
+                      rm.estado === 'entregado' ? 'bg-emerald-100 text-emerald-700' :
+                      rm.estado === 'emitido'   ? 'bg-blue-100 text-blue-700' :
+                                                  'bg-gray-100 text-gray-600'
+                    )}>
+                      {rm.estado}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Notas del cliente */}

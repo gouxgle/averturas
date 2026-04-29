@@ -6,6 +6,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { EstadoOperacion, Cliente, TipoAbertura, Sistema, Proveedor } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
+import { PDFDialog } from '@/components/PDFDialog';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -318,6 +319,7 @@ export function NuevoPresupuesto() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   const [clientes, setClientes]         = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -485,7 +487,7 @@ export function NuevoPresupuesto() {
         })),
       });
       toast.success(`Presupuesto ${op.numero} creado`);
-      navigate(`/operaciones/${op.id}`);
+      setSavedId(op.id);
     } catch (e) {
       toast.error((e as Error).message || 'Error al guardar');
     } finally {
@@ -771,6 +773,16 @@ export function NuevoPresupuesto() {
         </div>
       </div>
 
+      {savedId && (
+        <PDFDialog
+          title="Presupuesto creado"
+          subtitle="¿Querés generar el PDF ahora?"
+          pdfUrl={`/imprimir/presupuesto/${savedId}`}
+          onClose={() => { setSavedId(null); navigate(`/operaciones/${savedId}`); }}
+          onNavigate={() => navigate(`/operaciones/${savedId}`)}
+          navigateLabel="Ver presupuesto"
+        />
+      )}
     </div>
   );
 }

@@ -71,7 +71,9 @@ recibos.get('/:id', async (c) => {
     SELECT r.*,
       json_build_object('id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
         'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
-        'telefono', cl.telefono, 'email', cl.email) AS cliente,
+        'telefono', cl.telefono, 'email', cl.email,
+        'direccion', cl.direccion, 'localidad', cl.localidad,
+        'documento_nro', cl.documento_nro) AS cliente,
       json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado) AS operacion,
       json_build_object('id', rm.id, 'numero', rm.numero, 'estado', rm.estado) AS remito,
       u.nombre AS created_by_nombre

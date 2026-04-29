@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
+import { PDFDialog } from '@/components/PDFDialog';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Operacion {
@@ -105,6 +106,7 @@ export function NuevoRemito() {
   const isEdit       = Boolean(id);
 
   const [saving, setSaving]         = useState(false);
+  const [savedId, setSavedId]       = useState<string | null>(null);
   const [clientes, setClientes]     = useState<Cliente[]>([]);
   const [productos, setProductos]   = useState<Producto[]>([]);
   const [operaciones, setOperaciones] = useState<Operacion[]>([]);
@@ -116,7 +118,7 @@ export function NuevoRemito() {
   const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSearch, setClienteSearch] = useState('');
   const [showClienteList, setShowClienteList] = useState(false);
-  const [operacionId, setOperacionId]     = useState('');
+  const [operacionId, setOperacionId]     = useState(searchParams.get('operacion_id') ?? '');
   const [medioEnvio, setMedioEnvio]       = useState<string>('retiro_local');
   const [transportista, setTransportista] = useState('');
   const [nroSeguimiento, setNroSeguimiento] = useState('');
@@ -282,7 +284,7 @@ export function NuevoRemito() {
       } else {
         const nuevo = await api.post<{ id: string }>('/remitos', body);
         toast.success('Remito creado');
-        navigate(`/remitos/${nuevo.id}`);
+        setSavedId(nuevo.id);
         return;
       }
       navigate('/remitos');
@@ -728,6 +730,17 @@ export function NuevoRemito() {
           </div>
         </div>
       </div>
+
+      {savedId && (
+        <PDFDialog
+          title="Remito creado"
+          subtitle="¿Querés generar el PDF ahora?"
+          pdfUrl={`/imprimir/remito/${savedId}`}
+          onClose={() => { setSavedId(null); navigate('/remitos'); }}
+          onNavigate={() => navigate('/remitos')}
+          navigateLabel="Ir a remitos"
+        />
+      )}
     </div>
   );
 }

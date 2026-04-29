@@ -4,6 +4,7 @@ export type EstadoOperacion =
   | 'presupuesto'
   | 'enviado'
   | 'aprobado'
+  | 'rechazado'
   | 'en_produccion'
   | 'listo'
   | 'instalado'

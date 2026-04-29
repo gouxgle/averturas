@@ -21,6 +21,7 @@ psql -U postgres -d postgres -f /migrations/20260423000001_atributos_jsonb.sql
 psql -U postgres -d postgres -f /migrations/20260424000001_clientes_domicilio_obra.sql
 psql -U postgres -d postgres -f /migrations/20260424000002_catalogo_atributos_schema.sql
 psql -U postgres -d postgres -f /migrations/20260425000001_recibos.sql
+psql -U postgres -d postgres -f /migrations/20260428000001_rechazado_estado.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -46,7 +47,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260423000001_atributos_jsonb.sql'),
   ('20260424000001_clientes_domicilio_obra.sql'),
   ('20260424000002_catalogo_atributos_schema.sql'),
-  ('20260425000001_recibos.sql')
+  ('20260425000001_recibos.sql'),
+  ('20260428000001_rechazado_estado.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

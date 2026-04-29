@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Receipt, Users, Calendar, CreditCard,
   Plus, Trash2, AlertTriangle, RefreshCw, Check, X, Package
@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
+import { PDFDialog } from '@/components/PDFDialog';
 
 // ── Conceptos predefinidos ────────────────────────────────────
 const CONCEPTOS_PREDEFINIDOS = [
@@ -97,11 +98,12 @@ export function NuevoRecibo() {
   const navigate = useNavigate();
   const { id }   = useParams<{ id: string }>();
   const isEdit   = Boolean(id);
+  const [searchParams]   = useSearchParams();
 
   // Form state
-  const [clienteId,       setClienteId]       = useState('');
+  const [clienteId,       setClienteId]       = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSel,      setClienteSel]       = useState<Cliente | null>(null);
-  const [operacionId,     setOperacionId]      = useState('');
+  const [operacionId,     setOperacionId]      = useState(searchParams.get('operacion_id') ?? '');
   const [remitoId,        setRemitoId]         = useState('');
   const [fecha,           setFecha]            = useState(new Date().toISOString().split('T')[0]);
   const [formaPago,       setFormaPago]        = useState('efectivo');
@@ -122,6 +124,7 @@ export function NuevoRecibo() {
 
   // UI state
   const [saving,          setSaving]           = useState(false);
+  const [savedId,         setSavedId]          = useState<string | null>(null);
   const [searchCliente,   setSearchCliente]    = useState('');
   const [showClientes,    setShowClientes]     = useState(false);
   const clienteRef = useRef<HTMLInputElement>(null);
@@ -129,6 +132,12 @@ export function NuevoRecibo() {
   // ── Carga inicial ─────────────────────────────────────────
   useEffect(() => {
     api.get<Producto[]>('/catalogo/productos').then(setProductos).catch(() => {});
+
+    // Pre-fill cliente desde URL param (cuando viene desde OperacionDetalle)
+    const urlClienteId = searchParams.get('cliente_id');
+    if (!isEdit && urlClienteId) {
+      api.get<Cliente>(`/clientes/${urlClienteId}`).then(c => setClienteSel(c)).catch(() => {});
+    }
 
     if (isEdit && id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,8 +263,10 @@ export function NuevoRecibo() {
         await api.put(`/recibos/${id}`, payload);
         toast.success('Recibo actualizado');
       } else {
-        await api.post('/recibos', payload);
+        const rec = await api.post<{ id: string }>('/recibos', payload);
         toast.success('Recibo creado');
+        setSavedId(rec.id);
+        return;
       }
       navigate('/recibos');
     } catch (e) {
@@ -578,6 +589,16 @@ export function NuevoRecibo() {
         </div>
       </div>
 
+      {savedId && (
+        <PDFDialog
+          title="Recibo creado"
+          subtitle="¿Querés generar el PDF ahora?"
+          pdfUrl={`/imprimir/recibo/${savedId}`}
+          onClose={() => { setSavedId(null); navigate('/recibos'); }}
+          onNavigate={() => navigate('/recibos')}
+          navigateLabel="Ir a recibos"
+        />
+      )}
     </div>
   );
 }

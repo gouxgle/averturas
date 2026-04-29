@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, XCircle, AlertTriangle, Clock, RotateCcw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, EstadoOperacion } from '@/types';
@@ -10,18 +10,21 @@ const FILTROS: { value: 'activos' | EstadoOperacion; label: string }[] = [
   { value: 'presupuesto', label: 'Borrador' },
   { value: 'enviado',     label: 'Enviados' },
   { value: 'aprobado',    label: 'Aprobados' },
+  { value: 'rechazado',   label: 'Rechazados' },
 ];
 
 const ESTADO_COLOR: Record<string, string> = {
   presupuesto: 'bg-gray-100 text-gray-700',
   enviado:     'bg-blue-100 text-blue-700',
   aprobado:    'bg-green-100 text-green-700',
+  rechazado:   'bg-red-100 text-red-700',
 };
 
 const ESTADO_LABEL: Record<string, string> = {
   presupuesto: 'Borrador',
   enviado:     'Enviado',
   aprobado:    'Aprobado',
+  rechazado:   'Rechazado',
 };
 
 const TIPO_LABEL: Record<string, string> = {
@@ -196,12 +199,30 @@ export function Presupuestos() {
                       </button>
                     )}
                     {op.estado === 'enviado' && (
+                      <>
+                        <button
+                          onClick={() => cambiarEstado(op, 'aprobado')}
+                          disabled={cambiando === op.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle size={12} /> Aprobar
+                        </button>
+                        <button
+                          onClick={() => cambiarEstado(op, 'rechazado')}
+                          disabled={cambiando === op.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+                        >
+                          <XCircle size={12} /> Rechazar
+                        </button>
+                      </>
+                    )}
+                    {op.estado === 'rechazado' && (
                       <button
-                        onClick={() => cambiarEstado(op, 'aprobado')}
+                        onClick={() => cambiarEstado(op, 'presupuesto')}
                         disabled={cambiando === op.id}
-                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-medium transition-colors disabled:opacity-50"
                       >
-                        <CheckCircle size={12} /> Aprobar
+                        <RotateCcw size={12} /> Revisar
                       </button>
                     )}
                     <button
