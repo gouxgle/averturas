@@ -297,6 +297,13 @@ export function ClienteDetalle() {
               <Trash2 size={16} className="text-gray-400 hover:text-red-500" />
             </button>
             <Link
+              to={`/clientes/${cliente.id}/estado-cuenta`}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all"
+              title="Ver estado de cuenta"
+            >
+              <Receipt size={14} /> Estado de cuenta
+            </Link>
+            <Link
               to={`/operaciones/nueva?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">
               <Plus size={14} /> Nueva operación

@@ -11,6 +11,7 @@ import { OperacionDetalle } from '@/pages/OperacionDetalle';
 import { Clientes } from '@/pages/Clientes';
 import { NuevoCliente } from '@/pages/NuevoCliente';
 import { ClienteDetalle } from '@/pages/ClienteDetalle';
+import { EstadoCuenta } from '@/pages/EstadoCuenta';
 import { Stock } from '@/pages/Stock';
 import { Reportes } from '@/pages/Reportes';
 import { Configuracion } from '@/pages/Configuracion';
@@ -52,6 +53,7 @@ export default function App() {
                 <Route path="/clientes" element={<Clientes />} />
                 <Route path="/clientes/nuevo" element={<NuevoCliente />} />
                 <Route path="/clientes/:id/editar" element={<NuevoCliente />} />
+                <Route path="/clientes/:id/estado-cuenta" element={<EstadoCuenta />} />
                 <Route path="/clientes/:id" element={<ClienteDetalle />} />
                 <Route path="/presupuestos" element={<Presupuestos />} />
                 <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />

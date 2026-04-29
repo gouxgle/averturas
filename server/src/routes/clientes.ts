@@ -51,6 +51,126 @@ clientes.get('/validar-dni', async (c) => {
   return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
 });
 
+// GET /:id/estado-cuenta — resumen financiero completo del cliente (ANTES de /:id)
+clientes.get('/:id/estado-cuenta', async (c) => {
+  const { id } = c.req.param();
+
+  const [
+    { rows: [cliente] },
+    { rows: operaciones },
+    { rows: recibos_all },
+    { rows: remitos_all },
+  ] = await Promise.all([
+    db.query(`
+      SELECT c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
+        c.telefono, c.email, c.direccion, c.localidad, c.documento_nro
+      FROM clientes c WHERE c.id = $1
+    `, [id]),
+    db.query(`
+      SELECT o.id, o.numero, o.tipo, o.estado, o.precio_total, o.costo_total,
+        o.created_at, o.fecha_validez, o.notas, o.forma_pago,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', oi.id, 'descripcion', oi.descripcion,
+              'cantidad', oi.cantidad,
+              'precio_unitario', oi.precio_unitario,
+              'precio_instalacion', oi.precio_instalacion,
+              'incluye_instalacion', oi.incluye_instalacion,
+              'precio_total', (oi.precio_unitario + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion ELSE 0 END) * oi.cantidad,
+              'medida_ancho', oi.medida_ancho, 'medida_alto', oi.medida_alto,
+              'color', oi.color, 'vidrio', oi.vidrio,
+              'tipo_abertura', ta.nombre, 'sistema', s.nombre
+            ) ORDER BY oi.orden
+          ) FILTER (WHERE oi.id IS NOT NULL),
+          '[]'
+        ) AS items
+      FROM operaciones o
+      LEFT JOIN operacion_items oi ON oi.operacion_id = o.id
+      LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
+      LEFT JOIN sistemas s ON s.id = oi.sistema_id
+      WHERE o.cliente_id = $1 AND o.estado NOT IN ('cancelado')
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `, [id]),
+    db.query(`
+      SELECT r.id, r.numero, r.fecha, r.monto_total, r.forma_pago,
+        r.concepto, r.estado, r.operacion_id,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'descripcion', ri.descripcion,
+              'monto', ri.monto,
+              'cantidad', ri.cantidad
+            ) ORDER BY ri.orden
+          ) FILTER (WHERE ri.id IS NOT NULL),
+          '[]'
+        ) AS items
+      FROM recibos r
+      LEFT JOIN recibo_items ri ON ri.recibo_id = r.id
+      WHERE r.cliente_id = $1 AND r.estado != 'anulado'
+      GROUP BY r.id
+      ORDER BY r.fecha ASC, r.created_at ASC
+    `, [id]),
+    db.query(`
+      SELECT id, numero, fecha_emision, estado, operacion_id, medio_envio,
+        fecha_entrega_real
+      FROM remitos
+      WHERE cliente_id = $1 AND estado != 'cancelado'
+      ORDER BY fecha_emision ASC
+    `, [id]),
+  ]);
+
+  if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
+
+  // Agrupar recibos y remitos por operacion
+  const recibosMap: Record<string, typeof recibos_all> = {};
+  const recibosDirectos: typeof recibos_all = [];
+  for (const r of recibos_all) {
+    if (r.operacion_id) {
+      if (!recibosMap[r.operacion_id]) recibosMap[r.operacion_id] = [];
+      recibosMap[r.operacion_id].push(r);
+    } else {
+      recibosDirectos.push(r);
+    }
+  }
+  const remitosMap: Record<string, typeof remitos_all> = {};
+  for (const rm of remitos_all) {
+    if (rm.operacion_id) {
+      if (!remitosMap[rm.operacion_id]) remitosMap[rm.operacion_id] = [];
+      remitosMap[rm.operacion_id].push(rm);
+    }
+  }
+
+  // Calcular totales por operacion y globales
+  let totalPresupuestado = 0;
+  let totalCobrado = 0;
+
+  const operacionesConDetalle = operaciones.map((op: any) => {
+    const recibosOp = recibosMap[op.id] ?? [];
+    const remitosOp = remitosMap[op.id] ?? [];
+    const cobrado = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_total), 0);
+    const saldo = Number(op.precio_total) - cobrado;
+    totalPresupuestado += Number(op.precio_total);
+    totalCobrado += cobrado;
+    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado, saldo };
+  });
+
+  const cobradoDirecto = recibosDirectos.reduce((s, r) => s + Number(r.monto_total), 0);
+  totalCobrado += cobradoDirecto;
+
+  return c.json({
+    cliente,
+    operaciones: operacionesConDetalle,
+    recibos_directos: recibosDirectos,
+    totales: {
+      presupuestado: totalPresupuestado,
+      cobrado: totalCobrado,
+      saldo: totalPresupuestado - totalCobrado,
+    },
+  });
+});
+
 clientes.get('/:id', async (c) => {
   const { id } = c.req.param();
 
