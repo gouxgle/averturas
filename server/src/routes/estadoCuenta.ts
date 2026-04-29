@@ -20,10 +20,10 @@ estadoCuenta.get('/', async (c) => {
 
   const params: unknown[] = [];
 
-  let havingExtra = '';
-  if (filtro === 'con_saldo')       havingExtra = 'AND (ops.total - COALESCE(rec.total,0)) > 0';
-  if (filtro === 'con_compromisos') havingExtra = 'AND comp.total > 0';
-  if (filtro === 'saldados')        havingExtra = 'AND (ops.total - COALESCE(rec.total,0)) <= 0';
+  let filtroExtra = '';
+  if (filtro === 'con_saldo')       filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) > 0';
+  if (filtro === 'con_compromisos') filtroExtra = 'AND comp.total > 0';
+  if (filtro === 'saldados')        filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) <= 0';
 
   let whereSearch = '';
   if (search.trim()) {
@@ -64,8 +64,7 @@ estadoCuenta.get('/', async (c) => {
       FROM compromisos_pago
       WHERE cliente_id = c.id
     ) comp ON true
-    WHERE c.activo = true ${whereSearch}
-    HAVING ops.count > 0 ${havingExtra}
+    WHERE c.activo = true ${whereSearch} ${filtroExtra}
     ORDER BY ${orderBy}
     LIMIT 500
   `, params);
