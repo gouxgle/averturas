@@ -17,29 +17,29 @@ function Watermark() {
             repeating-linear-gradient(
               90deg,
               transparent 0, transparent 149px,
-              rgba(3,29,73,0.022) 149px, rgba(3,29,73,0.022) 150px
+              rgba(3,29,73,0.038) 149px, rgba(3,29,73,0.038) 150px
             ),
             repeating-linear-gradient(
               0deg,
               transparent 0, transparent 149px,
-              rgba(3,29,73,0.022) 149px, rgba(3,29,73,0.022) 150px
+              rgba(3,29,73,0.038) 149px, rgba(3,29,73,0.038) 150px
             )
           `,
         }}
       />
 
-      {/* Logo principal — grande, derecha inferior */}
+      {/* Logo principal — centrado-derecha, tamaño contenido */}
       <svg
         viewBox="0 0 200 200"
         fill="none"
         style={{
           position: 'absolute',
-          right: '4%',
-          bottom: '-8%',
-          width: 520,
-          height: 520,
-          opacity: 0.032,
-          transform: 'rotate(-6deg)',
+          right: '6%',
+          bottom: '8%',
+          width: 340,
+          height: 340,
+          opacity: 0.072,
+          filter: 'blur(0.5px)',
         }}
       >
         <rect x="8"   y="8"   width="84" height="84" rx="14" fill="#031d49" />
@@ -48,18 +48,18 @@ function Watermark() {
         <rect x="108" y="108" width="84" height="84" rx="14" fill="#031d49" />
       </svg>
 
-      {/* Logo secundario — pequeño, arriba izquierda (zona de contenido) */}
+      {/* Logo secundario — arriba izquierda zona contenido */}
       <svg
         viewBox="0 0 200 200"
         fill="none"
         style={{
           position: 'absolute',
-          left: '18%',
-          top: '8%',
-          width: 180,
-          height: 180,
-          opacity: 0.018,
-          transform: 'rotate(12deg)',
+          left: '20%',
+          top: '12%',
+          width: 140,
+          height: 140,
+          opacity: 0.038,
+          filter: 'blur(0.4px)',
         }}
       >
         <rect x="8"   y="8"   width="84" height="84" rx="14" fill="#031d49" />
@@ -68,16 +68,16 @@ function Watermark() {
         <rect x="108" y="108" width="84" height="84" rx="14" fill="#031d49" />
       </svg>
 
-      {/* Acento de color — punto rojo sutil */}
+      {/* Acento rojo — mancha difusa detrás del logo principal */}
       <div
         style={{
           position: 'absolute',
-          right: '12%',
-          top: '20%',
-          width: 320,
-          height: 320,
+          right: '3%',
+          bottom: '5%',
+          width: 420,
+          height: 420,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(227,30,36,0.04) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(227,30,36,0.055) 0%, transparent 65%)',
         }}
       />
     </div>
