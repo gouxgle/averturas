@@ -24,6 +24,7 @@ import { Remitos } from '@/pages/Remitos';
 import { NuevoRemito } from '@/pages/NuevoRemito';
 import { Recibos } from '@/pages/Recibos';
 import { NuevoRecibo } from '@/pages/NuevoRecibo';
+import { EstadoCuentaGlobal } from '@/pages/EstadoCuentaGlobal';
 import { ImportarClientes } from '@/pages/ImportarClientes';
 import { ImprimirPresupuesto } from '@/pages/print/ImprimirPresupuesto';
 import { ImprimirRemito } from '@/pages/print/ImprimirRemito';
@@ -70,6 +71,7 @@ export default function App() {
                 <Route path="/recibos" element={<Recibos />} />
                 <Route path="/recibos/nuevo" element={<NuevoRecibo />} />
                 <Route path="/recibos/:id/editar" element={<NuevoRecibo />} />
+                <Route path="/estado-cuenta" element={<EstadoCuentaGlobal />} />
                 <Route path="/reportes" element={<Reportes />} />
                 <Route path="/configuracion" element={<Configuracion />} />
               </Route>
