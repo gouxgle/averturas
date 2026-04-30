@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search, Package, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -116,6 +116,40 @@ function ItemCard({
   const [open, setOpen] = useState(true);
   const up = (f: keyof ItemForm, v: unknown) => onChange(item._key, f, v);
 
+  // Buscador de producto interno
+  const [prodSearch, setProdSearch]   = useState('');
+  const [prodResults, setProdResults] = useState<CatalogProduct[]>([]);
+  const [showProdDrop, setShowProdDrop] = useState(false);
+  const [prodLoading, setProdLoading] = useState(false);
+
+  useEffect(() => {
+    if (!prodSearch.trim()) { setProdResults([]); setShowProdDrop(false); return; }
+    const t = setTimeout(async () => {
+      setProdLoading(true);
+      try {
+        const res = await api.get<CatalogProduct[]>(`/catalogo/productos?search=${encodeURIComponent(prodSearch.trim())}`);
+        setProdResults(res.slice(0, 8));
+        setShowProdDrop(res.length > 0);
+      } catch { /* silencioso */ }
+      finally { setProdLoading(false); }
+    }, 280);
+    return () => clearTimeout(t);
+  }, [prodSearch]);
+
+  function selectProduct(p: CatalogProduct) {
+    up('producto_id',      p.id);
+    up('tipo_abertura_id', p.tipo_abertura_id ?? '');
+    up('sistema_id',       p.sistema_id       ?? '');
+    up('color',            p.color            ?? '');
+    up('vidrio',           p.vidrio           ?? '');
+    up('premarco',         p.premarco         ?? false);
+    up('accesorios',       p.accesorios       ?? []);
+    up('costo_unitario',   Number(p.costo_base)  || 0);
+    up('precio_unitario',  Number(p.precio_base) || 0);
+    up('descripcion',      p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre);
+    setProdSearch(''); setProdResults([]); setShowProdDrop(false);
+  }
+
   const precioItem = itemPrecioTotal(item);
 
   const sel   = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
@@ -124,6 +158,7 @@ function ItemCard({
 
   // Auto-generate description from fields
   useEffect(() => {
+    if (item.producto_id) return; // si tiene producto vinculado, no pisar la descripción
     const ta   = tiposAbertura.find(t => t.id === item.tipo_abertura_id)?.nombre ?? '';
     const sis  = sistemas.find(s => s.id === item.sistema_id)?.nombre ?? '';
     const med  = item.medida_ancho && item.medida_alto ? ` ${item.medida_ancho}×${item.medida_alto}m` : '';
@@ -166,6 +201,63 @@ function ItemCard({
 
       {open && (
         <div className="p-4 space-y-3">
+
+          {/* Buscador de producto — rellena tipo, sistema, color automáticamente */}
+          <div className="relative">
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all',
+              item.producto_id
+                ? 'bg-violet-50 border-violet-200'
+                : 'border-gray-200 focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400'
+            )}>
+              <Package size={13} className={item.producto_id ? 'text-violet-500 shrink-0' : 'text-gray-300 shrink-0'} />
+              {item.producto_id ? (
+                <span className="flex-1 text-xs text-violet-700 font-medium truncate">{item.descripcion}</span>
+              ) : (
+                <input
+                  value={prodSearch}
+                  onChange={e => setProdSearch(e.target.value)}
+                  onFocus={() => prodSearch && setShowProdDrop(true)}
+                  onBlur={() => setTimeout(() => setShowProdDrop(false), 150)}
+                  placeholder="Buscar producto del catálogo para auto-completar tipo, sistema, color..."
+                  className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                />
+              )}
+              {item.producto_id
+                ? <button type="button" onMouseDown={() => {
+                    up('producto_id', ''); up('tipo_abertura_id', ''); up('sistema_id', '');
+                    up('color', ''); up('precio_unitario', 0); up('costo_unitario', 0);
+                  }} className="text-violet-400 hover:text-violet-600 shrink-0"><X size={13} /></button>
+                : prodLoading
+                ? <Search size={12} className="text-gray-300 animate-pulse shrink-0" />
+                : prodSearch && <button onMouseDown={() => { setProdSearch(''); setProdResults([]); }} className="text-gray-300 hover:text-gray-500 shrink-0"><X size={12} /></button>
+              }
+            </div>
+
+            {/* Dropdown resultados */}
+            {showProdDrop && prodResults.length > 0 && (
+              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {prodResults.map(p => (
+                  <button key={p.id} type="button"
+                    onMouseDown={() => selectProduct(p)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {p.codigo && (
+                          <span className="font-mono text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">{p.codigo}</span>
+                        )}
+                        <span className="text-sm font-medium text-gray-800 truncate">{p.nombre}</span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-violet-700 shrink-0">
+                      {formatCurrency(Number(p.precio_base))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Tipo de ítem */}
           <div className="flex gap-2">
             {(['estandar', 'a_medida'] as const).map(t => (
@@ -502,26 +594,14 @@ export function NuevoPresupuesto() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex items-center gap-3 flex-1">
-          <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
-            <ArrowLeft size={17} className="text-gray-500" />
-          </button>
-          <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-            <FileText size={16} className="text-violet-600" />
-          </div>
-          <h1 className="text-base font-bold text-gray-900">Nuevo presupuesto</h1>
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
+          <ArrowLeft size={17} className="text-gray-500" />
+        </button>
+        <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
+          <FileText size={16} className="text-violet-600" />
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
-          <button onClick={() => navigate(-1)} className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
-            Cancelar
-          </button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
-            <Save size={14} />
-            {saving ? 'Guardando...' : 'Guardar presupuesto'}
-          </button>
-        </div>
+        <h1 className="text-base font-bold text-gray-900">Nuevo presupuesto</h1>
       </div>
 
       {/* Sección: Cliente + Proyecto */}
@@ -771,6 +851,19 @@ export function NuevoPresupuesto() {
             placeholder="Solo para el equipo..."
             className={inputCls + ' resize-none'} />
         </div>
+      </div>
+
+      {/* Botones guardar — al final del formulario */}
+      <div className="flex items-center justify-end gap-3 pt-2 pb-4 border-t border-gray-200">
+        <button onClick={() => navigate(-1)}
+          className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 font-medium">
+          Cancelar
+        </button>
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm">
+          <Save size={15} />
+          {saving ? 'Guardando...' : 'Guardar presupuesto'}
+        </button>
       </div>
 
       {savedId && (
