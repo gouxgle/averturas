@@ -6,14 +6,32 @@ type QueryRunner = { query: (text: string, values?: unknown[]) => Promise<{ rows
 
 const stock = new Hono();
 
-async function nextLoteNumero(client: QueryRunner = db): Promise<string> {
+async function nextLoteNumero(client: QueryRunner = db, productoId?: string): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+
+  let tipoAbrev = 'GEN';
+  if (productoId) {
+    const { rows: [p] } = await client.query(
+      `SELECT ta.nombre FROM catalogo_productos cp
+       LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
+       WHERE cp.id = $1`, [productoId]
+    );
+    const pRow = p as { nombre?: string } | undefined;
+    if (pRow?.nombre) {
+      tipoAbrev = (pRow.nombre as string)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')  // quitar tildes
+        .replace(/[^a-zA-Z]/g, '')
+        .slice(0, 3)
+        .toUpperCase() || 'GEN';
+    }
+  }
+
   const { rows } = await client.query(
     `SELECT COUNT(*) AS n FROM stock_lotes WHERE numero LIKE $1`,
-    [`LOT-${ym}-%`]
+    [`LOT-${ym}-${tipoAbrev}-%`]
   );
   const n = parseInt((rows[0] as { n: string }).n) + 1;
-  return `LOT-${ym}-${String(n).padStart(4, '0')}`;
+  return `LOT-${ym}-${tipoAbrev}-${String(n).padStart(4, '0')}`;
 }
 
 // GET / — productos estándar con stock actual
@@ -97,7 +115,7 @@ stock.get('/producto/:id/movimientos', async (c) => {
   return c.json(rows);
 });
 
-// GET /lotes — historial de lotes
+// GET /lotes — historial de lotes con totales de ingreso/egreso por producto
 stock.get('/lotes', async (c) => {
   const search = c.req.query('search') ?? '';
   const params: unknown[] = [];
@@ -108,18 +126,36 @@ stock.get('/lotes', async (c) => {
   }
 
   const { rows } = await db.query(`
-    SELECT l.*,
+    SELECT
+      l.*,
       prov.nombre AS proveedor_nombre,
       COALESCE(json_agg(
         json_build_object(
-          'producto_id', m.producto_id, 'nombre', p.nombre,
-          'cantidad', m.cantidad, 'costo_unitario', m.costo_unitario
+          'producto_id',       p.id,
+          'nombre',            p.nombre,
+          'tipo_abertura',     ta.nombre,
+          'cantidad_ingresada', COALESCE(ing.cant, 0),
+          'cantidad_egresada',  COALESCE(egr.cant, 0),
+          'stock_remanente',   COALESCE(ing.cant, 0) - COALESCE(egr.cant, 0),
+          'costo_unitario',    ing.costo
         ) ORDER BY p.nombre
-      ) FILTER (WHERE m.id IS NOT NULL), '[]') AS items
+      ) FILTER (WHERE p.id IS NOT NULL), '[]') AS items
     FROM stock_lotes l
-    LEFT JOIN proveedores prov     ON prov.id = l.proveedor_id
-    LEFT JOIN stock_movimientos m  ON m.lote_id = l.id AND m.tipo = 'ingreso'
-    LEFT JOIN catalogo_productos p ON p.id = m.producto_id
+    LEFT JOIN proveedores prov ON prov.id = l.proveedor_id
+    LEFT JOIN LATERAL (
+      SELECT m.producto_id, SUM(m.cantidad)::int AS cant, MAX(m.costo_unitario) AS costo
+      FROM stock_movimientos m
+      WHERE m.lote_id = l.id AND m.tipo = 'ingreso'
+      GROUP BY m.producto_id
+    ) ing ON true
+    LEFT JOIN catalogo_productos p  ON p.id = ing.producto_id
+    LEFT JOIN tipos_abertura ta     ON ta.id = p.tipo_abertura_id
+    LEFT JOIN LATERAL (
+      SELECT m.producto_id, SUM(-m.cantidad)::int AS cant
+      FROM stock_movimientos m
+      WHERE m.lote_id = l.id AND m.tipo LIKE 'egreso%'
+      GROUP BY m.producto_id
+    ) egr ON egr.producto_id = ing.producto_id
     ${where}
     GROUP BY l.id, prov.nombre
     ORDER BY l.created_at DESC
@@ -159,7 +195,7 @@ stock.post('/ingresar', async (c) => {
     if (b.lote_id) {
       loteId = b.lote_id;
     } else {
-      const numero = await nextLoteNumero(client);
+      const numero = await nextLoteNumero(client, b.producto_id);
       const { rows: [lote] } = await client.query(`
         INSERT INTO stock_lotes (numero, proveedor_id, fecha_ingreso, remito_nro, factura_nro, notas)
         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id

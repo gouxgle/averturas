@@ -3,7 +3,7 @@ import {
   Boxes, Plus, Minus, AlertTriangle, TrendingDown,
   ChevronDown, ChevronUp, Package, Truck, RotateCcw,
   Wrench, Search, RefreshCw, ArrowDownCircle, ArrowUpCircle,
-  History, X, Check, Info
+  History, X, Check, Info, Layers
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -33,7 +33,28 @@ interface Proveedor {
   nombre: string;
 }
 
+interface LoteItem {
+  producto_id: string;
+  nombre: string;
+  tipo_abertura: string | null;
+  cantidad_ingresada: number;
+  cantidad_egresada: number;
+  stock_remanente: number;
+  costo_unitario: number | null;
+}
+
 interface Lote {
+  id: string;
+  numero: string;
+  fecha_ingreso: string;
+  remito_nro: string | null;
+  factura_nro: string | null;
+  proveedor_nombre: string | null;
+  notas: string | null;
+  items: LoteItem[];
+}
+
+interface LoteSelect {
   id: string;
   numero: string;
   fecha_ingreso: string;
@@ -103,13 +124,13 @@ function ModalIngreso({
   const [notas, setNotas] = useState('');
   const [loteMode, setLoteMode] = useState<'nuevo' | 'existente'>('nuevo');
   const [loteId, setLoteId] = useState('');
-  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [lotes, setLotes] = useState<LoteSelect[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (loteMode === 'existente' && productoId) {
-      api.get<Lote[]>(`/stock/lotes/producto/${productoId}`).then(data => setLotes(data)).catch(() => setLotes([]));
+      api.get<LoteSelect[]>(`/stock/lotes/producto/${productoId}`).then(data => setLotes(data)).catch(() => setLotes([]));
     }
   }, [loteMode, productoId]);
 
@@ -763,6 +784,188 @@ function ProductoCard({
   );
 }
 
+// ── LotesTab ──────────────────────────────────────────────────
+function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const qs = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+      const data = await api.get<Lote[]>(`/stock/lotes${qs}`);
+      setLotes(data);
+    } finally {
+      setLoading(false);
+    }
+  }, [search]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  function toggle(id: string) {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  const fmt = (n: number) =>
+    `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por número, remito o proveedor..."
+            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+          />
+        </div>
+        <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500" title="Actualizar">
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
+        <button onClick={onNuevoIngreso}
+          className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
+          <Plus size={14} /> Nuevo ingreso
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <RefreshCw size={20} className="animate-spin text-gray-400" />
+        </div>
+      ) : lotes.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+          <Layers size={32} className="mx-auto mb-3 text-gray-200" />
+          <p className="text-sm text-gray-400">No hay lotes registrados</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {lotes.map(lote => {
+            const totalIngresado = lote.items.reduce((s, it) => s + it.cantidad_ingresada, 0);
+            const totalEgresado  = lote.items.reduce((s, it) => s + it.cantidad_egresada,  0);
+            const totalRemanente = lote.items.reduce((s, it) => s + it.stock_remanente,     0);
+            const tipos = [...new Set(lote.items.map(it => it.tipo_abertura).filter(Boolean))];
+            const pctUsado = totalIngresado > 0 ? Math.min(100, (totalEgresado / totalIngresado) * 100) : 0;
+            const isOpen = expanded[lote.id];
+
+            return (
+              <div key={lote.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Header del lote */}
+                <div className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => toggle(lote.id)}>
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+                    <Layers size={18} className="text-orange-600" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-bold text-gray-900">{lote.numero}</span>
+                      {tipos.map(t => (
+                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md font-medium">
+                          {t}
+                        </span>
+                      ))}
+                      {lote.proveedor_nombre && (
+                        <span className="text-xs text-gray-400">{lote.proveedor_nombre}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                      <span>{fmtFecha(lote.fecha_ingreso)}</span>
+                      {lote.remito_nro  && <span>R: {lote.remito_nro}</span>}
+                      {lote.factura_nro && <span>F: {lote.factura_nro}</span>}
+                    </div>
+                  </div>
+
+                  {/* Totales rápidos */}
+                  <div className="flex items-center gap-6 flex-shrink-0 text-right">
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Ingresado</div>
+                      <div className="text-sm font-bold text-emerald-600">+{totalIngresado}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Vendido</div>
+                      <div className="text-sm font-bold text-blue-600">{totalEgresado}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Remanente</div>
+                      <div className={`text-sm font-bold ${totalRemanente <= 0 ? 'text-red-500' : 'text-gray-900'}`}>
+                        {totalRemanente}
+                      </div>
+                    </div>
+                    <div className="w-4">
+                      {isOpen ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Barra de rotación */}
+                <div className="px-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${pctUsado >= 100 ? 'bg-red-400' : pctUsado >= 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                        style={{ width: `${pctUsado}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-400">{Math.round(pctUsado)}% rotado</span>
+                  </div>
+                </div>
+
+                {/* Detalle de productos del lote */}
+                {isOpen && lote.items.length > 0 && (
+                  <div className="border-t border-gray-100">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Producto</th>
+                          <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Ingresado</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendido</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Remanente</th>
+                          <th className="text-right px-4 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Costo unit.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lote.items.map((item, i) => (
+                          <tr key={item.producto_id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                            <td className="px-4 py-2.5 text-sm text-gray-800">{item.nombre}</td>
+                            <td className="px-3 py-2.5 text-center">
+                              {item.tipo_abertura
+                                ? <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md">{item.tipo_abertura}</span>
+                                : <span className="text-xs text-gray-300">—</span>
+                              }
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-sm font-semibold text-emerald-600">+{item.cantidad_ingresada}</td>
+                            <td className="px-3 py-2.5 text-right text-sm text-blue-600">{item.cantidad_egresada}</td>
+                            <td className={`px-3 py-2.5 text-right text-sm font-bold ${item.stock_remanente <= 0 ? 'text-red-500' : 'text-gray-800'}`}>
+                              {item.stock_remanente}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-xs text-gray-400 font-mono">
+                              {item.costo_unitario ? fmt(item.costo_unitario) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {lote.notas && (
+                      <div className="px-4 py-2 text-xs text-gray-400 italic border-t border-gray-50">
+                        {lote.notas}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────
 export function Stock() {
   const [productos, setProductos] = useState<ProductoStock[]>([]);
@@ -771,6 +974,7 @@ export function Stock() {
   const [search, setSearch] = useState('');
   const [filtro, setFiltro] = useState<'todos' | 'sin_stock' | 'bajo_minimo'>('todos');
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'stock' | 'lotes'>('stock');
   const [modal, setModal] = useState<'ingreso' | 'egreso' | 'ajuste' | null>(null);
   const [ingresoProducto, setIngresoProducto] = useState<string | undefined>();
   const [egresoProducto, setEgresoProducto]   = useState<string | undefined>();
@@ -839,16 +1043,41 @@ export function Stock() {
           <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500" title="Actualizar">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={() => abrirEgreso()}
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-medium">
-            <Minus size={14} /> Egresar
-          </button>
-          <button onClick={() => abrirIngreso()}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
-            <Plus size={14} /> Ingresar
-          </button>
+          {tab === 'stock' && <>
+            <button onClick={() => abrirEgreso()}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-medium">
+              <Minus size={14} /> Egresar
+            </button>
+            <button onClick={() => abrirIngreso()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
+              <Plus size={14} /> Ingresar
+            </button>
+          </>}
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+        {([
+          { key: 'stock', label: 'Productos', icon: Boxes },
+          { key: 'lotes', label: 'Lotes',     icon: Layers },
+        ] as const).map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            <t.icon size={14} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Lotes */}
+      {tab === 'lotes' && (
+        <LotesTab onNuevoIngreso={() => { setTab('stock'); abrirIngreso(); }} />
+      )}
+
+      {/* Tab Stock */}
+      {tab === 'stock' && <>
 
       {/* Alertas */}
       {(alertas.sin_stock > 0 || alertas.bajo_minimo > 0) && (
@@ -934,6 +1163,8 @@ export function Stock() {
           ))}
         </div>
       )}
+
+      </> /* fin tab stock */}
 
       {/* Modales */}
       {modal === 'ingreso' && (
