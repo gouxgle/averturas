@@ -179,10 +179,15 @@ catalogo.get('/productos', async (c) => {
   let q = `
     SELECT cp.*,
       json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
-      json_build_object('id', s.id, 'nombre', s.nombre) AS sistema
+      json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE(st.mov_total, 0))::int AS stock_actual
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
-    LEFT JOIN sistemas s ON s.id = cp.sistema_id
+    LEFT JOIN sistemas s        ON s.id  = cp.sistema_id
+    LEFT JOIN LATERAL (
+      SELECT SUM(cantidad)::int AS mov_total
+      FROM stock_movimientos WHERE producto_id = cp.id
+    ) st ON true
     WHERE cp.activo = true
   `;
   const params: unknown[] = [];

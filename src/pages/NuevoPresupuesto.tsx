@@ -29,20 +29,42 @@ const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
 const FORMA_PAGO     = ['Contado', 'Tarjeta de crédito', 'Débito', 'Cheque', 'Transferencia'];
 const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
 
+const LABEL_USO: Record<string, string> = {
+  interior: 'Interior', exterior: 'Exterior', ambos: 'Interior y exterior',
+};
+const LABEL_CONFIG_HOJAS: Record<string, string> = {
+  hoja_simple: 'Hoja simple', hoja_y_media: 'Hoja y media',
+  dos_hojas: '2 hojas iguales', puerta_pano_fijo: 'Con paño fijo',
+  '2_hojas': '2 hojas', '3_hojas': '3 hojas', '4_hojas': '4 hojas',
+};
+const LABEL_PROVISION: Record<string, string> = {
+  hoja_sola: 'Solo hoja', hoja_marco: 'Hoja + marco',
+};
+const LABEL_APERTURA: Record<string, string> = {
+  abatir: 'Abatir', correr: 'Corrediza', plegable: 'Plegable', vaiven: 'Vaivén', pivotante: 'Pivotante',
+};
+
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
 interface CatalogProduct {
   id: string;
   nombre: string;
   codigo: string | null;
+  descripcion: string | null;
   costo_base: number;
   precio_base: number;
   tipo_abertura_id: string | null;
+  tipo_abertura: { id: string; nombre: string } | null;
   sistema_id: string | null;
+  sistema: { id: string; nombre: string } | null;
   color: string | null;
   vidrio: string | null;
   premarco: boolean;
   accesorios: string[];
+  ancho: number | null;
+  alto: number | null;
+  atributos: Record<string, unknown>;
+  stock_actual: number;
 }
 
 // ── Ítem vacío ────────────────────────────────────────────────────────────────
@@ -67,6 +89,13 @@ interface ItemForm {
   origen: 'proveedor' | 'fabricacion';
   color: string;
   accesorios: string[];
+  // datos del producto vinculado (solo lectura en UI)
+  _prod_ancho: number | null;
+  _prod_alto: number | null;
+  _prod_atributos: Record<string, unknown>;
+  _prod_stock: number;
+  _prod_tipo_nombre: string;
+  _prod_sistema_nombre: string;
 }
 
 function uuid() {
@@ -85,6 +114,8 @@ function emptyItem(): ItemForm {
     costo_unitario: 0, precio_unitario: 0,
     incluye_instalacion: false, costo_instalacion: 0, precio_instalacion: 0,
     vidrio: '', premarco: false, origen: 'proveedor', color: '', accesorios: [],
+    _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
+    _prod_tipo_nombre: '', _prod_sistema_nombre: '',
   };
 }
 
@@ -137,16 +168,22 @@ function ItemCard({
   }, [prodSearch]);
 
   function selectProduct(p: CatalogProduct) {
-    up('producto_id',      p.id);
-    up('tipo_abertura_id', p.tipo_abertura_id ?? '');
-    up('sistema_id',       p.sistema_id       ?? '');
-    up('color',            p.color            ?? '');
-    up('vidrio',           p.vidrio           ?? '');
-    up('premarco',         p.premarco         ?? false);
-    up('accesorios',       p.accesorios       ?? []);
-    up('costo_unitario',   Number(p.costo_base)  || 0);
-    up('precio_unitario',  Number(p.precio_base) || 0);
-    up('descripcion',      p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre);
+    up('producto_id',          p.id);
+    up('tipo_abertura_id',     p.tipo_abertura_id   ?? '');
+    up('sistema_id',           p.sistema_id         ?? '');
+    up('color',                p.color              ?? '');
+    up('vidrio',               p.vidrio             ?? '');
+    up('premarco',             p.premarco           ?? false);
+    up('accesorios',           p.accesorios         ?? []);
+    up('costo_unitario',       Number(p.costo_base)  || 0);
+    up('precio_unitario',      Number(p.precio_base) || 0);
+    up('descripcion',          p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre);
+    up('_prod_ancho',          p.ancho              ?? null);
+    up('_prod_alto',           p.alto               ?? null);
+    up('_prod_atributos',      p.atributos          ?? {});
+    up('_prod_stock',          p.stock_actual        ?? 0);
+    up('_prod_tipo_nombre',    p.tipo_abertura?.nombre ?? '');
+    up('_prod_sistema_nombre', p.sistema?.nombre       ?? '');
     setProdSearch(''); setProdResults([]); setShowProdDrop(false);
   }
 
@@ -278,48 +315,59 @@ function ItemCard({
             /* ── PRODUCTO VINCULADO: atributos de solo lectura ── */
             <>
               {/* Tarjeta de atributos del producto */}
-              <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">
-                  Atributos del producto
-                </p>
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
-                  {/* Tipo de abertura */}
-                  <div>
-                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">Tipo</span>
-                    <p className="text-sm font-semibold text-gray-800 mt-0.5">
-                      {tiposAbertura.find(t => t.id === item.tipo_abertura_id)?.nombre ?? <span className="text-gray-300 font-normal">—</span>}
-                    </p>
+              {(() => {
+                const attr = item._prod_atributos;
+                const uso        = attr.uso        ? (LABEL_USO[attr.uso as string]         ?? String(attr.uso))        : null;
+                const cfgHojas   = attr.config_hojas ? (LABEL_CONFIG_HOJAS[attr.config_hojas as string] ?? String(attr.config_hojas)) : null;
+                const provision  = attr.tipo_provision ? (LABEL_PROVISION[attr.tipo_provision as string] ?? String(attr.tipo_provision)) : null;
+                const apertura   = attr.apertura   ? (LABEL_APERTURA[attr.apertura as string] ?? String(attr.apertura)) : null;
+                const medidas    = item._prod_ancho && item._prod_alto
+                  ? `${item._prod_ancho} × ${item._prod_alto} cm`
+                  : item._prod_ancho ? `${item._prod_ancho} cm ancho`
+                  : item._prod_alto  ? `${item._prod_alto} cm alto`
+                  : null;
+                const stockColor = item._prod_stock <= 0
+                  ? 'text-red-600 bg-red-50'
+                  : item._prod_stock <= 3
+                  ? 'text-amber-600 bg-amber-50'
+                  : 'text-emerald-700 bg-emerald-50';
+
+                const Attr = ({ lbl, val }: { lbl: string; val: string }) => (
+                  <div className="min-w-[80px]">
+                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">{lbl}</span>
+                    <p className="text-sm font-semibold text-gray-800 mt-0.5 leading-tight">{val}</p>
                   </div>
-                  {/* Sistema */}
-                  <div>
-                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">Sistema</span>
-                    <p className="text-sm font-semibold text-gray-800 mt-0.5">
-                      {sistemas.find(s => s.id === item.sistema_id)?.nombre ?? <span className="text-gray-300 font-normal">—</span>}
-                    </p>
+                );
+
+                return (
+                  <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        Ficha del producto
+                      </p>
+                      {/* Stock para el vendedor */}
+                      <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-lg', stockColor)}>
+                        Stock: {item._prod_stock} u.
+                        {item._prod_stock <= 0 && ' — Sin stock'}
+                        {item._prod_stock > 0 && item._prod_stock <= 3 && ' — Poco stock'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-x-5 gap-y-2.5">
+                      {item._prod_tipo_nombre    && <Attr lbl="Tipo"              val={item._prod_tipo_nombre} />}
+                      {item._prod_sistema_nombre && <Attr lbl="Sistema"           val={item._prod_sistema_nombre} />}
+                      {uso                       && <Attr lbl="Uso"               val={uso} />}
+                      {cfgHojas                  && <Attr lbl="Config. de hoja"   val={cfgHojas} />}
+                      {provision                 && <Attr lbl="Provisión"         val={provision} />}
+                      {apertura                  && <Attr lbl="Apertura"          val={apertura} />}
+                      {medidas                   && <Attr lbl="Medidas estándar"  val={medidas} />}
+                      {item.color                && <Attr lbl="Color"             val={item.color} />}
+                      {item.vidrio               && <Attr lbl="Vidrio"            val={item.vidrio} />}
+                      {item.accesorios.length > 0 && <Attr lbl="Incluye" val={item.accesorios.join(', ')} />}
+                    </div>
                   </div>
-                  {/* Color */}
-                  {item.color && (
-                    <div>
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Color</span>
-                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.color}</p>
-                    </div>
-                  )}
-                  {/* Vidrio */}
-                  {item.vidrio && (
-                    <div>
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Vidrio</span>
-                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.vidrio}</p>
-                    </div>
-                  )}
-                  {/* Accesorios del producto */}
-                  {item.accesorios.length > 0 && (
-                    <div>
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Incluye</span>
-                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.accesorios.join(', ')}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Editable: Cantidad + Precio + Instalación */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
@@ -587,22 +635,28 @@ export function NuevoPresupuesto() {
         _key:                uuid(),
         producto_id:         p.id,
         tipo_item:           'estandar',
-        tipo_abertura_id:    p.tipo_abertura_id ?? '',
-        sistema_id:          p.sistema_id ?? '',
+        tipo_abertura_id:    p.tipo_abertura_id   ?? '',
+        sistema_id:          p.sistema_id         ?? '',
         descripcion:         p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre,
         medida_ancho:        '',
         medida_alto:         '',
         cantidad:            1,
-        costo_unitario:      Number(p.costo_base) || 0,
+        costo_unitario:      Number(p.costo_base)  || 0,
         precio_unitario:     Number(p.precio_base) || 0,
         incluye_instalacion: false,
         costo_instalacion:   0,
         precio_instalacion:  0,
-        vidrio:              p.vidrio   ?? '',
-        premarco:            p.premarco ?? false,
+        vidrio:              p.vidrio             ?? '',
+        premarco:            p.premarco           ?? false,
         origen:              'proveedor',
-        color:               p.color    ?? '',
-        accesorios:          p.accesorios ?? [],
+        color:               p.color              ?? '',
+        accesorios:          p.accesorios         ?? [],
+        _prod_ancho:         p.ancho              ?? null,
+        _prod_alto:          p.alto               ?? null,
+        _prod_atributos:     p.atributos          ?? {},
+        _prod_stock:         p.stock_actual        ?? 0,
+        _prod_tipo_nombre:   p.tipo_abertura?.nombre ?? '',
+        _prod_sistema_nombre: p.sistema?.nombre    ?? '',
       }];
     });
     setCodigoSearch('');
