@@ -269,7 +269,7 @@ export function NuevoCliente() {
         />
         <div className="p-4">
           {esFisica ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
               <div>
                 <label className={labelCls}>Apellido *</label>
                 <input ref={primerCampoRef} autoFocus={!isEdit} value={form.apellido}
@@ -351,7 +351,7 @@ export function NuevoCliente() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Phone} label="Contacto" />
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div>
               <label className={cn(labelCls, 'flex items-center gap-1')}><Phone size={10} />Celular / WhatsApp</label>
               <input value={form.telefono} onChange={e => set('telefono', e.target.value)}
@@ -375,7 +375,7 @@ export function NuevoCliente() {
           <div className="p-4 space-y-4">
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Domicilio particular</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                 <div>
                   <label className={labelCls}>Dirección</label>
                   <input value={form.direccion} onChange={e => set('direccion', e.target.value)}
@@ -390,7 +390,7 @@ export function NuevoCliente() {
             </div>
             <div className="border-t border-gray-100 pt-3">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Domicilio de obra <span className="normal-case font-normal">(opcional)</span></p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                 <div>
                   <label className={labelCls}>Dirección obra</label>
                   <input value={form.dom_obra} onChange={e => set('dom_obra', e.target.value)}
@@ -412,7 +412,7 @@ export function NuevoCliente() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Tag} label="Clasificación" />
           <div className="p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div>
                 <label className={labelCls}>Estado</label>
                 <select value={form.estado} onChange={e => set('estado', e.target.value)}
@@ -445,7 +445,7 @@ export function NuevoCliente() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-gray-100 items-end">
               <div>
                 <label className={cn(labelCls, 'flex items-center gap-1')}><Heart size={10} />Preferencia contacto</label>
                 <select value={form.preferencia_contacto} onChange={e => set('preferencia_contacto', e.target.value)}
@@ -472,7 +472,7 @@ export function NuevoCliente() {
                     })}
                 </select>
               </div>
-              <div className="flex flex-col justify-end">
+              <div>
                 <label className={labelCls}>Marketing</label>
                 <label className="flex items-center gap-2 cursor-pointer h-[36px]">
                   <input type="checkbox" checked={form.acepta_marketing}
