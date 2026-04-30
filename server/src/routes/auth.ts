@@ -26,7 +26,7 @@ auth.post('/login', async (c) => {
   const token = jwt.sign(
     { id: user.id, email: user.email, nombre: user.nombre, rol: user.rol },
     process.env.JWT_SECRET!,
-    { expiresIn: '30d' }
+    { expiresIn: '24h' }
   );
 
   return c.json({

@@ -1072,7 +1072,7 @@ export function NuevoProducto() {
     try {
       const fd = new FormData();
       fd.append('imagen', file);
-      const token = localStorage.getItem('aberturas_token');
+      const token = sessionStorage.getItem('aberturas_token');
       const res = await fetch('/api/productos/upload-imagen', {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},

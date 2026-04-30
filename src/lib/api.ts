@@ -1,9 +1,17 @@
 const TOKEN_KEY = 'aberturas_token';
 
+// sessionStorage: se borra al cerrar la ventana/pestaña (no persiste entre sesiones)
 export const tokenStorage = {
-  get: () => localStorage.getItem(TOKEN_KEY),
-  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
-  clear: () => localStorage.removeItem(TOKEN_KEY),
+  get: () => sessionStorage.getItem(TOKEN_KEY),
+  set: (t: string) => {
+    sessionStorage.setItem(TOKEN_KEY, t);
+    // Limpiar cualquier token viejo en localStorage
+    localStorage.removeItem(TOKEN_KEY);
+  },
+  clear: () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+  },
 };
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
