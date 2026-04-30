@@ -258,128 +258,226 @@ function ItemCard({
             )}
           </div>
 
-          {/* Tipo de ítem */}
-          <div className="flex gap-2">
-            {(['estandar', 'a_medida'] as const).map(t => (
-              <button key={t} type="button"
-                onClick={() => up('tipo_item', t)}
-                className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
-                  item.tipo_item === t
-                    ? t === 'estandar' ? 'bg-sky-600 text-white border-sky-600' : 'bg-violet-600 text-white border-violet-600'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300')}>
-                {t === 'estandar' ? 'Producto estándar' : 'A medida / Fabricación'}
-              </button>
-            ))}
-          </div>
-
-          {/* Fila 1: Tipo abertura + Sistema + Color + Cantidad */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label className={label}>Tipo de abertura</label>
-              <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={sel}>
-                <option value="">Seleccionar...</option>
-                {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={label}>Sistema</label>
-              <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={sel}>
-                <option value="">Seleccionar...</option>
-                {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={label}>Color</label>
-              <select value={item.color} onChange={e => up('color', e.target.value)} className={sel}>
-                <option value="">—</option>
-                {coloresDB.length
-                  ? coloresDB.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)
-                  : COLORES_ITEM.map(c => <option key={c} value={c}>{c}</option>)
-                }
-              </select>
-            </div>
-            <div>
-              <label className={label}>Cantidad</label>
-              <input type="number" min={1} value={item.cantidad}
-                onChange={e => up('cantidad', parseInt(e.target.value) || 1)} className={inp} />
-            </div>
-          </div>
-
-          {/* Campos exclusivos A medida */}
-          {esMedida && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-violet-50/50 rounded-lg p-3 border border-violet-100">
-              <div>
-                <label className={label}>Ancho (m)</label>
-                <input type="number" step="0.01" value={item.medida_ancho}
-                  onChange={e => up('medida_ancho', e.target.value)}
-                  placeholder="1.20" className={inp} />
-              </div>
-              <div>
-                <label className={label}>Alto (m)</label>
-                <input type="number" step="0.01" value={item.medida_alto}
-                  onChange={e => up('medida_alto', e.target.value)}
-                  placeholder="2.05" className={inp} />
-              </div>
-              <div>
-                <label className={label}>Vidrio</label>
-                <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={sel}>
-                  <option value="">—</option>
-                  {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={label}>Premarco</label>
-                <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={sel}>
-                  <option value="no">No</option>
-                  <option value="si">Sí</option>
-                </select>
-              </div>
-              <div>
-                <label className={label}>Origen</label>
-                <select value={item.origen} onChange={e => up('origen', e.target.value)} className={sel}>
-                  <option value="proveedor">Proveedor</option>
-                  <option value="fabricacion">Fabricación propia</option>
-                </select>
-              </div>
+          {/* Tipo de ítem — solo visible en ítems manuales */}
+          {!item.producto_id && (
+            <div className="flex gap-2">
+              {(['estandar', 'a_medida'] as const).map(t => (
+                <button key={t} type="button"
+                  onClick={() => up('tipo_item', t)}
+                  className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                    item.tipo_item === t
+                      ? t === 'estandar' ? 'bg-sky-600 text-white border-sky-600' : 'bg-violet-600 text-white border-violet-600'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300')}>
+                  {t === 'estandar' ? 'Producto estándar' : 'A medida / Fabricación'}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Fila precios */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div>
-              <label className={label}>Precio de venta</label>
-              <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
-                onChange={v => up('precio_unitario', parseFloat(v) || 0)}
-                placeholder="0,00" className={inp} />
-            </div>
-            <div>
-              <label className={label}>Instalación</label>
-              <select value={item.incluye_instalacion ? 'si' : 'no'}
-                onChange={e => up('incluye_instalacion', e.target.value === 'si')} className={sel}>
-                <option value="no">No</option>
-                <option value="si">Sí</option>
-              </select>
-            </div>
-            <div>
-              <label className={label}>Accesorios</label>
-              <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1.5">
-                {ACCESORIO_OPTS.map(a => (
-                  <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input type="checkbox"
-                      checked={item.accesorios.includes(a)}
-                      onChange={e => up('accesorios',
-                        e.target.checked
-                          ? [...item.accesorios, a]
-                          : item.accesorios.filter(x => x !== a)
-                      )}
-                      className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
-                    />
-                    <span className="text-xs text-gray-600">{a}</span>
-                  </label>
-                ))}
+          {item.producto_id ? (
+            /* ── PRODUCTO VINCULADO: atributos de solo lectura ── */
+            <>
+              {/* Tarjeta de atributos del producto */}
+              <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">
+                  Atributos del producto
+                </p>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  {/* Tipo de abertura */}
+                  <div>
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">Tipo</span>
+                    <p className="text-sm font-semibold text-gray-800 mt-0.5">
+                      {tiposAbertura.find(t => t.id === item.tipo_abertura_id)?.nombre ?? <span className="text-gray-300 font-normal">—</span>}
+                    </p>
+                  </div>
+                  {/* Sistema */}
+                  <div>
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">Sistema</span>
+                    <p className="text-sm font-semibold text-gray-800 mt-0.5">
+                      {sistemas.find(s => s.id === item.sistema_id)?.nombre ?? <span className="text-gray-300 font-normal">—</span>}
+                    </p>
+                  </div>
+                  {/* Color */}
+                  {item.color && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Color</span>
+                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.color}</p>
+                    </div>
+                  )}
+                  {/* Vidrio */}
+                  {item.vidrio && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Vidrio</span>
+                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.vidrio}</p>
+                    </div>
+                  )}
+                  {/* Accesorios del producto */}
+                  {item.accesorios.length > 0 && (
+                    <div>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wide">Incluye</span>
+                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.accesorios.join(', ')}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+
+              {/* Editable: Cantidad + Precio + Instalación */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className={label}>Cantidad</label>
+                  <input type="number" min={1} value={item.cantidad}
+                    onChange={e => up('cantidad', parseInt(e.target.value) || 1)} className={inp} />
+                </div>
+                <div>
+                  <label className={label}>Precio de venta</label>
+                  <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
+                    onChange={v => up('precio_unitario', parseFloat(v) || 0)}
+                    placeholder="0,00" className={inp} />
+                </div>
+                <div>
+                  <label className={label}>Instalación</label>
+                  <select value={item.incluye_instalacion ? 'si' : 'no'}
+                    onChange={e => up('incluye_instalacion', e.target.value === 'si')} className={sel}>
+                    <option value="no">No incluye</option>
+                    <option value="si">Incluye instalación</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Accesorios extra (además de los del producto) */}
+              <div>
+                <label className={label}>Accesorios adicionales</label>
+                <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1">
+                  {ACCESORIO_OPTS.map(a => (
+                    <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox"
+                        checked={item.accesorios.includes(a)}
+                        onChange={e => up('accesorios',
+                          e.target.checked
+                            ? [...item.accesorios, a]
+                            : item.accesorios.filter(x => x !== a)
+                        )}
+                        className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
+                      />
+                      <span className="text-xs text-gray-600">{a}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ── ÍTEM MANUAL: todos los campos editables ── */
+            <>
+              {/* Fila 1: Tipo abertura + Sistema + Color + Cantidad */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className={label}>Tipo de abertura</label>
+                  <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={sel}>
+                    <option value="">Seleccionar...</option>
+                    {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>Sistema</label>
+                  <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={sel}>
+                    <option value="">Seleccionar...</option>
+                    {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>Color</label>
+                  <select value={item.color} onChange={e => up('color', e.target.value)} className={sel}>
+                    <option value="">—</option>
+                    {coloresDB.length
+                      ? coloresDB.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)
+                      : COLORES_ITEM.map(c => <option key={c} value={c}>{c}</option>)
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>Cantidad</label>
+                  <input type="number" min={1} value={item.cantidad}
+                    onChange={e => up('cantidad', parseInt(e.target.value) || 1)} className={inp} />
+                </div>
+              </div>
+
+              {/* Campos exclusivos A medida */}
+              {esMedida && (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-violet-50/50 rounded-lg p-3 border border-violet-100">
+                  <div>
+                    <label className={label}>Ancho (m)</label>
+                    <input type="number" step="0.01" value={item.medida_ancho}
+                      onChange={e => up('medida_ancho', e.target.value)}
+                      placeholder="1.20" className={inp} />
+                  </div>
+                  <div>
+                    <label className={label}>Alto (m)</label>
+                    <input type="number" step="0.01" value={item.medida_alto}
+                      onChange={e => up('medida_alto', e.target.value)}
+                      placeholder="2.05" className={inp} />
+                  </div>
+                  <div>
+                    <label className={label}>Vidrio</label>
+                    <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={sel}>
+                      <option value="">—</option>
+                      {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={label}>Premarco</label>
+                    <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={sel}>
+                      <option value="no">No</option>
+                      <option value="si">Sí</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={label}>Origen</label>
+                    <select value={item.origen} onChange={e => up('origen', e.target.value)} className={sel}>
+                      <option value="proveedor">Proveedor</option>
+                      <option value="fabricacion">Fabricación propia</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Fila precios + accesorios */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className={label}>Precio de venta</label>
+                  <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
+                    onChange={v => up('precio_unitario', parseFloat(v) || 0)}
+                    placeholder="0,00" className={inp} />
+                </div>
+                <div>
+                  <label className={label}>Instalación</label>
+                  <select value={item.incluye_instalacion ? 'si' : 'no'}
+                    onChange={e => up('incluye_instalacion', e.target.value === 'si')} className={sel}>
+                    <option value="no">No</option>
+                    <option value="si">Sí</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>Accesorios</label>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1.5">
+                    {ACCESORIO_OPTS.map(a => (
+                      <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input type="checkbox"
+                          checked={item.accesorios.includes(a)}
+                          onChange={e => up('accesorios',
+                            e.target.checked
+                              ? [...item.accesorios, a]
+                              : item.accesorios.filter(x => x !== a)
+                          )}
+                          className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
+                        />
+                        <span className="text-xs text-gray-600">{a}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Precio instalación (condicional) */}
           {item.incluye_instalacion && (
