@@ -729,7 +729,6 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
     Boolean(atributos.diseno),
     Boolean(atributos.linea),
     colorActual !== '',
-    atributos.mosquitero !== undefined,
     atributos.reja !== undefined,
     Boolean(atributos.instalacion),
   ];
@@ -903,18 +902,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
       {tv && (
         <>
           <SectionDivider label="Accesorios y componentes" />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <FieldCard title="Mosquitero" complete={atributos.mosquitero !== undefined}>
-              <div className="flex gap-2">
-                {[{ v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }].map(o => (
-                  <button key={o.v} type="button" onClick={() => setAttr('mosquitero', o.v)}
-                    className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
-                      atributos.mosquitero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
-                    {o.l}
-                  </button>
-                ))}
-              </div>
-            </FieldCard>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Reja" complete={atributos.reja !== undefined}>
               <div className="flex gap-2">
                 {[{ v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }].map(o => (
@@ -987,8 +975,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
     Boolean(atributos.diseno),
     Boolean(atributos.linea),
     colorActual !== '',
-    atributos.mosquitero !== undefined,
-    Boolean(atributos.marco_tipo),   // reemplaza "reja"
+    Boolean(atributos.marco_tipo),
     Boolean(atributos.instalacion),
   ];
   const conditional: boolean[] = [];
@@ -1169,26 +1156,13 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
         </>
       )}
 
-      {/* Accesorios — sin reja */}
+      {/* Accesorios — sin reja ni mosquitero (ya en configuración especial) */}
       {tv && (
         <>
           <SectionDivider label="Accesorios y componentes" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FieldCard title="Mosquitero" complete={atributos.mosquitero !== undefined}>
-              <div className="flex gap-2">
-                {[{ v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }].map(o => (
-                  <button key={o.v} type="button" onClick={() => setAttr('mosquitero', o.v)}
-                    className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
-                      atributos.mosquitero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
-                    {o.l}
-                  </button>
-                ))}
-              </div>
-            </FieldCard>
-            <FieldCard title="Componentes incluidos" complete={componentes.length > 0} optional>
-              <BtnCheck options={COMPONENTES_VNT} values={componentes} onChange={v => setAttr('componentes', v)} />
-            </FieldCard>
-          </div>
+          <FieldCard title="Componentes incluidos" complete={componentes.length > 0} optional>
+            <BtnCheck options={COMPONENTES_VNT} values={componentes} onChange={v => setAttr('componentes', v)} />
+          </FieldCard>
         </>
       )}
 
