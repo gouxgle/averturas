@@ -143,6 +143,17 @@ const CFG_ESPECIAL_VENTANA = [
   { v: 'con_reja_mosquitero', l: 'Con reja y mosquitero' },
 ];
 
+// Puerta-Balcón: igual que ventana pero sin opciones de reja
+const CFG_ESPECIAL_PBALCON = [
+  { v: 'simple',         l: 'Simple' },
+  { v: 'con_mosquitero', l: 'Con mosquitero' },
+];
+
+const MARCO_PBALCON = [
+  { v: 'transitable',     l: 'Transitable' },
+  { v: 'no_transitable',  l: 'No transitable' },
+];
+
 const CELOSIA_APERTURA = [
   { v: 'corrediza', l: 'Corrediza' },
   { v: 'de_abrir',  l: 'De abrir' },
@@ -956,6 +967,265 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
   );
 }
 
+// ── Sección puerta-balcón ─────────────────────────────────────
+function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual }: {
+  atributos: Atributos;
+  setAttr: (k: string, v: unknown) => void;
+  onColorChange: (c: string) => void;
+  colorActual: string;
+}) {
+  const tv          = atributos.tipo_ventana as string ?? '';
+  const tieneHojas  = VENTANA_CON_HOJAS.has(tv);
+  const esCelosia   = tv === 'con_celosia';
+  const componentes = atributos.componentes as string[] ?? [];
+
+  const base: boolean[] = [
+    tv !== '',
+    Boolean(atributos.configuracion_especial),
+    Boolean(atributos.vidrio_tipo),
+    Boolean(atributos.diseno),
+    Boolean(atributos.linea),
+    colorActual !== '',
+    atributos.mosquitero !== undefined,
+    Boolean(atributos.marco_tipo),   // reemplaza "reja"
+    Boolean(atributos.instalacion),
+  ];
+  const conditional: boolean[] = [];
+  if (tieneHojas) conditional.push(Boolean(atributos.config_hojas));
+  if (esCelosia)  conditional.push(Boolean(atributos.celosia_tipo));
+  const all = [...base, ...conditional];
+  const completed = all.filter(Boolean).length;
+  const total     = all.length;
+  const pct       = Math.round(completed / total * 100);
+
+  function handleTipo(v: string) {
+    setAttr('tipo_ventana', v);
+    setAttr('config_hojas', '');
+    setAttr('celosia_tipo', '');
+    setAttr('componentes', ['herrajes_completos']);
+    onColorChange('');
+  }
+
+  const btn = (active: boolean) => cn(
+    'px-2 py-2 rounded-lg border text-xs text-left leading-tight transition-all',
+    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+  );
+
+  return (
+    <div className="space-y-3">
+
+      {/* Barra de progreso */}
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+            <AppWindow size={13} className="text-sky-500" />
+            Atributos de puerta-balcón
+          </span>
+          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-gray-400')}>
+            {completed}/{total}
+            {pct === 100 && <Check size={11} className="text-emerald-500" />}
+          </span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div className={cn('h-1.5 rounded-full transition-all duration-300',
+            pct === 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-sky-400' : pct >= 30 ? 'bg-amber-400' : 'bg-gray-300'
+          )} style={{ width: `${Math.max(pct, 2)}%` }} />
+        </div>
+      </div>
+
+      {/* Tipo de apertura */}
+      <FieldCard title="Tipo de apertura" complete={tv !== ''}>
+        <div className="grid grid-cols-3 gap-1.5">
+          {TIPO_VENTANA.map(o => (
+            <button key={o.v} type="button" onClick={() => handleTipo(o.v)} className={btn(tv === o.v)}>
+              {o.l}
+            </button>
+          ))}
+        </div>
+      </FieldCard>
+
+      {/* Hojas (corrediza / de abrir) */}
+      {tv && tieneHojas && (
+        <>
+          <SectionDivider label="Configuración de hojas" />
+          <FieldCard title="Cantidad de hojas" complete={Boolean(atributos.config_hojas)}>
+            <div className="flex gap-2">
+              {HOJAS_VENTANA.map(o => (
+                <button key={o.v} type="button" onClick={() => setAttr('config_hojas', o.v)}
+                  className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
+                    atributos.config_hojas === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+        </>
+      )}
+
+      {/* Celosía */}
+      {tv && esCelosia && (
+        <>
+          <SectionDivider label="Celosía" />
+          <FieldCard title="Tipo de celosía" complete={Boolean(atributos.celosia_tipo)}>
+            <div className="flex gap-2">
+              {CELOSIA_APERTURA.map(o => (
+                <button key={o.v} type="button" onClick={() => setAttr('celosia_tipo', o.v)}
+                  className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
+                    atributos.celosia_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+        </>
+      )}
+
+      {/* Configuración — sin reja */}
+      {tv && (
+        <>
+          <SectionDivider label="Configuración" />
+          <FieldCard title="Configuración especial" complete={Boolean(atributos.configuracion_especial)}>
+            <div className="grid grid-cols-2 gap-1.5">
+              {CFG_ESPECIAL_PBALCON.map(o => (
+                <button key={o.v} type="button" onClick={() => setAttr('configuracion_especial', o.v)} className={btn(atributos.configuracion_especial === o.v)}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+        </>
+      )}
+
+      {/* Vidrio y diseño */}
+      {tv && (
+        <>
+          <SectionDivider label="Vidrio" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldCard title="Tipo de vidrio" complete={Boolean(atributos.vidrio_tipo)}>
+              <div className="flex flex-col gap-1.5">
+                {VIDRIO_TIPO_VNT.map(v => (
+                  <button key={v} type="button" onClick={() => setAttr('vidrio_tipo', v)} className={btn(atributos.vidrio_tipo === v)}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Diseño" complete={Boolean(atributos.diseno)}>
+              <div className="flex flex-col gap-1.5">
+                {DISEÑO_VNT.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('diseno', o.v)} className={btn(atributos.diseno === o.v)}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+          </div>
+        </>
+      )}
+
+      {/* Línea y color */}
+      {tv && (
+        <>
+          <SectionDivider label="Línea y color" />
+          <div className="grid grid-cols-2 gap-3">
+            <FieldCard title="Línea" complete={Boolean(atributos.linea)}>
+              <div className="flex flex-col gap-1.5">
+                {LINEA_VNT.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('linea', o.v)} className={btn(atributos.linea === o.v)}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Color" complete={colorActual !== ''}>
+              <div className="flex flex-col gap-1.5">
+                {COLORES_VENTANA.map(c => (
+                  <button key={c} type="button" onClick={() => onColorChange(c)} className={btn(colorActual === c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+          </div>
+        </>
+      )}
+
+      {/* Marco — exclusivo puerta-balcón */}
+      {tv && (
+        <>
+          <SectionDivider label="Marco" />
+          <FieldCard title="Tipo de marco" complete={Boolean(atributos.marco_tipo)}>
+            <div className="flex gap-2">
+              {MARCO_PBALCON.map(o => (
+                <button key={o.v} type="button" onClick={() => setAttr('marco_tipo', o.v)}
+                  className={cn('flex-1 py-2.5 rounded-lg border text-sm font-medium text-center transition-all',
+                    atributos.marco_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+        </>
+      )}
+
+      {/* Accesorios — sin reja */}
+      {tv && (
+        <>
+          <SectionDivider label="Accesorios y componentes" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldCard title="Mosquitero" complete={atributos.mosquitero !== undefined}>
+              <div className="flex gap-2">
+                {[{ v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }].map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('mosquitero', o.v)}
+                    className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
+                      atributos.mosquitero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Componentes incluidos" complete={componentes.length > 0} optional>
+              <BtnCheck options={COMPONENTES_VNT} values={componentes} onChange={v => setAttr('componentes', v)} />
+            </FieldCard>
+          </div>
+        </>
+      )}
+
+      {/* Comercial */}
+      {tv && (
+        <>
+          <SectionDivider label="Comercial" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <FieldCard title="Stock" complete={Boolean(atributos.stock_tipo)} optional>
+              <BtnGroup
+                options={[{ v: 'disponible', l: 'Disponible' }, { v: 'por_pedido', l: 'Por pedido' }]}
+                value={atributos.stock_tipo as string ?? ''}
+                onChange={v => setAttr('stock_tipo', v)}
+                cols={2} small
+              />
+            </FieldCard>
+            <FieldCard title="Instalación" complete={Boolean(atributos.instalacion)}>
+              <BtnGroup
+                options={[{ v: 'si', l: 'Sí' }, { v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }]}
+                value={atributos.instalacion as string ?? ''}
+                onChange={v => setAttr('instalacion', v)}
+                cols={3} small
+              />
+            </FieldCard>
+            <FieldCard title="Entrega" complete={(atributos.entrega as string[] ?? []).length > 0} optional>
+              <BtnCheck
+                options={[{ v: 'retiro_local', l: 'Retiro en local' }, { v: 'envio_disponible', l: 'Envío disponible' }]}
+                values={atributos.entrega as string[] ?? []}
+                onChange={v => setAttr('entrega', v)}
+              />
+            </FieldCard>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────
 export function NuevoProducto() {
   const navigate = useNavigate();
@@ -1006,9 +1276,11 @@ export function NuevoProducto() {
     setAtributos(prev => ({ ...prev, [key]: value }));
   }
 
-  const tipoAberturaObj = tiposAbertura.find(t => t.id === form.tipo_abertura_id);
-  const esPuerta  = tipoAberturaObj?.nombre.toLowerCase().includes('puerta')  ?? false;
-  const esVentana = tipoAberturaObj?.nombre.toLowerCase().includes('ventana') ?? false;
+  const tipoAberturaObj  = tiposAbertura.find(t => t.id === form.tipo_abertura_id);
+  const _nombreTipo      = tipoAberturaObj?.nombre.toLowerCase() ?? '';
+  const esPuertaBalcon   = _nombreTipo.includes('balc');
+  const esPuerta         = _nombreTipo.includes('puerta') && !esPuertaBalcon;
+  const esVentana        = _nombreTipo.includes('ventana');
 
   useEffect(() => {
     Promise.all([
@@ -1129,7 +1401,7 @@ export function NuevoProducto() {
         premarco:         form.tipo !== 'estandar' ? form.premarco : false,
         accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
-        atributos:        (esPuerta || esVentana) ? atributos : {},
+        atributos:        (esPuerta || esVentana || esPuertaBalcon) ? atributos : {},
       };
 
       if (isEdit && id) {
@@ -1297,8 +1569,18 @@ export function NuevoProducto() {
         />
       )}
 
-      {/* Medidas para ventanas (ambos libres, cm) */}
-      {esVentana && (
+      {/* ── SECCIÓN ESPECÍFICA PUERTA-BALCÓN ── */}
+      {esPuertaBalcon && (
+        <PuertaBalconAtributos
+          atributos={atributos}
+          setAttr={setAttr}
+          onColorChange={c => set('color', c)}
+          colorActual={form.color}
+        />
+      )}
+
+      {/* Medidas para ventanas / puerta-balcón (ambos libres, cm) */}
+      {(esVentana || esPuertaBalcon) && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
@@ -1329,8 +1611,8 @@ export function NuevoProducto() {
         </div>
       )}
 
-      {/* ── SECCIÓN GENÉRICA (otros tipos de abertura, no puerta ni ventana) ── */}
-      {!esPuerta && !esVentana && form.tipo_abertura_id && (
+      {/* ── SECCIÓN GENÉRICA (otros tipos de abertura, no puerta ni ventana ni puerta-balcón) ── */}
+      {!esPuerta && !esVentana && !esPuertaBalcon && form.tipo_abertura_id && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Ruler} label="Especificaciones" primary />
           <div className="p-4 space-y-3">
@@ -1377,8 +1659,8 @@ export function NuevoProducto() {
         </div>
       )}
 
-      {/* A medida — campos extra (solo genérico, no puerta ni ventana) */}
-      {form.tipo !== 'estandar' && !esPuerta && !esVentana && form.tipo_abertura_id && (
+      {/* A medida — campos extra (solo genérico, no puerta ni ventana ni puerta-balcón) */}
+      {form.tipo !== 'estandar' && !esPuerta && !esVentana && !esPuertaBalcon && form.tipo_abertura_id && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Ruler} label="Detalles a medida / fabricación" primary />
           <div className="p-4 space-y-4">
