@@ -2,8 +2,10 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
-  X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play
+  X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
+  Trash2, AlertTriangle
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import type { Producto, TipoOperacion } from '@/types';
@@ -75,12 +77,15 @@ function isPromoActiva(p: Producto): boolean {
 
 // ── Modal de detalle ──────────────────────────────────────────────────────────
 
-function ProductoModal({ producto, onClose, onToggle }: {
+function ProductoModal({ producto, onClose, onToggle, onDelete }: {
   producto: Producto;
   onClose: () => void;
   onToggle: () => void;
+  onDelete: (id: string) => void;
 }) {
-  const [activeImg, setActiveImg] = useState(0);
+  const [activeImg, setActiveImg]       = useState(0);
+  const [confirmando, setConfirmando]   = useState(false);
+  const [eliminando, setEliminando]     = useState(false);
   const costo  = producto.costo_base;
   const precio = producto.precio_base;
   const margen = precio > 0 ? Math.round((precio - costo) / precio * 100) : 0;
@@ -92,6 +97,70 @@ function ProductoModal({ producto, onClose, onToggle }: {
   const attrs: [string, string][] = Object.entries(producto.atributos ?? {})
     .filter(([, v]) => v !== null && v !== '' && !Array.isArray(v))
     .map(([k, v]) => [k.replace(/_/g, ' '), String(v)]);
+
+  async function handleDelete() {
+    setEliminando(true);
+    try {
+      await api.delete(`/productos/${producto.id}`);
+      toast.success(`"${producto.nombre}" eliminado del catálogo`);
+      onDelete(producto.id);
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message || 'No se pudo eliminar el producto');
+      setConfirmando(false);
+    } finally {
+      setEliminando(false);
+    }
+  }
+
+  // ── Pantalla de confirmación de borrado ──────────────────────
+  if (confirmando) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+          {/* Banda roja superior */}
+          <div className="bg-red-600 px-6 py-5 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+              <AlertTriangle size={28} className="text-white" />
+            </div>
+            <p className="text-white font-bold text-lg leading-tight">Eliminar producto</p>
+            <p className="text-red-200 text-xs mt-1">Esta acción no se puede deshacer</p>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
+              <p className="text-xs text-red-500 font-medium mb-1">Producto a eliminar</p>
+              <p className="text-sm font-bold text-red-800 break-words">"{producto.nombre}"</p>
+              {(producto.tipo_abertura as any)?.nombre && (
+                <p className="text-xs text-red-500 mt-0.5">{(producto.tipo_abertura as any).nombre}</p>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 text-center">
+              Se eliminará permanentemente del catálogo. Los presupuestos y operaciones existentes no se verán afectados.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setConfirmando(false)}
+                className="py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={eliminando}
+                className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                {eliminando
+                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Eliminando...</>
+                  : <><Trash2 size={14} /> Sí, eliminar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
@@ -262,20 +331,26 @@ function ProductoModal({ producto, onClose, onToggle }: {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 rounded-b-2xl px-5 py-3 flex items-center justify-between">
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
           <button onClick={onToggle}
             className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors',
               producto.activo
-                ? 'border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-500'
+                ? 'border-gray-200 text-gray-500 hover:border-orange-200 hover:text-orange-500'
                 : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
             )}>
             {producto.activo ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
             {producto.activo ? 'Desactivar' : 'Activar'}
           </button>
-          <Link to={`/productos/${producto.id}`} onClick={onClose}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors">
-            <Pencil size={12} /> Editar
-          </Link>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setConfirmando(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+              <Trash2 size={12} /> Eliminar
+            </button>
+            <Link to={`/productos/${producto.id}`} onClick={onClose}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors">
+              <Pencil size={12} /> Editar
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -407,6 +482,10 @@ export function Productos() {
     if (selected?.id === producto.id) setSelected(prev => prev ? { ...prev, activo } : null);
   }
 
+  function eliminarProducto(id: string) {
+    setProductos(prev => prev.filter(p => p.id !== id));
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return productos;
@@ -515,6 +594,7 @@ export function Productos() {
           producto={selected}
           onClose={() => setSelected(null)}
           onToggle={() => toggleActivo(selected)}
+          onDelete={eliminarProducto}
         />
       )}
     </div>

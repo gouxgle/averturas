@@ -191,6 +191,25 @@ productos.put('/:id', async (c) => {
   return c.json(row);
 });
 
+productos.delete('/:id', async (c) => {
+  try {
+    const { rowCount } = await db.query(
+      'DELETE FROM catalogo_productos WHERE id = $1',
+      [c.req.param('id')]
+    );
+    if (!rowCount) return c.json({ error: 'Producto no encontrado' }, 404);
+    return c.json({ ok: true });
+  } catch (err: unknown) {
+    const pg = err as { code?: string };
+    if (pg.code === '23503') {
+      return c.json({
+        error: 'El producto tiene movimientos de stock asociados y no puede eliminarse. Desactivalo en su lugar.',
+      }, 409);
+    }
+    throw err;
+  }
+});
+
 productos.patch('/:id/toggle', async (c) => {
   const { rows: [row] } = await db.query(`
     UPDATE catalogo_productos SET activo = NOT activo
