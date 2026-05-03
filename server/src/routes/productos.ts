@@ -79,8 +79,8 @@ productos.post('/', async (c) => {
        ancho, alto, costo_base, precio_base, precio_por_m2, activo,
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
        imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4,
-       vidrio, premarco, accesorios, atributos)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+       vidrio, premarco, accesorios, atributos, margen_tipo, promocion)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
     RETURNING *
   `, [
     b.nombre?.trim(),
@@ -108,6 +108,8 @@ productos.post('/', async (c) => {
     b.premarco ?? false,
     b.accesorios ?? [],
     JSON.stringify(b.atributos ?? {}),
+    b.margen_tipo || null,
+    b.promocion ? JSON.stringify(b.promocion) : null,
   ]);
   return c.json(row, 201);
 });
@@ -140,8 +142,10 @@ productos.put('/:id', async (c) => {
       vidrio           = $22,
       premarco         = $23,
       accesorios       = $24,
-      atributos        = $25
-    WHERE id = $26 RETURNING *
+      atributos        = $25,
+      margen_tipo      = $26,
+      promocion        = $27
+    WHERE id = $28 RETURNING *
   `, [
     b.nombre?.trim(),
     b.descripcion?.trim() || null,
@@ -168,6 +172,8 @@ productos.put('/:id', async (c) => {
     b.premarco ?? false,
     b.accesorios ?? [],
     JSON.stringify(b.atributos ?? {}),
+    b.margen_tipo || null,
+    b.promocion ? JSON.stringify(b.promocion) : null,
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);

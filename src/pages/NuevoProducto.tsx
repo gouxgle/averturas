@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
-  Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check
+  Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
+  Percent, CalendarDays, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -1261,11 +1262,16 @@ export function NuevoProducto() {
     caracteristica_2: '',
     caracteristica_3: '',
     caracteristica_4: '',
-    origen:           'proveedor' as 'proveedor' | 'fabricacion',
-    vidrio:           '',
-    premarco:         false,
-    accesorios:       [] as string[],
-    activo:           true,
+    origen:             'proveedor' as 'proveedor' | 'fabricacion',
+    vidrio:             '',
+    premarco:           false,
+    accesorios:         [] as string[],
+    activo:             true,
+    margen_tipo:        '' as '' | 'bajo' | 'medio' | 'alto',
+    promo_activa:       false,
+    promo_fecha_inicio: '',
+    promo_fecha_fin:    '',
+    promo_precio:       '',
   });
   const [atributos, setAtributos] = useState<Atributos>({});
 
@@ -1319,11 +1325,16 @@ export function NuevoProducto() {
           caracteristica_2: data.caracteristica_2 ?? '',
           caracteristica_3: data.caracteristica_3 ?? '',
           caracteristica_4: data.caracteristica_4 ?? '',
-          origen:           data.tipo === 'fabricacion_propia' ? 'fabricacion' : 'proveedor',
-          vidrio:           data.vidrio ?? '',
-          premarco:         data.premarco ?? false,
-          accesorios:       data.accesorios ?? [],
-          activo:           data.activo ?? true,
+          origen:             data.tipo === 'fabricacion_propia' ? 'fabricacion' : 'proveedor',
+          vidrio:             data.vidrio ?? '',
+          premarco:           data.premarco ?? false,
+          accesorios:         data.accesorios ?? [],
+          activo:             data.activo ?? true,
+          margen_tipo:        data.margen_tipo ?? '',
+          promo_activa:       data.promocion?.activo ?? false,
+          promo_fecha_inicio: data.promocion?.fecha_inicio ? data.promocion.fecha_inicio.slice(0, 10) : '',
+          promo_fecha_fin:    data.promocion?.fecha_fin    ? data.promocion.fecha_fin.slice(0, 10)    : '',
+          promo_precio:       data.promocion?.precio_oferta ? String(data.promocion.precio_oferta) : '',
         });
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
@@ -1336,6 +1347,18 @@ export function NuevoProducto() {
   useEffect(() => {
     if (esPuerta && !form.alto) set('alto', '200');
   }, [esPuerta]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-calcular precio de oferta según margen_tipo
+  const DESCUENTOS_MARGEN = { bajo: 0.25, medio: 0.35, alto: 0.40 } as const;
+  useEffect(() => {
+    if (!form.promo_activa || !form.precio_base || !form.margen_tipo) return;
+    const base = parseFloat(form.precio_base);
+    if (!base) return;
+    const desc = DESCUENTOS_MARGEN[form.margen_tipo as keyof typeof DESCUENTOS_MARGEN];
+    const raw = base * (1 - desc);
+    const rounded = Math.max(Math.round(raw / 1000) * 1000 - 1, 0);
+    set('promo_precio', String(rounded));
+  }, [form.precio_base, form.margen_tipo, form.promo_activa]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1402,6 +1425,13 @@ export function NuevoProducto() {
         accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
         atributos:        (esPuerta || esVentana || esPuertaBalcon) ? atributos : {},
+        margen_tipo:      form.margen_tipo || null,
+        promocion:        form.promo_activa ? {
+          activo:         true,
+          fecha_inicio:   form.promo_fecha_inicio || null,
+          fecha_fin:      form.promo_fecha_fin    || null,
+          precio_oferta:  form.promo_precio ? parseFloat(form.promo_precio) : null,
+        } : null,
       };
 
       if (isEdit && id) {
@@ -1779,7 +1809,92 @@ export function NuevoProducto() {
               <span className="text-gray-400 text-xs">({formatCurrency(precio - costo)} por unidad)</span>
             </div>
           )}
+          {/* Tipo de margen */}
+          <div>
+            <label className={labelCls}>
+              <span className="flex items-center gap-1"><Percent size={11} /> Segmento de margen</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {([['bajo', 'Bajo', '25 %'], ['medio', 'Medio', '35 %'], ['alto', 'Alto', '40 %']] as const).map(([v, l, pct]) => (
+                <button key={v} type="button"
+                  onClick={() => set('margen_tipo', form.margen_tipo === v ? '' : v)}
+                  className={cn(
+                    'px-2 py-2 rounded-lg border text-xs text-center transition-all',
+                    form.margen_tipo === v
+                      ? v === 'bajo'  ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
+                      : v === 'medio' ? 'border-amber-500 bg-amber-50 text-amber-800 font-semibold'
+                                      : 'border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  )}>
+                  <div className="font-semibold">{l}</div>
+                  <div className="text-[10px] opacity-70">dto. {pct}</div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Promociones */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Tag size={14} className="text-pink-500" />
+            Promoción / Oferta
+          </span>
+          <button type="button"
+            onClick={() => set('promo_activa', !form.promo_activa)}
+            className={cn('flex items-center gap-1.5 text-xs font-medium transition-colors px-2 py-1 rounded-lg',
+              form.promo_activa ? 'text-pink-700 bg-pink-50' : 'text-gray-400 hover:text-gray-600'
+            )}>
+            {form.promo_activa
+              ? <><ToggleRight size={16} className="text-pink-500" /> Activa</>
+              : <><ToggleLeft size={16} /> Inactiva</>
+            }
+          </button>
+        </div>
+        {form.promo_activa && (
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={cn(labelCls, 'flex items-center gap-1')}><CalendarDays size={11} /> Fecha inicio</label>
+                <input type="date" value={form.promo_fecha_inicio}
+                  onChange={e => set('promo_fecha_inicio', e.target.value)}
+                  className={inputCls} />
+              </div>
+              <div>
+                <label className={cn(labelCls, 'flex items-center gap-1')}><CalendarDays size={11} /> Fecha fin</label>
+                <input type="date" value={form.promo_fecha_fin}
+                  onChange={e => set('promo_fecha_fin', e.target.value)}
+                  className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>
+                Precio de oferta
+                {form.margen_tipo && precio > 0 && (
+                  <span className="ml-2 text-[10px] text-gray-400 font-normal">
+                    (auto: {form.margen_tipo} → {Math.round((DESCUENTOS_MARGEN[form.margen_tipo as keyof typeof DESCUENTOS_MARGEN] ?? 0) * 100)}% dto.)
+                  </span>
+                )}
+              </label>
+              <MontoInput value={form.promo_precio} onChange={v => set('promo_precio', v)}
+                placeholder="0,00" className={cn(inputCls, 'border-pink-200 focus:ring-pink-400')} />
+              {form.promo_precio && form.precio_base && (
+                <p className="text-[11px] text-pink-600 mt-1">
+                  Ahorro: {formatCurrency(parseFloat(form.precio_base) - parseFloat(form.promo_precio))}
+                  {' · '}
+                  {Math.round((1 - parseFloat(form.promo_precio) / parseFloat(form.precio_base)) * 100)}% de descuento
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        {!form.promo_activa && (
+          <p className="px-4 py-3 text-xs text-gray-400">
+            Activar para configurar precio de oferta por tiempo limitado.
+          </p>
+        )}
       </div>
 
       {/* Imagen */}

@@ -23,6 +23,7 @@ psql -U postgres -d postgres -f /migrations/20260424000002_catalogo_atributos_sc
 psql -U postgres -d postgres -f /migrations/20260425000001_recibos.sql
 psql -U postgres -d postgres -f /migrations/20260428000001_rechazado_estado.sql
 psql -U postgres -d postgres -f /migrations/20260428000002_compromisos_pago.sql
+psql -U postgres -d postgres -f /migrations/20260503000001_margen_promocion.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -50,7 +51,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260424000002_catalogo_atributos_schema.sql'),
   ('20260425000001_recibos.sql'),
   ('20260428000001_rechazado_estado.sql'),
-  ('20260428000002_compromisos_pago.sql')
+  ('20260428000002_compromisos_pago.sql'),
+  ('20260503000001_margen_promocion.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

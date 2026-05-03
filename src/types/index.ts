@@ -201,6 +201,14 @@ export interface Producto {
   vidrio: string | null;
   premarco: boolean;
   accesorios: string[];
+  atributos: Record<string, unknown>;
+  margen_tipo: 'bajo' | 'medio' | 'alto' | null;
+  promocion: {
+    activo: boolean;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    precio_oferta: number | null;
+  } | null;
   created_at: string;
 }
 
