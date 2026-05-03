@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
-  X, AppWindow, DoorOpen, Tag, Percent, CalendarDays
+  X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -58,11 +58,18 @@ function buildSubtitle(p: Producto): string {
   return parts.join(', ');
 }
 
+function lastDayOfMonth(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1, 0);
+  return d.toISOString().slice(0, 10);
+}
+
 function isPromoActiva(p: Producto): boolean {
   if (!p.promocion?.activo) return false;
   const hoy = new Date().toISOString().slice(0, 10);
   if (p.promocion.fecha_inicio && hoy < p.promocion.fecha_inicio) return false;
-  if (p.promocion.fecha_fin   && hoy > p.promocion.fecha_fin)   return false;
+  if (p.promocion.auto_renovar) return true;
+  if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
   return true;
 }
 
@@ -73,11 +80,14 @@ function ProductoModal({ producto, onClose, onToggle }: {
   onClose: () => void;
   onToggle: () => void;
 }) {
+  const [activeImg, setActiveImg] = useState(0);
   const costo  = producto.costo_base;
   const precio = producto.precio_base;
   const margen = precio > 0 ? Math.round((precio - costo) / precio * 100) : 0;
   const promoOk = isPromoActiva(producto);
   const subtitle = buildSubtitle(producto);
+  const imagenes = producto.imagenes?.length ? producto.imagenes
+                   : producto.imagen_url ? [producto.imagen_url] : [];
 
   const attrs: [string, string][] = Object.entries(producto.atributos ?? {})
     .filter(([, v]) => v !== null && v !== '' && !Array.isArray(v))
@@ -111,11 +121,33 @@ function ProductoModal({ producto, onClose, onToggle }: {
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Imagen */}
-          {producto.imagen_url && (
-            <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video flex items-center justify-center">
-              <img src={producto.imagen_url} alt={producto.nombre} className="max-w-full max-h-full object-contain" />
+          {/* Galería de imágenes */}
+          {imagenes.length > 0 && (
+            <div className="space-y-2">
+              <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video flex items-center justify-center">
+                <img src={imagenes[activeImg]} alt={producto.nombre} className="max-w-full max-h-full object-contain" />
+              </div>
+              {imagenes.length > 1 && (
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                  {imagenes.map((url, i) => (
+                    <button key={i} type="button" onClick={() => setActiveImg(i)}
+                      className={cn('w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-all',
+                        i === activeImg ? 'border-sky-500' : 'border-transparent hover:border-gray-300')}>
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Video */}
+          {producto.video_url && (
+            <a href={producto.video_url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors">
+              <Play size={13} className="fill-red-500 text-red-500" />
+              Ver video del producto
+            </a>
           )}
 
           {/* Precios */}
@@ -147,11 +179,16 @@ function ProductoModal({ producto, onClose, onToggle }: {
           {/* Promo */}
           {producto.promocion && (
             <div className={cn('rounded-xl p-3 border', promoOk ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200 opacity-60')}>
-              <div className="flex items-center gap-1.5 mb-2">
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                 <Tag size={13} className={promoOk ? 'text-pink-500' : 'text-gray-400'} />
                 <span className="text-xs font-semibold text-gray-700">
                   Promoción {promoOk ? '· activa' : '· inactiva'}
                 </span>
+                {producto.promocion.auto_renovar && (
+                  <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border border-violet-200 bg-violet-50 text-violet-700 font-medium">
+                    <RefreshCw size={9} /> Auto-renovar mensual
+                  </span>
+                )}
               </div>
               {producto.promocion.precio_oferta && (
                 <div className="flex items-baseline gap-2">
@@ -162,13 +199,14 @@ function ProductoModal({ producto, onClose, onToggle }: {
                   </span>
                 </div>
               )}
-              {(producto.promocion.fecha_inicio || producto.promocion.fecha_fin) && (
-                <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1">
-                  <CalendarDays size={10} />
-                  {producto.promocion.fecha_inicio && <span>desde {producto.promocion.fecha_inicio}</span>}
-                  {producto.promocion.fecha_fin    && <span>hasta {producto.promocion.fecha_fin}</span>}
-                </div>
-              )}
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1 flex-wrap">
+                <CalendarDays size={10} />
+                {producto.promocion.fecha_inicio && <span>desde {producto.promocion.fecha_inicio}</span>}
+                {producto.promocion.auto_renovar
+                  ? <span>hasta el {lastDayOfMonth()} (renovación mensual)</span>
+                  : producto.promocion.fecha_fin && <span>hasta {producto.promocion.fecha_fin}</span>
+                }
+              </div>
             </div>
           )}
 
@@ -292,8 +330,8 @@ function Columna({ titulo, productos, icono: Icono, color, onSelect, onToggle }:
               >
                 {/* Thumbnail */}
                 <div className="w-9 h-9 shrink-0 rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden mt-0.5">
-                  {p.imagen_url
-                    ? <img src={p.imagen_url} alt="" className="w-full h-full object-cover" />
+                  {(p.imagenes?.[0] || p.imagen_url)
+                    ? <img src={p.imagenes?.[0] || p.imagen_url!} alt="" className="w-full h-full object-cover" />
                     : <Package size={14} className="text-gray-300" />}
                 </div>
 

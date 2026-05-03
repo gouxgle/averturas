@@ -202,12 +202,15 @@ export interface Producto {
   premarco: boolean;
   accesorios: string[];
   atributos: Record<string, unknown>;
+  imagenes: string[];
+  video_url: string | null;
   margen_tipo: 'bajo' | 'medio' | 'alto' | null;
   promocion: {
     activo: boolean;
     fecha_inicio: string | null;
     fecha_fin: string | null;
     precio_oferta: number | null;
+    auto_renovar?: boolean;
   } | null;
   created_at: string;
 }

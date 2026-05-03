@@ -1257,7 +1257,7 @@ export function NuevoProducto() {
     costo_base:       '',
     precio_base:      '',
     precio_por_m2:    false,
-    imagen_url:       '',
+    imagen_url:       '', // kept for TS compat, replaced by imagenes[0] on save
     caracteristica_1: '',
     caracteristica_2: '',
     caracteristica_3: '',
@@ -1267,11 +1267,14 @@ export function NuevoProducto() {
     premarco:           false,
     accesorios:         [] as string[],
     activo:             true,
-    margen_tipo:        '' as '' | 'bajo' | 'medio' | 'alto',
-    promo_activa:       false,
-    promo_fecha_inicio: '',
-    promo_fecha_fin:    '',
-    promo_precio:       '',
+    margen_tipo:         '' as '' | 'bajo' | 'medio' | 'alto',
+    promo_activa:        false,
+    promo_auto_renovar:  false,
+    promo_fecha_inicio:  '',
+    promo_fecha_fin:     '',
+    promo_precio:        '',
+    imagenes:            [] as string[],
+    video_url:           '',
   });
   const [atributos, setAtributos] = useState<Atributos>({});
 
@@ -1330,11 +1333,16 @@ export function NuevoProducto() {
           premarco:           data.premarco ?? false,
           accesorios:         data.accesorios ?? [],
           activo:             data.activo ?? true,
-          margen_tipo:        data.margen_tipo ?? '',
-          promo_activa:       data.promocion?.activo ?? false,
-          promo_fecha_inicio: data.promocion?.fecha_inicio ? data.promocion.fecha_inicio.slice(0, 10) : '',
-          promo_fecha_fin:    data.promocion?.fecha_fin    ? data.promocion.fecha_fin.slice(0, 10)    : '',
-          promo_precio:       data.promocion?.precio_oferta ? String(data.promocion.precio_oferta) : '',
+          margen_tipo:         data.margen_tipo ?? '',
+          promo_activa:        data.promocion?.activo ?? false,
+          promo_auto_renovar:  data.promocion?.auto_renovar ?? false,
+          promo_fecha_inicio:  data.promocion?.fecha_inicio ? data.promocion.fecha_inicio.slice(0, 10) : '',
+          promo_fecha_fin:     data.promocion?.fecha_fin    ? data.promocion.fecha_fin.slice(0, 10)    : '',
+          promo_precio:        data.promocion?.precio_oferta ? String(data.promocion.precio_oferta) : '',
+          imagenes:            Array.isArray(data.imagenes) && data.imagenes.length
+                                 ? data.imagenes
+                                 : (data.imagen_url ? [data.imagen_url] : []),
+          video_url:           data.video_url ?? '',
         });
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
@@ -1361,28 +1369,44 @@ export function NuevoProducto() {
   }, [form.precio_base, form.margen_tipo, form.promo_activa]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setUploadingImg(true);
     try {
-      const fd = new FormData();
-      fd.append('imagen', file);
       const token = sessionStorage.getItem('aberturas_token');
-      const res = await fetch('/api/productos/upload-imagen', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: fd,
-      });
-      if (!res.ok) throw new Error('Error al subir imagen');
-      const { url } = await res.json();
-      set('imagen_url', url);
-      toast.success('Imagen cargada');
+      const newUrls: string[] = [];
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('imagen', file);
+        const res = await fetch('/api/productos/upload-imagen', {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        });
+        if (!res.ok) throw new Error('Error al subir imagen');
+        const { url } = await res.json();
+        newUrls.push(url);
+      }
+      setForm(prev => ({ ...prev, imagenes: [...prev.imagenes, ...newUrls] }));
+      toast.success(`${newUrls.length === 1 ? 'Imagen cargada' : `${newUrls.length} imágenes cargadas`}`);
     } catch {
       toast.error('No se pudo subir la imagen');
     } finally {
       setUploadingImg(false);
       if (fileRef.current) fileRef.current.value = '';
     }
+  }
+
+  function removeImagen(idx: number) {
+    setForm(prev => ({ ...prev, imagenes: prev.imagenes.filter((_, i) => i !== idx) }));
+  }
+
+  function makeMainImagen(idx: number) {
+    setForm(prev => {
+      const imgs = [...prev.imagenes];
+      const [main] = imgs.splice(idx, 1);
+      return { ...prev, imagenes: [main, ...imgs] };
+    });
   }
 
   const costo  = parseFloat(form.costo_base) || 0;
@@ -1415,7 +1439,6 @@ export function NuevoProducto() {
         costo_base:       parseFloat(form.costo_base),
         precio_base:      parseFloat(form.precio_base),
         precio_por_m2:    form.precio_por_m2,
-        imagen_url:       form.imagen_url || null,
         caracteristica_1: form.caracteristica_1.trim() || null,
         caracteristica_2: form.caracteristica_2.trim() || null,
         caracteristica_3: form.caracteristica_3.trim() || null,
@@ -1429,9 +1452,13 @@ export function NuevoProducto() {
         promocion:        form.promo_activa ? {
           activo:         true,
           fecha_inicio:   form.promo_fecha_inicio || null,
-          fecha_fin:      form.promo_fecha_fin    || null,
+          fecha_fin:      form.promo_auto_renovar ? null : (form.promo_fecha_fin || null),
           precio_oferta:  form.promo_precio ? parseFloat(form.promo_precio) : null,
+          auto_renovar:   form.promo_auto_renovar,
         } : null,
+        imagenes:         form.imagenes,
+        imagen_url:       form.imagenes[0] || null,
+        video_url:        form.video_url || null,
       };
 
       if (isEdit && id) {
@@ -1855,7 +1882,27 @@ export function NuevoProducto() {
         </div>
         {form.promo_activa && (
           <div className="p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            {/* Auto-renovar mensual */}
+            <button type="button"
+              onClick={() => set('promo_auto_renovar', !form.promo_auto_renovar)}
+              className={cn(
+                'w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs text-left transition-all',
+                form.promo_auto_renovar
+                  ? 'border-violet-300 bg-violet-50 text-violet-700'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+              )}>
+              {form.promo_auto_renovar ? <ToggleRight size={15} className="text-violet-500 shrink-0" /> : <ToggleLeft size={15} className="shrink-0" />}
+              <div>
+                <span className="font-medium">Auto-renovar mensualmente</span>
+                <span className="block text-[10px] opacity-70 mt-0.5">
+                  {form.promo_auto_renovar
+                    ? `Activa sin vencimiento fijo · la tienda la muestra como vigente hasta el último día de cada mes`
+                    : 'Al activar, la fecha de fin se ignora y la promo se renueva sola cada mes'}
+                </span>
+              </div>
+            </button>
+
+            <div className={cn('grid grid-cols-2 gap-3', form.promo_auto_renovar && 'opacity-50 pointer-events-none')}>
               <div>
                 <label className={cn(labelCls, 'flex items-center gap-1')}><CalendarDays size={11} /> Fecha inicio</label>
                 <input type="date" value={form.promo_fecha_inicio}
@@ -1863,8 +1910,10 @@ export function NuevoProducto() {
                   className={inputCls} />
               </div>
               <div>
-                <label className={cn(labelCls, 'flex items-center gap-1')}><CalendarDays size={11} /> Fecha fin</label>
-                <input type="date" value={form.promo_fecha_fin}
+                <label className={cn(labelCls, 'flex items-center gap-1')}>
+                  <CalendarDays size={11} /> Fecha fin {form.promo_auto_renovar && <span className="text-violet-500">(auto)</span>}
+                </label>
+                <input type="date" value={form.promo_fecha_fin} disabled={form.promo_auto_renovar}
                   onChange={e => set('promo_fecha_fin', e.target.value)}
                   className={inputCls} />
               </div>
@@ -1897,32 +1946,63 @@ export function NuevoProducto() {
         )}
       </div>
 
-      {/* Imagen */}
+      {/* Imágenes y video */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <SectionHeader icon={ImageIcon} label="Imagen del producto" />
-        <div className="p-4 flex items-start gap-4">
-          <div className="w-28 h-28 shrink-0 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden">
-            {form.imagen_url
-              ? <img src={form.imagen_url} alt="preview" className="w-full h-full object-cover" />
-              : <ImageIcon size={28} className="text-gray-300" />
-            }
-          </div>
-          <div className="flex-1 space-y-2">
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
-              onChange={handleImageUpload} className="hidden" />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingImg}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-60 transition-colors">
-              <Upload size={14} />
-              {uploadingImg ? 'Subiendo...' : 'Elegir imagen'}
-            </button>
-            {form.imagen_url && (
-              <button type="button" onClick={() => set('imagen_url', '')}
-                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600">
-                <X size={11} /> Quitar imagen
+        <SectionHeader icon={ImageIcon} label="Imágenes y video" />
+        <div className="p-4 space-y-4">
+
+          {/* Galería */}
+          <div>
+            <p className="text-[11px] text-gray-400 mb-2">La primera imagen es la principal mostrada en catálogo y tienda.</p>
+            <div className="flex flex-wrap gap-2">
+              {form.imagenes.map((url, idx) => (
+                <div key={url + idx} className="relative group w-20 h-20 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 shrink-0">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  {/* Principal badge */}
+                  {idx === 0 && (
+                    <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 bg-sky-600 text-white rounded font-semibold leading-none">Principal</span>
+                  )}
+                  {/* Overlay actions */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                    {idx > 0 && (
+                      <button type="button" onClick={() => makeMainImagen(idx)}
+                        className="text-[9px] px-1.5 py-0.5 bg-white/90 text-gray-800 rounded font-medium hover:bg-white">
+                        Principal
+                      </button>
+                    )}
+                    <button type="button" onClick={() => removeImagen(idx)}
+                      className="p-1 bg-red-500 hover:bg-red-600 text-white rounded-full">
+                      <X size={10} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {/* Botón agregar */}
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingImg}
+                className="w-20 h-20 shrink-0 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-sky-400 hover:bg-sky-50 transition-colors disabled:opacity-50">
+                {uploadingImg
+                  ? <><div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /><span className="text-[10px] text-gray-400">Subiendo</span></>
+                  : <><Upload size={16} className="text-gray-300" /><span className="text-[10px] text-gray-400">Agregar</span></>
+                }
               </button>
-            )}
-            <p className="text-[11px] text-gray-400">JPG, PNG o WebP.</p>
+            </div>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
+              onChange={handleImageUpload} className="hidden" />
+            <p className="text-[10px] text-gray-400 mt-1.5">JPG, PNG o WebP · podés seleccionar varias a la vez</p>
           </div>
+
+          {/* Video */}
+          <div>
+            <label className={cn(labelCls, 'flex items-center gap-1.5')}>
+              <span className="text-red-500">▶</span> URL de video (opcional)
+            </label>
+            <input type="url" value={form.video_url}
+              onChange={e => set('video_url', e.target.value)}
+              placeholder="https://youtube.com/... o enlace directo al video"
+              className={inputCls} />
+            <p className="text-[10px] text-gray-400 mt-1">YouTube, Vimeo o URL directa de video. Se muestra en la galería de la tienda.</p>
+          </div>
+
         </div>
       </div>
 
