@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { readFileSync, existsSync } from 'node:fs';
 
+import pubRoutes          from './routes/pub.js';
 import authRoutes         from './routes/auth.js';
 import clientesRoutes     from './routes/clientes.js';
 import productosRoutes    from './routes/productos.js';
@@ -30,6 +31,7 @@ app.use('*', cors({
 
 // ── Rutas públicas ────────────────────────────────────────────
 const api = new Hono();
+api.route('/pub',  pubRoutes);
 api.route('/auth', authRoutes);
 
 // ── Rutas protegidas ──────────────────────────────────────────

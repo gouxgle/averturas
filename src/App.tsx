@@ -29,6 +29,7 @@ import { ImportarClientes } from '@/pages/ImportarClientes';
 import { ImprimirPresupuesto } from '@/pages/print/ImprimirPresupuesto';
 import { ImprimirRemito } from '@/pages/print/ImprimirRemito';
 import { ImprimirRecibo } from '@/pages/print/ImprimirRecibo';
+import { VistaPublicaPresupuesto } from '@/pages/VistaPublicaPresupuesto';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -41,6 +42,8 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            {/* Ruta pública — sin auth */}
+            <Route path="/p/:token" element={<VistaPublicaPresupuesto />} />
             <Route element={<ProtectedRoute />}>
               {/* Páginas de impresión — sin AppLayout */}
               <Route path="/imprimir/presupuesto/:id" element={<ImprimirPresupuesto />} />

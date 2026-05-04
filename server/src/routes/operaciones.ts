@@ -48,6 +48,28 @@ operaciones.get('/', async (c) => {
   return c.json(rows);
 });
 
+// POST /:id/generar-link — crea o regenera token de aprobación pública
+operaciones.post('/:id/generar-link', async (c) => {
+  const { id } = c.req.param();
+  const { rows: [op] } = await db.query(
+    `SELECT id, estado FROM operaciones WHERE id = $1`, [id]
+  );
+  if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  // Generar token UUID (crypto.randomUUID disponible en Node 19+, fallback manual)
+  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+
+  await db.query(
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now() WHERE id = $2`,
+    [token, id]
+  );
+
+  const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  return c.json({ token, url: `${appUrl}/p/${token}` });
+});
+
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
