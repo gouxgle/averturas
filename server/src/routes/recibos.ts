@@ -95,7 +95,31 @@ recibos.get('/:id', async (c) => {
     ORDER BY ri.orden, ri.id
   `, [id]);
 
-  return c.json({ ...r, items });
+  // Compromiso pendiente más próximo para esta operación (si existe)
+  let compromiso = null;
+  if (r.operacion_id) {
+    const { rows: comps } = await db.query(`
+      SELECT monto, fecha_vencimiento, tipo, descripcion
+      FROM compromisos_pago
+      WHERE operacion_id = $1 AND estado = 'pendiente'
+      ORDER BY fecha_vencimiento ASC
+      LIMIT 1
+    `, [r.operacion_id]);
+    if (comps.length) compromiso = comps[0];
+  }
+
+  // Total ya cobrado para la operación (para calcular saldo real)
+  let cobrado_operacion = 0;
+  if (r.operacion_id) {
+    const { rows: [tot] } = await db.query(`
+      SELECT COALESCE(SUM(monto_total), 0) AS total
+      FROM recibos
+      WHERE operacion_id = $1 AND estado = 'emitido'
+    `, [r.operacion_id]);
+    cobrado_operacion = Number(tot?.total ?? 0);
+  }
+
+  return c.json({ ...r, items, compromiso, cobrado_operacion });
 });
 
 // POST / — crear recibo
@@ -139,6 +163,24 @@ recibos.post('/', async (c) => {
         INSERT INTO recibo_items (recibo_id, descripcion, producto_id, cantidad, monto, orden)
         VALUES ($1,$2,$3,$4,$5,$6)
       `, [rec.id, it.descripcion, it.producto_id || null, it.cantidad ?? 1, parseFloat(String(it.monto)), i]);
+    }
+
+    // Compromiso de saldo (pago parcial)
+    const comp = b.compromiso;
+    if (comp && parseFloat(String(comp.monto)) > 0 && comp.fecha_vencimiento) {
+      await client.query(`
+        INSERT INTO compromisos_pago
+          (cliente_id, operacion_id, tipo, monto, fecha_vencimiento, descripcion, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `, [
+        b.cliente_id,
+        b.operacion_id || null,
+        comp.tipo || 'cuota',
+        parseFloat(String(comp.monto)),
+        comp.fecha_vencimiento,
+        comp.descripcion || null,
+        user?.id || null,
+      ]);
     }
 
     await client.query('COMMIT');

@@ -71,10 +71,13 @@ operaciones.get('/:id', async (c) => {
         oi.medida_alto  AS alto,
         (oi.precio_unitario + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion ELSE 0 END) * oi.cantidad AS precio_total,
         ta.nombre AS tipo_abertura_nombre,
-        s.nombre  AS sistema_nombre
+        s.nombre  AS sistema_nombre,
+        cp.atributos AS producto_atributos,
+        cp.nombre    AS producto_nombre
       FROM operacion_items oi
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id
+      LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
       WHERE oi.operacion_id = $1
       ORDER BY oi.orden
     `, [id]),
@@ -101,8 +104,8 @@ operaciones.post('/', async (c) => {
       INSERT INTO operaciones
         (tipo, estado, cliente_id, vendedor_id, proveedor_id,
          incluye_instalacion, notas, notas_internas, fecha_validez, created_by,
-         tipo_proyecto, forma_pago, tiempo_entrega)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         tipo_proyecto, forma_pago, tiempo_entrega, forma_envio, costo_envio)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *
     `, [
       b.tipo ?? 'a_medida_proveedor',
@@ -118,6 +121,8 @@ operaciones.post('/', async (c) => {
       b.tipo_proyecto || null,
       b.forma_pago || null,
       b.tiempo_entrega ? parseInt(b.tiempo_entrega) : null,
+      b.forma_envio ?? 'retiro_local',
+      b.costo_envio ?? 0,
     ]);
 
     if (b.items?.length) {
@@ -127,8 +132,8 @@ operaciones.post('/', async (c) => {
             (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
-             vidrio, premarco, origen, color, accesorios)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+             vidrio, premarco, origen, color, accesorios, producto_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
         `, [
           op.id,
           idx,
@@ -148,12 +153,102 @@ operaciones.post('/', async (c) => {
           item.origen || null,
           item.color || null,
           item.accesorios ?? [],
+          item.producto_id || null,
         ]);
       }
     }
 
     await client.query('COMMIT');
     return c.json(op, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+operaciones.put('/:id', async (c) => {
+  const { id } = c.req.param();
+  const b = await c.req.json();
+
+  const { rows: [existing] } = await db.query(
+    'SELECT estado FROM operaciones WHERE id=$1', [id]
+  );
+  if (!existing) return c.json({ error: 'No encontrada' }, 404);
+  if (existing.estado === 'aprobado') {
+    return c.json({ error: 'No se puede editar un presupuesto aprobado' }, 409);
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [op] } = await client.query(`
+      UPDATE operaciones SET
+        tipo              = $1,
+        tipo_proyecto     = $2,
+        forma_pago        = $3,
+        tiempo_entrega    = $4,
+        notas             = $5,
+        notas_internas    = $6,
+        fecha_validez     = $7,
+        forma_envio       = $8,
+        costo_envio       = $9,
+        incluye_instalacion = $10,
+        updated_at        = now()
+      WHERE id = $11
+      RETURNING *
+    `, [
+      b.tipo ?? 'a_medida_proveedor',
+      b.tipo_proyecto || null,
+      b.forma_pago || null,
+      b.tiempo_entrega ? parseInt(b.tiempo_entrega) : null,
+      b.notas || null,
+      b.notas_internas || null,
+      b.fecha_validez || null,
+      b.forma_envio ?? 'retiro_local',
+      b.costo_envio ?? 0,
+      b.items?.some((i: any) => i.incluye_instalacion) ?? false,
+      id,
+    ]);
+
+    await client.query('DELETE FROM operacion_items WHERE operacion_id=$1', [id]);
+
+    if (b.items?.length) {
+      for (const [idx, item] of b.items.entries()) {
+        await client.query(`
+          INSERT INTO operacion_items
+            (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
+             medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
+             incluye_instalacion, costo_instalacion, precio_instalacion,
+             vidrio, premarco, origen, color, accesorios, producto_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        `, [
+          id, idx,
+          item.tipo_abertura_id || null,
+          item.sistema_id || null,
+          item.descripcion || '',
+          item.medida_ancho ? parseFloat(item.medida_ancho) : null,
+          item.medida_alto  ? parseFloat(item.medida_alto)  : null,
+          item.cantidad ?? 1,
+          item.costo_unitario ?? 0,
+          item.precio_unitario ?? 0,
+          item.incluye_instalacion ?? false,
+          item.costo_instalacion ?? 0,
+          item.precio_instalacion ?? 0,
+          item.vidrio || null,
+          item.premarco ?? false,
+          item.origen || null,
+          item.color || null,
+          item.accesorios ?? [],
+          item.producto_id || null,
+        ]);
+      }
+    }
+
+    await client.query('COMMIT');
+    return c.json(op);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

@@ -3,6 +3,97 @@ import { db } from '../db.js';
 
 const dashboard = new Hono();
 
+// Indicadores de acción
+dashboard.get('/indicadores', async (c) => {
+  const [sinConfirmar, sinPago, pagadosNoEntregados, compromisosSemana, stockBajo] = await Promise.all([
+
+    // a) Presupuestos sin confirmar (estado presupuesto o enviado)
+    db.query(`
+      SELECT o.id, o.numero, o.precio_total, o.estado, o.created_at,
+        json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente
+      FROM operaciones o JOIN clientes cl ON cl.id = o.cliente_id
+      WHERE o.estado IN ('presupuesto','enviado')
+      ORDER BY o.created_at ASC
+      LIMIT 10
+    `),
+
+    // b) Presupuestos sin pago (aprobados sin recibos emitidos)
+    db.query(`
+      SELECT o.id, o.numero, o.precio_total, o.estado, o.created_at,
+        json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente
+      FROM operaciones o JOIN clientes cl ON cl.id = o.cliente_id
+      WHERE o.estado = 'aprobado'
+        AND NOT EXISTS (
+          SELECT 1 FROM recibos r
+          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+        )
+      ORDER BY o.created_at ASC
+      LIMIT 10
+    `),
+
+    // c) Pagados (cobro total) pero no entregados
+    db.query(`
+      SELECT o.id, o.numero, o.precio_total, o.estado, o.created_at,
+        json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente,
+        COALESCE((
+          SELECT SUM(r.monto_total) FROM recibos r
+          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+        ), 0) AS cobrado
+      FROM operaciones o JOIN clientes cl ON cl.id = o.cliente_id
+      WHERE o.estado NOT IN ('cancelado','entregado')
+        AND COALESCE((
+          SELECT SUM(r.monto_total) FROM recibos r
+          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+        ), 0) >= o.precio_total
+        AND NOT EXISTS (
+          SELECT 1 FROM remitos rm
+          WHERE rm.operacion_id = o.id AND rm.estado = 'entregado'
+        )
+      ORDER BY o.created_at ASC
+      LIMIT 10
+    `),
+
+    // d) Compromisos de pago que vencen esta semana (lunes a domingo)
+    db.query(`
+      SELECT cp.id, cp.monto, cp.fecha_vencimiento, cp.tipo, cp.descripcion,
+        json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente,
+        json_build_object('id', op.id, 'numero', op.numero) AS operacion
+      FROM compromisos_pago cp
+      JOIN clientes cl ON cl.id = cp.cliente_id
+      LEFT JOIN operaciones op ON op.id = cp.operacion_id
+      WHERE cp.estado = 'pendiente'
+        AND cp.fecha_vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+      ORDER BY cp.fecha_vencimiento ASC
+      LIMIT 20
+    `),
+
+    // e) Productos con stock bajo o en cero
+    db.query(`
+      SELECT p.id, p.nombre, p.stock_minimo,
+        p.stock_inicial + COALESCE(SUM(sm.cantidad), 0) AS stock_actual
+      FROM catalogo_productos p
+      LEFT JOIN stock_movimientos sm ON sm.producto_id = p.id
+      WHERE p.activo = true AND p.stock_minimo > 0
+      GROUP BY p.id, p.nombre, p.stock_minimo, p.stock_inicial
+      HAVING p.stock_inicial + COALESCE(SUM(sm.cantidad), 0) <= p.stock_minimo
+      ORDER BY (p.stock_inicial + COALESCE(SUM(sm.cantidad), 0)) ASC
+      LIMIT 10
+    `),
+  ]);
+
+  return c.json({
+    sin_confirmar:          sinConfirmar.rows,
+    sin_pago:               sinPago.rows,
+    pagados_no_entregados:  pagadosNoEntregados.rows,
+    compromisos_semana:     compromisosSemana.rows,
+    stock_bajo:             stockBajo.rows,
+  });
+});
+
 dashboard.get('/stats', async (c) => {
   const primerDiaMes = new Date();
   primerDiaMes.setDate(1);

@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, XCircle, AlertTriangle, Clock, RotateCcw } from 'lucide-react';
+import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, XCircle, AlertTriangle, Clock, RotateCcw, X, Pen, Printer, User, CreditCard, Truck, MapPin, Gift, Building2, Package } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, EstadoOperacion } from '@/types';
@@ -33,6 +33,284 @@ const TIPO_LABEL: Record<string, string> = {
   fabricacion_propia: 'Fabricación',
 };
 
+const FORMA_ENVIO_LABEL: Record<string, { label: string; icon: React.ElementType }> = {
+  retiro_local:     { label: 'Retiro en local',                icon: MapPin },
+  envio_bonificado: { label: 'Envío bonificado',               icon: Gift },
+  envio_destino:    { label: 'Envío a destino (paga cliente)', icon: Truck },
+  envio_empresa:    { label: 'Envío a cargo de la empresa',    icon: Building2 },
+};
+
+interface OpDetalle {
+  id: string; numero: string; tipo: string; estado: EstadoOperacion;
+  cliente_id: string; tipo_proyecto: string | null; forma_pago: string | null;
+  tiempo_entrega: number | null; fecha_validez: string | null;
+  notas: string | null; created_at: string; updated_at: string;
+  forma_envio: string | null; costo_envio: number;
+  cliente: {
+    nombre: string | null; apellido: string | null; razon_social: string | null;
+    tipo_persona: string; telefono: string | null; email: string | null;
+    direccion: string | null; localidad: string | null;
+  };
+  items: Array<{
+    id: string; descripcion: string; cantidad: number;
+    precio_unitario: number; precio_instalacion: number;
+    incluye_instalacion: boolean; precio_total: number;
+    medida_ancho: number | null; medida_alto: number | null;
+    color: string | null; vidrio: string | null; accesorios: string[];
+    tipo_abertura_nombre: string | null; sistema_nombre: string | null;
+    producto_atributos: Record<string, unknown> | null;
+  }>;
+}
+
+function PresupuestoModal({
+  id, onClose, onEstadoChange,
+}: {
+  id: string;
+  onClose: () => void;
+  onEstadoChange: (id: string, estado: EstadoOperacion) => void;
+}) {
+  const navigate = useNavigate();
+  const [op, setOp] = useState<OpDetalle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cambiando, setCambiando] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    api.get<OpDetalle>(`/operaciones/${id}`)
+      .then(d => { setOp(d); setLoading(false); })
+      .catch(err => { setError(err.message ?? 'Error al cargar'); setLoading(false); });
+  }, [id]);
+
+  async function cambiarEstado(nuevoEstado: EstadoOperacion) {
+    if (!op) return;
+    setCambiando(true);
+    await api.patch(`/operaciones/${id}/estado`, { estado: nuevoEstado });
+    const updated = { ...op, estado: nuevoEstado };
+    setOp(updated);
+    onEstadoChange(id, nuevoEstado);
+    setCambiando(false);
+  }
+
+  const esAprobado  = op?.estado === 'aprobado';
+  const puedeEditar = op && !esAprobado;
+
+  const subtotal   = op ? op.items.reduce((s, it) => s + Number(it.precio_total), 0) : 0;
+  const costoEnvio = op?.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
+  const total      = subtotal + costoEnvio;
+  const esCuotas   = op?.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
+
+  const fmtEnvio = op?.forma_envio ? FORMA_ENVIO_LABEL[op.forma_envio] : null;
+  const EnvioIcon = fmtEnvio?.icon ?? null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-10 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mb-10">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <FileText size={16} className="text-violet-600" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-900">{op?.numero ?? '...'}</span>
+                {op && (
+                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-semibold', ESTADO_COLOR[op.estado] ?? 'bg-gray-100 text-gray-700')}>
+                    {ESTADO_LABEL[op.estado] ?? op.estado}
+                  </span>
+                )}
+              </div>
+              {op && <p className="text-xs text-gray-400 mt-0.5">{formatDate(op.created_at)}</p>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {op && (
+              <>
+                {puedeEditar && (
+                  <button
+                    onClick={() => navigate(`/presupuestos/${id}/editar`)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-lg font-medium transition-colors"
+                  >
+                    <Pen size={13} /> Editar
+                  </button>
+                )}
+                <button
+                  onClick={() => window.open(`/imprimir/presupuesto/${id}`, '_blank')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg font-medium transition-colors"
+                >
+                  <Printer size={13} /> PDF
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
+              <X size={16} className="text-gray-500" />
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Cargando...</div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-20 text-red-500 text-sm">{error}</div>
+        ) : op ? (
+          <div className="divide-y divide-gray-100">
+            {/* Cliente */}
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-2 mb-2.5">
+                <User size={13} className="text-gray-400" />
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cliente</p>
+              </div>
+              <p className="text-sm font-semibold text-gray-900">
+                {op.cliente.tipo_persona === 'juridica'
+                  ? op.cliente.razon_social
+                  : `${op.cliente.apellido ?? ''} ${op.cliente.nombre ?? ''}`.trim()}
+              </p>
+              <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                {op.cliente.telefono && <span>{op.cliente.telefono}</span>}
+                {op.cliente.email    && <span>{op.cliente.email}</span>}
+                {(op.cliente.direccion || op.cliente.localidad) && (
+                  <span>{[op.cliente.direccion, op.cliente.localidad].filter(Boolean).join(', ')}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Proyecto/pago */}
+            <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              {op.tipo_proyecto && (
+                <div><span className="text-gray-400">Proyecto: </span><span className="font-medium">{op.tipo_proyecto}</span></div>
+              )}
+              {op.tiempo_entrega && (
+                <div><span className="text-gray-400">Entrega: </span><span className="font-medium">{op.tiempo_entrega} días</span></div>
+              )}
+              {op.fecha_validez && (
+                <div><span className="text-gray-400">Válido hasta: </span><span className="font-medium">{formatDate(op.fecha_validez.slice(0, 10) + 'T12:00:00')}</span></div>
+              )}
+              {op.forma_pago && (
+                <div className="col-span-2">
+                  <span className="text-gray-400">Pago: </span>
+                  <span className="font-semibold text-violet-700">{op.forma_pago}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Ítems */}
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Package size={13} className="text-gray-400" />
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Ítems ({op.items.length})
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                {op.items.map((item, i) => {
+                  const attr = item.producto_atributos ?? {};
+                  const hojas = attr.hojas ? `${attr.hojas} hojas`
+                    : attr.config_hojas ? String(attr.config_hojas) : null;
+                  const specs = [
+                    item.tipo_abertura_nombre,
+                    item.sistema_nombre,
+                    item.color,
+                    hojas,
+                    (item.medida_ancho || item.medida_alto)
+                      ? `${item.medida_ancho ?? '?'} × ${item.medida_alto ?? '?'} m`
+                      : null,
+                  ].filter(Boolean).join(' · ');
+
+                  return (
+                    <div key={item.id} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gray-400 shrink-0">{i + 1}.</span>
+                          <span className="text-sm font-medium text-gray-800 truncate">{item.descripcion}</span>
+                          {item.cantidad > 1 && (
+                            <span className="text-xs text-gray-400 shrink-0">× {item.cantidad}</span>
+                          )}
+                        </div>
+                        {specs && <p className="text-[11px] text-gray-400 mt-0.5 ml-4">{specs}</p>}
+                        {item.accesorios.length > 0 && (
+                          <p className="text-[11px] text-gray-400 mt-0.5 ml-4">Incluye: {item.accesorios.join(', ')}</p>
+                        )}
+                        {item.incluye_instalacion && (
+                          <span className="ml-4 text-[10px] text-emerald-600 font-medium">✓ Con instalación</span>
+                        )}
+                      </div>
+                      <span className="text-sm font-bold text-gray-800 shrink-0">
+                        {formatCurrency(Number(item.precio_total))}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Envío + Total */}
+            <div className="px-5 py-4 space-y-2">
+              {fmtEnvio && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <CreditCard size={13} className="text-gray-400" />
+                  {EnvioIcon && <EnvioIcon size={13} className="text-gray-400" />}
+                  <span>{fmtEnvio.label}</span>
+                  {costoEnvio > 0 && <span className="font-semibold">({formatCurrency(costoEnvio)})</span>}
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-3">
+                {costoEnvio > 0 && (
+                  <span className="text-xs text-gray-400">Productos: {formatCurrency(subtotal)} + Envío: {formatCurrency(costoEnvio)}</span>
+                )}
+                <span className="text-xs text-gray-500">Total:</span>
+                <span className="text-xl font-bold text-gray-900">{formatCurrency(total)}</span>
+              </div>
+              {esCuotas && total > 0 && (
+                <div className="flex justify-end">
+                  <span className="text-xs text-violet-600 font-semibold bg-violet-50 px-3 py-1 rounded-lg border border-violet-100">
+                    3 cuotas de {formatCurrency(total / 3)}
+                  </span>
+                </div>
+              )}
+              {op.notas && (
+                <div className="mt-2 bg-amber-50 rounded-lg px-3 py-2 text-xs text-amber-700 border border-amber-100">
+                  {op.notas}
+                </div>
+              )}
+            </div>
+
+            {/* Acciones de estado */}
+            {!esAprobado && (
+              <div className="px-5 py-3 flex items-center gap-2 bg-gray-50 rounded-b-2xl">
+                <span className="text-xs text-gray-400 mr-1">Cambiar estado:</span>
+                {op.estado === 'presupuesto' && (
+                  <button onClick={() => cambiarEstado('enviado')} disabled={cambiando}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium disabled:opacity-50">
+                    <Send size={11} /> Enviar
+                  </button>
+                )}
+                {op.estado === 'enviado' && (
+                  <>
+                    <button onClick={() => cambiarEstado('aprobado')} disabled={cambiando}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium disabled:opacity-50">
+                      <CheckCircle size={11} /> Aprobar
+                    </button>
+                    <button onClick={() => cambiarEstado('rechazado')} disabled={cambiando}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium disabled:opacity-50">
+                      <XCircle size={11} /> Rechazar
+                    </button>
+                  </>
+                )}
+                {op.estado === 'rechazado' && (
+                  <button onClick={() => cambiarEstado('presupuesto')} disabled={cambiando}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-medium disabled:opacity-50">
+                    <RotateCcw size={11} /> Revisar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function diasHastaVencimiento(fecha: string | null): number | null {
   if (!fecha) return null;
   const diff = new Date(fecha).getTime() - new Date().setHours(0, 0, 0, 0);
@@ -46,6 +324,7 @@ export function Presupuestos() {
   const [filtro, setFiltro] = useState<'activos' | EstadoOperacion>('activos');
   const [search, setSearch] = useState('');
   const [cambiando, setCambiando] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,14 +424,15 @@ export function Presupuestos() {
               const cliente = op.cliente as any;
 
               return (
-                <div key={op.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors group">
+                <div
+                  key={op.id}
+                  className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+                  onClick={() => setDetailId(op.id)}
+                >
                   <div className="w-32 shrink-0">
-                    <button
-                      onClick={() => navigate(`/operaciones/${op.id}`)}
-                      className="text-sm font-bold text-gray-800 hover:text-violet-600 transition-colors text-left"
-                    >
+                    <span className="text-sm font-bold text-gray-800 group-hover:text-violet-600 transition-colors">
                       {op.numero}
-                    </button>
+                    </span>
                     <p className="text-xs text-gray-400 mt-0.5">{TIPO_LABEL[op.tipo]}</p>
                   </div>
 
@@ -188,7 +468,8 @@ export function Presupuestos() {
                     {op.margen > 0 && <p className="text-xs text-gray-400">{op.margen}% margen</p>}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={e => e.stopPropagation()}>
                     {op.estado === 'presupuesto' && (
                       <button
                         onClick={() => cambiarEstado(op, 'enviado')}
@@ -228,6 +509,7 @@ export function Presupuestos() {
                     <button
                       onClick={() => navigate(`/operaciones/${op.id}`)}
                       className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 transition-colors"
+                      title="Ver operación completa"
                     >
                       <ArrowRight size={14} />
                     </button>
@@ -238,6 +520,16 @@ export function Presupuestos() {
           </div>
         )}
       </div>
+
+      {detailId && (
+        <PresupuestoModal
+          id={detailId}
+          onClose={() => setDetailId(null)}
+          onEstadoChange={(id, estado) => {
+            setPresupuestos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
+          }}
+        />
+      )}
     </div>
   );
 }

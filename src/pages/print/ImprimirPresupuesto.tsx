@@ -18,6 +18,12 @@ interface Empresa {
   instagram: string | null;
 }
 
+const CONFIG_HOJAS_LABEL: Record<string, string> = {
+  hoja_simple: '1 hoja', hoja_y_media: 'Hoja y media',
+  dos_hojas: '2 hojas iguales', puerta_pano_fijo: 'Con paño fijo',
+  '2_hojas': '2 hojas', '3_hojas': '3 hojas', '4_hojas': '4 hojas',
+};
+
 interface Item {
   id: string; descripcion: string; cantidad: number;
   precio_unitario: number; precio_instalacion: number;
@@ -28,6 +34,8 @@ interface Item {
   tipo_abertura_nombre: string | null;
   sistema_nombre: string | null;
   notas: string | null;
+  producto_atributos: Record<string, unknown> | null;
+  producto_nombre: string | null;
 }
 
 interface Operacion {
@@ -35,6 +43,7 @@ interface Operacion {
   tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; precio_total: number; created_at: string;
+  forma_envio: string | null; costo_envio: number | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
     tipo_persona: string; telefono: string | null; email: string | null;
@@ -74,10 +83,13 @@ export function ImprimirPresupuesto() {
   const clienteDireccion = [c.direccion, c.localidad].filter(Boolean).join(', ') || null;
 
   const fechaEmision = fmtFecha(op.created_at);
-  const fechaValidez = op.fecha_validez ? fmtFecha(op.fecha_validez + 'T12:00:00') : null;
+  const fechaValidez = op.fecha_validez ? fmtFecha(op.fecha_validez.slice(0, 10) + 'T12:00:00') : null;
 
   const proformaNumero = op.numero.replace(/^OP-/, 'PRO-');
-  const total = op.items.reduce((s, it) => s + Number(it.precio_total), 0);
+  const subtotal = op.items.reduce((s, it) => s + Number(it.precio_total), 0);
+  const costoEnvio = op.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
+  const total = subtotal + costoEnvio;
+  const esCuotas = op.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
   const hayInstalacion = op.items.some(it => it.incluye_instalacion);
 
   // Logo: siempre /logochico.png como fuente primaria (igual que recibo)
@@ -198,100 +210,143 @@ export function ImprimirPresupuesto() {
 
           {op.items.map((item, i) => {
             const precioUnitFinal = Number(item.precio_unitario) + (item.incluye_instalacion ? Number(item.precio_instalacion) : 0);
-            const precioTotal = Number(item.precio_total);
-            const titulo = item.tipo_abertura_nombre
-              ? (item.descripcion && !item.descripcion.startsWith(item.tipo_abertura_nombre)
-                  ? item.descripcion
-                  : item.tipo_abertura_nombre)
-              : item.descripcion;
+            const precioItemTotal = Number(item.precio_total);
+            const attr = item.producto_atributos ?? {};
+
+            // Nombre: usar producto_nombre si disponible, sino descripcion
+            const nombre = item.producto_nombre ?? item.descripcion;
+
+            // Hojas: hojas (número) o config_hojas (string)
+            const hojasNum = attr.hojas ? `${attr.hojas} hojas` : null;
+            const hojasConfig = attr.config_hojas
+              ? (CONFIG_HOJAS_LABEL[attr.config_hojas as string] ?? String(attr.config_hojas))
+              : null;
+            const hojas = hojasNum ?? hojasConfig;
+
+            // Marco tipo (puerta-balcón)
+            const marcoTipo = attr.marco_tipo ? String(attr.marco_tipo) : null;
+
+            // Especificaciones en líneas
+            const specs: Array<[string, string]> = [];
+            if (item.tipo_abertura_nombre) specs.push(['Tipo',    item.tipo_abertura_nombre]);
+            if (item.sistema_nombre)       specs.push(['Línea',   item.sistema_nombre]);
+            if (item.color)                specs.push(['Color',   item.color]);
+            if (hojas)                     specs.push(['Hojas',   hojas]);
+            if (marcoTipo)                 specs.push(['Marco',   marcoTipo]);
+            if (item.vidrio)               specs.push(['Vidrio',  item.vidrio]);
+            if (item.medida_ancho || item.medida_alto)
+              specs.push(['Medidas', `${item.medida_ancho ?? '—'} × ${item.medida_alto ?? '—'} m`]);
 
             return (
               <div key={item.id} style={{
-                marginBottom: 10, paddingBottom: 10,
+                marginBottom: 12, paddingBottom: 12,
                 borderBottom: i < op.items.length - 1 ? '1px solid #e8e8e8' : 'none',
               }}>
-                {/* Título del ítem */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
+                {/* Número + nombre */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
-                    {i + 1}. {titulo}
+                    {i + 1}. {nombre}
                   </span>
                   {item.cantidad > 1 && (
-                    <span style={{ fontSize: 11, color: '#888' }}>x {item.cantidad}</span>
+                    <span style={{ fontSize: 11, color: '#777', fontWeight: 600 }}>
+                      × {item.cantidad} unidades
+                    </span>
                   )}
                 </div>
 
-                {/* Especificaciones técnicas */}
-                <div style={{ paddingLeft: 16, lineHeight: 1.65 }}>
-                  {item.sistema_nombre && (
-                    <div style={{ fontSize: 11, color: '#444' }}>Sistema: {item.sistema_nombre}</div>
-                  )}
-                  {(item.medida_ancho || item.medida_alto) && (
-                    <div style={{ fontSize: 11, color: '#444' }}>
-                      Medida: {item.medida_ancho ?? '—'} x {item.medida_alto ?? '—'} m
-                    </div>
-                  )}
-                  {item.vidrio && (
-                    <div style={{ fontSize: 11, color: '#444' }}>Vidrio: {item.vidrio}</div>
-                  )}
-                  {item.color && (
-                    <div style={{ fontSize: 11, color: '#444' }}>Color: {item.color}</div>
-                  )}
-                  {item.accesorios && item.accesorios.length > 0 && (
-                    <div style={{ fontSize: 11, color: '#444' }}>
-                      Incluye: {item.accesorios.join(', ')}
-                    </div>
-                  )}
-                  {item.notas && (
-                    <div style={{ fontSize: 10, color: '#888', fontStyle: 'italic' }}>{item.notas}</div>
-                  )}
-
-                  {/* Precio */}
-                  <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
-                      {fmt(precioTotal)}
-                    </span>
-                    {item.cantidad > 1 && (
-                      <span style={{ fontSize: 10, color: '#888' }}>({fmt(precioUnitFinal)} c/u)</span>
-                    )}
-                    {item.incluye_instalacion && (
-                      <span style={{ fontSize: 11, color: '#2d6a2d', fontWeight: 600 }}>
-                        Incluye provision e instalacion
-                      </span>
-                    )}
+                {/* Especificaciones en grid de 2 columnas */}
+                {specs.length > 0 && (
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '3px 16px', paddingLeft: 16, marginBottom: 5,
+                  }}>
+                    {specs.map(([lbl, val]) => (
+                      <div key={lbl} style={{ fontSize: 11 }}>
+                        <span style={{ color: '#888', fontWeight: 600 }}>{lbl}: </span>
+                        <span style={{ color: '#333' }}>{val}</span>
+                      </div>
+                    ))}
                   </div>
+                )}
+
+                {/* Accesorios */}
+                {item.accesorios && item.accesorios.length > 0 && (
+                  <div style={{ paddingLeft: 16, fontSize: 11, color: '#444', marginBottom: 4 }}>
+                    <span style={{ color: '#888', fontWeight: 600 }}>Incluye: </span>
+                    {item.accesorios.join(' · ')}
+                  </div>
+                )}
+
+                {item.notas && (
+                  <div style={{ paddingLeft: 16, fontSize: 10, color: '#888', fontStyle: 'italic', marginBottom: 4 }}>
+                    {item.notas}
+                  </div>
+                )}
+
+                {/* Precio */}
+                <div style={{ paddingLeft: 16, marginTop: 4, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>
+                    {fmt(precioItemTotal)}
+                  </span>
+                  {item.cantidad > 1 && (
+                    <span style={{ fontSize: 10, color: '#888' }}>({fmt(precioUnitFinal)} c/u)</span>
+                  )}
+                  {item.incluye_instalacion && (
+                    <span style={{ fontSize: 11, color: '#2d6a2d', fontWeight: 600 }}>
+                      ✓ Incluye provision e instalación
+                    </span>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Total — mismo estilo que recibo (borde en lugar de fondo oscuro) */}
+        {/* Total */}
         <div style={{
           border: `2px solid ${NAVY}`, borderRadius: 10, padding: '14px 20px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 20,
         }}>
-          <div>
-            <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Total general
-            </div>
-            <div style={{ color: NAVY, fontSize: 28, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>
-              {fmt(total)}
-            </div>
-          </div>
-          {op.forma_pago && (
-            <div style={{ textAlign: 'right' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
               <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Forma de pago
+                Total general
               </div>
-              <div style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                {op.forma_pago}
+              {costoEnvio > 0 && (
+                <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                  Productos: {fmt(subtotal)} · Envío: {fmt(costoEnvio)}
+                </div>
+              )}
+              <div style={{ color: NAVY, fontSize: 28, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>
+                {fmt(total)}
               </div>
-              <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>
-                Beneficio por pago contado efectivo
-              </div>
+              {esCuotas && (
+                <div style={{
+                  marginTop: 6, display: 'inline-block',
+                  background: '#ede9fe', color: '#5b21b6',
+                  fontSize: 12, fontWeight: 700,
+                  padding: '3px 10px', borderRadius: 6,
+                }}>
+                  3 cuotas de {fmt(total / 3)}
+                </div>
+              )}
             </div>
-          )}
+            {op.forma_pago && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Forma de pago
+                </div>
+                <div style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                  {op.forma_pago}
+                </div>
+                {!esCuotas && (
+                  <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>
+                    Beneficio por pago contado efectivo
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Observaciones */}

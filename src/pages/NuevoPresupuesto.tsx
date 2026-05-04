@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search, Package, X } from 'lucide-react';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search, Package, X, LayoutGrid, Truck, MapPin, Gift, Building2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { EstadoOperacion, Cliente, TipoAbertura, Sistema, Proveedor } from '@/types';
+import type { Cliente, TipoAbertura, Sistema } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 
@@ -14,19 +14,22 @@ const TIPOS_PROYECTO = [
   'Vivienda', 'Frente comercial', 'Quincho', 'Baño', 'Habitación', 'Obra completa',
 ];
 
-const ESTADOS: { value: EstadoOperacion; label: string; color: string }[] = [
-  { value: 'consulta',      label: 'Consulta',      color: 'bg-gray-100 text-gray-600' },
-  { value: 'presupuesto',   label: 'Presupuestado', color: 'bg-blue-100 text-blue-700' },
-  { value: 'enviado',       label: 'Enviado',       color: 'bg-sky-100 text-sky-700' },
-  { value: 'aprobado',      label: 'Aprobado',      color: 'bg-green-100 text-green-700' },
-  { value: 'cancelado',     label: 'Rechazado',     color: 'bg-red-100 text-red-600' },
-  { value: 'en_produccion', label: 'En proceso',    color: 'bg-amber-100 text-amber-700' },
-  { value: 'entregado',     label: 'Terminado',     color: 'bg-emerald-100 text-emerald-700' },
-];
-
 const VIDRIO_OPTS    = ['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'];
 const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
-const FORMA_PAGO     = ['Contado', 'Tarjeta de crédito', 'Débito', 'Cheque', 'Transferencia'];
+const FORMA_PAGO = [
+  'Precio de lista',
+  'Contado',
+  'Tarjeta de débito/crédito en 1 pago',
+  'Transferencia',
+  'Tarjeta de crédito 3 cuotas sin interés',
+];
+
+const FORMAS_ENVIO = [
+  { value: 'retiro_local',    label: 'Retiro en local',               icon: MapPin,     color: 'text-gray-600' },
+  { value: 'envio_bonificado',label: 'Envío bonificado',              icon: Gift,       color: 'text-emerald-600' },
+  { value: 'envio_destino',   label: 'Envío a destino (paga cliente)',icon: Truck,      color: 'text-sky-600' },
+  { value: 'envio_empresa',   label: 'Envío a cargo de la empresa',   icon: Building2,  color: 'text-violet-600' },
+] as const;
 const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
 
 const LABEL_USO: Record<string, string> = {
@@ -65,6 +68,131 @@ interface CatalogProduct {
   alto: number | null;
   atributos: Record<string, unknown>;
   stock_actual: number;
+  imagen_url: string | null;
+  imagenes: string[];
+  caracteristica_1: string | null;
+  caracteristica_2: string | null;
+}
+
+// ── Tipo para carga de edición ────────────────────────────────────────────────
+
+interface FullOperacion {
+  id: string; numero: string; estado: string; cliente_id: string; tipo: string;
+  tipo_proyecto: string | null; forma_pago: string | null;
+  tiempo_entrega: number | null; fecha_validez: string | null;
+  notas: string | null; notas_internas: string | null;
+  forma_envio: string | null; costo_envio: number;
+  items: Array<{
+    tipo_abertura_id: string | null; sistema_id: string | null;
+    descripcion: string; medida_ancho: number | null; medida_alto: number | null;
+    cantidad: number; costo_unitario: number; precio_unitario: number;
+    incluye_instalacion: boolean; costo_instalacion: number; precio_instalacion: number;
+    vidrio: string | null; premarco: boolean; origen: string | null;
+    color: string | null; accesorios: string[]; producto_id: string | null;
+    tipo_abertura_nombre: string | null; sistema_nombre: string | null;
+  }>;
+}
+
+// ── Galería de productos ──────────────────────────────────────────────────────
+
+function GaleriaModal({
+  onSelect, onClose,
+}: {
+  onSelect: (p: CatalogProduct) => void;
+  onClose: () => void;
+}) {
+  const [productos, setProductos] = useState<CatalogProduct[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get<CatalogProduct[]>('/catalogo/productos')
+      .then(r => { setProductos(r); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const filtrados = productos.filter(p => {
+    const q = search.toLowerCase();
+    return !q
+      || p.nombre.toLowerCase().includes(q)
+      || (p.codigo ?? '').toLowerCase().includes(q)
+      || (p.tipo_abertura?.nombre ?? '').toLowerCase().includes(q)
+      || (p.sistema?.nombre ?? '').toLowerCase().includes(q)
+      || (p.caracteristica_1 ?? '').toLowerCase().includes(q)
+      || (p.caracteristica_2 ?? '').toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-12 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <LayoutGrid size={16} className="text-violet-600" />
+            <h2 className="text-sm font-bold text-gray-900">Galería de productos</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
+            <X size={16} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Buscador */}
+        <div className="px-5 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
+            <Search size={14} className="text-gray-300 shrink-0" />
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Filtrar por nombre, código, tipo..."
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
+            />
+            {search && <button onMouseDown={() => setSearch('')} className="text-gray-300 hover:text-gray-500"><X size={13} /></button>}
+          </div>
+        </div>
+
+        {/* Grid */}
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Cargando...</div>
+          ) : filtrados.length === 0 ? (
+            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Sin resultados</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {filtrados.map(p => {
+                const img = p.imagenes?.[0] || p.imagen_url;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { onSelect(p); onClose(); }}
+                    className="text-left rounded-xl border border-gray-200 hover:border-violet-400 hover:shadow-md transition-all overflow-hidden group"
+                  >
+                    <div className="aspect-square bg-gray-50 overflow-hidden">
+                      {img
+                        ? <img src={img} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        : <div className="w-full h-full flex items-center justify-center"><Package size={28} className="text-gray-200" /></div>
+                      }
+                    </div>
+                    <div className="p-2.5">
+                      {p.codigo && (
+                        <span className="font-mono text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded mb-1 inline-block">{p.codigo}</span>
+                      )}
+                      <p className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">{p.nombre}</p>
+                      {p.tipo_abertura && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">{p.tipo_abertura.nombre}{p.sistema ? ` · ${p.sistema.nombre}` : ''}</p>
+                      )}
+                      <p className="text-xs font-bold text-violet-700 mt-1">{formatCurrency(Number(p.precio_base))}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Ítem vacío ────────────────────────────────────────────────────────────────
@@ -392,26 +520,6 @@ function ItemCard({
                 </div>
               </div>
 
-              {/* Accesorios extra (además de los del producto) */}
-              <div>
-                <label className={label}>Accesorios adicionales</label>
-                <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1">
-                  {ACCESORIO_OPTS.map(a => (
-                    <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <input type="checkbox"
-                        checked={item.accesorios.includes(a)}
-                        onChange={e => up('accesorios',
-                          e.target.checked
-                            ? [...item.accesorios, a]
-                            : item.accesorios.filter(x => x !== a)
-                        )}
-                        className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
-                      />
-                      <span className="text-xs text-gray-600">{a}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
             </>
           ) : (
             /* ── ÍTEM MANUAL: todos los campos editables ── */
@@ -556,8 +664,13 @@ function ItemCard({
 export function NuevoPresupuesto() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { id: editId } = useParams<{ id?: string }>();
+  const isEdit = !!editId;
+  const editLoadedRef = useRef(false);
+
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [editEstado, setEditEstado] = useState('');
 
   const [clientes, setClientes]         = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -568,9 +681,8 @@ export function NuevoPresupuesto() {
   const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSearch, setClienteSearch] = useState('');
   const [showClienteList, setShowClienteList] = useState(false);
-  const [estado, setEstado]               = useState<EstadoOperacion>('presupuesto');
   const [tipoProyecto, setTipoProyecto]   = useState('');
-  const [formaPago, setFormaPago]         = useState('');
+  const [formaPago, setFormaPago]         = useState('Precio de lista');
   const [tiempoEntrega, setTiempoEntrega] = useState('');
   const [fechaValidez, setFechaValidez]   = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
@@ -579,6 +691,13 @@ export function NuevoPresupuesto() {
   const [validezDias, setValidezDias]     = useState<number | 'custom'>(7);
   const [notas, setNotas]                 = useState('');
   const [notasInternas, setNotasInternas] = useState('');
+
+  // Envío
+  const [formaEnvio, setFormaEnvio] = useState('retiro_local');
+  const [costoEnvio, setCostoEnvio] = useState(0);
+
+  // Galería
+  const [showGaleria, setShowGaleria] = useState(false);
 
   // Ítems
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -604,6 +723,54 @@ export function NuevoPresupuesto() {
     });
   }, []);
 
+  // Cargar datos si estamos en modo edición
+  useEffect(() => {
+    if (!isEdit || !editId || editLoadedRef.current) return;
+    editLoadedRef.current = true;
+    api.get<FullOperacion>(`/operaciones/${editId}`).then(op => {
+      if (op.estado === 'aprobado') {
+        toast.error('Presupuesto aprobado: no puede editarse');
+        navigate('/presupuestos');
+        return;
+      }
+      setEditEstado(op.estado);
+      setClienteId(op.cliente_id);
+      setTipoProyecto(op.tipo_proyecto ?? '');
+      setFormaPago(op.forma_pago ?? 'Precio de lista');
+      setTiempoEntrega(op.tiempo_entrega ? String(op.tiempo_entrega) : '');
+      setFechaValidez(op.fecha_validez ? op.fecha_validez.split('T')[0] : '');
+      setValidezDias('custom');
+      setNotas(op.notas ?? '');
+      setNotasInternas(op.notas_internas ?? '');
+      setFormaEnvio(op.forma_envio ?? 'retiro_local');
+      setCostoEnvio(Number(op.costo_envio) || 0);
+      setItems(op.items.map(it => ({
+        _key: uuid(),
+        producto_id:         it.producto_id ?? '',
+        tipo_item:           (it.medida_ancho || it.medida_alto) ? 'a_medida' : 'estandar',
+        tipo_abertura_id:    it.tipo_abertura_id ?? '',
+        sistema_id:          it.sistema_id ?? '',
+        descripcion:         it.descripcion,
+        medida_ancho:        it.medida_ancho ? String(it.medida_ancho) : '',
+        medida_alto:         it.medida_alto  ? String(it.medida_alto)  : '',
+        cantidad:            it.cantidad,
+        costo_unitario:      Number(it.costo_unitario),
+        precio_unitario:     Number(it.precio_unitario),
+        incluye_instalacion: it.incluye_instalacion,
+        costo_instalacion:   Number(it.costo_instalacion),
+        precio_instalacion:  Number(it.precio_instalacion),
+        vidrio:              it.vidrio ?? '',
+        premarco:            it.premarco ?? false,
+        origen:              (it.origen as 'proveedor' | 'fabricacion') ?? 'proveedor',
+        color:               it.color ?? '',
+        accesorios:          it.accesorios ?? [],
+        _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
+        _prod_tipo_nombre:    it.tipo_abertura_nombre ?? '',
+        _prod_sistema_nombre: it.sistema_nombre ?? '',
+      })));
+    }).catch(() => { toast.error('No se pudo cargar el presupuesto'); navigate('/presupuestos'); });
+  }, [isEdit, editId, navigate]);
+
   const clientesFiltrados = clientes.filter(c =>
     `${c.nombre ?? ''} ${c.apellido ?? ''} ${c.razon_social ?? ''} ${c.telefono ?? ''}`.toLowerCase()
       .includes(clienteSearch.toLowerCase())
@@ -614,7 +781,8 @@ export function NuevoPresupuesto() {
     setItems(prev => prev.map(it => it._key === key ? { ...it, [field]: value } : it));
   }
 
-  const precioTotal = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
+  const precioTotal    = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
+  const totalConEnvio  = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
 
   // Derivar tipo de operacion desde items
   function derivarTipo() {
@@ -700,9 +868,9 @@ export function NuevoPresupuesto() {
 
     setSaving(true);
     try {
-      const op = await api.post<{ id: string; numero: string }>('/operaciones', {
+      const payload = {
         tipo:           derivarTipo(),
-        estado,
+        estado:         'presupuesto',
         cliente_id:     clienteId,
         tipo_proyecto:  tipoProyecto || null,
         forma_pago:     formaPago || null,
@@ -710,6 +878,8 @@ export function NuevoPresupuesto() {
         notas:          notas || null,
         notas_internas: notasInternas || null,
         fecha_validez:  fechaValidez || null,
+        forma_envio:    formaEnvio,
+        costo_envio:    costoEnvio,
         items: items.map((it, idx) => ({
           tipo_abertura_id:   it.tipo_abertura_id || null,
           sistema_id:         it.sistema_id || null,
@@ -728,9 +898,13 @@ export function NuevoPresupuesto() {
           color:              it.color || null,
           accesorios:         it.accesorios,
           orden:              idx,
+          producto_id:        it.producto_id || null,
         })),
-      });
-      toast.success(`Presupuesto ${op.numero} creado`);
+      };
+      const op = isEdit
+        ? await api.put<{ id: string; numero: string }>(`/operaciones/${editId}`, payload)
+        : await api.post<{ id: string; numero: string }>('/operaciones', payload);
+      toast.success(isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`);
       setSavedId(op.id);
     } catch (e) {
       toast.error((e as Error).message || 'Error al guardar');
@@ -753,7 +927,9 @@ export function NuevoPresupuesto() {
         <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
           <FileText size={16} className="text-violet-600" />
         </div>
-        <h1 className="text-base font-bold text-gray-900">Nuevo presupuesto</h1>
+        <h1 className="text-base font-bold text-gray-900">
+          {isEdit ? 'Editar presupuesto' : 'Nuevo presupuesto'}
+        </h1>
       </div>
 
       {/* Sección: Cliente + Proyecto */}
@@ -818,15 +994,8 @@ export function NuevoPresupuesto() {
             </select>
           </div>
           <div>
-            <label className={labelCls}>Estado</label>
-            <select value={estado} onChange={e => setEstado(e.target.value as EstadoOperacion)} className={inputCls}>
-              {ESTADOS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-            </select>
-          </div>
-          <div>
             <label className={labelCls}>Forma de pago</label>
             <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
-              <option value="">—</option>
               {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>
@@ -885,10 +1054,16 @@ export function NuevoPresupuesto() {
               Ítems del presupuesto
               <span className="ml-2 text-gray-400 font-normal normal-case">{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span>
             </h2>
-            <button onClick={() => setItems(prev => [...prev, emptyItem()])}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium">
-              <Plus size={13} /> Ítem manual
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowGaleria(true)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white hover:bg-violet-50 text-violet-600 border border-violet-200 hover:border-violet-400 rounded-lg font-medium transition-colors">
+                <LayoutGrid size={13} /> Galería de productos
+              </button>
+              <button onClick={() => setItems(prev => [...prev, emptyItem()])}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium">
+                <Plus size={13} /> Ítem manual
+              </button>
+            </div>
           </div>
 
           {/* Buscador por código / lector */}
@@ -978,13 +1153,64 @@ export function NuevoPresupuesto() {
           )}
         </div>
 
+        {/* Formas de envío */}
+        <div className="border-t border-gray-100 px-4 py-4 space-y-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Truck size={12} /> Forma de envío
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {FORMAS_ENVIO.map(({ value, label, icon: Icon, color }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFormaEnvio(value)}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-xs font-medium transition-all',
+                  formaEnvio === value
+                    ? 'border-violet-400 bg-violet-50 text-violet-700 shadow-sm'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
+                )}
+              >
+                <Icon size={13} className={formaEnvio === value ? 'text-violet-500' : color} />
+                <span className="leading-tight">{label}</span>
+              </button>
+            ))}
+          </div>
+          {formaEnvio === 'envio_empresa' && (
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-gray-500 shrink-0">Importe del envío:</label>
+              <div className="w-48">
+                <MontoInput
+                  value={costoEnvio ? String(costoEnvio) : ''}
+                  onChange={v => setCostoEnvio(parseFloat(v) || 0)}
+                  placeholder="0,00"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Total */}
         {precioTotal > 0 && (
-          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 flex justify-end">
-            <div className="flex items-center gap-4 text-sm">
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <div className="flex items-center justify-end gap-4 text-sm">
+              {formaEnvio === 'envio_empresa' && costoEnvio > 0 && (
+                <div className="text-right text-xs text-gray-400">
+                  <div>Subtotal: {formatCurrency(precioTotal)}</div>
+                  <div>Envío: +{formatCurrency(costoEnvio)}</div>
+                </div>
+              )}
               <span className="text-gray-500">Total presupuesto:</span>
-              <span className="text-xl font-bold text-gray-900">{formatCurrency(precioTotal)}</span>
+              <span className="text-xl font-bold text-gray-900">{formatCurrency(totalConEnvio)}</span>
             </div>
+            {formaPago === 'Tarjeta de crédito 3 cuotas sin interés' && (
+              <div className="flex justify-end mt-1.5">
+                <span className="text-xs text-violet-600 font-semibold bg-violet-50 px-3 py-1 rounded-lg border border-violet-100">
+                  a pagar en 3 cuotas de {formatCurrency(totalConEnvio / 3)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1014,18 +1240,25 @@ export function NuevoPresupuesto() {
         <button onClick={handleSave} disabled={saving}
           className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm">
           <Save size={15} />
-          {saving ? 'Guardando...' : 'Guardar presupuesto'}
+          {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Guardar presupuesto'}
         </button>
       </div>
 
       {savedId && (
         <PDFDialog
-          title="Presupuesto creado"
+          title={isEdit ? 'Presupuesto actualizado' : 'Presupuesto creado'}
           subtitle="¿Querés generar el PDF ahora?"
           pdfUrl={`/imprimir/presupuesto/${savedId}`}
           onClose={() => { setSavedId(null); navigate(`/operaciones/${savedId}`); }}
           onNavigate={() => navigate(`/operaciones/${savedId}`)}
           navigateLabel="Ver presupuesto"
+        />
+      )}
+
+      {showGaleria && (
+        <GaleriaModal
+          onSelect={p => agregarProducto(p)}
+          onClose={() => setShowGaleria(false)}
         />
       )}
     </div>

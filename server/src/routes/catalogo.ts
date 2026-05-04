@@ -198,7 +198,14 @@ catalogo.get('/productos', async (c) => {
   }
   if (search.trim()) {
     params.push(`%${search}%`);
-    q += ` AND cp.nombre ILIKE $${params.length}`;
+    q += ` AND (cp.nombre ILIKE $${params.length}
+           OR cp.codigo ILIKE $${params.length}
+           OR cp.caracteristica_1 ILIKE $${params.length}
+           OR cp.caracteristica_2 ILIKE $${params.length}
+           OR ta.nombre ILIKE $${params.length}
+           OR s.nombre  ILIKE $${params.length}
+           OR CAST(cp.ancho AS TEXT) ILIKE $${params.length}
+           OR CAST(cp.alto  AS TEXT) ILIKE $${params.length})`;
   }
   q += ` ORDER BY cp.tipo, cp.nombre`;
 

@@ -33,6 +33,8 @@ interface ReciboData {
     producto_nombre: string | null;
   }[];
   created_by_nombre: string | null;
+  cobrado_operacion: number;
+  compromiso: { monto: number; fecha_vencimiento: string; tipo: string } | null;
 }
 
 const PAGO_LABEL: Record<string, string> = {
@@ -227,12 +229,39 @@ export function ImprimirRecibo() {
           </table>
         )}
 
-        {/* Operacion vinculada info */}
+        {/* Operacion vinculada + saldo */}
         {recibo.operacion && (
-          <div style={{ display: 'flex', gap: 32, marginBottom: 16, paddingTop: 8, borderTop: '1px solid #eee' }}>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>Total de la operación</div>
-              <div style={{ fontSize: 13, color: '#333' }}>{fmt(Number(recibo.operacion.precio_total))}</div>
+          <div style={{ paddingTop: 10, borderTop: '1px solid #eee', marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
+                  Total de la operación
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
+                  {fmt(Number(recibo.operacion.precio_total))}
+                </div>
+              </div>
+              {(() => {
+                const saldo = Math.max(0, Number(recibo.operacion.precio_total) - Number(recibo.cobrado_operacion ?? 0));
+                if (saldo < 0.01) return null;
+                return (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
+                      Saldo pendiente
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: RED }}>
+                      {fmt(saldo)}
+                      {recibo.compromiso?.fecha_vencimiento && (
+                        <span style={{ fontWeight: 400, fontSize: 11, color: '#555', marginLeft: 8 }}>
+                          a cancelar el{' '}
+                          {new Date(recibo.compromiso.fecha_vencimiento + 'T12:00:00')
+                            .toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -247,16 +276,18 @@ export function ImprimirRecibo() {
         )}
 
         {/* Firma */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginTop: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56, marginTop: 52 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
+            <div style={{ height: 52 }} />
+            <div style={{ borderTop: '1px solid #999', paddingTop: 10, fontSize: 11, color: '#555' }}>
               Firma — {empresa?.nombre ?? 'Empresa'}
               {recibo.created_by_nombre ? ` (${recibo.created_by_nombre})` : ''}
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
-              Aclaración — Cliente
+            <div style={{ height: 52 }} />
+            <div style={{ borderTop: '1px solid #999', paddingTop: 10, fontSize: 11, color: '#555' }}>
+              Firma y aclaración — Cliente
             </div>
           </div>
         </div>

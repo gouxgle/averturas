@@ -121,6 +121,7 @@ export interface OperacionItem {
   id: string;
   operacion_id: string;
   orden: number;
+  producto_id: string | null;
   tipo_abertura_id: string | null;
   tipo_abertura?: TipoAbertura;
   sistema_id: string | null;
@@ -160,6 +161,8 @@ export interface Operacion {
   costo_total: number;
   precio_total: number;
   margen: number;
+  forma_envio: string | null;
+  costo_envio: number;
   incluye_instalacion: boolean;
   tipo_proyecto: string | null;
   forma_pago: string | null;

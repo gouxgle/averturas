@@ -60,6 +60,7 @@ export default function App() {
                 <Route path="/clientes/:id" element={<ClienteDetalle />} />
                 <Route path="/presupuestos" element={<Presupuestos />} />
                 <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />
+                <Route path="/presupuestos/:id/editar" element={<NuevoPresupuesto />} />
                 <Route path="/productos" element={<Productos />} />
                 <Route path="/productos/nuevo" element={<NuevoProducto />} />
                 <Route path="/productos/:id" element={<NuevoProducto />} />

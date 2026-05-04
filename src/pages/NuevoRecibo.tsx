@@ -2,13 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Receipt, Users, Calendar, CreditCard,
-  Plus, Trash2, AlertTriangle, RefreshCw, Check, X, Package
+  RefreshCw, Check, X, Package, Gift,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
+
+// ── Formas de pago (igual que en presupuesto) ─────────────────
+const FORMAS_PAGO = [
+  'Contado',
+  'Tarjeta de débito/crédito en 1 pago',
+  'Transferencia',
+  'Tarjeta de crédito 3 cuotas sin interés',
+];
 
 // ── Conceptos predefinidos ────────────────────────────────────
 const CONCEPTOS_PREDEFINIDOS = [
@@ -20,8 +28,6 @@ const CONCEPTOS_PREDEFINIDOS = [
   'Pago de materiales',
   'Mano de obra',
   'Medición y presupuesto',
-  'Entrega de mercadería',
-  'Flete / Traslado',
   'Garantía / Servicio técnico',
 ];
 
@@ -38,55 +44,49 @@ interface Cliente {
 interface Operacion {
   id: string;
   numero: string;
-  tipo: string;
   estado: string;
   precio_total: number;
+  forma_pago: string | null;
   cliente: { nombre: string | null; apellido: string | null };
 }
 
-interface Remito {
+interface PresupuestoDetalle {
   id: string;
   numero: string;
-  estado: string;
+  forma_pago: string | null;
+  forma_envio: string | null;
+  costo_envio: number;
+  precio_total: number;
+  items: Array<{
+    precio_unitario: number;
+    precio_instalacion: number;
+    incluye_instalacion: boolean;
+    cantidad: number;
+  }>;
 }
 
-interface ReciboItem {
-  descripcion: string;
-  producto_id: string;
-  monto: string;
-}
-
-interface Producto {
-  id: string;
-  nombre: string;
-  codigo: string | null;
-}
-
-// ── Constantes ────────────────────────────────────────────────
-const FORMAS_PAGO = [
-  { v: 'efectivo',        l: 'Efectivo' },
-  { v: 'transferencia',   l: 'Transferencia' },
-  { v: 'cheque',          l: 'Cheque' },
-  { v: 'tarjeta_debito',  l: 'Tarjeta débito' },
-  { v: 'tarjeta_credito', l: 'Tarjeta crédito' },
-  { v: 'mercadopago',     l: 'MercadoPago' },
-  { v: 'otro',            l: 'Otro' },
-];
-
-const ESTADOS_OP_ACTIVOS = ['consulta', 'presupuesto', 'enviado', 'aprobado', 'en_produccion', 'listo', 'instalado', 'entregado'];
-
+// ── Helpers ───────────────────────────────────────────────────
 function nombreCliente(c: Cliente) {
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
   return [c.apellido, c.nombre].filter(Boolean).join(', ') || '—';
 }
 
-// ── Componentes auxiliares ────────────────────────────────────
-function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
+function SectionCard({
+  title, icon: Icon, children, accent,
+}: {
+  title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
+}) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-gray-50 border-gray-100 rounded-t-xl">
-        <Icon size={13} className="text-gray-400" />
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{title}</span>
+      <div className={cn(
+        'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
+        accent ?? 'bg-gray-50 border-gray-100',
+      )}>
+        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-400'} />
+        <span className={cn(
+          'text-[11px] font-semibold uppercase tracking-wider',
+          accent ? '' : 'text-gray-500',
+        )}>{title}</span>
       </div>
       <div className="p-4">{children}</div>
     </div>
@@ -98,72 +98,67 @@ export function NuevoRecibo() {
   const navigate = useNavigate();
   const { id }   = useParams<{ id: string }>();
   const isEdit   = Boolean(id);
-  const [searchParams]   = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  // Form state
-  const [clienteId,       setClienteId]       = useState(searchParams.get('cliente_id') ?? '');
-  const [clienteSel,      setClienteSel]       = useState<Cliente | null>(null);
-  const [operacionId,     setOperacionId]      = useState(searchParams.get('operacion_id') ?? '');
-  const [remitoId,        setRemitoId]         = useState('');
-  const [fecha,           setFecha]            = useState(new Date().toISOString().split('T')[0]);
-  const [formaPago,       setFormaPago]        = useState('efectivo');
-  const [referencia,      setReferencia]       = useState('');
-  const [concepto,        setConcepto]         = useState('');
-  const [notas,           setNotas]            = useState('');
-  const [items,           setItems]            = useState<ReciboItem[]>([{ descripcion: 'Pago', producto_id: '', monto: '' }]);
-  const [montoManual,     setMontoManual]      = useState('');
-  const [useManual,       setUseManual]        = useState(false);
+  // ── Form state ────────────────────────────────────────────
+  const [clienteId,   setClienteId]   = useState(searchParams.get('cliente_id') ?? '');
+  const [clienteSel,  setClienteSel]  = useState<Cliente | null>(null);
+  const [operacionId, setOperacionId] = useState(searchParams.get('operacion_id') ?? '');
+  const [fecha,       setFecha]       = useState(new Date().toISOString().split('T')[0]);
+  const [formaPago,   setFormaPago]   = useState('Contado');
+  const [referencia,  setReferencia]  = useState('');
+  const [concepto,    setConcepto]    = useState('');
+  const [notas,       setNotas]       = useState('');
 
-  // Data
-  const [clientes,        setClientes]         = useState<Cliente[]>([]);
-  const [operaciones,     setOperaciones]      = useState<Operacion[]>([]);
-  const [remitos,         setRemitos]          = useState<Remito[]>([]);
-  const [productos,       setProductos]        = useState<Producto[]>([]);
-  const [cobradoOp,       setCobradoOp]        = useState(0);
-  const [operacionSel,    setOperacionSel]     = useState<Operacion | null>(null);
+  // "Pago total" toma saldo automático; "parcial" pide monto manual
+  const [tipoPago,     setTipoPago]     = useState<'total' | 'parcial'>('total');
+  const [montoParcial, setMontoParcial] = useState('');
 
-  // UI state
-  const [saving,          setSaving]           = useState(false);
-  const [savedId,         setSavedId]          = useState<string | null>(null);
-  const [searchCliente,   setSearchCliente]    = useState('');
-  const [showClientes,    setShowClientes]     = useState(false);
+  // ── Bonificación ──────────────────────────────────────────
+  const [bonPct,    setBonPct]    = useState(0);      // preset: 0.05, 0.10…
+  const [bonCustom, setBonCustom] = useState('');     // texto "%"
+
+  // ── Compromiso de saldo ───────────────────────────────────
+  const [crearCompromiso, setCrearCompromiso] = useState(true);
+  const [compromisoFecha, setCompromisoFecha] = useState('');
+  const [compromisoTipo,  setCompromisoTipo]  = useState('cuota');
+
+  // ── Data ──────────────────────────────────────────────────
+  const [clientes,           setClientes]           = useState<Cliente[]>([]);
+  const [operaciones,        setOperaciones]        = useState<Operacion[]>([]);
+  const [cobradoOp,          setCobradoOp]          = useState(0);
+  const [operacionSel,       setOperacionSel]       = useState<Operacion | null>(null);
+  const [presupuestoDetalle, setPresupuestoDetalle] = useState<PresupuestoDetalle | null>(null);
+
+  // ── UI ────────────────────────────────────────────────────
+  const [saving,        setSaving]        = useState(false);
+  const [savedId,       setSavedId]       = useState<string | null>(null);
+  const [searchCliente, setSearchCliente] = useState('');
+  const [showClientes,  setShowClientes]  = useState(false);
   const clienteRef = useRef<HTMLInputElement>(null);
 
-  // ── Carga inicial ─────────────────────────────────────────
+  // ── Carga inicial / edit ──────────────────────────────────
   useEffect(() => {
-    api.get<Producto[]>('/catalogo/productos').then(setProductos).catch(() => {});
-
-    // Pre-fill cliente desde URL param (cuando viene desde OperacionDetalle)
     const urlClienteId = searchParams.get('cliente_id');
     if (!isEdit && urlClienteId) {
-      api.get<Cliente>(`/clientes/${urlClienteId}`).then(c => setClienteSel(c)).catch(() => {});
+      api.get<Cliente>(`/clientes/${urlClienteId}`).then(setClienteSel).catch(() => {});
     }
-
     if (isEdit && id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       api.get<any>(`/recibos/${id}`).then(data => {
         setClienteId(data.cliente_id);
         setClienteSel(data.cliente);
         setOperacionId(data.operacion_id ?? '');
-        setRemitoId(data.remito_id ?? '');
         setFecha(data.fecha);
         setFormaPago(data.forma_pago);
         setReferencia(data.referencia_pago ?? '');
         setConcepto(data.concepto ?? '');
         setNotas(data.notas ?? '');
-        if (data.items?.length) {
-          setItems(data.items.map((it: { descripcion: string; producto_id: string | null; monto: number }) => ({
-            descripcion: it.descripcion,
-            producto_id: it.producto_id ?? '',
-            monto: String(it.monto),
-          })));
-        } else {
-          setUseManual(true);
-          setMontoManual(String(data.monto_total));
-        }
+        setTipoPago('parcial');
+        setMontoParcial(String(data.monto_total));
       });
     }
-  }, [id, isEdit]);
+  }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Búsqueda de clientes ──────────────────────────────────
   useEffect(() => {
@@ -175,100 +170,174 @@ export function NuevoRecibo() {
     return () => clearTimeout(t);
   }, [searchCliente]);
 
-  // ── Al cambiar cliente → cargar sus operaciones ───────────
+  // ── Al cambiar cliente → presupuestos aprobados ───────────
   useEffect(() => {
-    if (!clienteId) { setOperaciones([]); setOperacionId(''); setOperacionSel(null); return; }
-    api.get<Operacion[]>(`/operaciones?cliente_id=${clienteId}`)
-      .then(data => setOperaciones(data.filter(o => ESTADOS_OP_ACTIVOS.includes(o.estado))))
+    if (!clienteId) {
+      setOperaciones([]); setOperacionId(''); setOperacionSel(null);
+      setPresupuestoDetalle(null);
+      return;
+    }
+    api.get<Operacion[]>(`/operaciones?cliente_id=${clienteId}&estado=aprobado`)
+      .then(setOperaciones)
       .catch(() => setOperaciones([]));
   }, [clienteId]);
 
-  // ── Al cambiar operación → cargar remitos + cobrado ───────
+  // ── Al cambiar operación → detalle + cobrado ──────────────
   useEffect(() => {
     if (!operacionId) {
-      setRemitos([]); setRemitoId(''); setOperacionSel(null); setCobradoOp(0);
+      setOperacionSel(null); setCobradoOp(0); setPresupuestoDetalle(null);
+      resetBonificacion();
       return;
     }
     const op = operaciones.find(o => o.id === operacionId) ?? null;
     setOperacionSel(op);
+    resetBonificacion();
 
-    // Remitos de esta operación
-    api.get<Remito[]>(`/remitos?operacion_id=${operacionId}`)
-      .then(data => setRemitos(data.filter(r => r.estado !== 'cancelado')))
-      .catch(() => setRemitos([]));
+    api.get<PresupuestoDetalle>(`/operaciones/${operacionId}`)
+      .then(setPresupuestoDetalle)
+      .catch(() => setPresupuestoDetalle(null));
 
-    // Total ya cobrado para esta operación
     api.get<{ monto_total: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)
       .then(data => {
-        const total = data
-          .filter(r => r.estado === 'emitido' && (!isEdit || true))
+        const total = data.filter(r => r.estado === 'emitido')
           .reduce((s, r) => s + Number(r.monto_total), 0);
-        setCobradoOp(isEdit ? total : total); // se ajusta si es edición
+        setCobradoOp(total);
       })
       .catch(() => setCobradoOp(0));
-  }, [operacionId, operaciones, isEdit]);
+  }, [operacionId, operaciones]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Sugerir monto cuando se selecciona operación ─────────
+  // ── Al cambiar formaPago → limpiar bonificación si no es Contado ──
   useEffect(() => {
-    if (operacionSel && !isEdit && !useManual) {
-      const saldo = Number(operacionSel.precio_total) - cobradoOp;
-      if (saldo > 0 && items.length === 1 && !items[0].monto) {
-        setItems([{ descripcion: `Pago - ${operacionSel.numero}`, producto_id: '', monto: String(Math.max(0, saldo)) }]);
-      }
+    if (formaPago !== 'Contado') resetBonificacion();
+  }, [formaPago]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Reset parcial cuando cambia a pago total ──────────────
+  useEffect(() => {
+    if (tipoPago === 'total') setMontoParcial('');
+  }, [tipoPago]);
+
+  // ── Cálculo del total de presupuesto ──────────────────────
+  const totalPresupuesto = Number(operacionSel?.precio_total ?? 0);
+  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp);
+
+  // ── Breakdown bonificación ────────────────────────────────
+  const aplicaBonificacion = !isEdit && formaPago === 'Contado' && !!presupuestoDetalle;
+
+  const montoProductos = presupuestoDetalle
+    ? presupuestoDetalle.items.reduce(
+        (s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0)
+    : 0;
+  const montoInstalacion = presupuestoDetalle
+    ? presupuestoDetalle.items.reduce(
+        (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0)
+    : 0;
+  const envioExtra = presupuestoDetalle?.forma_envio === 'envio_empresa'
+    ? Number(presupuestoDetalle.costo_envio ?? 0)
+    : 0;
+
+  const pctActual = bonPct > 0 ? bonPct
+    : bonCustom ? parseFloat(bonCustom) / 100 : 0;
+  const descuentoMonto = Math.round(montoProductos * pctActual * 100) / 100;
+  const totalConBonif  = montoProductos - descuentoMonto + montoInstalacion + envioExtra;
+
+  // ── Saldo efectivo (aplica descuento si corresponde) ──────
+  const saldoEfectivo = (aplicaBonificacion && pctActual > 0)
+    ? Math.max(0, totalConBonif - cobradoOp)
+    : saldoOp;
+
+  // ── Monto final del recibo ────────────────────────────────
+  const montoFinal = tipoPago === 'total'
+    ? saldoEfectivo
+    : (parseFloat(montoParcial) || 0);
+
+  const esParcial = tipoPago === 'parcial';
+  const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
+  const esCuotas = formaPago === 'Tarjeta de crédito 3 cuotas sin interés';
+
+  // ── Helpers bonificación ──────────────────────────────────
+  function resetBonificacion() {
+    setBonPct(0);
+    setBonCustom('');
+  }
+
+  function calcTotalConDesc(pct: number): number {
+    if (!presupuestoDetalle) return saldoOp;
+    const prod  = presupuestoDetalle.items.reduce(
+      (s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0);
+    const inst  = presupuestoDetalle.items.reduce(
+      (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0);
+    const envio = presupuestoDetalle.forma_envio === 'envio_empresa'
+      ? Number(presupuestoDetalle.costo_envio ?? 0) : 0;
+    const desc  = Math.round(prod * pct * 100) / 100;
+    return Math.max(0, (prod - desc + inst + envio) - cobradoOp);
+  }
+
+  function aplicarPreset(pct: number) {
+    setBonPct(pct);
+    setBonCustom('');
+    // Si está en parcial, actualizar sugerido
+    if (tipoPago === 'parcial') {
+      setMontoParcial(String(Math.round(calcTotalConDesc(pct) * 100) / 100));
     }
-  }, [operacionSel, cobradoOp]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Cálculo del total ─────────────────────────────────────
-  const totalItems = items.reduce((s, it) => s + (parseFloat(it.monto) || 0), 0);
-  const montoFinal = useManual ? (parseFloat(montoManual) || 0) : totalItems;
-  const saldoOp    = operacionSel ? Number(operacionSel.precio_total) - cobradoOp : null;
-
-  // ── Item helpers ──────────────────────────────────────────
-  function addItem() {
-    setItems(prev => [...prev, { descripcion: '', producto_id: '', monto: '' }]);
   }
-  function removeItem(i: number) {
-    setItems(prev => prev.filter((_, idx) => idx !== i));
-  }
-  function updateItem(i: number, field: keyof ReciboItem, value: string) {
-    setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [field]: value } : it));
+
+  function aplicarCustom(val: string) {
+    setBonCustom(val);
+    setBonPct(0);
+    const pct = parseFloat(val) / 100;
+    if (!isNaN(pct) && pct > 0 && pct <= 0.5 && tipoPago === 'parcial') {
+      setMontoParcial(String(Math.round(calcTotalConDesc(pct) * 100) / 100));
+    }
   }
 
   // ── Guardar ───────────────────────────────────────────────
   async function handleSave() {
-    if (!clienteId)        { toast.error('Seleccioná un cliente'); return; }
-    if (!formaPago)        { toast.error('Seleccioná forma de pago'); return; }
-    if (montoFinal <= 0)   { toast.error('El monto debe ser mayor a 0'); return; }
+    if (!clienteId)                { toast.error('Seleccioná un cliente'); return; }
+    if (!operacionId)              { toast.error('Seleccioná el presupuesto'); return; }
+    if (!formaPago)                { toast.error('Seleccioná forma de pago'); return; }
+    if (montoFinal <= 0)           { toast.error('El monto debe ser mayor a 0'); return; }
+    if (esParcial && crearCompromiso && !compromisoFecha) {
+      toast.error('Ingresá la fecha estimada de cancelación del saldo');
+      return;
+    }
 
-    const payload = {
-      cliente_id:     clienteId,
-      operacion_id:   operacionId  || null,
-      remito_id:      remitoId     || null,
+    const payload: Record<string, unknown> = {
+      cliente_id:      clienteId,
+      operacion_id:    operacionId || null,
+      remito_id:       null,
       fecha,
-      forma_pago:     formaPago,
-      referencia_pago: referencia  || null,
-      concepto:       concepto     || null,
-      notas:          notas        || null,
-      monto_total:    montoFinal,
-      items: useManual ? [] : items.filter(it => it.descripcion && parseFloat(it.monto) > 0).map(it => ({
-        descripcion: it.descripcion,
-        producto_id: it.producto_id || null,
-        monto:       parseFloat(it.monto),
-      })),
+      forma_pago:      formaPago,
+      referencia_pago: referencia || null,
+      concepto:        concepto   || null,
+      notas:           notas      || null,
+      monto_total:     montoFinal,
+      items:           [],
     };
+
+    if (!isEdit && esParcial && crearCompromiso && compromisoFecha) {
+      payload.compromiso = {
+        monto:             Math.round(saldoTrasRecibo * 100) / 100,
+        fecha_vencimiento: compromisoFecha,
+        tipo:              compromisoTipo,
+        descripcion:       `Saldo pendiente — ${operacionSel?.numero ?? ''}${pctActual > 0 ? ` (bonif. ${(pctActual * 100).toFixed(0)}%)` : ''}`,
+      };
+    }
 
     setSaving(true);
     try {
       if (isEdit && id) {
         await api.put(`/recibos/${id}`, payload);
         toast.success('Recibo actualizado');
+        navigate('/recibos');
       } else {
         const rec = await api.post<{ id: string }>('/recibos', payload);
-        toast.success('Recibo creado');
+        toast.success(
+          payload.compromiso
+            ? 'Recibo creado y compromiso registrado'
+            : 'Recibo creado',
+        );
         setSavedId(rec.id);
-        return;
       }
-      navigate('/recibos');
     } catch (e) {
       toast.error((e as Error).message || 'Error al guardar');
     } finally {
@@ -276,14 +345,13 @@ export function NuevoRecibo() {
     }
   }
 
-  // ── Estilos comunes ───────────────────────────────────────
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white';
   const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
 
-      {/* Header */}
+      {/* ── Header ───────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/recibos')} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
           <ArrowLeft size={17} className="text-gray-500" />
@@ -307,7 +375,7 @@ export function NuevoRecibo() {
         </div>
       </div>
 
-      {/* Cliente */}
+      {/* ── 1. Cliente ───────────────────────────────────── */}
       <SectionCard title="Cliente *" icon={Users}>
         {clienteSel ? (
           <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200">
@@ -316,7 +384,12 @@ export function NuevoRecibo() {
               {clienteSel.telefono && <p className="text-xs text-emerald-600">{clienteSel.telefono}</p>}
             </div>
             {!isEdit && (
-              <button onClick={() => { setClienteSel(null); setClienteId(''); setSearchCliente(''); setOperaciones([]); setOperacionId(''); setOperacionSel(null); }}
+              <button
+                onClick={() => {
+                  setClienteSel(null); setClienteId(''); setSearchCliente('');
+                  setOperaciones([]); setOperacionId(''); setOperacionSel(null);
+                  setPresupuestoDetalle(null);
+                }}
                 className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-600">
                 <X size={14} />
               </button>
@@ -324,12 +397,15 @@ export function NuevoRecibo() {
           </div>
         ) : (
           <div className="relative">
-            <input ref={clienteRef} value={searchCliente}
+            <input
+              ref={clienteRef}
+              value={searchCliente}
               onChange={e => setSearchCliente(e.target.value)}
               onFocus={() => setShowClientes(true)}
               onBlur={() => setTimeout(() => setShowClientes(false), 150)}
               placeholder="Buscar cliente por nombre o apellido..."
-              className={inputCls} />
+              className={inputCls}
+            />
             {showClientes && clientes.length > 0 && (
               <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                 {clientes.map(c => (
@@ -351,44 +427,25 @@ export function NuevoRecibo() {
         )}
       </SectionCard>
 
-      {/* Fecha y pago */}
-      <SectionCard title="Fecha y forma de pago" icon={Calendar}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Fecha *</label>
-            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Forma de pago *</label>
-            <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
-              {FORMAS_PAGO.map(f => <option key={f.v} value={f.v}>{f.l}</option>)}
-            </select>
-          </div>
-        </div>
-        {(formaPago === 'transferencia' || formaPago === 'cheque' || formaPago === 'mercadopago') && (
-          <div className="mt-3">
-            <label className={labelCls}>
-              {formaPago === 'transferencia' ? 'N° de transferencia / CBU' :
-               formaPago === 'cheque'        ? 'N° de cheque' : 'N° de operación'}
-            </label>
-            <input value={referencia} onChange={e => setReferencia(e.target.value)}
-              placeholder="Referencia del pago" className={inputCls} />
-          </div>
-        )}
-      </SectionCard>
-
-      {/* Operación vinculada */}
+      {/* ── 2. Presupuesto aprobado ──────────────────────── */}
       {clienteId && (
-        <SectionCard title="Operación vinculada" icon={Receipt}>
+        <SectionCard title="Presupuesto aprobado *" icon={Receipt}>
           {operaciones.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">No hay operaciones activas para este cliente</p>
+            <p className="text-xs text-gray-400 italic">
+              Este cliente no tiene presupuestos aprobados.
+            </p>
           ) : (
             <>
-              <select value={operacionId} onChange={e => setOperacionId(e.target.value)} className={inputCls}>
-                <option value="">— Sin vincular —</option>
+              <select
+                value={operacionId}
+                onChange={e => setOperacionId(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Seleccioná el presupuesto —</option>
                 {operaciones.map(op => (
                   <option key={op.id} value={op.id}>
-                    {op.numero} — {formatCurrency(op.precio_total)} ({op.estado})
+                    {op.numero} — {formatCurrency(Number(op.precio_total))}
+                    {op.forma_pago ? ` · ${op.forma_pago}` : ''}
                   </option>
                 ))}
               </select>
@@ -396,32 +453,19 @@ export function NuevoRecibo() {
               {operacionSel && (
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Total operación</p>
-                    <p className="text-sm font-bold text-gray-800">{formatCurrency(Number(operacionSel.precio_total))}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Total presupuesto</p>
+                    <p className="text-sm font-bold text-gray-800">{formatCurrency(totalPresupuesto)}</p>
                   </div>
                   <div className="bg-emerald-50 rounded-xl p-3 text-center">
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Ya cobrado</p>
                     <p className="text-sm font-bold text-emerald-700">{formatCurrency(cobradoOp)}</p>
                   </div>
-                  <div className={cn('rounded-xl p-3 text-center', (saldoOp ?? 0) <= 0 ? 'bg-gray-100' : 'bg-amber-50')}>
+                  <div className={cn('rounded-xl p-3 text-center', saldoOp <= 0 ? 'bg-gray-100' : 'bg-amber-50')}>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Saldo pendiente</p>
-                    <p className={cn('text-sm font-bold', (saldoOp ?? 0) <= 0 ? 'text-gray-400' : 'text-amber-700')}>
-                      {formatCurrency(Math.max(0, saldoOp ?? 0))}
+                    <p className={cn('text-sm font-bold', saldoOp <= 0 ? 'text-gray-400' : 'text-amber-700')}>
+                      {formatCurrency(saldoOp)}
                     </p>
                   </div>
-                </div>
-              )}
-
-              {/* Remito de esa operación */}
-              {operacionId && remitos.length > 0 && (
-                <div className="mt-3">
-                  <label className={labelCls}>Remito vinculado (opcional)</label>
-                  <select value={remitoId} onChange={e => setRemitoId(e.target.value)} className={inputCls}>
-                    <option value="">— Sin vincular —</option>
-                    {remitos.map(rm => (
-                      <option key={rm.id} value={rm.id}>{rm.numero} ({rm.estado})</option>
-                    ))}
-                  </select>
                 </div>
               )}
             </>
@@ -429,165 +473,337 @@ export function NuevoRecibo() {
         </SectionCard>
       )}
 
-      {/* Detalle del cobro — items */}
-      <SectionCard title="Detalle del cobro" icon={CreditCard}>
-        <div className="space-y-3">
-
-          {/* Toggle: desglose por ítems vs monto total directo */}
-          <div className="flex items-center gap-2">
-            <button onClick={() => setUseManual(false)}
-              className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                !useManual ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300')}>
-              Desglose por ítems
-            </button>
-            <button onClick={() => setUseManual(true)}
-              className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                useManual ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300')}>
-              Monto directo
-            </button>
-          </div>
-
-          {useManual ? (
+      {/* ── 3. Fecha y forma de pago ─────────────────────── */}
+      {operacionId && (
+        <SectionCard title="Fecha y forma de pago" icon={Calendar}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Monto total *</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">$</span>
-                <MontoInput
-                  value={montoManual}
-                  onChange={setMontoManual}
-                  placeholder="0,00"
-                  className={cn(inputCls, 'pl-7 font-mono text-base font-semibold')}
-                />
-              </div>
+              <label className={labelCls}>Fecha *</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} />
             </div>
-          ) : (
-            <>
-              {/* Lista de ítems */}
-              <div className="space-y-2">
-                {items.map((it, i) => (
-                  <div key={i} className="grid gap-2" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-                    <input value={it.descripcion}
-                      onChange={e => updateItem(i, 'descripcion', e.target.value)}
-                      placeholder="Descripción (ej: Seña 50%, Pago final, Instalación...)"
-                      className={inputCls} />
-                    <select value={it.producto_id} onChange={e => updateItem(i, 'producto_id', e.target.value)}
-                      className={cn(inputCls, 'w-44 shrink-0')}
-                      title="Producto relacionado (opcional)">
-                      <option value="">— Producto —</option>
-                      {productos.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.codigo ? ` (${p.codigo})` : ''}</option>)}
-                    </select>
-                    <div className="relative w-40 shrink-0">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">$</span>
-                      <MontoInput
-                        value={it.monto}
-                        onChange={v => updateItem(i, 'monto', v)}
-                        placeholder="0,00"
-                        className={cn(inputCls, 'pl-7 font-mono font-semibold')}
-                      />
-                    </div>
-                    {items.length > 1 && (
-                      <button onClick={() => removeItem(i)}
-                        className="p-2 hover:bg-red-50 text-red-400 rounded-lg transition-colors shrink-0">
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div>
+              <label className={labelCls}>Forma de pago *</label>
+              <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
+                {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+          </div>
+          {formaPago === 'Transferencia' && (
+            <div className="mt-3">
+              <label className={labelCls}>N° de transferencia / CBU</label>
+              <input value={referencia} onChange={e => setReferencia(e.target.value)}
+                placeholder="Referencia del pago" className={inputCls} />
+            </div>
+          )}
+        </SectionCard>
+      )}
 
-              <button onClick={addItem}
-                className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium mt-1">
-                <Plus size={13} /> Agregar ítem
+      {/* ── 4. Bonificación (solo Contado) ───────────────── */}
+      {aplicaBonificacion && (
+        <SectionCard
+          title="Bonificación por pago al contado"
+          icon={Gift}
+          accent="bg-violet-50 border-violet-100 text-violet-700"
+        >
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Bonificación sobre precio de productos.
+              No aplica sobre instalación ni envío.
+            </p>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-400 font-semibold">Descuento:</span>
+              {[5, 10, 15, 20].map(pct => (
+                <button key={pct}
+                  onClick={() => aplicarPreset(pct / 100)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all',
+                    bonPct === pct / 100
+                      ? 'border-violet-500 bg-violet-600 text-white'
+                      : 'border-gray-200 text-gray-600 hover:border-violet-400 hover:text-violet-700',
+                  )}>
+                  {pct}%
+                </button>
+              ))}
+              <div className="relative">
+                <input
+                  type="number" min="1" max="50" step="0.5"
+                  value={bonCustom}
+                  onChange={e => aplicarCustom(e.target.value)}
+                  placeholder="Otro %"
+                  className={cn(
+                    'w-24 pl-3 pr-7 py-1.5 border rounded-lg text-xs focus:ring-2 focus:ring-violet-500 focus:outline-none',
+                    bonCustom ? 'border-violet-400 bg-violet-50' : 'border-gray-200',
+                  )}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">%</span>
+              </div>
+              {(bonPct > 0 || bonCustom) && (
+                <button onClick={resetBonificacion}
+                  className="text-xs text-red-400 hover:text-red-600 font-medium">
+                  × Quitar
+                </button>
+              )}
+            </div>
+
+            {pctActual > 0 && (
+              <div className="bg-violet-50 border border-violet-100 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Productos</span>
+                  <span className="font-medium">{formatCurrency(montoProductos)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-600 font-semibold">
+                  <span>Descuento {(pctActual * 100 % 1 === 0 ? (pctActual * 100).toFixed(0) : (pctActual * 100).toFixed(1))}%</span>
+                  <span>− {formatCurrency(descuentoMonto)}</span>
+                </div>
+                {montoInstalacion > 0 && (
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Instalación (sin descuento)</span>
+                    <span className="font-medium">{formatCurrency(montoInstalacion)}</span>
+                  </div>
+                )}
+                {envioExtra > 0 && (
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Envío (sin descuento)</span>
+                    <span className="font-medium">{formatCurrency(envioExtra)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm font-bold text-violet-700 pt-1.5 border-t border-violet-200">
+                  <span>Total con bonificación</span>
+                  <span>{formatCurrency(totalConBonif)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ── 5. Monto a cobrar ────────────────────────────── */}
+      {operacionId && (
+        <SectionCard title="Monto a cobrar" icon={CreditCard}>
+          <div className="space-y-4">
+
+            {/* Radio: Pago total / Pago parcial */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setTipoPago('total')}
+                className={cn(
+                  'relative flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
+                  tipoPago === 'total'
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-gray-200 hover:border-emerald-300',
+                )}
+              >
+                {tipoPago === 'total' && (
+                  <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check size={10} className="text-white" />
+                  </span>
+                )}
+                <span className={cn('text-sm font-bold', tipoPago === 'total' ? 'text-emerald-700' : 'text-gray-600')}>
+                  Pago total
+                </span>
+                <span className={cn('text-lg font-bold', tipoPago === 'total' ? 'text-emerald-800' : 'text-gray-700')}>
+                  {formatCurrency(saldoEfectivo)}
+                </span>
+                {pctActual > 0 && aplicaBonificacion && (
+                  <span className="text-[10px] text-violet-600 font-medium">
+                    incl. {(pctActual * 100).toFixed(0)}% bonif.
+                  </span>
+                )}
               </button>
 
-              {/* Total de ítems */}
-              {totalItems > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <span className="text-xs text-gray-500">Total desglose</span>
-                  <span className="font-bold text-gray-900 font-mono">
-                    $ {totalItems.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              <button
+                onClick={() => setTipoPago('parcial')}
+                className={cn(
+                  'relative flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
+                  tipoPago === 'parcial'
+                    ? 'border-amber-400 bg-amber-50'
+                    : 'border-gray-200 hover:border-amber-300',
+                )}
+              >
+                {tipoPago === 'parcial' && (
+                  <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                    <Check size={10} className="text-white" />
+                  </span>
+                )}
+                <span className={cn('text-sm font-bold', tipoPago === 'parcial' ? 'text-amber-700' : 'text-gray-600')}>
+                  Pago parcial
+                </span>
+                <span className="text-xs text-gray-400">Indicar monto</span>
+              </button>
+            </div>
+
+            {/* Input monto parcial */}
+            {tipoPago === 'parcial' && (
+              <div>
+                <label className={labelCls}>Monto a cobrar *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">$</span>
+                  <MontoInput
+                    value={montoParcial}
+                    onChange={setMontoParcial}
+                    placeholder="0,00"
+                    className={cn(inputCls, 'pl-7 font-mono text-base font-semibold')}
+                  />
+                </div>
+                {montoFinal > saldoEfectivo + 0.01 && (
+                  <p className="text-xs text-amber-600 mt-1.5">
+                    El monto supera el saldo ({formatCurrency(saldoEfectivo)}). Verificá si es seña anticipada.
+                  </p>
+                )}
+                {montoFinal > 0 && saldoTrasRecibo > 0 && (
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Saldo pendiente tras este pago:{' '}
+                    <span className="font-semibold text-amber-600">{formatCurrency(saldoTrasRecibo)}</span>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ── 6. Compromiso de saldo (solo pago parcial) ───── */}
+      {!isEdit && esParcial && operacionSel && montoFinal > 0 && (
+        <SectionCard title="Compromiso de pago del saldo" icon={Calendar}>
+          <div className="space-y-3">
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-800">
+              <p className="font-semibold mb-0.5">Pago parcial</p>
+              <p>
+                Saldo a comprometer:{' '}
+                <strong className="text-amber-700">{formatCurrency(saldoTrasRecibo)}</strong>
+              </p>
+            </div>
+
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox"
+                checked={crearCompromiso}
+                onChange={e => setCrearCompromiso(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-gray-700">Registrar compromiso de cancelación del saldo</span>
+            </label>
+
+            {crearCompromiso && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Fecha estimada *</label>
+                  <input type="date"
+                    value={compromisoFecha}
+                    onChange={e => setCompromisoFecha(e.target.value)}
+                    min={fecha}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Tipo</label>
+                  <select value={compromisoTipo} onChange={e => setCompromisoTipo(e.target.value)} className={inputCls}>
+                    <option value="cuota">Cuota / Saldo</option>
+                    <option value="cheque">Cheque diferido</option>
+                    <option value="efectivo_futuro">Efectivo diferido</option>
+                    <option value="transferencia">Transferencia diferida</option>
+                  </select>
+                </div>
+                {compromisoFecha && (
+                  <div className="col-span-2 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-500">
+                    Compromiso de{' '}
+                    <strong className="text-gray-700">{formatCurrency(saldoTrasRecibo)}</strong>
+                    {' '}con vencimiento el{' '}
+                    <strong className="text-gray-700">
+                      {new Date(compromisoFecha + 'T12:00:00').toLocaleDateString('es-AR', {
+                        day: '2-digit', month: 'long', year: 'numeric',
+                      })}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ── 7. Concepto y observaciones ──────────────────── */}
+      {operacionId && (
+        <SectionCard title="Concepto y observaciones" icon={Package}>
+          <div className="space-y-3">
+            <div>
+              <label className={labelCls}>Concepto</label>
+              <input
+                list="conceptos-list"
+                value={concepto}
+                onChange={e => setConcepto(e.target.value)}
+                placeholder="Seleccioná o escribí el concepto..."
+                className={inputCls}
+              />
+              <datalist id="conceptos-list">
+                {CONCEPTOS_PREDEFINIDOS.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div>
+              <label className={labelCls}>Notas internas</label>
+              <textarea value={notas} onChange={e => setNotas(e.target.value)}
+                rows={2} placeholder="Observaciones privadas..."
+                className={cn(inputCls, 'resize-none')} />
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ── 8. Resumen final ──────────────────────────────── */}
+      {operacionId && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Total del recibo</p>
+              <p className={cn('text-3xl font-bold', montoFinal > 0 ? 'text-gray-900' : 'text-gray-300')}>
+                {montoFinal > 0
+                  ? `$ ${montoFinal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                  : '$ —'
+                }
+              </p>
+
+              {/* Cuotas info */}
+              {esCuotas && montoFinal > 0 && (
+                <div className="mt-2 inline-flex items-center gap-1.5 bg-violet-50 border border-violet-100 rounded-lg px-3 py-1.5">
+                  <span className="text-xs text-violet-700 font-semibold">
+                    3 cuotas sin interés de {formatCurrency(montoFinal / 3)}
                   </span>
                 </div>
               )}
-            </>
-          )}
 
-          {/* Alerta si supera el saldo */}
-          {operacionSel && montoFinal > 0 && saldoOp !== null && montoFinal > saldoOp + 0.01 && (
-            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-              Este recibo ({formatCurrency(montoFinal)}) supera el saldo pendiente ({formatCurrency(Math.max(0, saldoOp))}).
-              Verificá si es un pago en exceso o seña anticipada.
+              {/* Bonificación info */}
+              {pctActual > 0 && aplicaBonificacion && montoFinal > 0 && (
+                <p className="text-xs text-violet-600 mt-1.5 font-medium">
+                  Bonificación {(pctActual * 100).toFixed(0)}% aplicada
+                  {descuentoMonto > 0 ? ` · ahorro ${formatCurrency(descuentoMonto)}` : ''}
+                </p>
+              )}
+
+              {/* Saldo tras recibo */}
+              {tipoPago === 'parcial' && montoFinal > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Saldo pendiente:{' '}
+                  <span className={cn('font-semibold', saldoTrasRecibo <= 0 ? 'text-emerald-600' : 'text-amber-600')}>
+                    {formatCurrency(saldoTrasRecibo)}
+                  </span>
+                </p>
+              )}
             </div>
-          )}
 
-          {/* Confirmación si cubre el total */}
-          {operacionSel && montoFinal > 0 && saldoOp !== null && montoFinal >= saldoOp - 0.01 && montoFinal <= saldoOp + 0.01 && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
-              <Check size={13} />
-              Este recibo cancela el saldo pendiente de la operación.
+            <div className="flex flex-col gap-2 shrink-0">
+              <button onClick={() => navigate('/recibos')}
+                className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={handleSave} disabled={saving}
+                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-sm">
+                {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+                {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear recibo'}
+              </button>
             </div>
-          )}
-        </div>
-      </SectionCard>
-
-      {/* Concepto y notas */}
-      <SectionCard title="Concepto y observaciones" icon={Package}>
-        <div className="space-y-3">
-          <div>
-            <label className={labelCls}>Concepto</label>
-            <input
-              list="conceptos-list"
-              value={concepto}
-              onChange={e => setConcepto(e.target.value)}
-              placeholder="Seleccioná o escribí el concepto..."
-              className={inputCls}
-            />
-            <datalist id="conceptos-list">
-              {CONCEPTOS_PREDEFINIDOS.map(c => <option key={c} value={c} />)}
-            </datalist>
-          </div>
-          <div>
-            <label className={labelCls}>Notas internas</label>
-            <textarea value={notas} onChange={e => setNotas(e.target.value)}
-              rows={2} placeholder="Observaciones privadas..."
-              className={cn(inputCls, 'resize-none')} />
           </div>
         </div>
-      </SectionCard>
-
-      {/* Resumen final + botón guardar */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Total del recibo</p>
-            <p className={cn('text-3xl font-bold mt-0.5', montoFinal > 0 ? 'text-gray-900' : 'text-gray-300')}>
-              {montoFinal > 0
-                ? `$ ${montoFinal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-                : '$  0,00'
-              }
-            </p>
-            {operacionSel && montoFinal > 0 && saldoOp !== null && (
-              <p className="text-xs text-gray-400 mt-1">
-                Saldo tras este recibo: <span className={cn('font-semibold', saldoOp - montoFinal <= 0 ? 'text-emerald-600' : 'text-amber-600')}>
-                  {formatCurrency(Math.max(0, saldoOp - montoFinal))}
-                </span>
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => navigate('/recibos')}
-              className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
-              Cancelar
-            </button>
-            <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-sm">
-              {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
-              {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear recibo'}
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
 
       {savedId && (
         <PDFDialog
