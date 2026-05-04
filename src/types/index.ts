@@ -171,6 +171,7 @@ export interface Operacion {
   fecha_entrega_estimada: string | null;
   notas: string | null;
   notas_internas: string | null;
+  aprobado_online_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface NavItem {
   to: string;
@@ -101,10 +102,11 @@ export function Sidebar({ onClose }: SidebarProps) {
             </p>
           </div>
         </div>
+        <NotificationBell />
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg transition-colors ml-2"
+            className="lg:hidden p-1.5 rounded-lg transition-colors ml-1"
             style={{ color: 'rgba(255,255,255,0.4)' }}
             aria-label="Cerrar menú"
           >

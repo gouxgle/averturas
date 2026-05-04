@@ -4,8 +4,9 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { readFileSync, existsSync } from 'node:fs';
 
-import pubRoutes          from './routes/pub.js';
-import authRoutes         from './routes/auth.js';
+import pubRoutes              from './routes/pub.js';
+import notificacionesRoutes   from './routes/notificaciones.js';
+import authRoutes             from './routes/auth.js';
 import clientesRoutes     from './routes/clientes.js';
 import productosRoutes    from './routes/productos.js';
 import operacionesRoutes  from './routes/operaciones.js';
@@ -49,7 +50,8 @@ apiAuth.route('/usuarios',      usuariosRoutes);
 apiAuth.route('/stock',         stockRoutes);
 apiAuth.route('/remitos',       remitosRoutes);
 apiAuth.route('/recibos',        recibosRoutes);
-apiAuth.route('/estado-cuenta',  estadoCuentaRoutes);
+apiAuth.route('/estado-cuenta',   estadoCuentaRoutes);
+apiAuth.route('/notificaciones',  notificacionesRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);

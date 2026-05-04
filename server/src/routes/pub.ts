@@ -70,7 +70,7 @@ pub.post('/presupuesto/:token/aprobar', async (c) => {
 
   await db.query(
     `UPDATE operaciones
-     SET estado = 'aprobado', aprobado_online_at = now(), updated_at = now()
+     SET estado = 'aprobado', aprobado_online_at = now(), notif_leida = false, updated_at = now()
      WHERE id = $1`,
     [op.id]
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, XCircle, AlertTriangle, Clock, RotateCcw, X, Pen, Printer, User, CreditCard, Truck, MapPin, Gift, Building2, Package, Share2, Copy, Check } from 'lucide-react';
+import { Plus, Search, FileText, ArrowRight, Send, CheckCircle, XCircle, AlertTriangle, Clock, RotateCcw, X, Pen, Printer, User, CreditCard, Truck, MapPin, Gift, Building2, Package, Share2, Copy, Check, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, EstadoOperacion } from '@/types';
@@ -486,17 +486,30 @@ export function Presupuestos() {
               const vencido = dias !== null && dias < 0;
               const porVencer = dias !== null && dias >= 0 && dias <= 3;
               const cliente = op.cliente as any;
+              const aprobadoOnline = !!(op as any).aprobado_online_at;
 
               return (
                 <div
                   key={op.id}
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+                  className={cn(
+                    'flex items-center gap-4 px-5 py-4 transition-colors group cursor-pointer',
+                    aprobadoOnline
+                      ? 'bg-emerald-50/70 hover:bg-emerald-50 border-l-4 border-emerald-500'
+                      : 'hover:bg-gray-50'
+                  )}
                   onClick={() => setDetailId(op.id)}
                 >
                   <div className="w-32 shrink-0">
-                    <span className="text-sm font-bold text-gray-800 group-hover:text-violet-600 transition-colors">
-                      {op.numero}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-gray-800 group-hover:text-violet-600 transition-colors">
+                        {op.numero}
+                      </span>
+                      {aprobadoOnline && (
+                        <span title="Aprobado por el cliente vía link">
+                          <Check size={12} className="text-emerald-600" />
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 mt-0.5">{TIPO_LABEL[op.tipo]}</p>
                   </div>
 
@@ -504,9 +517,14 @@ export function Presupuestos() {
                     <p className="text-sm font-medium text-gray-800 truncate">
                       {cliente?.nombre} {cliente?.apellido ?? ''}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400 flex-wrap">
                       <span>{formatDate(op.created_at)}</span>
-                      {op.fecha_validez && (
+                      {aprobadoOnline && (
+                        <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                          <Check size={9} /> Aprobado online
+                        </span>
+                      )}
+                      {op.fecha_validez && !aprobadoOnline && (
                         <span className={cn(
                           'flex items-center gap-1',
                           vencido ? 'text-red-500' : porVencer ? 'text-amber-500' : 'text-gray-400'

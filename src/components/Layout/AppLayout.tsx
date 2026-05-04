@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Toaster } from 'sonner';
+import { NotificationBell } from '@/components/NotificationBell';
 
 /** Marca de agua: el isologotipo 2×2 a muy baja opacidad */
 function Watermark() {
@@ -132,7 +133,7 @@ export function AppLayout() {
           >
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-1">
             {/* Logo mark mini */}
             <svg width="24" height="24" viewBox="0 0 200 200" fill="none">
               <rect x="8"   y="8"   width="84" height="84" rx="12" fill="rgba(255,255,255,0.90)" />
@@ -145,6 +146,7 @@ export function AppLayout() {
               <span className="ml-2 text-[10px] font-semibold tracking-widest uppercase" style={{ color: '#e31e24' }}>Aberturas</span>
             </div>
           </div>
+          <NotificationBell />
         </header>
 
         <main className="flex-1 overflow-auto">
