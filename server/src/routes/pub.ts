@@ -30,11 +30,18 @@ pub.get('/presupuesto/:token', async (c) => {
   if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
 
   const { rows: items } = await db.query(`
-    SELECT oi.descripcion, oi.cantidad, oi.precio_unitario,
-      oi.precio_instalacion, oi.incluye_instalacion, oi.precio_total,
-      oi.medida_ancho, oi.medida_alto, oi.color,
-      oi.tipo_abertura_nombre, oi.sistema_nombre
+    SELECT
+      oi.descripcion, oi.cantidad, oi.precio_unitario,
+      oi.precio_instalacion, oi.incluye_instalacion, oi.color,
+      oi.medida_ancho, oi.medida_alto,
+      ta.nombre AS tipo_abertura_nombre,
+      si.nombre AS sistema_nombre,
+      (oi.precio_unitario * oi.cantidad
+        + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion * oi.cantidad ELSE 0 END
+      ) AS precio_total
     FROM operacion_items oi
+    LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
+    LEFT JOIN sistemas        si ON si.id = oi.sistema_id
     WHERE oi.operacion_id = $1
     ORDER BY oi.orden, oi.id
   `, [op.id]);
