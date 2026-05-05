@@ -117,24 +117,26 @@ export function AppLayout() {
       {/* Contenido principal */}
       <div className="flex-1 flex flex-col min-w-0" style={{ position: 'relative', zIndex: 1 }}>
 
-        {/* Top bar — solo mobile */}
+        {/* Top bar — mobile: hamburger + logo + bell / desktop: solo bell */}
         <header
-          className="lg:hidden h-14 flex items-center px-4 gap-3 shrink-0"
+          className="h-14 flex items-center px-4 gap-3 shrink-0"
           style={{
             background: '#031d49',
             boxShadow: '0 2px 12px rgba(3,29,73,0.25)',
           }}
         >
+          {/* Hamburger — solo mobile */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg transition-colors"
+            className="lg:hidden p-2 rounded-lg transition-colors"
             style={{ color: 'rgba(255,255,255,0.6)' }}
             aria-label="Abrir menú"
           >
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-2.5 flex-1">
-            {/* Logo mark mini */}
+
+          {/* Logo — solo mobile */}
+          <div className="lg:hidden flex items-center gap-2.5 flex-1">
             <svg width="24" height="24" viewBox="0 0 200 200" fill="none">
               <rect x="8"   y="8"   width="84" height="84" rx="12" fill="rgba(255,255,255,0.90)" />
               <rect x="108" y="8"   width="84" height="84" rx="12" fill="#e31e24" />
@@ -146,6 +148,11 @@ export function AppLayout() {
               <span className="ml-2 text-[10px] font-semibold tracking-widest uppercase" style={{ color: '#e31e24' }}>Aberturas</span>
             </div>
           </div>
+
+          {/* Spacer desktop */}
+          <div className="hidden lg:flex flex-1" />
+
+          {/* Bell — siempre visible, en área de contenido (sin problemas de overflow) */}
           <NotificationBell />
         </header>
 

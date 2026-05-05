@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
-import { NotificationBell } from '@/components/NotificationBell';
 
 interface NavItem {
   to: string;
@@ -102,7 +101,6 @@ export function Sidebar({ onClose }: SidebarProps) {
             </p>
           </div>
         </div>
-        <NotificationBell />
         {onClose && (
           <button
             onClick={onClose}
