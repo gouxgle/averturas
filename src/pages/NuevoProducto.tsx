@@ -138,10 +138,7 @@ const HOJAS_VENTANA = [
 ];
 
 const CFG_ESPECIAL_VENTANA = [
-  { v: 'simple',              l: 'Simple' },
-  { v: 'con_reja',            l: 'Con reja' },
-  { v: 'con_mosquitero',      l: 'Con mosquitero' },
-  { v: 'con_reja_mosquitero', l: 'Con reja y mosquitero' },
+  { v: 'simple', l: 'Simple' },
 ];
 
 // Puerta-Balcón: igual que ventana pero sin opciones de reja
@@ -730,6 +727,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
     Boolean(atributos.linea),
     colorActual !== '',
     atributos.reja !== undefined,
+    atributos.mosquitero !== undefined,
     Boolean(atributos.instalacion),
   ];
   const conditional: boolean[] = [];
@@ -905,7 +903,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Reja" complete={atributos.reja !== undefined}>
               <div className="flex gap-2">
-                {[{ v: 'no', l: 'No' }, { v: 'opcional', l: 'Opcional' }].map(o => (
+                {[{ v: 'si', l: 'Sí' }, { v: 'no', l: 'No' }].map(o => (
                   <button key={o.v} type="button" onClick={() => setAttr('reja', o.v)}
                     className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
                       atributos.reja === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
@@ -914,6 +912,19 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
                 ))}
               </div>
             </FieldCard>
+            <FieldCard title="Mosquitero" complete={atributos.mosquitero !== undefined}>
+              <div className="flex gap-2">
+                {[{ v: 'si', l: 'Sí' }, { v: 'no', l: 'No' }].map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('mosquitero', o.v)}
+                    className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
+                      atributos.mosquitero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Componentes incluidos" complete={componentes.length > 0} optional>
               <BtnCheck options={COMPONENTES_VNT} values={componentes} onChange={v => setAttr('componentes', v)} />
             </FieldCard>
