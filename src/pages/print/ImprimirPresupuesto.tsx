@@ -30,6 +30,7 @@ interface Item {
   incluye_instalacion: boolean; precio_total: number;
   medida_ancho: number | null; medida_alto: number | null;
   color: string | null; vidrio: string | null;
+  premarco: boolean;
   accesorios: string[];
   tipo_abertura_nombre: string | null;
   sistema_nombre: string | null;
@@ -226,16 +227,46 @@ export function ImprimirPresupuesto() {
             // Marco tipo (puerta-balcón)
             const marcoTipo = attr.marco_tipo ? String(attr.marco_tipo) : null;
 
+            // Helpers para atributos booleanos/string guardados como "si"/"no" o true/false
+            const attrBool = (v: unknown): boolean | null => {
+              if (v === null || v === undefined) return null;
+              const s = String(v).toLowerCase();
+              if (s === 'si' || s === 'sí' || s === 'true' || s === '1') return true;
+              if (s === 'no' || s === 'false' || s === '0') return false;
+              return null;
+            };
+
             // Especificaciones en líneas
             const specs: Array<[string, string]> = [];
-            if (item.tipo_abertura_nombre) specs.push(['Tipo',    item.tipo_abertura_nombre]);
-            if (item.sistema_nombre)       specs.push(['Línea',   item.sistema_nombre]);
-            if (item.color)                specs.push(['Color',   item.color]);
-            if (hojas)                     specs.push(['Hojas',   hojas]);
-            if (marcoTipo)                 specs.push(['Marco',   marcoTipo]);
-            if (item.vidrio)               specs.push(['Vidrio',  item.vidrio]);
+            if (item.tipo_abertura_nombre) specs.push(['Tipo',       item.tipo_abertura_nombre]);
+            if (item.sistema_nombre)       specs.push(['Sistema',    item.sistema_nombre]);
+            if (item.color)                specs.push(['Color',      item.color]);
             if (item.medida_ancho || item.medida_alto)
               specs.push(['Medidas', `${item.medida_ancho ?? '—'} × ${item.medida_alto ?? '—'} m`]);
+            if (hojas)                     specs.push(['Hojas',      hojas]);
+            if (marcoTipo)                 specs.push(['Marco',      marcoTipo]);
+            if (item.vidrio)               specs.push(['Vidrio',     item.vidrio]);
+
+            // Atributos del producto (JSONB)
+            const mosquitero = attrBool(attr.mosquitero);
+            if (mosquitero !== null)
+              specs.push(['Mosquitero', mosquitero ? 'Sí' : 'No']);
+
+            const reja = attrBool(attr.reja);
+            if (reja === true)
+              specs.push(['Reja', 'Sí']);
+
+            if (attr.linea)
+              specs.push(['Línea', String(attr.linea)]);
+
+            if (attr.apertura)
+              specs.push(['Apertura', String(attr.apertura)]);
+
+            if (attr.diseno)
+              specs.push(['Diseño', String(attr.diseno)]);
+
+            if (item.premarco)
+              specs.push(['Premarco', 'Sí']);
 
             return (
               <div key={item.id} style={{
