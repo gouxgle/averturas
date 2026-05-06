@@ -361,11 +361,14 @@ export function ImprimirPresupuesto() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginBottom: 20,
           }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-              <span style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Total</span>
-              <span style={{ color: NAVY, fontSize: 22, fontWeight: 900, fontFamily: 'monospace' }}>{fmt(total)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1 }}>Total</span>
+              <span style={{ color: '#888', fontSize: 10, lineHeight: 1 }}>$</span>
+              <span style={{ color: NAVY, fontSize: 22, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
+                {Number(total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
               {costoEnvio > 0 && (
-                <span style={{ fontSize: 10, color: '#666' }}>
+                <span style={{ fontSize: 10, color: '#666', lineHeight: 1 }}>
                   (prod. {fmt(subtotal)} + envío {fmt(costoEnvio)})
                 </span>
               )}
