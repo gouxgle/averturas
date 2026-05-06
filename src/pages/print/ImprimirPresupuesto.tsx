@@ -392,7 +392,7 @@ export function ImprimirPresupuesto() {
           </div>
 
           {/* Firmas */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginTop: 32, marginBottom: 20 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
                 Firma y aclaración — {empresa?.nombre ?? 'Vendedor'}
