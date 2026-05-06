@@ -337,75 +337,59 @@ export function ImprimirPresupuesto() {
           })}
         </div>
 
-        {/* Total */}
-        <div style={{
-          border: `2px solid ${NAVY}`, borderRadius: 10, padding: '14px 20px',
-          marginBottom: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Total general
+        </div>{/* fin flex-1 items */}
+
+        {/* Bloque inferior — total, obs, firmas, footer — al pie de la hoja */}
+        <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+
+          {/* Observaciones — compacto */}
+          {(op.notas || hayInstalacion) && (
+            <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
+                Observaciones
               </div>
+              <div style={{ fontSize: 10, color: '#444', lineHeight: 1.5 }}>
+                {hayInstalacion && <span>— Algunas aberturas incluyen instalación según lo indicado en el detalle. </span>}
+                {op.notas && <span style={{ whiteSpace: 'pre-wrap' }}>{op.notas}</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Total — tira horizontal compacta */}
+          <div style={{
+            border: `1.5px solid ${NAVY}`, borderRadius: 8, padding: '8px 16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginBottom: 20,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+              <span style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Total</span>
+              <span style={{ color: NAVY, fontSize: 22, fontWeight: 900, fontFamily: 'monospace' }}>{fmt(total)}</span>
               {costoEnvio > 0 && (
-                <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
-                  Productos: {fmt(subtotal)} · Envío: {fmt(costoEnvio)}
-                </div>
+                <span style={{ fontSize: 10, color: '#666' }}>
+                  (prod. {fmt(subtotal)} + envío {fmt(costoEnvio)})
+                </span>
               )}
-              <div style={{ color: NAVY, fontSize: 28, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>
-                {fmt(total)}
-              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {esCuotas && (
-                <div style={{
-                  marginTop: 6, display: 'inline-block',
+                <span style={{
                   background: '#ede9fe', color: '#5b21b6',
-                  fontSize: 12, fontWeight: 700,
-                  padding: '3px 10px', borderRadius: 6,
+                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
                 }}>
-                  3 cuotas de {fmt(total / 3)}
-                </div>
+                  3 × {fmt(total / 3)}
+                </span>
               )}
-            </div>
-            {op.forma_pago && (
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Forma de pago
+              {op.forma_pago && (
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.8 }}>Forma de pago</div>
+                  <div style={{ color: NAVY, fontSize: 12, fontWeight: 700 }}>{op.forma_pago}</div>
                 </div>
-                <div style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                  {op.forma_pago}
-                </div>
-                {!esCuotas && (
-                  <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>
-                    Beneficio por pago contado efectivo
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Observaciones */}
-        {(op.notas || hayInstalacion) && (
-          <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '8px 12px', marginBottom: 20 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 4 }}>
-              Observaciones
-            </div>
-            <div style={{ fontSize: 11, color: '#444', lineHeight: 1.7 }}>
-              {hayInstalacion && (
-                <div>- Algunas aberturas incluyen instalacion segun lo indicado en el detalle.</div>
-              )}
-              {op.notas && (
-                <div style={{ whiteSpace: 'pre-wrap', marginTop: hayInstalacion ? 4 : 0 }}>{op.notas}</div>
               )}
             </div>
           </div>
-        )}
 
-        </div>{/* fin flex-1 contenido principal */}
-
-        {/* Firma + footer — pegados al fondo de la hoja */}
-        <div style={{ marginTop: 'auto', paddingTop: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 28 }}>
+          {/* Firmas */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 20 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
                 Firma y aclaración — {empresa?.nombre ?? 'Vendedor'}
@@ -417,6 +401,8 @@ export function ImprimirPresupuesto() {
               </div>
             </div>
           </div>
+
+          {/* Línea roja + footer */}
           <div style={{ borderTop: `2px solid ${RED}`, paddingTop: 10, textAlign: 'center', fontSize: 10, color: '#999' }}>
             {footerParts}
           </div>
