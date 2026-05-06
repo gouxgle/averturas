@@ -138,13 +138,14 @@ export function ImprimirPresupuesto() {
       </div>
 
       {/* Document */}
-      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 p-10 shadow-lg" style={{ minHeight: '297mm' }}>
+      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 p-10 shadow-lg"
+        style={{ minHeight: '297mm', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header — mismo layout que recibo */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <img src={logoSrc} alt="Logo" style={{ height: 34 }} />
+              <img src={logoSrc} alt="Logo" style={{ height: 34, opacity: 0.72 }} />
               <div style={{ color: NAVY, fontSize: 15, fontWeight: 900 }}>{empresa?.nombre ?? ''}</div>
             </div>
             {empresa?.cuit      && <div style={{ color: '#555', fontSize: 11 }}>CUIT: {empresa.cuit}</div>}
@@ -177,8 +178,8 @@ export function ImprimirPresupuesto() {
         {/* Divider — mismo que recibo */}
         <div style={{ backgroundColor: NAVY, height: 2, marginBottom: 20 }} />
 
-        {/* Cliente — mismo estilo que recibo */}
-        <div style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: '10px 14px', marginBottom: 20, borderLeft: `4px solid ${NAVY}` }}>
+        {/* Cliente */}
+        <div style={{ border: '1px solid #bbb', borderRadius: 8, padding: '10px 14px', marginBottom: 20 }}>
           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 4 }}>
             Cliente
           </div>
@@ -198,6 +199,9 @@ export function ImprimirPresupuesto() {
             <div style={{ fontSize: 11, color: '#555', marginTop: 1 }}>{clienteDireccion}</div>
           )}
         </div>
+
+        {/* Contenido principal — crece para empujar firma al fondo */}
+        <div style={{ flex: 1 }}>
 
         {/* Detalle de ítems */}
         <div style={{ marginBottom: 16 }}>
@@ -397,24 +401,27 @@ export function ImprimirPresupuesto() {
           </div>
         )}
 
-        {/* Firma — igual que recibo */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginTop: 40 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
-              Firma y aclaración — {empresa?.nombre ?? 'Vendedor'}
+        </div>{/* fin flex-1 contenido principal */}
+
+        {/* Firma + footer — pegados al fondo de la hoja */}
+        <div style={{ marginTop: 'auto', paddingTop: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 28 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
+                Firma y aclaración — {empresa?.nombre ?? 'Vendedor'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
+                Firma y aclaración — Cliente
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #aaa', paddingTop: 8, fontSize: 11, color: '#666' }}>
-              Firma y aclaración — Cliente
-            </div>
+          <div style={{ borderTop: `2px solid ${RED}`, paddingTop: 10, textAlign: 'center', fontSize: 10, color: '#999' }}>
+            {footerParts}
           </div>
         </div>
 
-        {/* Footer — mismo estilo que recibo */}
-        <div style={{ borderTop: `2px solid ${RED}`, marginTop: 28, paddingTop: 12, textAlign: 'center', fontSize: 10, color: '#999' }}>
-          {footerParts}
-        </div>
       </div>
     </>
   );
