@@ -1,22 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Printer, Receipt, Truck, TrendingUp, TrendingDown,
-  DollarSign, FileText, ChevronDown, ChevronUp, Check, AlertTriangle, Clock,
+  ArrowLeft, Printer, Receipt, Truck, DollarSign, FileText,
+  ChevronDown, ChevronUp, Check, AlertTriangle, Clock, Calendar,
+  CreditCard, ArrowDownLeft, ArrowUpRight, XCircle,
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
-} from 'recharts';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
-// ── Colores ──────────────────────────────────────────────────
 const NAVY = '#031d49';
-const GREEN = '#10b981';
-const AMBER = '#f59e0b';
-const RED   = '#ef4444';
-const GRAY  = '#e5e7eb';
 
 // ── Tipos ────────────────────────────────────────────────────
 interface ClienteInfo {
@@ -32,20 +24,13 @@ interface OpItem {
   precio_unitario: number; precio_total: number;
   incluye_instalacion: boolean; precio_instalacion: number;
   medida_ancho: number | null; medida_alto: number | null;
-  color: string | null; vidrio: string | null;
-  tipo_abertura: string | null; sistema: string | null;
-}
-
-interface ReciboItem {
-  descripcion: string; monto: number; cantidad: number;
+  color: string | null; tipo_abertura: string | null; sistema: string | null;
 }
 
 interface ReciboResumen {
   id: string; numero: string; fecha: string;
   monto_total: number; forma_pago: string;
-  concepto: string | null; estado: string;
-  operacion_id: string | null;
-  items: ReciboItem[];
+  concepto: string | null; estado: string; operacion_id: string | null;
 }
 
 interface RemitoResumen {
@@ -54,12 +39,17 @@ interface RemitoResumen {
   medio_envio: string; fecha_entrega_real: string | null;
 }
 
-const ESTADOS_APROBADOS = new Set(['aprobado','en_produccion','listo','instalado','entregado']);
+interface Compromiso {
+  id: string; tipo: string; monto: number;
+  fecha_vencimiento: string; descripcion: string | null;
+  numero_cheque: string | null; banco: string | null;
+  estado: 'pendiente' | 'cobrado' | 'rechazado' | 'vencido';
+  operacion: { id: string; numero: string } | null;
+}
 
 interface OperacionDetalle {
   id: string; numero: string; tipo: string; estado: string;
-  precio_total: number; costo_total: number;
-  created_at: string; fecha_validez: string | null;
+  precio_total: number; created_at: string;
   notas: string | null; forma_pago: string | null;
   items: OpItem[];
   recibos: ReciboResumen[];
@@ -73,27 +63,85 @@ interface EstadoCuentaData {
   cliente: ClienteInfo;
   operaciones: OperacionDetalle[];
   recibos_directos: ReciboResumen[];
+  compromisos: Compromiso[];
   totales: { presupuestado: number; cobrado: number; saldo: number; pendiente_aprobacion: number };
 }
 
-// ── Helpers ──────────────────────────────────────────────────
-const FORMA_PAGO: Record<string, string> = {
-  efectivo: 'Efectivo', transferencia: 'Transferencia', cheque: 'Cheque',
-  tarjeta_debito: 'Débito', tarjeta_credito: 'Crédito',
-  mercadopago: 'MercadoPago', otro: 'Otro',
-};
+// ── Ledger ───────────────────────────────────────────────────
+interface Movimiento {
+  fecha: string;
+  tipo: 'cargo' | 'abono';
+  numero: string;
+  concepto: string;
+  monto: number;
+  saldo: number;
+}
 
+function buildLedger(operaciones: OperacionDetalle[], recibosDirectos: ReciboResumen[]): Movimiento[] {
+  const entries: Omit<Movimiento, 'saldo'>[] = [];
+
+  for (const op of operaciones) {
+    if (!op.genera_saldo) continue;
+    const resumen = op.items.length > 0
+      ? op.items.map(i => i.tipo_abertura ?? i.descripcion).filter(Boolean).slice(0, 3).join(', ')
+      : 'Operación';
+    entries.push({
+      fecha: op.created_at,
+      tipo: 'cargo',
+      numero: op.numero,
+      concepto: resumen,
+      monto: Number(op.precio_total),
+    });
+    for (const r of op.recibos) {
+      entries.push({
+        fecha: r.fecha,
+        tipo: 'abono',
+        numero: r.numero,
+        concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''),
+        monto: Number(r.monto_total),
+      });
+    }
+  }
+  for (const r of recibosDirectos) {
+    entries.push({
+      fecha: r.fecha,
+      tipo: 'abono',
+      numero: r.numero,
+      concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''),
+      monto: Number(r.monto_total),
+    });
+  }
+
+  entries.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  let saldo = 0;
+  return entries.map(e => {
+    saldo = e.tipo === 'cargo' ? saldo + e.monto : saldo - e.monto;
+    return { ...e, saldo };
+  });
+}
+
+// ── Helpers ──────────────────────────────────────────────────
 const ESTADO_OP_COLOR: Record<string, string> = {
   presupuesto: 'bg-gray-100 text-gray-700', enviado: 'bg-blue-100 text-blue-700',
   aprobado: 'bg-green-100 text-green-700', rechazado: 'bg-red-100 text-red-700',
   en_produccion: 'bg-amber-100 text-amber-700', listo: 'bg-teal-100 text-teal-700',
-  instalado: 'bg-purple-100 text-purple-700', entregado: 'bg-emerald-100 text-emerald-700',
+  instalado: 'bg-purple-100 text-purple-700', entregado: 'bg-indigo-100 text-indigo-700',
 };
-
 const ESTADO_OP_LABEL: Record<string, string> = {
   presupuesto: 'Presupuesto', enviado: 'Enviado', aprobado: 'Aprobado',
   rechazado: 'Rechazado', en_produccion: 'En producción', listo: 'Listo',
   instalado: 'Instalado', entregado: 'Entregado',
+};
+
+const COMP_TIPO: Record<string, string> = {
+  cuota: 'Cuota', cheque: 'Cheque', efectivo_futuro: 'Efectivo futuro', transferencia: 'Transferencia',
+};
+const COMP_ESTADO_COLOR: Record<string, string> = {
+  pendiente: 'bg-amber-100 text-amber-700',
+  cobrado:   'bg-emerald-100 text-emerald-700',
+  rechazado: 'bg-red-100 text-red-700',
+  vencido:   'bg-red-200 text-red-800',
 };
 
 function clienteNombre(c: ClienteInfo) {
@@ -101,247 +149,115 @@ function clienteNombre(c: ClienteInfo) {
   return [c.apellido, c.nombre].filter(Boolean).join(', ') || '—';
 }
 
-function pctCobrado(cobrado: number, total: number) {
-  if (!total) return 0;
-  return Math.min(100, Math.round((cobrado / total) * 100));
+function isVencido(fecha: string) {
+  return new Date(fecha) < new Date(new Date().toDateString());
 }
 
-// Agrupar recibos por mes para el gráfico
-function buildMonthlyData(operaciones: OperacionDetalle[], recibosDirectos: ReciboResumen[]) {
-  const map: Record<string, number> = {};
-  const allRecibos = [
-    ...operaciones.flatMap(op => op.recibos),
-    ...recibosDirectos,
-  ];
-  for (const r of allRecibos) {
-    const key = r.fecha.slice(0, 7); // YYYY-MM
-    map[key] = (map[key] ?? 0) + Number(r.monto_total);
-  }
-  return Object.entries(map)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([mes, monto]) => ({
-      mes: new Date(mes + '-15').toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }),
-      monto,
-    }));
-}
-
-// ── Componente tarjeta de operación ─────────────────────────
+// ── Componente operación colapsable ─────────────────────────
 function OperacionCard({ op }: { op: OperacionDetalle }) {
-  const [open, setOpen] = useState(true);
-  const generaSaldo = op.genera_saldo;
+  const [open, setOpen] = useState(false);
   const cobrado = Number(op.cobrado ?? 0);
-  const saldo   = op.saldo !== null ? Number(op.saldo) : null;
-  const pct = generaSaldo ? pctCobrado(cobrado, Number(op.precio_total)) : 0;
+  const saldo = op.saldo !== null ? Number(op.saldo) : null;
   const saldada = saldo !== null && saldo <= 0.01;
+  const pct = op.genera_saldo && op.precio_total
+    ? Math.min(100, Math.round((cobrado / Number(op.precio_total)) * 100))
+    : 0;
 
   return (
     <div className={cn(
-      'rounded-xl border shadow-sm overflow-hidden',
-      generaSaldo ? 'bg-white border-gray-200' : 'bg-amber-50/60 border-amber-200'
+      'rounded-xl border overflow-hidden',
+      op.genera_saldo ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-75'
     )}>
-      {/* Banner pendiente de aprobación */}
-      {!generaSaldo && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-amber-100/80 border-b border-amber-200">
-          <Clock size={12} className="text-amber-600 shrink-0" />
-          <span className="text-xs font-semibold text-amber-700">
-            Pendiente de aprobación — no genera saldo hasta ser aprobado
-          </span>
-        </div>
-      )}
-
-      {/* Header */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50/80 transition-colors text-left"
-      >
-        <FileText size={16} className={cn('shrink-0', generaSaldo ? 'text-gray-400' : 'text-amber-400')} />
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left">
+        <FileText size={14} className="text-gray-400 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold text-gray-800">{op.numero}</span>
-            <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium', ESTADO_OP_COLOR[op.estado])}>
+            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', ESTADO_OP_COLOR[op.estado])}>
               {ESTADO_OP_LABEL[op.estado] ?? op.estado}
             </span>
             <span className="text-xs text-gray-400">{formatDate(op.created_at)}</span>
           </div>
-          {/* Barra de progreso — solo para aprobadas */}
-          {generaSaldo && (
-            <div className="mt-2 flex items-center gap-3">
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className={cn('h-full rounded-full transition-all', saldada ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-gray-200')}
-                  style={{ width: `${pct}%` }}
-                />
+          {op.genera_saldo && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className={cn('h-full rounded-full', saldada ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-gray-200')}
+                  style={{ width: `${pct}%` }} />
               </div>
-              <span className="text-xs font-semibold shrink-0" style={{ color: saldada ? GREEN : AMBER }}>
-                {pct}%
-              </span>
+              <span className="text-[10px] text-gray-500">{pct}%</span>
             </div>
           )}
         </div>
-        <div className="text-right shrink-0 ml-4">
-          <p className="text-sm font-bold text-gray-800">{formatCurrency(Number(op.precio_total))}</p>
-          {generaSaldo && saldo !== null && !saldada && (
-            <p className="text-xs text-amber-600 font-medium">Saldo: {formatCurrency(saldo)}</p>
+        <div className="text-right shrink-0 ml-3">
+          <p className="text-sm font-bold text-gray-800 font-mono">{formatCurrency(Number(op.precio_total))}</p>
+          {op.genera_saldo && !saldada && saldo !== null && (
+            <p className="text-[10px] text-amber-600 font-medium">Saldo: {formatCurrency(saldo)}</p>
           )}
-          {generaSaldo && saldada && (
-            <p className="text-xs text-emerald-600 font-medium flex items-center gap-1 justify-end">
-              <Check size={11} /> Saldado
+          {op.genera_saldo && saldada && (
+            <p className="text-[10px] text-emerald-600 flex items-center gap-0.5 justify-end">
+              <Check size={9} /> Saldado
             </p>
           )}
-          {!generaSaldo && (
-            <p className="text-xs text-amber-500 font-medium">Sin saldo aún</p>
-          )}
         </div>
-        {open ? <ChevronUp size={15} className="text-gray-400 shrink-0" /> : <ChevronDown size={15} className="text-gray-400 shrink-0" />}
+        {open ? <ChevronUp size={13} className="text-gray-400 shrink-0" /> : <ChevronDown size={13} className="text-gray-400 shrink-0" />}
       </button>
 
       {open && (
-        <div className="border-t border-gray-100">
-          {/* Items del presupuesto */}
+        <div className="border-t border-gray-100 divide-y divide-gray-50">
           {op.items.length > 0 && (
-            <div className="px-5 py-3">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Detalle del presupuesto</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left py-1.5 font-semibold text-gray-500 pr-4">Ítem</th>
-                      <th className="text-center py-1.5 font-semibold text-gray-500 px-2">Cant.</th>
-                      <th className="text-right py-1.5 font-semibold text-gray-500 px-2">P. Unit.</th>
-                      <th className="text-right py-1.5 font-semibold text-gray-500">Total</th>
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ítems</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-1 font-semibold text-gray-500 pr-3">Descripción</th>
+                    <th className="text-center py-1 font-semibold text-gray-500 w-10">Cant.</th>
+                    <th className="text-right py-1 font-semibold text-gray-500">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {op.items.map((item, i) => (
+                    <tr key={item.id ?? i}>
+                      <td className="py-1.5 pr-3">
+                        <p className="font-medium text-gray-800">{item.tipo_abertura ?? item.descripcion}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {[item.sistema, item.medida_ancho && item.medida_alto
+                            ? `${item.medida_ancho}×${item.medida_alto}m` : null,
+                            item.color, item.incluye_instalacion ? 'c/instalación' : null]
+                            .filter(Boolean).join(' · ')}
+                        </p>
+                      </td>
+                      <td className="py-1.5 text-center text-gray-600">{item.cantidad}</td>
+                      <td className="py-1.5 text-right font-semibold text-gray-800 font-mono">
+                        {formatCurrency(Number(item.precio_total))}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {op.items.map((item, i) => (
-                      <tr key={item.id ?? i}>
-                        <td className="py-2 pr-4">
-                          <p className="font-medium text-gray-800">
-                            {item.tipo_abertura ?? item.descripcion}
-                          </p>
-                          <div className="text-[10px] text-gray-400 space-y-0.5 mt-0.5">
-                            {item.sistema && <span>{item.sistema}</span>}
-                            {(item.medida_ancho || item.medida_alto) && (
-                              <span> · {item.medida_ancho ?? '?'} × {item.medida_alto ?? '?'} m</span>
-                            )}
-                            {item.color && <span> · {item.color}</span>}
-                            {item.vidrio && <span> · {item.vidrio}</span>}
-                            {item.incluye_instalacion && (
-                              <span className="text-emerald-600"> · Incl. instalación</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2 text-center text-gray-600 px-2">{item.cantidad}</td>
-                        <td className="py-2 text-right text-gray-600 px-2 font-mono">
-                          {formatCurrency(Number(item.precio_unitario) + (item.incluye_instalacion ? Number(item.precio_instalacion) : 0))}
-                        </td>
-                        <td className="py-2 text-right font-semibold text-gray-800 font-mono">
-                          {formatCurrency(Number(item.precio_total))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-gray-200">
-                      <td colSpan={3} className="py-2 text-right text-xs font-semibold text-gray-500 pr-2">Total presupuesto</td>
-                      <td className="py-2 text-right font-bold text-gray-800 font-mono">{formatCurrency(Number(op.precio_total))}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-
-          {/* Recibos */}
-          {op.recibos.length > 0 && (
-            <div className="px-5 py-3 border-t border-gray-50">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Pagos recibidos</p>
-              <div className="space-y-2">
-                {op.recibos.map(r => (
-                  <div key={r.id} className="flex items-start gap-3 bg-emerald-50 rounded-lg px-3 py-2.5">
-                    <Receipt size={13} className="text-emerald-600 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-emerald-800">{r.numero}</span>
-                        <span className="text-[10px] text-gray-500">{formatDate(r.fecha)}</span>
-                        <span className="text-[10px] bg-white px-1.5 py-0.5 rounded text-gray-600 border border-gray-200">
-                          {FORMA_PAGO[r.forma_pago] ?? r.forma_pago}
-                        </span>
-                      </div>
-                      {r.concepto && <p className="text-[11px] text-gray-600 mt-0.5">{r.concepto}</p>}
-                      {r.items.length > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                          {r.items.map((it, i) => (
-                            <p key={i} className="text-[10px] text-gray-500">
-                              {it.descripcion} — {formatCurrency(Number(it.monto))}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm font-bold text-emerald-700 shrink-0 font-mono">
-                      {formatCurrency(Number(r.monto_total))}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Remitos */}
           {op.remitos.length > 0 && (
-            <div className="px-5 py-3 border-t border-gray-50">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Entregas</p>
+            <div className="px-4 py-2.5">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Entregas</p>
               <div className="flex flex-wrap gap-2">
                 {op.remitos.map(rm => (
-                  <div key={rm.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
-                    <Truck size={12} className="text-blue-500" />
-                    <div>
-                      <p className="text-xs font-semibold text-blue-800">{rm.numero}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {rm.estado === 'entregado' && rm.fecha_entrega_real
-                          ? `Entregado ${formatDate(rm.fecha_entrega_real)}`
-                          : rm.estado}
-                      </p>
-                    </div>
+                  <div key={rm.id} className="flex items-center gap-1.5 bg-blue-50 rounded-lg px-2.5 py-1.5 text-xs">
+                    <Truck size={11} className="text-blue-500" />
+                    <span className="font-semibold text-blue-800">{rm.numero}</span>
+                    <span className="text-gray-500">
+                      {rm.estado === 'entregado' && rm.fecha_entrega_real
+                        ? `Entregado ${formatDate(rm.fecha_entrega_real)}`
+                        : ESTADO_OP_LABEL[rm.estado] ?? rm.estado}
+                    </span>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Saldo footer — solo para aprobadas */}
-          {generaSaldo && (
-            <div className={cn(
-              'flex items-center justify-between px-5 py-3 border-t',
-              saldada ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
-            )}>
-              <div className="flex items-center gap-2">
-                {saldada
-                  ? <><Check size={14} className="text-emerald-600" /><span className="text-xs font-semibold text-emerald-700">Saldo cancelado</span></>
-                  : <><AlertTriangle size={14} className="text-amber-600" /><span className="text-xs font-semibold text-amber-700">Saldo pendiente</span></>
-                }
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500">Cobrado: <strong>{formatCurrency(cobrado)}</strong></p>
-                {!saldada && saldo !== null && (
-                  <p className="text-sm font-bold text-amber-700">Saldo: {formatCurrency(saldo)}</p>
-                )}
               </div>
             </div>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Tooltip personalizado para el gráfico de barras ─────────
-function CustomBarTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-lg text-xs">
-      <p className="font-semibold text-gray-700 mb-1">{label}</p>
-      <p className="text-emerald-700 font-bold">{formatCurrency(payload[0].value)}</p>
     </div>
   );
 }
@@ -362,8 +278,8 @@ export function EstadoCuenta() {
   if (loading) return (
     <div className="p-6 max-w-4xl mx-auto animate-pulse space-y-4">
       <div className="h-8 bg-gray-100 rounded w-1/3" />
-      <div className="h-32 bg-gray-100 rounded-xl" />
-      <div className="h-48 bg-gray-100 rounded-xl" />
+      <div className="h-24 bg-gray-100 rounded-xl" />
+      <div className="h-64 bg-gray-100 rounded-xl" />
     </div>
   );
   if (!data) return (
@@ -373,15 +289,20 @@ export function EstadoCuenta() {
     </div>
   );
 
-  const { cliente, operaciones, recibos_directos, totales } = data;
+  const { cliente, operaciones, recibos_directos, compromisos, totales } = data;
   const nombre = clienteNombre(cliente);
-  const monthlyData = buildMonthlyData(operaciones, recibos_directos);
-  const pctGlobal = pctCobrado(totales.cobrado, totales.presupuestado);
+  const ledger = buildLedger(operaciones, recibos_directos);
+  const saldo = totales.saldo;
+  const saldoNegativo = saldo < -0.01; // pagó de más
+  const saldado = Math.abs(saldo) <= 0.01;
+  const pctGlobal = totales.presupuestado > 0
+    ? Math.min(100, Math.round((totales.cobrado / totales.presupuestado) * 100))
+    : 0;
 
-  const pieData = totales.presupuestado > 0 ? [
-    { name: 'Cobrado', value: totales.cobrado, color: GREEN },
-    { name: 'Pendiente', value: Math.max(0, totales.saldo), color: GRAY },
-  ] : [];
+  const compPendientes = compromisos.filter(c => c.estado === 'pendiente');
+  const compVencidos = compPendientes.filter(c => isVencido(c.fecha_vencimiento));
+  const compFuturos = compPendientes.filter(c => !isVencido(c.fecha_vencimiento));
+  const totalCompromisos = compPendientes.reduce((s, c) => s + Number(c.monto), 0);
 
   return (
     <>
@@ -390,7 +311,6 @@ export function EstadoCuenta() {
           @page { size: A4 portrait; margin: 12mm 16mm; }
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .print-break { page-break-before: always; }
         }
       `}</style>
 
@@ -398,168 +318,279 @@ export function EstadoCuenta() {
 
         {/* Header */}
         <div className="flex items-center gap-3 no-print">
-          <Link to={`/clientes/${id}`} className="p-2 hover:bg-gray-100 rounded-lg">
+          <Link to={`/clientes/${id}`} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={18} className="text-gray-600" />
           </Link>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">Estado de Cuenta</h1>
             <p className="text-sm text-gray-500">{nombre}</p>
           </div>
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-          >
-            <Printer size={14} /> Imprimir / PDF
+          <button onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <Printer size={14} /> Imprimir
           </button>
         </div>
 
-        {/* Encabezado impresión (solo visible al imprimir) */}
-        <div className="hidden print:block mb-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estado de Cuenta</p>
-          <h2 className="text-lg font-bold text-gray-900">{nombre}</h2>
-          {(cliente.telefono || cliente.email) && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              {[cliente.telefono, cliente.email].filter(Boolean).join(' · ')}
-            </p>
-          )}
-          {(cliente.direccion || cliente.localidad) && (
-            <p className="text-xs text-gray-500">
-              {[cliente.direccion, cliente.localidad].filter(Boolean).join(', ')}
-            </p>
-          )}
-          <p className="text-xs text-gray-400 mt-1">Generado: {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+        {/* Encabezado impresión */}
+        <div className="hidden print:block mb-4 pb-4 border-b-2" style={{ borderColor: NAVY }}>
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Estado de Cuenta</p>
+          <h2 className="text-xl font-bold" style={{ color: NAVY }}>{nombre}</h2>
+          <div className="flex gap-6 mt-1 text-xs text-gray-500">
+            {cliente.documento_nro && <span>DNI/CUIT: {cliente.documento_nro}</span>}
+            {cliente.telefono && <span>Tel: {cliente.telefono}</span>}
+            {cliente.email && <span>{cliente.email}</span>}
+            {cliente.localidad && <span>{cliente.localidad}</span>}
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Generado: {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </p>
         </div>
 
-        {/* Cards resumen */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                <FileText size={13} className="text-blue-600" />
-              </div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Aprobado</span>
+        {/* Resumen financiero */}
+        <div className={cn(
+          'rounded-xl border-2 p-5',
+          saldado ? 'bg-emerald-50 border-emerald-200'
+          : saldoNegativo ? 'bg-blue-50 border-blue-200'
+          : 'bg-amber-50 border-amber-200'
+        )}>
+          <div className="grid grid-cols-3 gap-4 text-center mb-4">
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total facturado</p>
+              <p className="text-xl font-bold text-gray-800 font-mono">{formatCurrency(totales.presupuestado)}</p>
+              {totales.pendiente_aprobacion > 0 && (
+                <p className="text-[10px] text-amber-500 font-medium mt-0.5">
+                  +{formatCurrency(totales.pendiente_aprobacion)} pendiente aprobación
+                </p>
+              )}
             </div>
-            <p className="text-lg font-bold text-gray-900 font-mono">{formatCurrency(totales.presupuestado)}</p>
-            {totales.pendiente_aprobacion > 0 && (
-              <p className="text-[10px] text-amber-500 mt-0.5 font-medium">
-                +{formatCurrency(totales.pendiente_aprobacion)} pend.
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total cobrado</p>
+              <p className="text-xl font-bold text-emerald-700 font-mono">{formatCurrency(totales.cobrado)}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{pctGlobal}% del total</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Saldo</p>
+              <p className={cn('text-xl font-bold font-mono',
+                saldado ? 'text-emerald-600'
+                : saldoNegativo ? 'text-blue-600'
+                : 'text-amber-600')}>
+                {saldoNegativo ? `(${formatCurrency(Math.abs(saldo))})` : formatCurrency(Math.max(0, saldo))}
               </p>
-            )}
+              <p className={cn('text-[10px] mt-0.5',
+                saldado ? 'text-emerald-600' : saldoNegativo ? 'text-blue-600' : 'text-amber-600')}>
+                {saldado ? '✓ Sin deuda' : saldoNegativo ? 'A favor del cliente' : 'Pendiente de cobro'}
+              </p>
+            </div>
           </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <TrendingUp size={13} className="text-emerald-600" />
+          {/* Barra de progreso */}
+          {totales.presupuestado > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden border border-white">
+                <div className={cn('h-full rounded-full transition-all', saldado ? 'bg-emerald-500' : 'bg-amber-400')}
+                  style={{ width: `${pctGlobal}%` }} />
               </div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobrado</span>
+              <span className="text-xs font-semibold text-gray-600 shrink-0">{pctGlobal}% cobrado</span>
             </div>
-            <p className="text-lg font-bold text-emerald-700 font-mono">{formatCurrency(totales.cobrado)}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{pctGlobal}% del total</p>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
-                <TrendingDown size={13} className="text-amber-600" />
-              </div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Saldo</span>
+          )}
+          {/* Compromisos pendientes como referencia */}
+          {totalCompromisos > 0 && (
+            <div className={cn(
+              'mt-3 pt-3 border-t flex items-center gap-2 text-xs',
+              compVencidos.length > 0 ? 'border-red-200 text-red-700' : 'border-amber-200 text-amber-700'
+            )}>
+              <Calendar size={12} className="shrink-0" />
+              <span className="font-medium">
+                {compVencidos.length > 0
+                  ? `${compVencidos.length} compromiso${compVencidos.length !== 1 ? 's' : ''} vencido${compVencidos.length !== 1 ? 's' : ''} — `
+                  : ''}
+                {formatCurrency(totalCompromisos)} comprometido${compFuturos.length > 0 ? ` (próximo: ${formatDate(compFuturos[0].fecha_vencimiento)})` : ''}
+              </span>
             </div>
-            <p className={cn('text-lg font-bold font-mono', totales.saldo > 0.01 ? 'text-amber-600' : 'text-gray-400')}>
-              {formatCurrency(Math.max(0, totales.saldo))}
-            </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{totales.saldo <= 0.01 ? 'Sin deuda' : 'Pendiente de cobro'}</p>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-                <DollarSign size={13} className="text-violet-600" />
-              </div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobertura</span>
-            </div>
-            <p className={cn('text-lg font-bold font-mono', pctGlobal >= 100 ? 'text-emerald-600' : pctGlobal > 0 ? 'text-amber-600' : 'text-gray-400')}>
-              {pctGlobal}%
-            </p>
-            <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div className={cn('h-full rounded-full', pctGlobal >= 100 ? 'bg-emerald-500' : 'bg-amber-400')}
-                style={{ width: `${pctGlobal}%` }} />
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Gráficos */}
-        {(monthlyData.length > 0 || pieData.length > 0) && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 no-print">
-            {/* Bar chart: pagos por mes */}
-            {monthlyData.length > 1 && (
-              <div className="sm:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cobros por mes</p>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={monthlyData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="mes" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip content={<CustomBarTooltip />} />
-                    <Bar dataKey="monto" fill={GREEN} radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* Pie chart: cobrado vs pendiente */}
-            {pieData.length > 0 && totales.presupuestado > 0 && (
-              <div className={cn('bg-white rounded-xl border border-gray-200 shadow-sm p-4', monthlyData.length <= 1 && 'sm:col-span-3')}>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cobrado vs Pendiente</p>
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70}
-                      paddingAngle={2} dataKey="value">
-                      {pieData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Legend
-                      formatter={(value, entry: any) => (
-                        <span style={{ fontSize: 11, color: '#6b7280' }}>
-                          {value}: {formatCurrency(entry.payload.value)}
-                        </span>
-                      )}
-                    />
-                    <Tooltip content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      return (
-                        <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-lg text-xs">
-                          <p className="font-semibold text-gray-700">{payload[0].name}</p>
-                          <p className="font-bold" style={{ color: payload[0].payload.color }}>{formatCurrency(payload[0].value as number)}</p>
+        {/* Ledger — libro de movimientos */}
+        {ledger.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta corriente</p>
+              <p className="text-xs text-gray-400">{ledger.length} movimientos</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left py-2 px-4 font-semibold text-gray-500 w-24">Fecha</th>
+                    <th className="text-left py-2 px-2 font-semibold text-gray-500 w-28">Documento</th>
+                    <th className="text-left py-2 px-2 font-semibold text-gray-500">Concepto</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-500 w-28">Cargo</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-500 w-28">Abono</th>
+                    <th className="text-right py-2 px-4 font-semibold text-gray-500 w-28">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {ledger.map((mov, i) => (
+                    <tr key={i} className={cn(
+                      'hover:bg-gray-50 transition-colors',
+                      mov.tipo === 'abono' && 'bg-emerald-50/30'
+                    )}>
+                      <td className="py-2.5 px-4 text-gray-500 whitespace-nowrap">
+                        {formatDate(mov.fecha)}
+                      </td>
+                      <td className="py-2.5 px-2">
+                        <div className="flex items-center gap-1.5">
+                          {mov.tipo === 'cargo'
+                            ? <ArrowUpRight size={12} className="text-amber-500 shrink-0" />
+                            : <ArrowDownLeft size={12} className="text-emerald-500 shrink-0" />}
+                          <span className={cn('font-semibold', mov.tipo === 'cargo' ? 'text-gray-700' : 'text-emerald-700')}>
+                            {mov.numero}
+                          </span>
                         </div>
-                      );
-                    }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                      </td>
+                      <td className="py-2.5 px-2 text-gray-600 max-w-[200px] truncate">
+                        {mov.concepto}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono">
+                        {mov.tipo === 'cargo'
+                          ? <span className="font-semibold text-gray-800">{formatCurrency(mov.monto)}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono">
+                        {mov.tipo === 'abono'
+                          ? <span className="font-semibold text-emerald-700">{formatCurrency(mov.monto)}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className={cn(
+                        'py-2.5 px-4 text-right font-mono font-bold',
+                        mov.saldo <= 0.01 ? 'text-emerald-600' : 'text-gray-800'
+                      )}>
+                        {formatCurrency(Math.max(0, mov.saldo))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 bg-gray-50">
+                    <td colSpan={3} className="py-2.5 px-4 text-xs font-semibold text-gray-500">SALDO ACTUAL</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-gray-700">
+                      {formatCurrency(totales.presupuestado)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                      {formatCurrency(totales.cobrado)}
+                    </td>
+                    <td className={cn(
+                      'py-2.5 px-4 text-right font-mono font-bold text-sm',
+                      saldado ? 'text-emerald-600' : 'text-amber-600'
+                    )}>
+                      {formatCurrency(Math.max(0, saldo))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Compromisos de pago */}
+        {compromisos.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compromisos de pago</p>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {compromisos.map(comp => {
+                const vencido = comp.estado === 'pendiente' && isVencido(comp.fecha_vencimiento);
+                return (
+                  <div key={comp.id} className={cn(
+                    'flex items-center gap-3 px-5 py-3',
+                    vencido && 'bg-red-50'
+                  )}>
+                    <div className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                      comp.tipo === 'cheque' ? 'bg-blue-100' : 'bg-amber-100'
+                    )}>
+                      {comp.tipo === 'cheque'
+                        ? <CreditCard size={14} className="text-blue-600" />
+                        : <DollarSign size={14} className="text-amber-600" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-gray-800">
+                          {COMP_TIPO[comp.tipo] ?? comp.tipo}
+                        </span>
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', COMP_ESTADO_COLOR[comp.estado])}>
+                          {comp.estado === 'vencido' || vencido ? 'VENCIDO' : comp.estado}
+                        </span>
+                        {comp.operacion && (
+                          <span className="text-[10px] text-gray-400">{comp.operacion.numero}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={9} /> {formatDate(comp.fecha_vencimiento)}
+                        </span>
+                        {comp.descripcion && <span>{comp.descripcion}</span>}
+                        {comp.banco && <span>{comp.banco}</span>}
+                        {comp.numero_cheque && <span>Ch. {comp.numero_cheque}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={cn(
+                        'text-sm font-bold font-mono',
+                        comp.estado === 'cobrado' ? 'text-emerald-600'
+                        : vencido ? 'text-red-600'
+                        : 'text-gray-800'
+                      )}>
+                        {formatCurrency(Number(comp.monto))}
+                      </p>
+                      {comp.estado === 'cobrado' && (
+                        <p className="text-[10px] text-emerald-600 flex items-center gap-0.5 justify-end">
+                          <Check size={9} /> Cobrado
+                        </p>
+                      )}
+                      {(comp.estado === 'rechazado') && (
+                        <p className="text-[10px] text-red-500 flex items-center gap-0.5 justify-end">
+                          <XCircle size={9} /> Rechazado
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {compPendientes.length > 0 && (
+              <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  {compPendientes.length} pendiente{compPendientes.length !== 1 ? 's' : ''}
+                  {compVencidos.length > 0 && (
+                    <span className="ml-2 text-red-600 font-semibold">
+                      ({compVencidos.length} vencido{compVencidos.length !== 1 ? 's' : ''})
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs font-bold text-gray-700 font-mono">{formatCurrency(totalCompromisos)}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Detalle por operación */}
+        {/* Detalle por operación (colapsable, secundario) */}
         {operaciones.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
               Detalle por operación
             </p>
-            {operaciones.map(op => (
-              <OperacionCard key={op.id} op={op} />
-            ))}
+            <div className="space-y-2">
+              {operaciones.map(op => <OperacionCard key={op.id} op={op} />)}
+            </div>
           </div>
         )}
 
-        {/* Recibos sin operación vinculada */}
+        {/* Recibos sin operación */}
         {recibos_directos.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pagos sin presupuesto vinculado</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pagos sin operación vinculada</p>
             </div>
             <div className="divide-y divide-gray-50">
               {recibos_directos.map(r => (
@@ -568,8 +599,7 @@ export function EstadoCuenta() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800">{r.numero}</p>
                     <p className="text-xs text-gray-400">
-                      {formatDate(r.fecha)} · {FORMA_PAGO[r.forma_pago] ?? r.forma_pago}
-                      {r.concepto ? ` · ${r.concepto}` : ''}
+                      {formatDate(r.fecha)} · {r.forma_pago}{r.concepto ? ` · ${r.concepto}` : ''}
                     </p>
                   </div>
                   <p className="text-sm font-bold text-emerald-700 font-mono shrink-0">
@@ -581,34 +611,14 @@ export function EstadoCuenta() {
           </div>
         )}
 
-        {/* Total final */}
-        <div className={cn(
-          'rounded-xl border-2 p-5',
-          totales.saldo <= 0.01 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
-        )}>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total presupuestado</p>
-              <p className="text-base font-bold text-gray-800 font-mono">{formatCurrency(totales.presupuestado)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total cobrado</p>
-              <p className="text-base font-bold text-emerald-700 font-mono">{formatCurrency(totales.cobrado)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Saldo pendiente</p>
-              <p className={cn('text-base font-bold font-mono', totales.saldo > 0.01 ? 'text-amber-600' : 'text-gray-400')}>
-                {formatCurrency(Math.max(0, totales.saldo))}
-              </p>
-            </div>
+        {/* Estado final */}
+        {ledger.length === 0 && compromisos.length === 0 && (
+          <div className="text-center py-12">
+            <Clock size={28} className="text-gray-200 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">Sin movimientos financieros todavía.</p>
+            <p className="text-xs text-gray-300 mt-1">Los movimientos aparecen cuando se aprueban operaciones.</p>
           </div>
-          {totales.saldo <= 0.01 && (
-            <div className="flex items-center justify-center gap-2 mt-3 text-emerald-700">
-              <Check size={15} />
-              <span className="text-sm font-semibold">Cuenta al día — sin saldo pendiente</span>
-            </div>
-          )}
-        </div>
+        )}
 
       </div>
     </>

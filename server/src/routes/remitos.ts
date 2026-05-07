@@ -278,6 +278,14 @@ remitos.patch('/:id/estado', async (c) => {
       WHERE id = $3
     `, [nuevoEstado, fecha_entrega_real || null, id]);
 
+    // Al entregar: marcar la operación vinculada como entregada
+    if (nuevoEstado === 'entregado' && remito.operacion_id) {
+      await client.query(`
+        UPDATE operaciones SET estado = 'entregado', updated_at = now()
+        WHERE id = $1 AND estado NOT IN ('cancelado', 'entregado')
+      `, [remito.operacion_id]);
+    }
+
     await client.query('COMMIT');
     const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
     return c.json(updated);

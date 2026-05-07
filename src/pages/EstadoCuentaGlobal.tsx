@@ -30,6 +30,7 @@ interface ClienteResumen {
   proximo_vencimiento: string | null;
   compromisos_vencidos: number;
   ultima_actividad: string;
+  dias_desde_primera_op: number | null;
 }
 
 interface Totales {
@@ -385,7 +386,7 @@ function ClienteRow({
           </div>
         </td>
 
-        {/* Saldo */}
+        {/* Saldo + aging */}
         <td className="px-3 py-3 text-right">
           <span className={cn(
             'text-sm font-bold',
@@ -393,6 +394,21 @@ function ClienteRow({
           )}>
             {formatCurrency(saldo)}
           </span>
+          {saldo > 0.01 && cliente.dias_desde_primera_op != null && (() => {
+            const d = cliente.dias_desde_primera_op!;
+            const [cls, label] =
+              d <= 30  ? ['bg-emerald-100 text-emerald-700', `${d}d`] :
+              d <= 60  ? ['bg-amber-100 text-amber-700',    `${d}d`] :
+              d <= 90  ? ['bg-orange-100 text-orange-700',  `${d}d`] :
+                         ['bg-red-100 text-red-700',        `+90d`];
+            return (
+              <div className="flex justify-end mt-0.5">
+                <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold', cls)}>
+                  {label}
+                </span>
+              </div>
+            );
+          })()}
         </td>
 
         {/* Compromisos */}

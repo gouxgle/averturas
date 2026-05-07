@@ -23,7 +23,7 @@ const ESTADO_COLOR: Record<string, string> = {
   en_produccion: 'bg-amber-100 text-amber-700',
   listo:         'bg-teal-100 text-teal-700',
   instalado:     'bg-purple-100 text-purple-700',
-  entregado:     'bg-emerald-100 text-emerald-700',
+  entregado:     'bg-indigo-100 text-indigo-700',
   cancelado:     'bg-red-100 text-red-700',
 };
 

@@ -27,7 +27,7 @@ const ESTADO_OP_COLOR: Record<string, string> = {
   en_produccion: 'bg-amber-100 text-amber-700',
   listo:         'bg-teal-100 text-teal-700',
   instalado:     'bg-purple-100 text-purple-700',
-  entregado:     'bg-emerald-100 text-emerald-700',
+  entregado:     'bg-indigo-100 text-indigo-700',
   cancelado:     'bg-red-100 text-red-700',
 };
 
@@ -510,7 +510,7 @@ export function ClienteDetalle() {
                     </div>
                     <span className={cn(
                       'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
-                      rm.estado === 'entregado' ? 'bg-emerald-100 text-emerald-700' :
+                      rm.estado === 'entregado' ? 'bg-indigo-100 text-indigo-700' :
                       rm.estado === 'emitido'   ? 'bg-blue-100 text-blue-700' :
                                                   'bg-gray-100 text-gray-600'
                     )}>

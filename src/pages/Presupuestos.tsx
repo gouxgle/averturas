@@ -14,10 +14,15 @@ const FILTROS: { value: 'activos' | EstadoOperacion; label: string }[] = [
 ];
 
 const ESTADO_COLOR: Record<string, string> = {
-  presupuesto: 'bg-gray-100 text-gray-700',
-  enviado:     'bg-blue-100 text-blue-700',
-  aprobado:    'bg-green-100 text-green-700',
-  rechazado:   'bg-red-100 text-red-700',
+  presupuesto:   'bg-gray-100 text-gray-700',
+  enviado:       'bg-blue-100 text-blue-700',
+  aprobado:      'bg-green-100 text-green-700',
+  rechazado:     'bg-red-100 text-red-700',
+  en_produccion: 'bg-amber-100 text-amber-700',
+  listo:         'bg-teal-100 text-teal-700',
+  instalado:     'bg-purple-100 text-purple-700',
+  entregado:     'bg-indigo-100 text-indigo-700',
+  cancelado:     'bg-red-100 text-red-700',
 };
 
 const ESTADO_LABEL: Record<string, string> = {

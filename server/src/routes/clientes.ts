@@ -3,19 +3,56 @@ import { db } from '../db.js';
 
 const clientes = new Hono();
 
+// Letra normalizada: tildes → base, no-letra → '#'
+const RAW_LETRA  = (alias: string) =>
+  `TRANSLATE(UPPER(LEFT(COALESCE(${alias}.apellido, ${alias}.razon_social, ${alias}.nombre, '#'), 1)), 'ÁÉÍÓÚÑ', 'AEIOÚN')`;
+const LETRA_EXPR = (alias: string) =>
+  `CASE WHEN ${RAW_LETRA(alias)} ~ '^[A-Z]$' THEN ${RAW_LETRA(alias)} ELSE '#' END`;
+
+// GET /letras — índice de letras con conteo (carga inicial liviana). ANTES de /:id
+clientes.get('/letras', async (c) => {
+  const raw = `TRANSLATE(UPPER(LEFT(COALESCE(apellido, razon_social, nombre, '#'), 1)), 'ÁÉÍÓÚÑ', 'AEIOÚN')`;
+  const { rows } = await db.query(`
+    SELECT
+      CASE WHEN ${raw} ~ '^[A-Z]$' THEN ${raw} ELSE '#' END AS letra,
+      COUNT(*)::int AS total
+    FROM clientes
+    WHERE activo = true
+    GROUP BY letra
+    ORDER BY CASE WHEN (CASE WHEN ${raw} ~ '^[A-Z]$' THEN ${raw} ELSE '#' END) = '#' THEN 1 ELSE 0 END, letra
+  `);
+  return c.json(rows);
+});
+
 clientes.get('/', async (c) => {
   const search = c.req.query('search') ?? '';
   const estado = c.req.query('estado') ?? '';
+  const letra  = c.req.query('letra')  ?? '';
   const params: unknown[] = [];
   let where = `WHERE c.activo = true`;
 
-  if (search.trim()) {
-    params.push(`%${search}%`);
-    const n = params.length;
-    where += ` AND (c.nombre ILIKE $${n} OR c.apellido ILIKE $${n} OR c.razon_social ILIKE $${n} OR c.telefono ILIKE $${n} OR c.documento_nro ILIKE $${n})`;
+  if (letra.trim()) {
+    params.push(letra.trim().toUpperCase());
+    where += ` AND ${LETRA_EXPR('c')} = $${params.length}`;
   }
+
+  if (search.trim()) {
+    params.push(`%${search.trim()}%`);
+    const n = params.length;
+    where += ` AND (
+      c.nombre          ILIKE $${n}
+      OR c.apellido     ILIKE $${n}
+      OR c.razon_social ILIKE $${n}
+      OR c.telefono     ILIKE $${n}
+      OR c.documento_nro ILIKE $${n}
+      OR c.email        ILIKE $${n}
+      OR c.localidad    ILIKE $${n}
+      OR c.notas        ILIKE $${n}
+    )`;
+  }
+
   if (estado.trim()) {
-    params.push(estado);
+    params.push(estado.trim());
     where += ` AND c.estado = $${params.length}`;
   }
 
@@ -32,8 +69,9 @@ clientes.get('/', async (c) => {
     LEFT JOIN categorias_cliente cat ON cat.id = c.categoria_id
     LEFT JOIN clientes ref ON ref.id = c.referido_por_id
     ${where}
-    ORDER BY c.ultima_interaccion DESC NULLS LAST, c.apellido ASC, c.nombre ASC
-    LIMIT 200
+    ORDER BY
+      COALESCE(c.apellido, c.razon_social, c.nombre) ASC NULLS LAST,
+      c.nombre ASC
   `, params);
 
   return c.json(rows);
@@ -126,6 +164,7 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     { rows: operaciones },
     { rows: recibos_all },
     { rows: remitos_all },
+    { rows: compromisos_all },
   ] = await Promise.all([
     db.query(`
       SELECT c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
@@ -187,6 +226,16 @@ clientes.get('/:id/estado-cuenta', async (c) => {
       WHERE cliente_id = $1 AND estado != 'cancelado'
       ORDER BY fecha_emision ASC
     `, [id]),
+    db.query(`
+      SELECT cp.*,
+        CASE WHEN o.id IS NOT NULL
+          THEN json_build_object('id', o.id, 'numero', o.numero)
+          ELSE NULL END AS operacion
+      FROM compromisos_pago cp
+      LEFT JOIN operaciones o ON o.id = cp.operacion_id
+      WHERE cp.cliente_id = $1
+      ORDER BY cp.fecha_vencimiento ASC, cp.created_at ASC
+    `, [id]),
   ]);
 
   if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
@@ -240,6 +289,7 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     cliente,
     operaciones: operacionesConDetalle,
     recibos_directos: recibosDirectos,
+    compromisos: compromisos_all,
     totales: {
       presupuestado: totalPresupuestado,
       cobrado: totalCobrado,

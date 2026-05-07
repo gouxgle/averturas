@@ -44,13 +44,15 @@ estadoCuenta.get('/', async (c) => {
       COALESCE(comp.total, 0)                            AS compromisos_pendientes,
       comp.proximo_vencimiento,
       comp.compromisos_vencidos,
-      GREATEST(ops.ultima, COALESCE(rec.ultima, ops.ultima)) AS ultima_actividad
+      GREATEST(ops.ultima, COALESCE(rec.ultima, ops.ultima)) AS ultima_actividad,
+      EXTRACT(DAY FROM now() - ops.primera)::int              AS dias_desde_primera_op
     FROM clientes c
     JOIN LATERAL (
       -- Solo operaciones aprobadas (y estados posteriores) generan saldo
       SELECT COUNT(*)::int AS count,
              COALESCE(SUM(precio_total), 0) AS total,
-             MAX(created_at) AS ultima
+             MAX(created_at) AS ultima,
+             MIN(created_at) AS primera
       FROM operaciones
       WHERE cliente_id = c.id
         AND estado IN ('aprobado','en_produccion','listo','instalado','entregado')
