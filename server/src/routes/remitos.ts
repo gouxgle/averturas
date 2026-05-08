@@ -28,6 +28,134 @@ const WITH_CLIENTE = `
   LEFT JOIN operaciones o ON o.id = r.operacion_id
 `;
 
+// GET /tablero — datos completos para la agenda logística
+remitos.get('/tablero', async (c) => {
+  const primerDiaMes = new Date();
+  primerDiaMes.setDate(1);
+  primerDiaMes.setHours(0, 0, 0, 0);
+
+  const [statsRow, listRows, hoyRows, atrasadasRows, metodosRows, metricasRow] = await Promise.all([
+
+    db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE r.estado IN ('borrador','emitido'))::int AS pendientes,
+        COUNT(*) FILTER (WHERE r.fecha_entrega_est = CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado'))::int AS para_hoy,
+        COUNT(*) FILTER (WHERE r.fecha_entrega_est < CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado'))::int AS atrasados,
+        COUNT(*) FILTER (WHERE r.estado = 'entregado' AND r.updated_at >= $1)::int AS entregados_mes,
+        COALESCE(SUM(ri_sum.total) FILTER (WHERE r.estado IN ('borrador','emitido')), 0)::numeric AS valor_pendiente
+      FROM remitos r
+      LEFT JOIN LATERAL (
+        SELECT SUM(ri.precio_unitario * ri.cantidad) AS total
+        FROM remito_items ri WHERE ri.remito_id = r.id
+      ) ri_sum ON true
+    `, [primerDiaMes.toISOString()]),
+
+    db.query(`
+      SELECT r.id, r.numero, r.estado, r.medio_envio, r.transportista,
+        r.nro_seguimiento, r.direccion_entrega, r.fecha_emision,
+        r.fecha_entrega_est, r.fecha_entrega_real, r.notas, r.stock_descontado,
+        json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
+          'telefono', c.telefono) AS cliente,
+        CASE WHEN o.id IS NOT NULL
+          THEN json_build_object('id', o.id, 'numero', o.numero)
+          ELSE NULL END AS operacion,
+        COALESCE(ri_sum.total, 0)::numeric AS valor_total,
+        ri_agg.items_resumen
+      FROM remitos r
+      JOIN clientes c ON c.id = r.cliente_id
+      LEFT JOIN operaciones o ON o.id = r.operacion_id
+      LEFT JOIN LATERAL (
+        SELECT SUM(ri.precio_unitario * ri.cantidad) AS total
+        FROM remito_items ri WHERE ri.remito_id = r.id
+      ) ri_sum ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object('descripcion', ri.descripcion, 'cantidad', ri.cantidad)
+          ORDER BY ri.id
+        ) AS items_resumen
+        FROM remito_items ri WHERE ri.remito_id = r.id
+      ) ri_agg ON true
+      ORDER BY
+        CASE WHEN r.fecha_entrega_est < CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado') THEN 0 ELSE 1 END,
+        CASE WHEN r.fecha_entrega_est = CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado') THEN 0 ELSE 1 END,
+        r.fecha_entrega_est ASC NULLS LAST,
+        r.created_at DESC
+      LIMIT 300
+    `),
+
+    db.query(`
+      SELECT r.id, r.numero, r.fecha_entrega_est,
+        json_build_object('nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona) AS cliente,
+        COALESCE((SELECT SUM(ri.precio_unitario * ri.cantidad) FROM remito_items ri WHERE ri.remito_id = r.id), 0)::numeric AS valor_total
+      FROM remitos r JOIN clientes c ON c.id = r.cliente_id
+      WHERE r.fecha_entrega_est = CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado')
+      ORDER BY r.created_at ASC LIMIT 10
+    `),
+
+    db.query(`
+      SELECT r.id, r.numero, r.fecha_entrega_est,
+        json_build_object('nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona) AS cliente,
+        COALESCE((SELECT SUM(ri.precio_unitario * ri.cantidad) FROM remito_items ri WHERE ri.remito_id = r.id), 0)::numeric AS valor_total
+      FROM remitos r JOIN clientes c ON c.id = r.cliente_id
+      WHERE r.fecha_entrega_est < CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado')
+      ORDER BY r.fecha_entrega_est ASC LIMIT 10
+    `),
+
+    db.query(`
+      SELECT medio_envio, COUNT(*)::int AS n
+      FROM remitos
+      WHERE created_at >= NOW() - INTERVAL '3 months'
+      GROUP BY medio_envio ORDER BY n DESC
+    `),
+
+    db.query(`
+      SELECT
+        ROUND(COALESCE(AVG(EXTRACT(DAY FROM (r.fecha_entrega_real::timestamp - r.fecha_emision::timestamp))), 0)::numeric, 1) AS tiempo_promedio,
+        COALESCE(ROUND(100.0 * COUNT(*) FILTER (WHERE r.fecha_entrega_real::date <= r.fecha_entrega_est) /
+          NULLIF(COUNT(*) FILTER (WHERE r.fecha_entrega_real IS NOT NULL AND r.fecha_entrega_est IS NOT NULL), 0)), 0)::int AS pct_a_tiempo,
+        COALESCE((
+          SELECT SUM(ri_sum.total) FROM (
+            SELECT (SELECT SUM(ri.precio_unitario * ri.cantidad) FROM remito_items ri WHERE ri.remito_id = r2.id) AS total
+            FROM remitos r2 WHERE r2.estado = 'entregado' AND r2.updated_at >= $1
+          ) ri_sum
+        ), 0)::numeric AS valor_entregado_mes,
+        COUNT(*) FILTER (WHERE r.estado = 'entregado' AND r.updated_at >= $1)::int AS entregados_mes
+      FROM remitos r WHERE r.estado = 'entregado'
+    `, [primerDiaMes.toISOString()]),
+  ]);
+
+  const s = statsRow.rows[0];
+  const m = metricasRow.rows[0];
+  const totalMetodos = metodosRows.rows.reduce((acc: number, r: { n: number }) => acc + r.n, 0) || 1;
+
+  return c.json({
+    stats: {
+      pendientes:      s.pendientes,
+      para_hoy:        s.para_hoy,
+      atrasados:       s.atrasados,
+      entregados_mes:  s.entregados_mes,
+      valor_pendiente: parseFloat(s.valor_pendiente),
+    },
+    remitos:            listRows.rows,
+    entregas_hoy:       hoyRows.rows,
+    entregas_atrasadas: atrasadasRows.rows,
+    metodos_envio:      metodosRows.rows.map((r: { medio_envio: string; n: number }) => ({
+      medio_envio: r.medio_envio,
+      n: r.n,
+      pct: Math.round((r.n / totalMetodos) * 100),
+    })),
+    metricas: {
+      tiempo_promedio:     parseFloat(m.tiempo_promedio),
+      pct_a_tiempo:        m.pct_a_tiempo,
+      valor_entregado_mes: parseFloat(m.valor_entregado_mes),
+      entregados_mes:      m.entregados_mes,
+    },
+  });
+});
+
 // GET / — lista
 remitos.get('/', async (c) => {
   const estado = c.req.query('estado') ?? '';
