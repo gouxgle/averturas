@@ -14,6 +14,252 @@ async function nextNumero(): Promise<string> {
   return `REC-${ym}-${String(n).padStart(4, '0')}`;
 }
 
+// GET /tablero — panel de cobranza completo (ANTES de /:id)
+recibos.get('/tablero', async (c) => {
+  const mesStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
+  const [
+    statsRec,
+    statsComp,
+    diasProm,
+    recibosRows,
+    compromisosRows,
+    deudasRows,
+    metodosPago,
+    proximosVenc,
+    infoClave,
+    parciales,
+  ] = await Promise.all([
+    db.query(`
+      SELECT
+        COALESCE(SUM(monto_total) FILTER (WHERE estado = 'emitido' AND fecha >= $1::date), 0)::numeric AS cobrado_mes,
+        COUNT(*) FILTER (WHERE estado = 'emitido' AND fecha >= $1::date)::int AS count_mes,
+        COUNT(*) FILTER (WHERE fecha >= $1::date)::int AS total_comprobantes_mes,
+        COUNT(*) FILTER (WHERE estado = 'anulado' AND fecha >= $1::date)::int AS anulados_mes
+      FROM recibos
+    `, [mesStr]),
+
+    db.query(`
+      SELECT
+        COALESCE(SUM(monto) FILTER (WHERE fecha_vencimiento < CURRENT_DATE), 0)::numeric AS vencido,
+        COALESCE(SUM(monto), 0)::numeric AS total_pendiente,
+        COUNT(*) FILTER (WHERE fecha_vencimiento < CURRENT_DATE)::int AS count_vencido,
+        COUNT(*)::int AS count_pendiente
+      FROM compromisos_pago WHERE estado = 'pendiente'
+    `, []),
+
+    db.query(`
+      SELECT COALESCE(ROUND(AVG(EXTRACT(DAY FROM (r.fecha::date - o.created_at::date))))::int, 0) AS dias_promedio
+      FROM recibos r
+      JOIN operaciones o ON o.id = r.operacion_id
+      WHERE r.estado = 'emitido' AND r.fecha >= NOW() - INTERVAL '3 months'
+    `, []),
+
+    db.query(`
+      SELECT
+        r.id, r.numero, r.fecha, r.monto_total, r.forma_pago, r.referencia_pago,
+        r.estado, r.operacion_id, cl.telefono AS cliente_telefono,
+        CASE
+          WHEN cl.tipo_persona = 'juridica' THEN COALESCE(cl.razon_social, '—')
+          WHEN cl.apellido IS NOT NULL AND cl.nombre IS NOT NULL THEN cl.apellido || ', ' || cl.nombre
+          WHEN cl.apellido IS NOT NULL THEN cl.apellido
+          WHEN cl.nombre IS NOT NULL THEN cl.nombre
+          ELSE '—'
+        END AS cliente_nombre,
+        op.numero AS operacion_numero, op.precio_total,
+        cobros.total_cobrado,
+        CASE
+          WHEN r.estado = 'anulado' THEN 'anulado'
+          WHEN op.id IS NOT NULL AND COALESCE(cobros.total_cobrado, 0) < COALESCE(op.precio_total, 0) - 0.01 THEN 'parcial'
+          ELSE 'cobrado'
+        END AS estado_cobro,
+        GREATEST(0, COALESCE(op.precio_total, 0) - COALESCE(cobros.total_cobrado, 0)) AS saldo_pendiente
+      FROM recibos r
+      JOIN clientes cl ON cl.id = r.cliente_id
+      LEFT JOIN operaciones op ON op.id = r.operacion_id
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(r2.monto_total), 0) AS total_cobrado
+        FROM recibos r2 WHERE r2.operacion_id = op.id AND r2.estado = 'emitido'
+      ) cobros ON true
+      ORDER BY r.fecha DESC, r.created_at DESC
+      LIMIT 300
+    `, []),
+
+    db.query(`
+      SELECT
+        cp.id, cp.monto AS monto_total, cp.fecha_vencimiento, cp.descripcion,
+        cp.operacion_id, cp.created_at AS fecha, cl.telefono AS cliente_telefono,
+        CASE
+          WHEN cl.tipo_persona = 'juridica' THEN COALESCE(cl.razon_social, '—')
+          WHEN cl.apellido IS NOT NULL AND cl.nombre IS NOT NULL THEN cl.apellido || ', ' || cl.nombre
+          WHEN cl.apellido IS NOT NULL THEN cl.apellido
+          WHEN cl.nombre IS NOT NULL THEN cl.nombre
+          ELSE '—'
+        END AS cliente_nombre,
+        op.numero AS operacion_numero,
+        CASE WHEN cp.fecha_vencimiento < CURRENT_DATE THEN 'vencido' ELSE 'pendiente' END AS estado_cobro
+      FROM compromisos_pago cp
+      JOIN clientes cl ON cl.id = cp.cliente_id
+      LEFT JOIN operaciones op ON op.id = cp.operacion_id
+      WHERE cp.estado = 'pendiente'
+      ORDER BY cp.fecha_vencimiento ASC
+    `, []),
+
+    db.query(`
+      SELECT
+        cl.id,
+        CASE
+          WHEN cl.tipo_persona = 'juridica' THEN COALESCE(cl.razon_social, '—')
+          WHEN cl.apellido IS NOT NULL AND cl.nombre IS NOT NULL THEN cl.apellido || ', ' || cl.nombre
+          WHEN cl.apellido IS NOT NULL THEN cl.apellido
+          WHEN cl.nombre IS NOT NULL THEN cl.nombre
+          ELSE '—'
+        END AS cliente_nombre,
+        SUM(cp.monto)::numeric AS saldo_pendiente,
+        COUNT(*) FILTER (WHERE cp.fecha_vencimiento < CURRENT_DATE)::int AS count_vencido
+      FROM compromisos_pago cp
+      JOIN clientes cl ON cl.id = cp.cliente_id
+      WHERE cp.estado = 'pendiente'
+      GROUP BY cl.id, cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona
+      ORDER BY saldo_pendiente DESC
+      LIMIT 8
+    `, []),
+
+    db.query(`
+      SELECT
+        CASE
+          WHEN LOWER(forma_pago) LIKE '%transfer%' THEN 'Transferencia'
+          WHEN LOWER(forma_pago) LIKE '%contado%' OR LOWER(forma_pago) LIKE '%efectivo%' THEN 'Efectivo'
+          WHEN LOWER(forma_pago) LIKE '%tarjeta%' OR LOWER(forma_pago) LIKE '%cuota%'
+            OR LOWER(forma_pago) LIKE '%débito%' OR LOWER(forma_pago) LIKE '%crédito%'
+            OR LOWER(forma_pago) LIKE '%mercado%' THEN 'Tarjeta / Digital'
+          ELSE 'Otros'
+        END AS grupo,
+        COUNT(*)::int AS count,
+        SUM(monto_total)::numeric AS total
+      FROM recibos
+      WHERE estado = 'emitido' AND fecha >= $1::date
+      GROUP BY grupo
+      ORDER BY total DESC
+    `, [mesStr]),
+
+    db.query(`
+      SELECT
+        CASE
+          WHEN cl.tipo_persona = 'juridica' THEN COALESCE(cl.razon_social, '—')
+          WHEN cl.apellido IS NOT NULL AND cl.nombre IS NOT NULL THEN cl.apellido || ', ' || cl.nombre
+          ELSE COALESCE(cl.apellido, cl.nombre, '—')
+        END AS cliente_nombre,
+        op.numero AS operacion_numero,
+        cp.monto, cp.fecha_vencimiento,
+        EXTRACT(DAY FROM cp.fecha_vencimiento::date - CURRENT_DATE)::int AS dias_para_vencer
+      FROM compromisos_pago cp
+      JOIN clientes cl ON cl.id = cp.cliente_id
+      LEFT JOIN operaciones op ON op.id = cp.operacion_id
+      WHERE cp.estado = 'pendiente' AND cp.fecha_vencimiento >= CURRENT_DATE
+      ORDER BY cp.fecha_vencimiento ASC
+      LIMIT 6
+    `, []),
+
+    db.query(`
+      SELECT
+        COUNT(*)::int AS total_comprobantes,
+        COUNT(*) FILTER (WHERE estado = 'emitido')::int AS recibos_emitidos,
+        COUNT(*) FILTER (WHERE estado = 'anulado')::int AS anulados
+      FROM recibos
+      WHERE fecha >= $1::date
+    `, [mesStr]),
+
+    db.query(`
+      SELECT COUNT(DISTINCT op.id)::int AS count
+      FROM operaciones op
+      WHERE op.estado NOT IN ('cancelado', 'presupuesto', 'enviado')
+        AND EXISTS (SELECT 1 FROM recibos r WHERE r.operacion_id = op.id AND r.estado = 'emitido')
+        AND (
+          SELECT COALESCE(SUM(r.monto_total), 0) FROM recibos r
+          WHERE r.operacion_id = op.id AND r.estado = 'emitido'
+        ) < op.precio_total - 0.01
+    `, []),
+  ]);
+
+  const sr = statsRec.rows[0] as Record<string, string>;
+  const sc = statsComp.rows[0] as Record<string, string>;
+  const cobradoMes  = Number(sr.cobrado_mes);
+  const totalPend   = Number(sc.total_pendiente);
+  const totalACobrar = cobradoMes + totalPend;
+  const pctCobro    = totalACobrar > 0 ? Math.round(cobradoMes / totalACobrar * 100) : 0;
+  const diasProm0   = Number((diasProm.rows[0] as Record<string, number>)?.dias_promedio ?? 0);
+
+  const totalPago = (metodosPago.rows as Record<string, string>[]).reduce((s, r) => s + Number(r.total), 0);
+
+  return c.json({
+    stats: {
+      cobrado_mes:    cobradoMes,
+      count_mes:      Number(sr.count_mes),
+      pendiente_cobro: Number(sc.total_pendiente),
+      vencido:        Number(sc.vencido),
+      dias_promedio:  diasProm0,
+      pct_cobro:      pctCobro,
+      total_a_cobrar: totalACobrar,
+    },
+    recibos: (recibosRows.rows as Record<string, unknown>[]).map(r => ({
+      tipo: 'recibo',
+      id:              r.id,
+      numero:          r.numero,
+      fecha:           r.fecha,
+      monto_total:     Number(r.monto_total),
+      forma_pago:      r.forma_pago,
+      referencia_pago: r.referencia_pago,
+      estado:          r.estado,
+      estado_cobro:    r.estado_cobro,
+      saldo_pendiente: Number(r.saldo_pendiente),
+      operacion_id:    r.operacion_id,
+      operacion_numero: r.operacion_numero,
+      cliente_nombre:  r.cliente_nombre,
+      cliente_telefono: r.cliente_telefono,
+    })),
+    compromisos: (compromisosRows.rows as Record<string, unknown>[]).map(r => ({
+      tipo: 'compromiso',
+      id:              r.id,
+      numero:          `COMP-${String(r.id).slice(0, 8).toUpperCase()}`,
+      fecha:           r.fecha,
+      fecha_vencimiento: r.fecha_vencimiento,
+      monto_total:     Number(r.monto_total),
+      estado_cobro:    r.estado_cobro,
+      descripcion:     r.descripcion,
+      operacion_id:    r.operacion_id,
+      operacion_numero: r.operacion_numero,
+      cliente_nombre:  r.cliente_nombre,
+      cliente_telefono: r.cliente_telefono,
+    })),
+    deudas_cliente: (deudasRows.rows as Record<string, unknown>[]).map(r => ({
+      cliente_id:      r.id,
+      cliente_nombre:  r.cliente_nombre,
+      saldo_pendiente: Number(r.saldo_pendiente),
+      tiene_vencido:   Number(r.count_vencido) > 0,
+    })),
+    metodos_pago: (metodosPago.rows as Record<string, unknown>[]).map(r => ({
+      grupo: r.grupo,
+      count: Number(r.count),
+      total: Number(r.total),
+      pct:   totalPago > 0 ? Math.round(Number(r.total) / totalPago * 100) : 0,
+    })),
+    proximos_vencimientos: (proximosVenc.rows as Record<string, unknown>[]).map(r => ({
+      cliente_nombre:    r.cliente_nombre,
+      operacion_numero:  r.operacion_numero,
+      monto:             Number(r.monto),
+      fecha_vencimiento: r.fecha_vencimiento,
+      dias_para_vencer:  Number(r.dias_para_vencer),
+    })),
+    info_clave: {
+      total_comprobantes: Number((infoClave.rows[0] as Record<string, unknown>)?.total_comprobantes ?? 0),
+      recibos_emitidos:   Number((infoClave.rows[0] as Record<string, unknown>)?.recibos_emitidos ?? 0),
+      pagos_parciales:    Number((parciales.rows[0] as Record<string, unknown>)?.count ?? 0),
+      anulados:           Number((infoClave.rows[0] as Record<string, unknown>)?.anulados ?? 0),
+    },
+  });
+});
+
 // GET /conteos — stats del mes (ANTES de /:id)
 recibos.get('/conteos', async (c) => {
   const { rows: [r] } = await db.query(`
