@@ -143,6 +143,250 @@ clientes.post('/importar', async (c) => {
   return c.json({ importados, duplicados, errores, detalleErrores });
 });
 
+// GET /panel — CRM completo: stats, lista enriquecida, oportunidades, sidebar (ANTES de /:id)
+clientes.get('/panel', async (c) => {
+  const mesStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
+  const [
+    statsRows,
+    facturadoMes,
+    clientesRows,
+    oportunidadesRows,
+    porLocalidad,
+    actividadReciente,
+    mayorCompraRows,
+    mejorClienteMesRows,
+    ticketMesRows,
+  ] = await Promise.all([
+
+    db.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE estado IN ('activo','recurrente'))::int AS activos,
+        COUNT(*) FILTER (WHERE ultima_interaccion IS NULL OR EXTRACT(DAY FROM now() - ultima_interaccion) >= 60)::int AS sin_actividad,
+        COUNT(*) FILTER (WHERE created_at >= $1::timestamp)::int AS nuevos_mes,
+        (SELECT COUNT(*)::int FROM (
+          SELECT cl2.id FROM clientes cl2
+          JOIN operaciones o ON o.cliente_id = cl2.id AND o.estado NOT IN ('presupuesto','enviado','cancelado')
+          WHERE cl2.activo = true GROUP BY cl2.id HAVING COUNT(o.id) >= 3
+        ) sub) AS clientes_top
+      FROM clientes WHERE activo = true
+    `, [mesStr]),
+
+    db.query(`
+      SELECT COALESCE(SUM(monto_total), 0)::numeric AS total
+      FROM recibos WHERE estado = 'emitido' AND fecha >= $1::date
+    `, [mesStr]),
+
+    db.query(`
+      SELECT
+        c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
+        c.telefono, c.email, c.documento_nro, c.localidad, c.estado,
+        c.created_at, c.ultima_interaccion,
+        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion)::int, 999) AS dias_sin_contacto,
+        cat.nombre AS categoria_nombre, cat.color AS categoria_color,
+        ops.operaciones_count,
+        ops.valor_total_historico,
+        CASE WHEN ops.operaciones_count > 0
+          THEN (ops.valor_total_historico / ops.operaciones_count)
+          ELSE 0
+        END AS ticket_promedio,
+        deuda.total_deuda,
+        deuda.count_deuda,
+        CASE
+          WHEN c.created_at >= NOW() - INTERVAL '30 days' THEN 'nuevo'
+          WHEN c.estado IN ('inactivo','perdido')
+            OR COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) >= 60 THEN 'inactivo'
+          WHEN c.estado = 'prospecto' THEN 'seguimiento'
+          WHEN ops.operaciones_count >= 3 THEN 'frecuente'
+          ELSE 'activo'
+        END AS segmento
+      FROM clientes c
+      LEFT JOIN categorias_cliente cat ON cat.id = c.categoria_id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (WHERE o.estado NOT IN ('presupuesto','enviado','cancelado'))::int AS operaciones_count,
+          COALESCE(SUM(o.precio_total) FILTER (WHERE o.estado NOT IN ('presupuesto','enviado','cancelado')), 0)::numeric AS valor_total_historico
+        FROM operaciones o WHERE o.cliente_id = c.id
+      ) ops ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(SUM(cp.monto), 0)::numeric AS total_deuda,
+          COUNT(*)::int AS count_deuda
+        FROM compromisos_pago cp WHERE cp.cliente_id = c.id AND cp.estado = 'pendiente'
+      ) deuda ON true
+      WHERE c.activo = true
+      ORDER BY c.ultima_interaccion DESC NULLS LAST, c.created_at DESC
+      LIMIT 500
+    `, []),
+
+    db.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM clientes
+          WHERE activo = true AND (ultima_interaccion IS NULL OR EXTRACT(DAY FROM now() - ultima_interaccion) >= 30)
+        ) AS sin_contacto_30d,
+        (SELECT COUNT(*)::int FROM operaciones WHERE estado = 'enviado' AND updated_at < NOW() - INTERVAL '3 days') AS presupuestos_sin_respuesta,
+        (SELECT COUNT(*)::int FROM compromisos_pago WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE) AS pagos_vencidos,
+        (SELECT COUNT(*)::int FROM clientes WHERE activo = true AND estado = 'prospecto') AS para_seguimiento
+    `, []),
+
+    db.query(`
+      SELECT localidad, COUNT(*)::int AS count,
+        ROUND(COUNT(*) * 100.0 / NULLIF(
+          (SELECT COUNT(*) FROM clientes WHERE activo = true AND localidad IS NOT NULL AND localidad != ''), 0
+        ))::int AS pct
+      FROM clientes
+      WHERE activo = true AND localidad IS NOT NULL AND localidad != ''
+      GROUP BY localidad ORDER BY count DESC LIMIT 6
+    `, []),
+
+    db.query(`
+      WITH acts AS (
+        (SELECT 'interaccion'::text AS tipo,
+          CASE i.tipo
+            WHEN 'llamada' THEN 'Llamada con '
+            WHEN 'whatsapp' THEN 'Mensaje enviado a '
+            WHEN 'email' THEN 'Email a '
+            WHEN 'visita' THEN 'Visita a '
+            WHEN 'presupuesto_enviado' THEN 'Presupuesto enviado a '
+            WHEN 'operacion_completada' THEN 'Operación con '
+            ELSE 'Nota de '
+          END || COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)) AS descripcion,
+          COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)) AS cliente_nombre,
+          i.created_at AS fecha
+        FROM interacciones i JOIN clientes cl ON cl.id = i.cliente_id
+        WHERE i.created_at >= NOW() - INTERVAL '14 days'
+        ORDER BY i.created_at DESC LIMIT 10)
+        UNION ALL
+        (SELECT 'recibo'::text,
+          'Pago recibido de ' || COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)),
+          COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)),
+          r.created_at
+        FROM recibos r JOIN clientes cl ON cl.id = r.cliente_id
+        WHERE r.estado = 'emitido' AND r.created_at >= NOW() - INTERVAL '14 days'
+        ORDER BY r.created_at DESC LIMIT 10)
+        UNION ALL
+        (SELECT 'operacion'::text,
+          'Presupuesto creado para ' || COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)),
+          COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)),
+          o.created_at
+        FROM operaciones o JOIN clientes cl ON cl.id = o.cliente_id
+        WHERE o.created_at >= NOW() - INTERVAL '14 days' AND o.estado = 'presupuesto'
+        ORDER BY o.created_at DESC LIMIT 10)
+      )
+      SELECT * FROM acts ORDER BY fecha DESC LIMIT 8
+    `, []),
+
+    db.query(`
+      SELECT
+        COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)) AS cliente_nombre,
+        SUM(o.precio_total)::numeric AS monto_total,
+        COUNT(*)::int AS operaciones_count
+      FROM clientes cl
+      JOIN operaciones o ON o.cliente_id = cl.id
+        AND o.estado NOT IN ('presupuesto','enviado','cancelado')
+      WHERE cl.activo = true
+      GROUP BY cl.id, cl.nombre, cl.apellido, cl.razon_social
+      ORDER BY monto_total DESC LIMIT 1
+    `, []),
+
+    db.query(`
+      SELECT
+        COALESCE(cl.razon_social, CONCAT_WS(', ', cl.apellido, cl.nombre)) AS cliente_nombre,
+        SUM(r.monto_total)::numeric AS monto_mes,
+        COUNT(*)::int AS compras_mes
+      FROM recibos r JOIN clientes cl ON cl.id = r.cliente_id
+      WHERE r.estado = 'emitido' AND r.fecha >= $1::date
+      GROUP BY cl.id, cl.nombre, cl.apellido, cl.razon_social
+      ORDER BY monto_mes DESC LIMIT 1
+    `, [mesStr]),
+
+    db.query(`
+      SELECT
+        COALESCE(AVG(monto_total) FILTER (WHERE fecha >= $1::date), 0)::numeric AS ticket_promedio_mes,
+        COALESCE(AVG(monto_total) FILTER (
+          WHERE fecha < $1::date AND fecha >= ($1::date - INTERVAL '1 month')
+        ), 0)::numeric AS ticket_mes_anterior
+      FROM recibos
+      WHERE estado = 'emitido' AND fecha >= ($1::date - INTERVAL '1 month')
+    `, [mesStr]),
+  ]);
+
+  const st  = statsRows.rows[0] as Record<string, string>;
+  const opo = oportunidadesRows.rows[0] as Record<string, string>;
+  const tm  = ticketMesRows.rows[0] as Record<string, string>;
+  const ticketActual   = Number(tm?.ticket_promedio_mes ?? 0);
+  const ticketAnterior = Number(tm?.ticket_mes_anterior ?? 0);
+  const ticketTrend    = ticketAnterior > 0
+    ? Math.round((ticketActual - ticketAnterior) / ticketAnterior * 100) : 0;
+
+  return c.json({
+    stats: {
+      total:               Number(st.total),
+      activos:             Number(st.activos),
+      sin_actividad:       Number(st.sin_actividad),
+      nuevos_mes:          Number(st.nuevos_mes),
+      total_facturado_mes: Number(facturadoMes.rows[0]?.total ?? 0),
+      clientes_top:        Number(st.clientes_top ?? 0),
+    },
+    clientes: (clientesRows.rows as Record<string, unknown>[]).map(r => ({
+      id:                   r.id,
+      nombre:               r.nombre,
+      apellido:             r.apellido,
+      razon_social:         r.razon_social,
+      tipo_persona:         r.tipo_persona,
+      telefono:             r.telefono,
+      email:                r.email,
+      documento_nro:        r.documento_nro,
+      localidad:            r.localidad,
+      estado:               r.estado,
+      created_at:           r.created_at,
+      ultima_interaccion:   r.ultima_interaccion,
+      dias_sin_contacto:    Number(r.dias_sin_contacto),
+      categoria_nombre:     r.categoria_nombre,
+      categoria_color:      r.categoria_color,
+      operaciones_count:    Number(r.operaciones_count),
+      valor_total_historico:Number(r.valor_total_historico),
+      ticket_promedio:      Number(r.ticket_promedio),
+      total_deuda:          Number(r.total_deuda),
+      count_deuda:          Number(r.count_deuda),
+      segmento:             r.segmento,
+    })),
+    oportunidades: {
+      sin_contacto_30d:            Number(opo.sin_contacto_30d),
+      presupuestos_sin_respuesta:  Number(opo.presupuestos_sin_respuesta),
+      pagos_vencidos:              Number(opo.pagos_vencidos),
+      para_seguimiento:            Number(opo.para_seguimiento),
+    },
+    por_localidad: (porLocalidad.rows as Record<string, unknown>[]).map(r => ({
+      localidad: r.localidad,
+      count:     Number(r.count),
+      pct:       Number(r.pct),
+    })),
+    actividad_reciente: (actividadReciente.rows as Record<string, unknown>[]).map(r => ({
+      tipo:           r.tipo,
+      descripcion:    r.descripcion,
+      cliente_nombre: r.cliente_nombre,
+      fecha:          r.fecha,
+    })),
+    resumen: {
+      sin_actividad_60d:   Number(st.sin_actividad),
+      mayor_compra: mayorCompraRows.rows[0] ? {
+        cliente_nombre:  (mayorCompraRows.rows[0] as Record<string, unknown>).cliente_nombre,
+        monto:           Number((mayorCompraRows.rows[0] as Record<string, unknown>).monto_total),
+        operaciones:     Number((mayorCompraRows.rows[0] as Record<string, unknown>).operaciones_count),
+      } : null,
+      mejor_cliente_mes: mejorClienteMesRows.rows[0] ? {
+        cliente_nombre:  (mejorClienteMesRows.rows[0] as Record<string, unknown>).cliente_nombre,
+        monto:           Number((mejorClienteMesRows.rows[0] as Record<string, unknown>).monto_mes),
+        compras:         Number((mejorClienteMesRows.rows[0] as Record<string, unknown>).compras_mes),
+      } : null,
+      ticket_promedio_mes: ticketActual,
+      ticket_trend:        ticketTrend,
+    },
+  });
+});
+
 // Debe estar ANTES de /:id — Hono matchea en orden de registro
 clientes.get('/validar-dni', async (c) => {
   const dni = c.req.query('dni')?.trim();
