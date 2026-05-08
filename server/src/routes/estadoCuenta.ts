@@ -3,10 +3,10 @@ import { db } from '../db.js';
 
 const estadoCuenta = new Hono();
 
-// GET / — dashboard global: todos los clientes con actividad económica
+// GET / — tablero global de cobranzas
 estadoCuenta.get('/', async (c) => {
-  const sort  = c.req.query('sort')   ?? 'saldo_desc';   // saldo_desc|saldo_asc|nombre|actividad
-  const filtro = c.req.query('filtro') ?? 'todos';        // todos|con_saldo|con_compromisos|saldados
+  const sort   = c.req.query('sort')   ?? 'saldo_desc';
+  const filtro = c.req.query('filtro') ?? 'todos';
   const search = c.req.query('search') ?? '';
 
   let orderBy: string;
@@ -14,16 +14,17 @@ estadoCuenta.get('/', async (c) => {
     case 'saldo_asc':    orderBy = 'saldo ASC NULLS LAST'; break;
     case 'nombre':       orderBy = 'apellido ASC, nombre ASC'; break;
     case 'actividad':    orderBy = 'ultima_actividad DESC NULLS LAST'; break;
-    case 'vencimiento':  orderBy = 'proximo_vencimiento ASC NULLS LAST'; break;
+    case 'vencimiento':  orderBy = 'comp.proximo_vencimiento ASC NULLS LAST'; break;
+    case 'dias_vencido': orderBy = 'comp.dias_vencido_oldest DESC NULLS LAST'; break;
     default:             orderBy = 'saldo DESC NULLS LAST';
   }
 
   const params: unknown[] = [];
-
   let filtroExtra = '';
-  if (filtro === 'con_saldo')       filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) > 0';
+  if (filtro === 'con_saldo')       filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) > 0.01';
   if (filtro === 'con_compromisos') filtroExtra = 'AND comp.total > 0';
-  if (filtro === 'saldados')        filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) <= 0';
+  if (filtro === 'saldados')        filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) <= 0.01';
+  if (filtro === 'vencidos')        filtroExtra = 'AND COALESCE(comp.compromisos_vencidos,0) > 0';
 
   let whereSearch = '';
   if (search.trim()) {
@@ -31,70 +32,127 @@ estadoCuenta.get('/', async (c) => {
     whereSearch = `AND (c.nombre ILIKE $${params.length} OR c.apellido ILIKE $${params.length} OR c.razon_social ILIKE $${params.length} OR c.telefono ILIKE $${params.length})`;
   }
 
-  const { rows } = await db.query(`
-    SELECT
-      c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
-      c.telefono, c.email,
-      ops.count                                          AS operaciones_count,
-      ops.total                                          AS total_presupuestado,
-      COALESCE(rec.total, 0)                             AS total_cobrado,
-      ops.total - COALESCE(rec.total, 0)                 AS saldo,
-      COALESCE(pend.count, 0)                            AS pendientes_count,
-      COALESCE(pend.total, 0)                            AS pendientes_monto,
-      COALESCE(comp.total, 0)                            AS compromisos_pendientes,
-      comp.proximo_vencimiento,
-      comp.compromisos_vencidos,
-      GREATEST(ops.ultima, COALESCE(rec.ultima, ops.ultima)) AS ultima_actividad,
-      EXTRACT(DAY FROM now() - ops.primera)::int              AS dias_desde_primera_op
-    FROM clientes c
-    JOIN LATERAL (
-      -- Solo operaciones aprobadas (y estados posteriores) generan saldo
-      SELECT COUNT(*)::int AS count,
-             COALESCE(SUM(precio_total), 0) AS total,
-             MAX(created_at) AS ultima,
-             MIN(created_at) AS primera
-      FROM operaciones
-      WHERE cliente_id = c.id
-        AND estado IN ('aprobado','en_produccion','listo','instalado','entregado')
-    ) ops ON ops.count > 0
-    LEFT JOIN LATERAL (
-      -- Pendientes de aprobación (solo para mostrar como referencia)
-      SELECT COUNT(*)::int AS count,
-             COALESCE(SUM(precio_total), 0) AS total
-      FROM operaciones
-      WHERE cliente_id = c.id
-        AND estado IN ('presupuesto','enviado','rechazado')
-    ) pend ON true
-    LEFT JOIN LATERAL (
-      SELECT COALESCE(SUM(monto_total), 0) AS total,
-             MAX(created_at) AS ultima
-      FROM recibos
-      WHERE cliente_id = c.id AND estado != 'anulado'
-    ) rec ON true
-    LEFT JOIN LATERAL (
-      SELECT COALESCE(SUM(monto) FILTER (WHERE estado = 'pendiente'), 0) AS total,
-             MIN(fecha_vencimiento) FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento >= CURRENT_DATE) AS proximo_vencimiento,
-             COUNT(*) FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE) AS compromisos_vencidos
-      FROM compromisos_pago
-      WHERE cliente_id = c.id
-    ) comp ON true
-    WHERE c.activo = true ${whereSearch} ${filtroExtra}
-    ORDER BY ${orderBy}
-    LIMIT 500
-  `, params);
+  const [mainResult, promedioResult, tendenciaResult] = await Promise.all([
+    db.query(`
+      SELECT
+        c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
+        c.telefono, c.email,
+        ops.count                                            AS operaciones_count,
+        ops.total                                            AS total_presupuestado,
+        COALESCE(rec.total, 0)                               AS total_cobrado,
+        ops.total - COALESCE(rec.total, 0)                   AS saldo,
+        COALESCE(pend.count, 0)                              AS pendientes_count,
+        COALESCE(pend.total, 0)                              AS pendientes_monto,
+        COALESCE(comp.total, 0)                              AS compromisos_pendientes,
+        comp.proximo_vencimiento,
+        comp.compromisos_vencidos,
+        comp.dias_vencido_oldest,
+        GREATEST(ops.ultima, COALESCE(rec.ultima, ops.ultima)) AS ultima_actividad,
+        ops.ultima                                           AS ultima_compra_fecha,
+        EXTRACT(DAY FROM now() - ops.primera)::int           AS dias_desde_primera_op,
+        EXTRACT(DAY FROM now() - ops.ultima)::int            AS dias_desde_ultima_compra,
+        COALESCE(ROUND(100.0 * COALESCE(rec.total,0) / NULLIF(ops.total,0), 0), 0)::int AS pct_cobrado,
+        CASE
+          WHEN (ops.total - COALESCE(rec.total, 0)) <= 0.01 THEN 'saldado'
+          WHEN COALESCE(comp.compromisos_vencidos, 0) > 0   THEN 'vencido'
+          WHEN comp.proximo_vencimiento IS NOT NULL
+            AND comp.proximo_vencimiento <= CURRENT_DATE + 7 THEN 'por_vencer'
+          ELSE 'al_dia'
+        END AS estado_cobro
+      FROM clientes c
+      JOIN LATERAL (
+        SELECT COUNT(*)::int AS count,
+               COALESCE(SUM(precio_total), 0) AS total,
+               MAX(created_at) AS ultima,
+               MIN(created_at) AS primera
+        FROM operaciones
+        WHERE cliente_id = c.id
+          AND estado IN ('aprobado','en_produccion','listo','instalado','entregado')
+      ) ops ON ops.count > 0
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS count,
+               COALESCE(SUM(precio_total), 0) AS total
+        FROM operaciones
+        WHERE cliente_id = c.id
+          AND estado IN ('presupuesto','enviado','rechazado')
+      ) pend ON true
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(monto_total), 0) AS total,
+               MAX(created_at) AS ultima
+        FROM recibos
+        WHERE cliente_id = c.id AND estado != 'anulado'
+      ) rec ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(SUM(monto) FILTER (WHERE estado = 'pendiente'), 0) AS total,
+          MIN(fecha_vencimiento) FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento >= CURRENT_DATE) AS proximo_vencimiento,
+          COUNT(*) FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE)::int AS compromisos_vencidos,
+          COALESCE(EXTRACT(DAY FROM now() - MIN(fecha_vencimiento)
+            FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE)), 0)::int AS dias_vencido_oldest
+        FROM compromisos_pago
+        WHERE cliente_id = c.id
+      ) comp ON true
+      WHERE c.activo = true ${whereSearch} ${filtroExtra}
+      ORDER BY ${orderBy}
+      LIMIT 500
+    `, params),
 
-  // Totales globales
+    db.query(`
+      SELECT COALESCE(ROUND(AVG(EXTRACT(DAY FROM now() - fecha_vencimiento)))::int, 0) AS dias_promedio
+      FROM compromisos_pago
+      WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE
+    `),
+
+    db.query(`
+      SELECT
+        COALESCE(SUM(monto_total) FILTER (WHERE created_at >= now() - INTERVAL '30 days'), 0)::numeric AS mes_actual,
+        COALESCE(SUM(monto_total) FILTER (WHERE created_at >= now() - INTERVAL '60 days' AND created_at < now() - INTERVAL '30 days'), 0)::numeric AS mes_anterior
+      FROM recibos WHERE estado != 'anulado'
+    `),
+  ]);
+
+  const rows = mainResult.rows;
+  const diasPromedio = Number(promedioResult.rows[0]?.dias_promedio ?? 0);
+  const mesActual    = Number(tendenciaResult.rows[0]?.mes_actual ?? 0);
+  const mesAnterior  = Number(tendenciaResult.rows[0]?.mes_anterior ?? 0);
+  const tendencia30d = mesAnterior > 0 ? Math.round((mesActual - mesAnterior) / mesAnterior * 100) : 0;
+
   const totales = rows.reduce((acc: any, r: any) => {
+    const saldo = Number(r.saldo);
     acc.presupuestado  += Number(r.total_presupuestado);
     acc.cobrado        += Number(r.total_cobrado);
-    acc.saldo          += Number(r.saldo);
+    acc.saldo          += saldo;
     acc.compromisos    += Number(r.compromisos_pendientes);
-    if (Number(r.saldo) > 0)              acc.clientes_con_saldo++;
-    if (Number(r.compromisos_vencidos) > 0) acc.compromisos_vencidos++;
+    acc.total_clientes++;
+    if (saldo > 0.01) acc.clientes_con_saldo++;
+    if (Number(r.compromisos_vencidos) > 0) acc.compromisos_vencidos_count++;
+    if (r.estado_cobro === 'vencido')    acc.vencidos_monto    += saldo;
+    if (r.estado_cobro === 'por_vencer') acc.por_vencer_monto  += Number(r.compromisos_pendientes);
+    if (r.estado_cobro === 'al_dia')     acc.al_dia_monto      += saldo;
     return acc;
-  }, { presupuestado: 0, cobrado: 0, saldo: 0, compromisos: 0, clientes_con_saldo: 0, compromisos_vencidos: 0 });
+  }, {
+    presupuestado: 0, cobrado: 0, saldo: 0, compromisos: 0,
+    clientes_con_saldo: 0, compromisos_vencidos_count: 0, total_clientes: 0,
+    vencidos_monto: 0, por_vencer_monto: 0, al_dia_monto: 0,
+  });
 
-  return c.json({ clientes: rows, totales });
+  totales.pct_cobrado         = totales.presupuestado > 0 ? Math.round(totales.cobrado / totales.presupuestado * 100) : 0;
+  totales.dias_promedio_atraso = diasPromedio;
+  totales.tendencia_30d       = tendencia30d;
+
+  // Top 3 cobros prioritarios del día
+  const cobros_prioritarios = [...rows]
+    .filter((r: any) => ['vencido','por_vencer'].includes(r.estado_cobro) && Number(r.saldo) > 0)
+    .sort((a: any, b: any) => {
+      if (a.estado_cobro !== b.estado_cobro) return a.estado_cobro === 'vencido' ? -1 : 1;
+      if (a.estado_cobro === 'vencido') return Number(b.dias_vencido_oldest) - Number(a.dias_vencido_oldest);
+      if (a.proximo_vencimiento && b.proximo_vencimiento)
+        return new Date(a.proximo_vencimiento).getTime() - new Date(b.proximo_vencimiento).getTime();
+      return Number(b.saldo) - Number(a.saldo);
+    })
+    .slice(0, 3);
+
+  return c.json({ clientes: rows, totales, cobros_prioritarios });
 });
 
 // GET /:clienteId/compromisos — lista de compromisos de un cliente
