@@ -94,6 +94,95 @@ stock.get('/alertas', async (c) => {
   return c.json(r);
 });
 
+// GET /tablero — panel de existencias con métricas completas
+stock.get('/tablero', async (c) => {
+  const [prodResult, movResult] = await Promise.all([
+    db.query(`
+      WITH base AS (
+        SELECT
+          p.id, p.nombre, p.codigo, p.tipo, p.color,
+          p.stock_minimo, p.stock_inicial, p.precio_base, p.costo_base, p.imagen_url,
+          json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
+          json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
+          (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual,
+          COALESCE(SUM(-m.cantidad) FILTER (WHERE m.tipo LIKE 'egreso%' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS ventas_30d,
+          COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'ingreso' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS entradas_30d,
+          MAX(m.created_at) FILTER (WHERE m.tipo LIKE 'egreso%') AS ultima_venta_fecha,
+          COALESCE(EXTRACT(DAY FROM now() - MAX(m.created_at))::int, 999) AS dias_sin_movimiento
+        FROM catalogo_productos p
+        LEFT JOIN tipos_abertura ta ON ta.id = p.tipo_abertura_id
+        LEFT JOIN sistemas s        ON s.id  = p.sistema_id
+        LEFT JOIN stock_movimientos m ON m.producto_id = p.id
+        WHERE p.activo = true
+        GROUP BY p.id, p.nombre, p.codigo, p.tipo, p.color,
+                 p.stock_minimo, p.stock_inicial, p.precio_base, p.costo_base, p.imagen_url,
+                 ta.id, ta.nombre, s.id, s.nombre
+      )
+      SELECT *,
+        (stock_actual * COALESCE(precio_base, 0))::numeric AS valor_stock,
+        CASE
+          WHEN stock_actual <= 0                                     THEN 'critico'
+          WHEN stock_minimo > 0 AND stock_actual < stock_minimo      THEN 'bajo'
+          WHEN stock_minimo > 0 AND stock_actual < stock_minimo * 2  THEN 'justo'
+          ELSE 'ok'
+        END AS estado,
+        CASE
+          WHEN ventas_30d >= 10 THEN 'alta'
+          WHEN ventas_30d >= 3  THEN 'media'
+          ELSE 'baja'
+        END AS rotacion
+      FROM base
+      ORDER BY
+        CASE WHEN stock_actual <= 0                                    THEN 0
+             WHEN stock_minimo > 0 AND stock_actual < stock_minimo     THEN 1
+             WHEN stock_minimo > 0 AND stock_actual < stock_minimo * 2 THEN 2
+             ELSE 3 END,
+        stock_actual ASC, nombre
+    `),
+    db.query(`
+      SELECT
+        COALESCE(SUM(cantidad)  FILTER (WHERE tipo = 'ingreso'),   0)::int AS entradas,
+        COALESCE(SUM(-cantidad) FILTER (WHERE tipo LIKE 'egreso%'), 0)::int AS salidas,
+        COUNT(DISTINCT producto_id) FILTER (WHERE tipo LIKE 'egreso%')::int AS productos_vendidos
+      FROM stock_movimientos
+      WHERE created_at >= now() - INTERVAL '30 days'
+    `),
+  ]);
+
+  const productos = prodResult.rows as any[];
+  const mov30     = movResult.rows[0] as any;
+
+  const stats = productos.reduce((acc: any, p: any) => {
+    acc.activos_count++;
+    if (Number(p.stock_actual) <= 0) acc.critico_count++;
+    else if (Number(p.stock_minimo) > 0 && Number(p.stock_actual) < Number(p.stock_minimo)) acc.bajo_minimo_count++;
+    if (Number(p.dias_sin_movimiento) >= 60) acc.sin_movimiento_count++;
+    acc.valor_total_stock += Number(p.valor_stock ?? 0);
+    return acc;
+  }, { critico_count: 0, bajo_minimo_count: 0, valor_total_stock: 0, sin_movimiento_count: 0, activos_count: 0 });
+
+  const alertas = productos
+    .filter((p: any) => p.estado === 'critico' || p.estado === 'bajo')
+    .slice(0, 3);
+
+  const analisis = productos.reduce((acc: any, p: any) => {
+    acc[p.rotacion as string] = (acc[p.rotacion as string] || 0) + 1;
+    return acc;
+  }, { alta: 0, media: 0, baja: 0 });
+
+  return c.json({
+    productos,
+    stats,
+    alertas,
+    analisis,
+    movimiento_30d: {
+      entradas:           Number(mov30?.entradas            ?? 0),
+      salidas:            Number(mov30?.salidas             ?? 0),
+      productos_vendidos: Number(mov30?.productos_vendidos  ?? 0),
+    },
+  });
+});
+
 // GET /producto/:id/movimientos
 stock.get('/producto/:id/movimientos', async (c) => {
   const { id } = c.req.param();

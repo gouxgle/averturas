@@ -1,15 +1,54 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Boxes, Plus, Minus, AlertTriangle, TrendingDown,
+  Boxes, Plus, Minus, AlertTriangle, TrendingDown, TrendingUp,
   ChevronDown, ChevronUp, Package, Truck, RotateCcw,
   Wrench, Search, RefreshCw, ArrowDownCircle, ArrowUpCircle,
-  History, X, Check, Info, Layers
+  History, X, Check, Info, Layers, Zap, BarChart2,
+  ChevronLeft, ChevronRight, DollarSign
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 
 // ── Tipos ─────────────────────────────────────────────────────
+interface ProductoExistencias {
+  id: string;
+  nombre: string;
+  codigo: string | null;
+  tipo: 'estandar' | 'a_medida' | 'fabricacion_propia';
+  color: string | null;
+  imagen_url: string | null;
+  stock_minimo: number;
+  stock_inicial: number;
+  stock_actual: number;
+  precio_base: number | null;
+  costo_base: number | null;
+  tipo_abertura: { id: string; nombre: string } | null;
+  sistema: { id: string; nombre: string } | null;
+  ventas_30d: number;
+  entradas_30d: number;
+  ultima_venta_fecha: string | null;
+  dias_sin_movimiento: number;
+  valor_stock: number;
+  estado: 'critico' | 'bajo' | 'justo' | 'ok';
+  rotacion: 'alta' | 'media' | 'baja';
+}
+
+interface TableroData {
+  productos: ProductoExistencias[];
+  stats: {
+    critico_count: number;
+    bajo_minimo_count: number;
+    valor_total_stock: number;
+    sin_movimiento_count: number;
+    activos_count: number;
+  };
+  alertas: ProductoExistencias[];
+  analisis: { alta: number; media: number; baja: number };
+  movimiento_30d: { entradas: number; salidas: number; productos_vendidos: number };
+}
+
+// tipos para modales (compatible con ProductoExistencias)
 interface ProductoStock {
   id: string;
   nombre: string;
@@ -28,10 +67,7 @@ interface ProductoStock {
   sistema: { id: string; nombre: string } | null;
 }
 
-interface Proveedor {
-  id: string;
-  nombre: string;
-}
+interface Proveedor { id: string; nombre: string }
 
 interface LoteItem {
   producto_id: string;
@@ -78,13 +114,9 @@ interface Movimiento {
   operacion_numero: string | null;
 }
 
-interface Alertas {
-  sin_stock: number;
-  bajo_minimo: number;
-  total: number;
-}
-
 // ── Constantes ────────────────────────────────────────────────
+const PER_PAGE = 10;
+
 const TIPO_MOV: Record<string, { label: string; icon: React.FC<{ size?: number; className?: string }>; color: string; bg: string }> = {
   ingreso:        { label: 'Ingreso',        icon: ArrowDownCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   egreso_remito:  { label: 'Egreso remito',  icon: Truck,           color: 'text-blue-600',    bg: 'bg-blue-50' },
@@ -93,14 +125,60 @@ const TIPO_MOV: Record<string, { label: string; icon: React.FC<{ size?: number; 
   ajuste:         { label: 'Ajuste',         icon: Wrench,          color: 'text-gray-600',    bg: 'bg-gray-100' },
 };
 
-function stockStatus(actual: number, minimo: number) {
-  if (actual <= 0)       return { label: 'Sin stock',    color: 'text-red-600',    bg: 'bg-red-50',    bar: 'bg-red-400' };
-  if (actual <= minimo)  return { label: 'Bajo mínimo',  color: 'text-amber-600',  bg: 'bg-amber-50',  bar: 'bg-amber-400' };
-  return                        { label: 'OK',           color: 'text-emerald-600',bg: 'bg-emerald-50',bar: 'bg-emerald-500' };
-}
+const ESTADO_CFG: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
+  critico: { label: 'Crítico', bg: 'bg-red-100',     text: 'text-red-700',     border: 'border-l-red-500',     dot: 'bg-red-500' },
+  bajo:    { label: 'Bajo',    bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-l-amber-400',   dot: 'bg-amber-400' },
+  justo:   { label: 'Justo',   bg: 'bg-yellow-100',  text: 'text-yellow-700',  border: 'border-l-yellow-400',  dot: 'bg-yellow-400' },
+  ok:      { label: 'OK',      bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-500' },
+};
+
+const ROTACION_CFG: Record<string, { label: string; bg: string; text: string }> = {
+  alta:  { label: 'Alta',  bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  media: { label: 'Media', bg: 'bg-blue-100',    text: 'text-blue-700' },
+  baja:  { label: 'Baja',  bg: 'bg-gray-100',    text: 'text-gray-600' },
+};
 
 function fmtFecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+function fmtMonto(n: number) {
+  return `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+// ── DonutChart ────────────────────────────────────────────────
+function DonutChart({ segments, size = 80 }: { segments: { value: number; color: string }[]; size?: number }) {
+  const r    = size * 0.37;
+  const circ = 2 * Math.PI * r;
+  const cx   = size / 2;
+  const cy   = size / 2;
+  const total = segments.reduce((s, g) => s + g.value, 0);
+
+  if (total === 0) return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={size * 0.12} />
+    </svg>
+  );
+
+  let cumulative = 0;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      style={{ transform: 'rotate(-90deg)' }}>
+      {segments.map((seg, i) => {
+        const pct  = seg.value / total;
+        const dash = pct * circ;
+        const el   = (
+          <circle key={i} cx={cx} cy={cy} r={r}
+            fill="none" stroke={seg.color} strokeWidth={size * 0.12}
+            strokeDasharray={`${dash} ${circ - dash}`}
+            strokeDashoffset={-(cumulative * circ)}
+          />
+        );
+        cumulative += pct;
+        return el;
+      })}
+    </svg>
+  );
 }
 
 // ── ModalIngreso ──────────────────────────────────────────────
@@ -179,7 +257,6 @@ function ModalIngreso({
             </div>
           )}
 
-          {/* Producto */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Producto *</label>
             <select value={productoId} onChange={e => setProductoId(e.target.value)}
@@ -193,7 +270,6 @@ function ModalIngreso({
             </select>
           </div>
 
-          {/* Cantidad y costo */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Cantidad *</label>
@@ -209,7 +285,6 @@ function ModalIngreso({
             </div>
           </div>
 
-          {/* Lote */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Lote de ingreso</label>
             <div className="flex gap-2 mb-3">
@@ -271,7 +346,6 @@ function ModalIngreso({
             )}
           </div>
 
-          {/* Notas del movimiento */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Notas del movimiento</label>
             <input value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones opcionales"
@@ -316,9 +390,9 @@ function ModalEgreso({
   const selected = conStock.find(p => p.id === productoId);
 
   const TIPOS_EGRESO = [
-    { key: 'egreso_remito',  label: 'Remito',    icon: Truck,        desc: 'Entrega con remito' },
-    { key: 'egreso_retiro',  label: 'Retiro',    icon: Package,      desc: 'Retiro en local' },
-    { key: 'devolucion',     label: 'Devolución',icon: RotateCcw,    desc: 'Dev. por falla o cambio' },
+    { key: 'egreso_remito',  label: 'Remito',     icon: Truck,     desc: 'Entrega con remito' },
+    { key: 'egreso_retiro',  label: 'Retiro',     icon: Package,   desc: 'Retiro en local' },
+    { key: 'devolucion',     label: 'Devolución', icon: RotateCcw, desc: 'Dev. por falla o cambio' },
   ] as const;
 
   async function handleSave() {
@@ -362,7 +436,6 @@ function ModalEgreso({
             </div>
           )}
 
-          {/* Tipo de egreso */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Tipo de egreso *</label>
             <div className="grid grid-cols-3 gap-2">
@@ -381,7 +454,6 @@ function ModalEgreso({
             </div>
           </div>
 
-          {/* Producto */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Producto *</label>
             <select value={productoId} onChange={e => setProductoId(e.target.value)}
@@ -395,7 +467,6 @@ function ModalEgreso({
             </select>
           </div>
 
-          {/* Cantidad */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
               Cantidad *
@@ -406,7 +477,6 @@ function ModalEgreso({
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          {/* Referencia / Nro remito */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
               {tipo === 'egreso_remito' ? 'N° Remito' : tipo === 'devolucion' ? 'N° referencia' : 'Referencia'}
@@ -415,7 +485,6 @@ function ModalEgreso({
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          {/* Motivo — solo para devolución */}
           {tipo === 'devolucion' && (
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Motivo de devolución</label>
@@ -488,6 +557,7 @@ function ModalAjuste({
         motivo:      motivo || 'Ajuste manual',
         notas:       notas  || null,
       });
+      toast.success('Ajuste registrado');
       onSaved();
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -629,7 +699,7 @@ function MovimientosPanel({ productoId }: { productoId: string }) {
   return (
     <div className="space-y-1 max-h-48 overflow-y-auto">
       {movimientos.map(m => {
-        const def = TIPO_MOV[m.tipo] ?? TIPO_MOV.ajuste;
+        const def  = TIPO_MOV[m.tipo] ?? TIPO_MOV.ajuste;
         const Icon = def.icon;
         return (
           <div key={m.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-lg">
@@ -656,134 +726,6 @@ function MovimientosPanel({ productoId }: { productoId: string }) {
   );
 }
 
-// ── ProductoCard ──────────────────────────────────────────────
-function ProductoCard({
-  producto, onIngreso, onEgreso, onAjuste
-}: {
-  producto: ProductoStock;
-  onIngreso: () => void;
-  onEgreso:  () => void;
-  onAjuste:  () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const st = stockStatus(producto.stock_actual, producto.stock_minimo);
-  const pct = producto.stock_minimo > 0
-    ? Math.min(100, (producto.stock_actual / (producto.stock_minimo * 2)) * 100)
-    : producto.stock_actual > 0 ? 100 : 0;
-
-  return (
-    <div className={`bg-white rounded-2xl border shadow-sm transition-all ${
-      producto.stock_actual <= 0
-        ? 'border-red-200'
-        : producto.stock_actual <= producto.stock_minimo
-        ? 'border-amber-200'
-        : 'border-gray-100'
-    }`}>
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Imagen / placeholder */}
-          <div className="w-12 h-12 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
-            {producto.imagen_url
-              ? <img src={producto.imagen_url} alt={producto.nombre} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center">
-                  <Package size={20} className="text-gray-300" />
-                </div>
-            }
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate">{producto.nombre}</h3>
-                  {producto.tipo !== 'estandar' && (
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
-                      producto.tipo === 'fabricacion_propia'
-                        ? 'bg-purple-50 text-purple-600'
-                        : 'bg-sky-50 text-sky-600'
-                    }`}>
-                      {producto.tipo === 'fabricacion_propia' ? 'Fab. propia' : 'A medida'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {producto.codigo && <span className="text-xs text-gray-400">{producto.codigo}</span>}
-                  {producto.tipo_abertura && (
-                    <span className="text-xs text-gray-400 truncate">{producto.tipo_abertura.nombre}</span>
-                  )}
-                  {producto.color && (
-                    <span className="text-xs text-gray-400">{producto.color}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Stock number */}
-              <div className="text-right flex-shrink-0">
-                <div className={`text-2xl font-bold leading-tight ${st.color}`}>{producto.stock_actual}</div>
-                <div className="text-[10px] text-gray-400">unidades</div>
-              </div>
-            </div>
-
-            {/* Barra de stock */}
-            <div className="mt-2.5 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${st.bar}`} style={{ width: `${pct}%` }} />
-              </div>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${st.bg} ${st.color}`}>
-                {st.label}
-              </span>
-            </div>
-
-            {producto.stock_minimo > 0 && (
-              <p className="text-[10px] text-gray-400 mt-1">Mínimo: {producto.stock_minimo} u.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Stats + acciones */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1">
-              <ArrowDownCircle size={11} className="text-emerald-500" />
-              {producto.total_ingresado} ing.
-            </span>
-            <span className="flex items-center gap-1">
-              <ArrowUpCircle size={11} className="text-red-400" />
-              {producto.total_egresado} egr.
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button onClick={onIngreso} title="Ingresar stock"
-              className="p-1.5 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors">
-              <Plus size={15} />
-            </button>
-            <button onClick={onEgreso} disabled={producto.stock_actual <= 0} title="Egresar stock"
-              className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-              <Minus size={15} />
-            </button>
-            <button onClick={onAjuste} title="Ajuste de inventario"
-              className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
-              <Wrench size={14} />
-            </button>
-            <button onClick={() => setExpanded(v => !v)} title="Ver historial"
-              className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
-              <History size={14} />
-              {expanded ? <ChevronUp size={10} className="inline ml-0.5" /> : <ChevronDown size={10} className="inline ml-0.5" />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="border-t border-gray-100 p-3">
-          <MovimientosPanel productoId={producto.id} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── LotesTab ──────────────────────────────────────────────────
 function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
   const [lotes, setLotes] = useState<Lote[]>([]);
@@ -794,7 +736,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+      const qs   = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
       const data = await api.get<Lote[]>(`/stock/lotes${qs}`);
       setLotes(data);
     } finally {
@@ -847,13 +789,12 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
             const totalIngresado = lote.items.reduce((s, it) => s + it.cantidad_ingresada, 0);
             const totalEgresado  = lote.items.reduce((s, it) => s + it.cantidad_egresada,  0);
             const totalRemanente = lote.items.reduce((s, it) => s + it.stock_remanente,     0);
-            const tipos = [...new Set(lote.items.map(it => it.tipo_abertura).filter(Boolean))];
+            const tipos    = [...new Set(lote.items.map(it => it.tipo_abertura).filter(Boolean))];
             const pctUsado = totalIngresado > 0 ? Math.min(100, (totalEgresado / totalIngresado) * 100) : 0;
-            const isOpen = expanded[lote.id];
+            const isOpen   = expanded[lote.id];
 
             return (
               <div key={lote.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Header del lote */}
                 <div className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggle(lote.id)}>
                   <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
@@ -879,7 +820,6 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                     </div>
                   </div>
 
-                  {/* Totales rápidos */}
                   <div className="flex items-center gap-6 flex-shrink-0 text-right">
                     <div>
                       <div className="text-[10px] text-gray-400 uppercase tracking-wide">Ingresado</div>
@@ -901,7 +841,6 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                   </div>
                 </div>
 
-                {/* Barra de rotación */}
                 <div className="px-4 pb-2">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
@@ -914,7 +853,6 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                   </div>
                 </div>
 
-                {/* Detalle de productos del lote */}
                 {isOpen && lote.items.length > 0 && (
                   <div className="border-t border-gray-100">
                     <table className="w-full">
@@ -966,16 +904,128 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
   );
 }
 
+// ── ProductoRow ───────────────────────────────────────────────
+function ProductoRow({
+  producto, onIngreso, onEgreso, onAjuste
+}: {
+  producto: ProductoExistencias;
+  onIngreso: () => void;
+  onEgreso:  () => void;
+  onAjuste:  () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const estadoCfg  = ESTADO_CFG[producto.estado];
+  const rotCfg     = ROTACION_CFG[producto.rotacion];
+
+  return (
+    <div className={`bg-white rounded-xl border border-gray-100 shadow-sm border-l-4 ${estadoCfg.border} overflow-hidden`}>
+      <div
+        className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
+        style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}
+        onClick={() => setExpanded(v => !v)}
+      >
+        {/* Producto */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 truncate">{producto.nombre}</p>
+            {producto.tipo !== 'estandar' && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
+                producto.tipo === 'fabricacion_propia' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'
+              }`}>
+                {producto.tipo === 'fabricacion_propia' ? 'Fab.' : 'A medida'}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+            {producto.codigo && <span>{producto.codigo}</span>}
+            {producto.tipo_abertura && <span>{producto.tipo_abertura.nombre}</span>}
+            {producto.color && <span>{producto.color}</span>}
+          </div>
+        </div>
+
+        {/* Stock */}
+        <div className="text-center">
+          <span className={`text-lg font-bold ${estadoCfg.text}`}>{producto.stock_actual}</span>
+          {producto.stock_minimo > 0 && (
+            <p className="text-[10px] text-gray-400">mín {producto.stock_minimo}</p>
+          )}
+        </div>
+
+        {/* Estado */}
+        <div className="text-center">
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${estadoCfg.bg} ${estadoCfg.text}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${estadoCfg.dot}`} />
+            {estadoCfg.label}
+          </span>
+        </div>
+
+        {/* Rotación */}
+        <div className="text-center">
+          <span className={`text-xs font-medium px-2 py-1 rounded-lg ${rotCfg.bg} ${rotCfg.text}`}>
+            {rotCfg.label}
+          </span>
+        </div>
+
+        {/* Ventas 30d */}
+        <div className="text-center">
+          <span className="text-sm font-semibold text-gray-700">{producto.ventas_30d}</span>
+          <p className="text-[10px] text-gray-400">unidades</p>
+        </div>
+
+        {/* Valor stock */}
+        <div className="text-right">
+          <span className="text-sm font-semibold text-gray-700">
+            {producto.valor_stock > 0 ? fmtMonto(producto.valor_stock) : '—'}
+          </span>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <button onClick={onIngreso} title="Ingresar"
+            className="p-1.5 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors">
+            <Plus size={14} />
+          </button>
+          <button onClick={onEgreso} disabled={producto.stock_actual <= 0} title="Egresar"
+            className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            <Minus size={14} />
+          </button>
+          <button onClick={onAjuste} title="Ajustar"
+            className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
+            <Wrench size={13} />
+          </button>
+          <button onClick={() => setExpanded(v => !v)} title="Historial"
+            className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
+            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
+          <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+            <History size={12} /> Últimos movimientos
+          </p>
+          <MovimientosPanel productoId={producto.id} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────
+type FiltroTab = 'todos' | 'critico' | 'bajo' | 'sin_movimiento';
+type OrdenTab  = 'estado' | 'nombre' | 'ventas_30d' | 'stock_asc' | 'valor';
+
 export function Stock() {
-  const [productos, setProductos] = useState<ProductoStock[]>([]);
+  const [tablero, setTablero]         = useState<TableroData | null>(null);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [alertas, setAlertas] = useState<Alertas>({ sin_stock: 0, bajo_minimo: 0, total: 0 });
-  const [search, setSearch] = useState('');
-  const [filtro, setFiltro] = useState<'todos' | 'sin_stock' | 'bajo_minimo'>('todos');
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'stock' | 'lotes'>('stock');
-  const [modal, setModal] = useState<'ingreso' | 'egreso' | 'ajuste' | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [tab, setTab]                 = useState<'existencias' | 'lotes'>('existencias');
+  const [filtro, setFiltro]           = useState<FiltroTab>('todos');
+  const [orden, setOrden]             = useState<OrdenTab>('estado');
+  const [search, setSearch]           = useState('');
+  const [page, setPage]               = useState(1);
+  const [modal, setModal]             = useState<'ingreso' | 'egreso' | 'ajuste' | null>(null);
   const [ingresoProducto, setIngresoProducto] = useState<string | undefined>();
   const [egresoProducto, setEgresoProducto]   = useState<string | undefined>();
   const [ajusteProducto, setAjusteProducto]   = useState<string | undefined>();
@@ -983,67 +1033,108 @@ export function Stock() {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ search, filtro }).toString();
-      const [productos, proveedores, alertas] = await Promise.all([
-        api.get<ProductoStock[]>(`/stock?${qs}`),
+      const [tbl, provs] = await Promise.all([
+        api.get<TableroData>('/stock/tablero'),
         api.get<Proveedor[]>('/catalogo/proveedores'),
-        api.get<Alertas>('/stock/alertas'),
       ]);
-      setProductos(productos);
-      setProveedores(proveedores);
-      setAlertas(alertas);
+      setTablero(tbl);
+      setProveedores(provs);
     } finally {
       setLoading(false);
     }
-  }, [search, filtro]);
+  }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  function abrirIngreso(productoId?: string) {
-    setIngresoProducto(productoId);
-    setModal('ingreso');
-  }
-  function abrirEgreso(productoId?: string) {
-    setEgresoProducto(productoId);
-    setModal('egreso');
-  }
-  function abrirAjuste(productoId?: string) {
-    setAjusteProducto(productoId);
-    setModal('ajuste');
-  }
+  // reset página cuando cambia filtro/búsqueda/orden
+  useEffect(() => { setPage(1); }, [filtro, search, orden]);
 
-  function onSaved() {
-    setModal(null);
-    cargar();
-  }
+  function abrirIngreso(id?: string) { setIngresoProducto(id); setModal('ingreso'); }
+  function abrirEgreso(id?: string)  { setEgresoProducto(id);  setModal('egreso');  }
+  function abrirAjuste(id?: string)  { setAjusteProducto(id);  setModal('ajuste');  }
 
-  const FILTROS = [
-    { key: 'todos',       label: 'Todos', count: alertas.total },
-    { key: 'sin_stock',   label: 'Sin stock', count: alertas.sin_stock },
-    { key: 'bajo_minimo', label: 'Bajo mínimo', count: alertas.bajo_minimo },
-  ] as const;
+  function onSaved() { setModal(null); cargar(); }
+
+  // productos para modales
+  const productosModal = useMemo((): ProductoStock[] =>
+    (tablero?.productos ?? []).map(p => ({
+      ...p,
+      total_ingresado: p.entradas_30d,
+      total_egresado:  p.ventas_30d,
+    })),
+  [tablero]);
+
+  // lista filtrada + ordenada
+  const filtered = useMemo(() => {
+    let list = tablero?.productos ?? [];
+
+    if (filtro === 'critico')        list = list.filter(p => p.estado === 'critico');
+    else if (filtro === 'bajo')      list = list.filter(p => p.estado === 'bajo');
+    else if (filtro === 'sin_movimiento') list = list.filter(p => p.dias_sin_movimiento >= 60);
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(p =>
+        p.nombre.toLowerCase().includes(q) ||
+        (p.codigo ?? '').toLowerCase().includes(q) ||
+        (p.tipo_abertura?.nombre ?? '').toLowerCase().includes(q)
+      );
+    }
+
+    const sorted = [...list];
+    if (orden === 'nombre')     sorted.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    if (orden === 'ventas_30d') sorted.sort((a, b) => b.ventas_30d - a.ventas_30d);
+    if (orden === 'stock_asc')  sorted.sort((a, b) => a.stock_actual - b.stock_actual);
+    if (orden === 'valor')      sorted.sort((a, b) => b.valor_stock - a.valor_stock);
+    // 'estado' keeps backend order (worst first)
+
+    return sorted;
+  }, [tablero, filtro, search, orden]);
+
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paginated   = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const stats = tablero?.stats;
+  const anal  = tablero?.analisis ?? { alta: 0, media: 0, baja: 0 };
+  const mov30 = tablero?.movimiento_30d;
+
+  const FILTROS: { key: FiltroTab; label: string; count?: number; color?: string }[] = [
+    { key: 'todos',          label: 'Todos',          count: stats?.activos_count },
+    { key: 'critico',        label: 'Críticos',        count: stats?.critico_count,       color: 'text-red-600' },
+    { key: 'bajo',           label: 'Bajo mínimo',     count: stats?.bajo_minimo_count,   color: 'text-amber-600' },
+    { key: 'sin_movimiento', label: 'Sin movimiento',  count: stats?.sin_movimiento_count, color: 'text-gray-500' },
+  ];
+
+  // reposición sugerida (sidebar)
+  const reposicion = useMemo(() =>
+    (tablero?.productos ?? [])
+      .filter(p => p.estado === 'critico' || p.estado === 'bajo')
+      .slice(0, 5),
+  [tablero]);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
-            <Boxes size={20} className="text-orange-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Stock</h1>
-            <p className="text-sm text-gray-500">
-              {alertas.total} productos — {alertas.sin_stock > 0 ? `${alertas.sin_stock} sin stock` : 'todos con stock'}
-            </p>
-          </div>
-        </div>
+    <div className="p-6 flex gap-6 min-h-0">
+      {/* ── Contenido principal ── */}
+      <div className="flex-1 min-w-0 space-y-5">
 
-        <div className="flex items-center gap-2">
-          <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500" title="Actualizar">
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
-          {tab === 'stock' && <>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Boxes size={20} className="text-orange-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Existencias</h1>
+              <p className="text-sm text-gray-500">
+                {stats ? `${stats.activos_count} productos activos` : 'Cargando...'}
+                {stats && stats.critico_count > 0 && ` · ${stats.critico_count} críticos`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
             <button onClick={() => abrirEgreso()}
               className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-medium">
               <Minus size={14} /> Egresar
@@ -1052,124 +1143,396 @@ export function Stock() {
               className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
               <Plus size={14} /> Ingresar
             </button>
-          </>}
+          </div>
         </div>
+
+        {/* KPI tiles */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <RefreshCw size={20} className="animate-spin text-gray-400" />
+          </div>
+        ) : stats && (
+          <>
+            <div className="grid grid-cols-5 gap-3">
+              {/* Críticos */}
+              <button onClick={() => { setFiltro('critico'); setTab('existencias'); }}
+                className={`bg-white rounded-2xl border p-4 text-left shadow-sm hover:shadow-md transition-all ${
+                  filtro === 'critico' ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-100'
+                }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                    <AlertTriangle size={15} className="text-red-600" />
+                  </div>
+                  {stats.critico_count > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                </div>
+                <p className="text-2xl font-bold text-red-600">{stats.critico_count}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Críticos</p>
+              </button>
+
+              {/* Bajo mínimo */}
+              <button onClick={() => { setFiltro('bajo'); setTab('existencias'); }}
+                className={`bg-white rounded-2xl border p-4 text-left shadow-sm hover:shadow-md transition-all ${
+                  filtro === 'bajo' ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-100'
+                }`}>
+                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
+                  <TrendingDown size={15} className="text-amber-600" />
+                </div>
+                <p className="text-2xl font-bold text-amber-600">{stats.bajo_minimo_count}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Bajo mínimo</p>
+              </button>
+
+              {/* Valor total */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mb-2">
+                  <DollarSign size={15} className="text-blue-600" />
+                </div>
+                <p className="text-lg font-bold text-blue-600 leading-tight">{fmtMonto(stats.valor_total_stock)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Valor en stock</p>
+              </div>
+
+              {/* Sin movimiento */}
+              <button onClick={() => { setFiltro('sin_movimiento'); setTab('existencias'); }}
+                className={`bg-white rounded-2xl border p-4 text-left shadow-sm hover:shadow-md transition-all ${
+                  filtro === 'sin_movimiento' ? 'border-gray-400 ring-1 ring-gray-200' : 'border-gray-100'
+                }`}>
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center mb-2">
+                  <BarChart2 size={15} className="text-gray-500" />
+                </div>
+                <p className="text-2xl font-bold text-gray-600">{stats.sin_movimiento_count}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Sin movimiento 60d</p>
+              </button>
+
+              {/* Activos */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
+                  <Boxes size={15} className="text-emerald-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{stats.activos_count}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Productos activos</p>
+              </div>
+            </div>
+
+            {/* Alertas importantes */}
+            {tablero!.alertas.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <AlertTriangle size={12} /> Alertas importantes
+                </p>
+                <div className="space-y-2">
+                  {tablero!.alertas.map((p, i) => {
+                    const cfg = ESTADO_CFG[p.estado];
+                    return (
+                      <div key={p.id} className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-red-100">
+                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{p.nombre}</p>
+                          <p className="text-xs text-gray-500">
+                            {p.tipo_abertura?.nombre ?? 'Sin categoría'}
+                            {p.stock_minimo > 0 && ` · mín ${p.stock_minimo}`}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-lg font-bold ${cfg.text}`}>{p.stock_actual}</p>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${cfg.bg} ${cfg.text}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
+                        <button onClick={() => abrirIngreso(p.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex-shrink-0">
+                          <Plus size={11} /> Ingresar
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+              {([
+                { key: 'existencias', label: 'Productos', icon: Boxes },
+                { key: 'lotes',       label: 'Lotes',     icon: Layers },
+              ] as const).map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>
+                  <t.icon size={14} /> {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Lotes tab */}
+            {tab === 'lotes' && (
+              <LotesTab onNuevoIngreso={() => { setTab('existencias'); abrirIngreso(); }} />
+            )}
+
+            {/* Existencias tab */}
+            {tab === 'existencias' && (
+              <>
+                {/* Controles */}
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Buscar por nombre, código o categoría..."
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+
+                  <div className="flex gap-1 bg-gray-100 p-1 rounded-xl flex-shrink-0">
+                    {FILTROS.map(f => (
+                      <button key={f.key} onClick={() => setFiltro(f.key)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          filtro === f.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                        }`}>
+                        {f.label}
+                        {(f.count ?? 0) > 0 && (
+                          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-white/80 ${f.color ?? 'text-gray-600'} ${filtro === f.key ? '' : 'bg-gray-200'}`}>
+                            {f.count}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <select value={orden} onChange={e => setOrden(e.target.value as OrdenTab)}
+                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white flex-shrink-0">
+                    <option value="estado">Por estado</option>
+                    <option value="nombre">Por nombre</option>
+                    <option value="ventas_30d">Más vendidos</option>
+                    <option value="stock_asc">Menos stock</option>
+                    <option value="valor">Mayor valor</option>
+                  </select>
+                </div>
+
+                {/* Header tabla */}
+                <div className="grid items-center gap-3 px-4 py-2"
+                  style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Stock</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Estado</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Rotación</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">30d</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Valor</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Acciones</span>
+                </div>
+
+                {/* Filas */}
+                {paginated.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+                    <Boxes size={32} className="mx-auto mb-3 text-gray-200" />
+                    <p className="text-sm text-gray-400">
+                      {filtro !== 'todos' || search
+                        ? 'Ningún producto coincide con los filtros'
+                        : 'No hay productos estándar cargados'}
+                    </p>
+                    {(filtro !== 'todos' || search) && (
+                      <button onClick={() => { setFiltro('todos'); setSearch(''); }}
+                        className="mt-3 text-xs text-orange-600 hover:underline">
+                        Ver todos
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {paginated.map(p => (
+                      <ProductoRow
+                        key={p.id}
+                        producto={p}
+                        onIngreso={() => abrirIngreso(p.id)}
+                        onEgreso={() => abrirEgreso(p.id)}
+                        onAjuste={() => abrirAjuste(p.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Paginación */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="text-xs text-gray-400">
+                      {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} de {filtered.length} productos
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 disabled:opacity-30">
+                        <ChevronLeft size={16} />
+                      </button>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pg = Math.min(Math.max(page - 2, 1) + i, totalPages);
+                        return (
+                          <button key={pg} onClick={() => setPage(pg)}
+                            className={`w-7 h-7 rounded-lg text-xs font-medium ${
+                              pg === page ? 'bg-orange-500 text-white' : 'hover:bg-gray-100 text-gray-600'
+                            }`}>
+                            {pg}
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 disabled:opacity-30">
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
-        {([
-          { key: 'stock', label: 'Productos', icon: Boxes },
-          { key: 'lotes', label: 'Lotes',     icon: Layers },
-        ] as const).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            <t.icon size={14} /> {t.label}
-          </button>
-        ))}
-      </div>
+      {/* ── Sidebar ── */}
+      <div className="w-64 shrink-0 space-y-4">
 
-      {/* Tab Lotes */}
-      {tab === 'lotes' && (
-        <LotesTab onNuevoIngreso={() => { setTab('stock'); abrirIngreso(); }} />
-      )}
-
-      {/* Tab Stock */}
-      {tab === 'stock' && <>
-
-      {/* Alertas */}
-      {(alertas.sin_stock > 0 || alertas.bajo_minimo > 0) && (
-        <div className="flex gap-3 mb-5">
-          {alertas.sin_stock > 0 && (
-            <button onClick={() => setFiltro('sin_stock')}
-              className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 hover:bg-red-100 transition-colors">
-              <AlertTriangle size={14} />
-              <strong>{alertas.sin_stock}</strong> sin stock
-            </button>
-          )}
-          {alertas.bajo_minimo > 0 && (
-            <button onClick={() => setFiltro('bajo_minimo')}
-              className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 hover:bg-amber-100 transition-colors">
-              <TrendingDown size={14} />
-              <strong>{alertas.bajo_minimo}</strong> bajo mínimo
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Buscador + filtros */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o código..."
-            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-          />
-        </div>
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-          {FILTROS.map(f => (
-            <button key={f.key} onClick={() => setFiltro(f.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                filtro === f.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {f.label}
-              {f.count > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
-                  f.key === 'sin_stock' ? 'bg-red-100 text-red-600' :
-                  f.key === 'bajo_minimo' ? 'bg-amber-100 text-amber-600' :
-                  'bg-gray-200 text-gray-600'
-                }`}>{f.count}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Lista de productos */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <RefreshCw size={20} className="animate-spin text-gray-400" />
-        </div>
-      ) : productos.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
-          <Boxes size={32} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-sm text-gray-400">
-            {filtro !== 'todos'
-              ? 'Ningún producto coincide con el filtro actual'
-              : search
-              ? 'No se encontraron productos'
-              : 'No hay productos estándar cargados'}
+        {/* Reposición sugerida */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Zap size={12} className="text-orange-500" /> Reposición sugerida
           </p>
-          {filtro !== 'todos' && (
-            <button onClick={() => setFiltro('todos')} className="mt-3 text-xs text-orange-600 hover:underline">
-              Ver todos
-            </button>
+          {reposicion.length === 0 ? (
+            <div className="text-center py-4">
+              <Check size={20} className="mx-auto mb-1 text-emerald-400" />
+              <p className="text-xs text-gray-400">Stock saludable</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reposicion.map(p => {
+                const pct = p.stock_minimo > 0
+                  ? Math.min(100, (p.stock_actual / p.stock_minimo) * 100)
+                  : p.stock_actual > 0 ? 100 : 0;
+                const cfg = ESTADO_CFG[p.estado];
+                return (
+                  <div key={p.id} className="space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-medium text-gray-800 leading-tight line-clamp-2">{p.nombre}</p>
+                      <button onClick={() => abrirIngreso(p.id)}
+                        className="flex-shrink-0 p-1 hover:bg-emerald-50 text-emerald-600 rounded-md">
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${cfg.dot}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={`text-[10px] font-bold ${cfg.text}`}>{p.stock_actual}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {productos.map(p => (
-            <ProductoCard
-              key={p.id}
-              producto={p}
-              onIngreso={() => abrirIngreso(p.id)}
-              onEgreso={() => abrirEgreso(p.id)}
-              onAjuste={() => abrirAjuste(p.id)}
-            />
-          ))}
-        </div>
-      )}
 
-      </> /* fin tab stock */}
+        {/* Rotación de inventario */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
+            Rotación
+          </p>
+          <div className="flex items-center justify-center mb-3">
+            <DonutChart
+              size={90}
+              segments={[
+                { value: anal.alta,  color: '#10b981' },
+                { value: anal.media, color: '#3b82f6' },
+                { value: anal.baja,  color: '#d1d5db' },
+              ]}
+            />
+          </div>
+          <div className="space-y-1.5">
+            {[
+              { key: 'alta',  label: 'Rotación alta',  color: 'bg-emerald-500', val: anal.alta },
+              { key: 'media', label: 'Rotación media', color: 'bg-blue-500',    val: anal.media },
+              { key: 'baja',  label: 'Rotación baja',  color: 'bg-gray-300',    val: anal.baja },
+            ].map(s => {
+              const total = anal.alta + anal.media + anal.baja;
+              const pct = total > 0 ? Math.round(s.val / total * 100) : 0;
+              return (
+                <div key={s.key} className="flex items-center gap-2 text-xs">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.color}`} />
+                  <span className="flex-1 text-gray-600">{s.label}</span>
+                  <span className="font-semibold text-gray-800">{s.val}</span>
+                  <span className="text-gray-400 w-8 text-right">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Movimiento 30d */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
+            Movimiento 30 días
+          </p>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <ArrowDownCircle size={13} className="text-emerald-500" />
+                Entradas
+              </div>
+              <span className="text-sm font-bold text-emerald-600">+{mov30?.entradas ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <ArrowUpCircle size={13} className="text-red-400" />
+                Salidas
+              </div>
+              <span className="text-sm font-bold text-red-500">{mov30?.salidas ?? 0}</span>
+            </div>
+            <div className="h-px bg-gray-100" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Productos vendidos</span>
+              <span className="text-sm font-bold text-gray-700">{mov30?.productos_vendidos ?? 0}</span>
+            </div>
+            {mov30 && mov30.entradas > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Rotación neta</span>
+                <span className={`text-sm font-bold ${mov30.salidas > mov30.entradas ? 'text-red-500' : 'text-emerald-600'}`}>
+                  {mov30.salidas > mov30.entradas ? '-' : '+'}{Math.abs(mov30.entradas - mov30.salidas)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Acciones rápidas */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
+            Acciones rápidas
+          </p>
+          <div className="space-y-1.5">
+            <button onClick={() => abrirIngreso()}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-700 transition-colors text-sm font-medium text-left">
+              <ArrowDownCircle size={15} /> Registrar ingreso
+            </button>
+            <button onClick={() => abrirEgreso()}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-700 transition-colors text-sm font-medium text-left">
+              <ArrowUpCircle size={15} /> Registrar egreso
+            </button>
+            <button onClick={() => abrirAjuste()}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-gray-100 text-gray-700 transition-colors text-sm font-medium text-left">
+              <Wrench size={15} /> Ajuste de inventario
+            </button>
+            <button onClick={() => { setTab('lotes'); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-orange-50 text-orange-700 transition-colors text-sm font-medium text-left">
+              <Layers size={15} /> Ver lotes
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Modales */}
       {modal === 'ingreso' && (
         <ModalIngreso
-          productos={productos}
+          productos={productosModal}
           proveedores={proveedores}
           onClose={() => setModal(null)}
           onSaved={onSaved}
@@ -1178,7 +1541,7 @@ export function Stock() {
       )}
       {modal === 'egreso' && (
         <ModalEgreso
-          productos={productos}
+          productos={productosModal}
           onClose={() => setModal(null)}
           onSaved={onSaved}
           productoPreseleccionado={egresoProducto}
@@ -1186,7 +1549,7 @@ export function Stock() {
       )}
       {modal === 'ajuste' && (
         <ModalAjuste
-          productos={productos}
+          productos={productosModal}
           onClose={() => setModal(null)}
           onSaved={onSaved}
           productoPreseleccionado={ajusteProducto}
