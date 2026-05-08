@@ -48,6 +48,116 @@ operaciones.get('/', async (c) => {
   return c.json(rows);
 });
 
+operaciones.get('/tablero', async (c) => {
+  const lunes = new Date();
+  const dow = lunes.getDay() === 0 ? 6 : lunes.getDay() - 1;
+  lunes.setDate(lunes.getDate() - dow);
+  lunes.setHours(0, 0, 0, 0);
+
+  const [statsRow, kanbanRows, proximasRows, detalleRows] = await Promise.all([
+
+    db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE estado NOT IN ('entregado','cancelado'))::int                                                       AS total,
+        COALESCE(SUM(precio_total) FILTER (WHERE estado NOT IN ('entregado','cancelado')), 0)::numeric                            AS valor_total,
+        COUNT(*) FILTER (WHERE estado = 'en_produccion')::int                                                                     AS en_produccion,
+        COALESCE(SUM(precio_total) FILTER (WHERE estado = 'en_produccion'), 0)::numeric                                           AS valor_produccion,
+        COUNT(*) FILTER (WHERE estado = 'listo')::int                                                                             AS listos,
+        COALESCE(SUM(precio_total) FILTER (WHERE estado = 'listo'), 0)::numeric                                                   AS valor_listos,
+        COUNT(*) FILTER (WHERE estado NOT IN ('entregado','cancelado') AND fecha_entrega_estimada < CURRENT_DATE)::int             AS atrasadas,
+        COALESCE(SUM(precio_total) FILTER (WHERE estado NOT IN ('entregado','cancelado') AND fecha_entrega_estimada < CURRENT_DATE), 0)::numeric AS valor_atrasadas,
+        COUNT(*) FILTER (WHERE estado = 'entregado' AND updated_at >= $1)::int                                                    AS entregadas_semana,
+        COALESCE(SUM(precio_total) FILTER (WHERE estado = 'entregado' AND updated_at >= $1), 0)::numeric                          AS valor_entregadas_semana
+      FROM operaciones
+    `, [lunes.toISOString()]),
+
+    db.query(`
+      SELECT o.id, o.numero, o.estado, o.tipo, o.precio_total::numeric, o.margen,
+        o.created_at, o.fecha_entrega_estimada, o.tiempo_entrega, o.updated_at,
+        EXTRACT(DAY FROM now() - o.updated_at)::int AS dias_en_estado,
+        json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
+          'telefono', c.telefono) AS cliente,
+        (SELECT oi.descripcion FROM operacion_items oi WHERE oi.operacion_id = o.id ORDER BY oi.orden LIMIT 1) AS primer_item,
+        (SELECT CONCAT(oi.medida_ancho::text, 'x', oi.medida_alto::text)
+          FROM operacion_items oi
+          WHERE oi.operacion_id = o.id AND oi.medida_ancho IS NOT NULL AND oi.medida_alto IS NOT NULL
+          ORDER BY oi.orden LIMIT 1) AS medidas
+      FROM operaciones o
+      JOIN clientes c ON c.id = o.cliente_id
+      WHERE o.estado IN ('aprobado','en_produccion','listo','entregado','cancelado')
+      ORDER BY
+        CASE o.estado WHEN 'aprobado' THEN 1 WHEN 'en_produccion' THEN 2 WHEN 'listo' THEN 3 WHEN 'entregado' THEN 4 ELSE 5 END,
+        CASE WHEN o.fecha_entrega_estimada < CURRENT_DATE AND o.estado NOT IN ('entregado','cancelado') THEN 0 ELSE 1 END,
+        o.fecha_entrega_estimada ASC NULLS LAST,
+        o.created_at ASC
+    `),
+
+    db.query(`
+      SELECT o.id, o.numero, o.precio_total::numeric, o.estado, o.fecha_entrega_estimada,
+        json_build_object('nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona) AS cliente
+      FROM operaciones o
+      JOIN clientes c ON c.id = o.cliente_id
+      WHERE o.estado NOT IN ('entregado','cancelado')
+        AND o.fecha_entrega_estimada IS NOT NULL
+        AND o.fecha_entrega_estimada >= CURRENT_DATE
+        AND o.fecha_entrega_estimada <= CURRENT_DATE + INTERVAL '7 days'
+      ORDER BY o.fecha_entrega_estimada ASC
+      LIMIT 20
+    `),
+
+    db.query(`
+      SELECT o.id, o.numero, o.estado, o.tipo, o.precio_total::numeric, o.margen,
+        o.created_at, o.fecha_entrega_estimada, o.updated_at,
+        EXTRACT(DAY FROM now() - o.updated_at)::int AS dias_en_estado,
+        json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
+          'telefono', c.telefono) AS cliente,
+        (SELECT oi.descripcion FROM operacion_items oi WHERE oi.operacion_id = o.id ORDER BY oi.orden LIMIT 1) AS primer_item,
+        (SELECT CONCAT(oi.medida_ancho::text, 'x', oi.medida_alto::text)
+          FROM operacion_items oi
+          WHERE oi.operacion_id = o.id AND oi.medida_ancho IS NOT NULL AND oi.medida_alto IS NOT NULL
+          ORDER BY oi.orden LIMIT 1) AS medidas
+      FROM operaciones o
+      JOIN clientes c ON c.id = o.cliente_id
+      WHERE o.estado NOT IN ('cancelado')
+      ORDER BY
+        CASE WHEN o.fecha_entrega_estimada < CURRENT_DATE AND o.estado NOT IN ('entregado','cancelado') THEN 0 ELSE 1 END,
+        o.fecha_entrega_estimada ASC NULLS LAST,
+        o.created_at DESC
+      LIMIT 100
+    `),
+  ]);
+
+  const s = statsRow.rows[0];
+  const ops = kanbanRows.rows;
+
+  return c.json({
+    stats: {
+      total:                  s.total,
+      valor_total:            parseFloat(s.valor_total),
+      en_produccion:          s.en_produccion,
+      valor_produccion:       parseFloat(s.valor_produccion),
+      listos:                 s.listos,
+      valor_listos:           parseFloat(s.valor_listos),
+      atrasadas:              s.atrasadas,
+      valor_atrasadas:        parseFloat(s.valor_atrasadas),
+      entregadas_semana:      s.entregadas_semana,
+      valor_entregadas_semana: parseFloat(s.valor_entregadas_semana),
+    },
+    kanban: {
+      confirmado:    ops.filter(o => o.estado === 'aprobado'),
+      en_produccion: ops.filter(o => o.estado === 'en_produccion'),
+      listo:         ops.filter(o => o.estado === 'listo'),
+      entregado:     ops.filter(o => o.estado === 'entregado'),
+      cancelado:     ops.filter(o => o.estado === 'cancelado'),
+    },
+    proximas: proximasRows.rows,
+    detalle:  detalleRows.rows,
+  });
+});
+
 // POST /:id/generar-link — crea o regenera token de aprobación pública
 operaciones.post('/:id/generar-link', async (c) => {
   const { id } = c.req.param();
