@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
   X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
-  Trash2, AlertTriangle
+  Trash2, AlertTriangle, ChevronLeft, ChevronRight, Star, Sparkles,
+  ThumbsUp, MessageCircle, Mail, Copy, Check, Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -29,7 +30,12 @@ const MARGEN_COLOR: Record<string, string> = {
   alto:  'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
-// Label maps para atributos
+const ETIQUETA_CONFIG = {
+  mas_vendido: { label: 'Más vendido', cls: 'bg-amber-500 text-white',   Icon: Star      },
+  recomendado: { label: 'Recomendado', cls: 'bg-orange-500 text-white',  Icon: ThumbsUp  },
+  nuevo:       { label: 'Nuevo',       cls: 'bg-emerald-500 text-white', Icon: Sparkles  },
+} as const;
+
 const L_TIPO_VENTANA: Record<string, string> = {
   corrediza: 'Corrediza', con_celosia: 'Con celosía', de_abrir: 'De abrir',
   banderola: 'Banderola', ventiluz: 'Ventiluz', aireador: 'Aireador',
@@ -57,7 +63,7 @@ function buildSubtitle(p: Producto): string {
   if (a.marco_tipo)    parts.push(L_MARCO[a.marco_tipo as string] ?? String(a.marco_tipo));
   if (a.uso)           parts.push(L_USO[a.uso as string] ?? String(a.uso));
   if (p.ancho && p.alto) parts.push(`${p.ancho} × ${p.alto} cm`);
-  return parts.join(', ');
+  return parts.join(' · ');
 }
 
 function lastDayOfMonth(): string {
@@ -73,6 +79,24 @@ function isPromoActiva(p: Producto): boolean {
   if (p.promocion.auto_renovar) return true;
   if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
   return true;
+}
+
+function buildShareText(p: Producto): string {
+  const promoOk = isPromoActiva(p);
+  const precio  = promoOk && p.promocion?.precio_oferta ? p.promocion.precio_oferta : p.precio_base;
+  const sub     = buildSubtitle(p);
+  const caracts = [p.caracteristica_1, p.caracteristica_2, p.caracteristica_3, p.caracteristica_4]
+    .filter(Boolean) as string[];
+  let txt = `*${p.nombre}*`;
+  if (sub)          txt += `\n${sub}`;
+  if (caracts.length) txt += `\n✓ ${caracts.join('\n✓ ')}`;
+  txt += `\n\n💰 *${formatCurrency(precio)}*`;
+  if (promoOk && p.promocion?.precio_oferta && p.precio_base !== p.promocion.precio_oferta) {
+    const pct = Math.round((1 - p.promocion.precio_oferta / p.precio_base) * 100);
+    txt += ` ~~${formatCurrency(p.precio_base)}~~ (-${pct}%)`;
+  }
+  txt += '\n\n📞 Consultanos por disponibilidad y medidas personalizadas.';
+  return txt;
 }
 
 // ── Modal de detalle ──────────────────────────────────────────────────────────
@@ -113,12 +137,10 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
     }
   }
 
-  // ── Pantalla de confirmación de borrado ──────────────────────
   if (confirmando) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-          {/* Banda roja superior */}
           <div className="bg-red-600 px-6 py-5 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
               <AlertTriangle size={28} className="text-white" />
@@ -126,7 +148,6 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
             <p className="text-white font-bold text-lg leading-tight">Eliminar producto</p>
             <p className="text-red-200 text-xs mt-1">Esta acción no se puede deshacer</p>
           </div>
-
           <div className="px-6 py-5 space-y-4">
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
               <p className="text-xs text-red-500 font-medium mb-1">Producto a eliminar</p>
@@ -139,21 +160,15 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
               Se eliminará permanentemente del catálogo. Los presupuestos y operaciones existentes no se verán afectados.
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setConfirmando(false)}
-                className="py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={() => setConfirmando(false)}
+                className="py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium hover:bg-gray-50 transition-colors">
                 Cancelar
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={eliminando}
-                className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
-              >
+              <button onClick={handleDelete} disabled={eliminando}
+                className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
                 {eliminando
                   ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Eliminando...</>
-                  : <><Trash2 size={14} /> Sí, eliminar</>
-                }
+                  : <><Trash2 size={14} /> Sí, eliminar</>}
               </button>
             </div>
           </div>
@@ -167,13 +182,20 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
 
-        {/* Header */}
         <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-100 px-5 py-4 flex items-start justify-between z-10">
           <div className="flex-1 min-w-0 pr-3">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
                 {TIPO_LABEL[producto.tipo]}
               </span>
+              {producto.etiqueta && ETIQUETA_CONFIG[producto.etiqueta] && (() => {
+                const cfg = ETIQUETA_CONFIG[producto.etiqueta!];
+                return (
+                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', cfg.cls)}>
+                    <cfg.Icon size={9} /> {cfg.label}
+                  </span>
+                );
+              })()}
               {producto.codigo && (
                 <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono">{producto.codigo}</span>
               )}
@@ -190,7 +212,6 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Galería de imágenes */}
           {imagenes.length > 0 && (
             <div className="space-y-2">
               <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video flex items-center justify-center">
@@ -210,7 +231,6 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
             </div>
           )}
 
-          {/* Video */}
           {producto.video_url && (
             <a href={producto.video_url} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors">
@@ -219,11 +239,12 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
             </a>
           )}
 
-          {/* Precios */}
           <div className="bg-gray-50 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Precio de venta</span>
-              <span className="text-base font-bold text-gray-900">{formatCurrency(precio)}{producto.precio_por_m2 && <span className="text-xs font-normal text-gray-400">/m²</span>}</span>
+              <span className="text-base font-bold text-gray-900">
+                {formatCurrency(precio)}{producto.precio_por_m2 && <span className="text-xs font-normal text-gray-400">/m²</span>}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Costo</span>
@@ -245,7 +266,6 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
             )}
           </div>
 
-          {/* Promo */}
           {producto.promocion && (
             <div className={cn('rounded-xl p-3 border', promoOk ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200 opacity-60')}>
               <div className="flex items-center gap-1.5 mb-2 flex-wrap">
@@ -273,30 +293,23 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
                 {producto.promocion.fecha_inicio && <span>desde {producto.promocion.fecha_inicio}</span>}
                 {producto.promocion.auto_renovar
                   ? <span>hasta el {lastDayOfMonth()} (renovación mensual)</span>
-                  : producto.promocion.fecha_fin && <span>hasta {producto.promocion.fecha_fin}</span>
-                }
+                  : producto.promocion.fecha_fin && <span>hasta {producto.promocion.fecha_fin}</span>}
               </div>
             </div>
           )}
 
-          {/* Atributos de abertura */}
           {((producto.tipo_abertura as any)?.nombre || (producto.sistema as any)?.nombre || producto.color || attrs.length > 0) && (
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Especificaciones</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                {(producto.tipo_abertura as any)?.nombre && (
-                  <Row k="Tipo" v={(producto.tipo_abertura as any).nombre} />
-                )}
-                {(producto.sistema as any)?.nombre && (
-                  <Row k="Sistema" v={(producto.sistema as any).nombre} />
-                )}
+                {(producto.tipo_abertura as any)?.nombre && <Row k="Tipo" v={(producto.tipo_abertura as any).nombre} />}
+                {(producto.sistema as any)?.nombre && <Row k="Sistema" v={(producto.sistema as any).nombre} />}
                 {producto.color && <Row k="Color" v={producto.color} />}
                 {attrs.slice(0, 8).map(([k, v]) => <Row key={k} k={k} v={v} />)}
               </div>
             </div>
           )}
 
-          {/* Características */}
           {([producto.caracteristica_1, producto.caracteristica_2, producto.caracteristica_3, producto.caracteristica_4].filter(Boolean) as string[]).length > 0 && (
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Características</p>
@@ -312,7 +325,6 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
             </div>
           )}
 
-          {/* Accesorios / vidrio */}
           {(producto.vidrio || producto.premarco || producto.accesorios?.length > 0) && (
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Incluye</p>
@@ -324,13 +336,11 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
             </div>
           )}
 
-          {/* Descripción */}
           {producto.descripcion && (
             <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">{producto.descripcion}</p>
           )}
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t border-gray-100 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
           <button onClick={onToggle}
             className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors',
@@ -371,91 +381,261 @@ function Tag2({ label }: { label: string }) {
   );
 }
 
-// ── Columna de productos ──────────────────────────────────────────────────────
+// ── Tarjeta de producto ───────────────────────────────────────────────────────
 
-function Columna({ titulo, productos, icono: Icono, color, onSelect, onToggle }: {
-  titulo: string;
-  productos: Producto[];
-  icono: React.ElementType;
-  color: string;
+function ProductCard({ producto, onSelect, onToggle }: {
+  producto: Producto;
   onSelect: (p: Producto) => void;
   onToggle: (p: Producto) => void;
 }) {
+  const [imgIdx, setImgIdx]   = useState(0);
+  const [copied, setCopied]   = useState(false);
+
+  const imagenes = useMemo(
+    () => producto.imagenes?.length ? producto.imagenes : producto.imagen_url ? [producto.imagen_url] : [],
+    [producto],
+  );
+
+  const promoOk      = isPromoActiva(producto);
+  const precioFinal  = promoOk && producto.promocion?.precio_oferta ? producto.promocion.precio_oferta : producto.precio_base;
+  const precioTachado = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
+  const descPct      = precioTachado ? Math.round((1 - precioFinal / precioTachado) * 100) : 0;
+  const subtitle     = buildSubtitle(producto);
+  const caracts      = [producto.caracteristica_1, producto.caracteristica_2, producto.caracteristica_3, producto.caracteristica_4]
+                        .filter(Boolean) as string[];
+  const etiquetaCfg  = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
+
+  function prev(e: React.MouseEvent) {
+    e.stopPropagation();
+    setImgIdx(i => (i - 1 + imagenes.length) % imagenes.length);
+  }
+  function next(e: React.MouseEvent) {
+    e.stopPropagation();
+    setImgIdx(i => (i + 1) % imagenes.length);
+  }
+
+  function shareWA(e: React.MouseEvent) {
+    e.stopPropagation();
+    window.open(`https://wa.me/?text=${encodeURIComponent(buildShareText(producto))}`, '_blank');
+  }
+  function shareEmail(e: React.MouseEvent) {
+    e.stopPropagation();
+    const subj = encodeURIComponent(producto.nombre);
+    const body = encodeURIComponent(buildShareText(producto));
+    window.open(`mailto:?subject=${subj}&body=${body}`);
+  }
+  function shareCopy(e: React.MouseEvent) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(buildShareText(producto)).then(() => {
+      setCopied(true);
+      toast.success('Texto copiado al portapapeles');
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
-    <div className="flex-1 min-w-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-      {/* Column header */}
-      <div className={cn('px-4 py-3 border-b border-gray-100 flex items-center gap-2', color)}>
-        <Icono size={15} />
-        <span className="text-sm font-semibold">{titulo}</span>
-        <span className="ml-auto text-xs opacity-60">{productos.length}</span>
+    <div className={cn(
+      'bg-white rounded-2xl border border-gray-150 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-lg hover:-translate-y-0.5',
+      !producto.activo && 'opacity-55',
+    )}>
+      {/* Imagen / carrusel */}
+      <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden cursor-pointer group"
+           onClick={() => onSelect(producto)}>
+        {imagenes.length > 0 ? (
+          <img
+            src={imagenes[imgIdx]}
+            alt={producto.nombre}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Package size={52} className="text-gray-200" />
+          </div>
+        )}
+
+        {/* Flechas carrusel */}
+        {imagenes.length > 1 && (
+          <>
+            <button onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
+              <ChevronLeft size={14} className="text-gray-600" />
+            </button>
+            <button onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
+              <ChevronRight size={14} className="text-gray-600" />
+            </button>
+            {/* Dots */}
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+              {imagenes.map((_, i) => (
+                <button key={i}
+                  onClick={e => { e.stopPropagation(); setImgIdx(i); }}
+                  className={cn('w-1.5 h-1.5 rounded-full transition-all',
+                    i === imgIdx ? 'bg-white w-3' : 'bg-white/60')} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Badges overlay (top-left) */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
+          {etiquetaCfg && (
+            <span className={cn('text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm', etiquetaCfg.cls)}>
+              <etiquetaCfg.Icon size={9} /> {etiquetaCfg.label}
+            </span>
+          )}
+          {promoOk && (
+            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white flex items-center gap-1 shadow-sm">
+              <Tag size={9} /> OFERTA
+            </span>
+          )}
+        </div>
+
+        {/* Video button (top-right) */}
+        {producto.video_url && (
+          <a href={producto.video_url} target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center shadow hover:bg-red-700 transition-colors">
+            <Play size={11} className="fill-white ml-0.5" />
+          </a>
+        )}
+
+        {/* Toggle activo (hover, bottom-right) */}
+        <button
+          onClick={e => { e.stopPropagation(); onToggle(producto); }}
+          className="absolute bottom-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity w-7 h-7 rounded-full bg-white/90 shadow flex items-center justify-center hover:bg-white"
+          title={producto.activo ? 'Desactivar' : 'Activar'}>
+          {producto.activo
+            ? <ToggleRight size={14} className="text-emerald-500" />
+            : <ToggleLeft  size={14} className="text-gray-400" />}
+        </button>
       </div>
 
-      {productos.length === 0 ? (
-        <div className="py-10 text-center text-xs text-gray-400">Sin productos</div>
-      ) : (
-        <div className="divide-y divide-gray-50 overflow-y-auto flex-1">
-          {productos.map(p => {
-            const sub = buildSubtitle(p);
-            const promoOk = isPromoActiva(p);
-            return (
-              <div key={p.id}
-                className={cn('flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors group',
-                  !p.activo && 'opacity-50')}
-                onClick={() => onSelect(p)}
-              >
-                {/* Thumbnail */}
-                <div className="w-9 h-9 shrink-0 rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden mt-0.5">
-                  {(p.imagenes?.[0] || p.imagen_url)
-                    ? <img src={p.imagenes?.[0] || p.imagen_url!} alt="" className="w-full h-full object-cover" />
-                    : <Package size={14} className="text-gray-300" />}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-800 leading-snug">{p.nombre}</p>
-                  {sub && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug truncate">{sub}</p>}
-                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded border', TIPO_COLOR[p.tipo])}>
-                      {TIPO_LABEL[p.tipo]}
-                    </span>
-                    {p.margen_tipo && (
-                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-0.5', MARGEN_COLOR[p.margen_tipo])}>
-                        <Percent size={8} />{MARGEN_LABEL[p.margen_tipo]}
-                      </span>
-                    )}
-                    {promoOk && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded border border-pink-200 bg-pink-50 text-pink-700 flex items-center gap-0.5">
-                        <Tag size={8} />Promo
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  {promoOk && p.promocion?.precio_oferta ? (
-                    <>
-                      <p className="text-xs font-bold text-pink-700">{formatCurrency(p.promocion.precio_oferta)}</p>
-                      <p className="text-[10px] text-gray-400 line-through">{formatCurrency(p.precio_base)}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs font-semibold text-gray-800">{formatCurrency(p.precio_base)}</p>
-                      {p.precio_por_m2 && <p className="text-[10px] text-gray-400">/m²</p>}
-                    </>
-                  )}
-                  <button
-                    className="hidden group-hover:flex items-center mt-0.5 text-[10px] text-gray-400 hover:text-gray-600"
-                    onClick={e => { e.stopPropagation(); onToggle(p); }}
-                    title={p.activo ? 'Desactivar' : 'Activar'}
-                  >
-                    {p.activo ? <ToggleRight size={14} className="text-emerald-400" /> : <ToggleLeft size={14} />}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+      {/* Contenido */}
+      <div className="p-4 flex flex-col flex-1 cursor-pointer" onClick={() => onSelect(producto)}>
+        {/* Badges de tipo */}
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
+            {TIPO_LABEL[producto.tipo]}
+          </span>
+          {producto.margen_tipo && (
+            <span className={cn('text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-0.5', MARGEN_COLOR[producto.margen_tipo])}>
+              <Percent size={8} /> {MARGEN_LABEL[producto.margen_tipo]}
+            </span>
+          )}
+          {!producto.activo && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded border border-gray-200">Inactivo</span>
+          )}
         </div>
-      )}
+
+        {/* Nombre */}
+        <h3 className="text-[15px] font-bold text-gray-900 leading-snug mb-0.5">{producto.nombre}</h3>
+        {subtitle && <p className="text-xs text-gray-500 mb-2">{subtitle}</p>}
+
+        {/* Características */}
+        {caracts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {caracts.slice(0, 3).map((c, i) => (
+              <span key={i} className="text-[10px] px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full border border-sky-100 flex items-center gap-1">
+                <Check size={8} className="text-sky-500 shrink-0" /> {c}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Precio — prominente */}
+        <div className="mt-auto pt-3 border-t border-gray-100">
+          {precioTachado ? (
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-2xl font-black text-pink-700 leading-none">{formatCurrency(precioFinal)}</span>
+              <span className="text-sm text-gray-400 line-through leading-none">{formatCurrency(precioTachado)}</span>
+              <span className="text-[10px] font-bold text-white bg-pink-600 px-1.5 py-0.5 rounded">-{descPct}%</span>
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-black text-sky-700 leading-none">{formatCurrency(precioFinal)}</span>
+              {producto.precio_por_m2 && <span className="text-xs text-gray-400">/m²</span>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Acciones: compartir */}
+      <div className="px-4 pb-4 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+        <button onClick={shareWA}
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors font-medium">
+          <MessageCircle size={11} /> WA
+        </button>
+        <button onClick={shareEmail}
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors font-medium">
+          <Mail size={11} /> Email
+        </button>
+        <button onClick={shareCopy}
+          className={cn('flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg border transition-colors font-medium',
+            copied ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100')}>
+          {copied ? <Check size={11} /> : <Copy size={11} />}
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+        <button onClick={e => { e.stopPropagation(); onSelect(producto); }}
+          className="ml-auto text-[10px] px-3 py-1.5 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 transition-colors">
+          Ver detalle →
+        </button>
+      </div>
     </div>
+  );
+}
+
+// ── Sección por categoría ─────────────────────────────────────────────────────
+
+const CAT_LIMIT = 6;
+
+function Seccion({ titulo, productos, icono: Icono, colorHeader, colorBg, borderColor, onSelect, onToggle }: {
+  titulo: string;
+  productos: Producto[];
+  icono: React.ElementType;
+  colorHeader: string;
+  colorBg: string;
+  borderColor: string;
+  onSelect: (p: Producto) => void;
+  onToggle: (p: Producto) => void;
+}) {
+  const [expandida, setExpandida] = useState(true);
+  const visibles = expandida ? productos : productos.slice(0, CAT_LIMIT);
+
+  return (
+    <section className="space-y-4">
+      {/* Header de categoría */}
+      <div className={cn('flex items-center gap-3 px-5 py-3.5 rounded-2xl border', colorBg, borderColor)}>
+        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', colorHeader)}>
+          <Icono size={18} className="text-white" />
+        </div>
+        <div>
+          <h2 className="font-bold text-gray-800 text-base">{titulo}</h2>
+          <p className="text-xs text-gray-500">{productos.length} producto{productos.length !== 1 ? 's' : ''}</p>
+        </div>
+        {productos.length > CAT_LIMIT && (
+          <button
+            onClick={() => setExpandida(v => !v)}
+            className="ml-auto text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 font-medium">
+            <Filter size={12} />
+            {expandida ? 'Mostrar menos' : `Ver todos (${productos.length})`}
+          </button>
+        )}
+      </div>
+
+      {/* Grid de tarjetas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {visibles.map(p => (
+          <ProductCard key={p.id} producto={p} onSelect={onSelect} onToggle={onToggle} />
+        ))}
+      </div>
+
+      {!expandida && productos.length > CAT_LIMIT && (
+        <button onClick={() => setExpandida(true)}
+          className="text-sm text-sky-600 hover:text-sky-700 font-medium hover:underline">
+          Ver todos los {productos.length} productos de {titulo.toLowerCase()} →
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -498,12 +678,12 @@ export function Productos() {
 
   const { ventanas, puertas, balcon, otros } = useMemo(() => {
     const ventanas: Producto[] = [];
-    const puertas: Producto[]  = [];
-    const balcon: Producto[]   = [];
-    const otros: Producto[]    = [];
+    const puertas:  Producto[] = [];
+    const balcon:   Producto[] = [];
+    const otros:    Producto[] = [];
     filtered.forEach(p => {
       const n = ((p.tipo_abertura as any)?.nombre ?? '').toLowerCase();
-      if (n.includes('balc'))    balcon.push(p);
+      if (n.includes('balc'))         balcon.push(p);
       else if (n.includes('ventana')) ventanas.push(p);
       else if (n.includes('puerta'))  puertas.push(p);
       else                            otros.push(p);
@@ -517,15 +697,28 @@ export function Productos() {
     };
   }, [filtered]);
 
-  const cols = [
-    { titulo: 'Ventanas',       items: ventanas, icono: AppWindow, color: 'text-sky-700 bg-sky-50' },
-    { titulo: 'Puertas',        items: puertas,  icono: DoorOpen,  color: 'text-violet-700 bg-violet-50' },
-    { titulo: 'Puerta-Balcón',  items: balcon,   icono: AppWindow, color: 'text-teal-700 bg-teal-50' },
-    ...(otros.length ? [{ titulo: 'Otros', items: otros, icono: Package, color: 'text-gray-600 bg-gray-50' }] : []),
+  const secciones = [
+    {
+      titulo: 'Ventanas', items: ventanas, icono: AppWindow,
+      colorHeader: 'bg-sky-500', colorBg: 'bg-sky-50', borderColor: 'border-sky-200',
+    },
+    {
+      titulo: 'Puertas', items: puertas, icono: DoorOpen,
+      colorHeader: 'bg-violet-500', colorBg: 'bg-violet-50', borderColor: 'border-violet-200',
+    },
+    {
+      titulo: 'Puerta-Balcón', items: balcon, icono: AppWindow,
+      colorHeader: 'bg-teal-500', colorBg: 'bg-teal-50', borderColor: 'border-teal-200',
+    },
+    ...(otros.length ? [{
+      titulo: 'Otros', items: otros, icono: Package,
+      colorHeader: 'bg-gray-400', colorBg: 'bg-gray-50', borderColor: 'border-gray-200',
+    }] : []),
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
@@ -544,6 +737,7 @@ export function Productos() {
         </Link>
       </div>
 
+      {/* Buscador */}
       <div className="relative">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
@@ -551,37 +745,60 @@ export function Productos() {
           placeholder="Buscar por nombre, código o tipo..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-sm"
         />
+        {search && (
+          <button onClick={() => setSearch('')}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <X size={14} />
+          </button>
+        )}
       </div>
 
+      {/* Contenido */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 animate-pulse">
-              {[...Array(4)].map((_, j) => (
-                <div key={j} className="h-12 bg-gray-100 rounded-lg" />
-              ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-gray-200 overflow-hidden animate-pulse">
+              <div className="aspect-[4/3] bg-gray-100" />
+              <div className="p-4 space-y-3">
+                <div className="h-4 bg-gray-100 rounded w-3/4" />
+                <div className="h-3 bg-gray-100 rounded w-1/2" />
+                <div className="h-6 bg-gray-100 rounded w-1/3 mt-4" />
+              </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
-          <Package size={32} className="text-gray-200 mx-auto mb-3" />
+          <Package size={40} className="text-gray-200 mx-auto mb-3" />
           <p className="text-sm text-gray-400 mb-1">No hay productos en el catálogo</p>
-          <Link to="/productos/nuevo" className="text-sm text-sky-600 hover:underline">
-            Agregar el primero
+          <Link to="/productos/nuevo" className="text-sm text-sky-600 hover:underline font-medium">
+            Agregar el primero →
           </Link>
         </div>
+      ) : search ? (
+        /* Resultados de búsqueda — grid plano */
+        <div className="space-y-3">
+          <p className="text-sm text-gray-500">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{search}"</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {filtered.map(p => (
+              <ProductCard key={p.id} producto={p} onSelect={setSelected} onToggle={toggleActivo} />
+            ))}
+          </div>
+        </div>
       ) : (
-        <div className="flex gap-4 items-start">
-          {cols.map(col => (
-            <Columna
-              key={col.titulo}
-              titulo={col.titulo}
-              productos={col.items}
-              icono={col.icono}
-              color={col.color}
+        /* Vista por categoría */
+        <div className="space-y-10">
+          {secciones.filter(s => s.items.length > 0).map(s => (
+            <Seccion
+              key={s.titulo}
+              titulo={s.titulo}
+              productos={s.items}
+              icono={s.icono}
+              colorHeader={s.colorHeader}
+              colorBg={s.colorBg}
+              borderColor={s.borderColor}
               onSelect={setSelected}
               onToggle={toggleActivo}
             />

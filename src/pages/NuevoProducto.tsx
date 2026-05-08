@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
-  Percent, CalendarDays, ToggleLeft, ToggleRight
+  Percent, CalendarDays, ToggleLeft, ToggleRight, Star
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -1252,6 +1252,7 @@ export function NuevoProducto() {
     premarco:           false,
     accesorios:         [] as string[],
     activo:             true,
+    etiqueta:            '' as '' | 'mas_vendido' | 'recomendado' | 'nuevo',
     margen_tipo:         '' as '' | 'bajo' | 'medio' | 'alto',
     promo_activa:        false,
     promo_auto_renovar:  false,
@@ -1318,6 +1319,7 @@ export function NuevoProducto() {
           premarco:           data.premarco ?? false,
           accesorios:         data.accesorios ?? [],
           activo:             data.activo ?? true,
+          etiqueta:            data.etiqueta ?? '',
           margen_tipo:         data.margen_tipo ?? '',
           promo_activa:        data.promocion?.activo ?? false,
           promo_auto_renovar:  data.promocion?.auto_renovar ?? false,
@@ -1433,6 +1435,7 @@ export function NuevoProducto() {
         accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
         atributos:        (esPuerta || esVentana || esPuertaBalcon) ? atributos : {},
+        etiqueta:         form.etiqueta || null,
         margen_tipo:      form.margen_tipo || null,
         promocion:        form.promo_activa ? {
           activo:         true,
@@ -1821,6 +1824,29 @@ export function NuevoProducto() {
               <span className="text-gray-400 text-xs">({formatCurrency(precio - costo)} por unidad)</span>
             </div>
           )}
+          {/* Etiqueta de venta */}
+          <div>
+            <label className={labelCls}>
+              <span className="flex items-center gap-1"><Star size={11} /> Etiqueta de venta</span>
+            </label>
+            <div className="grid grid-cols-4 gap-2 mt-1">
+              {([
+                ['', 'Ninguna', 'border-gray-200 text-gray-400'],
+                ['mas_vendido', 'Más vendido', 'border-amber-400 bg-amber-50 text-amber-800'],
+                ['recomendado', 'Recomendado', 'border-orange-400 bg-orange-50 text-orange-800'],
+                ['nuevo', 'Nuevo', 'border-emerald-400 bg-emerald-50 text-emerald-800'],
+              ] as const).map(([v, l, activeCls]) => (
+                <button key={v} type="button"
+                  onClick={() => set('etiqueta', v)}
+                  className={cn(
+                    'px-2 py-2 rounded-lg border text-[11px] text-center font-medium transition-all',
+                    (form.etiqueta ?? '') === v ? activeCls : 'border-gray-200 text-gray-400 hover:border-gray-300'
+                  )}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
           {/* Tipo de margen */}
           <div>
             <label className={labelCls}>

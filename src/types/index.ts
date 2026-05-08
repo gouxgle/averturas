@@ -208,6 +208,7 @@ export interface Producto {
   atributos: Record<string, unknown>;
   imagenes: string[];
   video_url: string | null;
+  etiqueta: 'mas_vendido' | 'recomendado' | 'nuevo' | null;
   margen_tipo: 'bajo' | 'medio' | 'alto' | null;
   promocion: {
     activo: boolean;
