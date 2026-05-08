@@ -234,7 +234,8 @@ dashboard.get('/resumen', async (c) => {
     db.query(`
       SELECT o.id, o.numero, o.precio_total, o.estado, o.created_at,
         json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
-          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente,
+        (SELECT oi.descripcion FROM operacion_items oi WHERE oi.operacion_id = o.id ORDER BY oi.orden LIMIT 1) AS primer_item
       FROM operaciones o JOIN clientes cl ON cl.id = o.cliente_id
       WHERE o.estado IN ('presupuesto','enviado')
       ORDER BY o.created_at ASC LIMIT 10
@@ -303,7 +304,7 @@ dashboard.get('/resumen', async (c) => {
 
     db.query(`
       SELECT c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
-        c.telefono, c.estado,
+        c.telefono, c.estado, c.preferencia_contacto, c.ultima_interaccion,
         COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion)::int, 999) AS dias_sin_contacto
       FROM clientes c
       WHERE c.activo = true
