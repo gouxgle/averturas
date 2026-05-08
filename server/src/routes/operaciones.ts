@@ -158,6 +158,120 @@ operaciones.get('/tablero', async (c) => {
   });
 });
 
+operaciones.get('/ventas-panel', async (c) => {
+  const [statsRow, listRows, seguimientoRows] = await Promise.all([
+
+    db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE o.estado IN ('presupuesto','enviado'))::int AS total_activos,
+        COALESCE(SUM(o.precio_total) FILTER (WHERE o.estado IN ('presupuesto','enviado')), 0)::numeric AS importe_total,
+        COUNT(*) FILTER (
+          WHERE o.estado = 'enviado'
+            AND COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3
+        )::int AS sin_respuesta_count,
+        COALESCE(SUM(o.precio_total) FILTER (
+          WHERE o.estado = 'enviado'
+            AND COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3
+        ), 0)::numeric AS sin_respuesta_monto,
+        COUNT(*) FILTER (
+          WHERE o.estado IN ('presupuesto','enviado') AND o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE
+        )::int AS vencidos_count,
+        COALESCE(SUM(o.precio_total) FILTER (
+          WHERE o.estado IN ('presupuesto','enviado') AND o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE
+        ), 0)::numeric AS vencidos_monto,
+        COALESCE(ROUND(
+          100.0 * COUNT(*) FILTER (WHERE o.estado = 'aprobado' AND o.created_at >= now() - INTERVAL '30 days') /
+          NULLIF(COUNT(*) FILTER (WHERE o.estado IN ('aprobado','cancelado','rechazado') AND o.created_at >= now() - INTERVAL '30 days'), 0)
+        , 0), 0)::int AS tasa_cierre_pct
+      FROM operaciones o
+      JOIN clientes c ON c.id = o.cliente_id
+    `),
+
+    db.query(`
+      SELECT
+        o.id, o.numero, o.tipo, o.estado, o.precio_total::numeric,
+        o.created_at, o.fecha_validez, o.aprobado_online_at,
+        EXTRACT(DAY FROM now() - o.fecha_validez)::int                         AS dias_vencido,
+        EXTRACT(DAY FROM o.fecha_validez - now())::int                         AS dias_hasta_vencimiento,
+        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int     AS dias_sin_respuesta,
+        (SELECT i.tipo FROM interacciones i WHERE i.cliente_id = c.id ORDER BY i.created_at DESC LIMIT 1) AS ultimo_contacto_canal,
+        json_build_object(
+          'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
+          'telefono', c.telefono, 'email', c.email
+        ) AS cliente,
+        CASE
+          WHEN o.estado IN ('aprobado','cancelado','rechazado') THEN 'baja'
+          WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE THEN 'alta'
+          WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez <= CURRENT_DATE + 3 THEN 'alta'
+          WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 7 THEN 'alta'
+          WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez <= CURRENT_DATE + 7 THEN 'media'
+          WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3 THEN 'media'
+          ELSE 'baja'
+        END AS prioridad
+      FROM operaciones o
+      JOIN clientes c ON c.id = o.cliente_id
+      WHERE o.estado IN ('presupuesto','enviado','aprobado','cancelado','rechazado')
+      ORDER BY
+        CASE WHEN o.estado IN ('presupuesto','enviado') THEN 0 ELSE 1 END,
+        CASE
+          WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE THEN 0
+          WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 7 THEN 1
+          ELSE 2
+        END,
+        o.precio_total DESC
+      LIMIT 200
+    `),
+
+    db.query(`
+      SELECT
+        o.id, o.numero, o.precio_total::numeric, o.estado, o.fecha_validez,
+        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int AS dias_sin_respuesta,
+        (SELECT i.tipo FROM interacciones i WHERE i.cliente_id = c.id ORDER BY i.created_at DESC LIMIT 1) AS ultimo_contacto_canal,
+        json_build_object(
+          'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
+          'telefono', c.telefono
+        ) AS cliente
+      FROM operaciones o
+      JOIN clientes c ON c.id = o.cliente_id
+      WHERE o.estado IN ('presupuesto','enviado')
+        AND COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 2
+      ORDER BY
+        CASE WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE THEN 0 ELSE 1 END,
+        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) DESC,
+        o.precio_total DESC
+      LIMIT 5
+    `),
+  ]);
+
+  const s = statsRow.rows[0];
+  const lista = listRows.rows;
+  const sinRespuestaMonto = parseFloat(s.sin_respuesta_monto);
+  const vencidosMonto     = parseFloat(s.vencidos_monto);
+
+  const activos  = lista.filter(r => ['presupuesto','enviado'].includes(r.estado));
+  const probAlta = activos.filter(r => r.prioridad === 'baja').length;
+  const probMedia = activos.filter(r => r.prioridad === 'media').length;
+  const probBaja  = activos.filter(r => r.prioridad === 'alta').length;
+
+  return c.json({
+    stats: {
+      total_activos:       s.total_activos,
+      importe_total:       parseFloat(s.importe_total),
+      sin_respuesta_count: s.sin_respuesta_count,
+      sin_respuesta_monto: sinRespuestaMonto,
+      vencidos_count:      s.vencidos_count,
+      vencidos_monto:      vencidosMonto,
+      tasa_cierre_pct:     s.tasa_cierre_pct,
+      en_riesgo_total:     sinRespuestaMonto + vencidosMonto,
+    },
+    presupuestos: lista.map(r => ({ ...r, precio_total: parseFloat(r.precio_total) })),
+    seguimiento_sugerido: seguimientoRows.rows.map(r => ({ ...r, precio_total: parseFloat(r.precio_total) })),
+    prob_cierre: { alta: probAlta, media: probMedia, baja: probBaja },
+  });
+});
+
 // POST /:id/generar-link — crea o regenera token de aprobación pública
 operaciones.post('/:id/generar-link', async (c) => {
   const { id } = c.req.param();
