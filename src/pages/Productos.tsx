@@ -102,7 +102,6 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
   const costo  = producto.costo_base;
   const precio = producto.precio_base;
   const margen = precio > 0 ? Math.round((precio - costo) / precio * 100) : 0;
-  const promoOk  = isPromoActiva(producto);
   const subtitle = buildSubtitle(producto);
   const imagenes = producto.imagenes?.length ? producto.imagenes : producto.imagen_url ? [producto.imagen_url] : [];
   const attrs: [string, string][] = Object.entries(producto.atributos ?? {})
@@ -340,7 +339,7 @@ function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
       {/* Imagen */}
       <div className="relative w-[108px] shrink-0 self-stretch overflow-hidden bg-gray-100">
         {imagenes.length > 0 ? (
-          <img src={imagenes[imgIdx]} alt={producto.nombre} className="w-full h-full object-cover"/>
+          <img src={imagenes[imgIdx]} alt={producto.nombre} className="w-full h-full object-contain p-1"/>
         ) : (
           <div className="w-full h-full flex items-center justify-center"><Package size={28} className="text-gray-200"/></div>
         )}
