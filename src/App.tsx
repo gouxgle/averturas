@@ -25,6 +25,7 @@ import { NuevoRemito } from '@/pages/NuevoRemito';
 import { Recibos } from '@/pages/Recibos';
 import { NuevoRecibo } from '@/pages/NuevoRecibo';
 import { EstadoCuentaGlobal } from '@/pages/EstadoCuentaGlobal';
+import { CRM } from '@/pages/CRM';
 import { ImportarClientes } from '@/pages/ImportarClientes';
 import { ImprimirPresupuesto } from '@/pages/print/ImprimirPresupuesto';
 import { ImprimirRemito } from '@/pages/print/ImprimirRemito';
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="/clientes/:id/editar" element={<NuevoCliente />} />
                 <Route path="/clientes/:id/estado-cuenta" element={<EstadoCuenta />} />
                 <Route path="/clientes/:id" element={<ClienteDetalle />} />
+                <Route path="/crm" element={<CRM />} />
                 <Route path="/presupuestos" element={<Presupuestos />} />
                 <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />
                 <Route path="/presupuestos/:id/editar" element={<NuevoPresupuesto />} />
