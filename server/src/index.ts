@@ -20,6 +20,7 @@ import stockRoutes         from './routes/stock.js';
 import remitosRoutes       from './routes/remitos.js';
 import recibosRoutes       from './routes/recibos.js';
 import estadoCuentaRoutes  from './routes/estadoCuenta.js';
+import informesRoutes      from './routes/informes.js';
 import { authMiddleware } from './middleware/auth.js';
 
 const app = new Hono();
@@ -52,6 +53,7 @@ apiAuth.route('/remitos',       remitosRoutes);
 apiAuth.route('/recibos',        recibosRoutes);
 apiAuth.route('/estado-cuenta',   estadoCuentaRoutes);
 apiAuth.route('/notificaciones',  notificacionesRoutes);
+apiAuth.route('/informes',        informesRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);

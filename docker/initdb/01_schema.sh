@@ -29,6 +29,7 @@ psql -U postgres -d postgres -f /migrations/20260503000004_presupuesto_envio.sql
 psql -U postgres -d postgres -f /migrations/20260504000001_token_acceso.sql
 psql -U postgres -d postgres -f /migrations/20260507000001_etiqueta_producto.sql
 psql -U postgres -d postgres -f /migrations/20260509000001_proveedores_logistica.sql
+psql -U postgres -d postgres -f /migrations/20260509000002_empresa_objetivo.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -62,7 +63,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260503000004_presupuesto_envio.sql'),
   ('20260504000001_token_acceso.sql'),
   ('20260507000001_etiqueta_producto.sql'),
-  ('20260509000001_proveedores_logistica.sql')
+  ('20260509000001_proveedores_logistica.sql'),
+  ('20260509000002_empresa_objetivo.sql')
 ON CONFLICT DO NOTHING;
 SQL
 
