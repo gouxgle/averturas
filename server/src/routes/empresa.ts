@@ -10,7 +10,7 @@ empresa.get('/', async (c) => {
 });
 
 empresa.put('/', async (c) => {
-  const { nombre, cuit, telefono, email, direccion, logo_url, objetivo_ventas_mensual } = await c.req.json();
+  const { nombre, cuit, telefono, email, direccion, logo_url, objetivo_ventas_mensual, instagram } = await c.req.json();
   if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
 
   const { rows: existing } = await db.query(`SELECT id FROM empresa ORDER BY updated_at DESC LIMIT 1`);
@@ -18,18 +18,18 @@ empresa.put('/', async (c) => {
   if (existing[0]) {
     const { rows } = await db.query(
       `UPDATE empresa SET nombre=$1, cuit=$2, telefono=$3, email=$4, direccion=$5, logo_url=$6,
-         objetivo_ventas_mensual=$7, updated_at=now()
-       WHERE id=$8 RETURNING *`,
+         objetivo_ventas_mensual=$7, instagram=$8, updated_at=now()
+       WHERE id=$9 RETURNING *`,
       [nombre.trim(), cuit || null, telefono || null, email || null, direccion || null, logo_url || null,
-       objetivo_ventas_mensual ? parseFloat(objetivo_ventas_mensual) : 0, existing[0].id]
+       objetivo_ventas_mensual ? parseFloat(objetivo_ventas_mensual) : 0, instagram || null, existing[0].id]
     );
     return c.json(rows[0]);
   } else {
     const { rows } = await db.query(
-      `INSERT INTO empresa (nombre, cuit, telefono, email, direccion, logo_url, objetivo_ventas_mensual)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO empresa (nombre, cuit, telefono, email, direccion, logo_url, objetivo_ventas_mensual, instagram)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [nombre.trim(), cuit || null, telefono || null, email || null, direccion || null, logo_url || null,
-       objetivo_ventas_mensual ? parseFloat(objetivo_ventas_mensual) : 0]
+       objetivo_ventas_mensual ? parseFloat(objetivo_ventas_mensual) : 0, instagram || null]
     );
     return c.json(rows[0]);
   }
