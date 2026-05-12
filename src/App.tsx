@@ -31,6 +31,7 @@ import { ImprimirPresupuesto } from '@/pages/print/ImprimirPresupuesto';
 import { ImprimirRemito } from '@/pages/print/ImprimirRemito';
 import { ImprimirRecibo } from '@/pages/print/ImprimirRecibo';
 import { VistaPublicaPresupuesto } from '@/pages/VistaPublicaPresupuesto';
+import { VistaPublicaRemito }      from '@/pages/VistaPublicaRemito';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -43,8 +44,9 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            {/* Ruta pública — sin auth */}
+            {/* Rutas públicas — sin auth */}
             <Route path="/p/:token" element={<VistaPublicaPresupuesto />} />
+            <Route path="/r/:token" element={<VistaPublicaRemito />} />
             <Route element={<ProtectedRoute />}>
               {/* Páginas de impresión — sin AppLayout */}
               <Route path="/imprimir/presupuesto/:id" element={<ImprimirPresupuesto />} />

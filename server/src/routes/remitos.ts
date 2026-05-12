@@ -192,6 +192,26 @@ remitos.get('/conteos', async (c) => {
   return c.json(conteos);
 });
 
+// POST /:id/generar-link — genera token de confirmación digital
+remitos.post('/:id/generar-link', async (c) => {
+  const { id } = c.req.param();
+  const { rows: [rem] } = await db.query(
+    `SELECT id, numero, cliente_id FROM remitos WHERE id = $1`, [id]
+  );
+  if (!rem) return c.json({ error: 'No encontrado' }, 404);
+
+  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+
+  const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+  await db.query(
+    `UPDATE remitos SET token_acceso = $1, token_acceso_at = now() WHERE id = $2`,
+    [token, id]
+  );
+  return c.json({ url: `${appUrl}/r/${token}` });
+});
+
 // GET /:id — detalle con items
 remitos.get('/:id', async (c) => {
   const { id } = c.req.param();

@@ -212,4 +212,117 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
   return c.json({ ok: true, ya_rechazado: false });
 });
 
+// ─── REMITO PÚBLICO ──────────────────────────────────────────────────────────
+
+// GET /pub/remito/:token — datos del remito para la vista pública
+pub.get('/remito/:token', async (c) => {
+  const { token } = c.req.param();
+
+  const { rows: [rem] } = await db.query(`
+    SELECT
+      r.id, r.numero, r.estado, r.medio_envio, r.transportista, r.nro_seguimiento,
+      r.direccion_entrega, r.fecha_emision, r.fecha_entrega_est, r.notas,
+      r.token_acceso_at, r.recepcion_estado, r.recepcion_at, r.recepcion_obs,
+      r.operacion_id,
+      json_build_object(
+        'id',           op.id,
+        'numero',       op.numero
+      ) FILTER (WHERE op.id IS NOT NULL) AS operacion,
+      json_build_object(
+        'nombre',        cl.nombre,
+        'apellido',      cl.apellido,
+        'razon_social',  cl.razon_social,
+        'tipo_persona',  cl.tipo_persona,
+        'documento_nro', cl.documento_nro,
+        'telefono',      cl.telefono,
+        'email',         cl.email,
+        'direccion',     cl.direccion,
+        'localidad',     cl.localidad
+      ) AS cliente,
+      json_build_object(
+        'nombre',    e.nombre,
+        'cuit',      e.cuit,
+        'telefono',  e.telefono,
+        'email',     e.email,
+        'direccion', e.direccion,
+        'logo_url',  e.logo_url,
+        'instagram', e.instagram,
+        'website',   e.website
+      ) AS empresa
+    FROM remitos r
+    JOIN clientes cl ON cl.id = r.cliente_id
+    LEFT JOIN operaciones op ON op.id = r.operacion_id
+    CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
+    WHERE r.token_acceso = $1
+  `, [token]);
+
+  if (!rem) return c.json({ error: 'Link inválido o expirado' }, 404);
+
+  // Items: usa operacion_items (con specs completos) si hay operacion_id, sino remito_items
+  let items: unknown[];
+  if (rem.operacion_id) {
+    const { rows } = await db.query(`
+      SELECT
+        oi.orden, oi.descripcion, oi.cantidad, oi.color,
+        oi.medida_ancho, oi.medida_alto, oi.vidrio, oi.premarco,
+        oi.accesorios, oi.notas,
+        oi.atributos AS producto_atributos,
+        ta.nombre AS tipo_abertura_nombre,
+        si.nombre AS sistema_nombre,
+        cp.imagen_url AS producto_imagen_url
+      FROM operacion_items oi
+      LEFT JOIN tipos_abertura     ta ON ta.id = oi.tipo_abertura_id
+      LEFT JOIN sistemas           si ON si.id = oi.sistema_id
+      LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
+      WHERE oi.operacion_id = $1
+      ORDER BY oi.orden, oi.id
+    `, [rem.operacion_id]);
+    items = rows;
+  } else {
+    const { rows } = await db.query(`
+      SELECT
+        ri.descripcion, ri.cantidad, ri.estado_producto, ri.notas_item AS notas,
+        NULL AS medida_ancho, NULL AS medida_alto, NULL AS color,
+        NULL AS vidrio, false AS premarco, '{}' AS accesorios,
+        NULL AS tipo_abertura_nombre, NULL AS sistema_nombre,
+        cp.imagen_url AS producto_imagen_url,
+        NULL AS producto_atributos
+      FROM remito_items ri
+      LEFT JOIN catalogo_productos cp ON cp.id = ri.producto_id
+      WHERE ri.remito_id = $1
+      ORDER BY ri.id
+    `, [rem.id]);
+    items = rows;
+  }
+
+  return c.json({ ...rem, items });
+});
+
+// POST /pub/remito/:token/confirmar — cliente confirma recepción
+pub.post('/remito/:token/confirmar', async (c) => {
+  const { token } = c.req.param();
+  const { estado, observaciones } = await c.req.json().catch(() => ({})) as Record<string, string>;
+
+  const estadosValidos = ['conforme', 'con_observaciones', 'no_conforme'];
+  if (!estadosValidos.includes(estado)) {
+    return c.json({ error: 'Estado inválido' }, 400);
+  }
+
+  const { rows: [rem] } = await db.query(
+    `SELECT id, recepcion_estado FROM remitos WHERE token_acceso = $1`, [token]
+  );
+  if (!rem) return c.json({ error: 'Link inválido' }, 404);
+
+  if (rem.recepcion_estado) {
+    return c.json({ ok: true, ya_confirmado: true, estado: rem.recepcion_estado });
+  }
+
+  await db.query(
+    `UPDATE remitos SET recepcion_estado = $1, recepcion_at = now(), recepcion_obs = $2 WHERE id = $3`,
+    [estado, observaciones || null, rem.id]
+  );
+
+  return c.json({ ok: true, ya_confirmado: false });
+});
+
 export default pub;

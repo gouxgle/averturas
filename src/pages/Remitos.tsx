@@ -5,6 +5,7 @@ import {
   XCircle, AlertTriangle, ChevronRight, Eye, Phone,
   MessageCircle, Building2, DollarSign, BarChart3, Zap,
   PrinterIcon, FileText, CalendarClock, Search,
+  Share2, Copy, Check, X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -25,6 +26,8 @@ interface Remito {
   valor_total: number; items_resumen: ItemResumen[] | null;
   cliente: RCliente & { telefono: string | null };
   operacion: { id: string; numero: string } | null;
+  token_acceso: string | null;
+  recepcion_estado: string | null;
 }
 
 interface ProximaEntrega { id: string; numero: string; fecha_entrega_est: string; valor_total: number; cliente: RCliente }
@@ -223,7 +226,11 @@ export function Remitos() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const perPage = 10;
-  const [estadoModal, setEstadoModal] = useState<Remito | null>(null);
+  const [estadoModal, setEstadoModal]     = useState<Remito | null>(null);
+  const [shareRemito, setShareRemito]     = useState<Remito | null>(null);
+  const [linkUrl,     setLinkUrl]         = useState<string | null>(null);
+  const [linkCopied,  setLinkCopied]      = useState(false);
+  const [generandoLink, setGenerandoLink] = useState(false);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -238,6 +245,32 @@ export function Remitos() {
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => { setPage(1); }, [filtro, search]);
+
+  async function generarLink(r: Remito) {
+    setShareRemito(r);
+    setLinkUrl(null);
+    setLinkCopied(false);
+    setGenerandoLink(true);
+    try {
+      const { url } = await api.post<{ url: string }>(`/remitos/${r.id}/generar-link`, {});
+      setLinkUrl(url);
+    } catch { toast.error('Error al generar el link'); }
+    setGenerandoLink(false);
+  }
+
+  async function copiarLink() {
+    if (!linkUrl) return;
+    await navigator.clipboard.writeText(linkUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
+  function compartirWhatsApp() {
+    if (!linkUrl || !shareRemito) return;
+    const nombre = ncl(shareRemito.cliente);
+    const msg = encodeURIComponent(`Hola ${nombre}, te enviamos el remito de entrega ${shareRemito.numero}. Podés confirmar la recepción de tus productos desde este link:\n${linkUrl}`);
+    window.open(`https://wa.me/?text=${msg}`, '_blank');
+  }
 
   const filtrado = useMemo(() => {
     if (!data) return [];
@@ -488,6 +521,12 @@ export function Remitos() {
                                     className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center transition-colors">
                                     <Eye size={13} className="text-gray-600" />
                                   </button>
+                                  {['emitido', 'entregado'].includes(r.estado) && (
+                                    <button type="button" onClick={() => generarLink(r)} title="Compartir link de confirmación"
+                                      className="w-7 h-7 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center justify-center transition-colors">
+                                      <Share2 size={13} className="text-indigo-600" />
+                                    </button>
+                                  )}
                                   {r.estado !== 'cancelado' && (
                                     <button type="button" onClick={() => setEstadoModal(r)}
                                       className="w-7 h-7 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center transition-colors">
@@ -711,6 +750,52 @@ export function Remitos() {
 
       {estadoModal && (
         <ModalEstado remito={estadoModal} onClose={() => setEstadoModal(null)} onSaved={() => { setEstadoModal(null); cargar(); }} />
+      )}
+
+      {/* Modal compartir link */}
+      {shareRemito && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                  <Share2 size={15} className="text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-800">Compartir remito</p>
+                  <p className="text-xs text-gray-400">{shareRemito.numero}</p>
+                </div>
+              </div>
+              <button onClick={() => { setShareRemito(null); setLinkUrl(null); }}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                <X size={15} />
+              </button>
+            </div>
+
+            {generandoLink ? (
+              <div className="py-8 text-center text-sm text-gray-400">Generando link...</div>
+            ) : linkUrl ? (
+              <>
+                <p className="text-xs text-gray-500 mb-2">
+                  El cliente podrá confirmar la recepción desde este link. Regenerar invalida el anterior.
+                </p>
+                <div className="flex gap-2 mb-3">
+                  <input readOnly value={linkUrl}
+                    className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono" />
+                  <button onClick={copiarLink}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${linkCopied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'}`}>
+                    {linkCopied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar</>}
+                  </button>
+                </div>
+                <button onClick={compartirWhatsApp}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors mb-2">
+                  <MessageCircle size={15} /> Enviar por WhatsApp
+                </button>
+                <p className="text-[10px] text-indigo-600 text-center">El link regenerado invalida el anterior</p>
+              </>
+            ) : null}
+          </div>
+        </div>
       )}
     </div>
   );
