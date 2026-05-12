@@ -41,3 +41,12 @@ pnpm-debug.log*
 docker/supabase-selfhosted/volumes/db/data/
 docker/supabase-selfhosted/volumes/storage/
 docker/supabase-selfhosted/.env
+
+# Archivos locales / importaciones
+uploads/
+*.csv
+import_*.sql
+contacts*.csv
+
+# Claude Code
+.claude/

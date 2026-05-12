@@ -48,6 +48,14 @@ export interface Cliente {
   localidad: string | null;
   dom_obra: string | null;
   dom_obra_localidad: string | null;
+  dom_alternativo: string | null;
+  dom_alternativo_localidad: string | null;
+  dom_alternativo_cp: string | null;
+  dom_alternativo_referencia: string | null;
+  codigo_postal: string | null;
+  email_alternativo: string | null;
+  estado_civil: string | null;
+  condicion_iva: string | null;
   categoria_id: string | null;
   categoria?: CategoriaCliente;
   estado: EstadoCliente;
