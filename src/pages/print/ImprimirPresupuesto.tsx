@@ -3,9 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Printer, X } from 'lucide-react';
 import { api } from '@/lib/api';
 
-const NAVY  = '#031d49';
-const RED   = '#e31e24';
-const GREEN = '#16a34a';
+const NAVY = '#031d49';
+const RED  = '#e31e24';
 
 const fmtM = (n: number) =>
   `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
@@ -419,27 +418,27 @@ export function ImprimirPresupuesto() {
         )}
 
         {/* ── TOTAL ─────────────────────────────────────────────────────── */}
-        <div style={{ margin: '14px 16px 0', background: NAVY, borderRadius: 8, padding: '14px 18px' }}>
+        <div style={{ margin: '14px 16px 0', border: `2px solid ${NAVY}`, borderRadius: 8, padding: '14px 18px', background: 'white' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 2, marginBottom: 4 }}>
+              <div style={{ color: '#9ca3af', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 2, marginBottom: 4 }}>
                 Total Final
               </div>
-              <div style={{ color: 'white', fontSize: 26, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
+              <div style={{ color: NAVY, fontSize: 26, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
                 {fmtM(total)}
               </div>
               {costoEnvio > 0 && (
-                <div style={{ color: '#93c5fd', fontSize: 10, marginTop: 3 }}>
+                <div style={{ color: '#6b7280', fontSize: 10, marginTop: 3 }}>
                   (productos {fmtM(subtotal)} + envío {fmtM(costoEnvio)})
                 </div>
               )}
-              <div style={{ color: '#bfdbfe', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
+              <div style={{ color: '#6b7280', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
                 Son: {numToWords(total)}
               </div>
               {esCuotas && (
                 <div style={{
                   display: 'inline-block', marginTop: 6, padding: '2px 10px',
-                  background: 'rgba(139,92,246,0.25)', color: '#c4b5fd',
+                  background: '#ede9fe', color: '#7c3aed',
                   fontSize: 10, fontWeight: 700, borderRadius: 5,
                 }}>
                   3 cuotas de {fmtM(total / 3)}
@@ -448,10 +447,10 @@ export function ImprimirPresupuesto() {
             </div>
             {op.forma_pago && (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
+                <div style={{ color: '#9ca3af', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
                   Forma de pago
                 </div>
-                <div style={{ color: 'white', fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
                   {op.forma_pago}
                 </div>
               </div>
@@ -513,30 +512,6 @@ export function ImprimirPresupuesto() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* ── CTA: 2 botones (sin opciones de rechazo) ──────────────────── */}
-        <div style={{ margin: '14px 16px 0' }}>
-          <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 800, color: NAVY, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>
-            ¿Querés avanzar con tu pedido?
-          </div>
-          <div style={{ fontSize: 10.5, color: '#6b7280', marginBottom: 12 }}>
-            Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={{ background: GREEN, borderRadius: 8, padding: '10px 16px', textAlign: 'center' }}>
-              <div style={{ color: 'white', fontWeight: 700, fontSize: 11 }}>✓ ACEPTO LA PROFORMA</div>
-              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9.5, marginTop: 2 }}>
-                Leí y acepto los términos y condiciones
-              </div>
-            </div>
-            <div style={{ background: RED, borderRadius: 8, padding: '10px 16px', textAlign: 'center' }}>
-              <div style={{ color: 'white', fontWeight: 700, fontSize: 11 }}>✕ NO ACEPTO LA PROFORMA</div>
-              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9.5, marginTop: 2 }}>
-                Quiero modificar / No estoy conforme
-              </div>
-            </div>
           </div>
         </div>
 
