@@ -686,7 +686,8 @@ export function NuevoPresupuesto() {
   const [tiempoEntrega, setTiempoEntrega] = useState('');
   const [fechaValidez, setFechaValidez]   = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
-    return d.toISOString().split('T')[0];
+    // Usar fecha local (no UTC) para evitar desfase de zona horaria
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   });
   const [validezDias, setValidezDias]     = useState<number | 'custom'>(7);
   const [notas, setNotas]                 = useState('');
@@ -1013,7 +1014,7 @@ export function NuevoPresupuesto() {
                   onClick={() => {
                     setValidezDias(d);
                     const f = new Date(); f.setDate(f.getDate() + d);
-                    setFechaValidez(f.toISOString().split('T')[0]);
+                    setFechaValidez(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`);
                   }}
                   className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
                     validezDias === d

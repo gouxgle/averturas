@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { Printer, X } from 'lucide-react';
 import { api } from '@/lib/api';
 
-const NAVY = '#031d49';
-const RED  = '#e31e24';
+const NAVY  = '#031d49';
+const RED   = '#e31e24';
+const GREEN = '#16a34a';
 
 const fmtM = (n: number) =>
   `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
@@ -32,8 +33,8 @@ function numToWords(amount: number): string {
     if (r === 0) return cStr;
     const pfx = c > 0 ? cStr + ' ' : '';
     if (r < 30) return pfx + U[r];
-    const d = Math.floor(r / 10); const u = r % 10;
-    return pfx + D[d] + (u > 0 ? ' y ' + U[u] : '');
+    const d2 = Math.floor(r / 10); const u = r % 10;
+    return pfx + D[d2] + (u > 0 ? ' y ' + U[u] : '');
   }
   const M = Math.floor(n / 1_000_000);
   const K = Math.floor((n % 1_000_000) / 1_000);
@@ -83,6 +84,35 @@ interface Operacion {
   items: Item[];
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const attrBool = (v: unknown): boolean | null => {
+  if (v === null || v === undefined) return null;
+  const s = String(v).toLowerCase();
+  if (s === 'si' || s === 'sí' || s === 'true' || s === '1') return true;
+  if (s === 'no' || s === 'false' || s === '0') return false;
+  return null;
+};
+
+// ── Estilos de celda ──────────────────────────────────────────────────────────
+const thStyle = (w?: number | string, align: 'left'|'center'|'right' = 'left'): React.CSSProperties => ({
+  padding: '8px 10px',
+  color: 'white',
+  fontSize: 9,
+  fontWeight: 700,
+  textTransform: 'uppercase' as const,
+  letterSpacing: 1,
+  textAlign: align,
+  width: w,
+  whiteSpace: 'nowrap' as const,
+});
+
+const tdStyle = (align: 'left'|'center'|'right' = 'left', top = true): React.CSSProperties => ({
+  padding: '9px 10px',
+  textAlign: align,
+  verticalAlign: top ? 'top' : 'middle',
+  borderBottom: '1px solid #f0f0f0',
+});
+
 export function ImprimirPresupuesto() {
   const { id } = useParams<{ id: string }>();
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
@@ -98,12 +128,12 @@ export function ImprimirPresupuesto() {
   }, [id]);
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#aaa', fontFamily: 'Arial' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#aaa', fontFamily:'Arial' }}>
       Cargando...
     </div>
   );
   if (!op) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#aaa', fontFamily: 'Arial' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#aaa', fontFamily:'Arial' }}>
       No encontrado
     </div>
   );
@@ -115,41 +145,41 @@ export function ImprimirPresupuesto() {
   const clienteDoc = c.documento_nro
     ? (c.tipo_persona === 'juridica' ? `CUIT: ${c.documento_nro}` : `DNI: ${c.documento_nro}`)
     : null;
-  const clienteDireccion = [c.direccion, c.localidad].filter(Boolean).join(' | ') || null;
+  const clienteDireccion = [c.direccion, c.localidad].filter(Boolean).join(', ') || null;
 
-  const fechaEmision = fmtFecha(op.created_at);
-  const fechaValidez = op.fecha_validez ? fmtFecha(op.fecha_validez) : null;
+  const fechaEmision   = fmtFecha(op.created_at);
+  const fechaValidez   = op.fecha_validez ? fmtFecha(op.fecha_validez) : null;
   const proformaNumero = op.numero.replace(/^OP-/, 'PRO-');
   const subtotal   = op.items.reduce((s, it) => s + Number(it.precio_total), 0);
   const costoEnvio = op.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
   const total      = subtotal + costoEnvio;
   const esCuotas   = op.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
-  const instagram  = (empresa as any)?.instagram ?? null;
+  const instagram  = empresa?.instagram ?? null;
 
-  const attrBool = (v: unknown): boolean | null => {
-    if (v === null || v === undefined) return null;
-    const s = String(v).toLowerCase();
-    if (s === 'si' || s === 'sí' || s === 'true' || s === '1') return true;
-    if (s === 'no' || s === 'false' || s === '0') return false;
-    return null;
-  };
+  // Condiciones: texto dinámico
+  const condiciones = [
+    fechaValidez ? `Precio válido hasta ${fechaValidez}` : 'Consultar vigencia del precio',
+    'Productos sujetos a disponibilidad de stock',
+    'Las medidas deben ser verificadas antes de confirmar',
+    'La garantía aplica según condiciones comerciales',
+    'Los reclamos deben informarse dentro de las 48 hs de recibido el producto',
+  ];
 
   return (
     <>
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 10mm 14mm; }
+          @page { size: A4 portrait; margin: 8mm 12mm; }
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f0f0f0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #e5e7eb; }
         .doc { background: white; }
         table { border-collapse: collapse; width: 100%; }
-        th, td { vertical-align: top; }
       `}</style>
 
-      {/* Toolbar */}
+      {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="no-print fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
         <span className="text-sm font-semibold text-gray-700">Proforma {proformaNumero}</span>
         <div className="flex gap-2">
@@ -165,78 +195,99 @@ export function ImprimirPresupuesto() {
         </div>
       </div>
 
-      {/* Documento */}
-      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-lg" style={{ minHeight: '297mm' }}>
+      {/* ── Documento ───────────────────────────────────────────────────── */}
+      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl" style={{ minHeight: '297mm' }}>
 
-        {/* ── HEADER ───────────────────────────────────────────────────── */}
-        <div style={{ background: NAVY, padding: '18px 22px 16px' }}>
+        {/* ── HEADER (fondo blanco, igual que la imagen) ─────────────────── */}
+        <div style={{ padding: '20px 24px 16px', background: 'white' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            {/* Empresa */}
+
+            {/* Izquierda: logo + empresa + contacto */}
             <div>
-              <img src="/logochico.png" alt="Logo"
-                style={{ height: 36, marginBottom: 10, opacity: 0.9 }}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              {/* Logo + nombre */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <img src="/logochico.png" alt="Logo" style={{ height: 38 }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <div>
+                  <div style={{ color: NAVY, fontSize: 17, fontWeight: 900, lineHeight: 1.1, letterSpacing: 0.5 }}>
+                    {empresa?.nombre ?? ''}
+                  </div>
+                </div>
+              </div>
+
+              {/* Contacto */}
               {empresa?.cuit && (
-                <div style={{ color: '#93c5fd', fontSize: 11, marginBottom: 2 }}>
-                  <strong>CUIT:</strong> {empresa.cuit}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12 }}>🪪</span> CUIT: {empresa.cuit}
                 </div>
               )}
               {empresa?.telefono && (
-                <div style={{ color: '#93c5fd', fontSize: 11, marginBottom: 2 }}>📞 {empresa.telefono}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12 }}>📞</span> {empresa.telefono}
+                </div>
               )}
               {empresa?.email && (
-                <div style={{ color: '#93c5fd', fontSize: 11, marginBottom: 2 }}>✉ {empresa.email}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12 }}>✉️</span> {empresa.email}
+                </div>
               )}
               {empresa?.direccion && (
-                <div style={{ color: '#93c5fd', fontSize: 11, marginBottom: 2 }}>📍 {empresa.direccion}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12 }}>📍</span> {empresa.direccion}
+                </div>
               )}
               {instagram && (
-                <div style={{ color: '#93c5fd', fontSize: 11 }}>Instagram: {instagram}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555' }}>
+                  <span style={{ fontSize: 12 }}>📷</span> Instagram: {instagram}
+                </div>
               )}
             </div>
 
-            {/* PROFORMA */}
+            {/* Derecha: PROFORMA + datos */}
             <div style={{ textAlign: 'right' }}>
-              <div style={{ color: RED, fontSize: 30, fontWeight: 900, letterSpacing: 2, lineHeight: 1, marginBottom: 6 }}>
+              <div style={{ color: RED, fontSize: 34, fontWeight: 900, letterSpacing: 2, lineHeight: 1, textTransform: 'uppercase' }}>
                 PROFORMA
               </div>
-              <div style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>N°: {proformaNumero}</div>
-              <div style={{ color: '#bfdbfe', fontSize: 11, marginTop: 6 }}>📅 Fecha: {fechaEmision}</div>
+              <div style={{ color: NAVY, fontWeight: 700, fontSize: 14, marginTop: 6 }}>
+                N°: {proformaNumero}
+              </div>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                📅 <span>Fecha: {fechaEmision}</span>
+              </div>
               {fechaValidez && (
-                <div style={{ color: '#fcd34d', fontSize: 11, fontWeight: 600, marginTop: 2 }}>
-                  ⏱ Válido hasta: {fechaValidez}
+                <div style={{ fontSize: 11, color: RED, fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                  ⏱ <span>Válido hasta: {fechaValidez}</span>
                 </div>
               )}
               {op.tiempo_entrega && (
-                <div style={{ color: '#bfdbfe', fontSize: 11, marginTop: 2 }}>
-                  🚚 Entrega estimada: {op.tiempo_entrega} días hábiles
+                <div style={{ fontSize: 11, color: '#555', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                  🚚 <span>Entrega estimada: {op.tiempo_entrega} días hábiles</span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Línea roja separadora */}
-        <div style={{ height: 3, background: RED }} />
+        {/* ── Línea separadora navy ──────────────────────────────────────── */}
+        <div style={{ height: 2, background: NAVY }} />
 
         {/* ── CLIENTE + GRACIAS ─────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'white', borderBottom: `1px solid #e5e7eb` }}>
           {/* Cliente */}
-          <div style={{ padding: '12px 16px', borderRight: '1px solid #f0f0f0' }}>
+          <div style={{ padding: '12px 18px', borderRight: '1px solid #f0f0f0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{
-                width: 28, height: 28, borderRadius: '50%', background: '#f3f4f6',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+                width: 26, height: 26, borderRadius: '50%', background: '#f3f4f6',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0,
               }}>👤</div>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#9ca3af' }}>
+              <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1.2, color: '#9ca3af' }}>
                 Cliente
               </span>
             </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, marginBottom: 3 }}>{clienteNombre}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: NAVY, marginBottom: 3 }}>{clienteNombre}</div>
             {(clienteDoc || c.telefono) && (
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>
-                {clienteDoc}{clienteDoc && c.telefono ? ' | ' : ''}
-                {c.telefono && `Tel: ${c.telefono}`}
+                {clienteDoc}{clienteDoc && c.telefono ? ' | ' : ''}{c.telefono && `Tel: ${c.telefono}`}
               </div>
             )}
             {c.email     && <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>{c.email}</div>}
@@ -244,10 +295,10 @@ export function ImprimirPresupuesto() {
           </div>
 
           {/* Gracias */}
-          <div style={{ padding: '12px 16px', background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>🤝</div>
+          <div style={{ padding: '12px 18px', background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>🤝</div>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#9ca3af', marginBottom: 4 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1.2, color: '#9ca3af', marginBottom: 4 }}>
                 Gracias por elegirnos
               </div>
               <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
@@ -258,86 +309,82 @@ export function ImprimirPresupuesto() {
         </div>
 
         {/* ── TABLA DE ÍTEMS ────────────────────────────────────────────── */}
-        <div style={{ padding: '0 22px', marginTop: 18 }}>
+        <div style={{ padding: '0 16px', marginTop: 14 }}>
           <table>
             <thead>
               <tr style={{ background: NAVY }}>
-                <th style={{ width: 42, padding: '8px 10px', color: 'white', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Ítem</th>
-                <th style={{ padding: '8px 10px', color: 'white', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Producto</th>
-                <th style={{ width: 52, padding: '8px 10px', color: 'white', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Cant.</th>
-                <th style={{ width: 110, padding: '8px 10px', color: 'white', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Precio Unit.</th>
-                <th style={{ width: 110, padding: '8px 10px', color: 'white', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Subtotal</th>
+                <th style={thStyle(36)}>Ítem</th>
+                <th style={thStyle()}>Producto</th>
+                <th style={thStyle(50, 'center')}>Cant.</th>
+                <th style={thStyle(105, 'right')}>Precio Unit.</th>
+                <th style={thStyle(105, 'right')}>Subtotal</th>
               </tr>
             </thead>
             <tbody>
               {op.items.map((item, i) => {
-                const attr = item.producto_atributos ?? {};
-                const nombre = item.producto_nombre ?? item.descripcion;
-                const pUnit = Number(item.precio_unitario) +
+                const attr    = item.producto_atributos ?? {};
+                const nombre  = item.producto_nombre ?? item.descripcion;
+                const pUnit   = Number(item.precio_unitario) +
                   (item.incluye_instalacion ? Number(item.precio_instalacion) : 0);
 
                 const hojasNum    = attr.hojas ? `${attr.hojas} hojas` : null;
                 const hojasConfig = attr.config_hojas
                   ? (CONFIG_HOJAS_LABEL[attr.config_hojas as string] ?? String(attr.config_hojas))
                   : null;
-                const hojas = hojasNum ?? hojasConfig;
 
                 const specs: Array<[string, string]> = [];
                 if (item.tipo_abertura_nombre) specs.push(['Tipo',    item.tipo_abertura_nombre]);
                 if (item.sistema_nombre)       specs.push(['Línea',   item.sistema_nombre]);
                 if (item.color)                specs.push(['Color',   item.color]);
                 if (item.vidrio)               specs.push(['Vidrio',  item.vidrio]);
+                const hojas = hojasNum ?? hojasConfig;
                 if (hojas)                     specs.push(['Hojas',   hojas]);
                 if (item.medida_ancho || item.medida_alto)
                   specs.push(['Medidas', `${item.medida_ancho ?? '—'} × ${item.medida_alto ?? '—'} m`]);
                 const mosquitero = attrBool(attr.mosquitero);
                 if (mosquitero !== null) specs.push(['Mosquitero', mosquitero ? 'Sí' : 'No']);
-                const reja = attrBool(attr.reja);
-                if (reja === true) specs.push(['Reja', 'Sí']);
-                if (attr.linea)   specs.push(['Línea',   String(attr.linea)]);
-                if (attr.diseno)  specs.push(['Diseño',  String(attr.diseno)]);
+                if (attrBool(attr.reja) === true) specs.push(['Reja', 'Sí']);
+                if (attr.diseno) specs.push(['Diseño', String(attr.diseno)]);
                 if (item.premarco) specs.push(['Premarco', 'Sí']);
 
                 return (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 700, color: '#d1d5db' }}>
-                      {i + 1}
+                  <tr key={item.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                    <td style={tdStyle('left')}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>{i + 1}</span>
                     </td>
-                    <td style={{ padding: '9px 10px' }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{nombre}</div>
+                    <td style={tdStyle('left')}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{nombre}</div>
                       {specs.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '2px 10px' }}>
                           {specs.map(([lbl, val]) => (
-                            <span key={lbl} style={{ fontSize: 10, color: '#6b7280' }}>
+                            <span key={lbl} style={{ fontSize: 9.5, color: '#6b7280' }}>
                               <span style={{ fontWeight: 600 }}>{lbl}:</span> {val}
                             </span>
                           ))}
                         </div>
                       )}
                       {item.accesorios && item.accesorios.length > 0 && (
-                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
+                        <div style={{ fontSize: 9.5, color: '#6b7280', marginTop: 2 }}>
                           <span style={{ fontWeight: 600 }}>Incluye:</span> {item.accesorios.join(' · ')}
                         </div>
                       )}
                       {item.incluye_instalacion && (
-                        <div style={{ fontSize: 10, color: '#059669', fontWeight: 600, marginTop: 2 }}>
+                        <div style={{ fontSize: 9.5, color: '#059669', fontWeight: 600, marginTop: 2 }}>
                           ✓ Incluye provisión e instalación
                         </div>
                       )}
                       {item.notas && (
-                        <div style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 }}>
-                          {item.notas}
-                        </div>
+                        <div style={{ fontSize: 9.5, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 }}>{item.notas}</div>
                       )}
                     </td>
-                    <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 600, color: '#374151', textAlign: 'center' }}>
-                      {item.cantidad}
+                    <td style={tdStyle('center', false)}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{item.cantidad}</span>
                     </td>
-                    <td style={{ padding: '9px 10px', fontSize: 11, color: '#6b7280', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {fmtM(pUnit)}
+                    <td style={tdStyle('right', false)}>
+                      <span style={{ fontSize: 10, color: '#6b7280' }}>{fmtM(pUnit)}</span>
                     </td>
-                    <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 800, color: NAVY, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {fmtM(Number(item.precio_total))}
+                    <td style={tdStyle('right', false)}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: NAVY }}>{fmtM(Number(item.precio_total))}</span>
                     </td>
                   </tr>
                 );
@@ -346,37 +393,37 @@ export function ImprimirPresupuesto() {
           </table>
         </div>
 
-        {/* Notas / Observaciones */}
+        {/* Notas */}
         {op.notas && (
-          <div style={{ margin: '10px 22px 0', padding: '8px 12px', background: '#fffbeb', borderLeft: '3px solid #fbbf24', fontSize: 11, color: '#92400e' }}>
+          <div style={{ margin: '10px 16px 0', padding: '7px 12px', background: '#fffbeb', borderLeft: `3px solid #fbbf24`, fontSize: 10.5, color: '#78350f' }}>
             <span style={{ fontWeight: 700 }}>Observaciones: </span>
             <span style={{ whiteSpace: 'pre-wrap' }}>{op.notas}</span>
           </div>
         )}
 
-        {/* ── TOTAL ────────────────────────────────────────────────────── */}
-        <div style={{ margin: '16px 22px 0', background: NAVY, borderRadius: 8, padding: '14px 18px' }}>
+        {/* ── TOTAL ─────────────────────────────────────────────────────── */}
+        <div style={{ margin: '14px 16px 0', background: NAVY, borderRadius: 8, padding: '14px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 2, marginBottom: 4 }}>
                 Total Final
               </div>
               <div style={{ color: 'white', fontSize: 26, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
                 {fmtM(total)}
               </div>
               {costoEnvio > 0 && (
-                <div style={{ color: '#93c5fd', fontSize: 10, marginTop: 4 }}>
+                <div style={{ color: '#93c5fd', fontSize: 10, marginTop: 3 }}>
                   (productos {fmtM(subtotal)} + envío {fmtM(costoEnvio)})
                 </div>
               )}
-              <div style={{ color: '#93c5fd', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
+              <div style={{ color: '#bfdbfe', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
                 Son: {numToWords(total)}
               </div>
               {esCuotas && (
                 <div style={{
                   display: 'inline-block', marginTop: 6, padding: '2px 10px',
                   background: 'rgba(139,92,246,0.25)', color: '#c4b5fd',
-                  fontSize: 11, fontWeight: 700, borderRadius: 6,
+                  fontSize: 10, fontWeight: 700, borderRadius: 5,
                 }}>
                   3 cuotas de {fmtM(total / 3)}
                 </div>
@@ -384,7 +431,7 @@ export function ImprimirPresupuesto() {
             </div>
             {op.forma_pago && (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
                   Forma de pago
                 </div>
                 <div style={{ color: 'white', fontSize: 13, fontWeight: 700, marginTop: 2 }}>
@@ -395,76 +442,97 @@ export function ImprimirPresupuesto() {
           </div>
         </div>
 
-        {/* ── CONDICIONES ──────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, margin: '16px 22px 0', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-          {/* Condiciones importantes */}
+        {/* ── CONDICIONES (3 columnas con borde) ────────────────────────── */}
+        <div style={{
+          margin: '14px 16px 0',
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden',
+        }}>
+          {/* Col 1: Condiciones */}
           <div style={{ padding: '12px 14px', borderRight: '1px solid #e5e7eb' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: NAVY, marginBottom: 8 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 8 }}>
               Condiciones importantes
             </div>
-            {[
-              fechaValidez ? `Precio válido hasta ${fechaValidez}` : 'Precio válido según lo indicado',
-              'Productos sujetos a disponibilidad de stock',
-              'Las medidas deben ser verificadas antes de confirmar',
-              'La garantía aplica según condiciones comerciales',
-              'Los reclamos deben informarse dentro de las 48 hs de recibido el producto',
-            ].map((cond, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 5, fontSize: 10, color: '#4b5563', lineHeight: 1.4 }}>
-                <span style={{ color: '#9ca3af', flexShrink: 0 }}>✓</span>
+            {condiciones.map((cond, i) => (
+              <div key={i} style={{ display: 'flex', gap: 5, marginBottom: 5, fontSize: 9.5, color: '#4b5563', lineHeight: 1.4 }}>
+                <span style={{ color: '#22c55e', flexShrink: 0, fontWeight: 700 }}>✓</span>
                 <span>{cond}</span>
               </div>
             ))}
           </div>
 
-          {/* Tu compra está protegida */}
-          <div style={{ padding: '12px 14px', borderRight: '1px solid #e5e7eb', background: '#f9fafb', textAlign: 'center' }}>
+          {/* Col 2: Tu compra */}
+          <div style={{ padding: '12px 14px', background: '#f9fafb', borderRight: '1px solid #e5e7eb', textAlign: 'center' }}>
             <div style={{ fontSize: 22, marginBottom: 6 }}>🛡️</div>
-            <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: NAVY, marginBottom: 6 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 6 }}>
               Tu compra está protegida
             </div>
-            <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.5 }}>
-              Trabajamos con materiales de calidad y garantía de fabricación.
+            <div style={{ fontSize: 9.5, color: '#6b7280', lineHeight: 1.5 }}>
+              Trabajamos con materiales de calidad y garantía de fabricación en todos nuestros productos.
             </div>
           </div>
 
-          {/* Badges derecha */}
+          {/* Col 3: Badges */}
           <div style={{ padding: '12px 14px' }}>
             {[
-              { icon: '📦', title: 'EN STOCK',             desc: 'Productos listos para entrega' },
-              { icon: '🚚', title: 'ENTREGA RÁPIDA',        desc: 'De 2 a 5 días hábiles' },
-              { icon: '⭐', title: 'CALIDAD GARANTIZADA',   desc: '12 meses en todos los productos' },
-            ].map(({ icon, title, desc }) => (
-              <div key={title} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
+              { icon: '📦', color: '#16a34a', bg: '#dcfce7', title: 'EN STOCK',            desc: 'Productos listos para entrega' },
+              { icon: '🚚', color: '#2563eb', bg: '#dbeafe', title: 'ENTREGA RÁPIDA',       desc: 'De 2 a 5 días hábiles' },
+              { icon: '⭐', color: '#d97706', bg: '#fef3c7', title: 'CALIDAD GARANTIZADA',  desc: '12 meses en todos los productos' },
+            ].map(({ icon, bg, title, desc }) => (
+              <div key={title} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', marginBottom: 9 }}>
                 <div style={{
-                  width: 28, height: 28, background: '#f3f4f6', borderRadius: 6,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, flexShrink: 0,
+                  width: 26, height: 26, background: bg, borderRadius: 6, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
                 }}>{icon}</div>
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: NAVY }}>{title}</div>
-                  <div style={{ fontSize: 10, color: '#9ca3af' }}>{desc}</div>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: NAVY }}>{title}</div>
+                  <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{desc}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── FOOTER ───────────────────────────────────────────────────── */}
+        {/* ── CTA: 2 botones (sin opciones de rechazo) ──────────────────── */}
+        <div style={{ margin: '14px 16px 0' }}>
+          <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 800, color: NAVY, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>
+            ¿Querés avanzar con tu pedido?
+          </div>
+          <div style={{ fontSize: 10.5, color: '#6b7280', marginBottom: 12 }}>
+            Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ background: GREEN, borderRadius: 8, padding: '10px 16px', textAlign: 'center' }}>
+              <div style={{ color: 'white', fontWeight: 700, fontSize: 11 }}>✓ ACEPTO LA PROFORMA</div>
+              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9.5, marginTop: 2 }}>
+                Leí y acepto los términos y condiciones
+              </div>
+            </div>
+            <div style={{ background: RED, borderRadius: 8, padding: '10px 16px', textAlign: 'center' }}>
+              <div style={{ color: 'white', fontWeight: 700, fontSize: 11 }}>✕ NO ACEPTO LA PROFORMA</div>
+              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9.5, marginTop: 2 }}>
+                Quiero modificar / No estoy conforme
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── FOOTER (barra navy oscura, igual que imagen) ───────────────── */}
         <div style={{
-          margin: '16px 22px 22px',
-          borderTop: `2px solid ${RED}`,
-          paddingTop: 10,
+          marginTop: 16,
+          background: NAVY,
+          padding: '10px 24px',
           display: 'flex',
           justifyContent: 'center',
-          flexWrap: 'wrap',
-          gap: '0 24px',
+          flexWrap: 'wrap' as const,
+          gap: '0 28px',
           fontSize: 10,
-          color: '#9ca3af',
+          color: '#bfdbfe',
         }}>
           {empresa?.telefono  && <span>📞 {empresa.telefono}</span>}
           {empresa?.email     && <span>✉ {empresa.email}</span>}
           {empresa?.direccion && <span>📍 {empresa.direccion}</span>}
-          {instagram          && <span>Instagram: {instagram}</span>}
+          {instagram          && <span>📷 {instagram}</span>}
         </div>
 
       </div>
