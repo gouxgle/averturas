@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); if echo \"$cmd\" | grep -q 'git push origin'; then cd /home/sistemas/claude/Aberturas && docker compose build app && docker compose up -d --force-recreate app; fi",
+            "timeout": 120,
+            "statusMessage": "Rebuilding Docker local app..."
+          }
+        ]
+      }
+    ]
+  }
+}

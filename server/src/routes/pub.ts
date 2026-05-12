@@ -1,19 +1,22 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
-import { sendProformaAceptada, sendProformaRechazada } from '../email.js';
+import {
+  sendProformaAceptada, sendProformaRechazada,
+  sendEmpresaAceptacion, sendEmpresaRechazo,
+} from '../email.js';
 
 const pub = new Hono();
 
-// Trae datos completos de la operación + cliente + empresa para emails
-async function fetchOpConContexto(operacionId: string) {
+// Trae datos completos para emails (cliente + empresa)
+async function fetchCtxEmail(operacionId: string) {
   const { rows: [row] } = await db.query(`
     SELECT
       o.numero, o.precio_total,
       cl.nombre AS cliente_nombre, cl.apellido AS cliente_apellido,
       cl.razon_social, cl.tipo_persona, cl.email AS cliente_email,
-      e.nombre  AS empresa_nombre,
+      e.nombre   AS empresa_nombre,
       e.telefono AS empresa_telefono,
-      e.email   AS empresa_email
+      e.email    AS empresa_email
     FROM operaciones o
     JOIN clientes cl ON cl.id = o.cliente_id
     CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
@@ -43,13 +46,14 @@ pub.get('/presupuesto/:token', async (c) => {
         'localidad',     cl.localidad
       ) AS cliente,
       json_build_object(
-        'nombre',    e.nombre,
-        'cuit',      e.cuit,
-        'telefono',  e.telefono,
-        'email',     e.email,
-        'direccion', e.direccion,
-        'logo_url',  e.logo_url,
-        'instagram', e.instagram
+        'nombre',       e.nombre,
+        'cuit',         e.cuit,
+        'telefono',     e.telefono,
+        'email',        e.email,
+        'direccion',    e.direccion,
+        'logo_url',     e.logo_url,
+        'instagram',    e.instagram,
+        'terminos_url', e.terminos_url
       ) AS empresa
     FROM operaciones o
     JOIN clientes cl ON cl.id = o.cliente_id
@@ -107,28 +111,43 @@ pub.post('/presupuesto/:token/aprobar', async (c) => {
     [op.id]
   );
 
-  // Email al cliente (fire and forget — no bloquea la respuesta)
-  fetchOpConContexto(op.id).then(ctx => {
-    if (!ctx) return;
-    const clienteEmail = ctx.cliente_email;
-    if (!clienteEmail) return;
+  // Reserva de stock: un movimiento 'reserva' por cada item con producto_id
+  db.query(`
+    SELECT oi.producto_id, oi.cantidad
+    FROM operacion_items oi
+    WHERE oi.operacion_id = $1 AND oi.producto_id IS NOT NULL AND oi.cantidad > 0
+  `, [op.id]).then(async ({ rows: items }) => {
+    for (const item of items) {
+      await db.query(`
+        INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, operacion_id)
+        VALUES ($1, 'reserva', $2, 'Proforma aprobada', $3)
+      `, [item.producto_id, -Math.abs(item.cantidad), op.id]);
+    }
+  }).catch(err => console.error('[stock] Error al crear reserva:', err));
 
+  // Emails (fire and forget)
+  fetchCtxEmail(op.id).then(ctx => {
+    if (!ctx) return;
     const clienteNombre = ctx.tipo_persona === 'juridica'
       ? (ctx.razon_social ?? '')
       : [ctx.cliente_apellido, ctx.cliente_nombre].filter(Boolean).join(' ');
-
     const proformaNumero = (ctx.numero as string).replace(/^OP-/, 'PRO-');
+    const total = Number(ctx.precio_total);
 
-    sendProformaAceptada({
-      to:              clienteEmail,
-      clienteNombre,
-      proformaNumero,
-      total:           Number(ctx.precio_total),
-      empresaNombre:   ctx.empresa_nombre,
-      empresaTelefono: ctx.empresa_telefono ?? null,
-      empresaEmail:    ctx.empresa_email    ?? null,
-      appUrl:          process.env.APP_URL ?? '',
-    }).catch(err => console.error('[email] Error al enviar aceptación:', err));
+    if (ctx.cliente_email) {
+      sendProformaAceptada({
+        to: ctx.cliente_email, clienteNombre, proformaNumero, total,
+        empresaNombre: ctx.empresa_nombre, empresaTelefono: ctx.empresa_telefono ?? null,
+        empresaEmail:  ctx.empresa_email  ?? null, appUrl: process.env.APP_URL ?? '',
+      }).catch(err => console.error('[email] cliente aceptada:', err));
+    }
+
+    if (ctx.empresa_email) {
+      sendEmpresaAceptacion({
+        to: ctx.empresa_email, clienteNombre, proformaNumero, total,
+        empresaNombre: ctx.empresa_nombre,
+      }).catch(err => console.error('[email] empresa aceptada:', err));
+    }
   }).catch(() => {});
 
   return c.json({ ok: true, ya_aprobado: false });
@@ -164,28 +183,30 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
     [motivo || null, comentario || null, op.id]
   );
 
-  // Email al cliente (fire and forget)
-  fetchOpConContexto(op.id).then(ctx => {
+  // Emails (fire and forget)
+  fetchCtxEmail(op.id).then(ctx => {
     if (!ctx) return;
-    const clienteEmail = ctx.cliente_email;
-    if (!clienteEmail) return;
-
     const clienteNombre = ctx.tipo_persona === 'juridica'
       ? (ctx.razon_social ?? '')
       : [ctx.cliente_apellido, ctx.cliente_nombre].filter(Boolean).join(' ');
-
     const proformaNumero = (ctx.numero as string).replace(/^OP-/, 'PRO-');
 
-    sendProformaRechazada({
-      to:              clienteEmail,
-      clienteNombre,
-      proformaNumero,
-      motivo:          motivo || null,
-      comentario:      comentario || null,
-      empresaNombre:   ctx.empresa_nombre,
-      empresaTelefono: ctx.empresa_telefono ?? null,
-      appUrl:          process.env.APP_URL ?? '',
-    }).catch(err => console.error('[email] Error al enviar rechazo:', err));
+    if (ctx.cliente_email) {
+      sendProformaRechazada({
+        to: ctx.cliente_email, clienteNombre, proformaNumero,
+        motivo: motivo || null, comentario: comentario || null,
+        empresaNombre: ctx.empresa_nombre, empresaTelefono: ctx.empresa_telefono ?? null,
+        appUrl: process.env.APP_URL ?? '',
+      }).catch(err => console.error('[email] cliente rechazada:', err));
+    }
+
+    if (ctx.empresa_email) {
+      sendEmpresaRechazo({
+        to: ctx.empresa_email, clienteNombre, proformaNumero,
+        motivo: motivo || null, comentario: comentario || null,
+        empresaNombre: ctx.empresa_nombre,
+      }).catch(err => console.error('[email] empresa rechazada:', err));
+    }
   }).catch(() => {});
 
   return c.json({ ok: true, ya_rechazado: false });

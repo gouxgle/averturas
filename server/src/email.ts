@@ -182,3 +182,77 @@ export async function sendProformaRechazada(p: EmailProformaRechazadaParams) {
     html:    baseLayout(p.empresaNombre, content),
   });
 }
+
+// ── Notificaciones internas (email a la empresa) ──────────────────────────────
+
+interface EmailEmpresaAceptacionParams {
+  to: string;
+  clienteNombre: string;
+  proformaNumero: string;
+  total: number;
+  empresaNombre: string;
+}
+
+interface EmailEmpresaRechazoParams {
+  to: string;
+  clienteNombre: string;
+  proformaNumero: string;
+  motivo: string | null;
+  comentario: string | null;
+  empresaNombre: string;
+}
+
+export async function sendEmpresaAceptacion(p: EmailEmpresaAceptacionParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const content = `
+    <tr>
+      <td style="padding:32px;">
+        <div style="background:#f0fdf4;border-left:4px solid ${GREEN};padding:16px 20px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+          <div style="font-size:13px;color:#15803d;font-weight:700;margin-bottom:4px;">✅ Proforma aceptada por el cliente</div>
+          <div style="font-size:22px;font-weight:900;color:${NAVY};">${p.proformaNumero}</div>
+        </div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;"><strong>Cliente:</strong></td><td>${p.clienteNombre}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Total:</strong></td><td style="font-weight:900;color:${NAVY};">${fmtM(p.total)}</td></tr>
+        </table>
+        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">Ingresá al sistema para continuar con la operación.</p>
+      </td>
+    </tr>`;
+
+  await resend.emails.send({
+    from:    process.env.RESEND_FROM ?? `${p.empresaNombre} <onboarding@resend.dev>`,
+    to:      p.to,
+    subject: `✅ ${p.clienteNombre} aceptó la proforma ${p.proformaNumero}`,
+    html:    baseLayout(p.empresaNombre, content),
+  });
+}
+
+export async function sendEmpresaRechazo(p: EmailEmpresaRechazoParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const content = `
+    <tr>
+      <td style="padding:32px;">
+        <div style="background:#fef2f2;border-left:4px solid ${RED};padding:16px 20px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+          <div style="font-size:13px;color:#991b1b;font-weight:700;margin-bottom:4px;">❌ Proforma rechazada por el cliente</div>
+          <div style="font-size:22px;font-weight:900;color:${NAVY};">${p.proformaNumero}</div>
+        </div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;width:100px;"><strong>Cliente:</strong></td><td>${p.clienteNombre}</td></tr>
+          ${p.motivo    ? `<tr><td style="padding:6px 0;"><strong>Motivo:</strong></td><td>${p.motivo}</td></tr>` : ''}
+          ${p.comentario? `<tr><td style="padding:6px 0;"><strong>Comentario:</strong></td><td style="font-style:italic;">${p.comentario}</td></tr>` : ''}
+        </table>
+        <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">Ingresá al sistema para hacer seguimiento o modificar la propuesta.</p>
+      </td>
+    </tr>`;
+
+  await resend.emails.send({
+    from:    process.env.RESEND_FROM ?? `${p.empresaNombre} <onboarding@resend.dev>`,
+    to:      p.to,
+    subject: `❌ ${p.clienteNombre} rechazó la proforma ${p.proformaNumero}`,
+    html:    baseLayout(p.empresaNombre, content),
+  });
+}

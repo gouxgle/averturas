@@ -274,9 +274,10 @@ operaciones.get('/ventas-panel', async (c) => {
 
 // POST /:id/generar-link — crea o regenera token de aprobación pública
 operaciones.post('/:id/generar-link', async (c) => {
+  const user = c.get('user');
   const { id } = c.req.param();
   const { rows: [op] } = await db.query(
-    `SELECT id, estado FROM operaciones WHERE id = $1`, [id]
+    `SELECT id, numero, cliente_id, estado FROM operaciones WHERE id = $1`, [id]
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
 
@@ -289,6 +290,14 @@ operaciones.post('/:id/generar-link', async (c) => {
     `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now() WHERE id = $2`,
     [token, id]
   );
+
+  // Interacción CRM automática
+  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
+     VALUES ($1, 'proforma_enviada', $2, $3)`,
+    [op.cliente_id, `Proforma ${proformaNumero} enviada por link de aprobación`, user?.id ?? null]
+  ).catch(err => console.error('[crm] Error al registrar interacción:', err));
 
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   return c.json({ token, url: `${appUrl}/p/${token}` });

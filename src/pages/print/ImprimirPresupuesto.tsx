@@ -56,7 +56,7 @@ const CONFIG_HOJAS_LABEL: Record<string, string> = {
 interface Empresa {
   nombre: string; cuit: string | null; telefono: string | null;
   email: string | null; direccion: string | null; logo_url: string | null;
-  instagram: string | null;
+  instagram: string | null; terminos_url: string | null;
 }
 interface Item {
   id: string; descripcion: string; cantidad: number;
@@ -155,7 +155,8 @@ export function ImprimirPresupuesto() {
   const costoEnvio = op.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
   const total      = subtotal + costoEnvio;
   const esCuotas   = op.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
-  const instagram  = empresa?.instagram ?? null;
+  const instagram   = empresa?.instagram   ?? null;
+  const terminosUrl = empresa?.terminos_url ?? null;
 
   // Condiciones: texto dinámico
   const condiciones = [
@@ -475,6 +476,12 @@ export function ImprimirPresupuesto() {
                 <span>{cond}</span>
               </div>
             ))}
+            {terminosUrl && (
+              <div style={{ marginTop: 8, fontSize: 9, color: '#6b7280' }}>
+                <span>Más info: </span>
+                <a href={terminosUrl} style={{ color: NAVY, fontWeight: 600, textDecoration: 'underline' }}>{terminosUrl}</a>
+              </div>
+            )}
           </div>
 
           {/* Col 2: Tu compra */}

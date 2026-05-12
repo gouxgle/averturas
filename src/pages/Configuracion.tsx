@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface TipoAbertura { id: string; nombre: string; descripcion: string | null; icono: string | null; orden: number; activo: boolean; }
 interface Sistema { id: string; nombre: string; material: string | null; descripcion: string | null; activo: boolean; }
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
-interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; }
+interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; instagram: string | null; terminos_url: string | null; }
 interface Usuario { id: string; nombre: string; email: string; rol: 'admin' | 'vendedor' | 'consulta'; activo: boolean; created_at: string; }
 
 // ── Small inline form ─────────────────────────────────────────────────────────
@@ -351,16 +351,18 @@ function PanelColores() {
 function PanelEmpresa() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ nombre: '', cuit: '', telefono: '', email: '', direccion: '' });
+  const [form, setForm] = useState({ nombre: '', cuit: '', telefono: '', email: '', direccion: '', instagram: '', terminos_url: '' });
 
   useEffect(() => {
     api.get<Empresa>('/empresa').then(data => {
       if (data) setForm({
-        nombre:    data.nombre    ?? '',
-        cuit:      data.cuit      ?? '',
-        telefono:  data.telefono  ?? '',
-        email:     data.email     ?? '',
-        direccion: data.direccion ?? '',
+        nombre:       data.nombre       ?? '',
+        cuit:         data.cuit         ?? '',
+        telefono:     data.telefono     ?? '',
+        email:        data.email        ?? '',
+        direccion:    data.direccion    ?? '',
+        instagram:    data.instagram    ?? '',
+        terminos_url: data.terminos_url ?? '',
       });
       setLoading(false);
     });
@@ -410,6 +412,14 @@ function PanelEmpresa() {
         <div className="sm:col-span-2">
           <label className={labelCls}>Dirección</label>
           <input type="text" value={form.direccion} onChange={e => set('direccion', e.target.value)} className={inputCls} placeholder="Av. Siempreviva 742, Buenos Aires" />
+        </div>
+        <div>
+          <label className={labelCls}>Instagram</label>
+          <input type="text" value={form.instagram} onChange={e => set('instagram', e.target.value)} className={inputCls} placeholder="@tulocal" />
+        </div>
+        <div>
+          <label className={labelCls}>URL Términos y Condiciones</label>
+          <input type="url" value={form.terminos_url} onChange={e => set('terminos_url', e.target.value)} className={inputCls} placeholder="https://www.cesarbritez.com.ar/condiciones" />
         </div>
       </div>
       <div className="flex justify-end">

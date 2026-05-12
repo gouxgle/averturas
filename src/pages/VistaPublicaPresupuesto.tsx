@@ -13,7 +13,7 @@ const GREEN = '#16a34a';
 interface Empresa {
   nombre: string; cuit: string | null; telefono: string | null;
   email: string | null; direccion: string | null; logo_url: string | null;
-  instagram: string | null;
+  instagram: string | null; terminos_url: string | null;
 }
 interface Item {
   descripcion: string; cantidad: number; precio_unitario: number;
@@ -567,7 +567,13 @@ export function VistaPublicaPresupuesto() {
             ¿Querés avanzar con tu pedido?
           </h3>
           <p className="text-xs text-gray-400 mb-4">
-            Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
+            Aceptá la proforma y confirmá que leíste y aceptás los{' '}
+            {pres.empresa.terminos_url ? (
+              <a href={pres.empresa.terminos_url} target="_blank" rel="noopener noreferrer"
+                className="underline text-blue-500 hover:text-blue-700">
+                términos y condiciones de venta
+              </a>
+            ) : 'términos y condiciones de venta'}.
           </p>
 
           {vencido ? (

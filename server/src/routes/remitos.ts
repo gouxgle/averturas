@@ -370,10 +370,30 @@ remitos.patch('/:id/estado', async (c) => {
   try {
     await client.query('BEGIN');
 
-    // borrador → emitido: descontar stock
+    // borrador → emitido: cancelar reservas previas + descontar stock
     if (estadoActual === 'borrador' && nuevoEstado === 'emitido' && !remito.stock_descontado) {
       const items = (remito.items as { producto_id: string | null; cantidad: number }[])
         .filter(i => i.producto_id);
+
+      // Cancelar reservas existentes para esta operación (netear a cero)
+      if (remito.operacion_id) {
+        const { rows: reservas } = await client.query(`
+          SELECT producto_id, SUM(cantidad) AS total
+          FROM stock_movimientos
+          WHERE operacion_id = $1 AND tipo = 'reserva'
+          GROUP BY producto_id
+          HAVING SUM(cantidad) < 0
+        `, [remito.operacion_id]);
+
+        for (const r of reservas) {
+          await client.query(`
+            INSERT INTO stock_movimientos
+              (producto_id, tipo, cantidad, motivo, operacion_id, referencia_nro, created_by)
+            VALUES ($1, 'reserva', $2, 'Cancelación reserva por remito', $3, $4, $5)
+          `, [r.producto_id, Math.abs(Number(r.total)), remito.operacion_id, remito.numero, user?.id || null]);
+        }
+      }
+
       for (const item of items) {
         await client.query(`
           INSERT INTO stock_movimientos
