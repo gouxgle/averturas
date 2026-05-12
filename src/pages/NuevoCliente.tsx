@@ -21,12 +21,12 @@ function combinarNombre(apellido: string | null, nombre: string | null) {
   return [apellido, nombre].filter(Boolean).join(' ');
 }
 
-// Separa "Juan García" → apellido="García", nombre="Juan"
+// Separa "Lopez Diego Andino" → apellido="Lopez", nombre="Diego Andino"
 function separarNombre(completo: string): { apellido: string; nombre: string } {
   const parts = completo.trim().split(/\s+/);
   if (parts.length === 1) return { apellido: parts[0], nombre: '' };
-  const apellido = parts[parts.length - 1];
-  const nombre   = parts.slice(0, -1).join(' ');
+  const apellido = parts[0];
+  const nombre   = parts.slice(1).join(' ');
   return { apellido, nombre };
 }
 
@@ -315,7 +315,7 @@ export function NuevoCliente() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={lbl}>
-                    {esFisica ? 'Nombre y apellido *' : 'Razón social / Empresa *'}
+                    {esFisica ? 'Apellido y nombre *' : 'Razón social / Empresa *'}
                   </label>
                   <div className="relative">
                     <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
@@ -324,7 +324,7 @@ export function NuevoCliente() {
                       autoFocus={!isEdit}
                       value={nombreCompleto}
                       onChange={e => setNombreCompleto(e.target.value)}
-                      placeholder={esFisica ? 'Ej: Juan García' : 'Ej: García Construcciones SRL'}
+                      placeholder={esFisica ? 'Ej: López Diego Andrés' : 'Ej: García Construcciones SRL'}
                       className={cn(inp, 'pl-9')}
                     />
                   </div>
