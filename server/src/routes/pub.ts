@@ -1,7 +1,26 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { sendProformaAceptada, sendProformaRechazada } from '../email.js';
 
 const pub = new Hono();
+
+// Trae datos completos de la operación + cliente + empresa para emails
+async function fetchOpConContexto(operacionId: string) {
+  const { rows: [row] } = await db.query(`
+    SELECT
+      o.numero, o.precio_total,
+      cl.nombre AS cliente_nombre, cl.apellido AS cliente_apellido,
+      cl.razon_social, cl.tipo_persona, cl.email AS cliente_email,
+      e.nombre  AS empresa_nombre,
+      e.telefono AS empresa_telefono,
+      e.email   AS empresa_email
+    FROM operaciones o
+    JOIN clientes cl ON cl.id = o.cliente_id
+    CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
+    WHERE o.id = $1
+  `, [operacionId]);
+  return row ?? null;
+}
 
 // GET /pub/presupuesto/:token — datos públicos del presupuesto
 pub.get('/presupuesto/:token', async (c) => {
@@ -88,6 +107,30 @@ pub.post('/presupuesto/:token/aprobar', async (c) => {
     [op.id]
   );
 
+  // Email al cliente (fire and forget — no bloquea la respuesta)
+  fetchOpConContexto(op.id).then(ctx => {
+    if (!ctx) return;
+    const clienteEmail = ctx.cliente_email;
+    if (!clienteEmail) return;
+
+    const clienteNombre = ctx.tipo_persona === 'juridica'
+      ? (ctx.razon_social ?? '')
+      : [ctx.cliente_apellido, ctx.cliente_nombre].filter(Boolean).join(' ');
+
+    const proformaNumero = (ctx.numero as string).replace(/^OP-/, 'PRO-');
+
+    sendProformaAceptada({
+      to:              clienteEmail,
+      clienteNombre,
+      proformaNumero,
+      total:           Number(ctx.precio_total),
+      empresaNombre:   ctx.empresa_nombre,
+      empresaTelefono: ctx.empresa_telefono ?? null,
+      empresaEmail:    ctx.empresa_email    ?? null,
+      appUrl:          process.env.APP_URL ?? '',
+    }).catch(err => console.error('[email] Error al enviar aceptación:', err));
+  }).catch(() => {});
+
   return c.json({ ok: true, ya_aprobado: false });
 });
 
@@ -120,6 +163,30 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
      WHERE id = $3`,
     [motivo || null, comentario || null, op.id]
   );
+
+  // Email al cliente (fire and forget)
+  fetchOpConContexto(op.id).then(ctx => {
+    if (!ctx) return;
+    const clienteEmail = ctx.cliente_email;
+    if (!clienteEmail) return;
+
+    const clienteNombre = ctx.tipo_persona === 'juridica'
+      ? (ctx.razon_social ?? '')
+      : [ctx.cliente_apellido, ctx.cliente_nombre].filter(Boolean).join(' ');
+
+    const proformaNumero = (ctx.numero as string).replace(/^OP-/, 'PRO-');
+
+    sendProformaRechazada({
+      to:              clienteEmail,
+      clienteNombre,
+      proformaNumero,
+      motivo:          motivo || null,
+      comentario:      comentario || null,
+      empresaNombre:   ctx.empresa_nombre,
+      empresaTelefono: ctx.empresa_telefono ?? null,
+      appUrl:          process.env.APP_URL ?? '',
+    }).catch(err => console.error('[email] Error al enviar rechazo:', err));
+  }).catch(() => {});
 
   return c.json({ ok: true, ya_rechazado: false });
 });

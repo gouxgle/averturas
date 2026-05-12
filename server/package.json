@@ -12,7 +12,8 @@
     "bcryptjs": "^2.4.3",
     "hono": "^4.7.4",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.3"
+    "pg": "^8.13.3",
+    "resend": "^4.5.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
