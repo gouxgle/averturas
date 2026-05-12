@@ -47,12 +47,14 @@ pub.get('/presupuesto/:token', async (c) => {
       oi.medida_ancho, oi.medida_alto,
       ta.nombre AS tipo_abertura_nombre,
       si.nombre AS sistema_nombre,
+      cp.imagen_url AS producto_imagen_url,
       (oi.precio_unitario * oi.cantidad
         + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion * oi.cantidad ELSE 0 END
       ) AS precio_total
     FROM operacion_items oi
-    LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
-    LEFT JOIN sistemas        si ON si.id = oi.sistema_id
+    LEFT JOIN tipos_abertura    ta ON ta.id = oi.tipo_abertura_id
+    LEFT JOIN sistemas          si ON si.id = oi.sistema_id
+    LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
     WHERE oi.operacion_id = $1
     ORDER BY oi.orden, oi.id
   `, [op.id]);

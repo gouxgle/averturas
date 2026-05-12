@@ -20,6 +20,7 @@ interface Item {
   precio_instalacion: number; incluye_instalacion: boolean; precio_total: number;
   medida_ancho: number | null; medida_alto: number | null; color: string | null;
   tipo_abertura_nombre: string | null; sistema_nombre: string | null;
+  producto_imagen_url: string | null;
 }
 interface Presupuesto {
   id: string; numero: string; estado: string; forma_pago: string | null;
@@ -451,9 +452,10 @@ export function VistaPublicaPresupuesto() {
           <div className="grid text-xs font-bold text-white uppercase tracking-wider px-4 py-2.5"
             style={{
               background: NAVY,
-              gridTemplateColumns: '28px 1fr 52px 88px 88px',
+              gridTemplateColumns: '28px 56px 1fr 52px 88px 88px',
             }}>
             <span>Ítem</span>
+            <span></span>
             <span>Producto</span>
             <span className="text-center">Cant.</span>
             <span className="text-right">Precio unit.</span>
@@ -475,12 +477,24 @@ export function VistaPublicaPresupuesto() {
 
             return (
               <div key={i}
-                className="grid items-start px-4 py-3 text-sm"
+                className="grid items-center px-4 py-3 text-sm"
                 style={{
-                  gridTemplateColumns: '28px 1fr 52px 88px 88px',
+                  gridTemplateColumns: '28px 56px 1fr 52px 88px 88px',
                   borderBottom: i < pres.items.length - 1 ? '1px solid #f3f4f6' : 'none',
                 }}>
-                <span className="text-gray-300 font-bold text-xs pt-0.5">{i + 1}</span>
+                <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
+                <div className="pr-2">
+                  {item.producto_imagen_url ? (
+                    <img
+                      src={item.producto_imagen_url}
+                      alt=""
+                      className="w-11 h-11 object-cover rounded-md border border-gray-200"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-11 h-11 bg-gray-100 rounded-md flex items-center justify-center text-xl">🪟</div>
+                  )}
+                </div>
                 <div className="pr-2">
                   <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
                   {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}

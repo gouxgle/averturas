@@ -69,6 +69,7 @@ interface Item {
   notas: string | null;
   producto_atributos: Record<string, unknown> | null;
   producto_nombre: string | null;
+  producto_imagen_url: string | null;
 }
 interface Operacion {
   id: string; numero: string; tipo: string; estado: string;
@@ -314,6 +315,7 @@ export function ImprimirPresupuesto() {
             <thead>
               <tr style={{ background: NAVY }}>
                 <th style={thStyle(36)}>Ítem</th>
+                <th style={thStyle(52)}></th>
                 <th style={thStyle()}>Producto</th>
                 <th style={thStyle(50, 'center')}>Cant.</th>
                 <th style={thStyle(105, 'right')}>Precio Unit.</th>
@@ -351,6 +353,20 @@ export function ImprimirPresupuesto() {
                   <tr key={item.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                     <td style={tdStyle('left')}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>{i + 1}</span>
+                    </td>
+                    <td style={{ ...tdStyle('center', false), padding: '6px 8px' }}>
+                      {item.producto_imagen_url ? (
+                        <img
+                          src={item.producto_imagen_url}
+                          alt=""
+                          style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb', display: 'block' }}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div style={{ width: 44, height: 44, background: '#f3f4f6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                          🪟
+                        </div>
+                      )}
                     </td>
                     <td style={tdStyle('left')}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{nombre}</div>
