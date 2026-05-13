@@ -49,7 +49,7 @@ recibos.get('/tablero', async (c) => {
     `, []),
 
     db.query(`
-      SELECT COALESCE(ROUND(AVG(EXTRACT(DAY FROM (r.fecha::date - o.created_at::date))))::int, 0) AS dias_promedio
+      SELECT COALESCE(ROUND(AVG(r.fecha::date - o.created_at::date))::int, 0) AS dias_promedio
       FROM recibos r
       JOIN operaciones o ON o.id = r.operacion_id
       WHERE r.estado = 'emitido' AND r.fecha >= NOW() - INTERVAL '3 months'
@@ -152,7 +152,7 @@ recibos.get('/tablero', async (c) => {
         END AS cliente_nombre,
         op.numero AS operacion_numero,
         cp.monto, cp.fecha_vencimiento,
-        EXTRACT(DAY FROM cp.fecha_vencimiento::date - CURRENT_DATE)::int AS dias_para_vencer
+        (cp.fecha_vencimiento::date - CURRENT_DATE)::int AS dias_para_vencer
       FROM compromisos_pago cp
       JOIN clientes cl ON cl.id = cp.cliente_id
       LEFT JOIN operaciones op ON op.id = cp.operacion_id
@@ -430,6 +430,21 @@ recibos.post('/', async (c) => {
     }
 
     await client.query('COMMIT');
+
+    // Cerrar compromisos pendientes si la operación quedó completamente pagada
+    if (b.operacion_id) {
+      await db.query(`
+        UPDATE compromisos_pago SET estado = 'cobrado'
+        WHERE operacion_id = $1
+          AND estado = 'pendiente'
+          AND (
+            SELECT COALESCE(SUM(r.monto_total), 0)
+            FROM recibos r
+            WHERE r.operacion_id = $1 AND r.estado = 'emitido'
+          ) >= (SELECT COALESCE(precio_total, 0) FROM operaciones WHERE id = $1) - 0.01
+      `, [b.operacion_id]);
+    }
+
     return c.json(rec, 201);
   } catch (err) {
     await client.query('ROLLBACK');

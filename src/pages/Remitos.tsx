@@ -104,6 +104,9 @@ const MEDIOS_TIPO: Record<string, { tipo: string; sub: (t: string | null) => str
   otro:             { tipo: 'Envío',            sub: t => t ?? 'Otro',              envio: true  },
 };
 
+// Referencia a la ventana de WhatsApp Web para reutilizar pestaña existente
+let waWindow: Window | null = null;
+
 // ── Modal de estado (reutilizado) ────────────────────────────────────
 
 function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: () => void; onSaved: () => void }) {
@@ -278,7 +281,13 @@ export function Remitos() {
       ? `https://web.whatsapp.com/send?phone=${phone}&text=${msg}`
       : `https://web.whatsapp.com/send?text=${msg}`;
 
-    window.open(url, 'whatsapp_web');
+    // Reutiliza pestaña existente si sigue abierta; abre nueva solo si fue cerrada
+    if (waWindow && !waWindow.closed) {
+      waWindow.location.href = url;
+      waWindow.focus();
+    } else {
+      waWindow = window.open(url, 'whatsapp_web') ?? null;
+    }
   }
 
   const filtrado = useMemo(() => {

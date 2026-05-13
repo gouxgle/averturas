@@ -218,6 +218,9 @@ function DonutChart({ segments }: { segments: { value: number; color: string }[]
   );
 }
 
+// Referencia a la ventana de WhatsApp Web para reutilizar pestaña existente
+let waWindow: Window | null = null;
+
 // ── PresupuestoModal ──────────────────────────────────────────────────────────
 
 function PresupuestoModal({
@@ -273,8 +276,13 @@ function PresupuestoModal({
       ? `https://web.whatsapp.com/send?phone=${phone}&text=${msg}`
       : `https://web.whatsapp.com/send?text=${msg}`;
 
-    // Reutiliza ventana existente de WhatsApp Web si ya está abierta
-    window.open(url, 'whatsapp_web');
+    // Reutiliza pestaña existente si sigue abierta; abre nueva solo si fue cerrada
+    if (waWindow && !waWindow.closed) {
+      waWindow.location.href = url;
+      waWindow.focus();
+    } else {
+      waWindow = window.open(url, 'whatsapp_web') ?? null;
+    }
   }
 
   async function cambiarEstado(nuevoEstado: EstadoOperacion) {
