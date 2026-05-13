@@ -18,11 +18,22 @@ crm.get('/tablero', async (c) => {
     evolucionPrevResult,
   ] = await Promise.all([
 
-    // 1. Pipeline: clientes con etapa asignada + campos calculados
+    // 1. Pipeline: clientes con etapa asignada + inferida de última operación
     db.query(`
       SELECT
         c.id, c.nombre, c.apellido, c.razon_social, c.telefono, c.email,
-        c.crm_etapa, c.interes, c.producto_interes, c.monto_estimado,
+        COALESCE(c.crm_etapa,
+          CASE op.estado
+            WHEN 'presupuesto' THEN 'presupuestado'
+            WHEN 'enviado'     THEN 'presupuestado'
+            WHEN 'aprobado'    THEN 'en_decision'
+            WHEN 'en_produccion' THEN 'en_decision'
+            WHEN 'listo'       THEN 'en_decision'
+            WHEN 'instalado'   THEN 'cerrado_ganado'
+            WHEN 'entregado'   THEN 'cerrado_ganado'
+          END
+        ) AS crm_etapa,
+        c.interes, c.producto_interes, c.monto_estimado,
         c.probabilidad, c.motivo_perdida, c.origen, c.ultima_interaccion,
         c.valor_total_historico, c.proxima_accion, c.proxima_accion_fecha,
         CASE
@@ -43,9 +54,23 @@ crm.get('/tablero', async (c) => {
         ORDER BY o.created_at DESC
         LIMIT 1
       ) op ON true
-      WHERE c.activo = true AND c.crm_etapa IS NOT NULL
+      WHERE c.activo = true
+        AND (
+          c.crm_etapa IS NOT NULL
+          OR op.estado IN ('presupuesto','enviado','aprobado','en_produccion','listo','instalado','entregado')
+        )
       ORDER BY
-        CASE c.crm_etapa
+        CASE COALESCE(c.crm_etapa,
+          CASE op.estado
+            WHEN 'presupuesto' THEN 'presupuestado'
+            WHEN 'enviado'     THEN 'presupuestado'
+            WHEN 'aprobado'    THEN 'en_decision'
+            WHEN 'en_produccion' THEN 'en_decision'
+            WHEN 'listo'       THEN 'en_decision'
+            WHEN 'instalado'   THEN 'cerrado_ganado'
+            WHEN 'entregado'   THEN 'cerrado_ganado'
+          END
+        )
           WHEN 'nuevo'        THEN 1
           WHEN 'en_contacto'  THEN 2
           WHEN 'presupuestado' THEN 3
