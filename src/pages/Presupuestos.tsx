@@ -263,7 +263,18 @@ function PresupuestoModal({
     const cl = op.cliente;
     const nombre = cl.tipo_persona === 'juridica' ? cl.razon_social : `${cl.nombre ?? ''} ${cl.apellido ?? ''}`.trim();
     const msg = encodeURIComponent(`Hola ${nombre}, te envío el presupuesto ${op.numero} para tu revisión y aprobación:\n${linkUrl}`);
-    window.open(`https://wa.me/?text=${msg}`, '_blank');
+
+    // Normalizar número solo al enviar: quitar no-dígitos, agregar código país 54 si falta
+    const tel = cl.telefono ?? '';
+    const digits = tel.replace(/\D/g, '');
+    const phone = digits.startsWith('54') ? digits : digits ? `54${digits}` : '';
+
+    const url = phone
+      ? `https://web.whatsapp.com/send?phone=${phone}&text=${msg}`
+      : `https://web.whatsapp.com/send?text=${msg}`;
+
+    // Reutiliza ventana existente de WhatsApp Web si ya está abierta
+    window.open(url, 'whatsapp_web');
   }
 
   async function cambiarEstado(nuevoEstado: EstadoOperacion) {

@@ -269,7 +269,16 @@ export function Remitos() {
     if (!linkUrl || !shareRemito) return;
     const nombre = ncl(shareRemito.cliente);
     const msg = encodeURIComponent(`Hola ${nombre}, te enviamos el remito de entrega ${shareRemito.numero}. Podés confirmar la recepción de tus productos desde este link:\n${linkUrl}`);
-    window.open(`https://wa.me/?text=${msg}`, '_blank');
+
+    const tel = shareRemito.cliente.telefono ?? '';
+    const digits = tel.replace(/\D/g, '');
+    const phone = digits.startsWith('54') ? digits : digits ? `54${digits}` : '';
+
+    const url = phone
+      ? `https://web.whatsapp.com/send?phone=${phone}&text=${msg}`
+      : `https://web.whatsapp.com/send?text=${msg}`;
+
+    window.open(url, 'whatsapp_web');
   }
 
   const filtrado = useMemo(() => {
