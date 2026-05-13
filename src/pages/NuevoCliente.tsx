@@ -68,6 +68,9 @@ const emptyForm = () => ({
   referido_por_id:           '',
   // Admin
   condicion_iva:             '',
+  // CRM
+  crm_etapa:                 '',
+  interes:                   '',
 });
 
 type FormState = ReturnType<typeof emptyForm>;
@@ -134,6 +137,8 @@ export function NuevoCliente() {
           categoria_id:              c.categoria_id          ?? '',
           referido_por_id:           c.referido_por_id       ?? '',
           condicion_iva:             c.condicion_iva         ?? '',
+          crm_etapa:                 (c as any).crm_etapa    ?? '',
+          interes:                   (c as any).interes      ?? '',
         };
         setForm(f);
         setNombreCompleto(
@@ -753,6 +758,32 @@ export function NuevoCliente() {
                             <option value="si">Sí</option>
                             <option value="no">No</option>
                           </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CRM */}
+                  <div>
+                    <SubHeader icon={Lightbulb} label="Clasificación CRM" color="text-purple-600" />
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={lbl}>Etapa CRM</label>
+                          <select value={form.crm_etapa} onChange={e => set('crm_etapa', e.target.value)} className={inp}>
+                            <option value="">Sin asignar</option>
+                            <option value="nuevo">Nuevo lead</option>
+                            <option value="presupuestado">Presupuestado</option>
+                            <option value="en_decision">En decisión</option>
+                            <option value="cerrado_ganado">Cerrado - Ganado</option>
+                            <option value="cerrado_perdido">Cerrado - Perdido</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className={lbl}>Interés / Motivo de contacto</label>
+                          <input value={form.interes} onChange={e => set('interes', e.target.value)}
+                            placeholder="Ej: Ventanas PVC, Puerta de entrada..."
+                            className={inp} />
                         </div>
                       </div>
                     </div>

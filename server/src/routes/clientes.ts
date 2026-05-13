@@ -637,8 +637,8 @@ clientes.post('/', async (c) => {
        preferencia_contacto, acepta_marketing, referido_por_id, notas, created_by,
        dom_obra, dom_obra_localidad,
        dom_alternativo, dom_alternativo_localidad, dom_alternativo_cp, dom_alternativo_referencia,
-       condicion_iva)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+       condicion_iva, crm_etapa, interes)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
     RETURNING *
   `, [
     body.tipo_persona?.trim()       || 'fisica',
@@ -671,6 +671,8 @@ clientes.post('/', async (c) => {
     body.dom_alternativo_cp?.trim()     || null,
     body.dom_alternativo_referencia?.trim() || null,
     body.condicion_iva?.trim()          || null,
+    body.crm_etapa?.trim()              || null,
+    body.interes?.trim()                || null,
   ]);
 
   return c.json(row, 201);
@@ -710,8 +712,10 @@ clientes.put('/:id', async (c) => {
       dom_alternativo_localidad    = $26,
       dom_alternativo_cp           = $27,
       dom_alternativo_referencia   = $28,
-      condicion_iva                = $29
-    WHERE id = $30 RETURNING *
+      condicion_iva                = $29,
+      crm_etapa                    = $30,
+      interes                      = $31
+    WHERE id = $32 RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
     body.nombre?.trim() || null,
@@ -742,6 +746,8 @@ clientes.put('/:id', async (c) => {
     body.dom_alternativo_cp?.trim()     || null,
     body.dom_alternativo_referencia?.trim() || null,
     body.condicion_iva?.trim()          || null,
+    body.crm_etapa?.trim()              || null,
+    body.interes?.trim()                || null,
     id,
   ]);
 

@@ -4,7 +4,7 @@ import {
   Plus, Upload, Search, Users, Phone, MessageCircle,
   History, TrendingUp, TrendingDown, Clock, Star,
   AlertCircle, UserPlus, RefreshCw, ChevronLeft, ChevronRight,
-  Receipt, FileText, X,
+  Receipt, FileText, X, Download, Filter,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -183,6 +183,7 @@ export function Clientes() {
   const [page, setPage]       = useState(1);
   const [ordenOpen, setOrdenOpen] = useState(false);
   const ordenRef = useRef<HTMLDivElement>(null);
+  const [filtroEstado, setFiltroEstado] = useState('');
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -248,6 +249,11 @@ export function Clientes() {
       });
     }
 
+    // Filtro por estado
+    if (filtroEstado) {
+      list = list.filter(c => c.estado === filtroEstado);
+    }
+
     // Búsqueda client-side
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
@@ -273,13 +279,33 @@ export function Clientes() {
 
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, tab, busqueda, orden, topIds]);
+  }, [clientes, tab, busqueda, orden, topIds, filtroEstado]);
 
   const totalPages = Math.ceil(filtrado.length / PER_PAGE);
   const paginated  = filtrado.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   function handleTab(t: TabFilter) { setTab(t); setPage(1); }
   function handleBusqueda(q: string) { setBusqueda(q); setPage(1); }
+
+  function exportarCSV() {
+    const headers = ['Nombre', 'Tipo', 'Teléfono', 'Email', 'Localidad', 'Estado', 'Operaciones', 'Compras totales'];
+    const rows = filtrado.map(c => [
+      nombreDisplay(c),
+      c.tipo_persona === 'juridica' ? 'Empresa' : 'Persona',
+      c.telefono ?? '',
+      c.email ?? '',
+      c.localidad ?? '',
+      c.estado,
+      c.operaciones_count,
+      c.valor_total_historico,
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'clientes.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const { stats, oportunidades, por_localidad, actividad_reciente, resumen } = data ?? {
     stats: { total: 0, activos: 0, sin_actividad: 0, nuevos_mes: 0, total_facturado_mes: 0, clientes_top: 0 },
@@ -367,6 +393,10 @@ export function Clientes() {
           <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
+          <button onClick={exportarCSV}
+            className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold">
+            <Download size={14} /> Exportar
+          </button>
           <button onClick={() => navigate('/clientes/importar')}
             className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold">
             <Upload size={14} /> Importador
@@ -448,18 +478,32 @@ export function Clientes() {
               </div>
             </div>
 
-            {/* Búsqueda */}
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={busqueda} onChange={e => handleBusqueda(e.target.value)}
-                placeholder="Buscar por nombre, teléfono, DNI/CUIT, correo, localidad..."
-                className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-              {busqueda && (
-                <button onClick={() => handleBusqueda('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X size={14} />
-                </button>
-              )}
+            {/* Búsqueda + filtros */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={busqueda} onChange={e => handleBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre, teléfono, DNI/CUIT, correo, localidad..."
+                  className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                {busqueda && (
+                  <button onClick={() => handleBusqueda('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <select value={filtroEstado} onChange={e => { setFiltroEstado(e.target.value); setPage(1); }}
+                className={cn(
+                  'px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400',
+                  filtroEstado ? 'border-emerald-400 text-emerald-700 font-medium' : 'border-gray-200 text-gray-600'
+                )}>
+                <option value="">Todos los estados</option>
+                <option value="prospecto">Prospecto</option>
+                <option value="activo">Activo</option>
+                <option value="recurrente">Cliente VIP</option>
+                <option value="inactivo">Inactivo</option>
+                <option value="perdido">Perdido</option>
+              </select>
             </div>
           </div>
 
