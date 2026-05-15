@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Zap, Clock, User, Building2, MapPin, Phone, Mail,
-  Tag, FileText, Hash, Calendar, AlertCircle, Home, Briefcase,
+  ArrowLeft, Zap, Clock, User, Building2, MapPin, Phone,
+  Tag, FileText, Hash, AlertCircle, Home, Briefcase,
   MessageCircle, ChevronRight, Star, Lightbulb,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -21,13 +21,20 @@ function combinarNombre(apellido: string | null, nombre: string | null) {
   return [apellido, nombre].filter(Boolean).join(' ');
 }
 
-// Separa "Lopez Diego Andino" → apellido="Lopez", nombre="Diego Andino"
+// Separa nombre completo en apellido + nombre.
+// Con coma: "Ruiz Diaz, Ana Liz" → apellido="Ruiz Diaz", nombre="Ana Liz"
+// Sin coma: "Lopez Diego" → apellido="Lopez", nombre="Diego"
 function separarNombre(completo: string): { apellido: string; nombre: string } {
+  const commaIdx = completo.indexOf(',');
+  if (commaIdx !== -1) {
+    return {
+      apellido: completo.slice(0, commaIdx).trim(),
+      nombre:   completo.slice(commaIdx + 1).trim(),
+    };
+  }
   const parts = completo.trim().split(/\s+/);
   if (parts.length === 1) return { apellido: parts[0], nombre: '' };
-  const apellido = parts[0];
-  const nombre   = parts.slice(1).join(' ');
-  return { apellido, nombre };
+  return { apellido: parts[0], nombre: parts.slice(1).join(' ') };
 }
 
 const emptyForm = () => ({
@@ -329,7 +336,7 @@ export function NuevoCliente() {
                       autoFocus={!isEdit}
                       value={nombreCompleto}
                       onChange={e => setNombreCompleto(e.target.value)}
-                      placeholder={esFisica ? 'Ej: López Diego Andrés' : 'Ej: García Construcciones SRL'}
+                      placeholder={esFisica ? 'Ej: López, Diego Andrés  o  Ruiz Diaz, Ana Liz' : 'Ej: García Construcciones SRL'}
                       className={cn(inp, 'pl-9')}
                     />
                   </div>
