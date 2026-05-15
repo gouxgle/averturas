@@ -264,7 +264,19 @@ function PresupuestoModal({
 
   async function copiarLink() {
     if (!linkUrl) return;
-    await navigator.clipboard.writeText(linkUrl);
+    try {
+      await navigator.clipboard.writeText(linkUrl);
+    } catch {
+      // Fallback para HTTP (Chrome bloquea clipboard API sin HTTPS)
+      const ta = document.createElement('textarea');
+      ta.value = linkUrl;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
   }
