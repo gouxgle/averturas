@@ -925,21 +925,33 @@ function ProductoRow({
         onClick={() => setExpanded(v => !v)}
       >
         {/* Producto */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900 truncate">{producto.nombre}</p>
-            {producto.tipo !== 'estandar' && (
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
-                producto.tipo === 'fabricacion_propia' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'
-              }`}>
-                {producto.tipo === 'fabricacion_propia' ? 'Fab.' : 'A medida'}
-              </span>
+        <div className="min-w-0 flex items-center gap-2.5">
+          {/* Miniatura */}
+          <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
+            {producto.imagen_url ? (
+              <img src={producto.imagen_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Package size={16} className="text-gray-300" />
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
-            {producto.codigo && <span>{producto.codigo}</span>}
-            {producto.tipo_abertura && <span>{producto.tipo_abertura.nombre}</span>}
-            {producto.color && <span>{producto.color}</span>}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900 truncate">{producto.nombre}</p>
+              {producto.tipo !== 'estandar' && (
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
+                  producto.tipo === 'fabricacion_propia' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'
+                }`}>
+                  {producto.tipo === 'fabricacion_propia' ? 'Fab.' : 'A medida'}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+              {producto.codigo && <span>{producto.codigo}</span>}
+              {producto.tipo_abertura && <span>{producto.tipo_abertura.nombre}</span>}
+              {producto.color && <span>{producto.color}</span>}
+            </div>
           </div>
         </div>
 
