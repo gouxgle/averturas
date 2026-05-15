@@ -190,7 +190,7 @@ operaciones.get('/ventas-panel', async (c) => {
     db.query(`
       SELECT
         o.id, o.numero, o.tipo, o.estado, o.precio_total::numeric,
-        o.created_at, o.fecha_validez, o.aprobado_online_at,
+        o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo,
         EXTRACT(DAY FROM now() - o.fecha_validez)::int                         AS dias_vencido,
         EXTRACT(DAY FROM o.fecha_validez - now())::int                         AS dias_hasta_vencimiento,
         COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int     AS dias_sin_respuesta,
@@ -299,7 +299,7 @@ operaciones.post('/:id/generar-link', async (c) => {
     [op.cliente_id, `Proforma ${proformaNumero} enviada por link de aprobación`, user?.id ?? null]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
 
-  const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const appUrl = (process.env.APP_URL ?? 'https://cesarbritez.com.ar').replace(/\/$/, '');
   return c.json({ token, url: `${appUrl}/p/${token}` });
 });
 

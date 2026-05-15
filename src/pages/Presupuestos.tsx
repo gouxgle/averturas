@@ -32,6 +32,7 @@ interface PresupuestoPanel {
   created_at: string;
   fecha_validez: string | null;
   aprobado_online_at: string | null;
+  motivo_rechazo: string | null;
   dias_vencido: number | null;
   dias_hasta_vencimiento: number | null;
   dias_sin_respuesta: number;
@@ -169,6 +170,8 @@ function fmtDias(dias: number): string {
 }
 
 function fmtVencimiento(p: PresupuestoPanel): { text: string; color: string } | null {
+  // No mostrar vencimiento si ya está aprobado, rechazado o cancelado
+  if (['aprobado', 'rechazado', 'cancelado'].includes(p.estado)) return null;
   if (!p.fecha_validez) return null;
   const dv = p.dias_vencido ?? 0;
   const dh = p.dias_hasta_vencimiento ?? 0;
@@ -503,7 +506,7 @@ export function Presupuestos() {
   const [data, setData]         = useState<VentasPanel | null>(null);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState<Tab>('todos');
-  const [orden, setOrden]       = useState<Orden>('prioridad');
+  const [orden, setOrden]       = useState<Orden>('reciente');
   const [busqueda, setBusqueda] = useState('');
   const [page, setPage]         = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -783,13 +786,15 @@ export function Presupuestos() {
                   const canal  = p.ultimo_contacto_canal;
                   const prio   = PRIO_CFG[p.prioridad];
                   const isAprobadoOnline = !!p.aprobado_online_at;
+                  const isRechazado = p.estado === 'rechazado';
 
                   return (
                     <div key={p.id}
                       className={cn(
                         'grid items-center px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
                         borderColor(p),
-                        isAprobadoOnline && 'bg-emerald-50/40 hover:bg-emerald-50/60'
+                        isAprobadoOnline && 'bg-emerald-50/50 hover:bg-emerald-50/70',
+                        isRechazado && !isAprobadoOnline && 'bg-red-50/30 hover:bg-red-50/50'
                       )}
                       style={{ gridTemplateColumns: '180px 1fr 160px 150px 120px 110px 100px' }}
                       onClick={() => setDetailId(p.id)}>
@@ -837,9 +842,13 @@ export function Presupuestos() {
                         )}
                       </div>
 
-                      {/* Vence */}
+                      {/* Vence / Motivo rechazo */}
                       <div>
-                        {vc ? (
+                        {isRechazado && p.motivo_rechazo ? (
+                          <span className="text-[11px] text-red-500 leading-tight line-clamp-2" title={p.motivo_rechazo}>
+                            {p.motivo_rechazo}
+                          </span>
+                        ) : vc ? (
                           <span className={cn('text-[11px]', vc.color)}>{vc.text}</span>
                         ) : (
                           <span className="text-[11px] text-gray-300">—</span>
