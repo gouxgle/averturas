@@ -10,6 +10,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { EstadoOperacion } from '@/types';
+import { toast } from 'sonner';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,6 +251,10 @@ function PresupuestoModal({
   }, [id]);
 
   async function generarLink() {
+    if (esVencido) {
+      toast.error('El presupuesto está vencido. Editalo para actualizar la fecha de validez antes de compartir.');
+      return;
+    }
     setGenerandoLink(true);
     try {
       const { url } = await api.post<{ token: string; url: string }>(`/operaciones/${id}/generar-link`, {});
@@ -300,6 +305,9 @@ function PresupuestoModal({
 
   const esAprobado  = op?.estado === 'aprobado';
   const puedeEditar = op && !esAprobado;
+  const esVencido   = op?.fecha_validez
+    ? new Date(op.fecha_validez.slice(0, 10) + 'T23:59:59') < new Date()
+    : false;
   const subtotal    = op ? op.items.reduce((s, it) => s + Number(it.precio_total), 0) : 0;
   const costoEnvio  = op?.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
   const total       = subtotal + costoEnvio;
@@ -338,8 +346,13 @@ function PresupuestoModal({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg font-medium transition-colors">
                   <Printer size={13} /> PDF
                 </button>
-                <button onClick={generarLink} disabled={generandoLink}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-medium transition-colors disabled:opacity-50">
+                <button onClick={generarLink} disabled={generandoLink || esVencido}
+                  title={esVencido ? 'Presupuesto vencido — actualizá la fecha de validez antes de compartir' : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    esVencido
+                      ? 'bg-gray-50 text-gray-400 border-gray-200'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                  }`}>
                   <Share2 size={13} /> {generandoLink ? '...' : 'Compartir'}
                 </button>
               </>
