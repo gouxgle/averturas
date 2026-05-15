@@ -63,6 +63,20 @@ app.route('/api', api);
 // ── Servir uploads (imágenes productos, etc.) ─────────────────
 app.use('/uploads/*', serveStatic({ root: '.' }));
 
+// ── Cache headers para assets estáticos ──────────────────────
+// Assets con hash (Vite): cache 1 año, inmutable
+app.use('/assets/*', async (c, next) => {
+  await next();
+  c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+});
+// index.html y rutas SPA: nunca cachear
+app.use('*', async (c, next) => {
+  await next();
+  if (!c.res.headers.get('Cache-Control')) {
+    c.res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+});
+
 // ── Servir frontend estático ──────────────────────────────────
 app.use('*', serveStatic({ root: './public' }));
 
@@ -71,6 +85,7 @@ app.get('*', (c) => {
   const indexPath = './public/index.html';
   if (existsSync(indexPath)) {
     const html = readFileSync(indexPath, 'utf-8');
+    c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     return c.html(html);
   }
   return c.text('Frontend no disponible — ejecutar npm run build', 503);
