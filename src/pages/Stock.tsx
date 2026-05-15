@@ -929,7 +929,7 @@ function ProductoRow({
           {/* Miniatura */}
           <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
             {producto.imagen_url ? (
-              <img src={producto.imagen_url} alt="" className="w-full h-full object-cover" />
+              <img src={producto.imagen_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Package size={16} className="text-gray-300" />
@@ -1243,7 +1243,7 @@ export function Stock() {
                         {/* Miniatura */}
                         <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
                           {p.imagen_url ? (
-                            <img src={p.imagen_url} alt="" className="w-full h-full object-cover" />
+                            <img src={p.imagen_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <Package size={14} className="text-gray-300" />

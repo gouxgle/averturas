@@ -61,6 +61,10 @@ api.route('/', apiAuth);
 app.route('/api', api);
 
 // ── Servir uploads (imágenes productos, etc.) ─────────────────
+app.use('/uploads/*', async (c, next) => {
+  await next();
+  c.res.headers.set('Cache-Control', 'public, max-age=604800'); // 7 días
+});
 app.use('/uploads/*', serveStatic({ root: '.' }));
 
 // ── Cache headers para assets estáticos ──────────────────────

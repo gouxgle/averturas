@@ -339,7 +339,7 @@ function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
       {/* Imagen */}
       <div className="relative w-[108px] shrink-0 self-stretch overflow-hidden bg-gray-100">
         {imagenes.length > 0 ? (
-          <img src={imagenes[imgIdx]} alt={producto.nombre} className="w-full h-full object-contain p-1"/>
+          <img src={imagenes[imgIdx]} alt={producto.nombre} loading="lazy" decoding="async" className="w-full h-full object-contain p-1"/>
         ) : (
           <div className="w-full h-full flex items-center justify-center"><Package size={28} className="text-gray-200"/></div>
         )}
