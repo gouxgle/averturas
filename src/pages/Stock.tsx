@@ -1236,10 +1236,20 @@ export function Stock() {
                   {tablero!.alertas.map((p, i) => {
                     const cfg = ESTADO_CFG[p.estado];
                     return (
-                      <div key={p.id} className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-red-100">
-                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      <div key={p.id} className="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2 border border-red-100">
+                        <span className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
                           {i + 1}
                         </span>
+                        {/* Miniatura */}
+                        <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
+                          {p.imagen_url ? (
+                            <img src={p.imagen_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package size={14} className="text-gray-300" />
+                            </div>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">{p.nombre}</p>
                           <p className="text-xs text-gray-500">
