@@ -625,65 +625,65 @@ export function Presupuestos() {
 
       {/* KPI tiles */}
       {loading ? (
-        <div className="grid grid-cols-5 gap-3 mb-5">
+        <div className="grid grid-cols-5 gap-2 mb-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-              <div className="h-3 bg-gray-100 rounded w-2/3 mb-3" />
-              <div className="h-6 bg-gray-100 rounded w-1/2" />
+            <div key={i} className="bg-white rounded-lg border border-gray-200 p-2.5 animate-pulse">
+              <div className="h-2.5 bg-gray-100 rounded w-2/3 mb-2" />
+              <div className="h-5 bg-gray-100 rounded w-1/2" />
             </div>
           ))}
         </div>
       ) : s ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                <FileText size={14} className="text-violet-600" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
+          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-5 h-5 rounded-md bg-violet-100 flex items-center justify-center flex-shrink-0">
+                <FileText size={11} className="text-violet-600" />
               </div>
-              <span className="text-xs text-gray-500">Total presupuestos</span>
+              <span className="text-[11px] text-gray-500 truncate">Total presupuestos</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{s.total_activos}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Activos</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{s.total_activos}</p>
+            <p className="text-[10px] text-gray-400">Activos</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <TrendingUp size={14} className="text-emerald-600" />
+          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <TrendingUp size={11} className="text-emerald-600" />
               </div>
-              <span className="text-xs text-gray-500">Importe total</span>
+              <span className="text-[11px] text-gray-500 truncate">Importe total</span>
             </div>
-            <p className="text-lg font-bold text-gray-900">{formatCurrency(s.importe_total)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">En presupuestos activos</p>
+            <p className="text-sm font-bold text-gray-900 leading-tight">{formatCurrency(s.importe_total)}</p>
+            <p className="text-[10px] text-gray-400">En presupuestos activos</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Clock size={14} className="text-amber-600" />
+          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Clock size={11} className="text-amber-600" />
               </div>
-              <span className="text-xs text-gray-500">Sin respuesta</span>
+              <span className="text-[11px] text-gray-500 truncate">Sin respuesta</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{s.sin_respuesta_count}</p>
-            <p className="text-xs text-amber-600 mt-0.5 font-medium">{formatCurrency(s.sin_respuesta_monto)} en riesgo</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{s.sin_respuesta_count}</p>
+            <p className="text-[10px] text-amber-600 font-medium">{formatCurrency(s.sin_respuesta_monto)} en riesgo</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center">
-                <AlertTriangle size={14} className="text-red-500" />
+          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-5 h-5 rounded-md bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={11} className="text-red-500" />
               </div>
-              <span className="text-xs text-gray-500">Vencidos</span>
+              <span className="text-[11px] text-gray-500 truncate">Vencidos</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{s.vencidos_count}</p>
-            <p className="text-xs text-red-500 mt-0.5 font-medium">{formatCurrency(s.vencidos_monto)} en riesgo</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{s.vencidos_count}</p>
+            <p className="text-[10px] text-red-500 font-medium">{formatCurrency(s.vencidos_monto)} en riesgo</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                <CheckCircle size={14} className="text-blue-600" />
+          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-5 h-5 rounded-md bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <CheckCircle size={11} className="text-blue-600" />
               </div>
-              <span className="text-xs text-gray-500">Tasa de cierre</span>
+              <span className="text-[11px] text-gray-500 truncate">Tasa de cierre</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{s.tasa_cierre_pct}%</p>
-            <p className="text-xs text-gray-400 mt-0.5">Últimos 30 días</p>
+            <p className="text-xl font-bold text-gray-900 leading-tight">{s.tasa_cierre_pct}%</p>
+            <p className="text-[10px] text-gray-400">Últimos 30 días</p>
           </div>
         </div>
       ) : null}
