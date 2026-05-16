@@ -309,7 +309,7 @@ function PresupuestoModal({
     const url = phone
       ? `https://web.whatsapp.com/send?phone=${phone}&text=${msg}`
       : `https://web.whatsapp.com/send?text=${msg}`;
-    window.open(url, '_blank');
+    window.open(url, 'whatsapp_web');
   }
 
   async function cambiarEstado(nuevoEstado: EstadoOperacion) {
