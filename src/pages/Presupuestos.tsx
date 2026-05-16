@@ -285,7 +285,7 @@ function PresupuestoModal({
     if (!linkUrl || !op) return;
     const cl = op.cliente;
     const nombre = cl.tipo_persona === 'juridica' ? cl.razon_social : `${cl.nombre ?? ''} ${cl.apellido ?? ''}`.trim();
-    const msg = encodeURIComponent(`Hola ${nombre}, te envío el presupuesto ${op.numero} para tu revisión y aprobación:\n${linkUrl}`);
+    const msg = encodeURIComponent(`Hola ${nombre}, te envío el presupuesto *${op.numero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${linkUrl}`);
 
     // Normalizar número solo al enviar: quitar no-dígitos, agregar código país 54 si falta
     const tel = cl.telefono ?? '';
