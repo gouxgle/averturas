@@ -197,7 +197,8 @@ export function ImprimirPresupuesto() {
       </div>
 
       {/* ── Documento ───────────────────────────────────────────────────── */}
-      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl" style={{ minHeight: '297mm' }}>
+      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl"
+        style={{ minHeight: '297mm', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── HEADER (fondo blanco, igual que la imagen) ─────────────────── */}
         <div style={{ padding: '20px 24px 16px', background: 'white' }}>
@@ -309,6 +310,9 @@ export function ImprimirPresupuesto() {
           </div>
         </div>
 
+        {/* ── ZONA ÍTEMS (crece para llenar la hoja) ────────────────────── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+
         {/* ── TABLA DE ÍTEMS ────────────────────────────────────────────── */}
         <div style={{ padding: '0 16px', marginTop: 14 }}>
           <table>
@@ -416,6 +420,8 @@ export function ImprimirPresupuesto() {
             <span style={{ whiteSpace: 'pre-wrap' }}>{op.notas}</span>
           </div>
         )}
+
+        </div>{/* fin zona ítems */}
 
         {/* ── TOTAL ─────────────────────────────────────────────────────── */}
         <div style={{ margin: '14px 16px 0', border: `2px solid ${NAVY}`, borderRadius: 8, padding: '14px 18px', background: 'white' }}>
