@@ -224,10 +224,9 @@ pub.get('/remito/:token', async (c) => {
       r.direccion_entrega, r.fecha_emision, r.fecha_entrega_est, r.notas,
       r.token_acceso_at, r.recepcion_estado, r.recepcion_at, r.recepcion_obs,
       r.operacion_id,
-      json_build_object(
-        'id',           op.id,
-        'numero',       op.numero
-      ) FILTER (WHERE op.id IS NOT NULL) AS operacion,
+      CASE WHEN op.id IS NOT NULL THEN
+        json_build_object('id', op.id, 'numero', op.numero)
+      ELSE NULL END AS operacion,
       json_build_object(
         'nombre',        cl.nombre,
         'apellido',      cl.apellido,
