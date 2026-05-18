@@ -511,27 +511,27 @@ export function VistaPublicaPresupuesto() {
         </div>
 
         {/* ── TOTAL ─────────────────────────────────────────────────────── */}
-        <div className="px-5 py-4" style={{ background: NAVY }}>
-          <div className="flex items-start justify-between gap-4">
+        <div className="bg-white px-4 py-4 mt-px">
+          <div className="rounded-xl border-2 p-4 flex items-start justify-between gap-4" style={{ borderColor: NAVY }}>
             <div>
-              <div className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">Total final</div>
-              <div className="text-white text-3xl font-black tabular-nums">{fmtM(total)}</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af', letterSpacing: 2 }}>Total Final</div>
+              <div className="text-3xl font-black tabular-nums" style={{ color: NAVY }}>{fmtM(total)}</div>
               {costoEnvio > 0 && (
-                <div className="text-blue-300 text-xs mt-0.5">
+                <div className="text-gray-500 text-xs mt-0.5">
                   (productos {fmtM(total - costoEnvio)} + envío {fmtM(costoEnvio)})
                 </div>
               )}
-              <div className="text-blue-200/80 text-xs mt-1 italic">Son: {numToWords(total)}</div>
+              <div className="text-gray-400 text-xs mt-1 italic">Son: {numToWords(total)}</div>
               {esCuotas && (
-                <span className="inline-block mt-1.5 bg-violet-500/20 text-violet-200 text-xs px-2.5 py-1 rounded-lg font-semibold">
+                <span className="inline-block mt-1.5 bg-violet-100 text-violet-700 text-xs px-2.5 py-1 rounded-lg font-semibold">
                   3 cuotas de {fmtM(total / 3)}
                 </span>
               )}
             </div>
             {pres.forma_pago && (
               <div className="text-right shrink-0">
-                <div className="text-white/40 text-xs uppercase tracking-wider">Forma de pago</div>
-                <div className="text-white font-bold text-sm mt-0.5">{pres.forma_pago}</div>
+                <div className="text-xs uppercase tracking-wider text-gray-400">Forma de pago</div>
+                <div className="font-bold text-sm mt-0.5" style={{ color: NAVY }}>{pres.forma_pago}</div>
               </div>
             )}
           </div>
@@ -545,20 +545,66 @@ export function VistaPublicaPresupuesto() {
         )}
 
         {/* ── CONDICIONES ───────────────────────────────────────────────── */}
-        <div className="bg-white mt-px grid grid-cols-3 divide-x divide-gray-100">
-          {[
-            { Icon: Package, color: 'text-green-600', bg: 'bg-green-100', title: 'En stock',             desc: 'Productos listos para entrega' },
-            { Icon: Truck,   color: 'text-blue-600',  bg: 'bg-blue-100',  title: 'Entrega rápida',        desc: 'De 2 a 5 días hábiles' },
-            { Icon: Shield,  color: 'text-amber-600', bg: 'bg-amber-100', title: 'Calidad garantizada',   desc: '12 meses en todos los productos' },
-          ].map(({ Icon, color, bg, title, desc }) => (
-            <div key={title} className="p-3 text-center">
-              <div className={`w-8 h-8 rounded-full ${bg} flex items-center justify-center mx-auto mb-1.5`}>
-                <Icon size={14} className={color} />
+        <div className="bg-white mt-px">
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 border border-gray-200 rounded-xl mx-4 my-3 overflow-hidden">
+            {/* Col 1: Condiciones importantes */}
+            <div className="p-4">
+              <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: NAVY }}>
+                Condiciones importantes
               </div>
-              <div className="text-xs font-bold text-gray-800 uppercase tracking-wide leading-tight">{title}</div>
-              <div className="text-xs text-gray-400 mt-0.5 leading-tight">{desc}</div>
+              {[
+                pres.fecha_validez
+                  ? `Precio válido hasta ${fmtFecha(pres.fecha_validez)}`
+                  : 'Consultar vigencia del precio',
+                'Productos sujetos a disponibilidad de stock',
+                'Las medidas deben ser verificadas antes de confirmar',
+                'La garantía aplica según condiciones comerciales',
+                'Los reclamos deben informarse dentro de las 48 hs de recibido el producto',
+              ].map((cond, i) => (
+                <div key={i} className="flex gap-2 mb-2 text-xs text-gray-600 leading-snug">
+                  <span className="text-green-500 font-bold shrink-0">✓</span>
+                  <span>{cond}</span>
+                </div>
+              ))}
+              {pres.empresa.terminos_url && (
+                <div className="mt-2 text-xs text-gray-400">
+                  Más info:{' '}
+                  <a href={pres.empresa.terminos_url} target="_blank" rel="noopener noreferrer"
+                    className="underline font-semibold" style={{ color: NAVY }}>
+                    {pres.empresa.terminos_url}
+                  </a>
+                </div>
+              )}
             </div>
-          ))}
+            {/* Col 2: Tu compra protegida */}
+            <div className="p-4 bg-gray-50 text-center">
+              <div className="text-2xl mb-2">🛡️</div>
+              <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: NAVY }}>
+                Tu compra está protegida
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Trabajamos con materiales de calidad y garantía de fabricación en todos nuestros productos.
+              </p>
+            </div>
+            {/* Col 3: Badges */}
+            <div className="p-4 flex flex-col justify-center gap-3">
+              {[
+                { Icon: Package, color: 'text-green-600', bg: 'bg-green-100', title: 'EN STOCK',           desc: 'Productos listos para entrega' },
+                { Icon: Truck,   color: 'text-blue-600',  bg: 'bg-blue-100',  title: 'ENTREGA RÁPIDA',     desc: 'De 2 a 5 días hábiles' },
+                { Icon: Shield,  color: 'text-amber-600', bg: 'bg-amber-100', title: 'CALIDAD GARANTIZADA', desc: '12 meses en todos los productos' },
+              ].map(({ Icon, color, bg, title, desc }) => (
+                <div key={title} className="flex items-start gap-2.5">
+                  <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
+                    <Icon size={13} className={color} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold" style={{ color: NAVY }}>{title}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── CTA ───────────────────────────────────────────────────────── */}
