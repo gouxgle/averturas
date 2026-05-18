@@ -1475,15 +1475,9 @@ export function NuevoPresupuesto() {
         />
       )}
 
-      {/* Variables que no se usan pero se importan para compatibilidad */}
+      {/* suppress unused-var lint only */}
       {editEstado && false && <span>{editEstado}</span>}
       {tipoProyecto && false && <span>{tipoProyecto}</span>}
-      {itemCostoTotal && false}
-      {TIPOS_PROYECTO && false}
-      {LABEL_USO && false}
-      {LABEL_CONFIG_HOJAS && false}
-      {LABEL_PROVISION && false}
-      {LABEL_APERTURA && false}
     </div>
   );
 }
