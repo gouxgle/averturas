@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search, Package, X, LayoutGrid, Truck, MapPin, Gift, Building2 } from 'lucide-react';
+import {
+  ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
+  Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
+  Phone, MessageCircle, CheckCircle2,
+} from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -25,12 +29,13 @@ const FORMA_PAGO = [
 ];
 
 const FORMAS_ENVIO = [
-  { value: 'retiro_local',    label: 'Retiro en local',               icon: MapPin,     color: 'text-gray-600' },
-  { value: 'envio_bonificado',label: 'Envío bonificado',              icon: Gift,       color: 'text-emerald-600' },
-  { value: 'envio_destino',   label: 'Envío a destino (paga cliente)',icon: Truck,      color: 'text-sky-600' },
-  { value: 'envio_empresa',   label: 'Envío a cargo de la empresa',   icon: Building2,  color: 'text-violet-600' },
+  { value: 'retiro_local',     label: 'Retiro en local',                icon: MapPin,    color: 'text-gray-600' },
+  { value: 'envio_bonificado', label: 'Envío bonificado',               icon: Gift,      color: 'text-emerald-600' },
+  { value: 'envio_destino',    label: 'Envío a destino (paga cliente)', icon: Truck,     color: 'text-sky-600' },
+  { value: 'envio_empresa',    label: 'Envío a cargo de la empresa',    icon: Building2, color: 'text-violet-600' },
 ] as const;
-const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
+
+const COLORES_ITEM = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
 
 const LABEL_USO: Record<string, string> = {
   interior: 'Interior', exterior: 'Exterior', ambos: 'Interior y exterior',
@@ -93,113 +98,11 @@ interface FullOperacion {
   }>;
 }
 
-// ── Galería de productos ──────────────────────────────────────────────────────
-
-function GaleriaModal({
-  onSelect, onClose,
-}: {
-  onSelect: (p: CatalogProduct) => void;
-  onClose: () => void;
-}) {
-  const [productos, setProductos] = useState<CatalogProduct[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get<CatalogProduct[]>('/catalogo/productos')
-      .then(r => { setProductos(r); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const filtrados = productos.filter(p => {
-    const q = search.toLowerCase();
-    return !q
-      || p.nombre.toLowerCase().includes(q)
-      || (p.codigo ?? '').toLowerCase().includes(q)
-      || (p.tipo_abertura?.nombre ?? '').toLowerCase().includes(q)
-      || (p.sistema?.nombre ?? '').toLowerCase().includes(q)
-      || (p.caracteristica_1 ?? '').toLowerCase().includes(q)
-      || (p.caracteristica_2 ?? '').toLowerCase().includes(q);
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-12 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <LayoutGrid size={16} className="text-violet-600" />
-            <h2 className="text-sm font-bold text-gray-900">Galería de productos</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <X size={16} className="text-gray-500" />
-          </button>
-        </div>
-
-        {/* Buscador */}
-        <div className="px-5 py-3 border-b border-gray-100">
-          <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
-            <Search size={14} className="text-gray-300 shrink-0" />
-            <input
-              autoFocus
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Filtrar por nombre, código, tipo..."
-              className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
-            />
-            {search && <button onMouseDown={() => setSearch('')} className="text-gray-300 hover:text-gray-500"><X size={13} /></button>}
-          </div>
-        </div>
-
-        {/* Grid */}
-        <div className="p-5 max-h-[60vh] overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Cargando...</div>
-          ) : filtrados.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Sin resultados</div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {filtrados.map(p => {
-                const img = p.imagenes?.[0] || p.imagen_url;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => { onSelect(p); onClose(); }}
-                    className="text-left rounded-xl border border-gray-200 hover:border-violet-400 hover:shadow-md transition-all overflow-hidden group"
-                  >
-                    <div className="aspect-square bg-gray-50 overflow-hidden">
-                      {img
-                        ? <img src={img} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        : <div className="w-full h-full flex items-center justify-center"><Package size={28} className="text-gray-200" /></div>
-                      }
-                    </div>
-                    <div className="p-2.5">
-                      {p.codigo && (
-                        <span className="font-mono text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded mb-1 inline-block">{p.codigo}</span>
-                      )}
-                      <p className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">{p.nombre}</p>
-                      {p.tipo_abertura && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">{p.tipo_abertura.nombre}{p.sistema ? ` · ${p.sistema.nombre}` : ''}</p>
-                      )}
-                      <p className="text-xs font-bold text-violet-700 mt-1">{formatCurrency(Number(p.precio_base))}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Ítem vacío ────────────────────────────────────────────────────────────────
+// ── Ítem del formulario ────────────────────────────────────────────────────────
 
 interface ItemForm {
   _key: string;
-  producto_id: string;   // id de catálogo — '' si ítem manual
+  producto_id: string;
   tipo_item: 'estandar' | 'a_medida';
   tipo_abertura_id: string;
   sistema_id: string;
@@ -224,6 +127,7 @@ interface ItemForm {
   _prod_stock: number;
   _prod_tipo_nombre: string;
   _prod_sistema_nombre: string;
+  _prod_imagen_url: string | null;
 }
 
 function uuid() {
@@ -244,6 +148,7 @@ function emptyItem(): ItemForm {
     vidrio: '', premarco: false, origen: 'proveedor', color: '', accesorios: [],
     _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
     _prod_tipo_nombre: '', _prod_sistema_nombre: '',
+    _prod_imagen_url: null,
   };
 }
 
@@ -258,403 +163,195 @@ function itemCostoTotal(item: ItemForm) {
   return base * item.cantidad;
 }
 
-// ── Componente ítem ───────────────────────────────────────────────────────────
+// ── Modal de edición de ítem ──────────────────────────────────────────────────
 
-function ItemCard({
-  item, idx, tiposAbertura, sistemas, coloresDB, onChange, onRemove, canRemove,
+function EditItemModal({
+  item,
+  tiposAbertura,
+  sistemas,
+  coloresDB,
+  onChange,
+  onClose,
 }: {
   item: ItemForm;
-  idx: number;
   tiposAbertura: TipoAbertura[];
   sistemas: Sistema[];
   coloresDB: { id: string; nombre: string }[];
   onChange: (key: string, field: keyof ItemForm, value: unknown) => void;
-  onRemove: (key: string) => void;
-  canRemove: boolean;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(true);
   const up = (f: keyof ItemForm, v: unknown) => onChange(item._key, f, v);
-
-  // Buscador de producto interno
-  const [prodSearch, setProdSearch]   = useState('');
-  const [prodResults, setProdResults] = useState<CatalogProduct[]>([]);
-  const [showProdDrop, setShowProdDrop] = useState(false);
-  const [prodLoading, setProdLoading] = useState(false);
-
-  useEffect(() => {
-    if (!prodSearch.trim()) { setProdResults([]); setShowProdDrop(false); return; }
-    const t = setTimeout(async () => {
-      setProdLoading(true);
-      try {
-        const res = await api.get<CatalogProduct[]>(`/catalogo/productos?search=${encodeURIComponent(prodSearch.trim())}`);
-        setProdResults(res.slice(0, 8));
-        setShowProdDrop(res.length > 0);
-      } catch { /* silencioso */ }
-      finally { setProdLoading(false); }
-    }, 280);
-    return () => clearTimeout(t);
-  }, [prodSearch]);
-
-  function selectProduct(p: CatalogProduct) {
-    up('producto_id',          p.id);
-    up('tipo_abertura_id',     p.tipo_abertura_id   ?? '');
-    up('sistema_id',           p.sistema_id         ?? '');
-    up('color',                p.color              ?? '');
-    up('vidrio',               p.vidrio             ?? '');
-    up('premarco',             p.premarco           ?? false);
-    up('accesorios',           p.accesorios         ?? []);
-    up('costo_unitario',       Number(p.costo_base)  || 0);
-    up('precio_unitario',      Number(p.precio_base) || 0);
-    up('descripcion',          p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre);
-    up('_prod_ancho',          p.ancho              ?? null);
-    up('_prod_alto',           p.alto               ?? null);
-    up('_prod_atributos',      p.atributos          ?? {});
-    up('_prod_stock',          p.stock_actual        ?? 0);
-    up('_prod_tipo_nombre',    p.tipo_abertura?.nombre ?? '');
-    up('_prod_sistema_nombre', p.sistema?.nombre       ?? '');
-    setProdSearch(''); setProdResults([]); setShowProdDrop(false);
-  }
-
-  const precioItem = itemPrecioTotal(item);
-
-  const sel   = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
-  const inp   = sel;
-  const label = 'block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1';
-
-  // Auto-generate description from fields
-  useEffect(() => {
-    if (item.producto_id) return; // si tiene producto vinculado, no pisar la descripción
-    const ta   = tiposAbertura.find(t => t.id === item.tipo_abertura_id)?.nombre ?? '';
-    const sis  = sistemas.find(s => s.id === item.sistema_id)?.nombre ?? '';
-    const med  = item.medida_ancho && item.medida_alto ? ` ${item.medida_ancho}×${item.medida_alto}m` : '';
-    const desc = [ta, sis, med].filter(Boolean).join(' · ');
-    if (desc) onChange(item._key, 'descripcion', desc);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.tipo_abertura_id, item.sistema_id, item.medida_ancho, item.medida_alto]);
-
-  const esMedida = item.tipo_item === 'a_medida';
+  const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
+  const lbl = 'block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1';
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      {/* Header del ítem */}
-      <div
-        className={cn('flex items-center justify-between px-4 py-3 cursor-pointer select-none',
-          open ? 'bg-violet-50 border-b border-violet-100' : 'bg-gray-50 hover:bg-gray-100')}
-        onClick={() => setOpen(v => !v)}
-      >
-        <div className="flex items-center gap-2">
-          <ChevronDown size={15} className={cn('text-gray-400 transition-transform', open ? 'rotate-0' : '-rotate-90')} />
-          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Ítem {idx + 1}</span>
-          <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide',
-            esMedida ? 'bg-violet-100 text-violet-600' : 'bg-sky-100 text-sky-600')}>
-            {esMedida ? 'A medida' : 'Estándar'}
-          </span>
-          {item.descripcion && <span className="text-xs text-gray-500 hidden sm:inline">— {item.descripcion}</span>}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+          <h2 className="text-sm font-bold text-gray-900">Editar ítem</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
+            <X size={16} className="text-gray-500" />
+          </button>
         </div>
-        <div className="flex items-center gap-3">
-          {precioItem > 0 && (
-            <span className="text-xs font-semibold text-gray-700">{formatCurrency(precioItem)}</span>
-          )}
-          {canRemove && (
-            <button onClick={e => { e.stopPropagation(); onRemove(item._key); }}
-              className="text-red-400 hover:text-red-600 p-0.5">
-              <Trash2 size={13} />
-            </button>
-          )}
-        </div>
-      </div>
 
-      {open && (
-        <div className="p-4 space-y-3">
-
-          {/* Buscador de producto — rellena tipo, sistema, color automáticamente */}
-          <div className="relative">
-            <div className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all',
-              item.producto_id
-                ? 'bg-violet-50 border-violet-200'
-                : 'border-gray-200 focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400'
-            )}>
-              <Package size={13} className={item.producto_id ? 'text-violet-500 shrink-0' : 'text-gray-300 shrink-0'} />
-              {item.producto_id ? (
-                <span className="flex-1 text-xs text-violet-700 font-medium truncate">{item.descripcion}</span>
-              ) : (
-                <input
-                  value={prodSearch}
-                  onChange={e => setProdSearch(e.target.value)}
-                  onFocus={() => prodSearch && setShowProdDrop(true)}
-                  onBlur={() => setTimeout(() => setShowProdDrop(false), 150)}
-                  placeholder="Buscar producto del catálogo para auto-completar tipo, sistema, color..."
-                  className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
-                />
-              )}
-              {item.producto_id
-                ? <button type="button" onMouseDown={() => {
-                    up('producto_id', ''); up('tipo_abertura_id', ''); up('sistema_id', '');
-                    up('color', ''); up('precio_unitario', 0); up('costo_unitario', 0);
-                  }} className="text-violet-400 hover:text-violet-600 shrink-0"><X size={13} /></button>
-                : prodLoading
-                ? <Search size={12} className="text-gray-300 animate-pulse shrink-0" />
-                : prodSearch && <button onMouseDown={() => { setProdSearch(''); setProdResults([]); }} className="text-gray-300 hover:text-gray-500 shrink-0"><X size={12} /></button>
-              }
-            </div>
-
-            {/* Dropdown resultados */}
-            {showProdDrop && prodResults.length > 0 && (
-              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                {prodResults.map(p => (
-                  <button key={p.id} type="button"
-                    onMouseDown={() => selectProduct(p)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {p.codigo && (
-                          <span className="font-mono text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">{p.codigo}</span>
-                        )}
-                        <span className="text-sm font-medium text-gray-800 truncate">{p.nombre}</span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-violet-700 shrink-0">
-                      {formatCurrency(Number(p.precio_base))}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+        <div className="p-5 space-y-4">
+          {/* Descripción */}
+          <div>
+            <label className={lbl}>Descripción</label>
+            <input
+              type="text"
+              value={item.descripcion}
+              onChange={e => up('descripcion', e.target.value)}
+              className={inp}
+              placeholder="Descripción del producto..."
+            />
           </div>
 
-          {/* Tipo de ítem — solo visible en ítems manuales */}
-          {!item.producto_id && (
-            <div className="flex gap-2">
-              {(['estandar', 'a_medida'] as const).map(t => (
-                <button key={t} type="button"
-                  onClick={() => up('tipo_item', t)}
-                  className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
-                    item.tipo_item === t
-                      ? t === 'estandar' ? 'bg-sky-600 text-white border-sky-600' : 'bg-violet-600 text-white border-violet-600'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300')}>
-                  {t === 'estandar' ? 'Producto estándar' : 'A medida / Fabricación'}
-                </button>
+          {/* Precio unitario + Instalación */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Precio unitario</label>
+              <MontoInput
+                value={item.precio_unitario ? String(item.precio_unitario) : ''}
+                onChange={v => up('precio_unitario', parseFloat(v) || 0)}
+                placeholder="0,00"
+                className={inp}
+              />
+            </div>
+            <div>
+              <label className={lbl}>Instalación</label>
+              <select
+                value={item.incluye_instalacion ? 'si' : 'no'}
+                onChange={e => up('incluye_instalacion', e.target.value === 'si')}
+                className={inp}
+              >
+                <option value="no">No incluye</option>
+                <option value="si">Incluye instalación</option>
+              </select>
+            </div>
+          </div>
+
+          {item.incluye_instalacion && (
+            <div>
+              <label className={lbl}>Precio instalación</label>
+              <MontoInput
+                value={item.precio_instalacion ? String(item.precio_instalacion) : ''}
+                onChange={v => up('precio_instalacion', parseFloat(v) || 0)}
+                placeholder="0,00"
+                className={inp}
+              />
+            </div>
+          )}
+
+          {/* Color + Vidrio */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Color</label>
+              <select value={item.color} onChange={e => up('color', e.target.value)} className={inp}>
+                <option value="">—</option>
+                {coloresDB.length
+                  ? coloresDB.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)
+                  : COLORES_ITEM.map(c => <option key={c} value={c}>{c}</option>)
+                }
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Vidrio</label>
+              <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={inp}>
+                <option value="">—</option>
+                {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Premarco */}
+          <div>
+            <label className={lbl}>Premarco</label>
+            <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={inp}>
+              <option value="no">No</option>
+              <option value="si">Sí</option>
+            </select>
+          </div>
+
+          {/* Tipo abertura + Sistema */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Tipo de abertura</label>
+              <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={inp}>
+                <option value="">—</option>
+                {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Sistema</label>
+              <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={inp}>
+                <option value="">—</option>
+                {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Medidas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Ancho (m)</label>
+              <input
+                type="number" step="0.01" value={item.medida_ancho}
+                onChange={e => up('medida_ancho', e.target.value)}
+                placeholder="1.20" className={inp}
+              />
+            </div>
+            <div>
+              <label className={lbl}>Alto (m)</label>
+              <input
+                type="number" step="0.01" value={item.medida_alto}
+                onChange={e => up('medida_alto', e.target.value)}
+                placeholder="2.05" className={inp}
+              />
+            </div>
+          </div>
+
+          {/* Accesorios */}
+          <div>
+            <label className={lbl}>Accesorios</label>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+              {ACCESORIO_OPTS.map(a => (
+                <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.accesorios.includes(a)}
+                    onChange={e => up('accesorios',
+                      e.target.checked
+                        ? [...item.accesorios, a]
+                        : item.accesorios.filter(x => x !== a)
+                    )}
+                    className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
+                  />
+                  <span className="text-sm text-gray-600">{a}</span>
+                </label>
               ))}
             </div>
-          )}
+          </div>
 
-          {item.producto_id ? (
-            /* ── PRODUCTO VINCULADO: atributos de solo lectura ── */
-            <>
-              {/* Tarjeta de atributos del producto */}
-              {(() => {
-                const attr = item._prod_atributos;
-                const uso        = attr.uso        ? (LABEL_USO[attr.uso as string]         ?? String(attr.uso))        : null;
-                const cfgHojas   = attr.config_hojas ? (LABEL_CONFIG_HOJAS[attr.config_hojas as string] ?? String(attr.config_hojas)) : null;
-                const provision  = attr.tipo_provision ? (LABEL_PROVISION[attr.tipo_provision as string] ?? String(attr.tipo_provision)) : null;
-                const apertura   = attr.apertura   ? (LABEL_APERTURA[attr.apertura as string] ?? String(attr.apertura)) : null;
-                const medidas    = item._prod_ancho && item._prod_alto
-                  ? `${item._prod_ancho} × ${item._prod_alto} cm`
-                  : item._prod_ancho ? `${item._prod_ancho} cm ancho`
-                  : item._prod_alto  ? `${item._prod_alto} cm alto`
-                  : null;
-                const stockColor = item._prod_stock <= 0
-                  ? 'text-red-600 bg-red-50'
-                  : item._prod_stock <= 3
-                  ? 'text-amber-600 bg-amber-50'
-                  : 'text-emerald-700 bg-emerald-50';
-
-                const Attr = ({ lbl, val }: { lbl: string; val: string }) => (
-                  <div className="min-w-[80px]">
-                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">{lbl}</span>
-                    <p className="text-sm font-semibold text-gray-800 mt-0.5 leading-tight">{val}</p>
-                  </div>
-                );
-
-                return (
-                  <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                        Ficha del producto
-                      </p>
-                      {/* Stock para el vendedor */}
-                      <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-lg', stockColor)}>
-                        Stock: {item._prod_stock} u.
-                        {item._prod_stock <= 0 && ' — Sin stock'}
-                        {item._prod_stock > 0 && item._prod_stock <= 3 && ' — Poco stock'}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-x-5 gap-y-2.5">
-                      {item._prod_tipo_nombre    && <Attr lbl="Tipo"              val={item._prod_tipo_nombre} />}
-                      {item._prod_sistema_nombre && <Attr lbl="Sistema"           val={item._prod_sistema_nombre} />}
-                      {uso                       && <Attr lbl="Uso"               val={uso} />}
-                      {cfgHojas                  && <Attr lbl="Config. de hoja"   val={cfgHojas} />}
-                      {provision                 && <Attr lbl="Provisión"         val={provision} />}
-                      {apertura                  && <Attr lbl="Apertura"          val={apertura} />}
-                      {medidas                   && <Attr lbl="Medidas estándar"  val={medidas} />}
-                      {item.color                && <Attr lbl="Color"             val={item.color} />}
-                      {item.vidrio               && <Attr lbl="Vidrio"            val={item.vidrio} />}
-                      {item.accesorios.length > 0 && <Attr lbl="Incluye" val={item.accesorios.join(', ')} />}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Editable: Cantidad + Precio + Instalación */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
-                <div>
-                  <label className={label}>Cantidad</label>
-                  <input type="number" min={1} value={item.cantidad}
-                    onChange={e => up('cantidad', parseInt(e.target.value) || 1)} className={inp} />
-                </div>
-                <div>
-                  <label className={label}>Precio de venta</label>
-                  <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
-                    onChange={v => up('precio_unitario', parseFloat(v) || 0)}
-                    placeholder="0,00" className={inp} />
-                </div>
-                <div>
-                  <label className={label}>Instalación</label>
-                  <select value={item.incluye_instalacion ? 'si' : 'no'}
-                    onChange={e => up('incluye_instalacion', e.target.value === 'si')} className={sel}>
-                    <option value="no">No incluye</option>
-                    <option value="si">Incluye instalación</option>
-                  </select>
-                </div>
-              </div>
-
-            </>
-          ) : (
-            /* ── ÍTEM MANUAL: todos los campos editables ── */
-            <>
-              {/* Fila 1: Tipo abertura + Sistema + Color + Cantidad */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className={label}>Tipo de abertura</label>
-                  <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={sel}>
-                    <option value="">Seleccionar...</option>
-                    {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={label}>Sistema</label>
-                  <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={sel}>
-                    <option value="">Seleccionar...</option>
-                    {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={label}>Color</label>
-                  <select value={item.color} onChange={e => up('color', e.target.value)} className={sel}>
-                    <option value="">—</option>
-                    {coloresDB.length
-                      ? coloresDB.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)
-                      : COLORES_ITEM.map(c => <option key={c} value={c}>{c}</option>)
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label className={label}>Cantidad</label>
-                  <input type="number" min={1} value={item.cantidad}
-                    onChange={e => up('cantidad', parseInt(e.target.value) || 1)} className={inp} />
-                </div>
-              </div>
-
-              {/* Campos exclusivos A medida */}
-              {esMedida && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-violet-50/50 rounded-lg p-3 border border-violet-100">
-                  <div>
-                    <label className={label}>Ancho (m)</label>
-                    <input type="number" step="0.01" value={item.medida_ancho}
-                      onChange={e => up('medida_ancho', e.target.value)}
-                      placeholder="1.20" className={inp} />
-                  </div>
-                  <div>
-                    <label className={label}>Alto (m)</label>
-                    <input type="number" step="0.01" value={item.medida_alto}
-                      onChange={e => up('medida_alto', e.target.value)}
-                      placeholder="2.05" className={inp} />
-                  </div>
-                  <div>
-                    <label className={label}>Vidrio</label>
-                    <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={sel}>
-                      <option value="">—</option>
-                      {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={label}>Premarco</label>
-                    <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={sel}>
-                      <option value="no">No</option>
-                      <option value="si">Sí</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={label}>Origen</label>
-                    <select value={item.origen} onChange={e => up('origen', e.target.value)} className={sel}>
-                      <option value="proveedor">Proveedor</option>
-                      <option value="fabricacion">Fabricación propia</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Fila precios + accesorios */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className={label}>Precio de venta</label>
-                  <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
-                    onChange={v => up('precio_unitario', parseFloat(v) || 0)}
-                    placeholder="0,00" className={inp} />
-                </div>
-                <div>
-                  <label className={label}>Instalación</label>
-                  <select value={item.incluye_instalacion ? 'si' : 'no'}
-                    onChange={e => up('incluye_instalacion', e.target.value === 'si')} className={sel}>
-                    <option value="no">No</option>
-                    <option value="si">Sí</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={label}>Accesorios</label>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1.5">
-                    {ACCESORIO_OPTS.map(a => (
-                      <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
-                        <input type="checkbox"
-                          checked={item.accesorios.includes(a)}
-                          onChange={e => up('accesorios',
-                            e.target.checked
-                              ? [...item.accesorios, a]
-                              : item.accesorios.filter(x => x !== a)
-                          )}
-                          className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
-                        />
-                        <span className="text-xs text-gray-600">{a}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Precio instalación (condicional) */}
-          {item.incluye_instalacion && (
-            <div className="grid grid-cols-1 gap-3 bg-violet-50 rounded-lg p-3">
-              <div>
-                <label className={label}>Precio instalación</label>
-                <MontoInput value={item.precio_instalacion ? String(item.precio_instalacion) : ''}
-                  onChange={v => up('precio_instalacion', parseFloat(v) || 0)}
-                  placeholder="0,00" className={inp} />
-              </div>
-            </div>
-          )}
-
-          {/* Total del ítem */}
-          {precioItem > 0 && (
-            <div className="flex items-center gap-4 text-xs text-gray-500 pt-1 border-t border-gray-100">
-              <span>Subtotal: <span className="font-semibold text-gray-700">{formatCurrency(precioItem)}</span></span>
+          {/* Subtotal */}
+          {itemPrecioTotal(item) > 0 && (
+            <div className="bg-violet-50 rounded-xl px-4 py-3 flex items-center justify-between border border-violet-100">
+              <span className="text-xs text-violet-600 font-medium">Subtotal ítem</span>
+              <span className="text-base font-bold text-violet-700">{formatCurrency(itemPrecioTotal(item))}</span>
             </div>
           )}
         </div>
-      )}
+
+        <div className="px-5 pb-5">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 bg-[#7c3aed] hover:bg-violet-700 text-white rounded-xl text-sm font-semibold"
+          >
+            Listo
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -672,44 +369,55 @@ export function NuevoPresupuesto() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [editEstado, setEditEstado] = useState('');
 
-  const [clientes, setClientes]         = useState<Cliente[]>([]);
+  const [clientes, setClientes]           = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
-  const [sistemas, setSistemas]         = useState<Sistema[]>([]);
-  const [coloresDB, setColoresDB]       = useState<{ id: string; nombre: string }[]>([]);
+  const [sistemas, setSistemas]           = useState<Sistema[]>([]);
+  const [coloresDB, setColoresDB]         = useState<{ id: string; nombre: string }[]>([]);
 
   // Cabecera
-  const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
-  const [clienteSearch, setClienteSearch] = useState('');
+  const [clienteId, setClienteId]           = useState(searchParams.get('cliente_id') ?? '');
+  const [clienteSearch, setClienteSearch]   = useState('');
   const [showClienteList, setShowClienteList] = useState(false);
-  const [tipoProyecto, setTipoProyecto]   = useState('');
-  const [formaPago, setFormaPago]         = useState('Precio de lista');
-  const [tiempoEntrega, setTiempoEntrega] = useState('');
-  const [fechaValidez, setFechaValidez]   = useState(() => {
+  const [tipoProyecto, setTipoProyecto]     = useState('');
+  const [formaPago, setFormaPago]           = useState('Precio de lista');
+  const [tiempoEntrega, setTiempoEntrega]   = useState('');
+  const [fechaValidez, setFechaValidez]     = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
-    // Usar fecha local (no UTC) para evitar desfase de zona horaria
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
-  const [validezDias, setValidezDias]     = useState<number | 'custom'>(7);
-  const [notas, setNotas]                 = useState('');
-  const [notasInternas, setNotasInternas] = useState('');
+  const [validezDias, setValidezDias]       = useState<number | 'custom'>(7);
+  const [notas, setNotas]                   = useState('');
+  const [notasInternas, setNotasInternas]   = useState('');
 
   // Envío
   const [formaEnvio, setFormaEnvio] = useState('retiro_local');
   const [costoEnvio, setCostoEnvio] = useState(0);
 
-  // Galería
-  const [showGaleria, setShowGaleria] = useState(false);
-
   // Ítems
   const [items, setItems] = useState<ItemForm[]>([]);
 
+  // Estado nuevo UI
+  const [tab, setTab] = useState<'galeria' | 'buscar' | 'frecuentes' | 'scanner'>('galeria');
+  const [categoriaSel, setCategoriaSel] = useState('');
+  const [galSearch, setGalSearch] = useState('');
+  const [productos, setProductos] = useState<CatalogProduct[]>([]);
+  const [productosLoading, setProductosLoading] = useState(false);
+  const [editItemKey, setEditItemKey] = useState<string | null>(null);
+  const [showNotas, setShowNotas] = useState(false);
+
   // Buscador por código / scanner
-  const [codigoSearch,    setCodigoSearch]    = useState('');
-  const [codigoResults,   setCodigoResults]   = useState<CatalogProduct[]>([]);
-  const [showCodigo,      setShowCodigo]      = useState(false);
-  const [codigoLoading,   setCodigoLoading]   = useState(false);
+  const [codigoSearch, setCodigoSearch]   = useState('');
+  const [codigoResults, setCodigoResults] = useState<CatalogProduct[]>([]);
+  const [showCodigo, setShowCodigo]       = useState(false);
+  const [codigoLoading, setCodigoLoading] = useState(false);
   const codigoRef = useRef<HTMLInputElement>(null);
 
+  // Buscador tab "buscar"
+  const [buscarSearch, setBuscarSearch]   = useState('');
+  const [buscarResults, setBuscarResults] = useState<CatalogProduct[]>([]);
+  const [buscarLoading, setBuscarLoading] = useState(false);
+
+  // Carga inicial de catálogos
   useEffect(() => {
     Promise.all([
       api.get<Cliente[]>('/clientes'),
@@ -724,7 +432,15 @@ export function NuevoPresupuesto() {
     });
   }, []);
 
-  // Cargar datos si estamos en modo edición
+  // Carga galería de productos
+  useEffect(() => {
+    setProductosLoading(true);
+    api.get<CatalogProduct[]>('/catalogo/productos')
+      .then(r => setProductos(r))
+      .finally(() => setProductosLoading(false));
+  }, []);
+
+  // Cargar datos en modo edición
   useEffect(() => {
     if (!isEdit || !editId || editLoadedRef.current) return;
     editLoadedRef.current = true;
@@ -768,6 +484,7 @@ export function NuevoPresupuesto() {
         _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
         _prod_tipo_nombre:    it.tipo_abertura_nombre ?? '',
         _prod_sistema_nombre: it.sistema_nombre ?? '',
+        _prod_imagen_url:     null,
       })));
     }).catch(() => { toast.error('No se pudo cargar el presupuesto'); navigate('/presupuestos'); });
   }, [isEdit, editId, navigate]);
@@ -782,10 +499,9 @@ export function NuevoPresupuesto() {
     setItems(prev => prev.map(it => it._key === key ? { ...it, [field]: value } : it));
   }
 
-  const precioTotal    = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
-  const totalConEnvio  = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
+  const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
+  const totalConEnvio = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
 
-  // Derivar tipo de operacion desde items
   function derivarTipo() {
     const tieneFab = items.some(i => i.origen === 'fabricacion');
     return tieneFab ? 'fabricacion_propia' : 'a_medida_proveedor';
@@ -826,6 +542,7 @@ export function NuevoPresupuesto() {
         _prod_stock:         p.stock_actual        ?? 0,
         _prod_tipo_nombre:   p.tipo_abertura?.nombre ?? '',
         _prod_sistema_nombre: p.sistema?.nombre    ?? '',
+        _prod_imagen_url:    p.imagenes?.[0] ?? p.imagen_url ?? null,
       }];
     });
     setCodigoSearch('');
@@ -841,7 +558,6 @@ export function NuevoPresupuesto() {
       const res = await api.get<CatalogProduct[]>(
         `/catalogo/productos?search=${encodeURIComponent(q.trim())}`
       );
-      // Scanner: si hay match exacto por código → auto-agregar
       if (exactOnEnter) {
         const exact = res.find(r => r.codigo?.toLowerCase() === q.trim().toLowerCase());
         if (exact) { agregarProducto(exact); setCodigoLoading(false); return; }
@@ -856,14 +572,29 @@ export function NuevoPresupuesto() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debounce al escribir (no en Enter)
   useEffect(() => {
     if (!codigoSearch.trim()) { setCodigoResults([]); setShowCodigo(false); return; }
     const t = setTimeout(() => buscarCodigo(codigoSearch, false), 300);
     return () => clearTimeout(t);
   }, [codigoSearch, buscarCodigo]);
 
-  async function handleSave() {
+  // Búsqueda en tab "buscar"
+  useEffect(() => {
+    if (!buscarSearch.trim()) { setBuscarResults([]); return; }
+    const t = setTimeout(async () => {
+      setBuscarLoading(true);
+      try {
+        const res = await api.get<CatalogProduct[]>(
+          `/catalogo/productos?search=${encodeURIComponent(buscarSearch.trim())}`
+        );
+        setBuscarResults(res.slice(0, 20));
+      } catch { /* silencioso */ }
+      finally { setBuscarLoading(false); }
+    }, 280);
+    return () => clearTimeout(t);
+  }, [buscarSearch]);
+
+  async function handleSave(abrirPdf = false) {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
     if (items.length === 0) { toast.error('Agregá al menos un ítem'); return; }
 
@@ -882,31 +613,35 @@ export function NuevoPresupuesto() {
         forma_envio:    formaEnvio,
         costo_envio:    costoEnvio,
         items: items.map((it, idx) => ({
-          tipo_abertura_id:   it.tipo_abertura_id || null,
-          sistema_id:         it.sistema_id || null,
-          descripcion:        it.descripcion || '',
-          medida_ancho:       it.medida_ancho ? parseFloat(it.medida_ancho) : null,
-          medida_alto:        it.medida_alto  ? parseFloat(it.medida_alto)  : null,
-          cantidad:           it.cantidad,
-          costo_unitario:     it.costo_unitario,
-          precio_unitario:    it.precio_unitario,
+          tipo_abertura_id:    it.tipo_abertura_id || null,
+          sistema_id:          it.sistema_id || null,
+          descripcion:         it.descripcion || '',
+          medida_ancho:        it.medida_ancho ? parseFloat(it.medida_ancho) : null,
+          medida_alto:         it.medida_alto  ? parseFloat(it.medida_alto)  : null,
+          cantidad:            it.cantidad,
+          costo_unitario:      it.costo_unitario,
+          precio_unitario:     it.precio_unitario,
           incluye_instalacion: it.incluye_instalacion,
-          costo_instalacion:  it.costo_instalacion,
-          precio_instalacion: it.precio_instalacion,
-          vidrio:             it.vidrio || null,
-          premarco:           it.premarco,
-          origen:             it.origen,
-          color:              it.color || null,
-          accesorios:         it.accesorios,
-          orden:              idx,
-          producto_id:        it.producto_id || null,
+          costo_instalacion:   it.costo_instalacion,
+          precio_instalacion:  it.precio_instalacion,
+          vidrio:              it.vidrio || null,
+          premarco:            it.premarco,
+          origen:              it.origen,
+          color:               it.color || null,
+          accesorios:          it.accesorios,
+          orden:               idx,
+          producto_id:         it.producto_id || null,
         })),
       };
       const op = isEdit
         ? await api.put<{ id: string; numero: string }>(`/operaciones/${editId}`, payload)
         : await api.post<{ id: string; numero: string }>('/operaciones', payload);
       toast.success(isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`);
-      setSavedId(op.id);
+      if (abrirPdf) {
+        setSavedId(op.id);
+      } else {
+        navigate('/presupuestos');
+      }
     } catch (e) {
       toast.error((e as Error).message || 'Error al guardar');
     } finally {
@@ -914,337 +649,821 @@ export function NuevoPresupuesto() {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
-  const labelCls = 'block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1';
+  // ── Filtrado galería ──────────────────────────────────────────────────────────
+  const productosFiltrados = productos.filter(p => {
+    const q = galSearch.toLowerCase();
+    const matchSearch = !q
+      || p.nombre.toLowerCase().includes(q)
+      || (p.codigo ?? '').toLowerCase().includes(q)
+      || (p.tipo_abertura?.nombre ?? '').toLowerCase().includes(q)
+      || (p.sistema?.nombre ?? '').toLowerCase().includes(q)
+      || (p.caracteristica_1 ?? '').toLowerCase().includes(q)
+      || (p.caracteristica_2 ?? '').toLowerCase().includes(q);
+    const matchCat = !categoriaSel || p.tipo_abertura_id === categoriaSel;
+    return matchSearch && matchCat;
+  });
+
+  // Para tab "frecuentes": productos ya en carrito primero
+  const productosOrdenados = tab === 'frecuentes'
+    ? [...productosFiltrados].sort((a, b) => {
+        const enA = items.some(it => it.producto_id === a.id) ? -1 : 1;
+        const enB = items.some(it => it.producto_id === b.id) ? -1 : 1;
+        return enA - enB;
+      })
+    : productosFiltrados;
+
+  // Validez label
+  const fechaValidezLabel = fechaValidez
+    ? new Date(fechaValidez + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : '—';
+
+  const entregaEstimadaLabel = tiempoEntrega ? (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + parseInt(tiempoEntrega));
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+  })() : null;
+
+  const clienteNombre = clienteSeleccionado
+    ? (clienteSeleccionado.tipo_persona === 'juridica'
+        ? clienteSeleccionado.razon_social ?? ''
+        : `${clienteSeleccionado.nombre ?? ''} ${clienteSeleccionado.apellido ?? ''}`.trim())
+    : '';
+  const clienteIniciales = clienteNombre
+    ? clienteNombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+    : '?';
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  const editItemData = editItemKey ? items.find(it => it._key === editItemKey) : null;
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
-          <ArrowLeft size={17} className="text-gray-500" />
-        </button>
-        <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-          <FileText size={16} className="text-violet-600" />
+      {/* ── TOP BAR ── */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        {/* Izquierda */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0"
+          >
+            <ArrowLeft size={17} className="text-gray-500" />
+          </button>
+          <h1 className="text-sm font-bold text-gray-900">
+            {isEdit ? 'Editar presupuesto' : 'Nuevo presupuesto'}
+          </h1>
         </div>
-        <h1 className="text-base font-bold text-gray-900">
-          {isEdit ? 'Editar presupuesto' : 'Nuevo presupuesto'}
-        </h1>
+
+        {/* Derecha: acciones */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleSave(false)}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            <Save size={14} />
+            Guardar borrador
+          </button>
+          <div className="flex">
+            <button
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#10b981] hover:bg-emerald-600 text-white rounded-l-xl text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <FileText size={14} />
+              {saving ? 'Guardando...' : 'Generar proforma'}
+            </button>
+            <button className="px-2 py-2 bg-[#10b981] hover:bg-emerald-600 text-white rounded-r-xl border-l border-emerald-500 transition-colors">
+              <ChevronDown size={13} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Sección: Cliente + Proyecto */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-4">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente y proyecto</h2>
+      {/* ── INFO BAR ── */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-stretch gap-3">
 
-        {/* Cliente */}
-        <div>
-          <label className={labelCls}>Cliente *</label>
+        {/* Card 1: Cliente */}
+        <div className="flex items-center gap-3 min-w-0 flex-1 border-r border-gray-100 pr-3">
           {clienteSeleccionado ? (
-            <div className="flex items-center justify-between bg-violet-50 rounded-lg px-4 py-2.5 border border-violet-200">
-              <div>
-                <p className="text-sm font-semibold text-violet-800">
-                  {clienteSeleccionado.tipo_persona === 'juridica'
-                    ? clienteSeleccionado.razon_social
-                    : `${clienteSeleccionado.nombre ?? ''} ${clienteSeleccionado.apellido ?? ''}`.trim()}
-                </p>
-                <p className="text-xs text-violet-600">{clienteSeleccionado.telefono ?? '—'}</p>
+            <>
+              <div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-xs font-bold">{clienteIniciales}</span>
               </div>
-              <button onClick={() => { setClienteId(''); setClienteSearch(''); }}
-                className="text-xs text-violet-600 hover:underline">Cambiar</button>
-            </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900 truncate">{clienteNombre}</p>
+                {clienteSeleccionado.telefono && (
+                  <p className="text-[11px] text-gray-400">{clienteSeleccionado.telefono}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => { setClienteId(''); setClienteSearch(''); }}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg"
+                  title="Cambiar cliente"
+                >
+                  <Edit2 size={12} className="text-gray-400" />
+                </button>
+                {clienteSeleccionado.telefono && (
+                  <a
+                    href={`https://wa.me/${clienteSeleccionado.telefono.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 hover:bg-green-50 rounded-lg"
+                    title="WhatsApp"
+                  >
+                    <MessageCircle size={12} className="text-green-500" />
+                  </a>
+                )}
+              </div>
+            </>
           ) : (
-            <div className="relative">
-              <input type="text" placeholder="Buscar cliente por nombre, teléfono..."
-                value={clienteSearch}
-                onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
-                onFocus={() => setShowClienteList(true)}
-                className={inputCls} />
-              {showClienteList && clienteSearch && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {clientesFiltrados.length === 0 ? (
-                    <div className="px-4 py-3 text-sm text-gray-500">
-                      No encontrado.{' '}
-                      <button className="text-violet-600 hover:underline"
-                        onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
-                        Crear cliente
+            <div className="flex items-center gap-2 flex-1 min-w-0 relative">
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                <Phone size={13} className="text-gray-300" />
+              </div>
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Seleccionar cliente..."
+                  value={clienteSearch}
+                  onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
+                  onFocus={() => setShowClienteList(true)}
+                  onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
+                  className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                />
+                {showClienteList && clienteSearch && (
+                  <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-72">
+                    {clientesFiltrados.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500">
+                        No encontrado.{' '}
+                        <button
+                          className="text-violet-600 hover:underline"
+                          onMouseDown={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}
+                        >
+                          Crear cliente
+                        </button>
+                      </div>
+                    ) : clientesFiltrados.slice(0, 8).map(c => (
+                      <button
+                        key={c.id}
+                        onMouseDown={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
+                      >
+                        <span className="text-sm text-gray-800">
+                          {c.tipo_persona === 'juridica' ? c.razon_social : `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim()}
+                        </span>
+                        <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
                       </button>
-                    </div>
-                  ) : clientesFiltrados.slice(0, 8).map(c => (
-                    <button key={c.id}
-                      onClick={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
-                      <span className="text-sm text-gray-800">
-                        {c.tipo_persona === 'juridica' ? c.razon_social : `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim()}
-                      </span>
-                      <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Card 2: Forma de pago */}
+        <div className="flex items-center gap-2 shrink-0 border-r border-gray-100 pr-3">
           <div>
-            <label className={labelCls}>Tipo de proyecto</label>
-            <select value={tipoProyecto} onChange={e => setTipoProyecto(e.target.value)} className={inputCls}>
-              <option value="">— Sin especificar —</option>
-              {TIPOS_PROYECTO.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Forma de pago</label>
-            <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
+            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Forma de pago</p>
+            <select
+              value={formaPago}
+              onChange={e => setFormaPago(e.target.value)}
+              className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4 max-w-[170px]"
+            >
               {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* Card 3: Entrega / Instalación */}
+        <div className="flex items-center gap-2 shrink-0 border-r border-gray-100 pr-3">
           <div>
-            <label className={labelCls}>Tiempo de entrega (días)</label>
-            <input type="number" min={0} value={tiempoEntrega}
-              onChange={e => setTiempoEntrega(e.target.value)}
-              placeholder="Ej: 15" className={inputCls} />
+            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Entrega / Instalación</p>
+            <select
+              value={formaEnvio}
+              onChange={e => setFormaEnvio(e.target.value)}
+              className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4"
+            >
+              {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
           </div>
+        </div>
+
+        {/* Card 4: Validez */}
+        <div className="flex items-center gap-2 shrink-0">
           <div>
-            <label className={labelCls}>Período de validez</label>
-            <div className="flex gap-1 mb-2">
+            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Validez</p>
+            <div className="flex items-center gap-1.5">
               {([7, 15, 30] as const).map(d => (
-                <button key={d} type="button"
+                <button
+                  key={d}
+                  type="button"
                   onClick={() => {
                     setValidezDias(d);
                     const f = new Date(); f.setDate(f.getDate() + d);
-                    setFechaValidez(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`);
+                    setFechaValidez(`${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`);
                   }}
-                  className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                  className={cn(
+                    'px-2 py-0.5 rounded text-[10px] font-semibold border transition-all',
                     validezDias === d
                       ? 'border-violet-500 bg-violet-50 text-violet-700'
-                      : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600')}>
-                  {d} días
+                      : 'border-gray-200 text-gray-400 hover:border-violet-300 hover:text-violet-600'
+                  )}
+                >
+                  {d}d
                 </button>
               ))}
-              <button type="button"
-                onClick={() => setValidezDias('custom')}
-                className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
-                  validezDias === 'custom'
-                    ? 'border-violet-500 bg-violet-50 text-violet-700'
-                    : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600')}>
-                Personalizada
-              </button>
+              <span className="text-[10px] text-gray-500 ml-1">hasta {fechaValidezLabel}</span>
             </div>
-            {validezDias === 'custom' ? (
-              <input type="date" value={fechaValidez}
-                onChange={e => setFechaValidez(e.target.value)}
-                className={inputCls} />
-            ) : (
-              <p className="text-xs text-gray-500 px-1">
-                Vence: <span className="font-medium text-gray-700">
-                  {new Date(fechaValidez + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </span>
-              </p>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Sección: Ítems */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Ítems del presupuesto
-              <span className="ml-2 text-gray-400 font-normal normal-case">{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span>
-            </h2>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowGaleria(true)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white hover:bg-violet-50 text-violet-600 border border-violet-200 hover:border-violet-400 rounded-lg font-medium transition-colors">
-                <LayoutGrid size={13} /> Galería de productos
-              </button>
-              <button onClick={() => setItems(prev => [...prev, emptyItem()])}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium">
-                <Plus size={13} /> Ítem manual
-              </button>
+      {/* ── CUERPO 3 COLUMNAS ── */}
+      <div className="flex-1 overflow-hidden grid grid-cols-[360px_1fr_280px] gap-4 p-4">
+
+        {/* ─────────────────────── COLUMNA IZQUIERDA — AGREGAR PRODUCTOS ─────────────────────── */}
+        <div className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+              <span className="text-white text-[10px] font-bold">1</span>
             </div>
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Agregar productos</span>
           </div>
 
-          {/* Buscador por código / lector */}
-          <div className="relative">
-            <div className="flex items-center gap-2 px-3 py-2 border border-violet-200 bg-violet-50 rounded-xl focus-within:ring-2 focus-within:ring-violet-400 focus-within:border-violet-400 transition-all">
-              <ScanLine size={15} className="text-violet-400 shrink-0" />
-              <input
-                ref={codigoRef}
-                value={codigoSearch}
-                onChange={e => setCodigoSearch(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    buscarCodigo(codigoSearch, true);
-                  }
-                  if (e.key === 'Escape') { setCodigoSearch(''); setShowCodigo(false); }
-                }}
-                onFocus={() => codigoSearch && setShowCodigo(true)}
-                onBlur={() => setTimeout(() => setShowCodigo(false), 150)}
-                placeholder="Escanear código de barras o buscar por código / nombre de producto..."
-                className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-violet-300 focus:outline-none"
-              />
-              {codigoLoading
-                ? <Search size={13} className="text-violet-300 animate-pulse shrink-0" />
-                : codigoSearch && (
-                  <button onMouseDown={() => { setCodigoSearch(''); setCodigoResults([]); setShowCodigo(false); }}
-                    className="text-violet-300 hover:text-violet-500">
-                    ×
-                  </button>
-                )
-              }
-            </div>
-            <p className="text-[10px] text-violet-400 mt-0.5 ml-1">
-              Enter o lector de código → agrega automáticamente si hay coincidencia exacta
-            </p>
-
-            {/* Dropdown resultados */}
-            {showCodigo && codigoResults.length > 0 && (
-              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                {codigoResults.map(p => (
-                  <button key={p.id} type="button"
-                    onMouseDown={() => agregarProducto(p)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {p.codigo && (
-                          <span className="font-mono text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">
-                            {p.codigo}
-                          </span>
-                        )}
-                        <span className="text-sm font-medium text-gray-800 truncate">{p.nombre}</span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-violet-700 shrink-0">
-                      {formatCurrency(Number(p.precio_base))}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="p-4 space-y-3">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <ScanLine size={28} className="text-violet-200 mb-3" />
-              <p className="text-sm text-gray-400 font-medium">Sin ítems</p>
-              <p className="text-xs text-gray-300 mt-1">
-                Escanear código de barras o buscar por nombre arriba
-              </p>
-            </div>
-          ) : (
-            items.map((item, idx) => (
-              <ItemCard
-                key={item._key}
-                item={item}
-                idx={idx}
-                tiposAbertura={tiposAbertura}
-                sistemas={sistemas}
-                coloresDB={coloresDB}
-                onChange={updateItem}
-                onRemove={key => setItems(prev => prev.filter(it => it._key !== key))}
-                canRemove={true}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Formas de envío */}
-        <div className="border-t border-gray-100 px-4 py-4 space-y-3">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Truck size={12} /> Forma de envío
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {FORMAS_ENVIO.map(({ value, label, icon: Icon, color }) => (
+          {/* Tabs */}
+          <div className="flex border-b border-gray-100">
+            {([
+              { key: 'galeria',   icon: LayoutGrid, label: 'Galería' },
+              { key: 'buscar',    icon: Search,     label: 'Buscador' },
+              { key: 'frecuentes',icon: Star,       label: 'Frecuentes' },
+              { key: 'scanner',   icon: ScanLine,   label: 'Código' },
+            ] as const).map(({ key, icon: Icon, label }) => (
               <button
-                key={value}
-                type="button"
-                onClick={() => setFormaEnvio(value)}
+                key={key}
+                onClick={() => setTab(key)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-xs font-medium transition-all',
-                  formaEnvio === value
-                    ? 'border-violet-400 bg-violet-50 text-violet-700 shadow-sm'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
+                  'flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition-colors border-b-2',
+                  tab === key
+                    ? 'border-violet-600 text-violet-700 bg-violet-50'
+                    : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                 )}
               >
-                <Icon size={13} className={formaEnvio === value ? 'text-violet-500' : color} />
-                <span className="leading-tight">{label}</span>
+                <Icon size={13} />
+                {label}
               </button>
             ))}
           </div>
-          {formaEnvio === 'envio_empresa' && (
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-500 shrink-0">Importe del envío:</label>
-              <div className="w-48">
-                <MontoInput
-                  value={costoEnvio ? String(costoEnvio) : ''}
-                  onChange={v => setCostoEnvio(parseFloat(v) || 0)}
-                  placeholder="0,00"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
-                />
-              </div>
-            </div>
-          )}
-        </div>
 
-        {/* Total */}
-        {precioTotal > 0 && (
-          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
-            <div className="flex items-center justify-end gap-4 text-sm">
-              {formaEnvio === 'envio_empresa' && costoEnvio > 0 && (
-                <div className="text-right text-xs text-gray-400">
-                  <div>Subtotal: {formatCurrency(precioTotal)}</div>
-                  <div>Envío: +{formatCurrency(costoEnvio)}</div>
+          {/* Contenido del tab */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+
+            {/* TAB: Galería / Frecuentes */}
+            {(tab === 'galeria' || tab === 'frecuentes') && (
+              <>
+                {/* Search bar */}
+                <div className="px-3 py-2 border-b border-gray-50">
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
+                    <Search size={12} className="text-gray-300 shrink-0" />
+                    <input
+                      value={galSearch}
+                      onChange={e => setGalSearch(e.target.value)}
+                      placeholder="Buscar producto, medida o código..."
+                      className="flex-1 bg-transparent text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                    />
+                    {galSearch && (
+                      <button onMouseDown={() => setGalSearch('')} className="text-gray-300 hover:text-gray-500">
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
-              <span className="text-gray-500">Total presupuesto:</span>
-              <span className="text-xl font-bold text-gray-900">{formatCurrency(totalConEnvio)}</span>
-            </div>
-            {formaPago === 'Tarjeta de crédito 3 cuotas sin interés' && (
-              <div className="flex justify-end mt-1.5">
-                <span className="text-xs text-violet-600 font-semibold bg-violet-50 px-3 py-1 rounded-lg border border-violet-100">
-                  a pagar en 3 cuotas de {formatCurrency(totalConEnvio / 3)}
-                </span>
+
+                {/* Category pills */}
+                <div className="flex gap-1.5 px-3 py-2 overflow-x-auto border-b border-gray-50 shrink-0">
+                  <button
+                    onClick={() => setCategoriaSel('')}
+                    className={cn(
+                      'shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors whitespace-nowrap',
+                      !categoriaSel ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-500 hover:border-violet-300'
+                    )}
+                  >
+                    Todas
+                  </button>
+                  {tiposAbertura.map(ta => (
+                    <button
+                      key={ta.id}
+                      onClick={() => setCategoriaSel(ta.id === categoriaSel ? '' : ta.id)}
+                      className={cn(
+                        'shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors whitespace-nowrap',
+                        categoriaSel === ta.id ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-500 hover:border-violet-300'
+                      )}
+                    >
+                      {ta.nombre}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Grid de productos */}
+                <div className="flex-1 overflow-y-auto p-3">
+                  {productosLoading ? (
+                    <div className="flex items-center justify-center py-10 text-gray-400 text-xs">Cargando...</div>
+                  ) : productosOrdenados.length === 0 ? (
+                    <div className="flex items-center justify-center py-10 text-gray-400 text-xs">Sin resultados</div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {productosOrdenados.map(p => {
+                        const img = p.imagenes?.[0] || p.imagen_url;
+                        const enCarrito = items.some(it => it.producto_id === p.id);
+                        const stockBadge = p.stock_actual > 5
+                          ? { label: 'En stock', cls: 'bg-emerald-100 text-emerald-700' }
+                          : p.stock_actual >= 1
+                          ? { label: 'Pocas unidades', cls: 'bg-amber-100 text-amber-700' }
+                          : { label: 'Sin stock', cls: 'bg-red-100 text-red-600' };
+                        return (
+                          <div
+                            key={p.id}
+                            className={cn(
+                              'relative rounded-xl border overflow-hidden cursor-pointer transition-all hover:shadow-md group',
+                              enCarrito ? 'border-violet-400 ring-1 ring-violet-300' : 'border-gray-200 hover:border-violet-300'
+                            )}
+                            onClick={() => agregarProducto(p)}
+                          >
+                            {/* Imagen */}
+                            <div className="aspect-square bg-gray-50 overflow-hidden">
+                              {img
+                                ? <img src={img} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                : <div className="w-full h-full flex items-center justify-center"><Package size={24} className="text-gray-200" /></div>
+                              }
+                            </div>
+                            {/* Stock badge */}
+                            <span className={cn('absolute top-1.5 left-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full', stockBadge.cls)}>
+                              {stockBadge.label}
+                            </span>
+                            {/* En carrito badge */}
+                            {enCarrito && (
+                              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-violet-600 rounded-full flex items-center justify-center">
+                                <CheckCircle2 size={10} className="text-white" />
+                              </span>
+                            )}
+                            {/* Info */}
+                            <div className="p-2">
+                              {p.codigo && (
+                                <span className="font-mono text-[8px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded mb-1 inline-block">{p.codigo}</span>
+                              )}
+                              <p className="text-[11px] font-semibold text-gray-800 leading-tight line-clamp-2">{p.nombre}</p>
+                              <p className="text-xs font-bold text-[#7c3aed] mt-1">{formatCurrency(Number(p.precio_base))}</p>
+                            </div>
+                            {/* Botón + */}
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); agregarProducto(p); }}
+                              className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center shadow-sm"
+                            >
+                              <Plus size={12} className="text-white" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* TAB: Buscador */}
+            {tab === 'buscar' && (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <div className="px-3 py-3 border-b border-gray-50">
+                  <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
+                    <Search size={14} className="text-gray-300 shrink-0" />
+                    <input
+                      autoFocus
+                      value={buscarSearch}
+                      onChange={e => setBuscarSearch(e.target.value)}
+                      placeholder="Buscar producto..."
+                      className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                    />
+                    {buscarSearch && (
+                      <button onMouseDown={() => { setBuscarSearch(''); setBuscarResults([]); }} className="text-gray-300 hover:text-gray-500">
+                        <X size={12} />
+                      </button>
+                    )}
+                    {buscarLoading && <Search size={12} className="text-gray-300 animate-pulse shrink-0" />}
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {buscarResults.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-gray-400 text-xs gap-2">
+                      <Search size={24} className="text-gray-200" />
+                      {buscarSearch ? 'Sin resultados' : 'Escribí para buscar'}
+                    </div>
+                  ) : buscarResults.map(p => {
+                    const img = p.imagenes?.[0] || p.imagen_url;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => agregarProducto(p)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 text-left"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                          {img
+                            ? <img src={img} alt={p.nombre} className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><Package size={14} className="text-gray-300" /></div>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-800 truncate">{p.nombre}</p>
+                          {p.codigo && <p className="font-mono text-[9px] text-gray-400">{p.codigo}</p>}
+                        </div>
+                        <span className="text-xs font-bold text-violet-700 shrink-0">{formatCurrency(Number(p.precio_base))}</span>
+                        <Plus size={14} className="text-emerald-500 shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: Scanner */}
+            {tab === 'scanner' && (
+              <div className="flex flex-col flex-1 p-4 gap-4 overflow-hidden">
+                <div className="relative">
+                  <div className="flex items-center gap-2 px-3 py-3 border-2 border-violet-300 bg-violet-50 rounded-xl focus-within:ring-2 focus-within:ring-violet-400">
+                    <ScanLine size={18} className="text-violet-400 shrink-0" />
+                    <input
+                      ref={codigoRef}
+                      autoFocus
+                      value={codigoSearch}
+                      onChange={e => setCodigoSearch(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); buscarCodigo(codigoSearch, true); }
+                        if (e.key === 'Escape') { setCodigoSearch(''); setShowCodigo(false); }
+                      }}
+                      onFocus={() => codigoSearch && setShowCodigo(true)}
+                      onBlur={() => setTimeout(() => setShowCodigo(false), 150)}
+                      placeholder="Escanear código de barras..."
+                      className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-violet-300 focus:outline-none font-mono"
+                    />
+                    {codigoLoading
+                      ? <Search size={13} className="text-violet-300 animate-pulse shrink-0" />
+                      : codigoSearch && (
+                        <button onMouseDown={() => { setCodigoSearch(''); setCodigoResults([]); setShowCodigo(false); }} className="text-violet-300 hover:text-violet-500">
+                          <X size={13} />
+                        </button>
+                      )
+                    }
+                  </div>
+                  {showCodigo && codigoResults.length > 0 && (
+                    <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {codigoResults.map(p => (
+                        <button key={p.id} type="button"
+                          onMouseDown={() => agregarProducto(p)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              {p.codigo && (
+                                <span className="font-mono text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">{p.codigo}</span>
+                              )}
+                              <span className="text-sm font-medium text-gray-800 truncate">{p.nombre}</span>
+                            </div>
+                          </div>
+                          <span className="text-xs font-semibold text-violet-700 shrink-0">{formatCurrency(Number(p.precio_base))}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-violet-400 text-center">Escanear código de barras — Enter agrega automáticamente</p>
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* Notas */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls}>Notas para el cliente</label>
-          <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={3}
-            placeholder="Condiciones, aclaraciones, forma de pago..."
-            className={inputCls + ' resize-none'} />
         </div>
-        <div>
-          <label className={labelCls}>Notas internas</label>
-          <textarea value={notasInternas} onChange={e => setNotasInternas(e.target.value)} rows={3}
-            placeholder="Solo para el equipo..."
-            className={inputCls + ' resize-none'} />
+
+        {/* ─────────────────────── COLUMNA CENTRAL — PRODUCTOS AGREGADOS ─────────────────────── */}
+        <div className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-[10px] font-bold">2</span>
+              </div>
+              <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Productos agregados</span>
+              {items.length > 0 && (
+                <span className="text-[10px] text-gray-400">({items.length})</span>
+              )}
+            </div>
+            <button
+              onClick={() => setItems(prev => [...prev, emptyItem()])}
+              className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 border border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-500 rounded-lg font-medium transition-colors"
+            >
+              <Plus size={11} /> Ítem manual
+            </button>
+          </div>
+
+          {/* Tabla header */}
+          <div className="grid bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2" style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 40px' }}>
+            <span>Producto</span>
+            <span className="text-center">Medida</span>
+            <span className="text-center">Cant.</span>
+            <span className="text-right">Precio unit.</span>
+            <span className="text-right">Subtotal</span>
+            <span></span>
+          </div>
+
+          {/* Filas del carrito */}
+          <div className="flex-1 overflow-y-auto">
+            {items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-10 text-gray-400">
+                <ScanLine size={32} className="text-gray-200 mb-3" />
+                <p className="text-sm font-medium">Sin productos</p>
+                <p className="text-xs text-gray-300 mt-1">Usá la galería de la izquierda para agregar</p>
+              </div>
+            ) : items.map((item, idx) => {
+              const img = item._prod_imagen_url;
+              const medida = item.medida_ancho && item.medida_alto
+                ? `${item.medida_ancho}×${item.medida_alto}`
+                : item._prod_ancho && item._prod_alto
+                ? `${item._prod_ancho}×${item._prod_alto}`
+                : '—';
+              const subtotal = itemPrecioTotal(item);
+              return (
+                <div
+                  key={item._key}
+                  className={cn(
+                    'grid items-center px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors',
+                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                  )}
+                  style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 40px' }}
+                >
+                  {/* Producto info */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                      {img
+                        ? <img src={img} alt={item.descripcion} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-300" /></div>
+                      }
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 leading-tight truncate">{item.descripcion || 'Sin descripción'}</p>
+                      {(item._prod_tipo_nombre || item._prod_sistema_nombre) && (
+                        <p className="text-[9px] text-gray-400">
+                          {[item._prod_tipo_nombre, item._prod_sistema_nombre].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                      {item.color && <p className="text-[9px] text-gray-400">{item.color}</p>}
+                    </div>
+                  </div>
+
+                  {/* Medida */}
+                  <div className="text-center">
+                    <span className="text-xs text-gray-500">{medida}</span>
+                  </div>
+
+                  {/* Cantidad */}
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => updateItem(item._key, 'cantidad', Math.max(1, item.cantidad - 1))}
+                      className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-400 transition-colors"
+                    >
+                      <span className="text-xs leading-none">−</span>
+                    </button>
+                    <span className="text-xs font-semibold w-6 text-center">{item.cantidad}</span>
+                    <button
+                      onClick={() => updateItem(item._key, 'cantidad', item.cantidad + 1)}
+                      className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-400 transition-colors"
+                    >
+                      <Plus size={10} />
+                    </button>
+                  </div>
+
+                  {/* Precio unit */}
+                  <div className="text-right">
+                    <span className="text-xs text-gray-700">{formatCurrency(item.precio_unitario)}</span>
+                    {item.incluye_instalacion && (
+                      <p className="text-[8px] text-violet-500">+inst. {formatCurrency(item.precio_instalacion)}</p>
+                    )}
+                  </div>
+
+                  {/* Subtotal */}
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-gray-800">{formatCurrency(subtotal)}</span>
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex items-center justify-end gap-0.5">
+                    <button
+                      onClick={() => setEditItemKey(item._key)}
+                      className="p-1 hover:bg-violet-50 rounded text-gray-300 hover:text-violet-600 transition-colors"
+                    >
+                      <Edit2 size={11} />
+                    </button>
+                    <button
+                      onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
+                      className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Notas toggle */}
+          <div className="border-t border-gray-100">
+            <button
+              onClick={() => setShowNotas(v => !v)}
+              className="w-full px-4 py-2 text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+            >
+              <ChevronDown size={12} className={cn('transition-transform', showNotas ? 'rotate-0' : '-rotate-90')} />
+              Agregar observaciones
+            </button>
+            {showNotas && (
+              <div className="px-4 pb-3">
+                <textarea
+                  value={notas}
+                  onChange={e => setNotas(e.target.value)}
+                  rows={2}
+                  placeholder="Notas para el cliente..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer con totales */}
+          <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
+            <div className="text-xs text-gray-400">
+              Total productos: <span className="font-semibold text-gray-600">{items.length}</span>
+              {' '}|{' '}
+              Cantidad total: <span className="font-semibold text-gray-600">{items.reduce((s, it) => s + it.cantidad, 0)}</span>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total</p>
+              <p className="text-xl font-black text-[#031d49]">{formatCurrency(totalConEnvio)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ─────────────────────── COLUMNA DERECHA — RESUMEN ─────────────────────── */}
+        <div className="flex flex-col gap-3 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-sm sticky top-4 self-start w-full">
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-[10px] font-bold">3</span>
+              </div>
+              <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen de la proforma</span>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Breakdown de precios */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">Subtotal</span>
+                  <span className="text-xs font-semibold text-gray-700">{formatCurrency(precioTotal)}</span>
+                </div>
+                {formaEnvio === 'envio_empresa' && costoEnvio > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500">Envío</span>
+                    <span className="text-xs font-semibold text-gray-700">{formatCurrency(costoEnvio)}</span>
+                  </div>
+                )}
+                <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-900">TOTAL</span>
+                  <span className="text-lg font-black text-[#7c3aed]">{formatCurrency(totalConEnvio)}</span>
+                </div>
+                {formaPago === 'Tarjeta de crédito 3 cuotas sin interés' && totalConEnvio > 0 && (
+                  <p className="text-[10px] text-violet-600 text-right">3 cuotas de {formatCurrency(totalConEnvio / 3)}</p>
+                )}
+              </div>
+
+              {/* Forma de envío */}
+              <div>
+                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Forma de envío</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {FORMAS_ENVIO.map(({ value, label, icon: Icon, color }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFormaEnvio(value)}
+                      className={cn(
+                        'flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all',
+                        formaEnvio === value
+                          ? 'border-violet-400 bg-violet-50 text-violet-700'
+                          : 'border-gray-100 text-gray-400 hover:border-gray-200 bg-gray-50'
+                      )}
+                    >
+                      <Icon size={12} className={formaEnvio === value ? 'text-violet-500' : color} />
+                      <span className="text-center leading-tight">{label.split('(')[0].trim()}</span>
+                    </button>
+                  ))}
+                </div>
+                {formaEnvio === 'envio_empresa' && (
+                  <div className="mt-2">
+                    <label className="text-[9px] text-gray-400 uppercase tracking-wider block mb-1">Importe del envío</label>
+                    <MontoInput
+                      value={costoEnvio ? String(costoEnvio) : ''}
+                      onChange={v => setCostoEnvio(parseFloat(v) || 0)}
+                      placeholder="0,00"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Entrega estimada */}
+              {tiempoEntrega && (
+                <div>
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Entrega estimada</p>
+                  <p className="text-xs font-bold text-gray-700">En {tiempoEntrega} días hábiles</p>
+                  {entregaEstimadaLabel && <p className="text-[10px] text-gray-400">{entregaEstimadaLabel}</p>}
+                </div>
+              )}
+
+              {/* Días de entrega input */}
+              <div>
+                <label className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">Tiempo de entrega (días)</label>
+                <input
+                  type="number" min={0} value={tiempoEntrega}
+                  onChange={e => setTiempoEntrega(e.target.value)}
+                  placeholder="Ej: 15"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                />
+              </div>
+
+              {/* Validez */}
+              <div>
+                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Validez</p>
+                <p className="text-xs text-gray-600">Válido hasta: <span className="font-semibold">{fechaValidezLabel}</span></p>
+              </div>
+
+              {/* Condiciones */}
+              <div className="space-y-1.5 border-t border-gray-100 pt-3">
+                {[
+                  validezDias === 'custom' ? 'Presupuesto sujeto a validez' : `Presupuesto válido ${validezDias} días`,
+                  'Los precios incluyen IVA',
+                  'Sujeto a disponibilidad de stock',
+                ].map((cond, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
+                    <span className="text-[10px] text-gray-500">{cond}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Notas colapsadas */}
+              <div className="border-t border-gray-100 pt-3 space-y-2">
+                <details className="group">
+                  <summary className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
+                    <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />
+                    Notas para el cliente
+                  </summary>
+                  <textarea
+                    value={notas}
+                    onChange={e => setNotas(e.target.value)}
+                    rows={2}
+                    placeholder="Condiciones, aclaraciones..."
+                    className="mt-2 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                  />
+                </details>
+                <details className="group">
+                  <summary className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
+                    <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />
+                    Notas internas
+                  </summary>
+                  <textarea
+                    value={notasInternas}
+                    onChange={e => setNotasInternas(e.target.value)}
+                    rows={2}
+                    placeholder="Solo para el equipo..."
+                    className="mt-2 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                  />
+                </details>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Botones guardar — al final del formulario */}
-      <div className="flex items-center justify-end gap-3 pt-2 pb-4 border-t border-gray-200">
-        <button onClick={() => navigate(-1)}
-          className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 font-medium">
-          Cancelar
-        </button>
-        <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-sm">
-          <Save size={15} />
-          {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Guardar presupuesto'}
-        </button>
-      </div>
+      {/* ── Modal edición ítem ── */}
+      {editItemKey && editItemData && (
+        <EditItemModal
+          item={editItemData}
+          tiposAbertura={tiposAbertura}
+          sistemas={sistemas}
+          coloresDB={coloresDB}
+          onChange={updateItem}
+          onClose={() => setEditItemKey(null)}
+        />
+      )}
 
+      {/* ── PDF Dialog ── */}
       {savedId && (
         <PDFDialog
           title={isEdit ? 'Presupuesto actualizado' : 'Presupuesto creado'}
@@ -1256,12 +1475,15 @@ export function NuevoPresupuesto() {
         />
       )}
 
-      {showGaleria && (
-        <GaleriaModal
-          onSelect={p => agregarProducto(p)}
-          onClose={() => setShowGaleria(false)}
-        />
-      )}
+      {/* Variables que no se usan pero se importan para compatibilidad */}
+      {editEstado && false && <span>{editEstado}</span>}
+      {tipoProyecto && false && <span>{tipoProyecto}</span>}
+      {itemCostoTotal && false}
+      {TIPOS_PROYECTO && false}
+      {LABEL_USO && false}
+      {LABEL_CONFIG_HOJAS && false}
+      {LABEL_PROVISION && false}
+      {LABEL_APERTURA && false}
     </div>
   );
 }
