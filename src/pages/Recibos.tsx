@@ -928,7 +928,7 @@ export function Recibos() {
               {[
                 { icon: Plus,     label: 'Nuevo recibo',             action: () => navigate('/recibos/nuevo') },
                 { icon: Wallet,   label: 'Registrar pago parcial',   action: () => navigate('/recibos/nuevo?modo=parcial') },
-                { icon: Send,     label: 'Enviar recordatorio',      action: () => handleFiltro('vencido') },
+                { icon: Send,     label: 'Enviar recordatorio',      action: () => navigate('/estado-cuenta') },
                 { icon: List,     label: 'Ver cuentas por cobrar',   action: () => navigate('/estado-cuenta') },
                 { icon: Printer,  label: 'Reporte de cobranzas',     action: () => handleFiltro('cobrado') },
               ].map((a, i) => {
