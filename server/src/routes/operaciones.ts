@@ -208,9 +208,20 @@ operaciones.get('/ventas-panel', async (c) => {
           WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez <= CURRENT_DATE + 7 THEN 'media'
           WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3 THEN 'media'
           ELSE 'baja'
-        END AS prioridad
+        END AS prioridad,
+        cob.cobrado_total,
+        CASE
+          WHEN o.estado NOT IN ('aprobado','en_produccion','listo','instalado','entregado') THEN NULL
+          WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
+          WHEN cob.cobrado_total >= o.precio_total - 0.01 THEN 'cobrado'
+          ELSE 'seña'
+        END AS estado_cobro
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(r.monto_total), 0)::numeric AS cobrado_total
+        FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+      ) cob ON true
       WHERE o.estado IN ('presupuesto','enviado','aprobado','cancelado','rechazado')
       ORDER BY
         CASE WHEN o.estado IN ('presupuesto','enviado') THEN 0 ELSE 1 END,
@@ -309,6 +320,10 @@ operaciones.get('/:id', async (c) => {
   const [{ rows: [op] }, { rows: items }, { rows: historial }] = await Promise.all([
     db.query(`
       SELECT o.*,
+        COALESCE((
+          SELECT SUM(r.monto_total) FROM recibos r
+          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+        ), 0)::numeric AS cobrado_total,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,

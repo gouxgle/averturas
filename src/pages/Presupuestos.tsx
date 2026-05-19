@@ -5,7 +5,7 @@ import {
   X, Pen, Printer, Share2, Copy, Check, Phone, Mail, User,
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
-  Clock, MessageSquare, List, LayoutGrid, Download, Flame,
+  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -39,6 +39,8 @@ interface PresupuestoPanel {
   dias_sin_respuesta: number;
   ultimo_contacto_canal: string | null;
   prioridad: 'alta' | 'media' | 'baja';
+  cobrado_total: number;
+  estado_cobro: 'sin_cobrar' | 'seña' | 'cobrado' | null;
   cliente: ClienteMin;
 }
 
@@ -62,7 +64,7 @@ interface VentasPanel {
 
 interface OpDetalle {
   id: string; numero: string; tipo: string; estado: EstadoOperacion;
-  cliente_id: string; tipo_proyecto: string | null; forma_pago: string | null;
+  cliente_id: string; cobrado_total: number; tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; created_at: string; updated_at: string;
   forma_envio: string | null; costo_envio: number;
@@ -507,6 +509,55 @@ function PresupuestoModal({
               )}
             </div>
 
+            {op.estado === 'aprobado' && (() => {
+              const cobrado = Number(op.cobrado_total ?? 0);
+              const saldo   = Math.max(0, total - cobrado);
+              const pct     = total > 0 ? Math.min(100, Math.round(cobrado / total * 100)) : 0;
+              const ecLabel = cobrado < 0.01 ? 'Sin cobrar' : saldo < 0.01 ? 'Cobrado' : 'Pago parcial (seña)';
+              const ecColor = cobrado < 0.01 ? 'text-amber-600' : saldo < 0.01 ? 'text-emerald-600' : 'text-sky-600';
+              return (
+                <div className="px-5 py-4 bg-gray-50/60">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Receipt size={13} className="text-gray-400" />
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobranza</p>
+                    </div>
+                    <span className={cn('text-[10px] font-semibold', ecColor)}>{ecLabel}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mb-3 text-center">
+                    <div className="bg-white rounded-lg px-2 py-2 border border-gray-100">
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Total</p>
+                      <p className="text-xs font-bold text-gray-800">{formatCurrency(total)}</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-lg px-2 py-2 border border-emerald-100">
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Cobrado</p>
+                      <p className="text-xs font-bold text-emerald-700">{formatCurrency(cobrado)}</p>
+                    </div>
+                    <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100')}>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Saldo</p>
+                      <p className={cn('text-xs font-bold', saldo > 0.01 ? 'text-amber-700' : 'text-gray-400')}>{formatCurrency(saldo)}</p>
+                    </div>
+                  </div>
+                  {total > 0 && (
+                    <div className="mb-3">
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1 text-right">{pct}% cobrado</p>
+                    </div>
+                  )}
+                  {saldo > 0.01 && (
+                    <button
+                      onClick={() => { onClose(); navigate(`/recibos/nuevo?operacion_id=${op.id}&cliente_id=${op.cliente_id}&monto=${Math.round(saldo)}&concepto=${encodeURIComponent(cobrado > 0.01 ? 'Cancelación de saldo' : 'Pago total')}`); }}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors"
+                    >
+                      <Receipt size={13} /> Registrar cobro
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {!esAprobado && (
               <div className="px-5 py-3 flex items-center gap-2 bg-gray-50 rounded-b-2xl">
                 <span className="text-xs text-gray-400 mr-1">Cambiar estado:</span>
@@ -872,6 +923,18 @@ export function Presupuestos() {
                             {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}
                             {prio.label}
                           </div>
+                        )}
+                        {p.estado === 'aprobado' && p.estado_cobro && (
+                          <span className={cn(
+                            'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold',
+                            p.estado_cobro === 'sin_cobrar' && 'bg-amber-50 text-amber-700 border border-amber-200',
+                            p.estado_cobro === 'seña'       && 'bg-sky-50 text-sky-700 border border-sky-200',
+                            p.estado_cobro === 'cobrado'    && 'bg-emerald-100 text-emerald-700',
+                          )}>
+                            {p.estado_cobro === 'sin_cobrar' && '○ Sin cobrar'}
+                            {p.estado_cobro === 'seña'       && `◑ Seña ${formatCurrency(p.cobrado_total)}`}
+                            {p.estado_cobro === 'cobrado'    && '● Cobrado'}
+                          </span>
                         )}
                       </div>
 
