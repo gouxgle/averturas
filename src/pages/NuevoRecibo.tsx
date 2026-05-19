@@ -53,6 +53,15 @@ interface Operacion {
 interface PresupuestoDetalle {
   id: string;
   numero: string;
+  cliente_id: string;
+  cliente: {
+    id: string;
+    nombre: string | null;
+    apellido: string | null;
+    razon_social: string | null;
+    tipo_persona: 'fisica' | 'juridica';
+    telefono: string | null;
+  };
   forma_pago: string | null;
   forma_envio: string | null;
   costo_envio: number;
@@ -101,18 +110,21 @@ export function NuevoRecibo() {
   const [searchParams] = useSearchParams();
 
   // ── Form state ────────────────────────────────────────────
+  const urlMonto   = searchParams.get('monto');
+  const urlConcepto = searchParams.get('concepto');
+
   const [clienteId,   setClienteId]   = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSel,  setClienteSel]  = useState<Cliente | null>(null);
   const [operacionId, setOperacionId] = useState(searchParams.get('operacion_id') ?? '');
   const [fecha,       setFecha]       = useState(new Date().toISOString().split('T')[0]);
   const [formaPago,   setFormaPago]   = useState('Contado');
   const [referencia,  setReferencia]  = useState('');
-  const [concepto,    setConcepto]    = useState('');
+  const [concepto,    setConcepto]    = useState(urlConcepto ?? '');
   const [notas,       setNotas]       = useState('');
 
   // "Pago total" toma saldo automático; "parcial" pide monto manual
-  const [tipoPago,     setTipoPago]     = useState<'total' | 'parcial'>('total');
-  const [montoParcial, setMontoParcial] = useState('');
+  const [tipoPago,     setTipoPago]     = useState<'total' | 'parcial'>(urlMonto ? 'parcial' : 'total');
+  const [montoParcial, setMontoParcial] = useState(urlMonto ?? '');
 
   // ── Bonificación ──────────────────────────────────────────
   const [bonPct,    setBonPct]    = useState(0);      // preset: 0.05, 0.10…
@@ -194,7 +206,14 @@ export function NuevoRecibo() {
     resetBonificacion();
 
     api.get<PresupuestoDetalle>(`/operaciones/${operacionId}`)
-      .then(setPresupuestoDetalle)
+      .then(detail => {
+        setPresupuestoDetalle(detail);
+        // Auto-set client when arriving from "Cobrar saldo" (URL param, no client selected yet)
+        if (!clienteId && detail.cliente_id) {
+          setClienteId(detail.cliente_id);
+          setClienteSel(detail.cliente as Cliente);
+        }
+      })
       .catch(() => setPresupuestoDetalle(null));
 
     api.get<{ monto_total: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)

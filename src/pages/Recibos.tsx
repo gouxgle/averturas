@@ -5,7 +5,7 @@ import {
   Wallet, CreditCard, Landmark, Banknote, X, Ban, Pen,
   Printer, User, Package, AlertTriangle, MessageCircle,
   Clock, TrendingUp, AlertCircle, ChevronLeft, ChevronRight,
-  FileText, Send, List,
+  Send, List,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -457,7 +457,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
 
 const PER_PAGE = 10;
 
-type FiltroEstado = 'todos' | EstadoCobro;
+type FiltroEstado = 'todos' | 'cobrado' | 'parcial' | 'anulado';
 
 export function Recibos() {
   const navigate = useNavigate();
@@ -480,20 +480,17 @@ export function Recibos() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Unifica recibos + compromisos, ordenados por fecha desc
-  const filas: TablaRow[] = useMemo(() => {
+  // Solo recibos, ordenados por fecha desc
+  const filas: ReciboRow[] = useMemo(() => {
     if (!data) return [];
-    const todos: TablaRow[] = [...data.recibos, ...data.compromisos];
-    return todos.sort((a, b) => {
-      const da = a.tipo === 'compromiso' ? a.fecha_vencimiento : a.fecha;
-      const db2 = b.tipo === 'compromiso' ? b.fecha_vencimiento : b.fecha;
-      return new Date(db2).getTime() - new Date(da).getTime();
-    });
+    return [...data.recibos].sort((a, b) =>
+      new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    );
   }, [data]);
 
   const conteos = useMemo(() => {
-    const c: Record<EstadoCobro, number> = { cobrado: 0, parcial: 0, pendiente: 0, vencido: 0, anulado: 0 };
-    filas.forEach(f => { c[f.estado_cobro as EstadoCobro]++; });
+    const c: Record<string, number> = { cobrado: 0, parcial: 0, anulado: 0 };
+    filas.forEach(f => { c[f.estado_cobro] = (c[f.estado_cobro] ?? 0) + 1; });
     return c;
   }, [filas]);
 
@@ -505,8 +502,7 @@ export function Recibos() {
       list = list.filter(f =>
         f.numero.toLowerCase().includes(q) ||
         f.cliente_nombre.toLowerCase().includes(q) ||
-        (f.operacion_numero ?? '').toLowerCase().includes(q) ||
-        (f.tipo === 'compromiso' && (f.descripcion ?? '').toLowerCase().includes(q))
+        (f.operacion_numero ?? '').toLowerCase().includes(q)
       );
     }
     return list;
@@ -574,12 +570,10 @@ export function Recibos() {
   ];
 
   const TABS: { key: FiltroEstado; label: string }[] = [
-    { key: 'todos',    label: 'Todos' },
-    { key: 'cobrado',  label: 'Cobrado' },
-    { key: 'pendiente',label: 'Pendiente' },
-    { key: 'parcial',  label: 'Parcial' },
-    { key: 'vencido',  label: 'Vencido' },
-    { key: 'anulado',  label: 'Anulado' },
+    { key: 'todos',   label: 'Todos' },
+    { key: 'cobrado', label: 'Cobrado' },
+    { key: 'parcial', label: 'Parcial' },
+    { key: 'anulado', label: 'Anulado' },
   ];
 
   return (
@@ -650,15 +644,12 @@ export function Recibos() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
             <div className="flex items-center gap-2 flex-wrap mb-3">
               {TABS.map(t => {
-                const count = t.key === 'todos' ? filas.length : conteos[t.key as EstadoCobro];
-                const isVencidoInactive = t.key === 'vencido' && filtro !== 'vencido' && conteos.vencido > 0;
+                const count = t.key === 'todos' ? filas.length : (conteos[t.key] ?? 0);
                 return (
                   <button key={t.key} onClick={() => handleFiltro(t.key)}
                     className={cn(
                       'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                      filtro === t.key
-                        ? t.key === 'vencido' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'
-                        : isVencidoInactive ? 'text-red-600 hover:bg-red-50' : 'text-gray-600 hover:bg-gray-100'
+                      filtro === t.key ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
                     )}>
                     {t.label}
                     <span className={cn(
@@ -680,12 +671,11 @@ export function Recibos() {
           {/* Tabla */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {/* Cabecera */}
-            <div className="grid grid-cols-[180px_1fr_130px_90px_90px_110px_100px_80px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            <div className="grid grid-cols-[180px_1fr_130px_90px_140px_110px_80px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               <span>Recibo</span>
               <span>Cliente</span>
               <span>Presupuesto / Op.</span>
               <span>Fecha</span>
-              <span>Vencimiento</span>
               <span>Estado</span>
               <span>Método</span>
               <span className="text-right">Monto</span>
@@ -711,37 +701,27 @@ export function Recibos() {
               <div className="divide-y divide-gray-50">
                 {paginated.map(fila => {
                   const ec = fila.estado_cobro as EstadoCobro;
-                  const isRecibo = fila.tipo === 'recibo';
-                  const FPIcon = isRecibo ? pagoIcon((fila as ReciboRow).forma_pago) : FileText;
-                  const vencDate = fila.tipo === 'compromiso'
-                    ? (fila as CompromisoRow).fecha_vencimiento
-                    : null;
-                  const waMsg = `Hola, te contactamos por el ${isRecibo ? 'recibo' : 'pago pendiente'} ${fila.numero} por ${formatCurrency(fila.monto_total)}.`;
+                  const FPIcon = pagoIcon(fila.forma_pago);
+                  const waMsg = `Hola, te contactamos por el recibo ${fila.numero} por ${formatCurrency(fila.monto_total)}.`;
 
                   return (
-                    <div key={`${fila.tipo}-${fila.id}`}
+                    <div key={fila.id}
                       className={cn(
-                        'grid grid-cols-[180px_1fr_130px_90px_90px_110px_100px_80px] gap-2 px-4 py-3 items-center',
-                        'border-l-4 hover:bg-gray-50/80 transition-colors',
+                        'grid grid-cols-[180px_1fr_130px_90px_140px_110px_80px] gap-2 px-4 py-3 items-center',
+                        'border-l-4 hover:bg-gray-50/80 transition-colors cursor-pointer',
                         ESTADO_BORDER[ec],
-                        isRecibo && 'cursor-pointer'
                       )}
-                      onClick={isRecibo ? () => setDetailId(fila.id) : undefined}
+                      onClick={() => setDetailId(fila.id)}
                     >
                       {/* Número */}
                       <div>
                         <p className="font-mono text-xs font-bold text-gray-800 leading-tight">{fila.numero}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {fmtFecha(fila.tipo === 'recibo' ? fila.fecha : fila.fecha)}
-                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(fila.fecha)}</p>
                       </div>
 
                       {/* Cliente */}
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-gray-800 truncate">{fila.cliente_nombre}</p>
-                        {fila.tipo === 'compromiso' && fila.descripcion && (
-                          <p className="text-[10px] text-gray-400 truncate italic">{fila.descripcion}</p>
-                        )}
                       </div>
 
                       {/* Operación */}
@@ -757,34 +737,36 @@ export function Recibos() {
                         {fmtFecha(fila.fecha)}
                       </div>
 
-                      {/* Vencimiento */}
-                      <div className="text-xs">
-                        {vencDate
-                          ? <span className={cn(ec === 'vencido' ? 'text-red-600 font-semibold' : 'text-gray-600')}>
-                              {fmtFecha(vencDate)}
-                            </span>
-                          : <span className="text-gray-300">—</span>
-                        }
-                      </div>
-
-                      {/* Estado */}
+                      {/* Estado + saldo */}
                       <div>
                         <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold', ESTADO_BG[ec])}>
                           {ESTADO_LABEL[ec]}
                         </span>
-                        {fila.tipo === 'recibo' && ec === 'parcial' && (fila as ReciboRow).saldo_pendiente > 0 && (
-                          <p className="text-[9px] text-amber-600 mt-0.5">
-                            Saldo: {formatCurrency((fila as ReciboRow).saldo_pendiente)}
-                          </p>
+                        {ec === 'parcial' && fila.saldo_pendiente > 0 && (
+                          <div className="mt-1" onClick={e => e.stopPropagation()}>
+                            <p className="text-[9px] text-amber-600 font-semibold">
+                              Saldo: {formatCurrency(fila.saldo_pendiente)}
+                            </p>
+                            {fila.operacion_id && (
+                              <button
+                                onClick={() => navigate(
+                                  `/recibos/nuevo?operacion_id=${fila.operacion_id}` +
+                                  `&monto=${Math.round(fila.saldo_pendiente)}` +
+                                  `&concepto=${encodeURIComponent('Cancelación de saldo')}`
+                                )}
+                                className="mt-0.5 text-[9px] text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-500 border border-amber-300 rounded px-1.5 py-0.5 font-semibold transition-colors"
+                              >
+                                Cobrar saldo
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
 
                       {/* Método */}
                       <div className="flex items-center gap-1">
                         <FPIcon size={11} className="text-gray-400 shrink-0" />
-                        <span className="text-[11px] text-gray-600 truncate">
-                          {isRecibo ? pagoLabel((fila as ReciboRow).forma_pago) : 'Compromiso'}
-                        </span>
+                        <span className="text-[11px] text-gray-600 truncate">{pagoLabel(fila.forma_pago)}</span>
                       </div>
 
                       {/* Monto + acciones */}
@@ -801,12 +783,10 @@ export function Recibos() {
                               <MessageCircle size={13} />
                             </a>
                           )}
-                          {isRecibo && (
-                            <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
-                              className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors">
-                              <Printer size={13} />
-                            </button>
-                          )}
+                          <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
+                            className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors">
+                            <Printer size={13} />
+                          </button>
                         </div>
                       </div>
                     </div>
