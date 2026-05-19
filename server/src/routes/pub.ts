@@ -245,8 +245,7 @@ pub.get('/remito/:token', async (c) => {
         'email',     e.email,
         'direccion', e.direccion,
         'logo_url',  e.logo_url,
-        'instagram', e.instagram,
-        'website',   e.website
+        'instagram', e.instagram
       ) AS empresa
     FROM remitos r
     JOIN clientes cl ON cl.id = r.cliente_id
