@@ -197,6 +197,50 @@ emitido  → entregado (registra fecha_entrega_real)
 /imprimir/recibo/:id
 ```
 
+## Circuito comercial completo — Presupuesto → Cobro → Entrega
+
+### 1. Presupuesto
+- Estado flujo: `presupuesto → enviado → aprobado → en_produccion → listo → instalado → entregado | cancelado | rechazado`
+- Estado cobro (campo calculado, no columna): `sin_cobrar | seña | cobrado`
+  - Se calcula en `GET /operaciones/ventas-panel` (LATERAL join) y `GET /operaciones/:id` (subquery)
+  - `cobrado_total` = SUM(recibos.monto_total) WHERE operacion_id = o.id AND estado = 'emitido'
+  - Visible en Presupuestos.tsx: badge en fila (aprobados) + sección Cobranza en modal
+
+### 2. Recibos (cobro)
+- Solo sobre operaciones `estado = 'aprobado'`
+- Tipos: `pago total` (toma saldo automático) | `pago parcial` (monto manual)
+- Pago contado: habilita bonificación sobre precio de productos (no envío ni instalación)
+- `estado_cobro` en el recibo: `cobrado` (cubre total) | `parcial` (saldo pendiente) | `anulado`
+- Flujo ágil desde Presupuestos: botón "Registrar cobro" en modal → `/recibos/nuevo` pre-cargado
+- Flujo ágil desde Recibos: botón "Cobrar saldo" en filas parciales → `/recibos/nuevo?operacion_id=X&monto=Y&concepto=Cancelación de saldo`
+
+### 3. Compromisos de pago
+- Se crean automáticamente al guardar un recibo parcial (si el usuario activa la opción)
+- Campo: `compromisos_pago (monto, fecha_vencimiento, tipo, estado: pendiente|cobrado|cancelado)`
+- Se auto-cierran cuando `SUM(recibos.monto_total) >= operacion.precio_total`
+- **NO aparecen en la lista de Recibos** — solo se ven como indicador informativo en el sidebar de Recibos (Deudas por cliente, Próximos vencimientos) y en el modal del recibo parcial
+
+### 4. Remitos (entrega)
+- Solo se crean desde operaciones aprobadas
+- Estado: `borrador → emitido → entregado | cancelado`
+- Al emitir: descuenta stock (movimientos `egreso_remito`)
+- Al cancelar con stock descontado: revierte (movimiento `devolucion`)
+- Tienen link público (`/pub/remito/:token`) para que el cliente confirme recepción
+- Campo `recepcion_estado`: `conforme | con_observaciones | no_conforme`
+
+### Visibilidad del pago por pantalla
+
+| Pantalla | Dónde ver el pago |
+|---|---|
+| **Presupuestos** (lista) | Badge `○ Sin cobrar / ◑ Seña $X / ● Cobrado` en filas aprobadas |
+| **Presupuestos** (modal) | Sección "Cobranza" con barra de progreso + botón "Registrar cobro" |
+| **Recibos** (lista) | Filas con `estado_cobro: cobrado/parcial/anulado` + botón "Cobrar saldo" |
+| **Recibos** (modal) | Total cobrado + saldo + fecha compromiso |
+| **OperacionDetalle** | Panel lateral con recibos + totalCobrado + saldoPendiente |
+| **Remitos** | No muestra estado de pago (solo flujo de entrega) |
+
+---
+
 ## Flujo de aprobación pública (link WhatsApp)
 
 1. Admin abre modal presupuesto → "Compartir" → llama `POST /operaciones/:id/generar-link`
