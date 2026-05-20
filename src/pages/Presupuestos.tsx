@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { HelpButton } from '@/components/HelpButton';
 import {
   Plus, Search, FileText, Send, CheckCircle, XCircle, RotateCcw,
   X, Pen, Printer, Share2, Copy, Check, Phone, Mail, User,
@@ -711,10 +712,13 @@ export function Presupuestos() {
             <p className="text-sm text-gray-500">Gestión de cotizaciones</p>
           </div>
         </div>
-        <Link to="/presupuestos/nuevo"
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all">
-          <Plus size={16} /> Nuevo presupuesto
-        </Link>
+        <div className="flex items-center gap-2">
+          <HelpButton topic="presupuestos" />
+          <Link to="/presupuestos/nuevo"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all">
+            <Plus size={16} /> Nuevo presupuesto
+          </Link>
+        </div>
       </div>
 
       {/* KPI tiles */}
@@ -925,12 +929,18 @@ export function Presupuestos() {
                           </div>
                         )}
                         {p.estado === 'aprobado' && p.estado_cobro && (
-                          <span className={cn(
-                            'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold',
-                            p.estado_cobro === 'sin_cobrar' && 'bg-amber-50 text-amber-700 border border-amber-200',
-                            p.estado_cobro === 'seña'       && 'bg-sky-50 text-sky-700 border border-sky-200',
-                            p.estado_cobro === 'cobrado'    && 'bg-emerald-100 text-emerald-700',
-                          )}>
+                          <span
+                            title={
+                              p.estado_cobro === 'sin_cobrar' ? 'No se registró ningún pago sobre este presupuesto'
+                              : p.estado_cobro === 'seña'     ? 'Pago parcial registrado — hay saldo pendiente'
+                              : 'El total del presupuesto fue cobrado'
+                            }
+                            className={cn(
+                              'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold cursor-default',
+                              p.estado_cobro === 'sin_cobrar' && 'bg-amber-50 text-amber-700 border border-amber-200',
+                              p.estado_cobro === 'seña'       && 'bg-sky-50 text-sky-700 border border-sky-200',
+                              p.estado_cobro === 'cobrado'    && 'bg-emerald-100 text-emerald-700',
+                            )}>
                             {p.estado_cobro === 'sin_cobrar' && '○ Sin cobrar'}
                             {p.estado_cobro === 'seña'       && `◑ Seña ${formatCurrency(p.cobrado_total)}`}
                             {p.estado_cobro === 'cobrado'    && '● Cobrado'}

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
@@ -716,6 +717,7 @@ export function NuevoPresupuesto() {
 
         {/* Derecha: acciones */}
         <div className="flex items-center gap-2">
+          <HelpButton topic="presupuestos" />
           <button
             onClick={() => handleSave(false)}
             disabled={saving}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { HelpButton } from '@/components/HelpButton';
 import {
   ArrowLeft, Save, Receipt, Users, Calendar, CreditCard,
   RefreshCw, Check, X, Package, Gift,
@@ -382,6 +383,7 @@ export function NuevoRecibo() {
           {isEdit ? 'Editar recibo' : 'Nuevo recibo'}
         </h1>
         <div className="flex items-center gap-2">
+          <HelpButton topic="recibos" />
           <button onClick={() => navigate('/recibos')}
             className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
             Cancelar

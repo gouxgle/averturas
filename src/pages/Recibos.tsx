@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HelpButton } from '@/components/HelpButton';
 import {
   Receipt, Plus, Search, RefreshCw, CheckCircle2, XCircle,
   Wallet, CreditCard, Landmark, Banknote, X, Ban, Pen,
@@ -589,6 +590,7 @@ export function Recibos() {
           <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
+          <HelpButton topic="recibos" />
           <button onClick={() => navigate('/recibos/nuevo')}
             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
             <Plus size={14} /> Nuevo recibo
