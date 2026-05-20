@@ -637,7 +637,7 @@ export function Recibos() {
       </div>
 
       {/* Layout principal */}
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
 
         {/* Columna central */}
         <div className="flex-1 min-w-0 space-y-3">
@@ -671,9 +671,9 @@ export function Recibos() {
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
             {/* Cabecera */}
-            <div className="grid grid-cols-[180px_1fr_130px_90px_140px_110px_80px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            <div className="grid grid-cols-[160px_1fr_110px_80px_130px_105px_75px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               <span>Recibo</span>
               <span>Cliente</span>
               <span>Presupuesto / Op.</span>
@@ -709,7 +709,7 @@ export function Recibos() {
                   return (
                     <div key={fila.id}
                       className={cn(
-                        'grid grid-cols-[180px_1fr_130px_90px_140px_110px_80px] gap-2 px-4 py-3 items-center',
+                        'grid grid-cols-[160px_1fr_110px_80px_130px_105px_75px] gap-2 px-4 py-3 items-center',
                         'border-l-4 hover:bg-gray-50/80 transition-colors cursor-pointer',
                         ESTADO_BORDER[ec],
                       )}
@@ -887,7 +887,7 @@ export function Recibos() {
         </div>
 
         {/* Sidebar */}
-        <div className="w-[280px] shrink-0 space-y-4">
+        <div className="w-full xl:w-[260px] xl:shrink-0 space-y-4">
 
           {/* Deudas por cliente */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">

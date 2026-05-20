@@ -787,7 +787,7 @@ export function Presupuestos() {
       ) : null}
 
       {/* Main area */}
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
         {/* Left: table */}
         <div className="flex-1 min-w-0">
           {/* Tabs + ordenar */}
@@ -850,10 +850,10 @@ export function Presupuestos() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
             {/* Header */}
             <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 border-b border-gray-100 bg-gray-50"
-              style={{ gridTemplateColumns: '180px 1fr 160px 150px 120px 110px 100px' }}>
+              style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}>
               <span>Presupuesto</span>
               <span>Cliente</span>
               <span>Estado / Prioridad</span>
@@ -866,7 +866,7 @@ export function Presupuestos() {
             {loading ? (
               <div className="divide-y divide-gray-50">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="px-4 py-3 animate-pulse grid gap-4" style={{ gridTemplateColumns: '180px 1fr 160px 150px 120px 110px 100px' }}>
+                  <div key={i} className="px-4 py-3 animate-pulse grid gap-4" style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}>
                     {[...Array(7)].map((_, j) => <div key={j} className="h-4 bg-gray-100 rounded" />)}
                   </div>
                 ))}
@@ -894,7 +894,7 @@ export function Presupuestos() {
                         isAprobadoOnline && 'bg-emerald-50/50 hover:bg-emerald-50/70',
                         isRechazado && !isAprobadoOnline && 'bg-red-50/30 hover:bg-red-50/50'
                       )}
-                      style={{ gridTemplateColumns: '180px 1fr 160px 150px 120px 110px 100px' }}
+                      style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}
                       onClick={() => setDetailId(p.id)}>
 
                       {/* Presupuesto */}
@@ -1043,7 +1043,7 @@ export function Presupuestos() {
         </div>
 
         {/* Right sidebar */}
-        <div className="w-72 shrink-0 space-y-4">
+        <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
           {/* En riesgo total */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <div className="flex items-center justify-between mb-2">

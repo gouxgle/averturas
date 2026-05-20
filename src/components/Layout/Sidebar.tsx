@@ -87,7 +87,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     : 'U';
 
   return (
-    <aside className="w-64 lg:w-60 h-full min-h-screen flex flex-col select-none" style={{ backgroundColor: '#031d49' }}>
+    <aside className="w-64 lg:w-56 h-full min-h-screen flex flex-col select-none" style={{ backgroundColor: '#031d49' }}>
 
       {/* Header: logo + nombre empresa */}
       <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>

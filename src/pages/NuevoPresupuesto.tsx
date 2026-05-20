@@ -884,7 +884,7 @@ export function NuevoPresupuesto() {
       </div>
 
       {/* ── CUERPO 3 COLUMNAS ── */}
-      <div className="flex-1 overflow-hidden grid grid-cols-[360px_1fr_280px] gap-4 p-4">
+      <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[300px_1fr_240px] xl:grid-cols-[360px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
 
         {/* ─────────────────────── COLUMNA IZQUIERDA — AGREGAR PRODUCTOS ─────────────────────── */}
         <div className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
