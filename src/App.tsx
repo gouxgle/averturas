@@ -24,6 +24,8 @@ import { Remitos } from '@/pages/Remitos';
 import { NuevoRemito } from '@/pages/NuevoRemito';
 import { Recibos } from '@/pages/Recibos';
 import { NuevoRecibo } from '@/pages/NuevoRecibo';
+import Pedidos from '@/pages/Pedidos';
+import NuevoPedido from '@/pages/NuevoPedido';
 import { EstadoCuentaGlobal } from '@/pages/EstadoCuentaGlobal';
 import { CRM } from '@/pages/CRM';
 import { ImportarClientes } from '@/pages/ImportarClientes';
@@ -76,6 +78,9 @@ export default function App() {
                 <Route path="/remitos" element={<Remitos />} />
                 <Route path="/remitos/nuevo" element={<NuevoRemito />} />
                 <Route path="/remitos/:id/editar" element={<NuevoRemito />} />
+                <Route path="/pedidos" element={<Pedidos />} />
+                <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
+                <Route path="/pedidos/:id/editar" element={<NuevoPedido />} />
                 <Route path="/recibos" element={<Recibos />} />
                 <Route path="/recibos/nuevo" element={<NuevoRecibo />} />
                 <Route path="/recibos/:id/editar" element={<NuevoRecibo />} />

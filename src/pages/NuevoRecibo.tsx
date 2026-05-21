@@ -55,6 +55,7 @@ interface PresupuestoDetalle {
   id: string;
   numero: string;
   cliente_id: string;
+  proveedor_id: string | null;
   cliente: {
     id: string;
     nombre: string | null;
@@ -355,6 +356,15 @@ export function NuevoRecibo() {
           payload.compromiso
             ? 'Recibo creado y compromiso registrado'
             : 'Recibo creado',
+          presupuestoDetalle?.proveedor_id && operacionId
+            ? {
+                action: {
+                  label: 'Generar pedido al proveedor',
+                  onClick: () => navigate(`/pedidos/nuevo?operacion_id=${operacionId}`),
+                },
+                duration: 8000,
+              }
+            : undefined,
         );
         setSavedId(rec.id);
       }

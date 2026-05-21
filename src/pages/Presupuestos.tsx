@@ -6,7 +6,7 @@ import {
   X, Pen, Printer, Share2, Copy, Check, Phone, Mail, User,
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
-  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt,
+  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -65,7 +65,8 @@ interface VentasPanel {
 
 interface OpDetalle {
   id: string; numero: string; tipo: string; estado: EstadoOperacion;
-  cliente_id: string; cobrado_total: number; tipo_proyecto: string | null; forma_pago: string | null;
+  cliente_id: string; cobrado_total: number; proveedor_id: string | null;
+  tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; created_at: string; updated_at: string;
   forma_envio: string | null; costo_envio: number;
@@ -553,6 +554,14 @@ function PresupuestoModal({
                       className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors"
                     >
                       <Receipt size={13} /> Registrar cobro
+                    </button>
+                  )}
+                  {op.proveedor_id && cobrado > 0.01 && (
+                    <button
+                      onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
+                    >
+                      <ShoppingCart size={13} /> Generar pedido al proveedor
                     </button>
                   )}
                 </div>

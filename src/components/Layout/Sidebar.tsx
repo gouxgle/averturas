@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
   FileText, Hammer, Layers, Boxes, TrendingUp,
-  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, BookOpen, GitBranch
+  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, BookOpen, GitBranch, ShoppingCart
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { to: '/presupuestos',  label: 'Presupuestos',     icon: FileText,        activeColor: 'text-violet-400',  activeBg: 'bg-violet-500/10' },
       { to: '/operaciones',   label: 'Operaciones',      icon: Hammer,          activeColor: 'text-amber-400',   activeBg: 'bg-amber-500/10' },
       { to: '/remitos',       label: 'Remitos',          icon: Truck,           activeColor: 'text-teal-400',    activeBg: 'bg-teal-500/10' },
+      { to: '/pedidos',       label: 'Pedidos',          icon: ShoppingCart,    activeColor: 'text-lime-400',    activeBg: 'bg-lime-500/10' },
       { to: '/recibos',       label: 'Recibos',          icon: Receipt,         activeColor: 'text-emerald-400', activeBg: 'bg-emerald-500/10' },
       { to: '/clientes',      label: 'Clientes',         icon: Users,           activeColor: 'text-cyan-400',    activeBg: 'bg-cyan-500/10' },
       { to: '/estado-cuenta', label: 'Estado de Cuenta', icon: BookOpen,        activeColor: 'text-indigo-400',  activeBg: 'bg-indigo-500/10' },

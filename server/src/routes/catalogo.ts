@@ -255,6 +255,12 @@ catalogo.post('/proveedores', async (c) => {
   return c.json(rows[0], 201);
 });
 
+catalogo.get('/proveedores/:id', async (c) => {
+  const { rows: [prov] } = await db.query(`SELECT * FROM proveedores WHERE id=$1`, [c.req.param('id')]);
+  if (!prov) return c.json({ error: 'Proveedor no encontrado' }, 404);
+  return c.json(prov);
+});
+
 catalogo.put('/proveedores/:id', async (c) => {
   const b = await c.req.json();
   const { rows } = await db.query(
