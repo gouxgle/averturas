@@ -1239,6 +1239,7 @@ export function NuevoProducto() {
     stock_inicial:    '0',
     stock_minimo:     '0',
     proveedor_id:     '',
+    proveedor_sku:    '',
     costo_base:       '',
     precio_base:      '',
     precio_por_m2:    false,
@@ -1306,6 +1307,7 @@ export function NuevoProducto() {
           stock_inicial:    String(data.stock_inicial ?? 0),
           stock_minimo:     String(data.stock_minimo ?? 0),
           proveedor_id:     data.proveedor_id ?? '',
+          proveedor_sku:    data.proveedor_sku ?? '',
           costo_base:       String(data.costo_base),
           precio_base:      String(data.precio_base),
           precio_por_m2:    data.precio_por_m2 ?? false,
@@ -1423,6 +1425,7 @@ export function NuevoProducto() {
         stock_inicial:    parseInt(form.stock_inicial) || 0,
         stock_minimo:     parseInt(form.stock_minimo)  || 0,
         proveedor_id:     form.proveedor_id || null,
+        proveedor_sku:    form.proveedor_sku.trim() || null,
         costo_base:       parseFloat(form.costo_base),
         precio_base:      parseFloat(form.precio_base),
         precio_por_m2:    form.precio_por_m2,
@@ -1789,12 +1792,26 @@ export function NuevoProducto() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Tag} label="Proveedor" />
-          <div className="p-4">
-            <label className={labelCls}>Proveedor</label>
-            <select value={form.proveedor_id} onChange={e => set('proveedor_id', e.target.value)} className={inputCls}>
-              <option value="">— Sin proveedor —</option>
-              {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
+          <div className="p-4 space-y-3">
+            <div>
+              <label className={labelCls}>Proveedor</label>
+              <select value={form.proveedor_id} onChange={e => set('proveedor_id', e.target.value)} className={inputCls}>
+                <option value="">— Sin proveedor —</option>
+                {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Código / referencia del proveedor</label>
+              <input
+                value={form.proveedor_sku}
+                onChange={e => set('proveedor_sku', e.target.value)}
+                placeholder="Ej: VEN-1200-PVC-BL"
+                className={inputCls}
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Se muestra en los pedidos al proveedor para identificar el producto
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -342,9 +342,10 @@ operaciones.get('/:id', async (c) => {
         (oi.precio_unitario + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion ELSE 0 END) * oi.cantidad AS precio_total,
         ta.nombre AS tipo_abertura_nombre,
         s.nombre  AS sistema_nombre,
-        cp.atributos  AS producto_atributos,
-        cp.nombre     AS producto_nombre,
-        cp.imagen_url AS producto_imagen_url
+        cp.atributos    AS producto_atributos,
+        cp.nombre       AS producto_nombre,
+        cp.imagen_url   AS producto_imagen_url,
+        cp.proveedor_sku AS producto_proveedor_sku
       FROM operacion_items oi
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id

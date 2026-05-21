@@ -207,8 +207,10 @@ pedidos.post('/', async (c) => {
   if (!b.items?.length)   return c.json({ error: 'items requeridos' }, 400);
 
   const numero = await nextNumero();
-  const montoTotal = (b.items as { costo_unitario: number; cantidad: number }[])
+  const montoItems = (b.items as { costo_unitario: number; cantidad: number }[])
     .reduce((acc, i) => acc + (parseFloat(String(i.costo_unitario)) || 0) * (i.cantidad || 1), 0);
+  const costoEnvio = typeof b.costo_envio === 'number' ? b.costo_envio : Math.round(montoItems * 0.10);
+  const montoTotal = montoItems + costoEnvio;
 
   const client = await db.connect();
   try {
@@ -217,8 +219,8 @@ pedidos.post('/', async (c) => {
     const { rows: [pedido] } = await client.query(`
       INSERT INTO pedidos
         (numero, proveedor_id, operacion_id, estado, fecha_pedido,
-         fecha_entrega_est, monto_total, notas, created_by)
-      VALUES ($1,$2,$3,'pendiente',$4,$5,$6,$7,$8)
+         fecha_entrega_est, monto_total, costo_envio, notas, created_by)
+      VALUES ($1,$2,$3,'pendiente',$4,$5,$6,$7,$8,$9)
       RETURNING *
     `, [
       numero,
@@ -227,6 +229,7 @@ pedidos.post('/', async (c) => {
       b.fecha_pedido        || new Date().toISOString().split('T')[0],
       b.fecha_entrega_est   || null,
       montoTotal,
+      costoEnvio,
       b.notas               || null,
       user?.id              || null,
     ]);
@@ -260,6 +263,36 @@ pedidos.post('/', async (c) => {
   }
 });
 
+// GET /operaciones-disponibles — ops aprobadas con pago, sin pedido activo
+pedidos.get('/operaciones-disponibles', async (c) => {
+  const { rows } = await db.query(`
+    SELECT
+      o.id, o.numero, o.proveedor_id, o.precio_total,
+      json_build_object(
+        'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
+        'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona
+      ) AS cliente,
+      COALESCE((
+        SELECT SUM(r.monto_total) FROM recibos r
+        WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+      ), 0)::numeric AS cobrado_total,
+      (SELECT nombre FROM proveedores WHERE id = o.proveedor_id LIMIT 1) AS proveedor_nombre
+    FROM operaciones o
+    LEFT JOIN clientes c ON c.id = o.cliente_id
+    WHERE o.estado = 'aprobado'
+      AND EXISTS (
+        SELECT 1 FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pedidos p
+        WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
+      )
+    ORDER BY o.created_at DESC
+    LIMIT 50
+  `);
+  return c.json(rows);
+});
+
 // GET /:id — detalle con items
 pedidos.get('/:id', async (c) => {
   const { id } = c.req.param();
@@ -289,8 +322,10 @@ pedidos.put('/:id', async (c) => {
   if (!actual) return c.json({ error: 'Pedido no encontrado' }, 404);
   if (actual.estado !== 'pendiente') return c.json({ error: 'Solo se puede editar un pedido pendiente' }, 409);
 
-  const montoTotal = (b.items as { costo_unitario: number; cantidad: number }[])
+  const montoItemsEdit = (b.items as { costo_unitario: number; cantidad: number }[])
     .reduce((acc, i) => acc + (parseFloat(String(i.costo_unitario)) || 0) * (i.cantidad || 1), 0);
+  const costoEnvioEdit = typeof b.costo_envio === 'number' ? b.costo_envio : Math.round(montoItemsEdit * 0.10);
+  const montoTotalEdit = montoItemsEdit + costoEnvioEdit;
 
   const client = await db.connect();
   try {
@@ -300,15 +335,16 @@ pedidos.put('/:id', async (c) => {
       UPDATE pedidos SET
         proveedor_id     = $1, operacion_id   = $2,
         fecha_pedido     = $3, fecha_entrega_est = $4,
-        monto_total      = $5, notas          = $6,
-        updated_at       = now()
-      WHERE id = $7
+        monto_total      = $5, costo_envio    = $6,
+        notas            = $7, updated_at     = now()
+      WHERE id = $8
     `, [
       b.proveedor_id,
       b.operacion_id      || null,
       b.fecha_pedido      || new Date().toISOString().split('T')[0],
       b.fecha_entrega_est || null,
-      montoTotal,
+      montoTotalEdit,
+      costoEnvioEdit,
       b.notas             || null,
       id,
     ]);

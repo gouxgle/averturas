@@ -24,6 +24,8 @@ interface OperacionAprobada {
   numero: string;
   precio_total: number;
   proveedor_id: string | null;
+  proveedor_nombre?: string | null;
+  cobrado_total?: number;
   cliente: {
     nombre: string | null;
     apellido: string | null;
@@ -39,6 +41,7 @@ interface OperacionItem {
   costo_unitario: number;
   tipo_abertura_nombre?: string;
   sistema_nombre?: string;
+  producto_proveedor_sku?: string | null;
 }
 
 interface OperacionDetalle {
@@ -63,6 +66,7 @@ interface PedidoItemForm {
   descripcion: string;
   cantidad: number;
   costo_unitario: number;
+  proveedor_sku?: string | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -155,6 +159,20 @@ export default function NuevoPedido() {
 
   const [loadingOp, setLoadingOp] = useState(false);
 
+  // Lista de operaciones disponibles (aprobadas con pago, sin pedido)
+  const [opsDisponibles,        setOpsDisponibles]        = useState<OperacionAprobada[]>([]);
+  const [loadingOpsDisponibles, setLoadingOpsDisponibles] = useState(false);
+
+  // ── Cargar ops disponibles al montar (sin URL param, sin edición) ──
+  useEffect(() => {
+    if (urlOperacionId || isEdit) return;
+    setLoadingOpsDisponibles(true);
+    api.get<OperacionAprobada[]>('/pedidos/operaciones-disponibles')
+      .then(setOpsDisponibles)
+      .catch(() => {})
+      .finally(() => setLoadingOpsDisponibles(false));
+  }, [urlOperacionId, isEdit]);
+
   // ── Carga inicial si hay operacion_id en URL ──────────────────
   useEffect(() => {
     if (!urlOperacionId) return;
@@ -189,6 +207,7 @@ export default function NuevoPedido() {
             descripcion: oi.descripcion,
             cantidad: oi.cantidad,
             costo_unitario: oi.costo_unitario || 0,
+            proveedor_sku: oi.producto_proveedor_sku ?? null,
           })));
         }
       })
@@ -253,6 +272,31 @@ export default function NuevoPedido() {
     return () => clearTimeout(t);
   }, [busqOp]);
 
+  // ── Seleccionar op disponible ─────────────────────────────────
+  async function seleccionarOp(op: OperacionAprobada) {
+    setOperacionId(op.id);
+    setOperacionSel(op);
+    setBusqOp(op.numero);
+    try {
+      const det = await api.get<OperacionDetalle>(`/operaciones/${op.id}`);
+      if (det.items?.length) {
+        setItems(det.items.map(oi => ({
+          operacion_item_id: oi.id,
+          descripcion: oi.descripcion,
+          cantidad: oi.cantidad,
+          costo_unitario: oi.costo_unitario || 0,
+          proveedor_sku: oi.producto_proveedor_sku ?? null,
+        })));
+      }
+      if (det.proveedor_id && !proveedorId) {
+        const prov = await api.get<Proveedor>(`/catalogo/proveedores/${det.proveedor_id}`);
+        setProveedorId(prov.id);
+        setProveedorSel(prov);
+        setBusqProv(prov.nombre);
+      }
+    } catch { /* op sin items */ }
+  }
+
   // ── Items helpers ─────────────────────────────────────────────
   function updateItem(idx: number, field: keyof PedidoItemForm, value: string | number) {
     setItems(prev => prev.map((item, i) =>
@@ -269,7 +313,9 @@ export default function NuevoPedido() {
     setItems(prev => prev.filter((_, i) => i !== idx));
   }
 
-  const montoTotal = items.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
+  const montoItems  = items.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
+  const costoEnvio  = montoItems > 0 ? Math.round(montoItems * 0.10) : 0;
+  const montoTotal  = montoItems + costoEnvio;
 
   // ── Guardar ───────────────────────────────────────────────────
   async function handleSave() {
@@ -285,6 +331,7 @@ export default function NuevoPedido() {
         fecha_pedido:    fechaPedido,
         fecha_entrega_est: fechaEst || null,
         notas:           notas || null,
+        costo_envio:     costoEnvio,
         items:           items.map(i => ({
           operacion_item_id: i.operacion_item_id || null,
           producto_id:       i.producto_id || null,
@@ -438,14 +485,16 @@ export default function NuevoPedido() {
           )}
         </SectionCard>
 
-        {/* Operación vinculada (opcional) */}
+        {/* Operación vinculada */}
         <SectionCard title="Operación vinculada (opcional)" icon={Package}>
           {operacionSel ? (
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
               <div>
                 <p className="font-semibold text-gray-900">{operacionSel.numero}</p>
                 <p className="text-sm text-gray-500">{nombreCliente(operacionSel)}</p>
-                <p className="text-xs text-blue-600">{formatCurrency(operacionSel.precio_total)}</p>
+                {operacionSel.proveedor_nombre && (
+                  <p className="text-xs text-blue-500">Proveedor: {operacionSel.proveedor_nombre}</p>
+                )}
               </div>
               {!urlOperacionId && (
                 <button
@@ -457,55 +506,77 @@ export default function NuevoPedido() {
               )}
             </div>
           ) : (
-            <div className="relative" ref={opRef}>
-              <input
-                value={busqOp}
-                onChange={e => { setBusqOp(e.target.value); setShowOps(true); }}
-                onFocus={() => setShowOps(true)}
-                onBlur={() => setTimeout(() => setShowOps(false), 150)}
-                placeholder="Buscar por número de operación o cliente..."
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-              {showOps && ops.length > 0 && (
-                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                  {ops.map(op => (
-                    <button
-                      key={op.id}
-                      onMouseDown={async () => {
-                        setOperacionId(op.id);
-                        setOperacionSel(op);
-                        setBusqOp(op.numero);
-                        setShowOps(false);
-                        // Cargar items desde la operación
-                        try {
-                          const det = await api.get<OperacionDetalle>(`/operaciones/${op.id}`);
-                          if (det.items?.length) {
-                            setItems(det.items.map(oi => ({
-                              operacion_item_id: oi.id,
-                              descripcion: oi.descripcion,
-                              cantidad: oi.cantidad,
-                              costo_unitario: oi.costo_unitario || 0,
-                            })));
-                          }
-                          if (det.proveedor_id && !proveedorId) {
-                            const prov = await api.get<Proveedor>(`/catalogo/proveedores/${det.proveedor_id}`);
-                            setProveedorId(prov.id);
-                            setProveedorSel(prov);
-                            setBusqProv(prov.nombre);
-                          }
-                        } catch { /* op sin items o sin proveedor */ }
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0"
-                    >
-                      <div className="flex justify-between">
-                        <p className="text-sm font-medium text-gray-900">{op.numero}</p>
-                        <p className="text-xs text-gray-400">{formatCurrency(op.precio_total)}</p>
-                      </div>
-                      <p className="text-xs text-gray-500">{nombreCliente(op)}</p>
-                    </button>
-                  ))}
-                </div>
+            <div className="space-y-3">
+              {/* Lista de ops disponibles */}
+              {!isEdit && (
+                loadingOpsDisponibles ? (
+                  <p className="text-xs text-gray-400 text-center py-2">Cargando operaciones disponibles...</p>
+                ) : opsDisponibles.length > 0 ? (
+                  <div>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                      Listas para pedir ({opsDisponibles.length})
+                    </p>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                      {opsDisponibles.map(op => (
+                        <button
+                          key={op.id}
+                          onClick={() => seleccionarOp(op)}
+                          className="w-full text-left px-3 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-xl transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <p className="text-sm font-semibold text-blue-700">{op.numero}</p>
+                            {op.cobrado_total != null && op.cobrado_total > 0 && (
+                              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                                Cobrado {formatCurrency(Number(op.cobrado_total))}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-600">{nombreCliente(op)}</p>
+                          {op.proveedor_nombre && (
+                            <p className="text-[10px] text-gray-400">{op.proveedor_nombre}</p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2 text-center">
+                      O buscá otra operación abajo
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 text-center py-1">
+                    Sin operaciones pendientes de pedido
+                  </p>
+                )
               )}
+
+              {/* Búsqueda manual */}
+              <div className="relative" ref={opRef}>
+                <input
+                  value={busqOp}
+                  onChange={e => { setBusqOp(e.target.value); setShowOps(true); }}
+                  onFocus={() => setShowOps(true)}
+                  onBlur={() => setTimeout(() => setShowOps(false), 150)}
+                  placeholder="Buscar por número o cliente..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                {showOps && ops.length > 0 && (
+                  <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {ops.map(op => (
+                      <button
+                        key={op.id}
+                        onMouseDown={async () => {
+                          setShowOps(false);
+                          await seleccionarOp(op);
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0"
+                      >
+                        <p className="text-sm font-medium text-gray-900">{op.numero}</p>
+                        <p className="text-xs text-gray-500">{nombreCliente(op)}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
@@ -516,6 +587,11 @@ export default function NuevoPedido() {
             {items.map((item, idx) => (
               <div key={idx} className="flex gap-2 items-start p-3 bg-gray-50 rounded-xl border border-gray-100">
                 <div className="flex-1 space-y-2">
+                  {item.proveedor_sku && (
+                    <p className="text-[10px] text-lime-700 bg-lime-50 border border-lime-100 rounded px-2 py-0.5 inline-block">
+                      Ref. proveedor: <span className="font-mono font-semibold">{item.proveedor_sku}</span>
+                    </p>
+                  )}
                   <input
                     value={item.descripcion}
                     onChange={e => updateItem(idx, 'descripcion', e.target.value)}
@@ -569,10 +645,20 @@ export default function NuevoPedido() {
               Agregar ítem
             </button>
 
-            {montoTotal > 0 && (
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-sm font-semibold text-gray-600">Total estimado</span>
-                <span className="text-lg font-bold text-gray-900">{formatCurrency(montoTotal)}</span>
+            {montoItems > 0 && (
+              <div className="pt-2 border-t border-gray-200 space-y-1.5">
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span>Subtotal productos</span>
+                  <span>{formatCurrency(montoItems)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-gray-500">
+                  <span>Costo de envío (10%)</span>
+                  <span>{formatCurrency(costoEnvio)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                  <span className="text-sm font-semibold text-gray-700">Total al proveedor</span>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(montoTotal)}</span>
+                </div>
               </div>
             )}
           </div>
