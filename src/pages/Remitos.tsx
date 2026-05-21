@@ -432,7 +432,7 @@ export function Remitos() {
             </div>
 
             {/* Tabla */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
@@ -440,11 +440,11 @@ export function Remitos() {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
+                  <div>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-100 bg-gray-50/60">
-                          {['Remito', 'Cliente', 'Productos', 'Entrega', 'Estado', 'F. entrega', 'Valor', 'Acciones'].map(h => (
+                          {['Remito', 'Cliente', 'Productos', 'Entrega', 'Estado', 'F. entrega', 'Acciones'].map(h => (
                             <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -516,9 +516,6 @@ export function Remitos() {
                                     {urg === 'pendiente' && dias !== null && <p className="text-[10px] text-gray-400">{dias === 1 ? 'Mañana' : `En ${dias} días`}</p>}
                                   </>
                                 ) : <p className="text-[11px] text-gray-400">—</p>}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <p className="text-[13px] font-extrabold text-gray-900 tabular-nums">{formatCurrency(Number(r.valor_total))}</p>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
