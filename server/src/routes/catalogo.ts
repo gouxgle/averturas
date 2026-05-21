@@ -294,6 +294,122 @@ catalogo.delete('/proveedores/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Proveedor precios ──────────────────────────────────────────
+// GET /proveedor-precios?proveedor_id=X&search=Y&activo=true
+catalogo.get('/proveedor-precios', async (c) => {
+  const proveedorId = c.req.query('proveedor_id') ?? '';
+  const search      = c.req.query('search') ?? '';
+  const soloActivos = c.req.query('activo') === 'true';
+  const params: unknown[] = [];
+  let where = 'WHERE 1=1';
+
+  if (proveedorId) {
+    params.push(proveedorId);
+    where += ` AND pp.proveedor_id = $${params.length}`;
+  }
+  if (soloActivos) {
+    where += ' AND pp.activo = true';
+  }
+  if (search.trim()) {
+    params.push(`%${search.trim()}%`);
+    where += ` AND (pp.sku ILIKE $${params.length} OR pp.descripcion ILIKE $${params.length})`;
+  }
+
+  const { rows } = await db.query(`
+    SELECT pp.*,
+      p.nombre AS proveedor_nombre
+    FROM proveedor_precios pp
+    JOIN proveedores p ON p.id = pp.proveedor_id
+    ${where}
+    ORDER BY pp.sku ASC
+    LIMIT 500
+  `, params);
+  return c.json(rows);
+});
+
+// POST /proveedor-precios — upsert individual
+catalogo.post('/proveedor-precios', async (c) => {
+  const b = await c.req.json() as {
+    proveedor_id: string; sku: string; descripcion: string; precio: number; activo?: boolean;
+  };
+  if (!b.proveedor_id || !b.sku?.trim() || !b.descripcion?.trim()) {
+    return c.json({ error: 'proveedor_id, sku y descripcion son requeridos' }, 400);
+  }
+  const { rows: [row] } = await db.query(`
+    INSERT INTO proveedor_precios (proveedor_id, sku, descripcion, precio, activo)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (proveedor_id, sku) DO UPDATE SET
+      descripcion = EXCLUDED.descripcion,
+      precio      = EXCLUDED.precio,
+      activo      = EXCLUDED.activo,
+      updated_at  = now()
+    RETURNING *
+  `, [b.proveedor_id, b.sku.trim(), b.descripcion.trim(), b.precio ?? 0, b.activo ?? true]);
+  return c.json(row, 201);
+});
+
+// POST /proveedor-precios/import — upsert masivo desde array CSV-parseado
+catalogo.post('/proveedor-precios/import', async (c) => {
+  const b = await c.req.json() as {
+    proveedor_id: string;
+    filas: { sku: string; descripcion: string; precio: number }[];
+  };
+  if (!b.proveedor_id || !Array.isArray(b.filas) || !b.filas.length) {
+    return c.json({ error: 'proveedor_id y filas[] requeridos' }, 400);
+  }
+  const client = await db.connect();
+  let insertados = 0; let actualizados = 0;
+  try {
+    await client.query('BEGIN');
+    for (const fila of b.filas) {
+      if (!fila.sku?.trim() || !fila.descripcion?.trim()) continue;
+      const { rows: [existing] } = await client.query(
+        `SELECT id FROM proveedor_precios WHERE proveedor_id=$1 AND sku=$2`,
+        [b.proveedor_id, fila.sku.trim()]
+      );
+      await client.query(`
+        INSERT INTO proveedor_precios (proveedor_id, sku, descripcion, precio)
+        VALUES ($1,$2,$3,$4)
+        ON CONFLICT (proveedor_id, sku) DO UPDATE SET
+          descripcion = EXCLUDED.descripcion,
+          precio      = EXCLUDED.precio,
+          updated_at  = now()
+      `, [b.proveedor_id, fila.sku.trim(), fila.descripcion.trim(), fila.precio ?? 0]);
+      if (existing) actualizados++; else insertados++;
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+  return c.json({ insertados, actualizados, total: insertados + actualizados });
+});
+
+// PUT /proveedor-precios/:id
+catalogo.put('/proveedor-precios/:id', async (c) => {
+  const b = await c.req.json() as { sku?: string; descripcion?: string; precio?: number; activo?: boolean };
+  const { rows: [row] } = await db.query(`
+    UPDATE proveedor_precios SET
+      sku         = COALESCE($1, sku),
+      descripcion = COALESCE($2, descripcion),
+      precio      = COALESCE($3, precio),
+      activo      = COALESCE($4, activo),
+      updated_at  = now()
+    WHERE id = $5
+    RETURNING *
+  `, [b.sku?.trim() ?? null, b.descripcion?.trim() ?? null, b.precio ?? null, b.activo ?? null, c.req.param('id')]);
+  if (!row) return c.json({ error: 'No encontrado' }, 404);
+  return c.json(row);
+});
+
+// DELETE /proveedor-precios/:id
+catalogo.delete('/proveedor-precios/:id', async (c) => {
+  await db.query(`DELETE FROM proveedor_precios WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
 catalogo.get('/productos', async (c) => {
   const tipo = c.req.query('tipo');
   const search = c.req.query('search') ?? '';

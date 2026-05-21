@@ -20,6 +20,7 @@ import { NuevoProducto } from '@/pages/NuevoProducto';
 import { Presupuestos } from '@/pages/Presupuestos';
 import { NuevoPresupuesto } from '@/pages/NuevoPresupuesto';
 import { Proveedores } from '@/pages/Proveedores';
+import { ProveedorPrecios } from '@/pages/ProveedorPrecios';
 import { Remitos } from '@/pages/Remitos';
 import { NuevoRemito } from '@/pages/NuevoRemito';
 import { Recibos } from '@/pages/Recibos';
@@ -75,6 +76,7 @@ export default function App() {
                 <Route path="/productos/:id" element={<NuevoProducto />} />
                 <Route path="/stock" element={<Stock />} />
                 <Route path="/proveedores" element={<Proveedores />} />
+                <Route path="/proveedores/:id/precios" element={<ProveedorPrecios />} />
                 <Route path="/remitos" element={<Remitos />} />
                 <Route path="/remitos/nuevo" element={<NuevoRemito />} />
                 <Route path="/remitos/:id/editar" element={<NuevoRemito />} />

@@ -163,6 +163,21 @@ export default function NuevoPedido() {
   const [opsDisponibles,        setOpsDisponibles]        = useState<OperacionAprobada[]>([]);
   const [loadingOpsDisponibles, setLoadingOpsDisponibles] = useState(false);
 
+  // Mapa de precios del proveedor seleccionado: sku → precio
+  const [preciosProveedor, setPreciosProveedor] = useState<Record<string, number>>({});
+
+  // ── Cargar precios del proveedor cuando cambia ───────────────
+  useEffect(() => {
+    if (!proveedorId) { setPreciosProveedor({}); return; }
+    api.get<{ sku: string; precio: number }[]>(
+      `/catalogo/proveedor-precios?proveedor_id=${proveedorId}&activo=true`
+    ).then(lista => {
+      const mapa: Record<string, number> = {};
+      for (const p of lista) mapa[p.sku] = Number(p.precio);
+      setPreciosProveedor(mapa);
+    }).catch(() => {});
+  }, [proveedorId]);
+
   // ── Cargar ops disponibles al montar (sin URL param, sin edición) ──
   useEffect(() => {
     if (urlOperacionId || isEdit) return;
@@ -176,43 +191,53 @@ export default function NuevoPedido() {
   // ── Carga inicial si hay operacion_id en URL ──────────────────
   useEffect(() => {
     if (!urlOperacionId) return;
-    setLoadingOp(true);
-    api.get<OperacionDetalle>(`/operaciones/${urlOperacionId}`)
-      .then(op => {
+    (async () => {
+      setLoadingOp(true);
+      try {
+        const op = await api.get<OperacionDetalle>(`/operaciones/${urlOperacionId}`);
         setOperacionId(op.id);
         setOperacionSel({
-          id: op.id,
-          numero: op.numero,
-          precio_total: op.precio_total,
-          proveedor_id: op.proveedor_id,
-          cliente: op.cliente,
+          id: op.id, numero: op.numero, precio_total: op.precio_total,
+          proveedor_id: op.proveedor_id, cliente: op.cliente,
         });
         setBusqOp(op.numero);
 
-        // Pre-cargar proveedor si la operación lo tiene
+        let preciosMapa: Record<string, number> = {};
         if (op.proveedor_id) {
           setProveedorId(op.proveedor_id);
-          api.get<Proveedor>(`/catalogo/proveedores/${op.proveedor_id}`)
-            .then(prov => {
-              setProveedorSel(prov);
-              setBusqProv(prov.nombre);
-            })
-            .catch(() => {}); // sin proveedor: campo queda vacío
+          try {
+            const [prov, lista] = await Promise.all([
+              api.get<Proveedor>(`/catalogo/proveedores/${op.proveedor_id}`),
+              api.get<{ sku: string; precio: number }[]>(
+                `/catalogo/proveedor-precios?proveedor_id=${op.proveedor_id}&activo=true`
+              ),
+            ]);
+            setProveedorSel(prov);
+            setBusqProv(prov.nombre);
+            for (const p of lista) preciosMapa[p.sku] = Number(p.precio);
+            setPreciosProveedor(preciosMapa);
+          } catch { /* sin proveedor o sin precios */ }
         }
 
-        // Pre-cargar items desde operacion_items
         if (op.items?.length) {
-          setItems(op.items.map(oi => ({
-            operacion_item_id: oi.id,
-            descripcion: oi.descripcion,
-            cantidad: oi.cantidad,
-            costo_unitario: oi.costo_unitario || 0,
-            proveedor_sku: oi.producto_proveedor_sku ?? null,
-          })));
+          setItems(op.items.map(oi => {
+            const sku = oi.producto_proveedor_sku ?? null;
+            const costoDesdeListado = sku && preciosMapa[sku] != null ? preciosMapa[sku] : null;
+            return {
+              operacion_item_id: oi.id,
+              descripcion: oi.descripcion,
+              cantidad: oi.cantidad,
+              costo_unitario: costoDesdeListado ?? oi.costo_unitario ?? 0,
+              proveedor_sku: sku,
+            };
+          }));
         }
-      })
-      .catch(() => toast.error('No se pudo cargar la operación'))
-      .finally(() => setLoadingOp(false));
+      } catch {
+        toast.error('No se pudo cargar la operación');
+      } finally {
+        setLoadingOp(false);
+      }
+    })();
   }, [urlOperacionId]);
 
   // ── Carga para edición ────────────────────────────────────────
@@ -279,20 +304,37 @@ export default function NuevoPedido() {
     setBusqOp(op.numero);
     try {
       const det = await api.get<OperacionDetalle>(`/operaciones/${op.id}`);
-      if (det.items?.length) {
-        setItems(det.items.map(oi => ({
-          operacion_item_id: oi.id,
-          descripcion: oi.descripcion,
-          cantidad: oi.cantidad,
-          costo_unitario: oi.costo_unitario || 0,
-          proveedor_sku: oi.producto_proveedor_sku ?? null,
-        })));
-      }
+
+      // Asegurar proveedor cargado antes de mapear precios
+      let preciosMapa = preciosProveedor;
       if (det.proveedor_id && !proveedorId) {
         const prov = await api.get<Proveedor>(`/catalogo/proveedores/${det.proveedor_id}`);
         setProveedorId(prov.id);
         setProveedorSel(prov);
         setBusqProv(prov.nombre);
+        // Cargar precios del proveedor recién seleccionado
+        try {
+          const lista = await api.get<{ sku: string; precio: number }[]>(
+            `/catalogo/proveedor-precios?proveedor_id=${prov.id}&activo=true`
+          );
+          preciosMapa = {};
+          for (const p of lista) preciosMapa[p.sku] = Number(p.precio);
+          setPreciosProveedor(preciosMapa);
+        } catch { /* sin precios */ }
+      }
+
+      if (det.items?.length) {
+        setItems(det.items.map(oi => {
+          const sku = oi.producto_proveedor_sku ?? null;
+          const costoDesdeListado = sku && preciosMapa[sku] != null ? preciosMapa[sku] : null;
+          return {
+            operacion_item_id: oi.id,
+            descripcion: oi.descripcion,
+            cantidad: oi.cantidad,
+            costo_unitario: costoDesdeListado ?? oi.costo_unitario ?? 0,
+            proveedor_sku: sku,
+          };
+        }));
       }
     } catch { /* op sin items */ }
   }

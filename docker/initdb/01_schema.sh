@@ -37,6 +37,7 @@ psql -U postgres -d postgres -f /migrations/20260512000002_clientes_nuevos_campo
 psql -U postgres -d postgres -f /migrations/20260512000003_remito_token_recepcion.sql
 psql -U postgres -d postgres -f /migrations/20260520000001_pedidos.sql
 psql -U postgres -d postgres -f /migrations/20260520000002_catalogo_proveedor_sku.sql
+psql -U postgres -d postgres -f /migrations/20260520000003_proveedor_precios.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
 psql -U postgres -d postgres <<'SQL'
@@ -78,7 +79,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260512000002_clientes_nuevos_campos.sql'),
   ('20260512000003_remito_token_recepcion.sql'),
   ('20260520000001_pedidos.sql'),
-  ('20260520000002_catalogo_proveedor_sku.sql')
+  ('20260520000002_catalogo_proveedor_sku.sql'),
+  ('20260520000003_proveedor_precios.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

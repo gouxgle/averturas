@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Truck, Plus, Pencil, Check, X, ToggleLeft, ToggleRight, Globe,
   MapPin, Hash, Search, Star, AlertTriangle, TrendingUp, TrendingDown,
   RefreshCw, Phone, Mail, Package, ChevronLeft, ChevronRight,
-  ShoppingCart, DollarSign, Clock, BarChart2, Zap
+  ShoppingCart, DollarSign, Clock, BarChart2, Zap, Tag,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -372,11 +373,12 @@ function ModalProveedor({
 
 // ── ProveedorRow ──────────────────────────────────────────────
 function ProveedorRow({
-  prov, onEdit, onToggle
+  prov, onEdit, onToggle, onPrecios
 }: {
   prov: Proveedor;
   onEdit: () => void;
   onToggle: () => void;
+  onPrecios: () => void;
 }) {
   const entregaCfg = ENTREGA_CFG[prov.forma_entrega ?? 'propia'];
   const califCfg   = prov.calificacion ? CALIF_CFG[prov.calificacion] : null;
@@ -504,8 +506,12 @@ function ProveedorRow({
           )}
         </div>
 
-        {/* Editar / toggle */}
+        {/* Editar / precios / toggle */}
         <div className="flex items-center justify-end gap-1">
+          <button onClick={onPrecios}
+            className="p-1.5 hover:bg-lime-50 text-lime-600 rounded-lg" title="Lista de precios">
+            <Tag size={13} />
+          </button>
           <button onClick={onEdit} className="p-1.5 hover:bg-amber-50 text-amber-600 rounded-lg" title="Editar">
             <Pencil size={13} />
           </button>
@@ -523,6 +529,7 @@ function ProveedorRow({
 
 // ── Página principal ──────────────────────────────────────────
 export function Proveedores() {
+  const navigate = useNavigate();
   const [tablero, setTablero]   = useState<TableroData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [filtro, setFiltro]     = useState<FiltroTab>('todos');
@@ -821,6 +828,7 @@ export function Proveedores() {
                   prov={p}
                   onEdit={() => setModal(p.id)}
                   onToggle={() => toggleActivo(p)}
+                  onPrecios={() => navigate(`/proveedores/${p.id}/precios`)}
                 />
               ))}
             </div>
