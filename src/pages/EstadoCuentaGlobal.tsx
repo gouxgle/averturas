@@ -681,18 +681,20 @@ export function EstadoCuentaGlobal() {
         {/* Table */}
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+          <div className="min-w-[1030px]">
             {/* Table header */}
             <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 border-b border-gray-100 bg-gray-50"
-              style={{ gridTemplateColumns: '1fr 140px 120px 130px 110px 110px 100px 90px 90px' }}>
-              <span>Cliente</span>
-              <span>Última compra</span>
-              <span className="text-right">Total comprado</span>
-              <span className="text-right">Cobrado</span>
-              <span className="text-right">Saldo</span>
-              <span>Vencimiento</span>
-              <span>Estado</span>
-              <span>Días vencido</span>
-              <span className="text-right">Acción rápida</span>
+              style={{ gridTemplateColumns: '180px 115px 115px 125px 105px 115px 100px 90px 85px' }}>
+              <span className="whitespace-nowrap">Cliente</span>
+              <span className="whitespace-nowrap">Última compra</span>
+              <span className="text-right whitespace-nowrap">Total comprado</span>
+              <span className="text-right whitespace-nowrap">Cobrado</span>
+              <span className="text-right whitespace-nowrap">Saldo</span>
+              <span className="whitespace-nowrap">Vencimiento</span>
+              <span className="whitespace-nowrap">Estado</span>
+              <span className="whitespace-nowrap">Días vencido</span>
+              <span className="text-right whitespace-nowrap">Acciones</span>
             </div>
 
             {loading ? (
@@ -727,7 +729,7 @@ export function EstadoCuentaGlobal() {
                           'grid items-center px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
                           cfg.border
                         )}
-                        style={{ gridTemplateColumns: '1fr 140px 120px 130px 110px 110px 100px 90px 90px' }}
+                        style={{ gridTemplateColumns: '180px 115px 115px 125px 105px 115px 100px 90px 85px' }}
                         onClick={() => setExpandedId(isExpanded ? null : c.id)}
                       >
                         {/* Cliente */}
@@ -862,7 +864,7 @@ export function EstadoCuentaGlobal() {
             {/* Footer totales */}
             {!loading && t && filtrado.length > 1 && (
               <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-                <div className="grid text-xs" style={{ gridTemplateColumns: '1fr 140px 120px 130px 110px 110px 100px 90px 90px' }}>
+                <div className="grid text-xs" style={{ gridTemplateColumns: '180px 115px 115px 125px 105px 115px 100px 90px 85px' }}>
                   <span className="text-gray-500">Mostrando {filtrado.length} de {clientes.length} clientes</span>
                   <span />
                   <span className="text-right font-bold text-gray-700">{formatCurrency(t.presupuestado)}</span>
@@ -875,6 +877,8 @@ export function EstadoCuentaGlobal() {
                 </div>
               </div>
             )}
+          </div>
+          </div>
           </div>
         </div>
 
