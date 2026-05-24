@@ -1557,11 +1557,12 @@ export function NuevoPresupuesto() {
       {savedId && (
         <PDFDialog
           title={isEdit ? 'Presupuesto actualizado' : 'Presupuesto creado'}
-          subtitle="¿Querés generar el PDF ahora?"
+          subtitle="¿Querés generar el PDF o compartir con el cliente?"
           pdfUrl={`/imprimir/presupuesto/${savedId}`}
           onClose={() => { setSavedId(null); navigate(`/operaciones/${savedId}`); }}
           onNavigate={() => navigate(`/operaciones/${savedId}`)}
           navigateLabel="Ver presupuesto"
+          operacionId={savedId}
         />
       )}
 
