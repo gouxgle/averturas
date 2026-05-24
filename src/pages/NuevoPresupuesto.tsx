@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2,
+  Phone, MessageCircle, CheckCircle2, Check,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -882,6 +882,94 @@ export function NuevoPresupuesto() {
           </div>
         </div>
       </div>
+
+      {/* ── BARRA DE PROGRESO — 5 pasos ── */}
+      {(() => {
+        const formaEnvioLabel = FORMAS_ENVIO.find(f => f.value === formaEnvio)?.label.split('(')[0].trim() ?? '—';
+        const pasos = [
+          {
+            titulo: 'Carga de cliente',
+            subtitulo: clienteId ? clienteNombre.split(' ').slice(0, 2).join(' ') || 'Cargado' : 'Completar datos',
+            done: !!clienteId,
+          },
+          {
+            titulo: 'Forma de pago',
+            subtitulo: formaPago || 'Seleccionar opción',
+            done: !!formaPago,
+          },
+          {
+            titulo: 'Entrega',
+            subtitulo: formaEnvioLabel,
+            done: true,
+          },
+          {
+            titulo: 'Validez',
+            subtitulo: validezDias !== 'custom'
+              ? `${validezDias} hs por defecto`
+              : fechaValidezLabel !== '—' ? `Hasta ${fechaValidezLabel}` : 'Sin definir',
+            done: !!fechaValidez,
+          },
+          {
+            titulo: 'Agregar producto',
+            subtitulo: items.length > 0
+              ? `${items.length} producto${items.length > 1 ? 's' : ''} agregado${items.length > 1 ? 's' : ''}`
+              : 'Seleccionar productos',
+            done: items.length > 0,
+          },
+        ];
+
+        return (
+          <div className="bg-white border-b border-gray-100 px-6 py-3 shrink-0">
+            <div className="flex items-start">
+              {pasos.map((paso, i) => {
+                const prevDone = pasos.slice(0, i).every(p => p.done);
+                const active   = !paso.done && prevDone;
+                const lineColor = i < pasos.length - 1
+                  ? (paso.done ? 'bg-green-400' : active ? 'bg-red-400' : 'bg-gray-200')
+                  : '';
+                return (
+                  <Fragment key={i}>
+                    {/* Step */}
+                    <div className="flex flex-col items-center gap-1.5 shrink-0" style={{ minWidth: 90 }}>
+                      {/* Círculo */}
+                      <div className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all',
+                        paso.done  ? 'bg-[#031d49]'
+                        : active   ? 'bg-red-500'
+                        : 'bg-gray-100 border border-gray-200'
+                      )}>
+                        {paso.done
+                          ? <Check size={14} className="text-white" strokeWidth={3} />
+                          : <span className={cn('text-xs font-bold', active ? 'text-white' : 'text-gray-400')}>
+                              {i + 1}
+                            </span>
+                        }
+                      </div>
+                      {/* Labels */}
+                      <div className="text-center px-1">
+                        <p className={cn('text-[10px] font-bold uppercase tracking-wide leading-tight',
+                          paso.done ? 'text-[#031d49]' : active ? 'text-red-500' : 'text-gray-300'
+                        )}>
+                          {paso.titulo}
+                        </p>
+                        <p className={cn('text-[9px] leading-snug mt-0.5 max-w-[80px]',
+                          paso.done ? 'text-gray-400' : active ? 'text-red-400' : 'text-gray-300'
+                        )}>
+                          {paso.subtitulo}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Línea conectora */}
+                    {i < pasos.length - 1 && (
+                      <div className={cn('flex-1 h-0.5 mt-4 mx-1 transition-all', lineColor)} />
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── CUERPO 3 COLUMNAS ── */}
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[300px_1fr_240px] xl:grid-cols-[360px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
