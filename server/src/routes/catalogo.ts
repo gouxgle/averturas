@@ -14,22 +14,25 @@ catalogo.get('/tipos-abertura', async (c) => {
 });
 
 catalogo.post('/tipos-abertura', async (c) => {
-  const { nombre, descripcion, icono, orden } = await c.req.json();
+  const { nombre, descripcion, icono, orden, margen_venta } = await c.req.json();
   if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
   const { rows } = await db.query(
-    `INSERT INTO tipos_abertura (nombre, descripcion, icono, orden)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [nombre.trim(), descripcion || null, icono || null, orden ?? 0]
+    `INSERT INTO tipos_abertura (nombre, descripcion, icono, orden, margen_venta)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [nombre.trim(), descripcion || null, icono || null, orden ?? 0,
+     margen_venta != null ? parseFloat(margen_venta) : null]
   );
   return c.json(rows[0], 201);
 });
 
 catalogo.put('/tipos-abertura/:id', async (c) => {
-  const { nombre, descripcion, icono, orden, activo } = await c.req.json();
+  const { nombre, descripcion, icono, orden, activo, margen_venta } = await c.req.json();
   const { rows } = await db.query(
-    `UPDATE tipos_abertura SET nombre=$1, descripcion=$2, icono=$3, orden=$4, activo=$5
-     WHERE id=$6 RETURNING *`,
-    [nombre?.trim(), descripcion || null, icono || null, orden ?? 0, activo ?? true, c.req.param('id')]
+    `UPDATE tipos_abertura SET nombre=$1, descripcion=$2, icono=$3, orden=$4, activo=$5, margen_venta=$6
+     WHERE id=$7 RETURNING *`,
+    [nombre?.trim(), descripcion || null, icono || null, orden ?? 0, activo ?? true,
+     margen_venta != null ? parseFloat(margen_venta) : null,
+     c.req.param('id')]
   );
   if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
   return c.json(rows[0]);
@@ -235,8 +238,8 @@ catalogo.post('/proveedores', async (c) => {
     `INSERT INTO proveedores
        (nombre, tipo, contacto, telefono, email, cuit, direccion, localidad, provincia,
         web, materiales, notas, forma_entrega, plazo_entrega_dias, costo_flete,
-        calificacion, deuda_actual, es_principal)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        calificacion, deuda_actual, es_principal, margen_venta)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING *`,
     [
       b.nombre.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
@@ -250,6 +253,7 @@ catalogo.post('/proveedores', async (c) => {
       b.calificacion   ? parseInt(b.calificacion)     : null,
       b.deuda_actual   ? parseFloat(b.deuda_actual)   : 0,
       b.es_principal   ?? false,
+      b.margen_venta != null ? parseFloat(b.margen_venta) : 0,
     ]
   );
   return c.json(rows[0], 201);
@@ -268,8 +272,9 @@ catalogo.put('/proveedores/:id', async (c) => {
      SET nombre=$1, tipo=$2, contacto=$3, telefono=$4, email=$5, cuit=$6,
          direccion=$7, localidad=$8, provincia=$9, web=$10, materiales=$11,
          notas=$12, activo=$13, forma_entrega=$14, plazo_entrega_dias=$15,
-         costo_flete=$16, calificacion=$17, deuda_actual=$18, es_principal=$19
-     WHERE id=$20 RETURNING *`,
+         costo_flete=$16, calificacion=$17, deuda_actual=$18, es_principal=$19,
+         margen_venta=$20
+     WHERE id=$21 RETURNING *`,
     [
       b.nombre?.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
       b.email || null, b.cuit || null, b.direccion || null, b.localidad || null,
@@ -282,6 +287,7 @@ catalogo.put('/proveedores/:id', async (c) => {
       b.calificacion   ? parseInt(b.calificacion)     : null,
       b.deuda_actual   ? parseFloat(b.deuda_actual)   : 0,
       b.es_principal   ?? false,
+      b.margen_venta != null ? parseFloat(b.margen_venta) : 0,
       c.req.param('id'),
     ]
   );
@@ -317,9 +323,24 @@ catalogo.get('/proveedor-precios', async (c) => {
 
   const { rows } = await db.query(`
     SELECT pp.*,
-      p.nombre AS proveedor_nombre
+      p.nombre AS proveedor_nombre,
+      p.margen_venta AS proveedor_margen,
+      cp.id AS producto_id,
+      cp.nombre AS producto_nombre,
+      cp.margen_venta AS producto_margen,
+      ta.margen_venta AS tipo_margen,
+      ta.nombre AS tipo_nombre,
+      COALESCE(cp.margen_venta, ta.margen_venta, p.margen_venta, 0) AS margen_efectivo,
+      CASE
+        WHEN cp.margen_venta IS NOT NULL THEN 'producto'
+        WHEN ta.margen_venta IS NOT NULL THEN 'tipo'
+        WHEN p.margen_venta IS NOT NULL AND p.margen_venta > 0 THEN 'proveedor'
+        ELSE 'ninguno'
+      END AS margen_fuente
     FROM proveedor_precios pp
     JOIN proveedores p ON p.id = pp.proveedor_id
+    LEFT JOIN catalogo_productos cp ON cp.id = pp.producto_id
+    LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     ${where}
     ORDER BY pp.sku ASC
     LIMIT 500
@@ -389,17 +410,23 @@ catalogo.post('/proveedor-precios/import', async (c) => {
 
 // PUT /proveedor-precios/:id
 catalogo.put('/proveedor-precios/:id', async (c) => {
-  const b = await c.req.json() as { sku?: string; descripcion?: string; precio?: number; activo?: boolean };
+  const b = await c.req.json() as { sku?: string; descripcion?: string; precio?: number; activo?: boolean; producto_id?: string | null };
+  const id = c.req.param('id');
+  const hasProductoId = 'producto_id' in b;
+  const params: unknown[] = [b.sku?.trim() ?? null, b.descripcion?.trim() ?? null, b.precio ?? null, b.activo ?? null];
+  const pidClause = hasProductoId ? `, producto_id = $${params.push(b.producto_id || null)}` : '';
+  params.push(id);
   const { rows: [row] } = await db.query(`
     UPDATE proveedor_precios SET
       sku         = COALESCE($1, sku),
       descripcion = COALESCE($2, descripcion),
       precio      = COALESCE($3, precio),
-      activo      = COALESCE($4, activo),
+      activo      = COALESCE($4, activo)
+      ${pidClause},
       updated_at  = now()
-    WHERE id = $5
+    WHERE id = $${params.length}
     RETURNING *
-  `, [b.sku?.trim() ?? null, b.descripcion?.trim() ?? null, b.precio ?? null, b.activo ?? null, c.req.param('id')]);
+  `, params);
   if (!row) return c.json({ error: 'No encontrado' }, 404);
   return c.json(row);
 });
@@ -408,6 +435,69 @@ catalogo.put('/proveedor-precios/:id', async (c) => {
 catalogo.delete('/proveedor-precios/:id', async (c) => {
   await db.query(`DELETE FROM proveedor_precios WHERE id=$1`, [c.req.param('id')]);
   return c.json({ ok: true });
+});
+
+// POST /proveedor-precios/aplicar-actualizacion
+// Aplica nuevos precios (ítem por ítem o porcentaje batch) y propaga a catálogo si se indica
+catalogo.post('/proveedor-precios/aplicar-actualizacion', async (c) => {
+  const b = await c.req.json() as {
+    proveedor_id: string;
+    items: { id: string; precio_nuevo: number; actualizar_catalogo: boolean }[];
+    propagar_precio_base: boolean; // si true, recalcula precio_base = precio * (1+margen/100)
+  };
+  if (!b.proveedor_id || !Array.isArray(b.items) || !b.items.length) {
+    return c.json({ error: 'proveedor_id e items[] requeridos' }, 400);
+  }
+  const client = await db.connect();
+  let preciosActualizados = 0;
+  let catalogoActualizados = 0;
+  try {
+    await client.query('BEGIN');
+    for (const item of b.items) {
+      if (!item.id || item.precio_nuevo == null) continue;
+      await client.query(
+        `UPDATE proveedor_precios SET precio=$1, updated_at=now() WHERE id=$2`,
+        [item.precio_nuevo, item.id]
+      );
+      preciosActualizados++;
+      if (item.actualizar_catalogo) {
+        // Obtener producto vinculado y margen efectivo
+        const { rows: [pp] } = await client.query(`
+          SELECT pp.producto_id,
+            COALESCE(cp.margen_venta, ta.margen_venta, p.margen_venta, 0) AS margen_efectivo
+          FROM proveedor_precios pp
+          JOIN proveedores p ON p.id = pp.proveedor_id
+          LEFT JOIN catalogo_productos cp ON cp.id = pp.producto_id
+          LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
+          WHERE pp.id = $1
+        `, [item.id]);
+        if (pp?.producto_id) {
+          const nuevoCosto = item.precio_nuevo;
+          const margen = parseFloat(pp.margen_efectivo) || 0;
+          const updates: string[] = ['costo_base=$1'];
+          const vals: unknown[] = [nuevoCosto];
+          if (b.propagar_precio_base) {
+            const nuevoPrecio = Math.round(nuevoCosto * (1 + margen / 100) * 100) / 100;
+            updates.push(`precio_base=$${vals.push(nuevoPrecio)}`);
+            // precio_manual se mantiene: si estaba en true, no lo tocamos; el usuario decidió al desmarcar
+          }
+          vals.push(pp.producto_id);
+          await client.query(
+            `UPDATE catalogo_productos SET ${updates.join(',')} WHERE id=$${vals.length} AND precio_manual=false`,
+            vals
+          );
+          catalogoActualizados++;
+        }
+      }
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+  return c.json({ preciosActualizados, catalogoActualizados });
 });
 
 catalogo.get('/productos', async (c) => {

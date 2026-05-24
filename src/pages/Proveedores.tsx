@@ -22,6 +22,7 @@ interface Proveedor {
   calificacion: number | null;
   deuda_actual: number;
   es_principal: boolean;
+  margen_venta: number;
   created_at: string;
   // computed from compras
   lotes_count_6m: number;
@@ -111,7 +112,7 @@ function emptyForm(): FormData {
     cuit: null, direccion: null, localidad: null, provincia: null, web: null,
     materiales: [], notas: null,
     forma_entrega: 'propia', plazo_entrega_dias: null,
-    costo_flete: 0, calificacion: null, deuda_actual: 0, es_principal: false,
+    costo_flete: 0, calificacion: null, deuda_actual: 0, es_principal: false, margen_venta: 0,
   };
 }
 
@@ -316,7 +317,7 @@ function ModalProveedor({
           {/* Evaluación + deuda */}
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Evaluación y finanzas</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className={lbl}>Calificación</label>
                 <div className="flex items-center gap-3 mt-1">
@@ -331,6 +332,11 @@ function ModalProveedor({
               <div>
                 <label className={lbl}>Deuda actual ($)</label>
                 <input type="number" min="0" value={form.deuda_actual || ''} onChange={e => set('deuda_actual', parseFloat(e.target.value) || 0)}
+                  className={inp} placeholder="0" />
+              </div>
+              <div>
+                <label className={lbl}>Margen de venta (%) <span className="text-gray-400 font-normal">— fallback</span></label>
+                <input type="number" min="0" max="999" step="1" value={form.margen_venta || ''} onChange={e => set('margen_venta', parseFloat(e.target.value) || 0)}
                   className={inp} placeholder="0" />
               </div>
             </div>
@@ -1047,6 +1053,7 @@ export function Proveedores() {
             calificacion:       editingProv?.calificacion ?? null,
             deuda_actual:       editingProv?.deuda_actual ?? 0,
             es_principal:       editingProv?.es_principal ?? false,
+            margen_venta:       editingProv?.margen_venta ?? 0,
           }}
           onSave={handleSave}
           onClose={() => setModal(null)}

@@ -1262,6 +1262,8 @@ export function NuevoProducto() {
     promo_precio:        '',
     imagenes:            [] as string[],
     video_url:           '',
+    margen_venta:        '' as string,  // null en DB = heredado del tipo_abertura o proveedor
+    precio_manual:       false,
   });
   const [atributos, setAtributos] = useState<Atributos>({});
 
@@ -1332,6 +1334,8 @@ export function NuevoProducto() {
                                  ? data.imagenes
                                  : (data.imagen_url ? [data.imagen_url] : []),
           video_url:           data.video_url ?? '',
+          margen_venta:        data.margen_venta != null ? String(data.margen_venta) : '',
+          precio_manual:       data.precio_manual ?? false,
         });
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
@@ -1426,6 +1430,8 @@ export function NuevoProducto() {
         stock_minimo:     parseInt(form.stock_minimo)  || 0,
         proveedor_id:     form.proveedor_id || null,
         proveedor_sku:    form.proveedor_sku.trim() || null,
+        margen_venta:     form.margen_venta !== '' ? parseFloat(form.margen_venta) : null,
+        precio_manual:    form.precio_manual,
         costo_base:       parseFloat(form.costo_base),
         precio_base:      parseFloat(form.precio_base),
         precio_por_m2:    form.precio_por_m2,
@@ -1834,13 +1840,41 @@ export function NuevoProducto() {
           </div>
           {precio > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">Margen:</span>
+              <span className="text-gray-500">Margen efectivo:</span>
               <span className={cn('font-semibold', margen >= 30 ? 'text-green-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>
                 {margen}%
               </span>
               <span className="text-gray-400 text-xs">({formatCurrency(precio - costo)} por unidad)</span>
             </div>
           )}
+          {/* Margen override + precio_manual */}
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <div>
+              <label className={labelCls}>
+                <span className="flex items-center gap-1"><Percent size={11} /> Margen objetivo (override)</span>
+              </label>
+              <input
+                type="number" min="0" max="999" step="1"
+                value={form.margen_venta}
+                onChange={e => set('margen_venta', e.target.value)}
+                placeholder="Heredado de tipo de abertura"
+                className={inputCls}
+              />
+              <p className="text-[10px] text-gray-400 mt-0.5">Vacío = usa margen del tipo o proveedor</p>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer w-fit">
+                <div
+                  className={cn('w-9 h-5 rounded-full transition-colors relative shrink-0', form.precio_manual ? 'bg-amber-500' : 'bg-gray-200')}
+                  onClick={() => set('precio_manual', !form.precio_manual)}>
+                  <div className={cn('absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                    form.precio_manual ? 'translate-x-4' : 'translate-x-0.5')} />
+                </div>
+                <span className="text-xs font-medium text-gray-700">Precio manual</span>
+              </label>
+              <p className="text-[10px] text-gray-400 mt-0.5 ml-11">No se sobreescribe al actualizar lista</p>
+            </div>
+          </div>
           {/* Etiqueta de venta */}
           <div>
             <label className={labelCls}>

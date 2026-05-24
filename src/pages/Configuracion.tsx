@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface TipoAbertura { id: string; nombre: string; descripcion: string | null; icono: string | null; orden: number; activo: boolean; }
+interface TipoAbertura { id: string; nombre: string; descripcion: string | null; icono: string | null; orden: number; activo: boolean; margen_venta: number | null; }
 interface Sistema { id: string; nombre: string; material: string | null; descripcion: string | null; activo: boolean; }
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
 interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; instagram: string | null; terminos_url: string | null; }
@@ -71,7 +71,10 @@ function PanelTiposAbertura() {
   useEffect(() => { load(); }, []);
 
   async function handleAdd(vals: Record<string, string>) {
-    await api.post('/catalogo/tipos-abertura', { nombre: vals.nombre, descripcion: vals.descripcion, orden: Number(vals.orden) || 0 });
+    await api.post('/catalogo/tipos-abertura', {
+      nombre: vals.nombre, descripcion: vals.descripcion, orden: Number(vals.orden) || 0,
+      margen_venta: vals.margen_venta !== '' ? Number(vals.margen_venta) : null,
+    });
     toast.success('Tipo agregado');
     setAdding(false);
     load();
@@ -79,7 +82,10 @@ function PanelTiposAbertura() {
 
   async function handleEdit(id: string, vals: Record<string, string>) {
     const item = items.find(i => i.id === id)!;
-    await api.put(`/catalogo/tipos-abertura/${id}`, { ...item, nombre: vals.nombre, descripcion: vals.descripcion, orden: Number(vals.orden) || 0 });
+    await api.put(`/catalogo/tipos-abertura/${id}`, {
+      ...item, nombre: vals.nombre, descripcion: vals.descripcion, orden: Number(vals.orden) || 0,
+      margen_venta: vals.margen_venta !== '' ? Number(vals.margen_venta) : null,
+    });
     toast.success('Actualizado');
     setEditId(null);
     load();
@@ -106,6 +112,7 @@ function PanelTiposAbertura() {
             { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Ventana' },
             { key: 'descripcion', label: 'Descripción', value: '', placeholder: 'Opcional' },
             { key: 'orden', label: 'Orden', value: '0', placeholder: '0' },
+            { key: 'margen_venta', label: 'Margen %', value: '', placeholder: 'Ej: 45' },
           ]}
           onSave={handleAdd}
           onCancel={() => setAdding(false)}
@@ -123,14 +130,22 @@ function PanelTiposAbertura() {
                     { key: 'nombre', label: 'Nombre *', value: item.nombre },
                     { key: 'descripcion', label: 'Descripción', value: item.descripcion ?? '' },
                     { key: 'orden', label: 'Orden', value: String(item.orden) },
+                    { key: 'margen_venta', label: 'Margen %', value: item.margen_venta != null ? String(item.margen_venta) : '', placeholder: 'Ej: 45' },
                   ]}
                   onSave={vals => handleEdit(item.id, vals)}
                   onCancel={() => setEditId(null)}
                 />
               ) : (
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                  {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                    {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+                  </div>
+                  {item.margen_venta != null && (
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+                      {item.margen_venta}%
+                    </span>
+                  )}
                 </div>
               )}
             </div>

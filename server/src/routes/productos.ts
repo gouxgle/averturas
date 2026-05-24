@@ -85,8 +85,8 @@ productos.post('/', async (c) => {
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
        imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4,
        vidrio, premarco, accesorios, atributos, margen_tipo, promocion, imagenes, video_url, etiqueta,
-       proveedor_sku)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+       proveedor_sku, margen_venta, precio_manual)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
     RETURNING *
   `, [
     b.nombre?.trim(),
@@ -120,6 +120,8 @@ productos.post('/', async (c) => {
     b.video_url || null,
     b.etiqueta || null,
     b.proveedor_sku?.trim() || null,
+    b.margen_venta != null ? parseFloat(b.margen_venta) : null,
+    b.precio_manual ?? false,
   ]);
   return c.json(row, 201);
 });
@@ -158,8 +160,10 @@ productos.put('/:id', async (c) => {
       imagenes         = $28,
       video_url        = $29,
       etiqueta         = $30,
-      proveedor_sku    = $31
-    WHERE id = $32 RETURNING *
+      proveedor_sku    = $31,
+      margen_venta     = $32,
+      precio_manual    = $33
+    WHERE id = $34 RETURNING *
   `, [
     b.nombre?.trim(),
     b.descripcion?.trim() || null,
@@ -192,6 +196,8 @@ productos.put('/:id', async (c) => {
     b.video_url || null,
     b.etiqueta || null,
     b.proveedor_sku?.trim() || null,
+    b.margen_venta != null ? parseFloat(b.margen_venta) : null,
+    b.precio_manual ?? false,
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
