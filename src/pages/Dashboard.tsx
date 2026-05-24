@@ -178,27 +178,27 @@ export function Dashboard() {
               <div className="grid grid-cols-4 gap-3">
                 {[
                   {
-                    icon: Phone, color: 'text-blue-600', bg: 'bg-blue-100',
-                    title: `Llamar a ${enviados.length} cliente${enviados.length !== 1 ? 's' : ''}`,
-                    sub: 'Presupuestos sin respuesta',
-                    count: enviados.length, href: '/presupuestos',
-                  },
-                  {
                     icon: Truck, color: 'text-amber-600', bg: 'bg-amber-100',
                     title: `${data.pagados_no_entregados.length} pedido${data.pagados_no_entregados.length !== 1 ? 's' : ''} listo${data.pagados_no_entregados.length !== 1 ? 's' : ''} para entregar`,
                     sub: 'Coordiná la entrega hoy',
                     count: data.pagados_no_entregados.length, href: '/remitos',
                   },
                   {
+                    icon: Phone, color: 'text-blue-600', bg: 'bg-blue-100',
+                    title: `${enviados.length} cliente${enviados.length !== 1 ? 's' : ''} esperando confirmación`,
+                    sub: 'Presupuestos enviados sin respuesta',
+                    count: enviados.length, href: '/presupuestos',
+                  },
+                  {
                     icon: MessageCircle, color: 'text-teal-600', bg: 'bg-teal-100',
-                    title: `${data.sin_pago.length} cliente${data.sin_pago.length !== 1 ? 's' : ''} esperando confirmación`,
-                    sub: 'Respondé para avanzar',
-                    count: data.sin_pago.length, href: '/presupuestos',
+                    title: `${data.sin_confirmar.length} presupuesto${data.sin_confirmar.length !== 1 ? 's' : ''} para dar seguimiento`,
+                    sub: 'Sin confirmar aún',
+                    count: data.sin_confirmar.length, href: '/presupuestos',
                   },
                   {
                     icon: CalendarClock, color: 'text-violet-600', bg: 'bg-violet-100',
-                    title: `${data.compromisos_semana.length} presupuesto${data.compromisos_semana.length !== 1 ? 's' : ''} para dar seguimiento`,
-                    sub: 'Vencen esta semana',
+                    title: `${data.compromisos_semana.length} compromiso${data.compromisos_semana.length !== 1 ? 's' : ''} de pago próximos`,
+                    sub: 'Vencen en los próximos 2 días',
                     count: data.compromisos_semana.length, href: '/presupuestos',
                   },
                 ].map(({ icon: Icon, color, bg, title, sub, count, href }) => (

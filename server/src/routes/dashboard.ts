@@ -66,7 +66,7 @@ dashboard.get('/indicadores', async (c) => {
       JOIN clientes cl ON cl.id = cp.cliente_id
       LEFT JOIN operaciones op ON op.id = cp.operacion_id
       WHERE cp.estado = 'pendiente'
-        AND cp.fecha_vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+        AND cp.fecha_vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '2 days'
       ORDER BY cp.fecha_vencimiento ASC
       LIMIT 20
     `),
@@ -271,7 +271,7 @@ dashboard.get('/resumen', async (c) => {
       JOIN clientes cl ON cl.id = cp.cliente_id
       LEFT JOIN operaciones op ON op.id = cp.operacion_id
       WHERE cp.estado = 'pendiente'
-        AND cp.fecha_vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+        AND cp.fecha_vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '2 days'
       ORDER BY cp.fecha_vencimiento ASC LIMIT 20
     `),
 
