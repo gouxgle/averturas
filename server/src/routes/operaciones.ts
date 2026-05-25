@@ -310,7 +310,10 @@ operaciones.post('/:id/generar-link', async (c) => {
     [op.cliente_id, `Proforma ${proformaNumero} enviada por link de aprobación`, user?.id ?? null]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
 
-  const appUrl = (process.env.APP_URL ?? 'https://cesarbritez.com.ar').replace(/\/$/, '');
+  if (!process.env.APP_URL) {
+    console.error('[config] APP_URL no configurada — el link público puede no funcionar');
+  }
+  const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   return c.json({ token, url: `${appUrl}/p/${token}` });
 });
 
@@ -532,6 +535,11 @@ operaciones.put('/:id', async (c) => {
 operaciones.patch('/:id/estado', async (c) => {
   const { id } = c.req.param();
   const { estado } = await c.req.json<{ estado: string }>();
+
+  const estadosValidos = ['presupuesto', 'enviado', 'aprobado', 'en_produccion', 'listo', 'instalado', 'entregado', 'cancelado', 'rechazado'];
+  if (!estadosValidos.includes(estado)) {
+    return c.json({ error: 'Estado inválido' }, 400);
+  }
 
   const { rows: [row] } = await db.query(`
     UPDATE operaciones SET estado = $1 WHERE id = $2

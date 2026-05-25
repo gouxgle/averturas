@@ -59,6 +59,7 @@ pub.get('/presupuesto/:token', async (c) => {
     JOIN clientes cl ON cl.id = o.cliente_id
     CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
     WHERE o.token_acceso = $1
+      AND (o.token_expira_at IS NULL OR o.token_expira_at > now())
   `, [token]);
 
   if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
@@ -90,11 +91,13 @@ pub.post('/presupuesto/:token/aprobar', async (c) => {
   const { token } = c.req.param();
 
   const { rows: [op] } = await db.query(
-    `SELECT id, estado FROM operaciones WHERE token_acceso = $1`,
+    `SELECT id, estado FROM operaciones
+     WHERE token_acceso = $1
+       AND (token_expira_at IS NULL OR token_expira_at > now())`,
     [token]
   );
 
-  if (!op) return c.json({ error: 'Link inválido' }, 404);
+  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
 
   if (op.estado === 'aprobado') {
     return c.json({ ok: true, ya_aprobado: true });
@@ -159,11 +162,13 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
   const { motivo, comentario } = await c.req.json().catch(() => ({})) as any;
 
   const { rows: [op] } = await db.query(
-    `SELECT id, estado FROM operaciones WHERE token_acceso = $1`,
+    `SELECT id, estado FROM operaciones
+     WHERE token_acceso = $1
+       AND (token_expira_at IS NULL OR token_expira_at > now())`,
     [token]
   );
 
-  if (!op) return c.json({ error: 'Link inválido' }, 404);
+  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
 
   if (op.estado === 'aprobado') {
     return c.json({ error: 'Este presupuesto ya fue aprobado y no puede rechazarse' }, 400);

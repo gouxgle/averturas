@@ -28,7 +28,7 @@ import { authMiddleware } from './middleware/auth.js';
 const app = new Hono();
 
 app.use('*', cors({
-  origin: '*',
+  origin: process.env.FRONTEND_URL ?? '*',
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -85,6 +85,12 @@ app.use('*', async (c, next) => {
 
 // ── Servir frontend estático ──────────────────────────────────
 app.use('*', serveStatic({ root: './public' }));
+
+// Error handler global — evita que excepciones no capturadas rompan el proceso
+app.onError((err, c) => {
+  console.error('[error]', err);
+  return c.json({ error: 'Error interno del servidor' }, 500);
+});
 
 // SPA fallback: todas las rutas devuelven index.html
 app.get('*', (c) => {

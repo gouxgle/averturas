@@ -26,7 +26,8 @@ usuarios.post('/', async (c) => {
   const { nombre, email, password, rol } = await c.req.json();
   if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
   if (!email?.trim())  return c.json({ error: 'email requerido' }, 400);
-  if (!password)       return c.json({ error: 'contraseña requerida' }, 400);
+  if (!password)              return c.json({ error: 'contraseña requerida' }, 400);
+  if (password.length < 8)    return c.json({ error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
 
   const validRoles = ['admin', 'vendedor', 'consulta'];
   if (!validRoles.includes(rol)) return c.json({ error: 'rol inválido' }, 400);
@@ -66,6 +67,7 @@ usuarios.put('/:id', async (c) => {
   if (dup.rows[0]) return c.json({ error: 'Ese email ya pertenece a otro usuario' }, 409);
 
   if (password) {
+    if (password.length < 8) return c.json({ error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await db.query(
       `UPDATE usuarios SET nombre=$1, email=$2, password_hash=$3, rol=$4, activo=$5, updated_at=now()

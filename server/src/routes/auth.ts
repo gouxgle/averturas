@@ -6,7 +6,29 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const auth = new Hono();
 
+// Rate limiting simple en memoria: máx 5 intentos por IP en 15 minutos
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 5;
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || entry.resetAt < now) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 auth.post('/login', async (c) => {
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'unknown';
+  if (!checkRateLimit(ip)) {
+    return c.json({ error: 'Demasiados intentos. Esperá 15 minutos.' }, 429);
+  }
+
   const { email, password } = await c.req.json<{ email: string; password: string }>();
   if (!email || !password) {
     return c.json({ error: 'Email y contraseña requeridos' }, 400);
