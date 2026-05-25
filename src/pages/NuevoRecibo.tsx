@@ -356,7 +356,7 @@ export function NuevoRecibo() {
           payload.compromiso
             ? 'Recibo creado y compromiso registrado'
             : 'Recibo creado',
-          presupuestoDetalle?.proveedor_id && operacionId
+          operacionId
             ? {
                 action: {
                   label: 'Generar pedido al proveedor',

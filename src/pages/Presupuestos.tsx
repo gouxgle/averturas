@@ -63,6 +63,15 @@ interface VentasPanel {
   prob_cierre: { alta: number; media: number; baja: number };
 }
 
+interface PedidoResumen {
+  id: string;
+  numero: string;
+  estado: 'pendiente' | 'enviado' | 'recibido' | 'cancelado';
+  proveedor: { nombre: string };
+  monto_total: number;
+  fecha_pedido: string;
+}
+
 interface OpDetalle {
   id: string; numero: string; tipo: string; estado: EstadoOperacion;
   cliente_id: string; cobrado_total: number; proveedor_id: string | null;
@@ -245,11 +254,20 @@ function PresupuestoModal({
   const [generandoLink, setGenerandoLink] = useState(false);
   const [copiado, setCopiado]             = useState(false);
   const [copiadoMsg, setCopiadoMsg]       = useState(false);
+  const [pedidos, setPedidos]             = useState<PedidoResumen[]>([]);
 
   useEffect(() => {
     setLoading(true); setError(null);
     api.get<OpDetalle>(`/operaciones/${id}`)
-      .then(d => { setOp(d); setLoading(false); })
+      .then(d => {
+        setOp(d);
+        setLoading(false);
+        if (d.estado === 'aprobado') {
+          api.get<PedidoResumen[]>(`/pedidos?operacion_id=${d.id}`)
+            .then(setPedidos)
+            .catch(() => {});
+        }
+      })
       .catch(err => { setError(err.message ?? 'Error al cargar'); setLoading(false); });
   }, [id]);
 
@@ -556,13 +574,50 @@ function PresupuestoModal({
                       <Receipt size={13} /> Registrar cobro
                     </button>
                   )}
-                  {op.proveedor_id && cobrado > 0.01 && (
+                  {cobrado > 0.01 && (
                     <button
                       onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
                       className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
                     >
                       <ShoppingCart size={13} /> Generar pedido al proveedor
                     </button>
+                  )}
+
+                  {/* Pedidos vinculados */}
+                  {pedidos.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShoppingCart size={11} className="text-gray-400" />
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                          Pedidos al proveedor
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {pedidos.map(ped => {
+                          const estadoColor = {
+                            pendiente: 'bg-gray-100 text-gray-600',
+                            enviado:   'bg-blue-100 text-blue-700',
+                            recibido:  'bg-emerald-100 text-emerald-700',
+                            cancelado: 'bg-red-100 text-red-600',
+                          }[ped.estado] ?? 'bg-gray-100 text-gray-600';
+                          return (
+                            <button
+                              key={ped.id}
+                              onClick={() => { onClose(); navigate(`/pedidos?operacion_id=${op.id}`); }}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-lime-300 hover:bg-lime-50 transition-colors text-left"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-gray-700">{ped.numero}</p>
+                                <p className="text-[10px] text-gray-400 truncate">{ped.proveedor.nombre}</p>
+                              </div>
+                              <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2', estadoColor)}>
+                                {ped.estado}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
