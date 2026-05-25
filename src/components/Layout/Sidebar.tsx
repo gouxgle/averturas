@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
@@ -54,12 +54,23 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
 
 function NavItemLink({ item, onClose }: { item: NavItem; onClose?: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const [tooltipTop, setTooltipTop] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
   const { to, label, icon: Icon, activeColor, activeBg } = item;
+
+  function handleMouseEnter() {
+    if (ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setTooltipTop(r.top + r.height / 2);
+    }
+    setHovered(true);
+  }
 
   return (
     <div
+      ref={ref}
       className="relative px-2 lg:px-1.5 mb-0.5"
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setHovered(false)}
     >
       <NavLink
@@ -102,18 +113,25 @@ function NavItemLink({ item, onClose }: { item: NavItem; onClose?: () => void })
         )}
       </NavLink>
 
-      {/* Tooltip desktop */}
-      <div className={cn(
-        'hidden lg:flex items-center',
-        'absolute left-full top-1/2 -translate-y-1/2 ml-2.5',
-        'pointer-events-none whitespace-nowrap z-[200]',
-        'transition-all duration-150',
-        hovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1',
-      )}>
-        {/* Triángulo */}
+      {/* Tooltip: position:fixed para escapar del overflow-y:auto del nav */}
+      <div
+        className={cn(
+          'hidden lg:flex items-center',
+          'pointer-events-none whitespace-nowrap',
+          'transition-all duration-150',
+          hovered ? 'opacity-100' : 'opacity-0',
+        )}
+        style={{
+          position: 'fixed',
+          top: tooltipTop,
+          left: '3.75rem',
+          transform: 'translateY(-50%)',
+          zIndex: 9999,
+        }}
+      >
         <span className="border-4 border-transparent border-r-gray-800" />
         <span className={cn(
-          'bg-gray-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-xl',
+          'bg-gray-800 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-xl',
           activeColor,
         )}>
           {label}
