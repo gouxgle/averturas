@@ -39,6 +39,7 @@ interface OperacionItem {
   descripcion: string;
   cantidad: number;
   costo_unitario: number;
+  producto_id?: string | null;
   tipo_abertura_nombre?: string;
   sistema_nombre?: string;
   producto_proveedor_sku?: string | null;
@@ -67,6 +68,12 @@ interface PedidoItemForm {
   cantidad: number;
   costo_unitario: number;
   proveedor_sku?: string | null;
+  precio_de_lista?: boolean;
+}
+
+interface PreciosMapa {
+  bySku: Record<string, number>;
+  byProductoId: Record<string, number>;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -75,6 +82,37 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
   }).format(n);
+}
+
+// Busca precio en lista del proveedor: primero por producto_id (FK directo), luego por SKU
+function resolverPrecio(precios: PreciosMapa, productoId: string | null | undefined, sku: string | null | undefined): number | null {
+  if (productoId && precios.byProductoId[productoId] != null) return precios.byProductoId[productoId];
+  if (sku && precios.bySku[sku] != null) return precios.bySku[sku];
+  return null;
+}
+
+function buildPreciosMapa(lista: { sku: string; precio: number; producto_id: string | null }[]): PreciosMapa {
+  const bySku: Record<string, number> = {};
+  const byProductoId: Record<string, number> = {};
+  for (const p of lista) {
+    bySku[p.sku] = Number(p.precio);
+    if (p.producto_id) byProductoId[p.producto_id] = Number(p.precio);
+  }
+  return { bySku, byProductoId };
+}
+
+function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm {
+  const sku    = oi.producto_proveedor_sku ?? null;
+  const precio = resolverPrecio(precios, oi.producto_id, sku);
+  return {
+    operacion_item_id: oi.id,
+    producto_id:       oi.producto_id ?? undefined,
+    descripcion:       oi.descripcion,
+    cantidad:          oi.cantidad,
+    costo_unitario:    precio ?? 0,
+    proveedor_sku:     sku,
+    precio_de_lista:   precio != null,
+  };
 }
 
 function nombreCliente(op: OperacionAprobada | OperacionDetalle) {
@@ -163,18 +201,24 @@ export default function NuevoPedido() {
   const [opsDisponibles,        setOpsDisponibles]        = useState<OperacionAprobada[]>([]);
   const [loadingOpsDisponibles, setLoadingOpsDisponibles] = useState(false);
 
-  // Mapa de precios del proveedor seleccionado: sku → precio
-  const [preciosProveedor, setPreciosProveedor] = useState<Record<string, number>>({});
+  // Mapas de precios del proveedor: bySku y byProductoId
+  const [preciosProveedor, setPreciosProveedor] = useState<PreciosMapa>({ bySku: {}, byProductoId: {} });
 
-  // ── Cargar precios del proveedor cuando cambia ───────────────
+  // ── Cargar precios cuando cambia proveedor + re-pricear items de operacion ──
   useEffect(() => {
-    if (!proveedorId) { setPreciosProveedor({}); return; }
-    api.get<{ sku: string; precio: number }[]>(
+    if (!proveedorId) { setPreciosProveedor({ bySku: {}, byProductoId: {} }); return; }
+    api.get<{ sku: string; precio: number; producto_id: string | null }[]>(
       `/catalogo/proveedor-precios?proveedor_id=${proveedorId}&activo=true`
     ).then(lista => {
-      const mapa: Record<string, number> = {};
-      for (const p of lista) mapa[p.sku] = Number(p.precio);
-      setPreciosProveedor(mapa);
+      const nuevos = buildPreciosMapa(lista);
+      setPreciosProveedor(nuevos);
+      // Re-aplicar precios a items cargados desde operacion
+      setItems(prev => prev.map(item => {
+        if (!item.operacion_item_id) return item;
+        const precio = resolverPrecio(nuevos, item.producto_id, item.proveedor_sku);
+        if (precio == null) return { ...item, precio_de_lista: false };
+        return { ...item, costo_unitario: precio, precio_de_lista: true };
+      }));
     }).catch(() => {});
   }, [proveedorId]);
 
@@ -202,35 +246,25 @@ export default function NuevoPedido() {
         });
         setBusqOp(op.numero);
 
-        let preciosMapa: Record<string, number> = {};
+        let preciosMapa: PreciosMapa = { bySku: {}, byProductoId: {} };
         if (op.proveedor_id) {
           setProveedorId(op.proveedor_id);
           try {
             const [prov, lista] = await Promise.all([
               api.get<Proveedor>(`/catalogo/proveedores/${op.proveedor_id}`),
-              api.get<{ sku: string; precio: number }[]>(
+              api.get<{ sku: string; precio: number; producto_id: string | null }[]>(
                 `/catalogo/proveedor-precios?proveedor_id=${op.proveedor_id}&activo=true`
               ),
             ]);
             setProveedorSel(prov);
             setBusqProv(prov.nombre);
-            for (const p of lista) preciosMapa[p.sku] = Number(p.precio);
+            preciosMapa = buildPreciosMapa(lista);
             setPreciosProveedor(preciosMapa);
           } catch { /* sin proveedor o sin precios */ }
         }
 
         if (op.items?.length) {
-          setItems(op.items.map(oi => {
-            const sku = oi.producto_proveedor_sku ?? null;
-            const costoDesdeListado = sku && preciosMapa[sku] != null ? preciosMapa[sku] : null;
-            return {
-              operacion_item_id: oi.id,
-              descripcion: oi.descripcion,
-              cantidad: oi.cantidad,
-              costo_unitario: costoDesdeListado ?? oi.costo_unitario ?? 0,
-              proveedor_sku: sku,
-            };
-          }));
+          setItems(op.items.map(oi => mapItemFromOp(oi, preciosMapa)));
         }
       } catch {
         toast.error('No se pudo cargar la operación');
@@ -306,35 +340,23 @@ export default function NuevoPedido() {
       const det = await api.get<OperacionDetalle>(`/operaciones/${op.id}`);
 
       // Asegurar proveedor cargado antes de mapear precios
-      let preciosMapa = preciosProveedor;
+      let preciosMapa: PreciosMapa = preciosProveedor;
       if (det.proveedor_id && !proveedorId) {
         const prov = await api.get<Proveedor>(`/catalogo/proveedores/${det.proveedor_id}`);
         setProveedorId(prov.id);
         setProveedorSel(prov);
         setBusqProv(prov.nombre);
-        // Cargar precios del proveedor recién seleccionado
         try {
-          const lista = await api.get<{ sku: string; precio: number }[]>(
+          const lista = await api.get<{ sku: string; precio: number; producto_id: string | null }[]>(
             `/catalogo/proveedor-precios?proveedor_id=${prov.id}&activo=true`
           );
-          preciosMapa = {};
-          for (const p of lista) preciosMapa[p.sku] = Number(p.precio);
+          preciosMapa = buildPreciosMapa(lista);
           setPreciosProveedor(preciosMapa);
         } catch { /* sin precios */ }
       }
 
       if (det.items?.length) {
-        setItems(det.items.map(oi => {
-          const sku = oi.producto_proveedor_sku ?? null;
-          const costoDesdeListado = sku && preciosMapa[sku] != null ? preciosMapa[sku] : null;
-          return {
-            operacion_item_id: oi.id,
-            descripcion: oi.descripcion,
-            cantidad: oi.cantidad,
-            costo_unitario: costoDesdeListado ?? oi.costo_unitario ?? 0,
-            proveedor_sku: sku,
-          };
-        }));
+        setItems(det.items.map(oi => mapItemFromOp(oi, preciosMapa)));
       }
     } catch { /* op sin items */ }
   }
@@ -629,11 +651,23 @@ export default function NuevoPedido() {
             {items.map((item, idx) => (
               <div key={idx} className="flex gap-2 items-start p-3 bg-gray-50 rounded-xl border border-gray-100">
                 <div className="flex-1 space-y-2">
-                  {item.proveedor_sku && (
-                    <p className="text-[10px] text-lime-700 bg-lime-50 border border-lime-100 rounded px-2 py-0.5 inline-block">
-                      Ref. proveedor: <span className="font-mono font-semibold">{item.proveedor_sku}</span>
-                    </p>
-                  )}
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {item.proveedor_sku && (
+                      <p className="text-[10px] text-lime-700 bg-lime-50 border border-lime-100 rounded px-2 py-0.5">
+                        Ref: <span className="font-mono font-semibold">{item.proveedor_sku}</span>
+                      </p>
+                    )}
+                    {item.operacion_item_id && item.precio_de_lista && (
+                      <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-0.5 font-semibold">
+                        ✓ Precio de lista
+                      </p>
+                    )}
+                    {item.operacion_item_id && !item.precio_de_lista && proveedorId && (
+                      <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-0.5 font-semibold">
+                        ⚠ Sin precio en lista — ingresar manualmente
+                      </p>
+                    )}
+                  </div>
                   <input
                     value={item.descripcion}
                     onChange={e => updateItem(idx, 'descripcion', e.target.value)}
