@@ -215,13 +215,21 @@ operaciones.get('/ventas-panel', async (c) => {
           WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
           WHEN cob.cobrado_total >= o.precio_total - 0.01 THEN 'cobrado'
           ELSE 'seña'
-        END AS estado_cobro
+        END AS estado_cobro,
+        COALESCE(ped.tiene_pedido, false) AS tiene_pedido,
+        ped.pedido_estado
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(r.monto_total), 0)::numeric AS cobrado_total
         FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'
       ) cob ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          (COUNT(*) > 0) AS tiene_pedido,
+          (SELECT p2.estado FROM pedidos p2 WHERE p2.operacion_id = o.id AND p2.estado != 'cancelado' ORDER BY p2.created_at DESC LIMIT 1) AS pedido_estado
+        FROM pedidos p WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
+      ) ped ON true
       WHERE o.estado IN ('presupuesto','enviado','aprobado','cancelado','rechazado')
       ORDER BY
         CASE WHEN o.estado IN ('presupuesto','enviado') THEN 0 ELSE 1 END,

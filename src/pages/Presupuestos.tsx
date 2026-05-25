@@ -42,6 +42,8 @@ interface PresupuestoPanel {
   prioridad: 'alta' | 'media' | 'baja';
   cobrado_total: number;
   estado_cobro: 'sin_cobrar' | 'seña' | 'cobrado' | null;
+  tiene_pedido: boolean;
+  pedido_estado: 'pendiente' | 'enviado' | 'recibido' | 'cancelado' | null;
   cliente: ClienteMin;
 }
 
@@ -574,14 +576,22 @@ function PresupuestoModal({
                       <Receipt size={13} /> Registrar cobro
                     </button>
                   )}
-                  {cobrado > 0.01 && (
-                    <button
-                      onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
-                      className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
-                    >
-                      <ShoppingCart size={13} /> Generar pedido al proveedor
-                    </button>
-                  )}
+                  {cobrado > 0.01 && (() => {
+                    const pedidoActivo = pedidos.find(p => p.estado !== 'cancelado');
+                    return pedidoActivo ? (
+                      <div className="mt-1 flex items-center gap-2 px-3 py-2 bg-lime-50 border border-lime-200 rounded-xl text-xs text-lime-700 font-semibold">
+                        <ShoppingCart size={13} />
+                        Ya tiene pedido activo ({pedidoActivo.estado})
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
+                      >
+                        <ShoppingCart size={13} /> Generar pedido al proveedor
+                      </button>
+                    );
+                  })()}
 
                   {/* Pedidos vinculados */}
                   {pedidos.length > 0 && (
@@ -1008,6 +1018,21 @@ export function Presupuestos() {
                             {p.estado_cobro === 'sin_cobrar' && '○ Sin cobrar'}
                             {p.estado_cobro === 'seña'       && `◑ Seña ${formatCurrency(p.cobrado_total)}`}
                             {p.estado_cobro === 'cobrado'    && '● Cobrado'}
+                          </span>
+                        )}
+                        {p.tiene_pedido && p.pedido_estado !== 'cancelado' && (
+                          <span
+                            title={`Pedido al proveedor: ${p.pedido_estado}`}
+                            className={cn(
+                              'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold cursor-default',
+                              p.pedido_estado === 'recibido' ? 'bg-emerald-100 text-emerald-700'
+                              : p.pedido_estado === 'enviado' ? 'bg-blue-100 text-blue-700'
+                              : 'bg-lime-100 text-lime-700',
+                            )}>
+                            <ShoppingCart size={9} />
+                            {p.pedido_estado === 'recibido' ? 'Pedido recibido'
+                             : p.pedido_estado === 'enviado' ? 'Pedido enviado'
+                             : 'Pedido generado'}
                           </span>
                         )}
                       </div>

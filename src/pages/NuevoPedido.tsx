@@ -278,6 +278,17 @@ export default function NuevoPedido() {
     (async () => {
       setLoadingOp(true);
       try {
+        // Verificar si ya existe pedido activo para esta operacion
+        const pedidosExistentes = await api.get<{ id: string; estado: string }[]>(
+          `/pedidos?operacion_id=${urlOperacionId}`
+        );
+        const pedidoActivo = pedidosExistentes.find(p => p.estado !== 'cancelado');
+        if (pedidoActivo) {
+          toast.error(`Esta operación ya tiene un pedido activo (${pedidoActivo.estado}). No se puede generar otro.`);
+          navigate('/pedidos');
+          return;
+        }
+
         const op = await api.get<OperacionDetalle>(`/operaciones/${urlOperacionId}`);
         setOperacionId(op.id);
         setOperacionSel({
