@@ -612,7 +612,7 @@ function NuevoPrecioModal({
 
   useEffect(() => { skuRef.current?.focus(); }, []);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent, cerrar = false) {
     e.preventDefault();
     if (!sku.trim() || !desc.trim()) { toast.error('SKU y descripción requeridos'); return; }
     setSaving(true);
@@ -623,6 +623,10 @@ function NuevoPrecioModal({
       });
       toast.success('Precio guardado');
       onSaved();
+      if (cerrar) { onClose(); return; }
+      // Resetear y quedar abierto para agregar otro
+      setSku(''); setDesc(''); setPrec('');
+      setTimeout(() => skuRef.current?.focus(), 50);
     } catch {
       toast.error('Error al guardar');
     } finally {
@@ -656,14 +660,18 @@ function NuevoPrecioModal({
               placeholder="0"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-300" />
           </div>
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2 pt-2">
             <button type="submit" disabled={saving}
-              className="flex-1 bg-lime-500 text-white font-semibold py-2.5 rounded-xl hover:bg-lime-600 disabled:opacity-50 flex items-center justify-center gap-2">
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
-              Guardar
+              className="flex-1 bg-lime-500 text-white font-semibold py-2.5 rounded-xl hover:bg-lime-600 disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+              {saving ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
+              Guardar y agregar otro
+            </button>
+            <button type="button" disabled={saving} onClick={e => submit(e as unknown as React.FormEvent, true)}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-lime-700 text-white font-semibold rounded-xl hover:bg-lime-800 disabled:opacity-50 text-sm whitespace-nowrap">
+              <Check size={13} /> Guardar y cerrar
             </button>
             <button type="button" onClick={onClose}
-              className="w-24 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl hover:bg-gray-50">
+              className="px-3 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl hover:bg-gray-50 text-sm">
               Cancelar
             </button>
           </div>
@@ -1074,7 +1082,7 @@ export function ProveedorPrecios() {
       {modal === 'nuevo' && id && (
         <NuevoPrecioModal
           proveedorId={id}
-          onSaved={() => { setModal(null); cargar(); }}
+          onSaved={cargar}
           onClose={() => setModal(null)}
         />
       )}
