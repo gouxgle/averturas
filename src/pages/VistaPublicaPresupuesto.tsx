@@ -341,35 +341,35 @@ export function VistaPublicaPresupuesto() {
 
         {/* ── HEADER ────────────────────────────────────────────────────── */}
         <div className="rounded-t-2xl overflow-hidden">
-          <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-5"
-            style={{ background: NAVY }}>
+          <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-5 bg-white"
+            style={{ border: `2px solid ${NAVY}`, borderBottom: 'none' }}>
 
             {/* Empresa */}
             <div>
               <img src="/logochico.png" alt="Logo" style={{ height: 36, marginBottom: 12, opacity: 0.9 }}
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               {pres.empresa.cuit && (
-                <div className="text-blue-200 text-xs mb-0.5">
+                <div className="text-xs mb-0.5" style={{ color: NAVY }}>
                   <span className="font-semibold">CUIT:</span> {pres.empresa.cuit}
                 </div>
               )}
               {pres.empresa.telefono && (
-                <div className="flex items-center gap-1 text-blue-200 text-xs mb-0.5">
+                <div className="flex items-center gap-1 text-xs mb-0.5" style={{ color: NAVY }}>
                   <Phone size={10} /> {pres.empresa.telefono}
                 </div>
               )}
               {pres.empresa.email && (
-                <div className="flex items-center gap-1 text-blue-200 text-xs mb-0.5">
+                <div className="flex items-center gap-1 text-xs mb-0.5" style={{ color: NAVY }}>
                   <Mail size={10} /> {pres.empresa.email}
                 </div>
               )}
               {pres.empresa.direccion && (
-                <div className="flex items-center gap-1 text-blue-200 text-xs mb-0.5">
+                <div className="flex items-center gap-1 text-xs mb-0.5" style={{ color: NAVY }}>
                   <MapPin size={10} /> {pres.empresa.direccion}
                 </div>
               )}
               {pres.empresa.instagram && (
-                <div className="text-blue-200 text-xs">Instagram: {pres.empresa.instagram}</div>
+                <div className="text-xs" style={{ color: NAVY }}>Instagram: {pres.empresa.instagram}</div>
               )}
             </div>
 
@@ -377,15 +377,15 @@ export function VistaPublicaPresupuesto() {
             <div className="text-right shrink-0">
               <div className="text-2xl sm:text-3xl font-black tracking-widest leading-none mb-1"
                 style={{ color: RED }}>PROFORMA</div>
-              <div className="text-white font-bold text-sm">N°: {proformaNum}</div>
-              <div className="text-blue-200 text-xs mt-2">📅 Fecha: {fechaEmision}</div>
+              <div className="font-bold text-sm" style={{ color: NAVY }}>N°: {proformaNum}</div>
+              <div className="text-xs mt-2 text-gray-500">📅 Fecha: {fechaEmision}</div>
               {pres.fecha_validez && (
-                <div className={`text-xs mt-0.5 font-semibold ${vencido ? 'text-red-300' : 'text-amber-300'}`}>
+                <div className={`text-xs mt-0.5 font-semibold ${vencido ? 'text-red-500' : 'text-amber-600'}`}>
                   ⏱ Válido hasta: {fmtFecha(pres.fecha_validez)}
                 </div>
               )}
               {pres.tiempo_entrega && (
-                <div className="text-blue-200 text-xs mt-0.5">
+                <div className="text-xs mt-0.5 text-gray-500">
                   🚚 Entrega: {pres.tiempo_entrega} días hábiles
                 </div>
               )}
@@ -449,9 +449,10 @@ export function VistaPublicaPresupuesto() {
         {/* ── ITEMS ─────────────────────────────────────────────────────── */}
         <div className="bg-white mt-px">
           {/* Encabezado tabla */}
-          <div className="grid text-xs font-bold text-white uppercase tracking-wider px-4 py-2.5"
+          <div className="grid text-xs font-bold uppercase tracking-wider px-4 py-2.5 border-b-2"
             style={{
-              background: NAVY,
+              color: NAVY,
+              borderColor: NAVY,
               gridTemplateColumns: '28px 56px 1fr 52px 88px 88px',
             }}>
             <span>Ítem</span>

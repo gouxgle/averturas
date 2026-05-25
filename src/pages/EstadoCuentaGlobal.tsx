@@ -682,16 +682,15 @@ export function EstadoCuentaGlobal() {
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-          <div className="min-w-[1030px]">
+          <div className="min-w-[997px]">
             {/* Table header */}
-            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 border-b border-gray-100 bg-gray-50"
-              style={{ gridTemplateColumns: '180px 115px 115px 125px 105px 115px 100px 90px 85px' }}>
+            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-100 bg-gray-50"
+              style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
               <span className="whitespace-nowrap">Cliente</span>
               <span className="whitespace-nowrap">Última compra</span>
               <span className="text-right whitespace-nowrap">Total comprado</span>
               <span className="text-right whitespace-nowrap">Cobrado</span>
               <span className="text-right whitespace-nowrap">Saldo</span>
-              <span className="whitespace-nowrap">Vencimiento</span>
               <span className="whitespace-nowrap">Estado</span>
               <span className="whitespace-nowrap">Días vencido</span>
               <span className="text-right whitespace-nowrap">Acciones</span>
@@ -726,10 +725,10 @@ export function EstadoCuentaGlobal() {
                     <div key={c.id}>
                       <div
                         className={cn(
-                          'grid items-center px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
+                          'grid items-center gap-x-2 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
                           cfg.border
                         )}
-                        style={{ gridTemplateColumns: '180px 115px 115px 125px 105px 115px 100px 90px 85px' }}
+                        style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}
                         onClick={() => setExpandedId(isExpanded ? null : c.id)}
                       >
                         {/* Cliente */}
@@ -777,17 +776,6 @@ export function EstadoCuentaGlobal() {
                             Number(c.saldo) > 100000 ? 'text-red-600' : 'text-amber-600')}>
                             {formatCurrency(Number(c.saldo))}
                           </p>
-                        </div>
-
-                        {/* Vencimiento */}
-                        <div>
-                          {vc ? (
-                            <span className={cn('text-xs', vc.color)}>{vc.text.split('\n')[0]}</span>
-                          ) : c.proximo_vencimiento ? (
-                            <span className="text-xs text-gray-500">{formatDate(c.proximo_vencimiento)}</span>
-                          ) : (
-                            <span className="text-xs text-gray-300">—</span>
-                          )}
                         </div>
 
                         {/* Estado */}
@@ -864,13 +852,12 @@ export function EstadoCuentaGlobal() {
             {/* Footer totales */}
             {!loading && t && filtrado.length > 1 && (
               <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-                <div className="grid text-xs" style={{ gridTemplateColumns: '180px 115px 115px 125px 105px 115px 100px 90px 85px' }}>
+                <div className="grid text-xs gap-x-2" style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
                   <span className="text-gray-500">Mostrando {filtrado.length} de {clientes.length} clientes</span>
                   <span />
                   <span className="text-right font-bold text-gray-700">{formatCurrency(t.presupuestado)}</span>
                   <span className="text-right font-bold text-emerald-600">{formatCurrency(t.cobrado)}</span>
                   <span className="text-right font-bold text-red-600">{formatCurrency(t.saldo)}</span>
-                  <span />
                   <span />
                   <span className="font-bold text-blue-600">{formatCurrency(t.compromisos)}</span>
                   <span />
