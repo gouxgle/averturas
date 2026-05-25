@@ -115,6 +115,46 @@ function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm 
   };
 }
 
+// Input numérico con separador de miles. Muestra formateado en reposo, raw al editar.
+function CostoInput({ value, onChange, className }: { value: number; onChange: (n: number) => void; className?: string }) {
+  const [focused, setFocused] = useState(false);
+  const [raw, setRaw] = useState('');
+
+  function handleFocus() {
+    setFocused(true);
+    setRaw(value > 0 ? String(value) : '');
+  }
+
+  function handleBlur() {
+    setFocused(false);
+    const n = parseFloat(raw.replace(',', '.')) || 0;
+    onChange(n);
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value.replace(/[^\d,]/g, '');
+    setRaw(val);
+    onChange(parseFloat(val.replace(',', '.')) || 0);
+  }
+
+  const display = focused
+    ? raw
+    : value > 0 ? value.toLocaleString('es-AR', { maximumFractionDigits: 2 }) : '';
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={display}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onChange={handleChange}
+      placeholder="0"
+      className={className}
+    />
+  );
+}
+
 function nombreCliente(op: OperacionAprobada | OperacionDetalle) {
   const c = op.cliente;
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
@@ -687,12 +727,9 @@ export default function NuevoPedido() {
                     </div>
                     <div>
                       <label className="block text-[11px] text-gray-400 mb-0.5">Costo unitario</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={item.costo_unitario || ''}
-                        onChange={e => updateItem(idx, 'costo_unitario', parseFloat(e.target.value) || 0)}
-                        placeholder="$0"
+                      <CostoInput
+                        value={item.costo_unitario}
+                        onChange={v => updateItem(idx, 'costo_unitario', v)}
                         className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
                       />
                     </div>
