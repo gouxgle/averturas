@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
@@ -50,6 +51,77 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     ],
   },
 ];
+
+function NavItemLink({ item, onClose }: { item: NavItem; onClose?: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const { to, label, icon: Icon, activeColor, activeBg } = item;
+
+  return (
+    <div
+      className="relative px-2 lg:px-1.5 mb-0.5"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <NavLink
+        to={to}
+        end={to === '/dashboard'}
+        onClick={onClose}
+        className={({ isActive }) => cn(
+          'flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-150 relative',
+          'lg:justify-center lg:px-0',
+          isActive ? cn('text-white', activeBg) : hovered ? 'bg-white/5' : '',
+        )}
+        style={({ isActive }) => isActive ? {} : { color: 'rgba(255,255,255,0.55)' }}
+      >
+        {({ isActive }) => (
+          <>
+            {/* Indicador activo — barra izquierda */}
+            {isActive && (
+              <span className={cn(
+                'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full',
+                activeColor.replace('text-', 'bg-')
+              )} />
+            )}
+
+            {/* Icono */}
+            <span className={cn(
+              'w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150 shrink-0',
+              isActive
+                ? cn('bg-white/10', activeColor)
+                : hovered
+                  ? cn(activeBg, activeColor, 'scale-110')
+                  : '',
+            )} style={!isActive && !hovered ? { color: 'rgba(255,255,255,0.45)' } : {}}>
+              <Icon size={20} />
+            </span>
+
+            {/* Label — solo mobile */}
+            <span className="flex-1 text-sm font-medium lg:hidden">{label}</span>
+            {isActive && <ChevronRight size={13} className={cn('opacity-50 lg:hidden', activeColor)} />}
+          </>
+        )}
+      </NavLink>
+
+      {/* Tooltip desktop */}
+      <div className={cn(
+        'hidden lg:flex items-center',
+        'absolute left-full top-1/2 -translate-y-1/2 ml-2.5',
+        'pointer-events-none whitespace-nowrap z-[200]',
+        'transition-all duration-150',
+        hovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1',
+      )}>
+        {/* Triángulo */}
+        <span className="border-4 border-transparent border-r-gray-800" />
+        <span className={cn(
+          'bg-gray-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-xl',
+          activeColor,
+        )}>
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function LogoMark({ size = 36 }: { size?: number }) {
   const gap = Math.round(size * 0.083);
@@ -131,60 +203,8 @@ export function Sidebar({ onClose }: SidebarProps) {
               </>
             )}
 
-            {group.items.map(({ to, label, icon: Icon, activeColor, activeBg }) => (
-              // Wrapper necesario para el tooltip en desktop
-              <div key={to} className="relative group/navitem px-2 lg:px-1.5 mb-0.5">
-                <NavLink
-                  to={to}
-                  end={to === '/dashboard'}
-                  onClick={onClose}
-                  className={({ isActive }) => cn(
-                    'flex items-center gap-3 px-2 py-2 rounded-lg transition-all duration-150 relative',
-                    // Desktop: centrar icono
-                    'lg:justify-center lg:px-0',
-                    isActive ? cn('text-white', activeBg) : 'hover:bg-white/5',
-                  )}
-                  style={({ isActive }) => isActive ? {} : { color: 'rgba(255,255,255,0.55)' }}
-                >
-                  {({ isActive }) => (
-                    <>
-                      {/* Indicador activo — barra izquierda */}
-                      {isActive && (
-                        <span className={cn(
-                          'absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full',
-                          activeColor.replace('text-', 'bg-')
-                        )} />
-                      )}
-
-                      {/* Icono */}
-                      <span className={cn(
-                        'w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0',
-                        isActive ? cn('bg-white/10', activeColor) : 'group-hover/navitem:text-white/80',
-                      )} style={isActive ? {} : { color: 'rgba(255,255,255,0.45)' }}>
-                        <Icon size={20} />
-                      </span>
-
-                      {/* Label — solo mobile */}
-                      <span className="flex-1 text-sm font-medium lg:hidden">{label}</span>
-                      {isActive && <ChevronRight size={13} className={cn('opacity-50 lg:hidden', activeColor)} />}
-                    </>
-                  )}
-                </NavLink>
-
-                {/* Tooltip desktop */}
-                <div className={cn(
-                  'hidden lg:block',
-                  'absolute left-full top-1/2 -translate-y-1/2 ml-3',
-                  'bg-gray-900 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg',
-                  'opacity-0 group-hover/navitem:opacity-100 transition-opacity duration-150',
-                  'pointer-events-none whitespace-nowrap shadow-xl',
-                  'z-[200]',
-                )}>
-                  {label}
-                  {/* Triángulo apuntando a la izquierda */}
-                  <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
-                </div>
-              </div>
+            {group.items.map((item) => (
+              <NavItemLink key={item.to} item={item} onClose={onClose} />
             ))}
           </div>
         ))}
