@@ -217,6 +217,7 @@ dashboard.get('/resumen', async (c) => {
     topProductos,
     sinContacto,
     recientes,
+    pedidosAtrasados,
   ] = await Promise.all([
 
     db.query(`
@@ -322,6 +323,26 @@ dashboard.get('/resumen', async (c) => {
       JOIN clientes c ON c.id = o.cliente_id
       ORDER BY o.created_at DESC LIMIT 6
     `),
+
+    db.query(`
+      SELECT p.id, p.numero, p.estado, p.fecha_entrega_est, p.monto_total,
+        (CURRENT_DATE - p.fecha_entrega_est)::int AS dias_atraso,
+        json_build_object('id', prov.id, 'nombre', prov.nombre) AS proveedor,
+        CASE WHEN o.id IS NOT NULL THEN
+          json_build_object('id', o.id, 'numero', o.numero,
+            'cliente', json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+              'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona))
+        ELSE NULL END AS operacion
+      FROM pedidos p
+      JOIN proveedores prov ON prov.id = p.proveedor_id
+      LEFT JOIN operaciones o ON o.id = p.operacion_id
+      LEFT JOIN clientes cl ON cl.id = o.cliente_id
+      WHERE p.estado IN ('pendiente','enviado')
+        AND p.fecha_entrega_est IS NOT NULL
+        AND p.fecha_entrega_est < CURRENT_DATE
+      ORDER BY p.fecha_entrega_est ASC
+      LIMIT 20
+    `),
   ]);
 
   const s = statsRow.rows[0];
@@ -344,6 +365,7 @@ dashboard.get('/resumen', async (c) => {
     top_productos:         topProductos.rows,
     sin_contacto:          sinContacto.rows,
     recientes:             recientes.rows,
+    pedidos_atrasados:     pedidosAtrasados.rows,
   });
 });
 

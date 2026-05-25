@@ -52,6 +52,13 @@ interface ContactoCliente {
   dias_sin_contacto: number;
 }
 
+interface PedidoAtrasado {
+  id: string; numero: string; estado: string;
+  fecha_entrega_est: string; monto_total: number; dias_atraso: number;
+  proveedor: { id: string; nombre: string };
+  operacion: { id: string; numero: string; cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string } } | null;
+}
+
 interface DashboardResumen {
   stats: Stats;
   sin_confirmar: OpItem[];
@@ -62,6 +69,7 @@ interface DashboardResumen {
   top_productos: TopProducto[];
   sin_contacto: ContactoCliente[];
   recientes: OpItem[];
+  pedidos_atrasados: PedidoAtrasado[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -175,7 +183,7 @@ export function Dashboard() {
                   Ver agenda completa <ChevronRight size={12} />
                 </Link>
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 {[
                   {
                     icon: Truck, color: 'text-amber-600', bg: 'bg-amber-100',
@@ -200,6 +208,12 @@ export function Dashboard() {
                     title: `${data.compromisos_semana.length} compromiso${data.compromisos_semana.length !== 1 ? 's' : ''} de pago próximos`,
                     sub: 'Vencen en los próximos 2 días',
                     count: data.compromisos_semana.length, href: '/presupuestos',
+                  },
+                  {
+                    icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100',
+                    title: `${data.pedidos_atrasados.length} pedido${data.pedidos_atrasados.length !== 1 ? 's' : ''} atrasado${data.pedidos_atrasados.length !== 1 ? 's' : ''}`,
+                    sub: 'Superaron la fecha de entrega estimada',
+                    count: data.pedidos_atrasados.length, href: '/proveedores',
                   },
                 ].map(({ icon: Icon, color, bg, title, sub, count, href }) => (
                   <Link
