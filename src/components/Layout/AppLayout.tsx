@@ -149,20 +149,11 @@ export function AppLayout() {
             </div>
           </div>
 
-          {/* Logo + nombre + slogan — desktop */}
-          <div className="hidden lg:flex items-center gap-3 flex-1">
-            <svg width="28" height="28" viewBox="0 0 200 200" fill="none">
-              <rect x="8"   y="8"   width="84" height="84" rx="12" fill="rgba(255,255,255,0.90)" />
-              <rect x="108" y="8"   width="84" height="84" rx="12" fill="#e31e24" />
-              <rect x="8"   y="108" width="84" height="84" rx="12" fill="rgba(255,255,255,0.45)" />
-              <rect x="108" y="108" width="84" height="84" rx="12" fill="rgba(255,255,255,0.20)" />
-            </svg>
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-extrabold text-white tracking-wide leading-none">CÉSAR BRÍTEZ</span>
-              <span className="text-[10px] font-semibold tracking-widest uppercase leading-none" style={{ color: '#e31e24' }}>Aberturas</span>
-              <span className="text-[11px] font-light tracking-wide leading-none" style={{ color: 'rgba(255,255,255,0.35)' }}>·</span>
-              <span className="text-[11px] font-light italic tracking-wide leading-none" style={{ color: 'rgba(255,255,255,0.45)' }}>Aberturas Bien Pensadas</span>
-            </div>
+          {/* Nombre + slogan — desktop */}
+          <div className="hidden lg:flex items-center gap-2 flex-1">
+            <span className="text-sm font-extrabold text-white tracking-wide">César Brítez</span>
+            <span className="text-xs font-light" style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>
+            <span className="text-xs font-light italic" style={{ color: 'rgba(255,255,255,0.50)' }}>Aberturas Bien Pensadas</span>
           </div>
 
           {/* Bell — siempre visible, en área de contenido (sin problemas de overflow) */}
