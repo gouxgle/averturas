@@ -293,6 +293,69 @@ pedidos.get('/operaciones-disponibles', async (c) => {
   return c.json(rows);
 });
 
+// POST /:id/enviar-whatsapp — envía pedido al proveedor via Evolution API
+pedidos.post('/:id/enviar-whatsapp', async (c) => {
+  const { id } = c.req.param();
+
+  const [{ rows: [pedido] }, { rows: items }] = await Promise.all([
+    db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]),
+    db.query(`SELECT descripcion, cantidad, costo_unitario FROM pedido_items WHERE pedido_id=$1 ORDER BY orden`, [id]),
+  ]);
+  if (!pedido) return c.json({ error: 'Pedido no encontrado' }, 404);
+
+  const prov = pedido.proveedor;
+  if (!prov?.telefono) return c.json({ error: 'El proveedor no tiene teléfono registrado' }, 422);
+
+  // Normalizar número Argentina → 549XXXXXXXXXX
+  const digits = prov.telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  else numero = `549${digits}`;
+
+  // Construir mensaje
+  const opRef = pedido.operacion
+    ? `\nReferencia: ${pedido.operacion.numero}${pedido.operacion.cliente ? ` — ${pedido.operacion.cliente.razon_social ?? `${pedido.operacion.cliente.apellido ?? ''} ${pedido.operacion.cliente.nombre ?? ''}`.trim()}` : ''}`
+    : '';
+  const detalle = items.map((i: { descripcion: string; cantidad: number; costo_unitario: number }) =>
+    `• ${i.descripcion} — Cant: ${i.cantidad}`
+  ).join('\n');
+  const fechaEst = pedido.fecha_entrega_est
+    ? `\n📅 Necesitamos para: ${new Date(pedido.fecha_entrega_est).toLocaleDateString('es-AR')}`
+    : '';
+
+  const mensaje =
+`🏠 *Pedido de Productos — César Brítez Aberturas*
+Formosa, Argentina${opRef}
+
+📋 *Detalle del pedido ${pedido.numero}:*
+
+${detalle}${fechaEst}
+
+Muchas gracias por su atención. Aguardamos confirmación de recepción.`;
+
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+
+  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, text: mensaje }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text().catch(() => '');
+    console.error('[whatsapp-pedido] Evolution API error:', resp.status, err);
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  return c.json({ enviado: true, numero, mensaje });
+});
+
 // GET /:id — detalle con items
 pedidos.get('/:id', async (c) => {
   const { id } = c.req.param();

@@ -115,34 +115,66 @@ function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm 
   };
 }
 
-// Input numérico con separador de miles. Muestra formateado en reposo, raw al editar.
+// Input numérico con separador de miles en tiempo real (es-AR: 1.234.567,89)
 function CostoInput({ value, onChange, className }: { value: number; onChange: (n: number) => void; className?: string }) {
-  const [focused, setFocused] = useState(false);
-  const [raw, setRaw] = useState('');
+  const ref = useRef<HTMLInputElement>(null);
+  const [display, setDisplay] = useState('');
 
-  function handleFocus() {
-    setFocused(true);
-    setRaw(value > 0 ? String(value) : '');
-  }
+  // Sincronizar cuando el value cambia externamente (ej: carga desde lista de precios)
+  useEffect(() => {
+    if (document.activeElement !== ref.current) {
+      setDisplay(value > 0 ? formatMiles(value) : '');
+    }
+  }, [value]);
 
-  function handleBlur() {
-    setFocused(false);
-    const n = parseFloat(raw.replace(',', '.')) || 0;
-    onChange(n);
+  function formatMiles(n: number): string {
+    const [ent, dec] = n.toFixed(2).split('.');
+    const entFmt = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return dec === '00' ? entFmt : `${entFmt},${dec}`;
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value.replace(/[^\d,]/g, '');
-    setRaw(val);
-    onChange(parseFloat(val.replace(',', '.')) || 0);
+    const input = e.target;
+    const raw = input.value;
+    // Solo dígitos y coma decimal
+    const clean = raw.replace(/[^\d,]/g, '');
+    const [ent, ...decParts] = clean.split(',');
+    const dec = decParts.join('');
+    // Formatear parte entera con puntos de miles
+    const entFmt = ent === '' ? '' : ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const formatted = dec !== undefined && clean.includes(',')
+      ? `${entFmt},${dec.slice(0, 2)}`
+      : entFmt;
+
+    // Calcular cuántos separadores había antes del cursor para reposicionarlo
+    const cursorPos = input.selectionStart ?? formatted.length;
+    const dotsAntes = (raw.slice(0, cursorPos).match(/\./g) ?? []).length;
+    const dotsNuevo = (formatted.slice(0, cursorPos).match(/\./g) ?? []).length;
+    const nuevoCursor = cursorPos + (dotsNuevo - dotsAntes);
+
+    setDisplay(formatted);
+
+    // Valor numérico: reemplazar puntos de miles y coma decimal
+    const numStr = formatted.replace(/\./g, '').replace(',', '.');
+    onChange(parseFloat(numStr) || 0);
+
+    // Restaurar posición del cursor en el siguiente tick
+    requestAnimationFrame(() => {
+      input.setSelectionRange(nuevoCursor, nuevoCursor);
+    });
   }
 
-  const display = focused
-    ? raw
-    : value > 0 ? value.toLocaleString('es-AR', { maximumFractionDigits: 2 }) : '';
+  function handleFocus() {
+    if (value === 0) setDisplay('');
+  }
+
+  function handleBlur() {
+    setDisplay(value > 0 ? formatMiles(value) : '');
+  }
 
   return (
     <input
+      ref={ref}
       type="text"
       inputMode="numeric"
       value={display}
@@ -475,11 +507,29 @@ export default function NuevoPedido() {
 
   // ── Post-guardado ─────────────────────────────────────────────
   if (savedId) {
-    const waText = waTextoPedido(proveedorSel, items, operacionSel, fechaEst);
-    const waNum  = proveedorSel?.telefono?.replace(/\D/g, '') ?? '';
-    const waUrl  = waNum
-      ? `https://wa.me/${waNum.startsWith('54') ? waNum : '54' + waNum}?text=${encodeURIComponent(waText)}`
-      : null;
+    const waText    = waTextoPedido(proveedorSel, items, operacionSel, fechaEst);
+    const tieneTel  = Boolean(proveedorSel?.telefono);
+    const [waPreview,   setWaPreview]   = useState(false);
+    const [waEnviando,  setWaEnviando]  = useState(false);
+    const [waEnviado,   setWaEnviado]   = useState(false);
+    const [waNumero,    setWaNumero]    = useState('');
+
+    async function enviarWhatsAppPedido() {
+      setWaEnviando(true);
+      try {
+        const res = await api.post<{ enviado: boolean; numero: string; mensaje: string }>(
+          `/pedidos/${savedId}/enviar-whatsapp`, {}
+        );
+        setWaNumero(res.numero);
+        setWaEnviado(true);
+        setWaPreview(false);
+        toast.success(`Pedido enviado al proveedor (${res.numero})`);
+      } catch (e: any) {
+        toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+      } finally {
+        setWaEnviando(false);
+      }
+    }
 
     return (
       <div className="p-6 max-w-lg mx-auto">
@@ -490,27 +540,31 @@ export default function NuevoPedido() {
           <h2 className="text-xl font-bold text-gray-900 mb-1">Pedido creado</h2>
           <p className="text-gray-500 text-sm mb-6">{savedNumero}</p>
 
+          {waEnviado && (
+            <p className="text-xs text-green-600 font-medium mb-4">
+              ✓ Pedido enviado al proveedor ({waNumero})
+            </p>
+          )}
+
           <div className="space-y-3">
-            {waUrl && (
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+            {tieneTel && !waEnviado && (
+              <button
+                onClick={() => setWaPreview(true)}
                 className="flex items-center justify-center gap-2 w-full bg-green-500 text-white font-semibold py-3 rounded-xl hover:bg-green-600 transition-colors"
               >
                 <MessageCircle size={18} />
                 Enviar por WhatsApp al proveedor
-              </a>
+              </button>
             )}
             <button
-              onClick={() => navigate(`/pedidos`)}
+              onClick={() => navigate('/pedidos')}
               className="flex items-center justify-center gap-2 w-full bg-lime-500 text-white font-semibold py-3 rounded-xl hover:bg-lime-600 transition-colors"
             >
               Ver pedidos
             </button>
             {operacionId && (
               <button
-                onClick={() => navigate(`/presupuestos`)}
+                onClick={() => navigate('/presupuestos')}
                 className="flex items-center justify-center gap-2 w-full border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Volver a presupuestos
@@ -518,6 +572,46 @@ export default function NuevoPedido() {
             )}
           </div>
         </div>
+
+        {/* Modal vista previa */}
+        {waPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={e => { if (e.target === e.currentTarget) setWaPreview(false); }}>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MessageCircle size={15} className="text-green-500" />
+                  <p className="font-semibold text-gray-900 text-sm">Vista previa del mensaje</p>
+                </div>
+                <button onClick={() => setWaPreview(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                  <span className="text-gray-400 text-lg leading-none">×</span>
+                </button>
+              </div>
+
+              {/* Burbuja WhatsApp */}
+              <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-sm max-h-64 overflow-y-auto">
+                <p className="text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed">{waText}</p>
+              </div>
+
+              {proveedorSel?.telefono && (
+                <p className="text-[11px] text-gray-400 text-center mb-4">
+                  Se enviará a {proveedorSel.telefono}
+                </p>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <button onClick={enviarWhatsAppPedido} disabled={waEnviando}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors">
+                  {waEnviando ? 'Enviando...' : '✓ Confirmar envío'}
+                </button>
+                <button onClick={() => setWaPreview(false)}
+                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
