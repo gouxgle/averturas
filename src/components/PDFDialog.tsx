@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FileDown, ExternalLink, Share2, Copy, Check, X, Send } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileDown, ExternalLink, Share2, Copy, Check, X, Send, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -26,10 +27,12 @@ export function PDFDialog({
   navigateLabel = 'Ver detalle', operacionId,
   clienteNombre, clienteTelefono,
 }: PDFDialogProps) {
+  const navigate = useNavigate();
   const [linkUrl,    setLinkUrl]    = useState('');
   const [copiado,    setCopiado]    = useState(false);
   const [preview,    setPreview]    = useState(false);
   const [enviando,   setEnviando]   = useState(false);
+  const [enviado,    setEnviado]    = useState(false);
 
   const mensajePreview = (url: string) => {
     const nombre = clienteNombre ?? 'cliente';
@@ -65,7 +68,7 @@ export function PDFDialog({
         `/operaciones/${operacionId}/enviar-whatsapp`, {}
       );
       setLinkUrl(res.url);
-      setPreview(false);
+      setEnviado(true);
       toast.success(`Mensaje enviado al ${res.numero}`);
     } catch (e: any) {
       toast.error(e?.message ?? 'Error al enviar por WhatsApp');
@@ -93,47 +96,75 @@ export function PDFDialog({
     document.body.removeChild(ta);
   }
 
-  // ── Vista previa del mensaje ──────────────────────────────────────────
+  // ── Vista previa / confirmación de envío ─────────────────────────────
   if (preview) {
+    const partes = mensajePreview(linkUrl).split(linkUrl || '___');
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-        onClick={e => { if (e.target === e.currentTarget) setPreview(false); }}>
+        onClick={e => { if (e.target === e.currentTarget && !enviado) setPreview(false); }}>
         <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              {WA_ICON}
-              <p className="font-semibold text-gray-900 text-sm">Vista previa del mensaje</p>
+              {enviado ? <CheckCircle2 size={15} className="text-green-500" /> : WA_ICON}
+              <p className="font-semibold text-gray-900 text-sm">
+                {enviado ? 'Mensaje enviado' : 'Vista previa del mensaje'}
+              </p>
             </div>
-            <button onClick={() => setPreview(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-              <X size={15} className="text-gray-400" />
-            </button>
+            {!enviado && (
+              <button onClick={() => setPreview(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X size={15} className="text-gray-400" />
+              </button>
+            )}
           </div>
 
-          {/* Burbuja estilo WhatsApp */}
+          {/* Burbuja WhatsApp con URL como enlace */}
           <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-sm">
             <p className="text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed">
-              {mensajePreview(linkUrl)}
+              {linkUrl ? (
+                <>
+                  {partes[0]}
+                  <a href={linkUrl} target="_blank" rel="noreferrer"
+                    className="text-blue-600 underline break-all">
+                    {linkUrl}
+                  </a>
+                  {partes[1]}
+                </>
+              ) : mensajePreview('')}
             </p>
           </div>
 
           {clienteTelefono && (
             <p className="text-[11px] text-gray-400 text-center mb-4">
-              Se enviará a {clienteTelefono}
+              {enviado ? `Enviado a ${clienteTelefono}` : `Se enviará a ${clienteTelefono}`}
             </p>
           )}
 
           <div className="flex flex-col gap-2">
-            <button onClick={confirmarEnvio} disabled={enviando}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors">
-              {enviando
-                ? 'Enviando...'
-                : <><Send size={14} /> Confirmar envío</>
-              }
-            </button>
-            <button onClick={() => setPreview(false)}
-              className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
-              Cancelar
-            </button>
+            {enviado ? (
+              <>
+                <button onClick={() => navigate('/presupuestos')}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors">
+                  <ExternalLink size={14} /> Ver presupuestos
+                </button>
+                <button onClick={onNavigate}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  {navigateLabel}
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={confirmarEnvio} disabled={enviando}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors">
+                  {enviando ? 'Enviando...' : <><Send size={14} /> Confirmar envío</>}
+                </button>
+                <button onClick={() => setPreview(false)}
+                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+                  Cancelar
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
