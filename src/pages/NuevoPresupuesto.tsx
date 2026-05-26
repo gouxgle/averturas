@@ -1563,6 +1563,8 @@ export function NuevoPresupuesto() {
           onNavigate={() => navigate(`/operaciones/${savedId}`)}
           navigateLabel="Ver presupuesto"
           operacionId={savedId}
+          clienteNombre={clienteNombre}
+          clienteTelefono={clienteSeleccionado?.telefono ?? undefined}
         />
       )}
 

@@ -325,6 +325,89 @@ operaciones.post('/:id/generar-link', async (c) => {
   return c.json({ token, url: `${appUrl}/p/${token}` });
 });
 
+// POST /:id/enviar-whatsapp — genera token y envía mensaje via Evolution API
+operaciones.post('/:id/enviar-whatsapp', async (c) => {
+  const user = c.get('user');
+  const { id } = c.req.param();
+
+  const { rows: [op] } = await db.query(
+    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.fecha_validez,
+       cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona, cl.telefono
+     FROM operaciones o
+     JOIN clientes cl ON cl.id = o.cliente_id
+     WHERE o.id = $1`,
+    [id]
+  );
+  if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  const telefono: string | null = op.telefono;
+  if (!telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  // Normalizar a formato Evolution API: 549XXXXXXXXXX (Argentina)
+  const digits = telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 12) {
+    numero = digits;
+  } else if (digits.startsWith('54') && digits.length >= 11) {
+    // 5411... o 543... sin el 9 de móvil → insertar 9
+    numero = `549${digits.slice(2)}`;
+  } else if (digits.startsWith('0') && digits.length >= 10) {
+    numero = `549${digits.slice(1)}`;
+  } else {
+    numero = `549${digits}`;
+  }
+
+  // Generar/regenerar token
+  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+
+  await db.query(
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now() WHERE id = $2`,
+    [token, id]
+  );
+
+  const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const url = `${appUrl}/p/${token}`;
+
+  const nombre = op.tipo_persona === 'juridica'
+    ? (op.razon_social ?? 'estimado/a')
+    : `${op.nombre ?? ''} ${op.apellido ?? ''}`.trim() || 'estimado/a';
+
+  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  const mensaje = `Hola ${nombre}, te enviamos el presupuesto *${proformaNumero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
+
+  // Enviar via Evolution API
+  const evoUrl = process.env.EVOLUTION_API_URL;
+  const evoKey = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+
+  if (!evoUrl || !evoKey || !evoInst) {
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+  }
+
+  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, text: mensaje }),
+  });
+
+  if (!resp.ok) {
+    const errBody = await resp.text().catch(() => '');
+    console.error('[whatsapp] Evolution API error:', resp.status, errBody);
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  // Interacción CRM
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
+     VALUES ($1, 'proforma_enviada', $2, $3)`,
+    [op.cliente_id, `Proforma ${proformaNumero} enviada por WhatsApp (${numero})`, user?.id ?? null]
+  ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+
+  return c.json({ enviado: true, numero, url });
+});
+
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
