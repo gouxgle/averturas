@@ -375,7 +375,17 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     : `${op.nombre ?? ''} ${op.apellido ?? ''}`.trim() || 'estimado/a';
 
   const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
-  const mensaje = `Hola ${nombre}, te enviamos el presupuesto *${proformaNumero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
+
+  // Leer plantilla de DB
+  const { rows: [tpl] } = await db.query(
+    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'presupuesto_aprobacion'`
+  );
+  const mensaje = tpl?.contenido
+    ? tpl.contenido
+        .replace(/\{\{nombre\}\}/g, nombre)
+        .replace(/\{\{numero\}\}/g, proformaNumero)
+        .replace(/\{\{url\}\}/g, url)
+    : `Hola ${nombre}, te enviamos el presupuesto *${proformaNumero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
 
   // Enviar via Evolution API
   const evoUrl = process.env.EVOLUTION_API_URL;

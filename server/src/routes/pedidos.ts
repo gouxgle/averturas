@@ -314,7 +314,13 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
   else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
   else numero = `549${digits}`;
 
-  // Construir mensaje
+  // Leer plantilla de DB (fallback a texto inline si no existe)
+  const { rows: [tpl] } = await db.query(
+    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'pedido_proveedor'`
+  );
+  const plantilla: string = tpl?.contenido ?? '';
+
+  // Variables de sustitución
   const opRef = pedido.operacion
     ? `\nReferencia: ${pedido.operacion.numero}${pedido.operacion.cliente ? ` — ${pedido.operacion.cliente.razon_social ?? `${pedido.operacion.cliente.apellido ?? ''} ${pedido.operacion.cliente.nombre ?? ''}`.trim()}` : ''}`
     : '';
@@ -325,15 +331,13 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
     ? `\n📅 Necesitamos para: ${new Date(pedido.fecha_entrega_est).toLocaleDateString('es-AR')}`
     : '';
 
-  const mensaje =
-`🏠 *Pedido de Productos — César Brítez Aberturas*
-Formosa, Argentina${opRef}
-
-📋 *Detalle del pedido ${pedido.numero}:*
-
-${detalle}${fechaEst}
-
-Muchas gracias por su atención. Aguardamos confirmación de recepción.`;
+  const mensaje = plantilla
+    ? plantilla
+        .replace(/\{\{numero\}\}/g, pedido.numero)
+        .replace(/\{\{detalle\}\}/g, detalle)
+        .replace(/\{\{ref_operacion\}\}/g, opRef)
+        .replace(/\{\{fecha_entrega\}\}/g, fechaEst)
+    : `🏠 *Pedido de Productos — César Brítez Aberturas*\nFormosa, Argentina${opRef}\n\n📋 *Detalle del pedido ${pedido.numero}:*\n\n${detalle}${fechaEst}\n\nMuchas gracias por su atención. Aguardamos confirmación de recepción.`;
 
   const evoUrl  = process.env.EVOLUTION_API_URL;
   const evoKey  = process.env.EVOLUTION_API_KEY;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -638,9 +638,103 @@ function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+// ── Panel: Mensajes WhatsApp ──────────────────────────────────────────────────
+
+interface MensajePlantilla {
+  clave: string;
+  titulo: string;
+  contenido: string;
+  variables: string;
+}
+
+const LABELS_CLAVE: Record<string, string> = {
+  pedido_proveedor:       'Pedido al proveedor',
+  presupuesto_aprobacion: 'Presupuesto para aprobación',
+  remito_cliente:         'Remito al cliente',
+};
+
+function PanelMensajes() {
+  const [plantillas, setPlantillas] = useState<MensajePlantilla[]>([]);
+  const [editando, setEditando]   = useState<Record<string, string>>({});
+  const [saving, setSaving]       = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    api.get<MensajePlantilla[]>('/configuracion/mensajes').then(data => {
+      setPlantillas(data);
+      setEditando(Object.fromEntries(data.map(p => [p.clave, p.contenido])));
+    });
+  }, []);
+
+  async function guardar(clave: string) {
+    setSaving(s => ({ ...s, [clave]: true }));
+    try {
+      await api.put(`/configuracion/mensajes/${clave}`, { contenido: editando[clave] });
+      setPlantillas(ps => ps.map(p => p.clave === clave ? { ...p, contenido: editando[clave] } : p));
+      toast.success('Mensaje guardado');
+    } finally {
+      setSaving(s => ({ ...s, [clave]: false }));
+    }
+  }
+
+  function resetear(clave: string) {
+    const orig = plantillas.find(p => p.clave === clave)?.contenido ?? '';
+    setEditando(e => ({ ...e, [clave]: orig }));
+  }
+
+  if (!plantillas.length) return <p className="text-sm text-gray-400 py-2">Cargando...</p>;
+
+  return (
+    <div className="space-y-6 pt-1">
+      {plantillas.map(p => {
+        const dirty = editando[p.clave] !== p.contenido;
+        return (
+          <div key={p.clave} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-700">{LABELS_CLAVE[p.clave] ?? p.titulo}</p>
+              <div className="flex gap-1.5">
+                {dirty && (
+                  <button onClick={() => resetear(p.clave)}
+                    className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded">
+                    Descartar
+                  </button>
+                )}
+                <button onClick={() => guardar(p.clave)} disabled={!dirty || saving[p.clave]}
+                  className="flex items-center gap-1 px-3 py-1 bg-slate-700 hover:bg-slate-800 disabled:opacity-40 text-white text-xs rounded-md font-medium">
+                  <Save size={12} /> {saving[p.clave] ? '...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              rows={5}
+              value={editando[p.clave] ?? ''}
+              onChange={e => setEditando(ed => ({ ...ed, [p.clave]: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-slate-400 bg-gray-50"
+            />
+
+            {p.variables && (
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Variables:</span>
+                {p.variables.split(',').map(v => v.trim()).filter(Boolean).map(v => (
+                  <button key={v}
+                    onClick={() => setEditando(ed => ({ ...ed, [p.clave]: (ed[p.clave] ?? '') + v }))}
+                    className="text-[11px] font-mono bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded hover:bg-violet-100 transition-colors"
+                    title="Clic para insertar al final">
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'tipos_abertura' | 'sistemas' | 'colores' | null;
+type Panel = 'empresa' | 'usuarios' | 'tipos_abertura' | 'sistemas' | 'colores' | 'mensajes' | null;
 
 const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
@@ -733,6 +827,18 @@ export function Configuracion() {
               </AccordionItem>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Mensajes WhatsApp */}
+      <div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Comunicación</h2>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <AccordionItem id="mensajes" label="Mensajes WhatsApp" icon={MessageSquare}
+            desc="Texto de pedidos, presupuestos y remitos enviados por WhatsApp"
+            open={openPanel === 'mensajes'} onToggle={() => togglePanel('mensajes')}>
+            <PanelMensajes />
+          </AccordionItem>
         </div>
       </div>
     </div>
