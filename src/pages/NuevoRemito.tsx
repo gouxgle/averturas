@@ -731,6 +731,15 @@ export function NuevoRemito() {
         </div>
       </div>
 
+      {/* Botón al pie — evita volver al header */}
+      <div className="mt-5 flex justify-end">
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60 shadow-sm">
+          {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+          {isEdit ? 'Guardar cambios' : 'Crear remito'}
+        </button>
+      </div>
+
       {savedId && (
         <PDFDialog
           title="Remito creado"
