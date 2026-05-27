@@ -135,6 +135,35 @@ function waTextoPedido(pedido: PedidoDetalle | PedidoRow, items?: PedidoItem[]) 
   return `Hola ${pedido.proveedor.nombre}!\nTe hago el pedido${opRef}${cliente}:\n\n${lineas}${fecha}\nGracias!`;
 }
 
+// ── Botón WA por fila (estado local) ──────────────────────────
+
+function WARowButton({ pedidoId }: { pedidoId: string }) {
+  const [enviando, setEnviando] = useState(false);
+  const [enviado,  setEnviado]  = useState(false);
+
+  async function enviar(e: React.MouseEvent) {
+    e.stopPropagation();
+    setEnviando(true);
+    try {
+      await api.post(`/pedidos/${pedidoId}/enviar-whatsapp`, {});
+      setEnviado(true);
+      toast.success('Pedido enviado por WhatsApp');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Error al enviar por WhatsApp');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <button onClick={enviar} disabled={enviando || enviado}
+      className="p-1 rounded hover:bg-green-50 disabled:opacity-50 text-green-500"
+      title={enviado ? 'Enviado' : 'Enviar por WhatsApp'}>
+      <MessageCircle size={13} className={enviado ? 'text-green-600' : ''} />
+    </button>
+  );
+}
+
 // ── Modal de detalle ───────────────────────────────────────────
 
 function PedidoModal({ id, onClose, onSaved }: {
@@ -149,6 +178,22 @@ function PedidoModal({ id, onClose, onSaved }: {
   const [confirmarCancelar, setConfirmarCancelar] = useState(false);
   const [modalRecepcion, setModalRecepcion] = useState(false);
   const [fechaRecepcion, setFechaRecepcion] = useState(new Date().toISOString().split('T')[0]);
+  const [enviandoWA, setEnviandoWA] = useState(false);
+  const [enviadoWA, setEnviadoWA]   = useState(false);
+
+  async function enviarWhatsApp() {
+    if (!pedido) return;
+    setEnviandoWA(true);
+    try {
+      await api.post(`/pedidos/${pedido.id}/enviar-whatsapp`, {});
+      setEnviadoWA(true);
+      toast.success('Pedido enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } finally {
+      setEnviandoWA(false);
+    }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -189,8 +234,6 @@ function PedidoModal({ id, onClose, onSaved }: {
   );
 
   if (!pedido) return null;
-
-  const waLink_ = waLink(pedido.proveedor.telefono, waTextoPedido(pedido));
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
@@ -241,16 +284,15 @@ function PedidoModal({ id, onClose, onSaved }: {
                   </p>
                 )}
               </div>
-              {waLink_ && (
-                <a
-                  href={waLink_}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 transition-colors"
+              {pedido.proveedor.telefono && (
+                <button
+                  onClick={enviarWhatsApp}
+                  disabled={enviandoWA || enviadoWA}
+                  className="flex items-center gap-1.5 bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
                 >
                   <MessageCircle size={13} />
-                  WhatsApp
-                </a>
+                  {enviadoWA ? 'Enviado ✓' : enviandoWA ? 'Enviando...' : 'Enviar por WhatsApp'}
+                </button>
               )}
             </div>
           </div>
@@ -627,8 +669,6 @@ export default function Pedidos() {
                 )}
 
                 {paginated.map(p => {
-                  const waText = waTextoPedido(p);
-                  const waUrl  = waLink(p.proveedor.telefono, waText);
                   const primerItem = p.items_resumen?.[0];
                   const masItems   = (p.items_resumen?.length ?? 0) - 1;
 
@@ -685,16 +725,8 @@ export default function Pedidos() {
                           <p className="text-sm font-semibold text-gray-700">{formatCurrency(p.monto_total)}</p>
                         )}
                         <div className="flex justify-end gap-1 mt-1">
-                          {waUrl && (
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded hover:bg-green-50 text-green-500"
-                              title="Enviar por WhatsApp"
-                            >
-                              <MessageCircle size={13} />
-                            </a>
+                          {p.proveedor.telefono && (
+                            <WARowButton pedidoId={p.id} />
                           )}
                           <button
                             onClick={() => setDetailId(p.id)}
