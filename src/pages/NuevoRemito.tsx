@@ -146,7 +146,7 @@ export function NuevoRemito() {
   useEffect(() => {
     if (!clienteId) { setOperaciones([]); setOperacionId(''); setOpItems([]); setSelectedOp(new Set()); return; }
     api.get<Operacion[]>(
-      `/operaciones?cliente_id=${clienteId}&estados=aprobado,en_produccion,listo,instalado`
+      `/operaciones?cliente_id=${clienteId}&estados=aprobado,en_produccion,listo,instalado&sin_remito=1`
     ).then(setOperaciones).catch(() => setOperaciones([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId]);

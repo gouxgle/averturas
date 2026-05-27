@@ -32,6 +32,15 @@ operaciones.get('/', async (c) => {
     where += ` AND o.cliente_id = $${params.length}`;
   }
 
+  // Excluir operaciones que ya tienen un remito activo (no cancelado)
+  const sinRemito = c.req.query('sin_remito') === '1';
+  if (sinRemito) {
+    where += ` AND NOT EXISTS (
+      SELECT 1 FROM remitos r
+      WHERE r.operacion_id = o.id AND r.estado NOT IN ('cancelado')
+    )`;
+  }
+
   const { rows } = await db.query(`
     SELECT o.*,
       json_build_object(
