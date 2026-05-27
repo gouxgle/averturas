@@ -348,8 +348,21 @@ Muchas gracias por su atención. Aguardamos confirmación de recepción.`;
   });
 
   if (!resp.ok) {
-    const err = await resp.text().catch(() => '');
-    console.error('[whatsapp-pedido] Evolution API error:', resp.status, err);
+    const errText = await resp.text().catch(() => '');
+    console.error('[whatsapp-pedido] Evolution API error:', resp.status, errText);
+
+    // Detectar número no registrado en WhatsApp
+    try {
+      const errJson = JSON.parse(errText);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste) {
+        return c.json({
+          error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp. Verificá el número en la ficha del proveedor.`
+        }, 422);
+      }
+    } catch { /* no JSON, seguir con error genérico */ }
+
     return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
   }
 

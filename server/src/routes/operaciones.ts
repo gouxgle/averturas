@@ -395,6 +395,18 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
   if (!resp.ok) {
     const errBody = await resp.text().catch(() => '');
     console.error('[whatsapp] Evolution API error:', resp.status, errBody);
+
+    try {
+      const errJson = JSON.parse(errBody);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste) {
+        return c.json({
+          error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp. Verificá el número en la ficha del cliente.`
+        }, 422);
+      }
+    } catch { /* no JSON */ }
+
     return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
   }
 
