@@ -263,7 +263,7 @@ pedidos.post('/', async (c) => {
   }
 });
 
-// GET /operaciones-disponibles — ops aprobadas con pago, sin pedido activo
+// GET /operaciones-disponibles — ops aprobadas (con pago opcional), múltiples pedidos permitidos
 pedidos.get('/operaciones-disponibles', async (c) => {
   const { rows } = await db.query(`
     SELECT
@@ -276,17 +276,14 @@ pedidos.get('/operaciones-disponibles', async (c) => {
         SELECT SUM(r.monto_total) FROM recibos r
         WHERE r.operacion_id = o.id AND r.estado = 'emitido'
       ), 0)::numeric AS cobrado_total,
-      (SELECT nombre FROM proveedores WHERE id = o.proveedor_id LIMIT 1) AS proveedor_nombre
+      (SELECT nombre FROM proveedores WHERE id = o.proveedor_id LIMIT 1) AS proveedor_nombre,
+      (
+        SELECT COUNT(*)::int FROM pedidos p
+        WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
+      ) AS pedidos_activos
     FROM operaciones o
     LEFT JOIN clientes c ON c.id = o.cliente_id
-    WHERE o.estado = 'aprobado'
-      AND EXISTS (
-        SELECT 1 FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'
-      )
-      AND NOT EXISTS (
-        SELECT 1 FROM pedidos p
-        WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
-      )
+    WHERE o.estado IN ('aprobado', 'en_produccion', 'listo')
     ORDER BY o.created_at DESC
     LIMIT 50
   `);

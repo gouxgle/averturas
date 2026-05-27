@@ -43,6 +43,10 @@ operaciones.get('/', async (c) => {
 
   const { rows } = await db.query(`
     SELECT o.*,
+      COALESCE((
+        SELECT SUM(r.monto_total) FROM recibos r
+        WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+      ), 0)::numeric AS cobrado_total,
       json_build_object(
         'id', c.id, 'nombre', c.nombre,
         'apellido', c.apellido, 'telefono', c.telefono

@@ -26,6 +26,7 @@ interface OperacionAprobada {
   proveedor_id: string | null;
   proveedor_nombre?: string | null;
   cobrado_total?: number;
+  pedidos_activos?: number;
   cliente: {
     nombre: string | null;
     apellido: string | null;
@@ -254,6 +255,12 @@ export default function NuevoPedido() {
   const [saving,        setSaving]        = useState(false);
   const [savedId,       setSavedId]       = useState<string | null>(null);
   const [savedNumero,   setSavedNumero]   = useState('');
+
+  // WhatsApp pedido (post-guardado)
+  const [waPreview,  setWaPreview]  = useState(false);
+  const [waEnviando, setWaEnviando] = useState(false);
+  const [waEnviado,  setWaEnviado]  = useState(false);
+  const [waNumero,   setWaNumero]   = useState('');
 
   // Búsqueda proveedores
   const [busqProv,  setBusqProv]  = useState('');
@@ -507,12 +514,8 @@ export default function NuevoPedido() {
 
   // ── Post-guardado ─────────────────────────────────────────────
   if (savedId) {
-    const waText    = waTextoPedido(proveedorSel, items, operacionSel, fechaEst);
-    const tieneTel  = Boolean(proveedorSel?.telefono);
-    const [waPreview,   setWaPreview]   = useState(false);
-    const [waEnviando,  setWaEnviando]  = useState(false);
-    const [waEnviado,   setWaEnviado]   = useState(false);
-    const [waNumero,    setWaNumero]    = useState('');
+    const waText   = waTextoPedido(proveedorSel, items, operacionSel, fechaEst);
+    const tieneTel = Boolean(proveedorSel?.telefono);
 
     async function enviarWhatsAppPedido() {
       setWaEnviando(true);
@@ -697,21 +700,38 @@ export default function NuevoPedido() {
         {/* Operación vinculada */}
         <SectionCard title="Operación vinculada (opcional)" icon={Package}>
           {operacionSel ? (
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
-              <div>
-                <p className="font-semibold text-gray-900">{operacionSel.numero}</p>
-                <p className="text-sm text-gray-500">{nombreCliente(operacionSel)}</p>
-                {operacionSel.proveedor_nombre && (
-                  <p className="text-xs text-blue-500">Proveedor: {operacionSel.proveedor_nombre}</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
+                <div>
+                  <p className="font-semibold text-gray-900">{operacionSel.numero}</p>
+                  <p className="text-sm text-gray-500">{nombreCliente(operacionSel)}</p>
+                  {operacionSel.proveedor_nombre && (
+                    <p className="text-xs text-blue-500">Proveedor: {operacionSel.proveedor_nombre}</p>
+                  )}
+                </div>
+                {!urlOperacionId && (
+                  <button
+                    onClick={() => { setOperacionSel(null); setOperacionId(''); setBusqOp(''); setItems([{ descripcion: '', cantidad: 1, costo_unitario: 0 }]); }}
+                    className="p-1.5 rounded-lg hover:bg-blue-100 text-gray-400"
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
-              {!urlOperacionId && (
-                <button
-                  onClick={() => { setOperacionSel(null); setOperacionId(''); setBusqOp(''); setItems([{ descripcion: '', cantidad: 1, costo_unitario: 0 }]); }}
-                  className="p-1.5 rounded-lg hover:bg-blue-100 text-gray-400"
-                >
-                  ✕
-                </button>
+              {/* Aviso: sin pago registrado */}
+              {operacionSel.cobrado_total != null && Number(operacionSel.cobrado_total) === 0 && (
+                <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                  <span className="text-amber-500 mt-0.5">⚠</span>
+                  Esta operación no tiene pagos registrados. Se recomienda cobrar al menos un anticipo antes de hacer el pedido.
+                </div>
+              )}
+              {/* Aviso: ya tiene pedidos activos para otro proveedor */}
+              {operacionSel.pedidos_activos != null && operacionSel.pedidos_activos > 0 && (
+                <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+                  <span className="mt-0.5">ℹ</span>
+                  Esta operación ya tiene {operacionSel.pedidos_activos} pedido{operacionSel.pedidos_activos > 1 ? 's' : ''} activo{operacionSel.pedidos_activos > 1 ? 's' : ''}.
+                  Podés generar otro pedido para un proveedor diferente.
+                </div>
               )}
             </div>
           ) : (
@@ -732,13 +752,23 @@ export default function NuevoPedido() {
                           onClick={() => seleccionarOp(op)}
                           className="w-full text-left px-3 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-xl transition-colors"
                         >
-                          <div className="flex justify-between items-start">
+                          <div className="flex justify-between items-start gap-2">
                             <p className="text-sm font-semibold text-blue-700">{op.numero}</p>
-                            {op.cobrado_total != null && op.cobrado_total > 0 && (
-                              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
-                                Cobrado {formatCurrency(Number(op.cobrado_total))}
-                              </span>
-                            )}
+                            <div className="flex gap-1 flex-wrap justify-end">
+                              {op.cobrado_total != null && Number(op.cobrado_total) === 0 && (
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Sin pago</span>
+                              )}
+                              {op.cobrado_total != null && Number(op.cobrado_total) > 0 && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                                  ${Number(op.cobrado_total).toLocaleString('es-AR', { maximumFractionDigits: 0 })} cobrado
+                                </span>
+                              )}
+                              {op.pedidos_activos != null && op.pedidos_activos > 0 && (
+                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                                  {op.pedidos_activos} pedido{op.pedidos_activos > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs text-gray-600">{nombreCliente(op)}</p>
                           {op.proveedor_nombre && (

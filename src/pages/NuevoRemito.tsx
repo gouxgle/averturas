@@ -16,6 +16,7 @@ interface Operacion {
   numero: string;
   estado: string;
   precio_total: number;
+  cobrado_total?: number;
 }
 
 interface OpItem {
@@ -113,6 +114,7 @@ export function NuevoRemito() {
   const [opItems, setOpItems]       = useState<OpItem[]>([]);
   const [selectedOp, setSelectedOp] = useState<Set<number>>(new Set());
   const [loadingOp, setLoadingOp]   = useState(false);
+  const [saldoPendiente, setSaldoPendiente] = useState<number | null>(null);
 
   // Campos
   const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
@@ -151,17 +153,18 @@ export function NuevoRemito() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId]);
 
-  // Al cambiar operación → cargar sus ítems
+  // Al cambiar operación → cargar sus ítems + verificar saldo
   useEffect(() => {
-    if (!operacionId) { setOpItems([]); setSelectedOp(new Set()); return; }
+    if (!operacionId) { setOpItems([]); setSelectedOp(new Set()); setSaldoPendiente(null); return; }
     setLoadingOp(true);
-    api.get<{ items: OpItem[] }>(`/operaciones/${operacionId}`)
+    api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number }>(`/operaciones/${operacionId}`)
       .then(d => {
         setOpItems(d.items ?? []);
-        // Seleccionar todos por defecto
         setSelectedOp(new Set((d.items ?? []).map((_, i) => i)));
+        const saldo = Number(d.precio_total) - Number(d.cobrado_total ?? 0);
+        setSaldoPendiente(saldo > 0.01 ? saldo : null);
       })
-      .catch(() => setOpItems([]))
+      .catch(() => { setOpItems([]); setSaldoPendiente(null); })
       .finally(() => setLoadingOp(false));
   }, [operacionId]);
 
@@ -400,6 +403,18 @@ export function NuevoRemito() {
                       </option>
                     ))}
                   </select>
+
+                  {/* Aviso saldo pendiente */}
+                  {saldoPendiente !== null && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-3 text-xs text-amber-800">
+                      <span className="text-amber-500 mt-0.5">⚠</span>
+                      <span>
+                        Esta operación tiene <strong>saldo pendiente de ${saldoPendiente.toLocaleString('es-AR', { minimumFractionDigits: 0 })}</strong>.
+                        Se recomienda cancelar el saldo antes de emitir el remito.
+                        Podés continuar de todas formas.
+                      </span>
+                    </div>
+                  )}
 
                   {/* Ítems del presupuesto seleccionado */}
                   {operacionId && (
