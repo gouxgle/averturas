@@ -115,6 +115,7 @@ export function NuevoRemito() {
   const [selectedOp, setSelectedOp] = useState<Set<number>>(new Set());
   const [loadingOp, setLoadingOp]   = useState(false);
   const [saldoPendiente, setSaldoPendiente] = useState<number | null>(null);
+  const [pedidosSinRecibir, setPedidosSinRecibir] = useState<Array<{ numero: string; proveedor: { nombre: string }; estado: string }>>([]);
 
   // Campos
   const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
@@ -153,18 +154,25 @@ export function NuevoRemito() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId]);
 
-  // Al cambiar operación → cargar sus ítems + verificar saldo
+  // Al cambiar operación → cargar sus ítems + verificar saldo + pedidos pendientes
   useEffect(() => {
-    if (!operacionId) { setOpItems([]); setSelectedOp(new Set()); setSaldoPendiente(null); return; }
+    if (!operacionId) {
+      setOpItems([]); setSelectedOp(new Set());
+      setSaldoPendiente(null); setPedidosSinRecibir([]);
+      return;
+    }
     setLoadingOp(true);
-    api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number }>(`/operaciones/${operacionId}`)
-      .then(d => {
-        setOpItems(d.items ?? []);
-        setSelectedOp(new Set((d.items ?? []).map((_, i) => i)));
-        const saldo = Number(d.precio_total) - Number(d.cobrado_total ?? 0);
-        setSaldoPendiente(saldo > 0.01 ? saldo : null);
-      })
-      .catch(() => { setOpItems([]); setSaldoPendiente(null); })
+    Promise.all([
+      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number }>(`/operaciones/${operacionId}`),
+      api.get<Array<{ id: string; numero: string; estado: string; proveedor: { nombre: string } }>>(`/pedidos?operacion_id=${operacionId}`),
+    ]).then(([op, peds]) => {
+      setOpItems(op.items ?? []);
+      setSelectedOp(new Set((op.items ?? []).map((_, i) => i)));
+      const saldo = Number(op.precio_total) - Number(op.cobrado_total ?? 0);
+      setSaldoPendiente(saldo > 0.01 ? saldo : null);
+      const sinRecibir = peds.filter(p => p.estado !== 'cancelado' && p.estado !== 'recibido');
+      setPedidosSinRecibir(sinRecibir);
+    }).catch(() => { setOpItems([]); setSaldoPendiente(null); setPedidosSinRecibir([]); })
       .finally(() => setLoadingOp(false));
   }, [operacionId]);
 
@@ -403,6 +411,20 @@ export function NuevoRemito() {
                       </option>
                     ))}
                   </select>
+
+                  {/* Aviso: pedidos no recibidos */}
+                  {pedidosSinRecibir.length > 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl mb-3 text-xs text-orange-800">
+                      <span className="text-orange-500 mt-0.5 shrink-0">⚠</span>
+                      <span>
+                        {pedidosSinRecibir.length === 1
+                          ? <>El pedido <strong>{pedidosSinRecibir[0].numero}</strong> ({pedidosSinRecibir[0].proveedor.nombre}) aún no fue marcado como recibido.</>
+                          : <>{pedidosSinRecibir.length} pedidos al proveedor aún no fueron marcados como recibidos: {pedidosSinRecibir.map(p => p.numero).join(', ')}.</>
+                        }
+                        {' '}Se recomienda confirmar la recepción antes de emitir el remito. Podés continuar de todas formas.
+                      </span>
+                    </div>
+                  )}
 
                   {/* Aviso saldo pendiente */}
                   {saldoPendiente !== null && (

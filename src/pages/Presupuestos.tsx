@@ -580,31 +580,28 @@ function PresupuestoModal({
                       <Receipt size={13} /> Registrar cobro
                     </button>
                   )}
-                  {cobrado > 0.01 && (() => {
-                    const pedidoActivo = pedidos.find(p => p.estado !== 'cancelado');
-                    return pedidoActivo ? (
-                      <div className="mt-1 flex items-center gap-2 px-3 py-2 bg-lime-50 border border-lime-200 rounded-xl text-xs text-lime-700 font-semibold">
-                        <ShoppingCart size={13} />
-                        Ya tiene pedido activo ({pedidoActivo.estado})
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
-                        className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
-                      >
-                        <ShoppingCart size={13} /> Generar pedido al proveedor
-                      </button>
-                    );
-                  })()}
+                  {cobrado > 0.01 && (
+                    <button
+                      onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
+                    >
+                      <ShoppingCart size={13} />
+                      {pedidos.filter(p => p.estado !== 'cancelado').length > 0
+                        ? 'Generar pedido a otro proveedor'
+                        : 'Generar pedido al proveedor'}
+                    </button>
+                  )}
 
-                  {/* Pedidos vinculados */}
+                  {/* Pedidos vinculados — trazabilidad por proveedor */}
                   {pedidos.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <ShoppingCart size={11} className="text-gray-400" />
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                          Pedidos al proveedor
-                        </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <ShoppingCart size={11} className="text-gray-400" />
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                            Pedidos al proveedor ({pedidos.length})
+                          </p>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         {pedidos.map(ped => {
@@ -623,6 +620,9 @@ function PresupuestoModal({
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold text-gray-700">{ped.numero}</p>
                                 <p className="text-[10px] text-gray-400 truncate">{ped.proveedor.nombre}</p>
+                                {ped.monto_total > 0 && (
+                                  <p className="text-[10px] text-gray-400">{formatCurrency(ped.monto_total)}</p>
+                                )}
                               </div>
                               <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2', estadoColor)}>
                                 {ped.estado}
@@ -631,6 +631,12 @@ function PresupuestoModal({
                           );
                         })}
                       </div>
+                      {/* Aviso si pedidos pendientes de recepción */}
+                      {pedidos.some(p => p.estado !== 'cancelado' && p.estado !== 'recibido') && (
+                        <p className="text-[10px] text-amber-600 mt-2 flex items-center gap-1">
+                          <span>⚠</span> Hay pedidos que aún no fueron recibidos
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
