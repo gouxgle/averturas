@@ -54,6 +54,7 @@ remitos.get('/tablero', async (c) => {
       SELECT r.id, r.numero, r.estado, r.medio_envio, r.transportista,
         r.nro_seguimiento, r.direccion_entrega, r.fecha_emision,
         r.fecha_entrega_est, r.fecha_entrega_real, r.notas, r.stock_descontado,
+        r.token_acceso, r.recepcion_estado, r.recepcion_at, r.recepcion_obs,
         json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
           'telefono', c.telefono) AS cliente,
@@ -323,6 +324,19 @@ remitos.post('/', async (c) => {
   if (!b.cliente_id)               return c.json({ error: 'cliente_id requerido' }, 400);
   if (!b.items?.length)            return c.json({ error: 'items requeridos' }, 400);
   if (!b.medio_envio)              return c.json({ error: 'medio_envio requerido' }, 400);
+
+  // Validar: operación no puede tener otro remito activo
+  if (b.operacion_id) {
+    const { rows } = await db.query(
+      `SELECT numero FROM remitos WHERE operacion_id = $1 AND estado NOT IN ('cancelado') LIMIT 1`,
+      [b.operacion_id]
+    );
+    if (rows.length) {
+      return c.json({
+        error: `Esta operación ya tiene el remito ${(rows[0] as { numero: string }).numero} activo. No se puede generar otro.`
+      }, 409);
+    }
+  }
 
   const numero = await nextNumero();
 

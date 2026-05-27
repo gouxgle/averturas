@@ -5,7 +5,7 @@ import {
   XCircle, AlertTriangle, ChevronRight, Eye, Phone,
   MessageCircle, Building2, DollarSign, BarChart3, Zap,
   PrinterIcon, FileText, CalendarClock, Search,
-  Share2, Copy, Check, X,
+  Share2, Copy, Check, X, Send, ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -27,7 +27,9 @@ interface Remito {
   cliente: RCliente & { telefono: string | null };
   operacion: { id: string; numero: string } | null;
   token_acceso: string | null;
-  recepcion_estado: string | null;
+  recepcion_estado: 'conforme' | 'con_observaciones' | 'no_conforme' | null;
+  recepcion_at: string | null;
+  recepcion_obs: string | null;
 }
 
 interface ProximaEntrega { id: string; numero: string; fecha_entrega_est: string; valor_total: number; cliente: RCliente }
@@ -62,11 +64,15 @@ function fmtFecha(iso: string | null) {
   return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-type UrgState = 'atrasado' | 'para_hoy' | 'pendiente' | 'entregado' | 'cancelado';
+type UrgState = 'atrasado' | 'para_hoy' | 'pendiente' | 'enviado' | 'recibido' | 'entregado' | 'cancelado';
 
 function urgState(r: Remito): UrgState {
   if (r.estado === 'entregado') return 'entregado';
   if (r.estado === 'cancelado') return 'cancelado';
+  if (r.estado === 'emitido') {
+    if (r.recepcion_estado === 'conforme' || r.recepcion_estado === 'con_observaciones') return 'recibido';
+    return 'enviado';
+  }
   const d = diasHasta(r.fecha_entrega_est);
   if (d === null) return 'pendiente';
   if (d < 0) return 'atrasado';
@@ -78,6 +84,8 @@ const URG_BORDER: Record<UrgState, string> = {
   atrasado:  'border-l-4 border-l-red-400',
   para_hoy:  'border-l-4 border-l-orange-400',
   pendiente: 'border-l-4 border-l-gray-200',
+  enviado:   'border-l-4 border-l-blue-400',
+  recibido:  'border-l-4 border-l-teal-400',
   entregado: 'border-l-4 border-l-emerald-400',
   cancelado: 'border-l-4 border-l-gray-100',
 };
@@ -86,8 +94,16 @@ const ESTADO_BADGE: Record<UrgState, { label: string; cls: string }> = {
   atrasado:  { label: 'Atrasado',  cls: 'bg-red-100 text-red-700' },
   para_hoy:  { label: 'Para hoy',  cls: 'bg-orange-100 text-orange-700' },
   pendiente: { label: 'Pendiente', cls: 'bg-gray-100 text-gray-600' },
+  enviado:   { label: 'Enviado',   cls: 'bg-blue-100 text-blue-700' },
+  recibido:  { label: 'Recibido',  cls: 'bg-teal-100 text-teal-700' },
   entregado: { label: 'Entregado', cls: 'bg-emerald-100 text-emerald-700' },
   cancelado: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-500' },
+};
+
+const RECEPCION_BADGE: Record<string, { label: string; cls: string }> = {
+  conforme:           { label: 'Conforme',          cls: 'bg-emerald-50 text-emerald-600 border border-emerald-200' },
+  con_observaciones:  { label: 'Con observaciones', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  no_conforme:        { label: 'No conforme',       cls: 'bg-red-50 text-red-600 border border-red-200' },
 };
 
 const ENTREGA_FECHA_BADGE: Record<string, { label: string; cls: string }> = {
@@ -106,6 +122,170 @@ const MEDIOS_TIPO: Record<string, { tipo: string; sub: (t: string | null) => str
 
 // Referencia a la ventana de WhatsApp Web para reutilizar pestaña existente
 let waWindow: Window | null = null;
+
+// ── Modal de detalle de remito ────────────────────────────────────────
+
+interface RemitoDetalle extends Remito {
+  items: Array<{
+    id: string; descripcion: string; cantidad: number;
+    precio_unitario: number | null; estado_producto: string | null; notas_item: string | null;
+  }>;
+}
+
+function RemitoDetailModal({ remito, onClose, onSaved }: {
+  remito: Remito; onClose: () => void; onSaved: () => void;
+}) {
+  const navigate = useNavigate();
+  const [detalle, setDetalle] = useState<RemitoDetalle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [enviandoWA, setEnviandoWA] = useState(false);
+  const [enviadoWA, setEnviadoWA]   = useState(false);
+  const [showEstado, setShowEstado] = useState(false);
+
+  useEffect(() => {
+    api.get<RemitoDetalle>(`/remitos/${remito.id}`)
+      .then(setDetalle)
+      .catch(() => toast.error('Error al cargar remito'))
+      .finally(() => setLoading(false));
+  }, [remito.id]);
+
+  async function enviarWA() {
+    setEnviandoWA(true);
+    try {
+      await api.post(`/remitos/${remito.id}/enviar-whatsapp`, {});
+      setEnviadoWA(true);
+      toast.success('Remito enviado por WhatsApp');
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } finally {
+      setEnviandoWA(false);
+    }
+  }
+
+  const urg = urgState(detalle ?? remito);
+  const badge = ESTADO_BADGE[urg];
+  const recBadge = (detalle ?? remito).recepcion_estado ? RECEPCION_BADGE[(detalle ?? remito).recepcion_estado!] : null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl my-8">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 p-5 border-b">
+          <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+            <Truck size={20} className="text-teal-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-gray-900">{remito.numero}</p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full', badge.cls)}>{badge.label}</span>
+              {recBadge && <span className={cn('text-[11px] px-2 py-0.5 rounded-full', recBadge.cls)}>{recBadge.label}</span>}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400">
+            <X size={18} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="p-10 text-center"><RefreshCw className="animate-spin text-teal-500 mx-auto" /></div>
+        ) : detalle ? (
+          <div className="p-5 space-y-4">
+
+            {/* Cliente */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{ncl(detalle.cliente)}</p>
+                {detalle.cliente.telefono && (
+                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                    <Phone size={10} /> {detalle.cliente.telefono}
+                  </p>
+                )}
+              </div>
+              {detalle.operacion && (
+                <button onClick={() => navigate(`/operaciones/${detalle.operacion!.id}`)}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                  <ExternalLink size={11} /> {detalle.operacion.numero}
+                </button>
+              )}
+            </div>
+
+            {/* Items */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Items del remito</p>
+              <div className="divide-y divide-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+                {detalle.items.map(it => (
+                  <div key={it.id} className="flex items-center justify-between px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800 font-medium">{it.descripcion}</p>
+                      {it.notas_item && <p className="text-xs text-gray-400">{it.notas_item}</p>}
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className="text-sm font-semibold text-gray-700">x{it.cantidad}</p>
+                      {it.precio_unitario && (
+                        <p className="text-xs text-gray-400">{formatCurrency(it.precio_unitario)}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Entrega */}
+            {(detalle.fecha_entrega_est || detalle.direccion_entrega || detalle.medio_envio) && (
+              <div className="p-3 bg-blue-50 rounded-xl space-y-1">
+                {detalle.fecha_entrega_est && (
+                  <p className="text-xs text-blue-700"><span className="font-semibold">Entrega estimada:</span> {fmtFecha(detalle.fecha_entrega_est)}</p>
+                )}
+                {detalle.direccion_entrega && (
+                  <p className="text-xs text-blue-700"><span className="font-semibold">Dirección:</span> {detalle.direccion_entrega}</p>
+                )}
+              </div>
+            )}
+
+            {/* Recepción del cliente */}
+            {detalle.recepcion_estado && (
+              <div className={cn('p-3 rounded-xl', recBadge?.cls ?? '')}>
+                <p className="text-xs font-semibold">Confirmación del cliente: {recBadge?.label}</p>
+                {detalle.recepcion_at && <p className="text-xs mt-0.5 opacity-70">{fmtFecha(detalle.recepcion_at)}</p>}
+                {detalle.recepcion_obs && <p className="text-xs mt-1 italic">&ldquo;{detalle.recepcion_obs}&rdquo;</p>}
+              </div>
+            )}
+
+            {/* Acciones */}
+            <div className="flex flex-col gap-2 pt-1">
+              {detalle.cliente.telefono && (
+                <button onClick={enviarWA} disabled={enviandoWA || enviadoWA}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors">
+                  <Send size={14} />
+                  {enviadoWA ? 'Enviado ✓' : enviandoWA ? 'Enviando...' : 'Enviar remito por WhatsApp'}
+                </button>
+              )}
+              <button onClick={() => window.open(`/imprimir/remito/${detalle.id}`, '_blank')}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                <PrinterIcon size={14} /> Ver / imprimir PDF
+              </button>
+              {detalle.estado !== 'cancelado' && (
+                <button onClick={() => setShowEstado(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-400 hover:text-gray-600">
+                  <ChevronRight size={13} /> Cambiar estado
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {showEstado && detalle && (
+        <ModalEstado remito={detalle}
+          onClose={() => setShowEstado(false)}
+          onSaved={() => { setShowEstado(false); onSaved(); onClose(); }} />
+      )}
+    </div>
+  );
+}
 
 // ── Modal de estado (reutilizado) ────────────────────────────────────
 
@@ -230,10 +410,12 @@ export function Remitos() {
   const [page, setPage] = useState(1);
   const perPage = 10;
   const [estadoModal, setEstadoModal]     = useState<Remito | null>(null);
+  const [detailRemito, setDetailRemito]   = useState<Remito | null>(null);
   const [shareRemito, setShareRemito]     = useState<Remito | null>(null);
   const [linkUrl,     setLinkUrl]         = useState<string | null>(null);
   const [linkCopied,  setLinkCopied]      = useState(false);
   const [generandoLink, setGenerandoLink] = useState(false);
+  const [enviandoWA,  setEnviandoWA]      = useState(false);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -268,25 +450,22 @@ export function Remitos() {
     setTimeout(() => setLinkCopied(false), 2000);
   }
 
-  function compartirWhatsApp() {
-    if (!linkUrl || !shareRemito) return;
-    const nombre = ncl(shareRemito.cliente);
-    const msg = encodeURIComponent(`Hola ${nombre}, te enviamos el remito de entrega ${shareRemito.numero}. Podés confirmar la recepción de tus productos desde este link:\n${linkUrl}`);
-
-    const tel = shareRemito.cliente.telefono ?? '';
-    const digits = tel.replace(/\D/g, '');
-    const phone = digits.startsWith('54') ? digits : digits ? `54${digits}` : '';
-
-    const url = phone
-      ? `https://web.whatsapp.com/send?phone=${phone}&text=${msg}`
-      : `https://web.whatsapp.com/send?text=${msg}`;
-
-    // Reutiliza pestaña existente si sigue abierta; abre nueva solo si fue cerrada
-    if (waWindow && !waWindow.closed) {
-      waWindow.location.href = url;
-      waWindow.focus();
-    } else {
-      waWindow = window.open(url, 'whatsapp_web') ?? null;
+  async function compartirWhatsApp() {
+    if (!shareRemito) return;
+    setEnviandoWA(true);
+    try {
+      const res = await api.post<{ enviado: boolean; numero: string; url: string }>(
+        `/remitos/${shareRemito.id}/enviar-whatsapp`, {}
+      );
+      setLinkUrl(res.url);
+      toast.success(`Remito enviado a ${res.numero}`);
+      setShareRemito(null);
+      setLinkUrl(null);
+      cargar();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } finally {
+      setEnviandoWA(false);
     }
   }
 
@@ -458,7 +637,9 @@ export function Remitos() {
                           const dias = diasHasta(r.fecha_entrega_est);
 
                           return (
-                            <tr key={r.id} className={cn('hover:bg-gray-50/80 transition-colors', URG_BORDER[urg])}>
+                            <tr key={r.id}
+                              className={cn('hover:bg-gray-50/80 transition-colors cursor-pointer', URG_BORDER[urg])}
+                              onClick={() => setDetailRemito(r)}>
                               <td className="px-4 py-3">
                                 <p className="text-[12px] font-mono font-bold text-blue-600">{r.numero}</p>
                                 <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(r.fecha_emision)}</p>
@@ -496,12 +677,19 @@ export function Remitos() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <div>
+                                <div className="space-y-1">
                                   <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full', badge.cls)}>
                                     {badge.label}
                                   </span>
+                                  {r.recepcion_estado && RECEPCION_BADGE[r.recepcion_estado] && (
+                                    <div>
+                                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded', RECEPCION_BADGE[r.recepcion_estado].cls)}>
+                                        {RECEPCION_BADGE[r.recepcion_estado].label}
+                                      </span>
+                                    </div>
+                                  )}
                                   {urg === 'entregado' && r.fecha_entrega_real && (
-                                    <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(r.fecha_entrega_real)}</p>
+                                    <p className="text-[10px] text-gray-400">{fmtFecha(r.fecha_entrega_real)}</p>
                                   )}
                                 </div>
                               </td>
@@ -517,31 +705,19 @@ export function Remitos() {
                                   </>
                                 ) : <p className="text-[11px] text-gray-400">—</p>}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                 <div className="flex items-center gap-1.5">
-                                  {waLink && (
-                                    <a href={waLink} target="_blank" rel="noopener noreferrer"
+                                  {r.cliente.telefono && (
+                                    <button type="button" onClick={() => setShareRemito(r)}
+                                      title="Enviar por WhatsApp"
                                       className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 border border-green-200 flex items-center justify-center transition-colors">
                                       <MessageCircle size={13} className="text-green-600" />
-                                    </a>
+                                    </button>
                                   )}
-                                  {r.cliente.telefono && (
-                                    <a href={`tel:${r.cliente.telefono}`}
-                                      className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center justify-center transition-colors">
-                                      <Phone size={13} className="text-blue-600" />
-                                    </a>
-                                  )}
-                                  <button type="button"
-                                    onClick={() => r.operacion ? navigate(`/operaciones/${r.operacion.id}`) : setEstadoModal(r)}
+                                  <button type="button" onClick={() => setDetailRemito(r)}
                                     className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center transition-colors">
                                     <Eye size={13} className="text-gray-600" />
                                   </button>
-                                  {['emitido', 'entregado'].includes(r.estado) && (
-                                    <button type="button" onClick={() => generarLink(r)} title="Compartir link de confirmación"
-                                      className="w-7 h-7 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center justify-center transition-colors">
-                                      <Share2 size={13} className="text-indigo-600" />
-                                    </button>
-                                  )}
                                   {r.estado !== 'cancelado' && (
                                     <button type="button" onClick={() => setEstadoModal(r)}
                                       className="w-7 h-7 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center transition-colors">
@@ -763,52 +939,48 @@ export function Remitos() {
         </div>
       )}
 
+      {detailRemito && (
+        <RemitoDetailModal remito={detailRemito}
+          onClose={() => setDetailRemito(null)}
+          onSaved={() => { setDetailRemito(null); cargar(); }} />
+      )}
+
       {estadoModal && (
         <ModalEstado remito={estadoModal} onClose={() => setEstadoModal(null)} onSaved={() => { setEstadoModal(null); cargar(); }} />
       )}
 
-      {/* Modal compartir link */}
+      {/* Modal compartir — envío directo por Evolution API */}
       {shareRemito && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={e => { if (e.target === e.currentTarget) setShareRemito(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <Share2 size={15} className="text-indigo-600" />
+                <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                  <MessageCircle size={15} className="text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-800">Compartir remito</p>
+                  <p className="text-sm font-bold text-gray-800">Enviar remito</p>
                   <p className="text-xs text-gray-400">{shareRemito.numero}</p>
                 </div>
               </div>
-              <button onClick={() => { setShareRemito(null); setLinkUrl(null); }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+              <button onClick={() => setShareRemito(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
                 <X size={15} />
               </button>
             </div>
 
-            {generandoLink ? (
-              <div className="py-8 text-center text-sm text-gray-400">Generando link...</div>
-            ) : linkUrl ? (
-              <>
-                <p className="text-xs text-gray-500 mb-2">
-                  El cliente podrá confirmar la recepción desde este link. Regenerar invalida el anterior.
-                </p>
-                <div className="flex gap-2 mb-3">
-                  <input readOnly value={linkUrl}
-                    className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono" />
-                  <button onClick={copiarLink}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${linkCopied ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'}`}>
-                    {linkCopied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar</>}
-                  </button>
-                </div>
-                <button onClick={compartirWhatsApp}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors mb-2">
-                  <MessageCircle size={15} /> Enviar por WhatsApp
-                </button>
-                <p className="text-[10px] text-indigo-600 text-center">El link regenerado invalida el anterior</p>
-              </>
-            ) : null}
+            <p className="text-xs text-gray-500 mb-4">
+              Se enviará el remito con link de confirmación a <strong>{ncl(shareRemito.cliente)}</strong>
+              {shareRemito.cliente.telefono && <> ({shareRemito.cliente.telefono})</>}.
+            </p>
+
+            <button onClick={compartirWhatsApp} disabled={enviandoWA}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors mb-2">
+              <Send size={14} /> {enviandoWA ? 'Enviando...' : 'Enviar por WhatsApp'}
+            </button>
+            <button onClick={() => setShareRemito(null)} className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+              Cancelar
+            </button>
           </div>
         </div>
       )}
