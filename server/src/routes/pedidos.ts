@@ -288,6 +288,10 @@ pedidos.get('/operaciones-disponibles', async (c) => {
         SELECT SUM(r2.monto_total) FROM recibos r2
         WHERE r2.operacion_id = o.id AND r2.estado = 'emitido'
       ), 0) > 0
+      AND NOT EXISTS (
+        SELECT 1 FROM pedidos p2
+        WHERE p2.operacion_id = o.id AND p2.estado != 'cancelado'
+      )
     ORDER BY o.created_at DESC
     LIMIT 50
   `);
