@@ -748,6 +748,9 @@ export function NuevoRemito() {
           onClose={() => { setSavedId(null); navigate('/remitos'); }}
           onNavigate={() => navigate('/remitos')}
           navigateLabel="Ir a remitos"
+          entityEndpoint={`/remitos/${savedId}`}
+          clienteNombre={clienteSeleccionado ? clienteLabel(clienteSeleccionado) : undefined}
+          clienteTelefono={clienteSeleccionado?.telefono ?? undefined}
         />
       )}
     </div>

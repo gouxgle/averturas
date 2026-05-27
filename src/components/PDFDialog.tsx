@@ -12,6 +12,8 @@ interface PDFDialogProps {
   onNavigate: () => void;
   navigateLabel?: string;
   operacionId?: string;
+  /** Endpoint alternativo para generar link y enviar WA (ej: '/remitos/:id') */
+  entityEndpoint?: string;
   clienteNombre?: string;
   clienteTelefono?: string;
 }
@@ -24,7 +26,7 @@ const WA_ICON = (
 
 export function PDFDialog({
   title, subtitle, pdfUrl, onClose, onNavigate,
-  navigateLabel = 'Ver detalle', operacionId,
+  navigateLabel = 'Ver detalle', operacionId, entityEndpoint,
   clienteNombre, clienteTelefono,
 }: PDFDialogProps) {
   const navigate = useNavigate();
@@ -34,9 +36,12 @@ export function PDFDialog({
   const [enviando,   setEnviando]   = useState(false);
   const [enviado,    setEnviado]    = useState(false);
 
+  // Endpoint base: entityEndpoint tiene prioridad sobre operacionId legacy
+  const baseEndpoint = entityEndpoint ?? (operacionId ? `/operaciones/${operacionId}` : null);
+
   const mensajePreview = (url: string) => {
     const nombre = clienteNombre ?? 'cliente';
-    return `Hola ${nombre}, te enviamos el presupuesto para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url || '[link de aprobación]'}`;
+    return `Hola ${nombre}, te enviamos el documento para tu revisión.\n\nPodés verlo desde este enlace:\n${url || '[link]'}`;
   };
 
   function handlePDF() {
@@ -45,13 +50,11 @@ export function PDFDialog({
   }
 
   async function handleEnviarClick() {
-    if (!operacionId) return;
-    // Si ya tenemos link, mostramos preview directamente
+    if (!baseEndpoint) return;
     if (linkUrl) { setPreview(true); return; }
-    // Si no, primero generamos el link para poder mostrarlo en la preview
     try {
       const { url } = await api.post<{ token: string; url: string }>(
-        `/operaciones/${operacionId}/generar-link`, {}
+        `${baseEndpoint}/generar-link`, {}
       );
       setLinkUrl(url);
       setPreview(true);
@@ -61,11 +64,11 @@ export function PDFDialog({
   }
 
   async function confirmarEnvio() {
-    if (!operacionId) return;
+    if (!baseEndpoint) return;
     setEnviando(true);
     try {
       const res = await api.post<{ enviado: boolean; numero: string; url: string }>(
-        `/operaciones/${operacionId}/enviar-whatsapp`, {}
+        `${baseEndpoint}/enviar-whatsapp`, {}
       );
       setLinkUrl(res.url);
       setEnviado(true);
@@ -197,7 +200,7 @@ export function PDFDialog({
             <FileDown size={15} /> Imprimir / Guardar PDF
           </button>
 
-          {operacionId && (
+          {baseEndpoint && (
             <div className="border border-gray-100 rounded-xl overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100">
                 <Share2 size={12} className="text-gray-400" />
@@ -216,7 +219,7 @@ export function PDFDialog({
                   if (linkUrl) { copiar(linkUrl); return; }
                   try {
                     const { url } = await api.post<{ token: string; url: string }>(
-                      `/operaciones/${operacionId}/generar-link`, {}
+                      `${baseEndpoint}/generar-link`, {}
                     );
                     setLinkUrl(url);
                     copiar(url);
@@ -224,7 +227,7 @@ export function PDFDialog({
                   } catch { toast.error('Error al generar link'); }
                 }}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-semibold transition-colors">
-                  {copiado ? <><Check size={12} /> Copiado!</> : <><Copy size={12} /> Copiar link de aprobación</>}
+                  {copiado ? <><Check size={12} /> Copiado!</> : <><Copy size={12} /> Copiar link</>}
                 </button>
 
                 {linkUrl && (
