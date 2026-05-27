@@ -284,6 +284,10 @@ pedidos.get('/operaciones-disponibles', async (c) => {
     FROM operaciones o
     LEFT JOIN clientes c ON c.id = o.cliente_id
     WHERE o.estado IN ('aprobado', 'en_produccion', 'listo')
+      AND COALESCE((
+        SELECT SUM(r2.monto_total) FROM recibos r2
+        WHERE r2.operacion_id = o.id AND r2.estado = 'emitido'
+      ), 0) > 0
     ORDER BY o.created_at DESC
     LIMIT 50
   `);

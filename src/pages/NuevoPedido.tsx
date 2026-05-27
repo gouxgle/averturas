@@ -44,6 +44,7 @@ interface OperacionItem {
   tipo_abertura_nombre?: string;
   sistema_nombre?: string;
   producto_proveedor_sku?: string | null;
+  producto_costo_base?: number | null;
 }
 
 interface OperacionDetalle {
@@ -105,12 +106,14 @@ function buildPreciosMapa(lista: { sku: string; precio: number; producto_id: str
 function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm {
   const sku    = oi.producto_proveedor_sku ?? null;
   const precio = resolverPrecio(precios, oi.producto_id, sku);
+  // Prioridad: lista proveedor → costo_base del producto → 0
+  const costo  = precio ?? (oi.producto_costo_base ? Number(oi.producto_costo_base) : 0);
   return {
     operacion_item_id: oi.id,
     producto_id:       oi.producto_id ?? undefined,
     descripcion:       oi.descripcion,
     cantidad:          oi.cantidad,
-    costo_unitario:    precio ?? 0,
+    costo_unitario:    costo,
     proveedor_sku:     sku,
     precio_de_lista:   precio != null,
   };
@@ -947,7 +950,67 @@ export default function NuevoPedido() {
           </div>
         </SectionCard>
 
-        {/* Resumen y guardar */}
+        {/* Resumen del pedido */}
+        {(proveedorSel || operacionSel || montoItems > 0) && (
+          <div className="bg-lime-50 rounded-xl border border-lime-200 p-4 space-y-3">
+            <p className="text-xs font-bold text-lime-800 uppercase tracking-wider">Resumen del pedido</p>
+
+            {proveedorSel && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Proveedor</span>
+                <span className="font-semibold text-gray-800">{proveedorSel.nombre}</span>
+              </div>
+            )}
+            {operacionSel && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Cliente</span>
+                <span className="font-semibold text-gray-800">{nombreCliente(operacionSel)}</span>
+              </div>
+            )}
+            {operacionSel && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Operación</span>
+                <span className="font-mono text-blue-700 font-semibold">{operacionSel.numero}</span>
+              </div>
+            )}
+
+            {items.filter(i => i.descripcion.trim()).length > 0 && (
+              <div className="border-t border-lime-200 pt-2 space-y-1.5">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Items</p>
+                {items.filter(i => i.descripcion.trim()).map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-baseline text-sm">
+                    <span className="text-gray-700 truncate flex-1 pr-2">
+                      {item.descripcion}
+                      <span className="text-gray-400 ml-1">×{item.cantidad}</span>
+                    </span>
+                    <span className="font-semibold text-gray-800 shrink-0">
+                      {item.costo_unitario > 0 ? formatCurrency(item.costo_unitario * item.cantidad) : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {montoItems > 0 && (
+              <div className="border-t border-lime-300 pt-2 space-y-1">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Subtotal productos</span>
+                  <span>{formatCurrency(montoItems)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>Envío (10%)</span>
+                  <span>{formatCurrency(costoEnvio)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-lime-300">
+                  <span className="text-sm font-bold text-lime-900">Total al proveedor</span>
+                  <span className="text-xl font-extrabold text-lime-800">{formatCurrency(montoTotal)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Guardar */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <button

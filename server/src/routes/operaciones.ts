@@ -496,7 +496,8 @@ operaciones.get('/:id', async (c) => {
         cp.atributos    AS producto_atributos,
         cp.nombre       AS producto_nombre,
         cp.imagen_url   AS producto_imagen_url,
-        cp.proveedor_sku AS producto_proveedor_sku
+        cp.proveedor_sku AS producto_proveedor_sku,
+        cp.costo_base   AS producto_costo_base
       FROM operacion_items oi
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id
