@@ -41,6 +41,7 @@ psql -U postgres -d postgres -f /migrations/20260520000002_catalogo_proveedor_sk
 psql -U postgres -d postgres -f /migrations/20260520000003_proveedor_precios.sql
 psql -U postgres -d postgres -f /migrations/20260524000001_precios_margen.sql
 psql -U postgres -d postgres -f /migrations/20260524000002_security_fixes.sql
+psql -U postgres -d postgres -f /migrations/20260528000001_pedido_items_coverage_idx.sql
 psql -U postgres -d postgres -f /migrations/20260526000001_mensajes_plantilla.sql
 
 # Registrar todas las migraciones aplicadas en el tracking
@@ -87,7 +88,8 @@ INSERT INTO schema_migrations (filename) VALUES
   ('20260520000002_catalogo_proveedor_sku.sql'),
   ('20260520000003_proveedor_precios.sql'),
   ('20260524000001_precios_margen.sql'),
-  ('20260524000002_security_fixes.sql')
+  ('20260524000002_security_fixes.sql'),
+  ('20260528000001_pedido_items_coverage_idx.sql')
 ON CONFLICT DO NOTHING;
 SQL
 

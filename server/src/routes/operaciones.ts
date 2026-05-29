@@ -497,7 +497,15 @@ operaciones.get('/:id', async (c) => {
         cp.nombre       AS producto_nombre,
         cp.imagen_url   AS producto_imagen_url,
         cp.proveedor_sku AS producto_proveedor_sku,
-        cp.costo_base   AS producto_costo_base
+        cp.costo_base   AS producto_costo_base,
+        (
+          SELECT json_build_object('pedido_id', p2.id, 'pedido_numero', p2.numero)
+          FROM pedido_items pi2
+          JOIN pedidos p2 ON p2.id = pi2.pedido_id
+          WHERE pi2.operacion_item_id = oi.id
+            AND p2.estado != 'cancelado'
+          LIMIT 1
+        ) AS covered_by
       FROM operacion_items oi
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id

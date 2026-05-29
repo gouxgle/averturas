@@ -26,6 +26,7 @@ interface OpItem {
   precio_unitario: number;
   medida_ancho: number | null;
   medida_alto: number | null;
+  covered_by?: { pedido_id: string; pedido_numero: string } | null;
 }
 
 interface Cliente {
@@ -422,6 +423,17 @@ export function NuevoRemito() {
                           : <>{pedidosSinRecibir.length} pedidos al proveedor aún no fueron marcados como recibidos: {pedidosSinRecibir.map(p => p.numero).join(', ')}.</>
                         }
                         {' '}Se recomienda confirmar la recepción antes de emitir el remito. Podés continuar de todas formas.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Aviso: ítems sin pedido activo */}
+                  {opItems.some(oi => !oi.covered_by) && pedidosSinRecibir.length === 0 && operacionId && !loadingOp && (
+                    <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl mb-3 text-xs text-blue-800">
+                      <span className="text-blue-500 mt-0.5 shrink-0">ℹ</span>
+                      <span>
+                        {opItems.filter(oi => !oi.covered_by).length} ítem{opItems.filter(oi => !oi.covered_by).length > 1 ? 's' : ''} sin pedido activo asignado.
+                        {' '}Podés emitir el remito de todas formas, pero se recomienda que todos los ítems tengan pedido confirmado.
                       </span>
                     </div>
                   )}

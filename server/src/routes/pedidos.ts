@@ -238,6 +238,23 @@ pedidos.post('/', async (c) => {
       operacion_item_id?: string; producto_id?: string;
       descripcion: string; cantidad: number; costo_unitario: number;
     }[]).entries()) {
+      // Validar que el ítem de operación no esté ya cubierto por otro pedido activo
+      if (item.operacion_item_id) {
+        const { rows: dup } = await client.query(
+          `SELECT p2.numero FROM pedido_items pi2
+           JOIN pedidos p2 ON p2.id = pi2.pedido_id
+           WHERE pi2.operacion_item_id = $1 AND p2.estado != 'cancelado'
+           LIMIT 1`,
+          [item.operacion_item_id]
+        );
+        if (dup.length) {
+          await client.query('ROLLBACK');
+          return c.json({
+            error: `El ítem "${item.descripcion}" ya está incluido en el pedido ${dup[0].numero}. Refrescá la página y volvé a intentar.`
+          }, 409);
+        }
+      }
+
       await client.query(`
         INSERT INTO pedido_items
           (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden)
@@ -263,7 +280,7 @@ pedidos.post('/', async (c) => {
   }
 });
 
-// GET /operaciones-disponibles — ops aprobadas (con pago opcional), múltiples pedidos permitidos
+// GET /operaciones-disponibles — ops con al menos un ítem sin cubrir por pedido activo
 pedidos.get('/operaciones-disponibles', async (c) => {
   const { rows } = await db.query(`
     SELECT
@@ -280,7 +297,17 @@ pedidos.get('/operaciones-disponibles', async (c) => {
       (
         SELECT COUNT(*)::int FROM pedidos p
         WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
-      ) AS pedidos_activos
+      ) AS pedidos_activos,
+      (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = o.id) AS items_total,
+      (
+        SELECT COUNT(*)::int FROM operacion_items oi
+        WHERE oi.operacion_id = o.id
+          AND NOT EXISTS (
+            SELECT 1 FROM pedido_items pi
+            JOIN pedidos p ON p.id = pi.pedido_id
+            WHERE pi.operacion_item_id = oi.id AND p.estado != 'cancelado'
+          )
+      ) AS items_pendientes
     FROM operaciones o
     LEFT JOIN clientes c ON c.id = o.cliente_id
     WHERE o.estado IN ('aprobado', 'en_produccion', 'listo')
@@ -288,9 +315,14 @@ pedidos.get('/operaciones-disponibles', async (c) => {
         SELECT SUM(r2.monto_total) FROM recibos r2
         WHERE r2.operacion_id = o.id AND r2.estado = 'emitido'
       ), 0) > 0
-      AND NOT EXISTS (
-        SELECT 1 FROM pedidos p2
-        WHERE p2.operacion_id = o.id AND p2.estado != 'cancelado'
+      AND EXISTS (
+        SELECT 1 FROM operacion_items oi2
+        WHERE oi2.operacion_id = o.id
+          AND NOT EXISTS (
+            SELECT 1 FROM pedido_items pi2
+            JOIN pedidos p2 ON p2.id = pi2.pedido_id
+            WHERE pi2.operacion_item_id = oi2.id AND p2.estado != 'cancelado'
+          )
       )
     ORDER BY o.created_at DESC
     LIMIT 50

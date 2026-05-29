@@ -27,6 +27,8 @@ interface OperacionAprobada {
   proveedor_nombre?: string | null;
   cobrado_total?: number;
   pedidos_activos?: number;
+  items_total?: number;
+  items_pendientes?: number;
   cliente: {
     nombre: string | null;
     apellido: string | null;
@@ -45,6 +47,7 @@ interface OperacionItem {
   sistema_nombre?: string;
   producto_proveedor_sku?: string | null;
   producto_costo_base?: number | null;
+  covered_by?: { pedido_id: string; pedido_numero: string } | null;
 }
 
 interface OperacionDetalle {
@@ -71,6 +74,9 @@ interface PedidoItemForm {
   costo_unitario: number;
   proveedor_sku?: string | null;
   precio_de_lista?: boolean;
+  selected?: boolean;       // false = el usuario lo dejó para otro pedido
+  is_covered?: boolean;     // true = ya existe en otro pedido activo
+  covered_by_numero?: string | null;
 }
 
 interface PreciosMapa {
@@ -104,18 +110,22 @@ function buildPreciosMapa(lista: { sku: string; precio: number; producto_id: str
 }
 
 function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm {
-  const sku    = oi.producto_proveedor_sku ?? null;
-  const precio = resolverPrecio(precios, oi.producto_id, sku);
+  const sku       = oi.producto_proveedor_sku ?? null;
+  const precio    = resolverPrecio(precios, oi.producto_id, sku);
+  const isCovered = !!oi.covered_by;
   // Prioridad: lista proveedor → costo_base del producto → 0
-  const costo  = precio ?? (oi.producto_costo_base ? Number(oi.producto_costo_base) : 0);
+  const costo     = precio ?? (oi.producto_costo_base ? Number(oi.producto_costo_base) : 0);
   return {
     operacion_item_id: oi.id,
     producto_id:       oi.producto_id ?? undefined,
     descripcion:       oi.descripcion,
     cantidad:          oi.cantidad,
-    costo_unitario:    costo,
+    costo_unitario:    isCovered ? 0 : costo,
     proveedor_sku:     sku,
-    precio_de_lista:   precio != null,
+    precio_de_lista:   precio != null && !isCovered,
+    selected:          !isCovered,
+    is_covered:        isCovered,
+    covered_by_numero: oi.covered_by?.pedido_numero ?? null,
   };
 }
 
@@ -455,14 +465,14 @@ export default function NuevoPedido() {
   }
 
   // ── Items helpers ─────────────────────────────────────────────
-  function updateItem(idx: number, field: keyof PedidoItemForm, value: string | number) {
+  function updateItem(idx: number, field: keyof PedidoItemForm, value: string | number | boolean) {
     setItems(prev => prev.map((item, i) =>
       i === idx ? { ...item, [field]: value } : item
     ));
   }
 
   function addItem() {
-    setItems(prev => [...prev, { descripcion: '', cantidad: 1, costo_unitario: 0 }]);
+    setItems(prev => [...prev, { descripcion: '', cantidad: 1, costo_unitario: 0, selected: true, is_covered: false }]);
   }
 
   function removeItem(idx: number) {
@@ -470,15 +480,20 @@ export default function NuevoPedido() {
     setItems(prev => prev.filter((_, i) => i !== idx));
   }
 
-  const montoItems  = items.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
+  const itemsSeleccionados = items.filter(i => !i.is_covered && i.selected !== false);
+  const itemsCubiertos     = items.filter(i => i.is_covered);
+  const itemsDeselected    = items.filter(i => !i.is_covered && i.selected === false);
+  const montoItems  = itemsSeleccionados.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
   const costoEnvio  = montoItems > 0 ? Math.round(montoItems * 0.10) : 0;
   const montoTotal  = montoItems + costoEnvio;
 
   // ── Guardar ───────────────────────────────────────────────────
   async function handleSave() {
     if (!proveedorId) { toast.error('Seleccioná un proveedor'); return; }
-    if (items.some(i => !i.descripcion.trim())) { toast.error('Completá la descripción de todos los items'); return; }
-    if (items.some(i => i.cantidad < 1)) { toast.error('La cantidad debe ser mayor a 0'); return; }
+    const itemsAEnviar = items.filter(i => !i.is_covered && i.selected !== false);
+    if (itemsAEnviar.length === 0) { toast.error('Seleccioná al menos un ítem para el pedido'); return; }
+    if (itemsAEnviar.some(i => !i.descripcion.trim())) { toast.error('Completá la descripción de todos los items'); return; }
+    if (itemsAEnviar.some(i => i.cantidad < 1)) { toast.error('La cantidad debe ser mayor a 0'); return; }
 
     setSaving(true);
     try {
@@ -489,7 +504,7 @@ export default function NuevoPedido() {
         fecha_entrega_est: fechaEst || null,
         notas:           notas || null,
         costo_envio:     costoEnvio,
-        items:           items.map(i => ({
+        items:           itemsAEnviar.map(i => ({
           operacion_item_id: i.operacion_item_id || null,
           producto_id:       i.producto_id || null,
           descripcion:       i.descripcion,
@@ -517,7 +532,7 @@ export default function NuevoPedido() {
 
   // ── Post-guardado ─────────────────────────────────────────────
   if (savedId) {
-    const waText   = waTextoPedido(proveedorSel, items, operacionSel, fechaEst);
+    const waText   = waTextoPedido(proveedorSel, items.filter(i => !i.is_covered && i.selected !== false), operacionSel, fechaEst);
     const tieneTel = Boolean(proveedorSel?.telefono);
 
     async function enviarWhatsAppPedido() {
@@ -766,6 +781,11 @@ export default function NuevoPedido() {
                                   ${Number(op.cobrado_total).toLocaleString('es-AR', { maximumFractionDigits: 0 })} cobrado
                                 </span>
                               )}
+                              {op.items_total != null && op.items_pendientes != null && op.items_pendientes < op.items_total && (
+                                <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-medium">
+                                  {op.items_pendientes}/{op.items_total} pendientes
+                                </span>
+                              )}
                               {op.pedidos_activos != null && op.pedidos_activos > 0 && (
                                 <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
                                   {op.pedidos_activos} pedido{op.pedidos_activos > 1 ? 's' : ''}
@@ -823,24 +843,67 @@ export default function NuevoPedido() {
           )}
         </SectionCard>
 
+        {/* Banner pedido complementario */}
+        {itemsCubiertos.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 flex items-start gap-2">
+            <span className="text-blue-500 mt-0.5 shrink-0">ℹ</span>
+            <div>
+              <p className="font-semibold mb-0.5">Pedido complementario</p>
+              <p>{itemsCubiertos.length} ítem{itemsCubiertos.length > 1 ? 's' : ''} ya {itemsCubiertos.length > 1 ? 'están asignados' : 'está asignado'} a otro pedido activo y no se incluirán aquí.
+              Podés crear un pedido adicional a otro proveedor para los ítems que quitaste.</p>
+            </div>
+          </div>
+        )}
+
         {/* Items */}
         <SectionCard title="Items del pedido *" icon={Package}>
           <div className="space-y-3">
-            {items.map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-start p-3 bg-gray-50 rounded-xl border border-gray-100">
+            {items.map((item, idx) => {
+              const isCovered    = !!item.is_covered;
+              const isDeselected = !isCovered && item.selected === false;
+              const isActive     = !isCovered && item.selected !== false;
+
+              return (
+              <div key={idx} className={cn(
+                'flex gap-2 items-start p-3 rounded-xl border transition-colors',
+                isCovered   ? 'bg-gray-100 border-gray-200 opacity-60' :
+                isDeselected ? 'bg-gray-50 border-dashed border-gray-300 opacity-70' :
+                               'bg-gray-50 border-gray-100'
+              )}>
+                {/* Checkbox — solo para ítems de operación no cubiertos */}
+                {item.operacion_item_id && !isCovered && (
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={e => updateItem(idx, 'selected', e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-lime-600 focus:ring-lime-400 shrink-0 cursor-pointer"
+                    title={isActive ? 'Quitar de este pedido' : 'Incluir en este pedido'}
+                  />
+                )}
+
                 <div className="flex-1 space-y-2">
                   <div className="flex flex-wrap gap-1.5 mb-1">
-                    {item.proveedor_sku && (
+                    {isCovered && (
+                      <p className="text-[10px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 font-semibold">
+                        Ya en {item.covered_by_numero ?? 'otro pedido'}
+                      </p>
+                    )}
+                    {!isCovered && isDeselected && (
+                      <p className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded px-2 py-0.5 font-semibold">
+                        Pendiente para otro proveedor
+                      </p>
+                    )}
+                    {item.proveedor_sku && isActive && (
                       <p className="text-[10px] text-lime-700 bg-lime-50 border border-lime-100 rounded px-2 py-0.5">
                         Ref: <span className="font-mono font-semibold">{item.proveedor_sku}</span>
                       </p>
                     )}
-                    {item.operacion_item_id && item.precio_de_lista && (
+                    {item.operacion_item_id && item.precio_de_lista && isActive && (
                       <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-0.5 font-semibold">
                         ✓ Precio de lista
                       </p>
                     )}
-                    {item.operacion_item_id && !item.precio_de_lista && proveedorId && (
+                    {item.operacion_item_id && !item.precio_de_lista && proveedorId && isActive && (
                       <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-0.5 font-semibold">
                         ⚠ Sin precio en lista — ingresar manualmente
                       </p>
@@ -850,43 +913,52 @@ export default function NuevoPedido() {
                     value={item.descripcion}
                     onChange={e => updateItem(idx, 'descripcion', e.target.value)}
                     placeholder="Descripción del producto"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+                    disabled={isCovered || isDeselected}
+                    className={cn(
+                      'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200',
+                      (isCovered || isDeselected) ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-default' : 'border-gray-200'
+                    )}
                   />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] text-gray-400 mb-0.5">Cantidad</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.cantidad}
-                        onChange={e => updateItem(idx, 'cantidad', parseInt(e.target.value) || 1)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
-                      />
+                  {!isCovered && isActive && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] text-gray-400 mb-0.5">Cantidad</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.cantidad}
+                          onChange={e => updateItem(idx, 'cantidad', parseInt(e.target.value) || 1)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-gray-400 mb-0.5">Costo unitario</label>
+                        <CostoInput
+                          value={item.costo_unitario}
+                          onChange={v => updateItem(idx, 'costo_unitario', v)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-gray-400 mb-0.5">Costo unitario</label>
-                      <CostoInput
-                        value={item.costo_unitario}
-                        onChange={v => updateItem(idx, 'costo_unitario', v)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
-                      />
-                    </div>
-                  </div>
-                  {item.costo_unitario > 0 && (
+                  )}
+                  {isActive && item.costo_unitario > 0 && (
                     <p className="text-[11px] text-gray-500 text-right">
                       Subtotal: {formatCurrency(item.costo_unitario * item.cantidad)}
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => removeItem(idx)}
-                  disabled={items.length === 1}
-                  className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 disabled:opacity-0 transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {!isCovered && !item.operacion_item_id && (
+                  <button
+                    onClick={() => removeItem(idx)}
+                    disabled={items.length === 1}
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 disabled:opacity-0 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
-            ))}
+              );
+            })}
 
             <button
               onClick={addItem}
@@ -974,10 +1046,12 @@ export default function NuevoPedido() {
               </div>
             )}
 
-            {items.filter(i => i.descripcion.trim()).length > 0 && (
+            {itemsSeleccionados.filter(i => i.descripcion.trim()).length > 0 && (
               <div className="border-t border-lime-200 pt-2 space-y-1.5">
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Items</p>
-                {items.filter(i => i.descripcion.trim()).map((item, idx) => (
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Items a enviar ({itemsSeleccionados.length})
+                </p>
+                {itemsSeleccionados.filter(i => i.descripcion.trim()).map((item, idx) => (
                   <div key={idx} className="flex justify-between items-baseline text-sm">
                     <span className="text-gray-700 truncate flex-1 pr-2">
                       {item.descripcion}
@@ -988,6 +1062,11 @@ export default function NuevoPedido() {
                     </span>
                   </div>
                 ))}
+                {itemsDeselected.length > 0 && (
+                  <p className="text-[10px] text-orange-600 mt-1">
+                    + {itemsDeselected.length} ítem{itemsDeselected.length > 1 ? 's' : ''} pendiente{itemsDeselected.length > 1 ? 's' : ''} para otro proveedor
+                  </p>
+                )}
               </div>
             )}
 
