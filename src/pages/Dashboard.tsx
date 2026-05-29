@@ -127,10 +127,10 @@ export function Dashboard() {
     : 0;
 
   return (
-    <div className="page-enter p-6 max-w-[1340px] mx-auto">
+    <div className="page-enter p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto">
 
       {/* ── Encabezado ───────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
             {saludo}, {user?.nombre ?? 'usuario'}! 👋
@@ -155,20 +155,20 @@ export function Dashboard() {
       </div>
 
       {loading ? (
-        <div className="flex gap-5">
+        <div className="flex flex-col xl:flex-row gap-5">
           <div className="flex-1 space-y-4">
             {[90, 120, 200, 180].map((h, i) => (
               <div key={i} className="animate-pulse bg-gray-100 rounded-2xl" style={{ height: h }} />
             ))}
           </div>
-          <div className="w-72 space-y-4">
+          <div className="w-full xl:w-72 space-y-4">
             {[160, 140, 200].map((h, i) => (
               <div key={i} className="animate-pulse bg-gray-100 rounded-2xl" style={{ height: h }} />
             ))}
           </div>
         </div>
       ) : data && (
-        <div className="flex gap-5 items-start">
+        <div className="flex flex-col xl:flex-row gap-5 items-start">
 
           {/* ── Columna principal ─────────────────────────────── */}
           <div className="flex-1 min-w-0 space-y-4">
@@ -183,7 +183,7 @@ export function Dashboard() {
                   Ver agenda completa <ChevronRight size={12} />
                 </Link>
               </div>
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
                 {[
                   {
                     icon: Truck, color: 'text-amber-600', bg: 'bg-amber-100',
@@ -244,7 +244,7 @@ export function Dashboard() {
                 <BarChart3 size={15} className="text-blue-600" />
                 <h2 className="text-sm font-bold text-gray-800">NÚMEROS CLAVE DEL NEGOCIO</h2>
               </div>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Ventas del día */}
                 <div className="space-y-1.5">
                   <p className="text-[11px] font-medium text-gray-500">Ventas del día</p>
@@ -319,10 +319,10 @@ export function Dashboard() {
             </div>
 
             {/* VENTAS EN RIESGO + SEGUIMIENTO AUTOMÁTICO */}
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
               {/* Ventas en riesgo */}
-              <div className="col-span-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle size={14} className="text-amber-500" />
                   <h2 className="text-sm font-bold text-gray-800 flex-1">VENTAS EN RIESGO</h2>
@@ -376,7 +376,7 @@ export function Dashboard() {
               </div>
 
               {/* Seguimiento automático */}
-              <div className="col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <MessageCircle size={14} className="text-violet-500" />
                   <h2 className="text-sm font-bold text-gray-800 flex-1">SEGUIMIENTO AUTOMÁTICO</h2>
@@ -464,7 +464,7 @@ export function Dashboard() {
                   <p className="text-xs text-gray-400">Sin datos de ventas por producto aún</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {data.top_productos.map((p, i) => {
                     const palettes = [
                       { num: 'bg-blue-600', bar: 'bg-blue-100 border-blue-200', price: 'text-blue-700' },
@@ -507,7 +507,7 @@ export function Dashboard() {
           </div>
 
           {/* ── Sidebar ───────────────────────────────────────────── */}
-          <div className="w-[300px] shrink-0 space-y-4">
+          <div className="w-full xl:w-[300px] xl:shrink-0 space-y-4">
 
             {/* SUGERENCIAS DEL SISTEMA */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">

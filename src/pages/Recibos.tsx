@@ -578,7 +578,7 @@ export function Recibos() {
   ];
 
   return (
-    <div className="p-5 max-w-[1400px] mx-auto space-y-4">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -599,7 +599,7 @@ export function Recibos() {
       </div>
 
       {/* KPI bar */}
-      <div className="grid grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {kpis.map((k, i) => {
           const Icon = k.icon;
           return (

@@ -341,7 +341,7 @@ export function VistaPublicaPresupuesto() {
 
         {/* ── HEADER ────────────────────────────────────────────────────── */}
         <div className="rounded-t-2xl overflow-hidden">
-          <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-5 bg-white"
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 px-4 sm:px-5 pt-5 pb-5 bg-white"
             style={{ border: `2px solid ${NAVY}`, borderBottom: 'none' }}>
 
             {/* Empresa */}
@@ -374,7 +374,7 @@ export function VistaPublicaPresupuesto() {
             </div>
 
             {/* PROFORMA + detalles */}
-            <div className="text-right shrink-0">
+            <div className="sm:text-right shrink-0 sm:shrink-0">
               <div className="text-2xl sm:text-3xl font-black tracking-widest leading-none mb-1"
                 style={{ color: RED }}>PROFORMA</div>
               <div className="font-bold text-sm" style={{ color: NAVY }}>N°: {proformaNum}</div>
@@ -448,8 +448,8 @@ export function VistaPublicaPresupuesto() {
 
         {/* ── ITEMS ─────────────────────────────────────────────────────── */}
         <div className="bg-white mt-px">
-          {/* Encabezado tabla */}
-          <div className="grid text-xs font-bold uppercase tracking-wider px-4 py-2.5 border-b-2"
+          {/* Encabezado tabla — solo visible en sm+ */}
+          <div className="hidden sm:grid text-xs font-bold uppercase tracking-wider px-4 py-2.5 border-b-2"
             style={{
               color: NAVY,
               borderColor: NAVY,
@@ -465,9 +465,9 @@ export function VistaPublicaPresupuesto() {
 
           {pres.items.map((item, i) => {
             const specs = [
-              item.tipo_abertura_nombre ? `Tipo: ${item.tipo_abertura_nombre}` : null,
-              item.sistema_nombre       ? `Línea: ${item.sistema_nombre}` : null,
-              item.color                ? `Color: ${item.color}` : null,
+              item.tipo_abertura_nombre ? `${item.tipo_abertura_nombre}` : null,
+              item.sistema_nombre       ? item.sistema_nombre : null,
+              item.color                ? item.color : null,
               (item.medida_ancho || item.medida_alto)
                 ? `${item.medida_ancho ?? '?'} × ${item.medida_alto ?? '?'} m`
                 : null,
@@ -476,36 +476,53 @@ export function VistaPublicaPresupuesto() {
             const pUnit = Number(item.precio_unitario) +
               (item.incluye_instalacion ? Number(item.precio_instalacion) : 0);
 
+            const thumbnail = item.producto_imagen_url ? (
+              <img src={item.producto_imagen_url} alt=""
+                className="w-11 h-11 object-cover rounded-md border border-gray-200"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <div className="w-11 h-11 bg-gray-100 rounded-md flex items-center justify-center text-xl">🪟</div>
+            );
+
             return (
-              <div key={i}
-                className="grid items-center px-4 py-3 text-sm"
-                style={{
-                  gridTemplateColumns: '28px 56px 1fr 52px 88px 88px',
-                  borderBottom: i < pres.items.length - 1 ? '1px solid #f3f4f6' : 'none',
-                }}>
-                <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
-                <div className="pr-2">
-                  {item.producto_imagen_url ? (
-                    <img
-                      src={item.producto_imagen_url}
-                      alt=""
-                      className="w-11 h-11 object-cover rounded-md border border-gray-200"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-11 h-11 bg-gray-100 rounded-md flex items-center justify-center text-xl">🪟</div>
-                  )}
+              <div key={i} style={{ borderBottom: i < pres.items.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+
+                {/* Mobile card (xs) */}
+                <div className="sm:hidden px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-gray-300 font-bold text-xs w-4 shrink-0 mt-1">{i + 1}</span>
+                    <div className="shrink-0">{thumbnail}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
+                      {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
+                      {item.incluye_instalacion && (
+                        <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 ml-7 pl-3"
+                    style={{ borderTop: '1px solid #f9fafb' }}>
+                    <span className="text-xs text-gray-500">Cantidad: <strong className="text-gray-700">{item.cantidad}</strong></span>
+                    <span className="font-bold text-gray-900 text-sm">{fmtM(Number(item.precio_total))}</span>
+                  </div>
                 </div>
-                <div className="pr-2">
-                  <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
-                  {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
-                  {item.incluye_instalacion && (
-                    <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
-                  )}
+
+                {/* Desktop row (sm+) */}
+                <div className="hidden sm:grid items-center px-4 py-3 text-sm"
+                  style={{ gridTemplateColumns: '28px 56px 1fr 52px 88px 88px' }}>
+                  <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
+                  <div className="pr-2">{thumbnail}</div>
+                  <div className="pr-2">
+                    <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
+                    {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
+                    {item.incluye_instalacion && (
+                      <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
+                    )}
+                  </div>
+                  <span className="text-center text-gray-700 text-xs font-medium">{item.cantidad}</span>
+                  <span className="text-right text-gray-500 text-xs">{fmtM(pUnit)}</span>
+                  <span className="text-right font-bold text-gray-900 text-xs">{fmtM(Number(item.precio_total))}</span>
                 </div>
-                <span className="text-center text-gray-700 text-xs font-medium">{item.cantidad}</span>
-                <span className="text-right text-gray-500 text-xs">{fmtM(pUnit)}</span>
-                <span className="text-right font-bold text-gray-900 text-xs">{fmtM(Number(item.precio_total))}</span>
               </div>
             );
           })}

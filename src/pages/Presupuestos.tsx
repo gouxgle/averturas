@@ -784,9 +784,9 @@ export function Presupuestos() {
   ];
 
   return (
-    <div className="p-5 min-h-screen bg-gray-50">
+    <div className="p-3 sm:p-4 lg:p-5 min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
             <FileText size={20} className="text-violet-600" />

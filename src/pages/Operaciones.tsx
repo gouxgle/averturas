@@ -225,7 +225,7 @@ export function Operaciones() {
   const proximasSemana = data?.proximas.filter(p => p.fecha_entrega_estimada.slice(0, 10) > tomorrowStr)   ?? [];
 
   return (
-    <div className="p-6 max-w-[1440px] mx-auto space-y-4">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4">
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-start justify-between">
@@ -249,19 +249,19 @@ export function Operaciones() {
 
       {loading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map(i => <div key={i} className="animate-pulse bg-gray-100 rounded-2xl h-20" />)}
           </div>
           <div className="animate-pulse bg-gray-100 rounded-2xl h-96" />
         </div>
       ) : data && (
-        <div className="flex gap-5 items-start">
+        <div className="flex flex-col xl:flex-row gap-5 items-start">
 
           {/* ── Columna principal ─────────────────────────────── */}
           <div className="flex-1 min-w-0 space-y-4">
 
             {/* KPIs */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <KpiCard icon={BarChart3}    label="Operaciones activas"  value={data.stats.total_activas}           sub={formatCurrency(data.stats.valor_activas)}            iconBg="bg-gray-100"   iconCl="text-gray-600" />
               <KpiCard icon={FileText}     label="Sin confirmar"         value={data.stats.sin_confirmar}           sub="Presupuestos pendientes"                              iconBg="bg-slate-100"  iconCl="text-slate-600" />
               <KpiCard icon={Truck}        label="Listas p/ entregar"   value={data.kanban.listas_entregar.length} sub="Material disponible en local"                         iconBg="bg-teal-100"   iconCl="text-teal-600" />
@@ -288,7 +288,7 @@ export function Operaciones() {
           </div>
 
           {/* ── Sidebar ───────────────────────────────────────────── */}
-          <div className="w-[280px] shrink-0 space-y-4">
+          <div className="w-full xl:w-[280px] xl:shrink-0 space-y-4">
 
             {/* Entregas programadas */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">

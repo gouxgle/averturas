@@ -503,7 +503,7 @@ export function Remitos() {
   const fechaHoyLabel = now.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="p-6 max-w-[1440px] mx-auto space-y-4">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -543,7 +543,7 @@ export function Remitos() {
           <div className="flex-1 min-w-0 space-y-4">
 
             {/* KPIs */}
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
                 { icon: Truck,        bg: 'bg-teal-100',    cl: 'text-teal-600',   label: 'Pendientes',          val: data.stats.pendientes,     sub: 'Para entregar',        subCl: '' },
                 { icon: Clock,        bg: 'bg-orange-100',  cl: 'text-orange-600', label: 'Para hoy',            val: data.stats.para_hoy,       sub: 'Entregas programadas',  subCl: '' },
@@ -763,7 +763,7 @@ export function Remitos() {
             </div>
 
             {/* Bottom bar de métricas */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Métodos de entrega */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-2">
