@@ -701,7 +701,7 @@ export function NuevoPresupuesto() {
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
 
       {/* ── TOP BAR ── */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
         {/* Izquierda */}
         <div className="flex items-center gap-3">
           <button
@@ -726,16 +726,16 @@ export function NuevoPresupuesto() {
             <Save size={14} />
             Guardar borrador
           </button>
-          <div className="flex">
+          <div className="hidden sm:flex">
             <button
               onClick={() => handleSave(true)}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#10b981] hover:bg-emerald-600 text-white rounded-l-xl text-xs font-semibold transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-l-xl text-xs font-semibold transition-colors disabled:opacity-50"
             >
               <FileText size={14} />
               {saving ? 'Guardando...' : 'Generar proforma'}
             </button>
-            <button className="px-2 py-2 bg-[#10b981] hover:bg-emerald-600 text-white rounded-r-xl border-l border-emerald-500 transition-colors">
+            <button className="px-2 py-1.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-r-xl border-l border-emerald-500 transition-colors">
               <ChevronDown size={13} />
             </button>
           </div>
@@ -743,7 +743,7 @@ export function NuevoPresupuesto() {
       </div>
 
       {/* ── INFO BAR ── */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-stretch gap-3">
+      <div className="bg-white border-b border-gray-200 px-4 py-1.5 flex items-stretch gap-3">
 
         {/* Card 1: Cliente */}
         <div className="flex items-center gap-3 min-w-0 flex-1 border-r border-gray-100 pr-3">
@@ -919,41 +919,41 @@ export function NuevoPresupuesto() {
         ];
 
         return (
-          <div className="bg-white border-b border-gray-100 px-6 py-3 shrink-0">
-            <div className="flex items-start">
+          <div className="bg-white border-b border-gray-100 px-4 py-1.5 shrink-0">
+            <div className="flex items-center">
               {pasos.map((paso, i) => {
                 const prevDone = pasos.slice(0, i).every(p => p.done);
                 const active   = !paso.done && prevDone;
                 const lineColor = i < pasos.length - 1
-                  ? (paso.done ? 'bg-green-400' : active ? 'bg-red-400' : 'bg-gray-200')
+                  ? (paso.done ? 'bg-green-400' : active ? 'bg-amber-300' : 'bg-gray-200')
                   : '';
                 return (
                   <Fragment key={i}>
                     {/* Step */}
-                    <div className="flex flex-col items-center gap-1.5 shrink-0" style={{ minWidth: 90 }}>
+                    <div className="flex flex-col items-center gap-1 shrink-0" style={{ minWidth: 80 }}>
                       {/* Círculo */}
                       <div className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all',
-                        paso.done  ? 'bg-[#031d49]'
-                        : active   ? 'bg-red-500'
+                        'w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all',
+                        paso.done  ? 'bg-green-500'
+                        : active   ? 'bg-amber-400'
                         : 'bg-gray-100 border border-gray-200'
                       )}>
                         {paso.done
-                          ? <Check size={14} className="text-white" strokeWidth={3} />
-                          : <span className={cn('text-xs font-bold', active ? 'text-white' : 'text-gray-400')}>
+                          ? <Check size={11} className="text-white" strokeWidth={3} />
+                          : <span className={cn('text-[10px] font-bold', active ? 'text-white' : 'text-gray-400')}>
                               {i + 1}
                             </span>
                         }
                       </div>
                       {/* Labels */}
-                      <div className="text-center px-1">
-                        <p className={cn('text-[10px] font-bold uppercase tracking-wide leading-tight',
-                          paso.done ? 'text-[#031d49]' : active ? 'text-red-500' : 'text-gray-300'
+                      <div className="text-center px-0.5">
+                        <p className={cn('text-[9px] font-bold uppercase tracking-wide leading-tight',
+                          paso.done ? 'text-green-600' : active ? 'text-amber-600' : 'text-gray-300'
                         )}>
                           {paso.titulo}
                         </p>
-                        <p className={cn('text-[9px] leading-snug mt-0.5 max-w-[80px]',
-                          paso.done ? 'text-gray-400' : active ? 'text-red-400' : 'text-gray-300'
+                        <p className={cn('text-[8px] leading-snug max-w-[72px] hidden sm:block',
+                          paso.done ? 'text-gray-400' : active ? 'text-amber-500' : 'text-gray-300'
                         )}>
                           {paso.subtitulo}
                         </p>
@@ -961,7 +961,7 @@ export function NuevoPresupuesto() {
                     </div>
                     {/* Línea conectora */}
                     {i < pasos.length - 1 && (
-                      <div className={cn('flex-1 h-0.5 mt-4 mx-1 transition-all', lineColor)} />
+                      <div className={cn('flex-1 h-0.5 mb-3 mx-0.5 transition-all', lineColor)} />
                     )}
                   </Fragment>
                 );
@@ -1064,26 +1064,26 @@ export function NuevoPresupuesto() {
                   ) : productosOrdenados.length === 0 ? (
                     <div className="flex items-center justify-center py-10 text-gray-400 text-xs">Sin resultados</div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
                       {productosOrdenados.map(p => {
                         const img = p.imagenes?.[0] || p.imagen_url;
                         const enCarrito = items.some(it => it.producto_id === p.id);
                         const stockBadge = p.stock_actual > 5
-                          ? { label: 'En stock', cls: 'bg-emerald-100 text-emerald-700' }
+                          ? { label: 'Stock', cls: 'bg-emerald-100 text-emerald-700' }
                           : p.stock_actual >= 1
-                          ? { label: 'Pocas unidades', cls: 'bg-amber-100 text-amber-700' }
+                          ? { label: 'Pocas', cls: 'bg-amber-100 text-amber-700' }
                           : { label: 'Sin stock', cls: 'bg-red-100 text-red-600' };
                         return (
                           <div
                             key={p.id}
                             className={cn(
-                              'relative rounded-xl border overflow-hidden cursor-pointer transition-all hover:shadow-md group',
+                              'relative rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md group',
                               enCarrito ? 'border-violet-400 ring-1 ring-violet-300' : 'border-gray-200 hover:border-violet-300'
                             )}
                             onClick={() => agregarProducto(p)}
                           >
                             {/* Imagen */}
-                            <div className="aspect-square bg-gray-50 overflow-hidden">
+                            <div className="h-20 bg-gray-50 overflow-hidden">
                               {img
                                 ? <img src={img} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                 : <div className="w-full h-full flex items-center justify-center"><Package size={24} className="text-gray-200" /></div>
@@ -1571,6 +1571,18 @@ export function NuevoPresupuesto() {
       {/* suppress unused-var lint only */}
       {editEstado && false && <span>{editEstado}</span>}
       {tipoProyecto && false && <span>{tipoProyecto}</span>}
+
+      {/* ── BOTÓN FLOTANTE — Generar proforma (siempre visible) ── */}
+      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+        <button
+          onClick={() => handleSave(true)}
+          disabled={saving}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-lg transition-colors disabled:opacity-50"
+        >
+          <FileText size={15} />
+          {saving ? 'Guardando...' : 'Generar proforma'}
+        </button>
+      </div>
     </div>
   );
 }
