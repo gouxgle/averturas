@@ -278,11 +278,7 @@ export default function NuevoPedido() {
   const [waEnviado,  setWaEnviado]  = useState(false);
   const [waNumero,   setWaNumero]   = useState('');
 
-  // Búsqueda proveedores
-  const [busqProv,  setBusqProv]  = useState('');
-  const [provs,     setProvs]     = useState<Proveedor[]>([]);
-  const [showProvs, setShowProvs] = useState(false);
-  const provRef = useRef<HTMLDivElement>(null);
+  const [provs, setProvs] = useState<Proveedor[]>([]);
 
   // Búsqueda operaciones
   const [busqOp,   setBusqOp]   = useState('');
@@ -363,7 +359,6 @@ export default function NuevoPedido() {
               ),
             ]);
             setProveedorSel(prov);
-            setBusqProv(prov.nombre);
             preciosMapa = buildPreciosMapa(lista);
             setPreciosProveedor(preciosMapa);
           } catch { /* sin proveedor o sin precios */ }
@@ -392,7 +387,6 @@ export default function NuevoPedido() {
     }>(`/pedidos/${id}`).then(p => {
       setProveedorId(p.proveedor_id);
       setProveedorSel(p.proveedor);
-      setBusqProv(p.proveedor.nombre);
       if (p.operacion) {
         setOperacionId(p.operacion_id ?? '');
         setOperacionSel(p.operacion);
@@ -412,17 +406,12 @@ export default function NuevoPedido() {
     }).catch(() => toast.error('Error al cargar el pedido'));
   }, [isEdit, id]);
 
-  // ── Búsqueda proveedores ──────────────────────────────────────
+  // ── Carga todos los proveedores activos al montar ────────────
   useEffect(() => {
-    const t = setTimeout(async () => {
-      if (!busqProv.trim()) { setProvs([]); return; }
-      try {
-        const data = await api.get<Proveedor[]>(`/catalogo/proveedores?search=${encodeURIComponent(busqProv)}&activo=true`);
-        setProvs(data);
-      } catch { setProvs([]); }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [busqProv]);
+    api.get<Proveedor[]>('/catalogo/proveedores?activo=true')
+      .then(setProvs)
+      .catch(() => setProvs([]));
+  }, []);
 
   // ── Búsqueda operaciones aprobadas ────────────────────────────
   useEffect(() => {
@@ -452,7 +441,6 @@ export default function NuevoPedido() {
         const prov = await api.get<Proveedor>(`/catalogo/proveedores/${det.proveedor_id}`);
         setProveedorId(prov.id);
         setProveedorSel(prov);
-        setBusqProv(prov.nombre);
         try {
           const lista = await api.get<{ sku: string; precio: number; producto_id: string | null }[]>(
             `/catalogo/proveedor-precios?proveedor_id=${prov.id}&activo=true`
@@ -672,49 +660,25 @@ export default function NuevoPedido() {
 
         {/* Proveedor */}
         <SectionCard title="Proveedor *" icon={Truck}>
-          {proveedorSel ? (
-            <div className="flex items-center justify-between p-3 bg-lime-50 rounded-xl border border-lime-100">
-              <div>
-                <p className="font-semibold text-gray-900">{proveedorSel.nombre}</p>
-                {proveedorSel.contacto && <p className="text-sm text-gray-500">{proveedorSel.contacto}</p>}
-                {proveedorSel.telefono && <p className="text-sm text-gray-500">{proveedorSel.telefono}</p>}
-              </div>
-              <button
-                onClick={() => { setProveedorSel(null); setProveedorId(''); setBusqProv(''); }}
-                className="p-1.5 rounded-lg hover:bg-lime-100 text-gray-400"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <div className="relative" ref={provRef}>
-              <input
-                value={busqProv}
-                onChange={e => { setBusqProv(e.target.value); setShowProvs(true); }}
-                onFocus={() => setShowProvs(true)}
-                onBlur={() => setTimeout(() => setShowProvs(false), 150)}
-                placeholder="Buscar proveedor..."
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-300"
-              />
-              {showProvs && provs.length > 0 && (
-                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                  {provs.map(prov => (
-                    <button
-                      key={prov.id}
-                      onMouseDown={() => {
-                        setProveedorId(prov.id);
-                        setProveedorSel(prov);
-                        setBusqProv(prov.nombre);
-                        setShowProvs(false);
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-lime-50 border-b border-gray-50 last:border-0"
-                    >
-                      <p className="text-sm font-medium text-gray-900">{prov.nombre}</p>
-                      {prov.telefono && <p className="text-xs text-gray-400">{prov.telefono}</p>}
-                    </button>
-                  ))}
-                </div>
-              )}
+          <select
+            value={proveedorId}
+            onChange={e => {
+              const id = e.target.value;
+              setProveedorId(id);
+              const found = provs.find(p => p.id === id) ?? null;
+              setProveedorSel(found);
+            }}
+            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-300 bg-white"
+          >
+            <option value="">— Seleccionar proveedor —</option>
+            {provs.map(p => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+          {proveedorSel && (
+            <div className="mt-2 flex gap-3 text-xs text-gray-500 px-1">
+              {proveedorSel.contacto && <span>{proveedorSel.contacto}</span>}
+              {proveedorSel.telefono && <span>{proveedorSel.telefono}</span>}
             </div>
           )}
         </SectionCard>
