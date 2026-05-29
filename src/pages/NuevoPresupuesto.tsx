@@ -394,6 +394,11 @@ export function NuevoPresupuesto() {
   const [formaEnvio, setFormaEnvio] = useState('retiro_local');
   const [costoEnvio, setCostoEnvio] = useState(0);
 
+  // Flags: step solo verde si usuario eligió explícitamente
+  const [userSetFormaPago, setUserSetFormaPago]       = useState(false);
+  const [userSetFormaEnvio, setUserSetFormaEnvio]     = useState(false);
+  const [userSetFechaValidez, setUserSetFechaValidez] = useState(false);
+
   // Ítems
   const [items, setItems] = useState<ItemForm[]>([]);
 
@@ -455,12 +460,15 @@ export function NuevoPresupuesto() {
       setClienteId(op.cliente_id);
       setTipoProyecto(op.tipo_proyecto ?? '');
       setFormaPago(op.forma_pago ?? 'Precio de lista');
+      setUserSetFormaPago(true);
       setTiempoEntrega(op.tiempo_entrega ? String(op.tiempo_entrega) : '');
       setFechaValidez(op.fecha_validez ? op.fecha_validez.split('T')[0] : '');
+      setUserSetFechaValidez(true);
       setValidezDias('custom');
       setNotas(op.notas ?? '');
       setNotasInternas(op.notas_internas ?? '');
       setFormaEnvio(op.forma_envio ?? 'retiro_local');
+      setUserSetFormaEnvio(true);
       setCostoEnvio(Number(op.costo_envio) || 0);
       setItems(op.items.map(it => ({
         _key: uuid(),
@@ -743,19 +751,19 @@ export function NuevoPresupuesto() {
       </div>
 
       {/* ── INFO BAR ── */}
-      <div className="bg-white border-b border-gray-200 px-4 py-1.5 flex items-stretch gap-3">
+      <div className="bg-white border-b border-gray-200 px-4 py-1 flex items-center gap-3">
 
         {/* Card 1: Cliente */}
         <div className="flex items-center gap-3 min-w-0 flex-1 border-r border-gray-100 pr-3">
           {clienteSeleccionado ? (
             <>
-              <div className="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
-                <span className="text-white text-xs font-bold">{clienteIniciales}</span>
+              <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-[10px] font-bold">{clienteIniciales}</span>
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900 truncate">{clienteNombre}</p>
+                <p className="text-xs font-bold text-gray-900 truncate">{clienteNombre}</p>
                 {clienteSeleccionado.telefono && (
-                  <p className="text-[11px] text-gray-400">{clienteSeleccionado.telefono}</p>
+                  <p className="text-[10px] text-gray-400">{clienteSeleccionado.telefono}</p>
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -781,8 +789,8 @@ export function NuevoPresupuesto() {
             </>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0 relative">
-              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                <Phone size={13} className="text-gray-300" />
+              <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                <Phone size={11} className="text-gray-300" />
               </div>
               <div className="flex-1 relative">
                 <input
@@ -792,7 +800,7 @@ export function NuevoPresupuesto() {
                   onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
                   onFocus={() => setShowClienteList(true)}
                   onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
-                  className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                  className="w-full bg-transparent text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none"
                 />
                 {showClienteList && clienteSearch && (
                   <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-72">
@@ -831,7 +839,7 @@ export function NuevoPresupuesto() {
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Forma de pago</p>
             <select
               value={formaPago}
-              onChange={e => setFormaPago(e.target.value)}
+              onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
               className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4 max-w-[170px]"
             >
               {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
@@ -845,7 +853,7 @@ export function NuevoPresupuesto() {
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Entrega / Instalación</p>
             <select
               value={formaEnvio}
-              onChange={e => setFormaEnvio(e.target.value)}
+              onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
               className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4"
             >
               {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
@@ -866,6 +874,7 @@ export function NuevoPresupuesto() {
                     setValidezDias(d);
                     const f = new Date(); f.setDate(f.getDate() + d);
                     setFechaValidez(`${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`);
+                    setUserSetFechaValidez(true);
                   }}
                   className={cn(
                     'px-2 py-0.5 rounded text-[10px] font-semibold border transition-all',
@@ -895,19 +904,19 @@ export function NuevoPresupuesto() {
           {
             titulo: 'Forma de pago',
             subtitulo: formaPago || 'Seleccionar opción',
-            done: !!formaPago,
+            done: !!formaPago && userSetFormaPago,
           },
           {
             titulo: 'Entrega',
             subtitulo: formaEnvioLabel,
-            done: true,
+            done: !!formaEnvio && userSetFormaEnvio,
           },
           {
             titulo: 'Validez',
             subtitulo: validezDias !== 'custom'
-              ? `${validezDias} hs por defecto`
+              ? `${validezDias}d por defecto`
               : fechaValidezLabel !== '—' ? `Hasta ${fechaValidezLabel}` : 'Sin definir',
-            done: !!fechaValidez,
+            done: !!fechaValidez && userSetFechaValidez,
           },
           {
             titulo: 'Agregar producto',
@@ -919,41 +928,35 @@ export function NuevoPresupuesto() {
         ];
 
         return (
-          <div className="bg-white border-b border-gray-100 px-4 py-1.5 shrink-0">
+          <div className="bg-white border-b border-gray-100 px-4 py-1 shrink-0">
             <div className="flex items-center">
               {pasos.map((paso, i) => {
-                const prevDone = pasos.slice(0, i).every(p => p.done);
-                const active   = !paso.done && prevDone;
                 const lineColor = i < pasos.length - 1
-                  ? (paso.done ? 'bg-green-400' : active ? 'bg-amber-300' : 'bg-gray-200')
+                  ? (paso.done ? 'bg-green-400' : 'bg-amber-200')
                   : '';
                 return (
                   <Fragment key={i}>
                     {/* Step */}
-                    <div className="flex flex-col items-center gap-1 shrink-0" style={{ minWidth: 80 }}>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0" style={{ minWidth: 80 }}>
                       {/* Círculo */}
                       <div className={cn(
                         'w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all',
-                        paso.done  ? 'bg-green-500'
-                        : active   ? 'bg-amber-400'
-                        : 'bg-gray-100 border border-gray-200'
+                        paso.done ? 'bg-green-500' : 'bg-amber-400'
                       )}>
                         {paso.done
                           ? <Check size={11} className="text-white" strokeWidth={3} />
-                          : <span className={cn('text-[10px] font-bold', active ? 'text-white' : 'text-gray-400')}>
-                              {i + 1}
-                            </span>
+                          : <span className="text-[10px] font-bold text-white">{i + 1}</span>
                         }
                       </div>
                       {/* Labels */}
                       <div className="text-center px-0.5">
                         <p className={cn('text-[9px] font-bold uppercase tracking-wide leading-tight',
-                          paso.done ? 'text-green-600' : active ? 'text-amber-600' : 'text-gray-300'
+                          paso.done ? 'text-green-600' : 'text-amber-600'
                         )}>
                           {paso.titulo}
                         </p>
                         <p className={cn('text-[8px] leading-snug max-w-[72px] hidden sm:block',
-                          paso.done ? 'text-gray-400' : active ? 'text-amber-500' : 'text-gray-300'
+                          paso.done ? 'text-gray-400' : 'text-amber-500'
                         )}>
                           {paso.subtitulo}
                         </p>
@@ -961,7 +964,7 @@ export function NuevoPresupuesto() {
                     </div>
                     {/* Línea conectora */}
                     {i < pasos.length - 1 && (
-                      <div className={cn('flex-1 h-0.5 mb-3 mx-0.5 transition-all', lineColor)} />
+                      <div className={cn('flex-1 h-0.5 mb-4 mx-0.5 transition-all', lineColor)} />
                     )}
                   </Fragment>
                 );
@@ -1441,7 +1444,7 @@ export function NuevoPresupuesto() {
                     <button
                       key={value}
                       type="button"
-                      onClick={() => setFormaEnvio(value)}
+                      onClick={() => { setFormaEnvio(value); setUserSetFormaEnvio(true); }}
                       className={cn(
                         'flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all',
                         formaEnvio === value
