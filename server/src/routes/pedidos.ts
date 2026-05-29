@@ -419,7 +419,8 @@ pedidos.get('/:id', async (c) => {
       SELECT pi.*,
         CASE WHEN prod.id IS NOT NULL
           THEN json_build_object('id', prod.id, 'nombre', prod.nombre, 'codigo', prod.codigo)
-          ELSE NULL END AS producto
+          ELSE NULL END AS producto,
+        prod.imagen_url AS producto_imagen_url
       FROM pedido_items pi
       LEFT JOIN catalogo_productos prod ON prod.id = pi.producto_id
       WHERE pi.pedido_id = $1

@@ -47,6 +47,7 @@ interface OperacionItem {
   sistema_nombre?: string;
   producto_proveedor_sku?: string | null;
   producto_costo_base?: number | null;
+  producto_imagen_url?: string | null;
   covered_by?: { pedido_id: string; pedido_numero: string } | null;
 }
 
@@ -77,6 +78,7 @@ interface PedidoItemForm {
   selected?: boolean;       // false = el usuario lo dejó para otro pedido
   is_covered?: boolean;     // true = ya existe en otro pedido activo
   covered_by_numero?: string | null;
+  imagen_url?: string | null;
 }
 
 interface PreciosMapa {
@@ -126,6 +128,7 @@ function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm 
     selected:          !isCovered,
     is_covered:        isCovered,
     covered_by_numero: oi.covered_by?.pedido_numero ?? null,
+    imagen_url:        oi.producto_imagen_url ?? null,
   };
 }
 
@@ -395,12 +398,13 @@ export default function NuevoPedido() {
         setOperacionSel(p.operacion);
         setBusqOp(p.operacion.numero);
       }
-      setItems(p.items.map(i => ({
+      setItems(p.items.map((i: { operacion_item_id?: string; producto_id?: string; descripcion: string; cantidad: number; costo_unitario: number; producto_imagen_url?: string | null }) => ({
         operacion_item_id: i.operacion_item_id,
         producto_id: i.producto_id,
         descripcion: i.descripcion,
         cantidad: i.cantidad,
         costo_unitario: i.costo_unitario,
+        imagen_url: i.producto_imagen_url ?? null,
       })));
       setFechaPedido(p.fecha_pedido);
       if (p.fecha_entrega_est) setFechaEst(p.fecha_entrega_est);
@@ -880,6 +884,17 @@ export default function NuevoPedido() {
                     title={isActive ? 'Quitar de este pedido' : 'Incluir en este pedido'}
                   />
                 )}
+
+                {/* Miniatura del producto */}
+                {item.imagen_url ? (
+                  <div className="w-14 h-14 shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                    <img src={item.imagen_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : item.operacion_item_id ? (
+                  <div className="w-14 h-14 shrink-0 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                    <Package size={18} className="text-gray-300" />
+                  </div>
+                ) : null}
 
                 <div className="flex-1 space-y-2">
                   <div className="flex flex-wrap gap-1.5 mb-1">
