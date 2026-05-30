@@ -48,6 +48,8 @@ clientes.get('/', async (c) => {
       OR c.email        ILIKE $${n}
       OR c.localidad    ILIKE $${n}
       OR c.notas        ILIKE $${n}
+      OR CONCAT(COALESCE(c.nombre,''), ' ', COALESCE(c.apellido,'')) ILIKE $${n}
+      OR CONCAT(COALESCE(c.apellido,''), ' ', COALESCE(c.nombre,'')) ILIKE $${n}
     )`;
   }
 
