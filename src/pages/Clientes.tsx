@@ -508,10 +508,10 @@ export function Clientes() {
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
             {/* Cabecera */}
             <div className="grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
-              style={{ gridTemplateColumns: '1fr 160px 120px 130px 120px 110px 120px 80px' }}>
+              style={{ gridTemplateColumns: '1fr 140px 100px 120px 110px 90px 110px 72px', minWidth: '780px' }}>
               <span>Cliente</span>
               <span>Contacto</span>
               <span>Segmento</span>
@@ -553,7 +553,7 @@ export function Clientes() {
                   return (
                     <div key={c.id}
                       className="grid gap-2 px-4 py-3.5 items-center hover:bg-gray-50/80 transition-colors cursor-pointer group"
-                      style={{ gridTemplateColumns: '1fr 160px 120px 130px 120px 110px 120px 80px' }}
+                      style={{ gridTemplateColumns: '1fr 140px 100px 120px 110px 90px 110px 72px', minWidth: '780px' }}
                       onClick={() => navigate(`/clientes/${c.id}`)}>
 
                       {/* Cliente */}
@@ -562,8 +562,8 @@ export function Clientes() {
                           {getInitials(c)}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-emerald-700 transition-colors">
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-emerald-700 transition-colors min-w-0">
                               {nombreDisplay(c)}
                             </p>
                             {(seg === 'frecuente' || seg === 'top' || seg === 'nuevo') && (
@@ -760,7 +760,7 @@ export function Clientes() {
         </div>
 
         {/* Sidebar */}
-        <div className="w-[260px] shrink-0 space-y-4">
+        <div className="w-[220px] xl:w-[260px] shrink-0 space-y-4">
 
           {/* Oportunidades para hoy */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
