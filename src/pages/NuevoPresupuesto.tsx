@@ -423,20 +423,35 @@ export function NuevoPresupuesto() {
   const [buscarResults, setBuscarResults] = useState<CatalogProduct[]>([]);
   const [buscarLoading, setBuscarLoading] = useState(false);
 
-  // Carga inicial de catálogos
+  // Carga inicial de catálogos (sin clientes — se buscan por API al tipear)
   useEffect(() => {
     Promise.all([
-      api.get<Cliente[]>('/clientes'),
       api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
       api.get<Sistema[]>('/catalogo/sistemas'),
       api.get<{ id: string; nombre: string }[]>('/catalogo/colores'),
-    ]).then(([c, ta, s, col]) => {
-      setClientes(c);
+    ]).then(([ta, s, col]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setColoresDB(col);
     });
+    // Si viene ?cliente_id en URL, cargar ese cliente directamente
+    const urlClienteId = searchParams.get('cliente_id');
+    if (urlClienteId) {
+      api.get<Cliente>(`/clientes/${urlClienteId}`).then(cl => setClientes([cl])).catch(() => {});
+    }
   }, []);
+
+  // Búsqueda de clientes por API con debounce
+  useEffect(() => {
+    const q = clienteSearch.trim();
+    if (!q) { setClientes([]); return; }
+    const t = setTimeout(() => {
+      api.get<Cliente[]>(`/clientes?search=${encodeURIComponent(q)}`)
+        .then(setClientes)
+        .catch(() => setClientes([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [clienteSearch]);
 
   // Carga galería de productos
   useEffect(() => {
@@ -458,6 +473,8 @@ export function NuevoPresupuesto() {
       }
       setEditEstado(op.estado);
       setClienteId(op.cliente_id);
+      // Cargar cliente para mostrar nombre/teléfono en el header
+      api.get<Cliente>(`/clientes/${op.cliente_id}`).then(cl => setClientes([cl])).catch(() => {});
       setTipoProyecto(op.tipo_proyecto ?? '');
       setFormaPago(op.forma_pago ?? 'Precio de lista');
       setUserSetFormaPago(true);
@@ -498,10 +515,6 @@ export function NuevoPresupuesto() {
     }).catch(() => { toast.error('No se pudo cargar el presupuesto'); navigate('/presupuestos'); });
   }, [isEdit, editId, navigate]);
 
-  const clientesFiltrados = clientes.filter(c =>
-    `${c.nombre ?? ''} ${c.apellido ?? ''} ${c.razon_social ?? ''} ${c.telefono ?? ''}`.toLowerCase()
-      .includes(clienteSearch.toLowerCase())
-  );
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
 
   function updateItem(key: string, field: keyof ItemForm, value: unknown) {
@@ -804,7 +817,7 @@ export function NuevoPresupuesto() {
                 />
                 {showClienteList && clienteSearch && (
                   <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-72">
-                    {clientesFiltrados.length === 0 ? (
+                    {clientes.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-gray-500">
                         No encontrado.{' '}
                         <button
@@ -814,7 +827,7 @@ export function NuevoPresupuesto() {
                           Crear cliente
                         </button>
                       </div>
-                    ) : clientesFiltrados.slice(0, 8).map(c => (
+                    ) : clientes.slice(0, 8).map(c => (
                       <button
                         key={c.id}
                         onMouseDown={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}

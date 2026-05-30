@@ -429,7 +429,7 @@ export function Clientes() {
       </div>
 
       {/* Layout */}
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col 2xl:flex-row gap-4 items-start">
 
         {/* Columna principal */}
         <div className="flex-1 min-w-0 space-y-3">
@@ -511,7 +511,7 @@ export function Clientes() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
             {/* Cabecera */}
             <div className="grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
-              style={{ gridTemplateColumns: '1fr 140px 100px 120px 110px 90px 110px 72px', minWidth: '780px' }}>
+              style={{ gridTemplateColumns: '1fr 150px 110px 130px 120px 100px 120px 80px', minWidth: '820px' }}>
               <span>Cliente</span>
               <span>Contacto</span>
               <span>Segmento</span>
@@ -553,7 +553,7 @@ export function Clientes() {
                   return (
                     <div key={c.id}
                       className="grid gap-2 px-4 py-3.5 items-center hover:bg-gray-50/80 transition-colors cursor-pointer group"
-                      style={{ gridTemplateColumns: '1fr 140px 100px 120px 110px 90px 110px 72px', minWidth: '780px' }}
+                      style={{ gridTemplateColumns: '1fr 150px 110px 130px 120px 100px 120px 80px', minWidth: '820px' }}
                       onClick={() => navigate(`/clientes/${c.id}`)}>
 
                       {/* Cliente */}
@@ -760,7 +760,7 @@ export function Clientes() {
         </div>
 
         {/* Sidebar */}
-        <div className="w-[220px] xl:w-[260px] shrink-0 space-y-4">
+        <div className="w-full 2xl:w-[260px] 2xl:shrink-0 space-y-4">
 
           {/* Oportunidades para hoy */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
