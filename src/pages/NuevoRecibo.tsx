@@ -352,20 +352,7 @@ export function NuevoRecibo() {
         navigate('/recibos');
       } else {
         const rec = await api.post<{ id: string }>('/recibos', payload);
-        toast.success(
-          payload.compromiso
-            ? 'Recibo creado y compromiso registrado'
-            : 'Recibo creado',
-          operacionId
-            ? {
-                action: {
-                  label: 'Generar pedido al proveedor',
-                  onClick: () => navigate(`/pedidos/nuevo?operacion_id=${operacionId}`),
-                },
-                duration: 8000,
-              }
-            : undefined,
-        );
+        toast.success(payload.compromiso ? 'Recibo creado y compromiso registrado' : 'Recibo creado');
         setSavedId(rec.id);
       }
     } catch (e) {
@@ -844,6 +831,7 @@ export function NuevoRecibo() {
           onClose={() => { setSavedId(null); navigate('/recibos'); }}
           onNavigate={() => navigate('/recibos')}
           navigateLabel="Ir a recibos"
+          pedidoProveedorUrl={operacionId ? `/pedidos/nuevo?operacion_id=${operacionId}` : undefined}
         />
       )}
     </div>

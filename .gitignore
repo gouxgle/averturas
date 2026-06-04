@@ -15,6 +15,9 @@ server/dist/
 # Data de producción
 data/
 
+# Backups de migración DB
+backups/
+
 # Logs
 logs/
 *.log

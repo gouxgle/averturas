@@ -490,10 +490,12 @@ export function Reportes() {
         </div>
       )}
 
-      {/* ── Chart + Alertas ── */}
-      <div className="flex gap-4">
+      {/* ── Chart + bloques sectoriales + Alertas ── */}
+      <div className="flex gap-4 items-start">
+        {/* Columna izquierda: chart + 5 bloques */}
+        <div className="flex-1 min-w-0 space-y-3">
         {/* Chart */}
-        <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 min-w-0">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 min-w-0">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">Evolución de ventas</h2>
           <p className="text-xs text-gray-400 mb-4">
             {data?.evolucion.some(e => e.actual > 0) ? 'Ventas aprobadas por día' : 'Sin datos en el período'}
@@ -547,6 +549,141 @@ export function Reportes() {
           )}
         </div>
 
+        {/* 5 bloques sectoriales */}
+        {loading ? (
+          <div className="grid grid-cols-5 gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 h-52 animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-5 gap-3">
+            {/* Comercial */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
+                  <TrendingUp size={13} className="text-green-600" />
+                </div>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Comercial</span>
+              </div>
+              <div className="space-y-2.5">
+                <MiniBar label="Generados" value={com?.total_generados ?? 0} max={com?.total_generados ?? 1} color="bg-gray-400" />
+                <MiniBar label="Aprobados" value={com?.aprobados ?? 0} max={com?.total_generados ?? 1} color="bg-green-500" />
+                <MiniBar label="Perdidos"  value={com?.cancelados ?? 0} max={com?.total_generados ?? 1} color="bg-red-400" />
+              </div>
+              <div className="mt-4 pt-3 border-t border-gray-100">
+                <div className="text-xs text-gray-500">Tasa de cierre</div>
+                <div className="text-2xl font-bold text-gray-900">{com?.tasa_cierre ?? 0}%</div>
+                <div className="h-1.5 bg-gray-100 rounded-full mt-1">
+                  <div className="h-full bg-green-500 rounded-full" style={{ width: `${com?.tasa_cierre ?? 0}%` }} />
+                </div>
+              </div>
+            </div>
+            {/* Finanzas */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <DollarSign size={13} className="text-blue-600" />
+                </div>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Finanzas</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <DonutChart size={76} segments={[
+                  { valor: fin?.cobrado ?? 0,   color: '#3B82F6' },
+                  { valor: fin?.pendiente ?? 0, color: '#F59E0B' },
+                  { valor: fin?.vencido ?? 0,   color: '#EF4444' },
+                ]} />
+                <div className="space-y-1.5 text-right text-xs">
+                  <div><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Cobrado<br /><span className="font-semibold text-gray-800">{fmtM(fin?.cobrado ?? 0)}</span></div>
+                  <div><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Pendiente<br /><span className="font-semibold text-gray-800">{fmtM(fin?.pendiente ?? 0)}</span></div>
+                  {(fin?.vencido ?? 0) > 0 && (
+                    <div><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />Vencido<br /><span className="font-semibold text-red-600">{fmtM(fin?.vencido ?? 0)}</span></div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                Días prom. cobro: <span className="font-bold text-gray-800 ml-1">{fin?.dias_promedio_cobro ?? 0} días</span>
+              </div>
+            </div>
+            {/* Productos */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <Package size={13} className="text-amber-600" />
+                </div>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Productos</span>
+              </div>
+              <div className="space-y-1.5">
+                {(data?.top_tipos ?? []).length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Sin ventas en el período</p>
+                ) : (
+                  (data?.top_tipos ?? []).slice(0, 4).map((t, i) => {
+                    const max = data!.top_tipos[0].monto_total;
+                    return (
+                      <div key={i} className="space-y-0.5">
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span className="truncate max-w-[120px]">{t.tipo}</span>
+                          <span className="font-semibold">{fmtM(t.monto_total)}</span>
+                        </div>
+                        <div className="h-1 bg-gray-100 rounded-full">
+                          <div className="h-full bg-amber-400 rounded-full" style={{ width: `${max > 0 ? t.monto_total / max * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex gap-3 text-xs text-gray-500">
+                <span>Sin stock: <strong className="text-red-600">{data?.stock_counts.sin_stock ?? 0}</strong></span>
+                <span>Sin mvto: <strong>{data?.stock_counts.sin_movimiento_30d ?? 0}</strong></span>
+              </div>
+            </div>
+            {/* Operaciones */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
+                  <BarChart3 size={13} className="text-violet-600" />
+                </div>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Operaciones</span>
+              </div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /><span className="text-gray-500">En producción</span><span className="font-bold ml-auto">{ops?.en_produccion ?? 0}</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /><span className="text-gray-500">Listos</span><span className="font-bold ml-auto">{ops?.listo ?? 0}</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /><span className="text-gray-500">Atrasados</span><span className="font-bold text-red-600 ml-auto">{ops?.atrasadas ?? 0}</span></div>
+                </div>
+              </div>
+              <div className="mt-2 pt-3 border-t border-gray-100">
+                <div className="text-xs text-gray-500 mb-1">Cumplimiento entregas</div>
+                <div className="flex items-center gap-2">
+                  <GaugePct pct={ops?.cumplimiento_pct ?? 100} color={ops && ops.cumplimiento_pct >= 80 ? '#10B981' : ops && ops.cumplimiento_pct >= 60 ? '#F59E0B' : '#EF4444'} />
+                  <div className="text-xs text-gray-500">
+                    {ops?.remitos_entregados ?? 0}/{ops?.remitos_total ?? 0} remitos
+                    {(ops?.dias_promedio_entrega ?? 0) > 0 && <div>Prom: {ops?.dias_promedio_entrega} días</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Proveedores */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <ShoppingCart size={13} className="text-orange-600" />
+                </div>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Proveedores</span>
+              </div>
+              <div className="space-y-3">
+                <div><div className="text-xs text-gray-500">Compras del período</div><div className="text-xl font-bold text-gray-900">{fmtM(data?.compras.compras_periodo ?? 0)}</div></div>
+                <div><div className="text-xs text-gray-500">Deuda con proveedores</div><div className={`text-xl font-bold ${(data?.compras.deuda_proveedores ?? 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>{fmtM(data?.compras.deuda_proveedores ?? 0)}</div></div>
+              </div>
+              <div className="mt-4">
+                <Link to="/proveedores" className="text-xs text-orange-600 hover:underline font-medium flex items-center gap-1">Ver proveedores <ArrowRight size={10} /></Link>
+              </div>
+            </div>
+          </div>
+        )}
+        </div>{/* fin columna izquierda */}
+
         {/* Alertas + Acciones */}
         <div className="w-64 shrink-0 space-y-3">
           {/* Alertas */}
@@ -598,181 +735,6 @@ export function Reportes() {
         </div>
       </div>
 
-      {/* ── 5 bloques sectoriales ── */}
-      {loading ? (
-        <div className="grid grid-cols-5 gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 h-52 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-3">
-
-          {/* Comercial */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
-                <TrendingUp size={13} className="text-green-600" />
-              </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Comercial</span>
-            </div>
-            <div className="space-y-2.5">
-              <MiniBar label="Generados" value={com?.total_generados ?? 0} max={com?.total_generados ?? 1} color="bg-gray-400" />
-              <MiniBar label="Aprobados" value={com?.aprobados ?? 0} max={com?.total_generados ?? 1} color="bg-green-500" />
-              <MiniBar label="Perdidos"  value={com?.cancelados ?? 0} max={com?.total_generados ?? 1} color="bg-red-400" />
-            </div>
-            <div className="mt-4 pt-3 border-t border-gray-100">
-              <div className="text-xs text-gray-500">Tasa de cierre</div>
-              <div className="text-2xl font-bold text-gray-900">{com?.tasa_cierre ?? 0}%</div>
-              <div className="h-1.5 bg-gray-100 rounded-full mt-1">
-                <div className="h-full bg-green-500 rounded-full" style={{ width: `${com?.tasa_cierre ?? 0}%` }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Finanzas */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                <DollarSign size={13} className="text-blue-600" />
-              </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Finanzas</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <DonutChart
-                size={76}
-                segments={[
-                  { valor: fin?.cobrado ?? 0,  color: '#3B82F6' },
-                  { valor: fin?.pendiente ?? 0, color: '#F59E0B' },
-                  { valor: fin?.vencido ?? 0,   color: '#EF4444' },
-                ]}
-              />
-              <div className="space-y-1.5 text-right text-xs">
-                <div><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Cobrado<br />
-                  <span className="font-semibold text-gray-800">{fmtM(fin?.cobrado ?? 0)}</span>
-                </div>
-                <div><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />Pendiente<br />
-                  <span className="font-semibold text-gray-800">{fmtM(fin?.pendiente ?? 0)}</span>
-                </div>
-                {(fin?.vencido ?? 0) > 0 && (
-                  <div><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />Vencido<br />
-                    <span className="font-semibold text-red-600">{fmtM(fin?.vencido ?? 0)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
-              Días prom. cobro:
-              <span className="font-bold text-gray-800 ml-1">{fin?.dias_promedio_cobro ?? 0} días</span>
-            </div>
-          </div>
-
-          {/* Productos */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Package size={13} className="text-amber-600" />
-              </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Productos</span>
-            </div>
-            <div className="space-y-1.5">
-              {(data?.top_tipos ?? []).length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Sin ventas en el período</p>
-              ) : (
-                (data?.top_tipos ?? []).slice(0, 4).map((t, i) => {
-                  const max = data!.top_tipos[0].monto_total;
-                  return (
-                    <div key={i} className="space-y-0.5">
-                      <div className="flex justify-between text-xs text-gray-600">
-                        <span className="truncate max-w-[120px]">{t.tipo}</span>
-                        <span className="font-semibold">{fmtM(t.monto_total)}</span>
-                      </div>
-                      <div className="h-1 bg-gray-100 rounded-full">
-                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${max > 0 ? t.monto_total / max * 100 : 0}%` }} />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-100 flex gap-3 text-xs text-gray-500">
-              <span>Sin stock: <strong className="text-red-600">{data?.stock_counts.sin_stock ?? 0}</strong></span>
-              <span>Sin mvto: <strong>{data?.stock_counts.sin_movimiento_30d ?? 0}</strong></span>
-            </div>
-          </div>
-
-          {/* Operaciones */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                <BarChart3 size={13} className="text-violet-600" />
-              </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Operaciones</span>
-            </div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                  <span className="text-gray-500">En producción</span>
-                  <span className="font-bold ml-auto">{ops?.en_produccion ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                  <span className="text-gray-500">Listos</span>
-                  <span className="font-bold ml-auto">{ops?.listo ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-                  <span className="text-gray-500">Atrasados</span>
-                  <span className="font-bold text-red-600 ml-auto">{ops?.atrasadas ?? 0}</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-2 pt-3 border-t border-gray-100">
-              <div className="text-xs text-gray-500 mb-1">Cumplimiento entregas</div>
-              <div className="flex items-center gap-2">
-                <GaugePct
-                  pct={ops?.cumplimiento_pct ?? 100}
-                  color={ops && ops.cumplimiento_pct >= 80 ? '#10B981' : ops && ops.cumplimiento_pct >= 60 ? '#F59E0B' : '#EF4444'}
-                />
-                <div className="text-xs text-gray-500">
-                  {ops?.remitos_entregados ?? 0}/{ops?.remitos_total ?? 0} remitos
-                  {(ops?.dias_promedio_entrega ?? 0) > 0 && (
-                    <div>Prom: {ops?.dias_promedio_entrega} días</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Proveedores */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
-                <ShoppingCart size={13} className="text-orange-600" />
-              </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Proveedores</span>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <div className="text-xs text-gray-500">Compras del período</div>
-                <div className="text-xl font-bold text-gray-900">{fmtM(data?.compras.compras_periodo ?? 0)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Deuda con proveedores</div>
-                <div className={`text-xl font-bold ${(data?.compras.deuda_proveedores ?? 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                  {fmtM(data?.compras.deuda_proveedores ?? 0)}
-                </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Link to="/proveedores" className="text-xs text-orange-600 hover:underline font-medium flex items-center gap-1">
-                Ver proveedores <ArrowRight size={10} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Bottom: Rankings + Métodos pago + Objetivos ── */}
       {loading ? (

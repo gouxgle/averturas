@@ -41,11 +41,13 @@ export function NotificationBell() {
     }
   }, []);
 
-  // Poll cada 30s
+  // Poll cada 10s + recargar al volver al tab
   useEffect(() => {
     fetchNotifs();
-    const t = setInterval(fetchNotifs, 30_000);
-    return () => clearInterval(t);
+    const t = setInterval(fetchNotifs, 10_000);
+    function handleVisibility() { if (document.visibilityState === 'visible') fetchNotifs(); }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', handleVisibility); };
   }, [fetchNotifs]);
 
   // Cerrar al hacer click fuera

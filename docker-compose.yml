@@ -6,7 +6,8 @@ name: aberturas
 services:
 
   db:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
+#    image: postgres:15-alpine
     container_name: aberturas-db
     restart: unless-stopped
     environment:
@@ -27,7 +28,10 @@ services:
       retries: 10
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     container_name: aberturas-app
     restart: unless-stopped
     ports:
@@ -37,6 +41,7 @@ services:
       JWT_SECRET:            ${JWT_SECRET}
       APP_URL:               ${APP_URL:-http://localhost:3000}
       NODE_ENV:              production
+      SENTRY_DSN:            ${SENTRY_DSN:-}
       EVOLUTION_API_URL:     ${EVOLUTION_API_URL:-}
       EVOLUTION_API_KEY:     ${EVOLUTION_API_KEY:-}
       EVOLUTION_INSTANCE:    ${EVOLUTION_INSTANCE:-}

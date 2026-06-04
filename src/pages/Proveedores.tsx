@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Truck, Plus, Pencil, Check, X, ToggleLeft, ToggleRight, Globe,
-  MapPin, Hash, Search, Star, AlertTriangle, TrendingUp, TrendingDown,
+  MapPin, Hash, Search, Star, TrendingUp, TrendingDown,
   RefreshCw, Phone, Mail, Package, ChevronLeft, ChevronRight,
-  ShoppingCart, DollarSign, Clock, BarChart2, Zap, Tag,
+  ShoppingCart, DollarSign, Clock, BarChart2, Zap, Tag, Trash2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,7 @@ interface Proveedor {
   lotes_count_30d: number;
   ultima_compra_fecha: string | null;
   dias_sin_compra: number;
+  pedidos_pendientes: number;
 }
 
 interface TableroData {
@@ -43,16 +44,11 @@ interface TableroData {
     tendencia_compras: number;
     forma_entrega_counts: Record<string, number>;
   };
-  alertas: {
-    con_deuda: Proveedor[];
-    sin_actividad: Proveedor[];
-    baja_calif: Proveedor[];
-  };
   top_proveedores: Proveedor[];
   compras_por_rubro: { rubro: string; total_compras: number; cant_lotes: number }[];
 }
 
-type FormData = Omit<Proveedor, 'id' | 'activo' | 'created_at' | 'lotes_count_6m' | 'compras_monto_6m' | 'lotes_count_30d' | 'ultima_compra_fecha' | 'dias_sin_compra'>;
+type FormData = Omit<Proveedor, 'id' | 'activo' | 'created_at' | 'lotes_count_6m' | 'compras_monto_6m' | 'lotes_count_30d' | 'ultima_compra_fecha' | 'dias_sin_compra' | 'pedidos_pendientes'>;
 
 type FiltroTab = 'todos' | 'principales' | 'con_deuda' | 'mas_usados' | 'sin_actividad';
 
@@ -379,12 +375,13 @@ function ModalProveedor({
 
 // ── ProveedorRow ──────────────────────────────────────────────
 function ProveedorRow({
-  prov, onEdit, onToggle, onPrecios
+  prov, onEdit, onToggle, onPrecios, onDelete
 }: {
   prov: Proveedor;
   onEdit: () => void;
   onToggle: () => void;
   onPrecios: () => void;
+  onDelete: () => void;
 }) {
   const entregaCfg = ENTREGA_CFG[prov.forma_entrega ?? 'propia'];
   const califCfg   = prov.calificacion ? CALIF_CFG[prov.calificacion] : null;
@@ -413,6 +410,11 @@ function ProveedorRow({
               {prov.tipo && (
                 <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0', TIPO_COLORS[prov.tipo] ?? 'bg-gray-100 text-gray-500')}>
                   {prov.tipo}
+                </span>
+              )}
+              {prov.pedidos_pendientes > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">
+                  <ShoppingCart size={9} /> {prov.pedidos_pendientes} pendiente{prov.pedidos_pendientes > 1 ? 's' : ''}
                 </span>
               )}
             </div>
@@ -512,7 +514,7 @@ function ProveedorRow({
           )}
         </div>
 
-        {/* Editar / precios / toggle */}
+        {/* Editar / precios / toggle / eliminar */}
         <div className="flex items-center justify-end gap-1">
           <button onClick={onPrecios}
             className="p-1.5 hover:bg-lime-50 text-lime-600 rounded-lg" title="Lista de precios">
@@ -526,6 +528,9 @@ function ProveedorRow({
             {prov.activo
               ? <ToggleRight size={16} className="text-green-500" />
               : <ToggleLeft size={16} />}
+          </button>
+          <button onClick={onDelete} className="p-1.5 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg" title="Eliminar">
+            <Trash2 size={13} />
           </button>
         </div>
       </div>
@@ -575,6 +580,17 @@ export function Proveedores() {
     cargar();
   }
 
+  async function handleDelete(prov: Proveedor) {
+    if (!confirm(`¿Eliminar "${prov.nombre}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api.delete(`/catalogo/proveedores/${prov.id}`);
+      toast.success('Proveedor eliminado');
+      cargar();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? 'No se pudo eliminar');
+    }
+  }
+
   const editingProv = modal && modal !== 'nuevo'
     ? tablero?.proveedores.find(p => p.id === modal)
     : null;
@@ -605,7 +621,6 @@ export function Proveedores() {
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const stats     = tablero?.stats;
-  const alertas   = tablero?.alertas;
   const fe        = stats?.forma_entrega_counts ?? {};
   const feTotal   = Object.values(fe).reduce((s, n) => s + n, 0);
 
@@ -617,7 +632,6 @@ export function Proveedores() {
     { key: 'sin_actividad',label: 'Sin actividad',  count: (tablero?.proveedores ?? []).filter(p => p.activo && p.dias_sin_compra > 90).length },
   ];
 
-  const hayAlertas = (alertas?.con_deuda.length ?? 0) + (alertas?.sin_actividad.length ?? 0) + (alertas?.baja_calif.length ?? 0) > 0;
 
   return (
     <div className="p-6 space-y-5">
@@ -644,61 +658,52 @@ export function Proveedores() {
         </div>
       </div>
 
-      {/* KPI tiles */}
+      {/* KPI tiles — compactos */}
       {stats && (
-        <div className="grid grid-cols-5 gap-3">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
-              <Truck size={15} className="text-amber-600" />
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+            <Truck size={13} className="text-amber-500 flex-shrink-0" />
+            <div>
+              <span className="text-sm font-bold text-gray-900">{stats.activos_count}</span>
+              <span className="text-[10px] text-gray-400 ml-1">activos / {stats.total_count}</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.activos_count}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Proveedores activos</p>
-            <p className="text-[10px] text-gray-400">de {stats.total_count} totales</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mb-2">
-              <ShoppingCart size={15} className="text-blue-600" />
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+            <ShoppingCart size={13} className="text-blue-500 flex-shrink-0" />
+            <div>
+              <span className="text-sm font-bold text-blue-600">{fmtMonto(stats.compras_mes_actual)}</span>
+              <span className="text-[10px] text-gray-400 ml-1">compras mes</span>
+              {stats.tendencia_compras !== 0 && (
+                <span className={cn('text-[10px] font-medium ml-1', stats.tendencia_compras > 0 ? 'text-amber-600' : 'text-emerald-600')}>
+                  {stats.tendencia_compras > 0 ? '▲' : '▼'}{Math.abs(stats.tendencia_compras)}%
+                </span>
+              )}
             </div>
-            <p className="text-lg font-bold text-blue-600 leading-tight">{fmtMonto(stats.compras_mes_actual)}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Compras (mes actual)</p>
-            {stats.tendencia_compras !== 0 && (
-              <div className={cn('flex items-center gap-1 text-[10px] font-medium mt-0.5',
-                stats.tendencia_compras > 0 ? 'text-amber-600' : 'text-emerald-600')}>
-                {stats.tendencia_compras > 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                {Math.abs(stats.tendencia_compras)}% vs mes anterior
-              </div>
-            )}
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                <DollarSign size={15} className="text-red-600" />
-              </div>
-              {stats.deuda_total > 0 && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+            <DollarSign size={13} className="text-red-500 flex-shrink-0" />
+            <div>
+              <span className="text-sm font-bold text-red-600">{fmtMonto(stats.deuda_total)}</span>
+              <span className="text-[10px] text-gray-400 ml-1">deuda total</span>
             </div>
-            <p className="text-lg font-bold text-red-600 leading-tight">{fmtMonto(stats.deuda_total)}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Deuda total</p>
-            <p className="text-[10px] text-gray-400">{FILTROS.find(f => f.key === 'con_deuda')?.count ?? 0} proveedores</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center mb-2">
-              <Clock size={15} className="text-purple-600" />
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+            <Clock size={13} className="text-purple-500 flex-shrink-0" />
+            <div>
+              <span className="text-sm font-bold text-gray-900">{stats.prom_plazo_dias || '—'}</span>
+              <span className="text-[10px] text-gray-400 ml-1">días prom. entrega</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.prom_plazo_dias || '—'}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Días promedio entrega</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
-              <BarChart2 size={15} className="text-emerald-600" />
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+            <BarChart2 size={13} className="text-emerald-500 flex-shrink-0" />
+            <div>
+              <span className="text-sm font-bold text-gray-900">{feTotal > 0 ? Math.round((fe.propia ?? 0) / feTotal * 100) : 0}%</span>
+              <span className="text-[10px] text-gray-400 ml-1">entrega propia</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
-              {feTotal > 0 ? Math.round((fe.propia ?? 0) / feTotal * 100) : 0}%
-            </p>
-            <p className="text-xs text-gray-500 mt-0.5">Entrega propia</p>
           </div>
         </div>
       )}
@@ -709,55 +714,6 @@ export function Proveedores() {
         {/* ── Main ── */}
         <div className="flex-1 min-w-0 space-y-4">
 
-          {/* Alertas */}
-          {hayAlertas && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-              <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <AlertTriangle size={12} /> Alertas importantes
-              </p>
-              <div className="space-y-2">
-                {(alertas?.con_deuda.length ?? 0) > 0 && (
-                  <button onClick={() => setFiltro('con_deuda')}
-                    className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-red-100 hover:border-red-300 text-left">
-                    <DollarSign size={14} className="text-red-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {alertas!.con_deuda.length} proveedor{alertas!.con_deuda.length > 1 ? 'es' : ''} con deuda pendiente
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Total: {fmtMonto(alertas!.con_deuda.reduce((s, p) => s + p.deuda_actual, 0))} · {alertas!.con_deuda.map(p => p.nombre).join(', ')}
-                      </p>
-                    </div>
-                    <span className="text-xs text-red-600 font-medium flex-shrink-0">Ver deudas →</span>
-                  </button>
-                )}
-                {(alertas?.sin_actividad.length ?? 0) > 0 && (
-                  <button onClick={() => setFiltro('sin_actividad')}
-                    className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-amber-100 hover:border-amber-300 text-left">
-                    <Clock size={14} className="text-amber-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {alertas!.sin_actividad.length} proveedor{alertas!.sin_actividad.length > 1 ? 'es' : ''} sin actividad (+90 días)
-                      </p>
-                      <p className="text-xs text-gray-500">{alertas!.sin_actividad.map(p => p.nombre).join(', ')}</p>
-                    </div>
-                    <span className="text-xs text-amber-600 font-medium flex-shrink-0">Ver inactivos →</span>
-                  </button>
-                )}
-                {(alertas?.baja_calif.length ?? 0) > 0 && (
-                  <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100">
-                    <Star size={14} className="text-gray-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {alertas!.baja_calif.length} proveedor{alertas!.baja_calif.length > 1 ? 'es' : ''} con baja calificación
-                      </p>
-                      <p className="text-xs text-gray-500">{alertas!.baja_calif.map(p => p.nombre).join(', ')}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Controles */}
           <div className="flex items-center gap-3">
@@ -835,6 +791,7 @@ export function Proveedores() {
                   onEdit={() => setModal(p.id)}
                   onToggle={() => toggleActivo(p)}
                   onPrecios={() => navigate(`/proveedores/${p.id}/precios`)}
+                  onDelete={() => handleDelete(p)}
                 />
               ))}
             </div>

@@ -1,3 +1,4 @@
+import './instrument.js'; // Sentry — debe ser el primer import
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
@@ -24,7 +25,9 @@ import estadoCuentaRoutes  from './routes/estadoCuenta.js';
 import informesRoutes      from './routes/informes.js';
 import crmRoutes           from './routes/crm.js';
 import configuracionRoutes from './routes/configuracion.js';
+import * as Sentry from '@sentry/node';
 import { authMiddleware } from './middleware/auth.js';
+import { rateLimit }     from './middleware/rateLimit.js';
 
 const app = new Hono();
 
@@ -36,6 +39,10 @@ app.use('*', cors({
 
 // ── Rutas públicas ────────────────────────────────────────────
 const api = new Hono();
+// 60 req/min por IP en rutas públicas (ver presupuesto, aprobar online)
+api.use('/pub/*',  rateLimit(60,  60_000, 'pub'));
+// 10 intentos/min por IP en login (anti brute-force)
+api.use('/auth/*', rateLimit(10,  60_000, 'auth'));
 api.route('/pub',  pubRoutes);
 api.route('/auth', authRoutes);
 
@@ -88,9 +95,15 @@ app.use('*', async (c, next) => {
 // ── Servir frontend estático ──────────────────────────────────
 app.use('*', serveStatic({ root: './public' }));
 
-// Error handler global — evita que excepciones no capturadas rompan el proceso
+// Error handler global — reporta a Sentry y evita que excepciones rompan el proceso
 app.onError((err, c) => {
   console.error('[error]', err);
+  Sentry.captureException(err, {
+    extra: {
+      url:    c.req.url,
+      method: c.req.method,
+    },
+  });
   return c.json({ error: 'Error interno del servidor' }, 500);
 });
 

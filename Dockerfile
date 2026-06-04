@@ -4,6 +4,8 @@ WORKDIR /app
 COPY package.json package-lock.json* bun.lock* ./
 RUN npm install --legacy-peer-deps
 COPY . .
+ARG VITE_SENTRY_DSN
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 RUN npm run build
 
 # ── Etapa 2: build del backend ────────────────────────────────

@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { OperacionSchema, EstadoOperacionSchema } from '../lib/schemas.js';
 
 const operaciones = new Hono();
 
@@ -252,7 +254,15 @@ operaciones.get('/ventas-panel', async (c) => {
           ELSE 'seña'
         END AS estado_cobro,
         COALESCE(ped.tiene_pedido, false) AS tiene_pedido,
-        ped.pedido_estado
+        ped.pedido_estado,
+        (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = o.id) AS items_total,
+        (SELECT COUNT(*)::int FROM operacion_items oi
+         WHERE oi.operacion_id = o.id
+           AND EXISTS (
+             SELECT 1 FROM pedido_items pi JOIN pedidos p2 ON p2.id = pi.pedido_id
+             WHERE pi.operacion_item_id = oi.id AND p2.estado != 'cancelado'
+           )
+        ) AS items_en_pedido
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
       LEFT JOIN LATERAL (
@@ -526,7 +536,8 @@ operaciones.get('/:id', async (c) => {
 
 operaciones.post('/', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
+  const b = await validateBody(c, OperacionSchema);
+  if (b instanceof Response) return b;
 
   const client = await db.connect();
   try {
@@ -552,7 +563,7 @@ operaciones.post('/', async (c) => {
       user.id,
       b.tipo_proyecto || null,
       b.forma_pago || null,
-      b.tiempo_entrega ? parseInt(b.tiempo_entrega) : null,
+      b.tiempo_entrega ?? null,
       b.forma_envio ?? 'retiro_local',
       b.costo_envio ?? 0,
     ]);
@@ -572,8 +583,8 @@ operaciones.post('/', async (c) => {
           item.tipo_abertura_id || null,
           item.sistema_id || null,
           item.descripcion || '',
-          item.medida_ancho ? parseFloat(item.medida_ancho) : null,
-          item.medida_alto  ? parseFloat(item.medida_alto)  : null,
+          item.medida_ancho ?? null,
+          item.medida_alto  ?? null,
           item.cantidad ?? 1,
           item.costo_unitario ?? 0,
           item.precio_unitario ?? 0,
@@ -602,7 +613,8 @@ operaciones.post('/', async (c) => {
 
 operaciones.put('/:id', async (c) => {
   const { id } = c.req.param();
-  const b = await c.req.json();
+  const b = await validateBody(c, OperacionSchema);
+  if (b instanceof Response) return b;
 
   const { rows: [existing] } = await db.query(
     'SELECT estado FROM operaciones WHERE id=$1', [id]
@@ -635,7 +647,7 @@ operaciones.put('/:id', async (c) => {
       b.tipo ?? 'a_medida_proveedor',
       b.tipo_proyecto || null,
       b.forma_pago || null,
-      b.tiempo_entrega ? parseInt(b.tiempo_entrega) : null,
+      b.tiempo_entrega ?? null,
       b.notas || null,
       b.notas_internas || null,
       b.fecha_validez || null,
@@ -661,8 +673,8 @@ operaciones.put('/:id', async (c) => {
           item.tipo_abertura_id || null,
           item.sistema_id || null,
           item.descripcion || '',
-          item.medida_ancho ? parseFloat(item.medida_ancho) : null,
-          item.medida_alto  ? parseFloat(item.medida_alto)  : null,
+          item.medida_ancho ?? null,
+          item.medida_alto  ?? null,
           item.cantidad ?? 1,
           item.costo_unitario ?? 0,
           item.precio_unitario ?? 0,
@@ -691,7 +703,9 @@ operaciones.put('/:id', async (c) => {
 
 operaciones.patch('/:id/estado', async (c) => {
   const { id } = c.req.param();
-  const { estado } = await c.req.json<{ estado: string }>();
+  const b = await validateBody(c, EstadoOperacionSchema);
+  if (b instanceof Response) return b;
+  const { estado } = b;
 
   const estadosValidos = ['presupuesto', 'enviado', 'aprobado', 'en_produccion', 'listo', 'instalado', 'entregado', 'cancelado', 'rechazado'];
   if (!estadosValidos.includes(estado)) {

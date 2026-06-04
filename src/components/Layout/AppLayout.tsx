@@ -106,7 +106,7 @@ export function AppLayout() {
       <div
         className={[
           'fixed inset-y-0 left-0 transition-transform duration-300',
-          'lg:static lg:translate-x-0 lg:transition-none',
+          'lg:static lg:transform-none lg:transition-none',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
         style={{ zIndex: 30 }}

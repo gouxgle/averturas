@@ -16,6 +16,8 @@ interface PDFDialogProps {
   entityEndpoint?: string;
   clienteNombre?: string;
   clienteTelefono?: string;
+  /** Si se provee, muestra botón "Generar pedido al proveedor" en el dialog */
+  pedidoProveedorUrl?: string;
 }
 
 const WA_ICON = (
@@ -27,7 +29,7 @@ const WA_ICON = (
 export function PDFDialog({
   title, subtitle, pdfUrl, onClose, onNavigate,
   navigateLabel = 'Ver detalle', operacionId, entityEndpoint,
-  clienteNombre, clienteTelefono,
+  clienteNombre, clienteTelefono, pedidoProveedorUrl,
 }: PDFDialogProps) {
   const navigate = useNavigate();
   const [linkUrl,    setLinkUrl]    = useState('');
@@ -199,6 +201,13 @@ export function PDFDialog({
             className="w-full flex items-center justify-center gap-2 py-2.5 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity">
             <FileDown size={15} /> Imprimir / Guardar PDF
           </button>
+
+          {pedidoProveedorUrl && (
+            <button onClick={() => navigate(pedidoProveedorUrl)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-sm font-semibold transition-colors">
+              <ExternalLink size={14} /> Generar pedido al proveedor
+            </button>
+          )}
 
           {baseEndpoint && (
             <div className="border border-gray-100 rounded-xl overflow-hidden">

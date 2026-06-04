@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
 import {
-  Plus, Search, FileText, Send, CheckCircle, XCircle, RotateCcw,
+  Plus, Search, FileText, CheckCircle, XCircle,
   X, Pen, Printer, Share2, Copy, Check, Phone, Mail, User,
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
@@ -44,6 +44,8 @@ interface PresupuestoPanel {
   estado_cobro: 'sin_cobrar' | 'seña' | 'cobrado' | null;
   tiene_pedido: boolean;
   pedido_estado: 'pendiente' | 'enviado' | 'recibido' | 'cancelado' | null;
+  items_total: number;
+  items_en_pedido: number;
   cliente: ClienteMin;
 }
 
@@ -241,11 +243,12 @@ function DonutChart({ segments }: { segments: { value: number; color: string }[]
 // ── PresupuestoModal ──────────────────────────────────────────────────────────
 
 function PresupuestoModal({
-  id, onClose, onEstadoChange,
+  id, onClose, onEstadoChange, onRefresh,
 }: {
   id: string;
   onClose: () => void;
   onEstadoChange: (id: string, estado: EstadoOperacion) => void;
+  onRefresh: () => void;
 }) {
   const navigate = useNavigate();
   const [op, setOp] = useState<OpDetalle | null>(null);
@@ -347,6 +350,7 @@ function PresupuestoModal({
     const updated = { ...op, estado: nuevoEstado };
     setOp(updated);
     onEstadoChange(id, nuevoEstado);
+    onRefresh();
     setCambiando(false);
   }
 
@@ -387,6 +391,13 @@ function PresupuestoModal({
                   <button onClick={() => navigate(`/presupuestos/${id}/editar`)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-lg font-medium transition-colors">
                     <Pen size={13} /> Editar
+                  </button>
+                )}
+                {esAprobado && Number(op.cobrado_total) > 0.01 && (
+                  <button onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-lime-50 hover:bg-lime-100 text-lime-700 border border-lime-200 rounded-lg font-medium transition-colors">
+                    <ShoppingCart size={13} />
+                    {pedidos.filter(p => p.estado !== 'cancelado').length > 0 ? 'Otro pedido' : 'Pedido al proveedor'}
                   </button>
                 )}
                 <button onClick={() => window.open(`/imprimir/presupuesto/${id}`, '_blank')}
@@ -646,28 +657,16 @@ function PresupuestoModal({
             {!esAprobado && (
               <div className="px-5 py-3 flex items-center gap-2 bg-gray-50 rounded-b-2xl">
                 <span className="text-xs text-gray-400 mr-1">Cambiar estado:</span>
-                {op.estado === 'presupuesto' && (
-                  <button onClick={() => cambiarEstado('enviado')} disabled={cambiando}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium disabled:opacity-50">
-                    <Send size={11} /> Enviar
+                {op.estado !== 'aprobado' && (
+                  <button onClick={() => cambiarEstado('aprobado')} disabled={cambiando}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium disabled:opacity-50">
+                    <CheckCircle size={11} /> Aceptar
                   </button>
                 )}
-                {op.estado === 'enviado' && (
-                  <>
-                    <button onClick={() => cambiarEstado('aprobado')} disabled={cambiando}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium disabled:opacity-50">
-                      <CheckCircle size={11} /> Aprobar
-                    </button>
-                    <button onClick={() => cambiarEstado('rechazado')} disabled={cambiando}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium disabled:opacity-50">
-                      <XCircle size={11} /> Rechazar
-                    </button>
-                  </>
-                )}
-                {op.estado === 'rechazado' && (
-                  <button onClick={() => cambiarEstado('presupuesto')} disabled={cambiando}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-medium disabled:opacity-50">
-                    <RotateCcw size={11} /> Revisar
+                {op.estado !== 'rechazado' && (
+                  <button onClick={() => cambiarEstado('rechazado')} disabled={cambiando}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium disabled:opacity-50">
+                    <XCircle size={11} /> Rechazar
                   </button>
                 )}
               </div>
@@ -703,6 +702,13 @@ export function Presupuestos() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Recargar al volver al tab (cliente aprobó mientras estaba en otra pestaña)
+  useEffect(() => {
+    function handleVisibility() { if (document.visibilityState === 'visible') load(); }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [load]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -1030,21 +1036,25 @@ export function Presupuestos() {
                             {p.estado_cobro === 'cobrado'    && '● Cobrado'}
                           </span>
                         )}
-                        {p.tiene_pedido && p.pedido_estado !== 'cancelado' && (
-                          <span
-                            title={`Pedido al proveedor: ${p.pedido_estado}`}
-                            className={cn(
-                              'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold cursor-default',
-                              p.pedido_estado === 'recibido' ? 'bg-emerald-100 text-emerald-700'
-                              : p.pedido_estado === 'enviado' ? 'bg-blue-100 text-blue-700'
-                              : 'bg-lime-100 text-lime-700',
-                            )}>
-                            <ShoppingCart size={9} />
-                            {p.pedido_estado === 'recibido' ? 'Pedido recibido'
-                             : p.pedido_estado === 'enviado' ? 'Pedido enviado'
-                             : 'Pedido generado'}
-                          </span>
-                        )}
+                        {p.tiene_pedido && p.pedido_estado !== 'cancelado' && (() => {
+                          const parcial = (p.items_en_pedido ?? 0) > 0 && (p.items_en_pedido ?? 0) < (p.items_total ?? 1);
+                          const completo = (p.items_total ?? 0) > 0 && (p.items_en_pedido ?? 0) >= (p.items_total ?? 1);
+                          const label = p.pedido_estado === 'recibido' ? 'Pedido recibido'
+                            : completo ? 'Enviado al proveedor'
+                            : parcial ? 'Env. parcial proveedor'
+                            : 'Pedido generado';
+                          const cls = p.pedido_estado === 'recibido' ? 'bg-emerald-100 text-emerald-700'
+                            : completo ? 'bg-blue-100 text-blue-700'
+                            : parcial ? 'bg-amber-100 text-amber-700'
+                            : 'bg-lime-100 text-lime-700';
+                          return (
+                            <span title={`Pedido al proveedor: ${p.pedido_estado}`}
+                              className={cn('inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold cursor-default', cls)}>
+                              <ShoppingCart size={9} />
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Último contacto */}
@@ -1251,6 +1261,7 @@ export function Presupuestos() {
           id={detailId}
           onClose={() => setDetailId(null)}
           onEstadoChange={onEstadoChange}
+          onRefresh={load}
         />
       )}
     </div>

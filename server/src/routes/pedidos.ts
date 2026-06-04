@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { PedidoSchema, PedidoEstadoSchema } from '../lib/schemas.js';
 
 const pedidos = new Hono();
 
@@ -201,7 +203,8 @@ pedidos.get('/', async (c) => {
 // POST / — crear pedido con items
 pedidos.post('/', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
+  const b = await validateBody(c, PedidoSchema);
+  if (b instanceof Response) return b;
 
   if (!b.proveedor_id)    return c.json({ error: 'proveedor_id requerido' }, 400);
   if (!b.items?.length)   return c.json({ error: 'items requeridos' }, 400);
@@ -499,9 +502,9 @@ pedidos.put('/:id', async (c) => {
 pedidos.patch('/:id/estado', async (c) => {
   const { id }  = c.req.param();
   const user    = c.get('user');
-  const { estado: nuevoEstado, fecha_recepcion } = await c.req.json() as {
-    estado: string; fecha_recepcion?: string;
-  };
+  const b = await validateBody(c, PedidoEstadoSchema);
+  if (b instanceof Response) return b;
+  const { estado: nuevoEstado, fecha_recepcion } = b;
 
   const TRANSICIONES: Record<string, string[]> = {
     pendiente: ['enviado', 'cancelado'],

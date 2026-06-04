@@ -126,7 +126,7 @@ catalogo.get('/categorias-cliente', async (c) => {
 
 // GET /proveedores/tablero — panel de gestión con métricas de compras
 catalogo.get('/proveedores/tablero', async (c) => {
-  const [provResult, comprasResult, rubroResult, movResult] = await Promise.all([
+  const [provResult, comprasResult, rubroResult, movResult, pedidosPendResult] = await Promise.all([
     db.query(`SELECT * FROM proveedores ORDER BY nombre`),
 
     db.query(`
@@ -164,9 +164,17 @@ catalogo.get('/proveedores/tablero', async (c) => {
       FROM stock_lotes l
       JOIN stock_movimientos m ON m.lote_id = l.id AND m.tipo = 'ingreso'
     `),
+
+    db.query(`
+      SELECT proveedor_id, COUNT(*)::int AS pedidos_pendientes
+      FROM pedidos
+      WHERE estado = 'pendiente' AND proveedor_id IS NOT NULL
+      GROUP BY proveedor_id
+    `),
   ]);
 
-  const comprasMap = new Map((comprasResult.rows as any[]).map(r => [r.proveedor_id, r]));
+  const comprasMap   = new Map((comprasResult.rows as any[]).map(r => [r.proveedor_id, r]));
+  const pendientesMap = new Map((pedidosPendResult.rows as any[]).map(r => [r.proveedor_id, r.pedidos_pendientes as number]));
 
   const proveedores = (provResult.rows as any[]).map(p => {
     const c = comprasMap.get(p.id) as any;
@@ -175,11 +183,12 @@ catalogo.get('/proveedores/tablero', async (c) => {
       : 999;
     return {
       ...p,
-      lotes_count_6m:     c?.lotes_count_6m    ?? 0,
-      compras_monto_6m:   Number(c?.compras_monto_6m  ?? 0),
-      lotes_count_30d:    c?.lotes_count_30d   ?? 0,
+      lotes_count_6m:      c?.lotes_count_6m    ?? 0,
+      compras_monto_6m:    Number(c?.compras_monto_6m  ?? 0),
+      lotes_count_30d:     c?.lotes_count_30d   ?? 0,
       ultima_compra_fecha: c?.ultima_compra_fecha ?? null,
-      dias_sin_compra:    diasSinCompra,
+      dias_sin_compra:     diasSinCompra,
+      pedidos_pendientes:  pendientesMap.get(p.id) ?? 0,
     };
   });
 
@@ -296,7 +305,14 @@ catalogo.put('/proveedores/:id', async (c) => {
 });
 
 catalogo.delete('/proveedores/:id', async (c) => {
-  await db.query(`UPDATE proveedores SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  const id = c.req.param('id');
+  const { rows } = await db.query(
+    `SELECT COUNT(*)::int AS cnt FROM pedidos WHERE proveedor_id=$1 AND estado != 'cancelado'`, [id]
+  );
+  if (rows[0].cnt > 0) {
+    return c.json({ error: `No se puede eliminar: tiene ${rows[0].cnt} pedido${rows[0].cnt > 1 ? 's' : ''} activo${rows[0].cnt > 1 ? 's' : ''}` }, 409);
+  }
+  await db.query(`DELETE FROM proveedores WHERE id=$1`, [id]);
   return c.json({ ok: true });
 });
 

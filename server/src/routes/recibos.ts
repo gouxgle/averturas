@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import pkg from 'pg';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { ReciboSchema } from '../lib/schemas.js';
 
 const recibos = new Hono();
 
@@ -371,14 +373,11 @@ recibos.get('/:id', async (c) => {
 // POST / — crear recibo
 recibos.post('/', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
-
-  if (!b.cliente_id)                      return c.json({ error: 'cliente_id requerido' }, 400);
-  if (!b.monto_total || parseFloat(b.monto_total) <= 0) return c.json({ error: 'monto_total debe ser > 0' }, 400);
-  if (!b.forma_pago)                      return c.json({ error: 'forma_pago requerida' }, 400);
+  const b = await validateBody(c, ReciboSchema);
+  if (b instanceof Response) return b;
 
   const numero = await nextNumero();
-  const items: { descripcion: string; producto_id?: string; cantidad?: number; monto: number }[] = b.items ?? [];
+  const items = b.items ?? [];
 
   const client: pkg.PoolClient = await db.connect();
   try {
@@ -395,7 +394,7 @@ recibos.post('/', async (c) => {
       b.cliente_id,
       b.operacion_id    || null,
       b.remito_id       || null,
-      parseFloat(b.monto_total),
+      b.monto_total,
       b.forma_pago,
       b.referencia_pago || null,
       b.concepto        || null,
@@ -476,7 +475,7 @@ recibos.put('/:id', async (c) => {
       b.fecha,
       b.operacion_id    || null,
       b.remito_id       || null,
-      parseFloat(b.monto_total),
+      b.monto_total,
       b.forma_pago,
       b.referencia_pago || null,
       b.concepto        || null,

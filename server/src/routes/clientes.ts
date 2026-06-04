@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { ClienteSchema } from '../lib/schemas.js';
 
 const clientes = new Hono();
 
@@ -629,7 +631,8 @@ clientes.get('/:id', async (c) => {
 
 clientes.post('/', async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
+  const body = await validateBody(c, ClienteSchema);
+  if (body instanceof Response) return body;
 
   const { rows: [row] } = await db.query(`
     INSERT INTO clientes
@@ -682,7 +685,8 @@ clientes.post('/', async (c) => {
 
 clientes.put('/:id', async (c) => {
   const { id } = c.req.param();
-  const body = await c.req.json();
+  const body = await validateBody(c, ClienteSchema);
+  if (body instanceof Response) return body;
 
   const { rows: [row] } = await db.query(`
     UPDATE clientes SET
