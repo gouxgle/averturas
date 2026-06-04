@@ -1,5 +1,11 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import {
+  TipoAberturaSchema, SistemaSchema, ColorSchema,
+  ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema,
+} from '../lib/schemas.js';
 
 const catalogo = new Hono();
 
@@ -14,25 +20,23 @@ catalogo.get('/tipos-abertura', async (c) => {
 });
 
 catalogo.post('/tipos-abertura', async (c) => {
-  const { nombre, descripcion, icono, orden, margen_venta } = await c.req.json();
-  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const b = await validateBody(c, TipoAberturaSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
     `INSERT INTO tipos_abertura (nombre, descripcion, icono, orden, margen_venta)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [nombre.trim(), descripcion || null, icono || null, orden ?? 0,
-     margen_venta != null ? parseFloat(margen_venta) : null]
+    [b.nombre.trim(), b.descripcion || null, b.icono || null, b.orden ?? 0, b.margen_venta ?? null]
   );
   return c.json(rows[0], 201);
 });
 
 catalogo.put('/tipos-abertura/:id', async (c) => {
-  const { nombre, descripcion, icono, orden, activo, margen_venta } = await c.req.json();
+  const b = await validateBody(c, TipoAberturaSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
     `UPDATE tipos_abertura SET nombre=$1, descripcion=$2, icono=$3, orden=$4, activo=$5, margen_venta=$6
      WHERE id=$7 RETURNING *`,
-    [nombre?.trim(), descripcion || null, icono || null, orden ?? 0, activo ?? true,
-     margen_venta != null ? parseFloat(margen_venta) : null,
-     c.req.param('id')]
+    [b.nombre.trim(), b.descripcion || null, b.icono || null, b.orden ?? 0, b.activo ?? true, b.margen_venta ?? null, c.req.param('id')]
   );
   if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
   return c.json(rows[0]);
@@ -54,22 +58,21 @@ catalogo.get('/sistemas', async (c) => {
 });
 
 catalogo.post('/sistemas', async (c) => {
-  const { nombre, material, descripcion } = await c.req.json();
-  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const b = await validateBody(c, SistemaSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
-    `INSERT INTO sistemas (nombre, material, descripcion)
-     VALUES ($1, $2, $3) RETURNING *`,
-    [nombre.trim(), material || null, descripcion || null]
+    `INSERT INTO sistemas (nombre, material, descripcion) VALUES ($1, $2, $3) RETURNING *`,
+    [b.nombre.trim(), b.material || null, b.descripcion || null]
   );
   return c.json(rows[0], 201);
 });
 
 catalogo.put('/sistemas/:id', async (c) => {
-  const { nombre, material, descripcion, activo } = await c.req.json();
+  const b = await validateBody(c, SistemaSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
-    `UPDATE sistemas SET nombre=$1, material=$2, descripcion=$3, activo=$4
-     WHERE id=$5 RETURNING *`,
-    [nombre?.trim(), material || null, descripcion || null, activo ?? true, c.req.param('id')]
+    `UPDATE sistemas SET nombre=$1, material=$2, descripcion=$3, activo=$4 WHERE id=$5 RETURNING *`,
+    [b.nombre.trim(), b.material || null, b.descripcion || null, b.activo ?? true, c.req.param('id')]
   );
   if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
   return c.json(rows[0]);
@@ -91,20 +94,21 @@ catalogo.get('/colores', async (c) => {
 });
 
 catalogo.post('/colores', async (c) => {
-  const { nombre, hex } = await c.req.json();
-  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const b = await validateBody(c, ColorSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
     `INSERT INTO colores (nombre, hex) VALUES ($1, $2) RETURNING *`,
-    [nombre.trim(), hex || null]
+    [b.nombre.trim(), b.hex || null]
   );
   return c.json(rows[0], 201);
 });
 
 catalogo.put('/colores/:id', async (c) => {
-  const { nombre, hex, activo } = await c.req.json();
+  const b = await validateBody(c, ColorSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
     `UPDATE colores SET nombre=$1, hex=$2, activo=$3 WHERE id=$4 RETURNING *`,
-    [nombre?.trim(), hex || null, activo ?? true, c.req.param('id')]
+    [b.nombre.trim(), b.hex || null, b.activo ?? true, c.req.param('id')]
   );
   if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
   return c.json(rows[0]);
@@ -241,8 +245,8 @@ catalogo.get('/proveedores', async (c) => {
 });
 
 catalogo.post('/proveedores', async (c) => {
-  const b = await c.req.json();
-  if (!b.nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+  const b = await validateBody(c, ProveedorSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
     `INSERT INTO proveedores
        (nombre, tipo, contacto, telefono, email, cuit, direccion, localidad, provincia,
@@ -255,14 +259,14 @@ catalogo.post('/proveedores', async (c) => {
       b.email || null, b.cuit || null, b.direccion || null, b.localidad || null,
       b.provincia || null, b.web || null,
       Array.isArray(b.materiales) ? b.materiales : [],
-      b.notas || null,
-      b.forma_entrega  || 'propia',
-      b.plazo_entrega_dias ? parseInt(b.plazo_entrega_dias) : null,
-      b.costo_flete    ? parseFloat(b.costo_flete)    : 0,
-      b.calificacion   ? parseInt(b.calificacion)     : null,
-      b.deuda_actual   ? parseFloat(b.deuda_actual)   : 0,
-      b.es_principal   ?? false,
-      b.margen_venta != null ? parseFloat(b.margen_venta) : 0,
+      b.notas           ?? null,
+      b.forma_entrega   ?? 'propia',
+      b.plazo_entrega_dias ?? null,
+      b.costo_flete     ?? 0,
+      b.calificacion    ?? null,
+      b.deuda_actual    ?? 0,
+      b.es_principal    ?? false,
+      b.margen_venta    ?? 0,
     ]
   );
   return c.json(rows[0], 201);
@@ -275,7 +279,8 @@ catalogo.get('/proveedores/:id', async (c) => {
 });
 
 catalogo.put('/proveedores/:id', async (c) => {
-  const b = await c.req.json();
+  const b = await validateBody(c, ProveedorSchema);
+  if (b instanceof Response) return b;
   const { rows } = await db.query(
     `UPDATE proveedores
      SET nombre=$1, tipo=$2, contacto=$3, telefono=$4, email=$5, cuit=$6,
@@ -290,13 +295,13 @@ catalogo.put('/proveedores/:id', async (c) => {
       b.provincia || null, b.web || null,
       Array.isArray(b.materiales) ? b.materiales : [],
       b.notas || null, b.activo ?? true,
-      b.forma_entrega  || 'propia',
-      b.plazo_entrega_dias ? parseInt(b.plazo_entrega_dias) : null,
-      b.costo_flete    ? parseFloat(b.costo_flete)    : 0,
-      b.calificacion   ? parseInt(b.calificacion)     : null,
-      b.deuda_actual   ? parseFloat(b.deuda_actual)   : 0,
-      b.es_principal   ?? false,
-      b.margen_venta != null ? parseFloat(b.margen_venta) : 0,
+      b.forma_entrega       ?? 'propia',
+      b.plazo_entrega_dias  ?? null,
+      b.costo_flete         ?? 0,
+      b.calificacion        ?? null,
+      b.deuda_actual        ?? 0,
+      b.es_principal        ?? false,
+      b.margen_venta        ?? 0,
       c.req.param('id'),
     ]
   );
@@ -366,12 +371,9 @@ catalogo.get('/proveedor-precios', async (c) => {
 
 // POST /proveedor-precios — upsert individual
 catalogo.post('/proveedor-precios', async (c) => {
-  const b = await c.req.json() as {
-    proveedor_id: string; sku: string; descripcion: string; precio: number; activo?: boolean;
-  };
-  if (!b.proveedor_id || !b.sku?.trim() || !b.descripcion?.trim()) {
-    return c.json({ error: 'proveedor_id, sku y descripcion son requeridos' }, 400);
-  }
+  const raw = await validateBody(c, ProveedorPrecioSchema.extend({ proveedor_id: z.string().min(1) }));
+  if (raw instanceof Response) return raw;
+  const b = raw;
   const { rows: [row] } = await db.query(`
     INSERT INTO proveedor_precios (proveedor_id, sku, descripcion, precio, activo)
     VALUES ($1, $2, $3, $4, $5)
@@ -381,7 +383,7 @@ catalogo.post('/proveedor-precios', async (c) => {
       activo      = EXCLUDED.activo,
       updated_at  = now()
     RETURNING *
-  `, [b.proveedor_id, b.sku.trim(), b.descripcion.trim(), b.precio ?? 0, b.activo ?? true]);
+  `, [b.proveedor_id, b.sku.trim(), b.descripcion?.trim() ?? '', b.precio ?? 0, b.activo ?? true]);
   return c.json(row, 201);
 });
 
@@ -426,7 +428,8 @@ catalogo.post('/proveedor-precios/import', async (c) => {
 
 // PUT /proveedor-precios/:id
 catalogo.put('/proveedor-precios/:id', async (c) => {
-  const b = await c.req.json() as { sku?: string; descripcion?: string; precio?: number; activo?: boolean; producto_id?: string | null };
+  const b = await validateBody(c, ProveedorPrecioPatchSchema);
+  if (b instanceof Response) return b;
   const id = c.req.param('id');
   const hasProductoId = 'producto_id' in b;
   const params: unknown[] = [b.sku?.trim() ?? null, b.descripcion?.trim() ?? null, b.precio ?? null, b.activo ?? null];

@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import bcrypt from 'bcryptjs';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { UsuarioSchema } from '../lib/schemas.js';
 
 const usuarios = new Hono();
 
@@ -23,14 +25,9 @@ usuarios.post('/', async (c) => {
   const user = c.get('user');
   if (!requireAdmin(user.rol)) return c.json({ error: 'Sin permisos' }, 403);
 
-  const { nombre, email, password, rol } = await c.req.json();
-  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
-  if (!email?.trim())  return c.json({ error: 'email requerido' }, 400);
-  if (!password)              return c.json({ error: 'contraseña requerida' }, 400);
-  if (password.length < 8)    return c.json({ error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
-
-  const validRoles = ['admin', 'vendedor', 'consulta'];
-  if (!validRoles.includes(rol)) return c.json({ error: 'rol inválido' }, 400);
+  const b = await validateBody(c, UsuarioSchema.required({ password: true }));
+  if (b instanceof Response) return b;
+  const { nombre, email, password, rol } = b;
 
   const existing = await db.query(`SELECT id FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
   if (existing.rows[0]) return c.json({ error: 'Ya existe un usuario con ese email' }, 409);
@@ -48,14 +45,10 @@ usuarios.put('/:id', async (c) => {
   const user = c.get('user');
   if (!requireAdmin(user.rol)) return c.json({ error: 'Sin permisos' }, 403);
 
-  const { nombre, email, password, rol, activo } = await c.req.json();
+  const b = await validateBody(c, UsuarioSchema);
+  if (b instanceof Response) return b;
+  const { nombre, email, password, rol, activo } = b;
   const id = c.req.param('id');
-
-  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
-  if (!email?.trim())  return c.json({ error: 'email requerido' }, 400);
-
-  const validRoles = ['admin', 'vendedor', 'consulta'];
-  if (rol && !validRoles.includes(rol)) return c.json({ error: 'rol inválido' }, 400);
 
   // Can't deactivate yourself
   if (user.id === id && activo === false) {

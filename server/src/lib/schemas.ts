@@ -146,3 +146,134 @@ export const PedidoEstadoSchema = z.object({
   estado:          z.enum(['pendiente','enviado','recibido','cancelado']),
   fecha_recepcion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 });
+
+// ── Catálogo ───────────────────────────────────────────────────
+export const TipoAberturaSchema = z.object({
+  nombre:       z.string().min(1).max(120),
+  descripcion:  zText(500).optional(),
+  icono:        zText(50).optional(),
+  orden:        z.number().int().nonnegative().optional(),
+  activo:       z.boolean().optional(),
+  margen_venta: z.number().min(0).max(100).optional().nullable(),
+});
+
+export const SistemaSchema = z.object({
+  nombre:      z.string().min(1).max(120),
+  material:    zText(100).optional(),
+  descripcion: zText(500).optional(),
+  activo:      z.boolean().optional(),
+});
+
+export const ColorSchema = z.object({
+  nombre: z.string().min(1).max(100),
+  hex:    z.string().regex(/^#[0-9a-fA-F]{3,6}$/, 'Formato hex inválido (ej: #FF0000)').optional().nullable(),
+  activo: z.boolean().optional(),
+});
+
+export const ProveedorSchema = z.object({
+  nombre:             z.string().min(1, 'Nombre requerido').max(200),
+  tipo:               z.enum(['Fabricante','Revendedor','Importador']).optional().nullable(),
+  contacto:           zText(120).optional(),
+  telefono:           zPhone,
+  email:              zEmail,
+  cuit:               zText(20).optional(),
+  direccion:          zText(255).optional(),
+  localidad:          zText(120).optional(),
+  provincia:          zText(120).optional(),
+  web:                zText(255).optional(),
+  materiales:         z.array(z.string()).optional().default([]),
+  notas:              zText(2000).optional(),
+  forma_entrega:      z.enum(['propia','tercerizada','retiro']).optional().default('propia'),
+  plazo_entrega_dias: z.number().int().positive().optional().nullable(),
+  costo_flete:        zPosNum.optional().default(0),
+  calificacion:       z.number().int().min(1).max(5).optional().nullable(),
+  deuda_actual:       zPosNum.optional().default(0),
+  es_principal:       z.boolean().optional().default(false),
+  margen_venta:       z.number().min(0).max(100).optional().default(0),
+  activo:             z.boolean().optional(),
+});
+
+export const ProveedorPrecioSchema = z.object({
+  sku:         z.string().min(1).max(100),
+  descripcion: zText(500).optional(),
+  precio:      zPosNum,
+  activo:      z.boolean().optional().default(true),
+  producto_id: z.string().optional().nullable(),
+});
+
+export const ProveedorPrecioPatchSchema = z.object({
+  sku:         zText(100).optional(),
+  descripcion: zText(500).optional(),
+  precio:      zPosNum.optional(),
+  activo:      z.boolean().optional(),
+  producto_id: z.string().optional().nullable(),
+});
+
+// ── Remitos ────────────────────────────────────────────────────
+const RemitoItemSchema = z.object({
+  producto_id:     z.string().optional().nullable(),
+  descripcion:     z.string().min(1).max(500),
+  cantidad:        z.number().int().positive(),
+  precio_unitario: zPosNum.optional().nullable(),
+  estado_producto: z.enum(['nuevo','usado','reparado']).optional().default('nuevo'),
+  notas_item:      zText(500).optional(),
+});
+
+export const RemitoSchema = z.object({
+  cliente_id:       zUUID,
+  operacion_id:     zUUID.optional().nullable(),
+  medio_envio:      z.string().min(1, 'Medio de envío requerido').max(100),
+  transportista:    zText(120).optional(),
+  nro_seguimiento:  zText(100).optional(),
+  direccion_entrega: zText(255).optional(),
+  fecha_emision:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  fecha_entrega_est: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  notas:            zText(2000).optional(),
+  items:            z.array(RemitoItemSchema).min(1, 'Se requiere al menos 1 ítem'),
+});
+
+export const RemitoEstadoSchema = z.object({
+  estado:             z.enum(['borrador','emitido','entregado','cancelado']),
+  fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+// ── Stock ──────────────────────────────────────────────────────
+export const StockIngresarSchema = z.object({
+  producto_id:   zUUID,
+  cantidad:      z.number().int().positive('Cantidad debe ser > 0'),
+  lote_id:       z.string().optional().nullable(),
+  proveedor_id:  z.string().optional().nullable(),
+  fecha_ingreso: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  remito_nro:    zText(50).optional(),
+  factura_nro:   zText(50).optional(),
+  notas_lote:    zText(500).optional(),
+  costo_unitario: zPosNum.optional().nullable(),
+  notas:         zText(500).optional(),
+});
+
+export const StockEgresarSchema = z.object({
+  producto_id:   zUUID,
+  cantidad:      z.number().int().positive('Cantidad debe ser > 0'),
+  tipo:          z.enum(['egreso_remito','egreso_retiro','devolucion']),
+  lote_id:       z.string().optional().nullable(),
+  operacion_id:  z.string().optional().nullable(),
+  referencia_nro: zText(50).optional(),
+  motivo:        zText(200).optional(),
+  notas:         zText(500).optional(),
+});
+
+export const StockAjustarSchema = z.object({
+  producto_id: zUUID,
+  cantidad:    z.number().int('Debe ser entero'),
+  motivo:      zText(200).optional(),
+  notas:       zText(500).optional(),
+});
+
+// ── Usuarios ───────────────────────────────────────────────────
+export const UsuarioSchema = z.object({
+  nombre:   z.string().min(1, 'Nombre requerido').max(120),
+  email:    z.string().email('Email inválido'),
+  password: z.string().min(8, 'Contraseña debe tener al menos 8 caracteres').optional(),
+  rol:      z.enum(['admin','vendedor','consulta']),
+  activo:   z.boolean().optional(),
+});

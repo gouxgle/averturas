@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { RemitoSchema, RemitoEstadoSchema } from '../lib/schemas.js';
 
 const remitos = new Hono();
 
@@ -319,11 +321,8 @@ remitos.get('/:id', async (c) => {
 // POST / — crear en borrador
 remitos.post('/', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
-
-  if (!b.cliente_id)               return c.json({ error: 'cliente_id requerido' }, 400);
-  if (!b.items?.length)            return c.json({ error: 'items requeridos' }, 400);
-  if (!b.medio_envio)              return c.json({ error: 'medio_envio requerido' }, 400);
+  const b = await validateBody(c, RemitoSchema);
+  if (b instanceof Response) return b;
 
   // Validar: operación no puede tener otro remito activo
   if (b.operacion_id) {
@@ -374,7 +373,7 @@ remitos.post('/', async (c) => {
         item.producto_id     || null,
         item.descripcion,
         item.cantidad        || 1,
-        item.precio_unitario != null ? parseFloat(item.precio_unitario) : null,
+        item.precio_unitario ?? null,
         item.estado_producto || 'nuevo',
         item.notas_item      || null,
       ]);
@@ -393,7 +392,8 @@ remitos.post('/', async (c) => {
 // PUT /:id — actualizar (solo borrador)
 remitos.put('/:id', async (c) => {
   const { id } = c.req.param();
-  const b      = await c.req.json();
+  const b = await validateBody(c, RemitoSchema);
+  if (b instanceof Response) return b;
 
   const { rows: [actual] } = await db.query(`SELECT estado FROM remitos WHERE id=$1`, [id]);
   if (!actual)                    return c.json({ error: 'Remito no encontrado' }, 404);
@@ -436,7 +436,7 @@ remitos.put('/:id', async (c) => {
         item.producto_id     || null,
         item.descripcion,
         item.cantidad        || 1,
-        item.precio_unitario != null ? parseFloat(item.precio_unitario) : null,
+        item.precio_unitario ?? null,
         item.estado_producto || 'nuevo',
         item.notas_item      || null,
       ]);
@@ -457,9 +457,9 @@ remitos.put('/:id', async (c) => {
 remitos.patch('/:id/estado', async (c) => {
   const { id } = c.req.param();
   const user   = c.get('user');
-  const { estado: nuevoEstado, fecha_entrega_real } = await c.req.json() as {
-    estado: string; fecha_entrega_real?: string;
-  };
+  const bEstado = await validateBody(c, RemitoEstadoSchema);
+  if (bEstado instanceof Response) return bEstado;
+  const { estado: nuevoEstado, fecha_entrega_real } = bEstado;
 
   const TRANSICIONES: Record<string, string[]> = {
     borrador:   ['emitido', 'cancelado'],

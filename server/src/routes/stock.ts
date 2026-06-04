@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import pkg from 'pg';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { StockIngresarSchema, StockEgresarSchema, StockAjustarSchema } from '../lib/schemas.js';
 
 type QueryRunner = { query: (text: string, values?: unknown[]) => Promise<{ rows: unknown[] }> };
 
@@ -271,10 +273,8 @@ stock.get('/lotes/producto/:id', async (c) => {
 // POST /ingresar
 stock.post('/ingresar', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
-
-  if (!b.producto_id)          return c.json({ error: 'producto_id requerido' }, 400);
-  if (!b.cantidad || b.cantidad <= 0) return c.json({ error: 'cantidad debe ser > 0' }, 400);
+  const b = await validateBody(c, StockIngresarSchema);
+  if (b instanceof Response) return b;
 
   const client: pkg.PoolClient = await db.connect();
   try {
@@ -307,8 +307,8 @@ stock.post('/ingresar', async (c) => {
     `, [
       b.producto_id,
       loteId,
-      parseInt(b.cantidad),
-      b.costo_unitario != null ? parseFloat(b.costo_unitario) : null,
+      b.cantidad,
+      b.costo_unitario ?? null,
       b.remito_nro     || null,
       b.notas          || null,
       user?.id         || null,
@@ -330,11 +330,8 @@ stock.post('/ingresar', async (c) => {
 // POST /egresar
 stock.post('/egresar', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
-
-  if (!b.producto_id)          return c.json({ error: 'producto_id requerido' }, 400);
-  if (!b.cantidad || b.cantidad <= 0) return c.json({ error: 'cantidad debe ser > 0' }, 400);
-  if (!b.tipo)                 return c.json({ error: 'tipo requerido' }, 400);
+  const b = await validateBody(c, StockEgresarSchema);
+  if (b instanceof Response) return b;
 
   // Verificar stock suficiente
   const { rows: [{ actual }] } = await db.query(
@@ -344,7 +341,7 @@ stock.post('/egresar', async (c) => {
      WHERE p.id = $1 GROUP BY p.id, p.stock_inicial`,
     [b.producto_id]
   );
-  if (parseInt(actual) < parseInt(b.cantidad)) {
+  if (parseInt(actual) < b.cantidad) {
     return c.json({ error: `Stock insuficiente (disponible: ${actual})` }, 409);
   }
 
@@ -357,7 +354,7 @@ stock.post('/egresar', async (c) => {
     b.producto_id,
     b.lote_id        || null,
     b.tipo,
-    -Math.abs(parseInt(b.cantidad)),
+    -Math.abs(b.cantidad),
     b.motivo         || null,
     b.operacion_id   || null,
     b.referencia_nro || null,
@@ -371,10 +368,8 @@ stock.post('/egresar', async (c) => {
 // POST /ajustar — corrección manual de inventario
 stock.post('/ajustar', async (c) => {
   const user = c.get('user');
-  const b    = await c.req.json();
-
-  if (!b.producto_id)    return c.json({ error: 'producto_id requerido' }, 400);
-  if (b.cantidad == null) return c.json({ error: 'cantidad requerida' }, 400);
+  const b = await validateBody(c, StockAjustarSchema);
+  if (b instanceof Response) return b;
 
   const { rows: [mov] } = await db.query(`
     INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, notas, created_by)
@@ -382,7 +377,7 @@ stock.post('/ajustar', async (c) => {
     RETURNING *
   `, [
     b.producto_id,
-    parseInt(b.cantidad),
+    b.cantidad,
     b.motivo || 'Ajuste manual',
     b.notas  || null,
     user?.id || null,
