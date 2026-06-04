@@ -321,11 +321,24 @@ Siempre usar `.slice(0, 10) + 'T12:00:00'` antes de formatear — de lo contrari
 
 ### Migraciones
 Al crear nueva migración:
-1. Crear `supabase/migrations/YYYYMMDDNNNNNN_nombre.sql`
-2. `INSERT INTO schema_migrations (filename) VALUES ('...') ON CONFLICT DO NOTHING;` al final
-3. Agregar en `docker/initdb/01_schema.sh` (2 lugares: línea `psql` + línea en INSERT)
-4. Aplicar local: `docker compose exec -T db psql -U postgres -d postgres -f /migrations/archivo.sql`
-5. VM: aplicar manualmente igual (initdb no re-corre con DB existente)
+1. Crear `supabase/migrations/YYYYMMDDNNNNNN_nombre.sql` con el SQL
+2. Incluir al final: `INSERT INTO schema_migrations (filename) VALUES ('archivo.sql') ON CONFLICT DO NOTHING;`
+3. **No tocar `01_schema.sh`** — auto-descubre todos los .sql en orden
+4. Aplicar local: `cd server && npm run migrate`
+5. VM: `cd server && npm run migrate` (misma DB_URL del .env)
+
+**Comandos del runner:**
+```bash
+npm run migrate        # aplica pendientes
+npm run migrate:list   # muestra estado de todas las migraciones
+npm run migrate:dry    # preview sin ejecutar
+```
+
+**Cómo funciona:**
+- Lee `supabase/migrations/*.sql` en orden cronológico (por nombre)
+- Compara contra `schema_migrations` en DB
+- Aplica solo las pendientes, dentro de transacción por migración
+- Si una falla → rollback de esa sola, las anteriores ya aplicadas quedan
 
 ## Problemas conocidos y soluciones
 
@@ -358,14 +371,20 @@ En queries SQL de rutas públicas o nuevas: calcular/JOIN explícitamente.
 # Rebuild solo app (sin tocar DB)
 docker compose build app && docker compose up -d --force-recreate app
 
-# Aplicar migración a DB local
-docker compose exec -T db psql -U postgres -d postgres -f /migrations/ARCHIVO.sql
+# Migraciones
+cd server && npm run migrate        # aplica pendientes
+cd server && npm run migrate:list   # ver estado de todas
+cd server && npm run migrate:dry    # preview sin ejecutar
 
 # Ver logs en tiempo real
 docker compose logs app -f --tail=30
 
 # Conectar a DB
 docker compose exec db psql -U postgres -d postgres
+
+# Tests
+cd server && npm test     # backend (schemas, rate limiter)
+npm test                  # frontend (utils)
 ```
 
 ## VM de producción — deploy

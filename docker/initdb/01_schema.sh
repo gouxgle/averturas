@@ -1,96 +1,15 @@
 #!/bin/bash
 # Inicialización automática de la DB en el primer arranque (data/db vacío).
 # PostgreSQL ejecuta este script solo cuando el directorio de datos está vacío.
+# Auto-descubre todos los .sql en /migrations/ en orden — no editar al agregar migraciones.
 set -e
 
-psql -U postgres -d postgres -f /migrations/20260414000001_schema.sql
-psql -U postgres -d postgres -f /migrations/20260414000002_seed.sql
-psql -U postgres -d postgres -f /migrations/20260415000001_clientes_documento.sql
-psql -U postgres -d postgres -f /migrations/20260415000002_crm_clientes.sql
-psql -U postgres -d postgres -f /migrations/20260419000001_clientes_genero.sql
-psql -U postgres -d postgres -f /migrations/20260419000002_clientes_fidelizacion.sql
-psql -U postgres -d postgres -f /migrations/20260420000001_clientes_telefono_fijo.sql
-psql -U postgres -d postgres -f /migrations/20260420000002_productos_nuevos_campos.sql
-psql -U postgres -d postgres -f /migrations/20260420000003_productos_caracteristicas.sql
-psql -U postgres -d postgres -f /migrations/20260421000001_productos_medida_fields.sql
-psql -U postgres -d postgres -f /migrations/20260421000002_presupuesto_campos.sql
-psql -U postgres -d postgres -f /migrations/20260421000003_proveedores_campos.sql
-psql -U postgres -d postgres -f /migrations/20260422000001_stock_module.sql
-psql -U postgres -d postgres -f /migrations/20260422000002_remitos.sql
-psql -U postgres -d postgres -f /migrations/20260423000001_atributos_jsonb.sql
-psql -U postgres -d postgres -f /migrations/20260424000001_clientes_domicilio_obra.sql
-psql -U postgres -d postgres -f /migrations/20260424000002_catalogo_atributos_schema.sql
-psql -U postgres -d postgres -f /migrations/20260425000001_recibos.sql
-psql -U postgres -d postgres -f /migrations/20260428000001_rechazado_estado.sql
-psql -U postgres -d postgres -f /migrations/20260428000002_compromisos_pago.sql
-psql -U postgres -d postgres -f /migrations/20260503000001_margen_promocion.sql
-psql -U postgres -d postgres -f /migrations/20260503000002_imagenes_video.sql
-psql -U postgres -d postgres -f /migrations/20260503000004_presupuesto_envio.sql
-psql -U postgres -d postgres -f /migrations/20260504000001_token_acceso.sql
-psql -U postgres -d postgres -f /migrations/20260504000002_notif_leida.sql
-psql -U postgres -d postgres -f /migrations/20260507000001_etiqueta_producto.sql
-psql -U postgres -d postgres -f /migrations/20260509000001_proveedores_logistica.sql
-psql -U postgres -d postgres -f /migrations/20260509000002_empresa_objetivo.sql
-psql -U postgres -d postgres -f /migrations/20260509000003_crm_pipeline.sql
-psql -U postgres -d postgres -f /migrations/20260511000001_proforma_mejoras.sql
-psql -U postgres -d postgres -f /migrations/20260512000001_empresa_terminos_stock_reserva.sql
-psql -U postgres -d postgres -f /migrations/20260512000002_clientes_nuevos_campos.sql
-psql -U postgres -d postgres -f /migrations/20260512000003_remito_token_recepcion.sql
-psql -U postgres -d postgres -f /migrations/20260520000001_pedidos.sql
-psql -U postgres -d postgres -f /migrations/20260520000002_catalogo_proveedor_sku.sql
-psql -U postgres -d postgres -f /migrations/20260520000003_proveedor_precios.sql
-psql -U postgres -d postgres -f /migrations/20260524000001_precios_margen.sql
-psql -U postgres -d postgres -f /migrations/20260524000002_security_fixes.sql
-psql -U postgres -d postgres -f /migrations/20260528000001_pedido_items_coverage_idx.sql
-psql -U postgres -d postgres -f /migrations/20260526000001_mensajes_plantilla.sql
+MIGRATIONS_DIR="/migrations"
 
-# Registrar todas las migraciones aplicadas en el tracking
-psql -U postgres -d postgres <<'SQL'
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  filename   TEXT PRIMARY KEY,
-  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-INSERT INTO schema_migrations (filename) VALUES
-  ('20260414000001_schema.sql'),
-  ('20260414000002_seed.sql'),
-  ('20260415000001_clientes_documento.sql'),
-  ('20260415000002_crm_clientes.sql'),
-  ('20260419000001_clientes_genero.sql'),
-  ('20260419000002_clientes_fidelizacion.sql'),
-  ('20260420000001_clientes_telefono_fijo.sql'),
-  ('20260420000002_productos_nuevos_campos.sql'),
-  ('20260420000003_productos_caracteristicas.sql'),
-  ('20260421000001_productos_medida_fields.sql'),
-  ('20260421000002_presupuesto_campos.sql'),
-  ('20260421000003_proveedores_campos.sql'),
-  ('20260422000001_stock_module.sql'),
-  ('20260422000002_remitos.sql'),
-  ('20260423000001_atributos_jsonb.sql'),
-  ('20260424000001_clientes_domicilio_obra.sql'),
-  ('20260424000002_catalogo_atributos_schema.sql'),
-  ('20260425000001_recibos.sql'),
-  ('20260428000001_rechazado_estado.sql'),
-  ('20260428000002_compromisos_pago.sql'),
-  ('20260503000001_margen_promocion.sql'),
-  ('20260503000002_imagenes_video.sql'),
-  ('20260503000004_presupuesto_envio.sql'),
-  ('20260504000001_token_acceso.sql'),
-  ('20260504000002_notif_leida.sql'),
-  ('20260507000001_etiqueta_producto.sql'),
-  ('20260509000001_proveedores_logistica.sql'),
-  ('20260509000002_empresa_objetivo.sql'),
-  ('20260509000003_crm_pipeline.sql'),
-  ('20260511000001_proforma_mejoras.sql'),
-  ('20260512000001_empresa_terminos_stock_reserva.sql'),
-  ('20260512000002_clientes_nuevos_campos.sql'),
-  ('20260512000003_remito_token_recepcion.sql'),
-  ('20260520000001_pedidos.sql'),
-  ('20260520000002_catalogo_proveedor_sku.sql'),
-  ('20260520000003_proveedor_precios.sql'),
-  ('20260524000001_precios_margen.sql'),
-  ('20260524000002_security_fixes.sql'),
-  ('20260528000001_pedido_items_coverage_idx.sql')
-ON CONFLICT DO NOTHING;
-SQL
+for file in $(ls "${MIGRATIONS_DIR}"/*.sql 2>/dev/null | sort); do
+  filename=$(basename "$file")
+  echo "→ Aplicando: $filename"
+  psql -U postgres -d postgres -f "$file"
+done
 
-echo "✅ Base de datos inicializada con todas las migraciones."
+echo "✅ Base de datos inicializada."
