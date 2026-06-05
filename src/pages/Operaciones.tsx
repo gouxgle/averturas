@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { SectionHero } from '@/components/SectionHero';
 
 // ── Tipos ────────────────────────────────────────────────────────────
 
@@ -225,33 +226,25 @@ export function Operaciones() {
   const proximasSemana = data?.proximas.filter(p => p.fecha_entrega_estimada.slice(0, 10) > tomorrowStr)   ?? [];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4" data-section="operaciones">
 
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-            <ClipboardCheck size={22} className="text-amber-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-gray-900">Tablero de Operaciones</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Estado del flujo de trabajo</p>
-          </div>
-        </div>
-        <Link
-          to="/operaciones/nueva"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:opacity-90"
-          style={{ background: '#f97316' }}
-        >
-          <Plus size={16} /> Nueva operación
-        </Link>
-      </div>
+      <SectionHero
+        section="operaciones"
+        icon={ClipboardCheck}
+        title="Tablero de Operaciones"
+        sub="Estado del flujo de trabajo — del presupuesto a la entrega"
+        actions={
+          <Link to="/operaciones/nueva"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:opacity-90"
+            style={{ background: '#f97316' }}>
+            <Plus size={16} /> Nueva operación
+          </Link>
+        }
+      />
 
       {loading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map(i => <div key={i} className="animate-pulse bg-gray-100 rounded-2xl h-20" />)}
-          </div>
+          <div className="animate-pulse rounded-2xl h-14" style={{ background: 'rgba(3,29,73,0.12)' }} />
           <div className="animate-pulse bg-gray-100 rounded-2xl h-96" />
         </div>
       ) : data && (
@@ -260,12 +253,31 @@ export function Operaciones() {
           {/* ── Columna principal ─────────────────────────────── */}
           <div className="flex-1 min-w-0 space-y-4">
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <KpiCard icon={BarChart3}    label="Operaciones activas"  value={data.stats.total_activas}           sub={formatCurrency(data.stats.valor_activas)}            iconBg="bg-gray-100"   iconCl="text-gray-600" />
-              <KpiCard icon={FileText}     label="Sin confirmar"         value={data.stats.sin_confirmar}           sub="Presupuestos pendientes"                              iconBg="bg-slate-100"  iconCl="text-slate-600" />
-              <KpiCard icon={Truck}        label="Listas p/ entregar"   value={data.kanban.listas_entregar.length} sub="Material disponible en local"                         iconBg="bg-teal-100"   iconCl="text-teal-600" />
-              <KpiCard icon={CheckCircle2} label="Entregadas (semana)"  value={data.stats.entregadas_semana}       sub={formatCurrency(data.stats.valor_entregadas_semana)}  iconBg="bg-blue-100"   iconCl="text-blue-600" />
+            {/* CompactStatsBar — navy con métricas clave */}
+            <div className="flex items-center gap-0 rounded-xl overflow-x-auto"
+              style={{ background: 'linear-gradient(90deg,#031d49 0%,#0a2761 100%)', height: 52, padding: '0 20px', boxShadow: '0 4px 16px -8px rgba(3,29,73,0.35)' }}>
+              <div className="flex items-center gap-1.5 mr-4 shrink-0"
+                style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.40)' }}>
+                <BarChart3 size={11} color="#fbbf24" /> Métricas
+              </div>
+              {[
+                { value: `${data.stats.total_activas}`, label: `activas · ${formatCurrency(data.stats.valor_activas)}`, color: '#fbbf24' },
+                { value: `${data.stats.sin_confirmar}`,  label: 'sin confirmar', color: '#94a3b8' },
+                { value: `${data.kanban.listas_entregar.length}`, label: 'listas p/ entregar', color: '#2dd4bf' },
+                { value: `${data.stats.entregadas_semana}`, label: 'entregadas esta semana', color: '#60a5fa' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center shrink-0">
+                  <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.12)', margin: '0 16px', flexShrink: 0 }} />
+                  <div className="flex items-baseline gap-1.5">
+                    <span style={{ fontSize: 18, fontWeight: 800, color: item.color, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                      {item.value}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {item.label}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Tablero 6 columnas */}
