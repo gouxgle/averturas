@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   CheckCircle2, AlertTriangle, Clock, Loader2,
-  Phone, Mail, MapPin, Package, Truck, Shield, X,
+  Phone, Mail, MapPin, Package, Truck, Shield, X, ScrollText,
 } from 'lucide-react';
 
 const NAVY  = '#031d49';
@@ -118,6 +118,7 @@ export function VistaPublicaPresupuesto() {
   const [errMsg, setErrMsg]       = useState('');
   const [motivoSel, setMotivoSel] = useState<string | null>(null);
   const [comentario, setComentario] = useState('');
+  const [showTerminos, setShowTerminos] = useState(false);
 
   useEffect(() => {
     if (!token) { setEstado('not_found'); return; }
@@ -336,6 +337,7 @@ export function VistaPublicaPresupuesto() {
   const fechaEmision  = fmtFecha(pres.created_at ?? new Date().toISOString());
 
   return (
+    <>
     <div className="min-h-screen bg-gray-100 py-4 px-2 sm:py-8 sm:px-4">
       <div className="max-w-[740px] mx-auto">
 
@@ -632,12 +634,10 @@ export function VistaPublicaPresupuesto() {
           </h3>
           <p className="text-xs text-gray-400 mb-4">
             Aceptá la proforma y confirmá que leíste y aceptás los{' '}
-            {pres.empresa.terminos_url ? (
-              <a href={pres.empresa.terminos_url} target="_blank" rel="noopener noreferrer"
-                className="underline text-blue-500 hover:text-blue-700">
-                términos y condiciones de venta
-              </a>
-            ) : 'términos y condiciones de venta'}.
+            <button onClick={() => setShowTerminos(true)}
+              className="underline text-blue-500 hover:text-blue-700 font-medium">
+              términos y condiciones de venta
+            </button>.
           </p>
 
           {vencido ? (
@@ -657,7 +657,11 @@ export function VistaPublicaPresupuesto() {
                   {estado === 'aprobando' ? 'Procesando...' : 'ACEPTO LA PROFORMA'}
                 </span>
                 <span className="text-green-200 text-xs font-normal">
-                  Leí y acepto los términos y condiciones
+                  Leí y acepto los{' '}
+                  <span onClick={e => { e.stopPropagation(); setShowTerminos(true); }}
+                    className="underline cursor-pointer hover:text-white">
+                    términos y condiciones
+                  </span>
                 </span>
               </button>
 
@@ -701,5 +705,85 @@ export function VistaPublicaPresupuesto() {
 
       </div>
     </div>
+
+    {/* ── Modal Términos y Condiciones ───────────────────────────────── */}
+    {showTerminos && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onClick={() => setShowTerminos(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col"
+          onClick={e => e.stopPropagation()}>
+
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#031d49' }}>
+              <ScrollText size={16} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-gray-900 text-sm">Términos y Condiciones de Venta</p>
+              <p className="text-[11px] text-gray-400">{pres.empresa.nombre}</p>
+            </div>
+            <button onClick={() => setShowTerminos(false)}
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+              <X size={16} className="text-gray-500" />
+            </button>
+          </div>
+
+          {/* Contenido scrollable */}
+          <div className="overflow-y-auto px-5 py-4 text-xs text-gray-600 space-y-4 leading-relaxed">
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">1. Vigencia y validez del presupuesto</h3>
+              <p>El presente presupuesto tiene validez según la fecha indicada en la proforma. Transcurrido dicho plazo, los precios y condiciones podrán ser revisados sin previo aviso, sujetos a variaciones en costos de materiales, tipo de cambio o disponibilidad de stock.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">2. Condiciones de pago</h3>
+              <p>La seña o pago inicial confirma el pedido e inicia la fabricación. El saldo deberá abonarse según lo acordado en el presupuesto, previo a la entrega o instalación. En caso de pago financiado, se aplican las condiciones vigentes de la modalidad seleccionada (tarjeta, cuotas, transferencia).</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">3. Fabricación y plazos de entrega</h3>
+              <p>Los plazos de entrega son estimativos y se computan a partir de la confirmación del pedido con la seña correspondiente. Demoras por causas ajenas a la empresa (fuerza mayor, faltante de materiales, condiciones climáticas para instalación) no darán lugar a penalidades.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">4. Medidas y especificaciones</h3>
+              <p>El cliente es responsable de verificar las medidas y especificaciones técnicas antes de confirmar el pedido. Las aberturas fabricadas a medida no admiten devolución ni cambio una vez iniciada la producción. Ante dudas sobre medidas, se recomienda solicitar una visita de medición previa.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">5. Garantía</h3>
+              <p>Los productos cuentan con garantía sobre defectos de fabricación por un período de 12 meses desde la fecha de entrega. La garantía no cubre daños por uso inadecuado, instalación incorrecta realizada por terceros ajenos a la empresa, ni deterioro por factores ambientales (humedad excesiva, salinidad, etc.).</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">6. Instalación</h3>
+              <p>Cuando el presupuesto incluye instalación, el cliente debe garantizar el acceso al lugar y condiciones seguras de trabajo. Si en el momento de la instalación se detectan imprevistos estructurales (mampostería, contramarco fuera de escuadra, etc.), podrán generar costos adicionales que se acordarán previamente.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">7. Cancelaciones y modificaciones</h3>
+              <p>Las modificaciones posteriores a la confirmación pueden implicar ajuste de precios y plazos. La cancelación de un pedido en producción no da derecho a la devolución de la seña abonada, dado que los materiales ya fueron comprometidos y/o fabricados.</p>
+            </section>
+
+            <section>
+              <h3 className="font-bold text-gray-800 text-sm mb-1.5">8. Aceptación</h3>
+              <p>Al aprobar esta proforma, el cliente declara haber leído, comprendido y aceptado la totalidad de estos términos y condiciones, así como las especificaciones técnicas detalladas en el presupuesto.</p>
+            </section>
+
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 py-4 border-t border-gray-100 shrink-0">
+            <button onClick={() => setShowTerminos(false)}
+              className="w-full py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: '#031d49' }}>
+              Entendido — volver a la proforma
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
