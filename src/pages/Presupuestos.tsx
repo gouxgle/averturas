@@ -792,7 +792,7 @@ export function Presupuestos() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 min-h-screen" data-section="presupuestos">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1440px] mx-auto" data-section="presupuestos">
       <SectionHero
         section="presupuestos"
         icon={FileText}
@@ -808,13 +808,15 @@ export function Presupuestos() {
       />
 
       {s && (
-        <CompactStatsBar items={[
-          { value: s.total_activos,             label: 'presupuestos activos',    color: '#a78bfa' },
-          { value: formatCurrency(s.importe_total), label: 'importe total',       color: '#ffffff' },
-          { value: s.sin_respuesta_count,        label: 'sin respuesta',           color: '#fbbf24' },
-          { value: s.vencidos_count,             label: 'vencidos',                color: '#f87171' },
-          { value: `${s.tasa_cierre_pct}%`,      label: 'tasa de cierre',          color: '#34d399' },
-        ]} />
+        <div className="mb-5">
+          <CompactStatsBar items={[
+            { value: s.total_activos,             label: 'presupuestos activos',    color: '#a78bfa' },
+            { value: formatCurrency(s.importe_total), label: 'importe total',       color: '#ffffff' },
+            { value: s.sin_respuesta_count,        label: 'sin respuesta',           color: '#fbbf24' },
+            { value: s.vencidos_count,             label: 'vencidos',                color: '#f87171' },
+            { value: `${s.tasa_cierre_pct}%`,      label: 'tasa de cierre',          color: '#34d399' },
+          ]} />
+        </div>
       )}
 
       {/* Main area */}

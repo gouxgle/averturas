@@ -635,7 +635,7 @@ export function Proveedores() {
 
 
   return (
-    <div className="p-6 space-y-5" data-section="proveedores">
+    <div className="p-6 space-y-5 max-w-[1440px] mx-auto" data-section="proveedores">
       <SectionHero
         section="proveedores"
         icon={Truck}

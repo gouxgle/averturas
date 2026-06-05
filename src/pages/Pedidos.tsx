@@ -574,7 +574,7 @@ export default function Pedidos() {
   const stats = data?.stats ?? { pendientes: 0, enviados: 0, recibidos_semana: 0, valor_pendiente: 0 };
 
   return (
-    <div className="p-4 xl:p-6 space-y-4" data-section="pedidos">
+    <div className="p-4 xl:p-6 space-y-4 max-w-[1440px] mx-auto" data-section="pedidos">
       <SectionHero
         section="pedidos"
         icon={ShoppingCart}
