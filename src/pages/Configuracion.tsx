@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { SectionHero } from '@/components/SectionHero';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -784,17 +785,13 @@ export function Configuracion() {
   }
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center">
-          <SlidersHorizontal size={20} className="text-slate-600" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Configuración</h1>
-          <p className="text-sm text-gray-500">Ajustes del sistema</p>
-        </div>
-      </div>
+    <div className="p-3 sm:p-4 lg:p-6 max-w-5xl mx-auto space-y-6" data-section="config">
+      <SectionHero
+        section="config"
+        icon={SlidersHorizontal}
+        title="Configuración"
+        sub="Ajustes del sistema, catálogo y usuarios"
+      />
 
       {/* General */}
       <div>

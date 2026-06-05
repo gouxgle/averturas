@@ -10,6 +10,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { toast } from 'sonner';
 
 // ── Tipos ────────────────────────────────────────────────────────────
@@ -536,27 +537,13 @@ export function Remitos() {
           {/* Columna principal */}
           <div className="flex-1 min-w-0 space-y-4">
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {[
-                { icon: Truck,        bg: 'bg-teal-100',    cl: 'text-teal-600',   label: 'Pendientes',          val: data.stats.pendientes,     sub: 'Para entregar',        subCl: '' },
-                { icon: Clock,        bg: 'bg-orange-100',  cl: 'text-orange-600', label: 'Para hoy',            val: data.stats.para_hoy,       sub: 'Entregas programadas',  subCl: '' },
-                { icon: AlertTriangle,bg: 'bg-red-100',     cl: 'text-red-500',    label: 'Atrasados',           val: data.stats.atrasados,      sub: 'Requieren atención',    subCl: 'text-red-500 font-semibold' },
-                { icon: CheckCircle2, bg: 'bg-emerald-100', cl: 'text-emerald-600',label: 'Entregados (mes)',     val: data.stats.entregados_mes, sub: 'Este mes',              subCl: '' },
-                { icon: DollarSign,   bg: 'bg-blue-100',    cl: 'text-blue-600',   label: 'Valor total pendiente',val: formatCurrency(data.stats.valor_pendiente), sub: 'En mercadería', subCl: '' },
-              ].map(({ icon: Icon, bg, cl, label, val, sub, subCl }) => (
-                <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${bg}`}>
-                      <Icon size={16} className={cl} />
-                    </div>
-                    <p className="text-[11px] font-medium text-gray-500 leading-tight">{label}</p>
-                  </div>
-                  <p className="text-2xl font-extrabold text-gray-900 tabular-nums leading-none">{val}</p>
-                  <p className={`text-[11px] mt-1 ${subCl || 'text-gray-400'}`}>{sub}</p>
-                </div>
-              ))}
-            </div>
+            <CompactStatsBar items={[
+              { value: data.stats.pendientes,               label: 'pendientes',        color: '#2dd4bf' },
+              { value: data.stats.para_hoy,                 label: 'para hoy',          color: '#fbbf24' },
+              { value: data.stats.atrasados,                label: 'atrasados',         color: '#f87171' },
+              { value: data.stats.entregados_mes,           label: 'entregados este mes',color: '#34d399' },
+              { value: formatCurrency(data.stats.valor_pendiente), label: 'valor pendiente', color: '#ffffff' },
+            ]} />
 
             {/* Filtros + búsqueda */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">

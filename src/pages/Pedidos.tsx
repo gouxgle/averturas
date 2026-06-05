@@ -9,6 +9,8 @@ import {
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 // ── Tipos ──────────────────────────────────────────────────────
 
@@ -572,45 +574,31 @@ export default function Pedidos() {
   const stats = data?.stats ?? { pendientes: 0, enviados: 0, recibidos_semana: 0, valor_pendiente: 0 };
 
   return (
-    <div className="p-4 xl:p-6">
+    <div className="p-4 xl:p-6 space-y-4" data-section="pedidos">
+      <SectionHero
+        section="pedidos"
+        icon={ShoppingCart}
+        title="Pedidos al Proveedor"
+        sub="Gestión de órdenes de compra"
+        actions={
+          <button onClick={() => navigate('/pedidos/nuevo')}
+            className="flex items-center gap-2 bg-lime-500 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-lime-600 transition-colors">
+            <Plus size={16} /> Nuevo pedido
+          </button>
+        }
+      />
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Pedidos a Proveedor</h1>
-          <p className="text-sm text-gray-500">Gestión de órdenes de compra</p>
-        </div>
-        <button
-          onClick={() => navigate('/pedidos/nuevo')}
-          className="flex items-center gap-2 bg-lime-500 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-lime-600 transition-colors"
-        >
-          <Plus size={16} />
-          Nuevo pedido
-        </button>
-      </div>
+      <CompactStatsBar items={[
+        { value: stats.pendientes,                label: 'pendientes',       color: '#a3e635' },
+        { value: stats.enviados,                  label: 'enviados',         color: '#60a5fa' },
+        { value: stats.recibidos_semana,          label: 'recibidos esta semana', color: '#34d399' },
+        { value: formatCurrency(stats.valor_pendiente), label: 'valor pendiente', color: '#ffffff' },
+      ]} />
 
       <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
 
         {/* Tabla principal */}
         <div className="flex-1 min-w-0">
-
-          {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            {[
-              { label: 'Pendientes',   value: stats.pendientes,       icon: Clock,         cls: 'text-amber-600' },
-              { label: 'Enviados',     value: stats.enviados,         icon: Truck,         cls: 'text-sky-600' },
-              { label: 'Recibidos (semana)', value: stats.recibidos_semana, icon: CheckCircle, cls: 'text-emerald-600' },
-              { label: 'Valor pendiente', value: formatCurrency(stats.valor_pendiente), icon: DollarSign, cls: 'text-purple-600', raw: true },
-            ].map(({ label, value, icon: Icon, cls, raw }) => (
-              <div key={label} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon size={14} className={cls} />
-                  <span className="text-[11px] text-gray-400 font-medium">{label}</span>
-                </div>
-                <p className={cn('text-xl font-bold', cls)}>{raw ? value : value}</p>
-              </div>
-            ))}
-          </div>
 
           {/* Filtros */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
 import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 import {
   Receipt, Plus, Search, RefreshCw, CheckCircle2, XCircle,
   Wallet, CreditCard, Landmark, Banknote, X, Ban, Pen,
@@ -597,43 +598,14 @@ export function Recibos() {
         </>}
       />
 
-      {/* KPI bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {kpis.map((k, i) => {
-          const Icon = k.icon;
-          return (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <div className="flex items-start justify-between mb-2">
-                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', k.bg)}>
-                  {k.circular !== undefined ? (
-                    <svg width={20} height={20} viewBox="0 0 20 20">
-                      <circle cx={10} cy={10} r={8} fill="none" stroke="#e5e7eb" strokeWidth={3} />
-                      <circle cx={10} cy={10} r={8} fill="none" stroke="#0284c7"
-                        strokeWidth={3}
-                        strokeDasharray={`${k.circular / 100 * 50.3} 50.3`}
-                        strokeDashoffset={12.6}
-                        strokeLinecap="round" />
-                    </svg>
-                  ) : (
-                    <Icon size={16} className={k.color} />
-                  )}
-                </div>
-              </div>
-              <p className="text-[11px] text-gray-500 mb-0.5">{k.label}</p>
-              <p className={cn('text-lg font-bold tabular-nums', loading ? 'text-gray-300' : 'text-gray-900')}>
-                {k.valor}
-              </p>
-              {k.progress !== undefined && (
-                <div className="mt-1.5 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full transition-all"
-                    style={{ width: `${Math.min(k.progress, 100)}%` }} />
-                </div>
-              )}
-              <p className="text-[10px] text-gray-400 mt-1">{k.sub}</p>
-            </div>
-          );
-        })}
-      </div>
+      <CompactStatsBar items={[
+        { value: formatCurrency(stats.total_a_cobrar), label: 'total a cobrar',    color: '#ffffff' },
+        { value: formatCurrency(stats.cobrado_mes),    label: 'cobrado este mes',  color: '#34d399' },
+        { value: formatCurrency(stats.pendiente_cobro),label: 'pendiente cobro',   color: '#fbbf24' },
+        { value: formatCurrency(stats.vencido),        label: 'vencido',           color: '#f87171' },
+        { value: `${stats.pct_cobro}%`,                label: 'tasa de cobro',     color: '#60a5fa' },
+        { value: `${stats.dias_promedio}d`,            label: 'días prom. cobro',  color: '#c084fc' },
+      ]} />
 
       {/* Layout principal */}
       <div className="flex flex-col xl:flex-row gap-4 xl:items-start">

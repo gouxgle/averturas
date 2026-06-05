@@ -9,6 +9,7 @@ import {
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { SectionHero } from '@/components/SectionHero';
 import type { Producto, TipoOperacion } from '@/types';
 
 // ── Mapas de labels / colores ─────────────────────────────────────────────────
@@ -583,23 +584,19 @@ export function Productos() {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
-            <Layers size={20} className="text-sky-600"/>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Productos</h1>
-            <p className="text-sm text-gray-500">Catálogo de aberturas y precios base</p>
-          </div>
-        </div>
-        <Link to="/productos/nuevo"
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all">
-          <Plus size={16}/> Nuevo producto
-        </Link>
-      </div>
+    <div className="p-6 max-w-7xl mx-auto space-y-5" data-section="productos">
+      <SectionHero
+        section="productos"
+        icon={Layers}
+        title="Productos"
+        sub={`Catálogo de aberturas y precios base · ${productos.length} productos`}
+        actions={
+          <Link to="/productos/nuevo"
+            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+            <Plus size={16}/> Nuevo producto
+          </Link>
+        }
+      />
 
       {/* Buscador */}
       <div className="relative">

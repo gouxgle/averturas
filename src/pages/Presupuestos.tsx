@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
 import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 import {
   Plus, Search, FileText, CheckCircle, XCircle,
   X, Pen, Printer, Share2, Copy, Check, Phone, Mail, User,
@@ -806,70 +807,15 @@ export function Presupuestos() {
         </>}
       />
 
-      {/* KPI tiles */}
-      {loading ? (
-        <div className="grid grid-cols-5 gap-2 mb-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-white rounded-lg border border-gray-200 p-2.5 animate-pulse">
-              <div className="h-2.5 bg-gray-100 rounded w-2/3 mb-2" />
-              <div className="h-5 bg-gray-100 rounded w-1/2" />
-            </div>
-          ))}
-        </div>
-      ) : s ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
-          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-5 h-5 rounded-md bg-violet-100 flex items-center justify-center flex-shrink-0">
-                <FileText size={11} className="text-violet-600" />
-              </div>
-              <span className="text-[11px] text-gray-500 truncate">Total presupuestos</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{s.total_activos}</p>
-            <p className="text-[10px] text-gray-400">Activos</p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                <TrendingUp size={11} className="text-emerald-600" />
-              </div>
-              <span className="text-[11px] text-gray-500 truncate">Importe total</span>
-            </div>
-            <p className="text-sm font-bold text-gray-900 leading-tight">{formatCurrency(s.importe_total)}</p>
-            <p className="text-[10px] text-gray-400">En presupuestos activos</p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <Clock size={11} className="text-amber-600" />
-              </div>
-              <span className="text-[11px] text-gray-500 truncate">Sin respuesta</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{s.sin_respuesta_count}</p>
-            <p className="text-[10px] text-amber-600 font-medium">{formatCurrency(s.sin_respuesta_monto)} en riesgo</p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-5 h-5 rounded-md bg-red-100 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={11} className="text-red-500" />
-              </div>
-              <span className="text-[11px] text-gray-500 truncate">Vencidos</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{s.vencidos_count}</p>
-            <p className="text-[10px] text-red-500 font-medium">{formatCurrency(s.vencidos_monto)} en riesgo</p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 px-3 py-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-5 h-5 rounded-md bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <CheckCircle size={11} className="text-blue-600" />
-              </div>
-              <span className="text-[11px] text-gray-500 truncate">Tasa de cierre</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900 leading-tight">{s.tasa_cierre_pct}%</p>
-            <p className="text-[10px] text-gray-400">Últimos 30 días</p>
-          </div>
-        </div>
-      ) : null}
+      {s && (
+        <CompactStatsBar items={[
+          { value: s.total_activos,             label: 'presupuestos activos',    color: '#a78bfa' },
+          { value: formatCurrency(s.importe_total), label: 'importe total',       color: '#ffffff' },
+          { value: s.sin_respuesta_count,        label: 'sin respuesta',           color: '#fbbf24' },
+          { value: s.vencidos_count,             label: 'vencidos',                color: '#f87171' },
+          { value: `${s.tasa_cierre_pct}%`,      label: 'tasa de cierre',          color: '#34d399' },
+        ]} />
+      )}
 
       {/* Main area */}
       <div className="flex flex-col xl:flex-row gap-4 xl:items-start">

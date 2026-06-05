@@ -11,6 +11,8 @@ import {
   Mail, Globe, UserCheck, Trophy, FileText, Calendar,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -676,53 +678,32 @@ export function CRM() {
   const EMBUDO_COLORS = ['#3B82F6','#8B5CF6','#F59E0B','#F97316','#10B981'];
 
   return (
-    <div className="p-4 space-y-4 max-w-[1700px]">
-
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">CRM — Gestión de Clientes</h1>
-          <p className="text-xs text-gray-500">Gestioná todo el proceso comercial y cerrá más ventas</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={fetchData} className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-500">
+    <div className="p-4 space-y-4 max-w-[1700px]" data-section="crm">
+      <SectionHero
+        section="crm"
+        icon={Users}
+        title="CRM"
+        sub="Gestioná todo el proceso comercial y cerrá más ventas"
+        actions={<>
+          <button onClick={fetchData} className="p-2 rounded-xl hover:bg-white/70 text-gray-500">
             <RefreshCw size={14} />
           </button>
-          <button
-            onClick={() => setModalLead(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700"
-          >
+          <button onClick={() => setModalLead(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700">
             <Plus size={15} /> Nuevo Lead
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
-      {/* ── KPIs ── */}
-      {loading ? (
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="bg-white rounded-2xl border border-gray-100 h-24 animate-pulse" />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          <KpiCard icon={<Users size={15} className="text-blue-600" />} color="bg-blue-100"
-            label="Leads nuevos" value={String(kpis?.leads_nuevos ?? 0)}
-            sub={<VsAnterior pct={kpis?.leads_nuevos_vs ?? 0} />} />
-          <KpiCard icon={<MessageCircle size={15} className="text-violet-600" />} color="bg-violet-100"
-            label="En seguimiento" value={String(kpis?.en_seguimiento ?? 0)}
-            sub="activos en pipeline" />
-          <KpiCard icon={<FileText size={15} className="text-amber-600" />} color="bg-amber-100"
-            label="Presupuestados" value={String(kpis?.presupuestados ?? 0)}
-            sub="esperando respuesta" />
-          <KpiCard icon={<CheckCircle2 size={15} className="text-green-600" />} color="bg-green-100"
-            label="Ventas cerradas" value={String(kpis?.ventas_cerradas ?? 0)}
-            sub="este período" />
-          <KpiCard icon={<Target size={15} className="text-orange-500" />} color="bg-orange-100"
-            label="Tasa de cierre" value={`${kpis?.tasa_cierre ?? 0}%`}
-            sub="de oportunidades" />
-          <KpiCard icon={<DollarSign size={15} className="text-emerald-600" />} color="bg-emerald-100"
-            label="Ventas totales" value={fmtM(kpis?.ventas_totales ?? 0)}
-            sub={<VsAnterior pct={kpis?.ventas_vs_anterior ?? 0} />} />
-        </div>
+      {kpis && (
+        <CompactStatsBar items={[
+          { value: kpis.leads_nuevos,            label: 'leads nuevos',      color: '#fb7185' },
+          { value: kpis.en_seguimiento,          label: 'en seguimiento',    color: '#ffffff' },
+          { value: kpis.presupuestados,          label: 'presupuestados',    color: '#fbbf24' },
+          { value: kpis.ventas_cerradas,         label: 'ventas cerradas',   color: '#34d399' },
+          { value: `${kpis.tasa_cierre}%`,       label: 'tasa de cierre',    color: '#60a5fa' },
+          { value: fmtM(kpis.ventas_totales),    label: 'ventas totales',    color: '#c084fc' },
+        ]} />
       )}
 
       {/* ── Pipeline + Sidebar ── */}

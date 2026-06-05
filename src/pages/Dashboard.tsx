@@ -127,7 +127,7 @@ export function Dashboard() {
     : 0;
 
   return (
-    <div className="page-enter p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto">
+    <div className="page-enter p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto" data-section="dashboard">
 
       {/* ── Encabezado ───────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">

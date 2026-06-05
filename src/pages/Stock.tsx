@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface ProductoExistencias {
@@ -1149,73 +1150,19 @@ export function Stock() {
           </>}
         />
 
-        {/* KPI tiles */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <RefreshCw size={20} className="animate-spin text-gray-400" />
           </div>
         ) : stats && (
           <>
-            <div className="grid grid-cols-5 gap-3">
-              {/* Críticos */}
-              <button onClick={() => { setFiltro('critico'); setTab('existencias'); }}
-                className={`bg-white rounded-2xl border p-4 text-left shadow-sm hover:shadow-md transition-all ${
-                  filtro === 'critico' ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-100'
-                }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                    <AlertTriangle size={15} className="text-red-600" />
-                  </div>
-                  {stats.critico_count > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  )}
-                </div>
-                <p className="text-2xl font-bold text-red-600">{stats.critico_count}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Críticos</p>
-              </button>
-
-              {/* Bajo mínimo */}
-              <button onClick={() => { setFiltro('bajo'); setTab('existencias'); }}
-                className={`bg-white rounded-2xl border p-4 text-left shadow-sm hover:shadow-md transition-all ${
-                  filtro === 'bajo' ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-100'
-                }`}>
-                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
-                  <TrendingDown size={15} className="text-amber-600" />
-                </div>
-                <p className="text-2xl font-bold text-amber-600">{stats.bajo_minimo_count}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Bajo mínimo</p>
-              </button>
-
-              {/* Valor total */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mb-2">
-                  <DollarSign size={15} className="text-blue-600" />
-                </div>
-                <p className="text-lg font-bold text-blue-600 leading-tight">{fmtMonto(stats.valor_total_stock)}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Valor en stock</p>
-              </div>
-
-              {/* Sin movimiento */}
-              <button onClick={() => { setFiltro('sin_movimiento'); setTab('existencias'); }}
-                className={`bg-white rounded-2xl border p-4 text-left shadow-sm hover:shadow-md transition-all ${
-                  filtro === 'sin_movimiento' ? 'border-gray-400 ring-1 ring-gray-200' : 'border-gray-100'
-                }`}>
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center mb-2">
-                  <BarChart2 size={15} className="text-gray-500" />
-                </div>
-                <p className="text-2xl font-bold text-gray-600">{stats.sin_movimiento_count}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Sin movimiento 60d</p>
-              </button>
-
-              {/* Activos */}
-              <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
-                  <Boxes size={15} className="text-emerald-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{stats.activos_count}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Productos activos</p>
-              </div>
-            </div>
+            <CompactStatsBar items={[
+              { value: stats.activos_count,         label: 'productos activos',    color: '#fb923c' },
+              { value: stats.critico_count,         label: 'críticos',             color: '#f87171' },
+              { value: stats.bajo_minimo_count,     label: 'bajo mínimo',          color: '#fbbf24' },
+              { value: stats.sin_movimiento_count,  label: 'sin movimiento 60d',   color: '#94a3b8' },
+              { value: fmtMonto(stats.valor_total_stock), label: 'valor en stock', color: '#ffffff' },
+            ]} />
 
             {/* Alertas importantes */}
             {tablero!.alertas.length > 0 && (

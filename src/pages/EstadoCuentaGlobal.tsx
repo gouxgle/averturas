@@ -5,11 +5,13 @@ import {
   ArrowUpDown, XCircle, CheckCheck, Trash2, Users,
   DollarSign, Phone, MessageSquare, Mail, MoreVertical,
   TrendingUp, TrendingDown, RefreshCw, Download, Plus,
-  ExternalLink, Flame,
+  ExternalLink, Flame, BookOpen,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -481,102 +483,32 @@ export function EstadoCuentaGlobal() {
   ];
 
   return (
-    <div className="p-5 min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Estado de Cuenta</h1>
-          <p className="text-sm text-gray-500">Control de saldos y gestión de cobranzas</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Actualizar">
+    <div className="p-5 min-h-screen space-y-4" data-section="estado">
+      <SectionHero
+        section="estado"
+        icon={BookOpen}
+        title="Estado de Cuenta"
+        sub="Control de saldos y gestión de cobranzas"
+        actions={<>
+          <button onClick={load} className="p-2 hover:bg-white/70 rounded-lg transition-colors">
             <RefreshCw size={15} className="text-gray-500" />
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white rounded-lg text-xs text-gray-600 hover:border-gray-300 transition-colors">
-            <Download size={13} /> Exportar reporte
-          </button>
           <button onClick={() => navigate('/recibos/nuevo')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors">
-            <Plus size={15} /> Nuevo cobro / Pago
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors">
+            <Plus size={15} /> Nuevo cobro
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
-      {/* 5 KPI tiles */}
-      {loading ? (
-        <div className="grid grid-cols-5 gap-3 mb-5">
-          {[...Array(5)].map((_, i) => <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse h-24" />)}
-        </div>
-      ) : t ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-          {/* Saldo total */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center">
-                <TrendingDown size={14} className="text-red-500" />
-              </div>
-              <span className="text-xs text-gray-500">Saldo total</span>
-            </div>
-            <p className="text-xl font-bold text-red-600">{formatCurrency(t.saldo)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{t.clientes_con_saldo} cliente{t.clientes_con_saldo !== 1 ? 's' : ''} con deuda</p>
-          </div>
-          {/* Total cobrado */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <TrendingUp size={14} className="text-emerald-500" />
-              </div>
-              <span className="text-xs text-gray-500">Total cobrado</span>
-            </div>
-            <p className="text-xl font-bold text-emerald-600">{formatCurrency(t.cobrado)}</p>
-            <div className="mt-1.5">
-              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-0.5">
-                <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${t.pct_cobrado}%` }} />
-              </div>
-              <p className="text-[10px] text-gray-400">{t.pct_cobrado}% del presupuestado</p>
-            </div>
-          </div>
-          {/* Comprometido */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Calendar size={14} className="text-blue-500" />
-              </div>
-              <span className="text-xs text-gray-500">Comprometido</span>
-            </div>
-            <p className="text-xl font-bold text-blue-600">{formatCurrency(t.compromisos)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Cheques y cuotas pendientes</p>
-          </div>
-          {/* Vencidos */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center">
-                <AlertTriangle size={14} className="text-red-500" />
-              </div>
-              <span className="text-xs text-gray-500">Vencidos</span>
-            </div>
-            <p className="text-xl font-bold text-red-600">{formatCurrency(t.vencidos_monto)}</p>
-            <p className="text-xs text-red-400 mt-0.5 font-medium">
-              {t.saldo > 0 ? Math.round(t.vencidos_monto / t.saldo * 100) : 0}% del saldo total
-            </p>
-          </div>
-          {/* Clientes con deuda */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-                <Users size={14} className="text-violet-500" />
-              </div>
-              <span className="text-xs text-gray-500">Clientes con deuda</span>
-            </div>
-            <p className="text-xl font-bold text-gray-800">
-              {t.clientes_con_saldo} <span className="text-base font-normal text-gray-400">de {t.total_clientes}</span>
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {t.total_clientes > 0 ? Math.round(t.clientes_con_saldo / t.total_clientes * 100) : 0}% del total de clientes
-            </p>
-          </div>
-        </div>
-      ) : null}
+      {t && (
+        <CompactStatsBar items={[
+          { value: formatCurrency(t.saldo),        label: 'saldo total a cobrar',  color: '#f87171' },
+          { value: formatCurrency(t.cobrado),       label: 'cobrado',               color: '#34d399' },
+          { value: formatCurrency(t.vencidos_monto),label: 'vencido',               color: '#fbbf24' },
+          { value: formatCurrency(t.compromisos),   label: 'comprometido',          color: '#818cf8' },
+          { value: `${t.clientes_con_saldo}`,       label: `de ${t.total_clientes} clientes`, color: '#ffffff' },
+        ]} />
+      )}
 
       {/* Cobros prioritarios */}
       {!loading && cobros.length > 0 && (

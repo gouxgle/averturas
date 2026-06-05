@@ -9,6 +9,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 // ── Tipos ────────────────────────────────────────────────────────
 
@@ -403,25 +404,15 @@ export function Clientes() {
         </>}
       />
 
-      {/* KPI bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {KPIS.map((k, i) => {
-          const Icon = k.icon;
-          return (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center mb-3', k.bg)}>
-                <Icon size={18} className={k.color} />
-              </div>
-              <p className="text-[11px] text-gray-500 mb-0.5">{k.label}</p>
-              <p className={cn('font-bold tabular-nums', loading ? 'text-gray-300' : 'text-gray-900',
-                k.isCurrency ? 'text-base' : 'text-2xl')}>
-                {k.isCurrency ? k.valor : k.valor}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{k.sub}</p>
-            </div>
-          );
-        })}
-      </div>
+      {stats && (
+        <CompactStatsBar items={[
+          { value: stats.total,                          label: 'total clientes',       color: '#22d3ee' },
+          { value: stats.activos,                        label: 'activos',              color: '#34d399' },
+          { value: stats.nuevos_mes,                     label: 'nuevos este mes',      color: '#a78bfa' },
+          { value: stats.sin_actividad,                  label: 'sin actividad 60d',    color: '#fbbf24' },
+          { value: formatCurrency(stats.total_facturado_mes), label: 'facturado este mes', color: '#ffffff' },
+        ]} />
+      )}
 
       {/* Layout */}
       <div className="flex flex-col 2xl:flex-row gap-4 items-start">
