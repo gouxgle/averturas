@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
+import { SectionHero } from '@/components/SectionHero';
 import {
   Receipt, Plus, Search, RefreshCw, CheckCircle2, XCircle,
   Wallet, CreditCard, Landmark, Banknote, X, Ban, Pen,
@@ -578,16 +579,14 @@ export function Recibos() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Recibos</h1>
-          <p className="text-sm text-gray-500">Control de cobranzas y pagos</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4" data-section="recibos">
+      <SectionHero
+        section="recibos"
+        icon={Receipt}
+        title="Recibos"
+        sub="Control de cobranzas y pagos"
+        actions={<>
+          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
           <HelpButton topic="recibos" />
@@ -595,8 +594,8 @@ export function Recibos() {
             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
             <Plus size={14} /> Nuevo recibo
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* KPI bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

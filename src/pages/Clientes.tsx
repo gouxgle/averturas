@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { SectionHero } from '@/components/SectionHero';
 
 // ── Tipos ────────────────────────────────────────────────────────
 
@@ -381,32 +382,26 @@ export function Clientes() {
   };
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-sm text-gray-500">Gestión de clientes y oportunidades</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4" data-section="clientes">
+      <SectionHero
+        section="clientes"
+        icon={Users}
+        title="Clientes"
+        sub="Gestión de clientes y oportunidades"
+        actions={<>
+          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={exportarCSV}
-            className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold">
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold">
             <Download size={14} /> Exportar
           </button>
-          <button onClick={() => navigate('/clientes/importar')}
-            className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold">
-            <Upload size={14} /> Importador
-          </button>
           <button onClick={() => navigate('/clientes/nuevo')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
+            className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-sm font-semibold">
             <Plus size={14} /> Nuevo cliente
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* KPI bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

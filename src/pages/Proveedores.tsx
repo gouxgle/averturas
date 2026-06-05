@@ -6,6 +6,7 @@ import {
   RefreshCw, Phone, Mail, Package, ChevronLeft, ChevronRight,
   ShoppingCart, DollarSign, Clock, BarChart2, Zap, Tag, Trash2,
 } from 'lucide-react';
+import { SectionHero } from '@/components/SectionHero';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -634,29 +635,22 @@ export function Proveedores() {
 
 
   return (
-    <div className="p-6 space-y-5">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-            <Truck size={20} className="text-amber-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Proveedores + Logística</h1>
-            <p className="text-sm text-gray-500">Gestión de proveedores, compras y transporte</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
+    <div className="p-6 space-y-5" data-section="proveedores">
+      <SectionHero
+        section="proveedores"
+        icon={Truck}
+        title="Proveedores"
+        sub="Gestión de proveedores, compras y transporte"
+        actions={<>
+          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={() => setModal('nuevo')}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold shadow-sm">
             <Plus size={15} /> Nuevo proveedor
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* KPI tiles — compactos */}
       {stats && (

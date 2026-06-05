@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { SectionHero } from '@/components/SectionHero';
 import { toast } from 'sonner';
 
 // ── Tipos ────────────────────────────────────────────────────────────
@@ -503,29 +504,22 @@ export function Remitos() {
   const fechaHoyLabel = now.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
-            <Truck size={22} className="text-teal-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-gray-900">Remitos</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Control de entregas y logística</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={cargar} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4" data-section="remitos">
+      <SectionHero
+        section="remitos"
+        icon={Truck}
+        title="Remitos"
+        sub="Control de entregas y logística"
+        actions={<>
+          <button type="button" onClick={cargar} className="p-2.5 bg-white/70 border border-gray-200 rounded-xl hover:bg-white transition-colors">
             <RefreshCw size={16} className={cn('text-gray-500', loading && 'animate-spin')} />
           </button>
           <Link to="/remitos/nuevo"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:opacity-90 bg-teal-600">
             <Plus size={15} /> Nuevo remito
           </Link>
-        </div>
-      </div>
+        </>}
+      />
 
       {loading && !data ? (
         <div className="flex gap-5">

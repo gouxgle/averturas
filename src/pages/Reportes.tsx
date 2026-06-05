@@ -11,6 +11,7 @@ import {
   ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { SectionHero } from '@/components/SectionHero';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -368,71 +369,51 @@ export function Reportes() {
   const ops  = data?.operaciones;
 
   return (
-    <div className="p-5 space-y-5 max-w-[1600px]">
-
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
-            <BarChart3 size={18} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Informes del negocio</h1>
-            <p className="text-xs text-gray-500">Entendé qué está pasando y tomá mejores decisiones</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
+    <div className="p-5 space-y-5 max-w-[1600px]" data-section="reportes">
+      <SectionHero
+        section="reportes"
+        icon={BarChart3}
+        title="Informes"
+        sub="Entendé qué está pasando y tomá mejores decisiones"
+        actions={<>
           {/* Filtro período */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-white/60 rounded-xl p-1">
             {(['hoy','semana','mes'] as FiltroTiempo[]).map(f => (
-              <button
-                key={f}
-                onClick={() => aplicarFiltro(f)}
+              <button key={f} onClick={() => aplicarFiltro(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
                   filtro === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
+                }`}>
                 {f === 'hoy' ? 'Hoy' : f === 'semana' ? 'Semana' : 'Mes'}
               </button>
             ))}
-            <button
-              onClick={() => setFiltro('personalizado')}
+            <button onClick={() => setFiltro('personalizado')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
                 filtro === 'personalizado' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Calendar size={12} />
-              Personalizado
+              }`}>
+              <Calendar size={12} /> Personalizado
             </button>
           </div>
-
           {filtro === 'personalizado' && (
             <div className="flex items-center gap-1.5">
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5" />
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white" />
               <span className="text-gray-400 text-xs">—</span>
               <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5" />
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white" />
               <button onClick={fetchData}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">
-                Aplicar
-              </button>
+                className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700">Aplicar</button>
             </div>
           )}
-
           <button onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-medium">
-            <FileText size={13} />
-            Exportar PDF
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 bg-white/70 hover:bg-red-50 rounded-lg text-xs font-medium">
+            <FileText size={13} /> PDF
           </button>
           <button onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 rounded-lg text-xs font-medium">
-            <Download size={13} />
-            Exportar Excel
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-green-200 text-green-700 bg-white/70 hover:bg-green-50 rounded-lg text-xs font-medium">
+            <Download size={13} /> Excel
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* ── KPIs row ── */}
       {loading ? (

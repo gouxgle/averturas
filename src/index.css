@@ -26,6 +26,28 @@
     --brand-navy: #031d49;
     --brand-red:  #e31e24;
     --app-bg:     #f0f4fb;
+
+    /* ── Section accent tokens (icon / deep / bg-wash / strip) ── */
+    --accent-dashboard:        #60a5fa;  --accent-dashboard-deep:    #1d4ed8;  --accent-dashboard-bg:    #eff6ff;  --accent-dashboard-strip:    #dbeafe;
+    --accent-crm:              #fb7185;  --accent-crm-deep:          #be123c;  --accent-crm-bg:          #fff1f2;  --accent-crm-strip:          #ffe4e6;
+    --accent-presupuestos:     #a78bfa;  --accent-presupuestos-deep: #6d28d9;  --accent-presupuestos-bg: #f5f3ff;  --accent-presupuestos-strip: #ede9fe;
+    --accent-operaciones:      #fbbf24;  --accent-operaciones-deep:  #b45309;  --accent-operaciones-bg:  #fffbeb;  --accent-operaciones-strip:  #fef3c7;
+    --accent-remitos:          #2dd4bf;  --accent-remitos-deep:      #0f766e;  --accent-remitos-bg:      #f0fdfa;  --accent-remitos-strip:      #ccfbf1;
+    --accent-pedidos:          #a3e635;  --accent-pedidos-deep:      #4d7c0f;  --accent-pedidos-bg:      #f7fee7;  --accent-pedidos-strip:      #ecfccb;
+    --accent-recibos:          #34d399;  --accent-recibos-deep:      #047857;  --accent-recibos-bg:      #ecfdf5;  --accent-recibos-strip:      #d1fae5;
+    --accent-clientes:         #22d3ee;  --accent-clientes-deep:     #0e7490;  --accent-clientes-bg:     #ecfeff;  --accent-clientes-strip:     #cffafe;
+    --accent-estado:           #818cf8;  --accent-estado-deep:       #4338ca;  --accent-estado-bg:       #eef2ff;  --accent-estado-strip:       #e0e7ff;
+    --accent-productos:        #38bdf8;  --accent-productos-deep:    #0369a1;  --accent-productos-bg:    #f0f9ff;  --accent-productos-strip:    #e0f2fe;
+    --accent-stock:            #fb923c;  --accent-stock-deep:        #c2410c;  --accent-stock-bg:        #fff7ed;  --accent-stock-strip:        #ffedd5;
+    --accent-proveedores:      #fbbf24;  --accent-proveedores-deep:  #b45309;  --accent-proveedores-bg:  #fffbeb;  --accent-proveedores-strip:  #fef3c7;
+    --accent-reportes:         #c084fc;  --accent-reportes-deep:     #7e22ce;  --accent-reportes-bg:     #faf5ff;  --accent-reportes-strip:     #f3e8ff;
+    --accent-config:           #cbd5e1;  --accent-config-deep:       #475569;  --accent-config-bg:       #f8fafc;  --accent-config-strip:       #f1f5f9;
+
+    /* ── Estado operation dots ── */
+    --state-presupuesto: #9ca3af;  --state-enviado:    #fbbf24;
+    --state-aprobado:    #10b981;  --state-produccion: #3b82f6;
+    --state-listo:       #14b8a6;  --state-instalado:  #8b5cf6;
+    --state-entregado:   #22c55e;  --state-cancelado:  #f87171;
   }
   * { @apply border-border; }
   body {
@@ -166,3 +188,49 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ── Section page background tint ────────────────────────────────────────── */
+
+[data-section="dashboard"]    { background-color: var(--accent-dashboard-bg); }
+[data-section="crm"]          { background-color: var(--accent-crm-bg); }
+[data-section="presupuestos"] { background-color: var(--accent-presupuestos-bg); }
+[data-section="operaciones"]  { background-color: var(--accent-operaciones-bg); }
+[data-section="remitos"]      { background-color: var(--accent-remitos-bg); }
+[data-section="pedidos"]      { background-color: var(--accent-pedidos-bg); }
+[data-section="recibos"]      { background-color: var(--accent-recibos-bg); }
+[data-section="clientes"]     { background-color: var(--accent-clientes-bg); }
+[data-section="estado"]       { background-color: var(--accent-estado-bg); }
+[data-section="productos"]    { background-color: var(--accent-productos-bg); }
+[data-section="stock"]        { background-color: var(--accent-stock-bg); }
+[data-section="proveedores"]  { background-color: var(--accent-proveedores-bg); }
+[data-section="reportes"]     { background-color: var(--accent-reportes-bg); }
+[data-section="config"]       { background-color: var(--accent-config-bg); }
+
+/* ── Section hero strip ───────────────────────────────────────────────────── */
+
+.section-hero {
+  position: relative;
+  padding: 20px 0 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.section-hero::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 3px;
+}
+[data-section="dashboard"]    .section-hero::after { background: linear-gradient(90deg,#031d49,#e31e24); }
+[data-section="presupuestos"] .section-hero::after { background: var(--accent-presupuestos); }
+[data-section="operaciones"]  .section-hero::after { background: var(--accent-operaciones); }
+[data-section="remitos"]      .section-hero::after { background: var(--accent-remitos); }
+[data-section="pedidos"]      .section-hero::after { background: var(--accent-pedidos); }
+[data-section="recibos"]      .section-hero::after { background: var(--accent-recibos); }
+[data-section="clientes"]     .section-hero::after { background: var(--accent-clientes); }
+[data-section="estado"]       .section-hero::after { background: var(--accent-estado); }
+[data-section="productos"]    .section-hero::after { background: var(--accent-productos); }
+[data-section="stock"]        .section-hero::after { background: var(--accent-stock); }
+[data-section="proveedores"]  .section-hero::after { background: var(--accent-proveedores); }
+[data-section="reportes"]     .section-hero::after { background: var(--accent-reportes); }
+[data-section="crm"]          .section-hero::after { background: var(--accent-crm); }
+[data-section="config"]       .section-hero::after { background: var(--accent-config); }

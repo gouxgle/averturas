@@ -9,6 +9,7 @@ import {
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
+import { SectionHero } from '@/components/SectionHero';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface ProductoExistencias {
@@ -1125,38 +1126,28 @@ export function Stock() {
   [tablero]);
 
   return (
-    <div className="p-6 flex gap-6 min-h-0">
+    <div className="p-6 flex gap-6 min-h-0" data-section="stock">
       {/* ── Contenido principal ── */}
       <div className="flex-1 min-w-0 space-y-5">
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
-              <Boxes size={20} className="text-orange-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Existencias</h1>
-              <p className="text-sm text-gray-500">
-                {stats ? `${stats.activos_count} productos activos` : 'Cargando...'}
-                {stats && stats.critico_count > 0 && ` · ${stats.critico_count} críticos`}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
+        <SectionHero
+          section="stock"
+          icon={Boxes}
+          title="Existencias"
+          sub={stats ? `${stats.activos_count} productos activos${stats.critico_count > 0 ? ` · ${stats.critico_count} críticos` : ''}` : 'Control de inventario'}
+          actions={<>
+            <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
             <button onClick={() => abrirEgreso()}
-              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-medium">
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white/70 hover:bg-white text-gray-700 rounded-xl text-sm font-medium">
               <Minus size={14} /> Egresar
             </button>
             <button onClick={() => abrirIngreso()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
+              className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold">
               <Plus size={14} /> Ingresar
             </button>
-          </div>
-        </div>
+          </>}
+        />
 
         {/* KPI tiles */}
         {loading ? (

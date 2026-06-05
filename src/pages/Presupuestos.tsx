@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
+import { SectionHero } from '@/components/SectionHero';
 import {
   Plus, Search, FileText, CheckCircle, XCircle,
   X, Pen, Printer, Share2, Copy, Check, Phone, Mail, User,
@@ -790,26 +791,20 @@ export function Presupuestos() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-            <FileText size={20} className="text-violet-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Presupuestos</h1>
-            <p className="text-sm text-gray-500">Gestión de cotizaciones</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="p-3 sm:p-4 lg:p-5 min-h-screen" data-section="presupuestos">
+      <SectionHero
+        section="presupuestos"
+        icon={FileText}
+        title="Presupuestos"
+        sub="Gestión de cotizaciones"
+        actions={<>
           <HelpButton topic="presupuestos" />
           <Link to="/presupuestos/nuevo"
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all">
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
             <Plus size={16} /> Nuevo presupuesto
           </Link>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* KPI tiles */}
       {loading ? (
