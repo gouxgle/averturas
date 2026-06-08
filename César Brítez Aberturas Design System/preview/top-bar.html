@@ -1,0 +1,33 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Top Bar</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:0;}
+  .bar{height:56px;background:#031d49;padding:0 18px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(3,29,73,0.25);}
+  .word{font-size:13px;font-weight:800;color:#fff;letter-spacing:0.04em;}
+  .dash{font-size:11px;color:rgba(255,255,255,0.35);font-weight:300;}
+  .tag{font-size:11px;color:rgba(255,255,255,0.50);font-style:italic;}
+  .bell{margin-left:auto;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;color:#fbbf24;cursor:pointer;}
+  .bell:hover{background:rgba(255,255,255,0.10);}
+  .bell svg{width:18px;height:18px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .badge{position:absolute;top:6px;right:6px;background:#e31e24;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;display:flex;align-items:center;justify-content:center;}
+  .below{padding:14px 18px;font-size:11px;color:#6b7280;}
+  .below code{font-family:var(--font-mono);color:#1f2937;background:#f3f4f6;padding:2px 6px;border-radius:4px;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="bar">
+      <span class="word">César Brítez</span>
+      <span class="dash">—</span>
+      <span class="tag">Aberturas Bien Pensadas</span>
+      <div class="bell" title="Notificaciones">
+        <svg viewBox="0 0 24 24" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="below">
+      Background <code>#031d49</code> · shadow <code>0 2px 12px rgba(3,29,73,.25)</code> · bell turns <code>#fbbf24</code> with red dot when there are unread approvals.
+    </div>
+  </div>
+</body></html>

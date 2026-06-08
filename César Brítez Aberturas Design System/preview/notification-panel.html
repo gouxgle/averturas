@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Notification Panel</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:24px;display:flex;justify-content:center;}
+  .panel{width:320px;background:#0a2761;border:1px solid rgba(255,255,255,0.10);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px -8px rgba(0,0,0,0.30);}
+  .head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .head-left{display:flex;align-items:center;gap:8px;color:#fff;font-size:12px;font-weight:700;}
+  .head-left svg{width:14px;height:14px;stroke:#fbbf24;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .badge{font-size:10px;font-weight:600;color:#fcd34d;background:rgba(251,191,36,0.10);padding:2px 7px;border-radius:9999px;}
+  .head-mark{font-size:10px;color:rgba(255,255,255,0.40);}
+  .item{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);}
+  .item:last-child{border-bottom:0;}
+  .item .ic{width:32px;height:32px;border-radius:12px;background:rgba(34,197,94,0.15);color:#34d399;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .item .ic svg{width:16px;height:16px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .item .body{flex:1;min-width:0;}
+  .item .body p{margin:0;color:#fff;font-size:12px;font-weight:600;line-height:1.3;}
+  .item .body small{display:block;color:rgba(255,255,255,0.50);font-size:11px;margin-top:2px;}
+  .item .meta{display:flex;align-items:center;gap:8px;margin-top:4px;}
+  .item .money{color:#34d399;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .item .when{color:rgba(255,255,255,0.30);font-size:10px;}
+  .num{font-family:var(--font-mono);color:#34d399;font-weight:700;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <div class="head">
+        <div class="head-left">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+          Notificaciones
+          <span class="badge">2 nuevas</span>
+        </div>
+        <span class="head-mark">Marcar leídas</span>
+      </div>
+      <div class="item">
+        <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <div class="body">
+          <p>Familia González</p>
+          <small>Aprobó el presupuesto <span class="num">PR-0042</span></small>
+          <div class="meta"><span class="money">$ 1.250.000</span><span class="when">Hace 12 min</span></div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <div class="body">
+          <p>Mariela Ojeda</p>
+          <small>Aprobó el presupuesto <span class="num">PR-0039</span></small>
+          <div class="meta"><span class="money">$ 480.000</span><span class="when">Hace 2 h</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body></html>

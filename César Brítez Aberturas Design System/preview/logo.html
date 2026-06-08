@@ -1,0 +1,38 @@
+<!-- @dsCard group="Brand" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Logo Variants</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px;border-radius:14px;}
+  .light{background:#fff;border:1px solid #e5e7eb;}
+  .dark{background:#031d49;}
+  .lbl{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;}
+  .lbl.on-dark{color:rgba(255,255,255,0.55);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:56px;height:56px;}
+  .grid i{display:block;border-radius:8px;}
+  .word{font-size:13px;font-weight:800;letter-spacing:0.04em;}
+  .word .sub{display:block;font-size:8px;font-weight:600;letter-spacing:0.18em;margin-top:1px;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="tile light">
+      <div class="grid"><i style="background:#031d49"></i><i style="background:#e31e24"></i><i style="background:#fcfcfc;border:1px solid #d1d5db"></i><i style="background:#000"></i></div>
+      <div class="lbl">Isologotipo · color</div>
+    </div>
+    <div class="tile light">
+      <div class="grid"><i style="background:#031d49"></i><i style="background:#e31e24"></i><i style="background:#fcfcfc;border:1px solid #d1d5db"></i><i style="background:#000"></i></div>
+      <div class="word" style="color:#031d49;text-align:center">CÉSAR BRÍTEZ<span class="sub" style="color:#e31e24">ABERTURAS</span></div>
+      <div class="lbl">Mark + wordmark</div>
+    </div>
+    <div class="tile dark">
+      <div class="grid"><i style="background:rgba(255,255,255,0.90)"></i><i style="background:#e31e24"></i><i style="background:rgba(255,255,255,0.45)"></i><i style="background:rgba(255,255,255,0.20)"></i></div>
+      <div class="lbl on-dark">Sidebar variant</div>
+    </div>
+    <div class="tile dark">
+      <div class="grid" style="width:42px;height:42px"><i style="background:rgba(255,255,255,0.90)"></i><i style="background:#e31e24"></i><i style="background:rgba(255,255,255,0.45)"></i><i style="background:rgba(255,255,255,0.20)"></i></div>
+      <div class="word" style="color:#fff;text-align:center">CÉSAR BRÍTEZ<span class="sub" style="color:#e31e24">ABERTURAS</span></div>
+      <div class="lbl on-dark">Login &amp; print header</div>
+    </div>
+  </div>
+</body></html>

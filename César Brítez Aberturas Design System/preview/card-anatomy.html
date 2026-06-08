@@ -1,0 +1,48 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Card Anatomy</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:22px;}
+  .card{background:#fff;border:1px solid #f3f4f6;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);padding:16px;}
+  .head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .head svg{width:15px;height:15px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;color:#ef4444;}
+  .h-title{font-size:14px;font-weight:700;color:#1f2937;text-transform:uppercase;letter-spacing:0.04em;}
+  .h-sub{font-size:12px;color:#9ca3af;}
+  .link{margin-left:auto;font-size:12px;font-weight:600;color:#1d4ed8;display:inline-flex;align-items:center;gap:2px;}
+  .link svg{width:12px;height:12px;color:#1d4ed8;}
+  .row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:12px;}
+  .row:hover{background:#f9fafb;}
+  .row+ .row{border-top:1px solid #f3f4f6;}
+  .ic{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fef3c7;color:#b45309;}
+  .ic svg{width:16px;height:16px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .name{flex:1;min-width:0;}
+  .name p{margin:0;font-size:13px;font-weight:600;color:#1f2937;}
+  .name span{font-size:11px;color:#9ca3af;}
+  .money{font-size:13px;font-weight:800;color:#111827;font-variant-numeric:tabular-nums;}
+  .pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:9999px;background:#fef3c7;color:#b45309;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <svg viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <div class="h-title">PRIORIDADES DE HOY</div>
+        <div class="h-sub">Tu foco para hoy</div>
+        <a class="link" href="#">Ver agenda completa <svg viewBox="0 0 24 24" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></a>
+      </div>
+      <div class="row">
+        <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+        <div class="name"><p>3 pedidos listos para entregar</p><span>Coordiná la entrega hoy</span></div>
+        <span class="money">$ 1.250.000</span>
+        <span class="pill">Hace 3 días</span>
+      </div>
+      <div class="row">
+        <div class="ic" style="background:#dbeafe;color:#1d4ed8"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+        <div class="name"><p>5 clientes esperando confirmación</p><span>Presupuestos enviados sin respuesta</span></div>
+        <span class="money">$ 480.000</span>
+        <span class="pill" style="background:#dbeafe;color:#1d4ed8">Hoy</span>
+      </div>
+    </div>
+  </div>
+</body></html>

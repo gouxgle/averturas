@@ -1,0 +1,38 @@
+<!-- @dsCard group="Type" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Numbers &amp; Money</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#fff;font-family:var(--font-sans);}
+  .wrap{padding:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .tile{display:flex;flex-direction:column;gap:6px;}
+  .lbl{font-size:11px;font-weight:500;color:#6b7280;}
+  .val{font-size:24px;font-weight:800;color:#111827;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-0.01em;}
+  .val-sm{font-size:13px;font-weight:800;color:#111827;font-variant-numeric:tabular-nums;}
+  .sub{font-size:11px;color:#9ca3af;}
+  .pct{font-size:10px;font-weight:700;color:#10b981;font-variant-numeric:tabular-nums;}
+  .bar{height:6px;background:#f3f4f6;border-radius:9999px;overflow:hidden;}
+  .fill{height:100%;border-radius:9999px;background:#10b981;}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#1d4ed8;font-weight:700;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="tile">
+      <div class="lbl">Ventas del mes</div>
+      <div class="val">$ 8.450.000</div>
+      <div class="bar"><div class="fill" style="width:62%"></div></div>
+      <div class="sub">Día 18 de 30 — 24 ops.</div>
+    </div>
+    <div class="tile">
+      <div class="lbl">Conversión</div>
+      <div class="val">38<span style="font-size:14px;color:#4b5563">%</span></div>
+      <div class="bar"><div class="fill" style="background:#10b981;width:38%"></div></div>
+      <div class="sub">9 cerrados de 24</div>
+    </div>
+    <div class="tile">
+      <div class="lbl">Recibo #</div>
+      <div class="mono" style="font-size:18px;">PR-2026-0042</div>
+      <div class="val-sm">$ 1.250.000</div>
+      <div class="sub">Hoy, 4 de junio · 14:32</div>
+    </div>
+  </div>
+</body></html>

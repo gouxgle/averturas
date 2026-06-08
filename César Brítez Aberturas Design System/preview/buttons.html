@@ -1,0 +1,33 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:22px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
+  button{font-family:inherit;border:0;cursor:pointer;font-size:13px;font-weight:600;border-radius:12px;padding:10px 16px;display:inline-flex;align-items:center;gap:8px;transition:all 180ms;}
+  .brand{background:#031d49;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .brand:hover{background:#052566;box-shadow:0 4px 16px rgba(3,29,73,0.25);}
+  .red{background:#e31e24;color:#fff;}
+  .red:hover{background:#c91019;}
+  .ghost{background:#fff;color:#1f2937;border:1px solid #e5e7eb;}
+  .ghost:hover{background:#f9fafb;}
+  .gradient{color:#fff;background:linear-gradient(135deg,#0d3a8a 0%,#e31e24 100%);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .text{background:transparent;color:#1d4ed8;padding:6px 4px;}
+  .text:hover{color:#1e40af;}
+  .icon{width:36px;height:36px;padding:0;justify-content:center;background:#fff;border:1px solid #e5e7eb;color:#4b5563;}
+  .icon:hover{background:#f3f4f6;}
+  .sm{padding:6px 10px;font-size:11px;border-radius:10px;}
+  svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+</style></head>
+<body>
+  <div class="wrap">
+    <button class="brand"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nuevo presupuesto</button>
+    <button class="gradient"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nuevo presupuesto</button>
+    <button class="red">Anular recibo</button>
+    <button class="ghost">Cancelar</button>
+    <button class="text">Ver todos ›</button>
+    <button class="icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    <button class="brand sm">Cobrar saldo</button>
+    <button class="ghost sm">Compartir</button>
+  </div>
+</body></html>

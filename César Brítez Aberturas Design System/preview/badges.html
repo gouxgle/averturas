@@ -1,0 +1,34 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Status Badges</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:9999px;}
+  .pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;}
+  .nodot::before{display:none;}
+  .label{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;width:100%;margin-top:6px;}
+  .first{margin-top:0;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="label first">Estado de operación</div>
+    <span class="pill" style="background:#f3f4f6;color:#4b5563">Borrador</span>
+    <span class="pill" style="background:#dbeafe;color:#1d4ed8">Enviado</span>
+    <span class="pill" style="background:#d1fae5;color:#047857">Aprobado</span>
+    <span class="pill" style="background:#fef3c7;color:#b45309">En producción</span>
+    <span class="pill" style="background:#ccfbf1;color:#0f766e">Listo</span>
+    <span class="pill" style="background:#bfdbfe;color:#1e3a8a">Entregado</span>
+    <span class="pill" style="background:#fee2e2;color:#b91c1c">Cancelado</span>
+
+    <div class="label">Estado de pago</div>
+    <span class="pill" style="background:#d1fae5;color:#047857">Pagado</span>
+    <span class="pill" style="background:#fef3c7;color:#b45309">Señado</span>
+    <span class="pill" style="background:#fee2e2;color:#b91c1c">Sin pago</span>
+
+    <div class="label">Count chips</div>
+    <span class="pill nodot" style="background:#ef4444;color:#fff;font-weight:800;padding:2px 7px">3</span>
+    <span class="pill nodot" style="background:#10b981;color:#fff;font-weight:800;padding:2px 7px">12</span>
+    <span class="pill nodot" style="background:#fbbf24;color:#92400e;font-weight:800;padding:2px 7px">9+</span>
+  </div>
+</body></html>

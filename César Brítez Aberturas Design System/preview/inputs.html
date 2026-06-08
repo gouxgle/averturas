@@ -1,0 +1,51 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  label{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;}
+  input,select,textarea{font-family:inherit;width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#1f2937;background:#fff;outline:none;}
+  input:focus{border-color:#031d49;}
+  .focus{border-color:#031d49;box-shadow:0 0 0 3px rgba(3,29,73,0.08);}
+  .err{border-color:#ef4444;}
+  .hint{font-size:11px;color:#9ca3af;}
+  .hint.err{color:#b91c1c;}
+  .pre{position:relative;}
+  .pre input{padding-left:32px;}
+  .pre .ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;}
+  .pre .ic svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="field">
+      <label>EMAIL</label>
+      <input placeholder="tu@email.com">
+    </div>
+    <div class="field">
+      <label>CONTRASEÑA</label>
+      <input type="password" value="••••••••" class="focus">
+    </div>
+    <div class="field">
+      <label>BUSCAR CLIENTE</label>
+      <div class="pre">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+        <input placeholder="Nombre, DNI o CUIT...">
+      </div>
+    </div>
+    <div class="field">
+      <label>FORMA DE PAGO</label>
+      <select><option>Transferencia</option></select>
+    </div>
+    <div class="field">
+      <label>DNI</label>
+      <input class="err" value="12.345">
+      <span class="hint err">Debe tener 7 u 8 dígitos</span>
+    </div>
+    <div class="field">
+      <label>FECHA DE VENCIMIENTO</label>
+      <input value="22/05/2026">
+    </div>
+  </div>
+</body></html>

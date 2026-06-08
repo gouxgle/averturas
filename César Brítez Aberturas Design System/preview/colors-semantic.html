@@ -1,0 +1,38 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Semantic Pills</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:24px;}
+  .group{display:flex;flex-direction:column;gap:8px;}
+  .pill{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;padding:4px 10px;border-radius:9999px;font-size:11px;font-weight:700;}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .label{font-size:10px;font-weight:600;color:var(--fg4);text-transform:uppercase;letter-spacing:0.08em;}
+  .hex{font-size:10px;color:var(--fg5);font-family:var(--font-mono);}
+  .swatch{display:flex;gap:4px;align-items:center;}
+  .dot{width:14px;height:14px;border-radius:4px;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="group">
+      <div class="label">Success</div>
+      <span class="pill" style="background:#d1fae5;color:#047857;">Aprobado</span>
+      <div class="swatch"><div class="dot" style="background:#10b981"></div><span class="hex">#10B981 / 100·700</span></div>
+    </div>
+    <div class="group">
+      <div class="label">Warning</div>
+      <span class="pill" style="background:#fef3c7;color:#b45309;">Señado</span>
+      <div class="swatch"><div class="dot" style="background:#f59e0b"></div><span class="hex">#F59E0B / 100·700</span></div>
+    </div>
+    <div class="group">
+      <div class="label">Danger</div>
+      <span class="pill" style="background:#fee2e2;color:#b91c1c;">Sin pago</span>
+      <div class="swatch"><div class="dot" style="background:#ef4444"></div><span class="hex">#EF4444 / 100·700</span></div>
+    </div>
+    <div class="group">
+      <div class="label">Info</div>
+      <span class="pill" style="background:#dbeafe;color:#1d4ed8;">Enviado</span>
+      <div class="swatch"><div class="dot" style="background:#3b82f6"></div><span class="hex">#3B82F6 / 100·700</span></div>
+    </div>
+  </div>
+</body></html>

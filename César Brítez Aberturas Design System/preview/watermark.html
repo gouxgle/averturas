@@ -1,0 +1,26 @@
+<!-- @dsCard group="Brand" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Watermark</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .stage{position:relative;height:360px;background:var(--app-bg);overflow:hidden;}
+  .grid{position:absolute;inset:0;background-image:
+    repeating-linear-gradient(90deg,transparent 0,transparent 149px,rgba(3,29,73,0.038) 149px,rgba(3,29,73,0.038) 150px),
+    repeating-linear-gradient(0deg,transparent 0,transparent 149px,rgba(3,29,73,0.038) 149px,rgba(3,29,73,0.038) 150px);}
+  .red{position:absolute;right:3%;bottom:5%;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(227,30,36,0.18) 0%,transparent 65%);}
+  .mark{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .mark i{background:#031d49;border-radius:14px;width:60px;height:60px;}
+  .mark.main{right:8%;bottom:14%;opacity:0.22;filter:blur(0.5px);}
+  .mark.alt{left:18%;top:14%;opacity:0.12;filter:blur(0.4px);}
+  .mark.alt i{width:36px;height:36px;border-radius:9px;}
+  .label{position:absolute;top:14px;left:18px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.10em;background:rgba(255,255,255,0.6);padding:6px 10px;border-radius:8px;backdrop-filter:blur(6px);}
+</style></head>
+<body>
+  <div class="stage">
+    <div class="grid"></div>
+    <div class="red"></div>
+    <div class="mark alt"><i></i><i></i><i></i><i></i></div>
+    <div class="mark main"><i></i><i></i><i></i><i></i></div>
+    <div class="label">App background — watermark layer (opacity boosted ~3× for clarity)</div>
+  </div>
+</body></html>

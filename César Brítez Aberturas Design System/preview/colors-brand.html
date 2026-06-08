@@ -1,0 +1,20 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Brand Colors</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);}
+  .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:24px;}
+  .sw{display:flex;flex-direction:column;gap:8px;}
+  .chip{height:88px;border-radius:var(--radius-xl);box-shadow:var(--shadow-card);position:relative;overflow:hidden;}
+  .chip::after{content:"";position:absolute;inset:0;border-radius:inherit;border:1px solid rgba(0,0,0,0.04);}
+  .label{font-size:11px;font-weight:700;color:var(--fg3);letter-spacing:0.04em;text-transform:uppercase;}
+  .hex{font-size:11px;color:var(--fg5);font-family:var(--font-mono);font-weight:600;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="sw"><div class="chip" style="background:#031d49"></div><div class="label">Brand navy</div><div class="hex">#031D49</div></div>
+    <div class="sw"><div class="chip" style="background:#e31e24"></div><div class="label">Brand red</div><div class="hex">#E31E24</div></div>
+    <div class="sw"><div class="chip" style="background:#fcfcfc;border:1px solid #e5e7eb;"></div><div class="label">Brand white</div><div class="hex">#FCFCFC</div></div>
+    <div class="sw"><div class="chip" style="background:#000"></div><div class="label">Brand black</div><div class="hex">#000000</div></div>
+  </div>
+</body></html>

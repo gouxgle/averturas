@@ -1,0 +1,23 @@
+<!-- @dsCard group="Spacing" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Spacing</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#fff;font-family:var(--font-sans);}
+  .wrap{padding:24px;display:flex;flex-direction:column;gap:10px;}
+  .row{display:grid;grid-template-columns:90px 1fr 90px;align-items:center;gap:18px;}
+  .name{font-family:var(--font-mono);font-size:11px;color:#6b7280;font-weight:600;}
+  .bar{height:14px;background:#031d49;border-radius:3px;}
+  .px{font-family:var(--font-mono);font-size:10px;color:#9ca3af;text-align:right;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="row"><div class="name">space-1</div><div class="bar" style="width:4px"></div><div class="px">4 px</div></div>
+    <div class="row"><div class="name">space-2</div><div class="bar" style="width:8px"></div><div class="px">8 px</div></div>
+    <div class="row"><div class="name">space-3</div><div class="bar" style="width:12px"></div><div class="px">12 px · gap-3 default</div></div>
+    <div class="row"><div class="name">space-4</div><div class="bar" style="width:16px"></div><div class="px">16 px · card padding</div></div>
+    <div class="row"><div class="name">space-5</div><div class="bar" style="width:20px"></div><div class="px">20 px · gap-5 sections</div></div>
+    <div class="row"><div class="name">space-6</div><div class="bar" style="width:24px"></div><div class="px">24 px · page padding</div></div>
+    <div class="row"><div class="name">space-8</div><div class="bar" style="width:32px"></div><div class="px">32 px</div></div>
+    <div class="row"><div class="name">space-10</div><div class="bar" style="width:40px"></div><div class="px">40 px</div></div>
+  </div>
+</body></html>

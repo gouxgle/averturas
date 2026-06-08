@@ -1,0 +1,280 @@
+/* ─────────────────────────────────────────────────────────────
+   César Brítez Aberturas — Design Tokens
+   Foundation: colors, type, spacing, radii, shadows, motion.
+   Drop this anywhere; everything else in the system inherits.
+   ───────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+
+  /* ── BRAND ───────────────────────────────────────────────── */
+  --brand-navy:      #031d49;     /* primary identity, sidebar, top-bar, headings */
+  --brand-navy-h:    #052566;     /* hover */
+  --brand-navy-d:    #0a2761;     /* "panel" navy used in notif dropdown */
+  --brand-red:       #e31e24;     /* accent — logo square, destructive CTA */
+  --brand-red-h:     #c91019;     /* hover */
+  --brand-white:     #fcfcfc;     /* logo white square */
+  --brand-black:     #000000;     /* logo black square */
+
+  /* Signature gradient — primary CTA on Dashboard
+     (use SPARINGLY: hero buttons only, never as a flat bg) */
+  --brand-gradient:  linear-gradient(135deg, #0d3a8a 0%, #e31e24 100%);
+  --brand-gradient-text: linear-gradient(135deg, #031d49 0%, #1a4fa0 100%);
+
+  /* ── SURFACES ────────────────────────────────────────────── */
+  --app-bg:          #f0f4fb;     /* page background — slightly blue-tinted */
+  --bg-surface:      #ffffff;     /* cards, modals */
+  --bg-subtle:       #f9fafb;     /* hover rows, secondary cells */
+  --bg-muted:        #f3f4f6;     /* disabled, deep secondary */
+
+  /* Watermark accent — radial red mist behind logo on app bg */
+  --watermark-red:   rgba(227, 30, 36, 0.055);
+
+  /* ── FOREGROUND ──────────────────────────────────────────── */
+  --fg1:             #111827;     /* gray-900 — primary text, big numbers */
+  --fg2:             #1f2937;     /* gray-800 — headings */
+  --fg3:             #4b5563;     /* gray-600 — body */
+  --fg4:             #6b7280;     /* gray-500 — secondary */
+  --fg5:             #9ca3af;     /* gray-400 — meta, captions */
+  --fg-muted:        #d1d5db;     /* gray-300 — placeholder/icons-empty */
+  --fg-on-navy:      #ffffff;
+  --fg-on-navy-2:    rgba(255,255,255,0.55);  /* sidebar idle label */
+  --fg-on-navy-3:    rgba(255,255,255,0.35);  /* sidebar tagline */
+  --fg-on-navy-4:    rgba(255,255,255,0.10);  /* dividers on navy */
+
+  /* ── BORDER ──────────────────────────────────────────────── */
+  --border-1:        #e5e7eb;     /* gray-200 — default card border */
+  --border-2:        #f3f4f6;     /* gray-100 — very subtle card border (most common) */
+  --border-input:    #d1d5db;     /* form inputs */
+  --border-focus:    var(--brand-navy);
+
+  /* ── SEMANTIC — STATUS / FEEDBACK ────────────────────────── */
+  /* The system uses a pastel pill: bg-[color]-100 + text-[color]-700.
+     These are the exact Tailwind tones in use. */
+
+  --success:         #10b981;  --success-fg: #047857;  --success-bg: #d1fae5;
+  --warning:         #f59e0b;  --warning-fg: #b45309;  --warning-bg: #fef3c7;
+  --danger:          #ef4444;  --danger-fg:  #b91c1c;  --danger-bg:  #fee2e2;
+  --info:            #3b82f6;  --info-fg:    #1d4ed8;  --info-bg:    #dbeafe;
+
+  /* ── SECTION ACCENTS ──────────────────────────────────────
+     Every sidebar section gets its OWN colour. This is a defining
+     trait of the app — sections are not interchangeable.
+     Each section exposes FOUR tokens:
+       --accent-{section}        — the icon / dot tone (400)
+       --accent-{section}-deep   — the CTA / link tone (600/700)
+       --accent-{section}-bg     — the page-background wash (50)
+       --accent-{section}-strip  — the section-header strip (100) */
+  --accent-dashboard:        #60a5fa;  --accent-dashboard-deep:    #1d4ed8;  --accent-dashboard-bg:    #eff6ff;  --accent-dashboard-strip:    #dbeafe;
+  --accent-crm:              #fb7185;  --accent-crm-deep:          #be123c;  --accent-crm-bg:          #fff1f2;  --accent-crm-strip:          #ffe4e6;
+  --accent-presupuestos:     #a78bfa;  --accent-presupuestos-deep: #6d28d9;  --accent-presupuestos-bg: #f5f3ff;  --accent-presupuestos-strip: #ede9fe;
+  --accent-operaciones:      #fbbf24;  --accent-operaciones-deep:  #b45309;  --accent-operaciones-bg:  #fffbeb;  --accent-operaciones-strip:  #fef3c7;
+  --accent-remitos:          #2dd4bf;  --accent-remitos-deep:      #0f766e;  --accent-remitos-bg:      #f0fdfa;  --accent-remitos-strip:      #ccfbf1;
+  --accent-pedidos:          #a3e635;  --accent-pedidos-deep:      #4d7c0f;  --accent-pedidos-bg:      #f7fee7;  --accent-pedidos-strip:      #ecfccb;
+  --accent-recibos:          #34d399;  --accent-recibos-deep:      #047857;  --accent-recibos-bg:      #ecfdf5;  --accent-recibos-strip:      #d1fae5;
+  --accent-clientes:         #22d3ee;  --accent-clientes-deep:     #0e7490;  --accent-clientes-bg:     #ecfeff;  --accent-clientes-strip:     #cffafe;
+  --accent-estado:           #818cf8;  --accent-estado-deep:       #4338ca;  --accent-estado-bg:       #eef2ff;  --accent-estado-strip:       #e0e7ff;
+  --accent-productos:        #38bdf8;  --accent-productos-deep:    #0369a1;  --accent-productos-bg:    #f0f9ff;  --accent-productos-strip:    #e0f2fe;
+  --accent-stock:            #fb923c;  --accent-stock-deep:        #c2410c;  --accent-stock-bg:        #fff7ed;  --accent-stock-strip:        #ffedd5;
+  --accent-proveedores:      #fbbf24;  --accent-proveedores-deep:  #b45309;  --accent-proveedores-bg:  #fffbeb;  --accent-proveedores-strip:  #fef3c7;
+  --accent-reportes:         #c084fc;  --accent-reportes-deep:     #7e22ce;  --accent-reportes-bg:     #faf5ff;  --accent-reportes-strip:     #f3e8ff;
+  --accent-config:           #cbd5e1;  --accent-config-deep:       #475569;  --accent-config-bg:       #f8fafc;  --accent-config-strip:       #f1f5f9;
+
+  /* Métricas band — used to visually wall off KPI tiles from operational lists */
+  --metrics-bg:     linear-gradient(135deg, #031d49 0%, #0a2761 60%, #0d3a8a 100%);
+  --metrics-fg:     #ffffff;
+  --metrics-fg-2:   rgba(255,255,255,0.65);
+  --metrics-tile:   rgba(255,255,255,0.08);
+  --metrics-tile-b: rgba(255,255,255,0.10);
+
+  /* Operación state dots — used on card lists */
+  --state-borrador:      #9ca3af;   --state-enviado:   #fbbf24;
+  --state-aprobado:      #10b981;   --state-produccion:#3b82f6;
+  --state-listo:         #14b8a6;   --state-instalado: #8b5cf6;
+  --state-entregado:     #22c55e;   --state-cancelado: #f87171;
+
+  /* ── TYPE ────────────────────────────────────────────────── */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Weights — the system uses 400/500/600/700/800.
+     Big numbers, headings, KPI values are ALWAYS 800 (extrabold). */
+  --w-light:      300;
+  --w-regular:    400;
+  --w-medium:     500;
+  --w-semibold:   600;
+  --w-bold:       700;
+  --w-extrabold:  800;
+
+  /* Sizes — tight scale; app is information-dense.
+     Tiny labels (10–11px) are everywhere — they look intentional, not broken. */
+  --t-2xs:    10px;   /* uppercase meta, dot-indicator labels, tags */
+  --t-xs:     11px;   /* secondary body, captions, table sub-text */
+  --t-sm:     12px;   /* primary body in dense areas */
+  --t-base:   13px;   /* form inputs, button text */
+  --t-md:     14px;   /* default body in spacious areas */
+  --t-lg:     15px;   /* section sub-headers */
+  --t-xl:     18px;   /* card titles */
+  --t-2xl:    20px;   /* KPI numbers */
+  --t-3xl:    24px;   /* page H1 */
+  --t-display:32px;   /* hero numbers / proforma totals */
+
+  /* Letter-spacing — micro-tracking is heavily used on uppercase labels */
+  --tracking-tight:   -0.01em;
+  --tracking-normal:   0;
+  --tracking-wide:     0.04em;
+  --tracking-widest:   0.12em;   /* uppercase section labels: "COMERCIAL" */
+
+  /* ── SPACING ─────────────────────────────────────────────── */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+
+  /* ── RADII ───────────────────────────────────────────────── */
+  /* Note the system uses rounded shapes liberally, but card radii
+     are larger than control radii — a deliberate hierarchy. */
+  --radius-sm:    6px;    /* dot-pulse, tiny chips */
+  --radius-md:    8px;    /* icon tiles, small badges (rounded-lg) */
+  --radius-lg:    12px;   /* buttons, large badges, table rows (rounded-xl) */
+  --radius-xl:    16px;   /* CARDS — the default (rounded-2xl) */
+  --radius-pill:  9999px;
+
+  /* ── SHADOWS ─────────────────────────────────────────────── */
+  --shadow-card:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-soft:  0 2px 15px -3px rgba(0,0,0,.07), 0 10px 20px -2px rgba(0,0,0,.04);
+  --shadow-lift:  0 10px 32px -6px rgba(3,29,73,0.13), 0 4px 12px -2px rgba(3,29,73,0.07);
+  --shadow-top:   0 2px 12px rgba(3,29,73,0.25);     /* top nav bar */
+  --shadow-btn:   0 4px 16px rgba(3,29,73,0.25);     /* btn-brand hover */
+  --shadow-pop:   0 8px 32px -8px rgba(0,0,0,0.18);  /* dropdowns, popovers */
+
+  /* ── MOTION ──────────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(.22,.68,0,1.1);
+  --ease-std:    cubic-bezier(.4,0,.2,1);
+  --dur-fast:    120ms;
+  --dur-base:    180ms;
+  --dur-mid:     280ms;
+  --dur-slow:    380ms;
+}
+
+
+/* ── SEMANTIC ELEMENT STYLES ───────────────────────────────── */
+
+body, .ds-body {
+  background-color: var(--app-bg);
+  color: var(--fg2);
+  font-family: var(--font-sans);
+  font-size: var(--t-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ds-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--t-3xl);
+  font-weight: var(--w-extrabold);
+  color: var(--fg1);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
+}
+
+.ds-h2 {
+  font-size: var(--t-md);
+  font-weight: var(--w-bold);
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.ds-h3 {
+  font-size: var(--t-xs);
+  font-weight: var(--w-bold);
+  color: var(--fg3);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+}
+
+.ds-kpi {
+  font-size: var(--t-2xl);
+  font-weight: var(--w-extrabold);
+  color: var(--fg1);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+}
+
+.ds-money {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-extrabold);
+  color: var(--fg1);
+}
+
+.ds-meta {
+  font-size: var(--t-xs);
+  color: var(--fg5);
+}
+
+.ds-mono {
+  font-family: var(--font-mono);
+  font-weight: var(--w-bold);
+  color: var(--info-fg);
+}
+
+.ds-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.ds-btn-brand {
+  background: var(--brand-navy);
+  color: var(--fg-on-navy);
+  border-radius: var(--radius-lg);
+  padding: 10px 16px;
+  font-weight: var(--w-semibold);
+  font-size: var(--t-base);
+  transition: background-color var(--dur-base), transform var(--dur-fast), box-shadow var(--dur-base);
+}
+.ds-btn-brand:hover  { background: var(--brand-navy-h); box-shadow: var(--shadow-btn); }
+.ds-btn-brand:active { transform: scale(.98); }
+
+.ds-btn-red {
+  background: var(--brand-red); color: #fff;
+  border-radius: var(--radius-lg); padding: 10px 16px;
+  font-weight: var(--w-semibold); font-size: var(--t-base);
+  transition: background-color var(--dur-base), transform var(--dur-fast);
+}
+.ds-btn-red:hover  { background: var(--brand-red-h); }
+.ds-btn-red:active { transform: scale(.98); }
+
+.ds-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  font-size: var(--t-base);
+  font-family: var(--font-sans);
+  background: var(--bg-surface);
+  color: var(--fg2);
+  transition: border-color var(--dur-base);
+}
+.ds-input:focus { outline: none; border-color: var(--border-focus); }
+.ds-input::placeholder { color: var(--fg5); }
+
+/* Brand text gradient — Dashboard hero, big numbers occasionally */
+.ds-gradient-text {
+  background: var(--brand-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}

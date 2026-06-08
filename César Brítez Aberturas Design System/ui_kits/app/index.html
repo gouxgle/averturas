@@ -1,0 +1,3311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>César Brítez Aberturas — UI Kit</title>
+  <style>/* ─────────────────────────────────────────────────────────────
+   César Brítez Aberturas — Design Tokens
+   Foundation: colors, type, spacing, radii, shadows, motion.
+   Drop this anywhere; everything else in the system inherits.
+   ───────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+
+  /* ── BRAND ───────────────────────────────────────────────── */
+  --brand-navy:      #031d49;     /* primary identity, sidebar, top-bar, headings */
+  --brand-navy-h:    #052566;     /* hover */
+  --brand-navy-d:    #0a2761;     /* "panel" navy used in notif dropdown */
+  --brand-red:       #e31e24;     /* accent — logo square, destructive CTA */
+  --brand-red-h:     #c91019;     /* hover */
+  --brand-white:     #fcfcfc;     /* logo white square */
+  --brand-black:     #000000;     /* logo black square */
+
+  /* Signature gradient — primary CTA on Dashboard
+     (use SPARINGLY: hero buttons only, never as a flat bg) */
+  --brand-gradient:  linear-gradient(135deg, #0d3a8a 0%, #e31e24 100%);
+  --brand-gradient-text: linear-gradient(135deg, #031d49 0%, #1a4fa0 100%);
+
+  /* ── SURFACES ────────────────────────────────────────────── */
+  --app-bg:          #f0f4fb;     /* page background — slightly blue-tinted */
+  --bg-surface:      #ffffff;     /* cards, modals */
+  --bg-subtle:       #f9fafb;     /* hover rows, secondary cells */
+  --bg-muted:        #f3f4f6;     /* disabled, deep secondary */
+
+  /* Watermark accent — radial red mist behind logo on app bg */
+  --watermark-red:   rgba(227, 30, 36, 0.055);
+
+  /* ── FOREGROUND ──────────────────────────────────────────── */
+  --fg1:             #111827;     /* gray-900 — primary text, big numbers */
+  --fg2:             #1f2937;     /* gray-800 — headings */
+  --fg3:             #4b5563;     /* gray-600 — body */
+  --fg4:             #6b7280;     /* gray-500 — secondary */
+  --fg5:             #9ca3af;     /* gray-400 — meta, captions */
+  --fg-muted:        #d1d5db;     /* gray-300 — placeholder/icons-empty */
+  --fg-on-navy:      #ffffff;
+  --fg-on-navy-2:    rgba(255,255,255,0.55);  /* sidebar idle label */
+  --fg-on-navy-3:    rgba(255,255,255,0.35);  /* sidebar tagline */
+  --fg-on-navy-4:    rgba(255,255,255,0.10);  /* dividers on navy */
+
+  /* ── BORDER ──────────────────────────────────────────────── */
+  --border-1:        #e5e7eb;     /* gray-200 — default card border */
+  --border-2:        #f3f4f6;     /* gray-100 — very subtle card border (most common) */
+  --border-input:    #d1d5db;     /* form inputs */
+  --border-focus:    var(--brand-navy);
+
+  /* ── SEMANTIC — STATUS / FEEDBACK ────────────────────────── */
+  /* The system uses a pastel pill: bg-[color]-100 + text-[color]-700.
+     These are the exact Tailwind tones in use. */
+
+  --success:         #10b981;  --success-fg: #047857;  --success-bg: #d1fae5;
+  --warning:         #f59e0b;  --warning-fg: #b45309;  --warning-bg: #fef3c7;
+  --danger:          #ef4444;  --danger-fg:  #b91c1c;  --danger-bg:  #fee2e2;
+  --info:            #3b82f6;  --info-fg:    #1d4ed8;  --info-bg:    #dbeafe;
+
+  /* ── SECTION ACCENTS ──────────────────────────────────────
+     Every sidebar section gets its OWN colour. This is a defining
+     trait of the app — sections are not interchangeable.
+     Each section exposes FOUR tokens:
+       --accent-{section}        — the icon / dot tone (400)
+       --accent-{section}-deep   — the CTA / link tone (600/700)
+       --accent-{section}-bg     — the page-background wash (50)
+       --accent-{section}-strip  — the section-header strip (100) */
+  --accent-dashboard:        #60a5fa;  --accent-dashboard-deep:    #1d4ed8;  --accent-dashboard-bg:    #eff6ff;  --accent-dashboard-strip:    #dbeafe;
+  --accent-crm:              #fb7185;  --accent-crm-deep:          #be123c;  --accent-crm-bg:          #fff1f2;  --accent-crm-strip:          #ffe4e6;
+  --accent-presupuestos:     #a78bfa;  --accent-presupuestos-deep: #6d28d9;  --accent-presupuestos-bg: #f5f3ff;  --accent-presupuestos-strip: #ede9fe;
+  --accent-operaciones:      #fbbf24;  --accent-operaciones-deep:  #b45309;  --accent-operaciones-bg:  #fffbeb;  --accent-operaciones-strip:  #fef3c7;
+  --accent-remitos:          #2dd4bf;  --accent-remitos-deep:      #0f766e;  --accent-remitos-bg:      #f0fdfa;  --accent-remitos-strip:      #ccfbf1;
+  --accent-pedidos:          #a3e635;  --accent-pedidos-deep:      #4d7c0f;  --accent-pedidos-bg:      #f7fee7;  --accent-pedidos-strip:      #ecfccb;
+  --accent-recibos:          #34d399;  --accent-recibos-deep:      #047857;  --accent-recibos-bg:      #ecfdf5;  --accent-recibos-strip:      #d1fae5;
+  --accent-clientes:         #22d3ee;  --accent-clientes-deep:     #0e7490;  --accent-clientes-bg:     #ecfeff;  --accent-clientes-strip:     #cffafe;
+  --accent-estado:           #818cf8;  --accent-estado-deep:       #4338ca;  --accent-estado-bg:       #eef2ff;  --accent-estado-strip:       #e0e7ff;
+  --accent-productos:        #38bdf8;  --accent-productos-deep:    #0369a1;  --accent-productos-bg:    #f0f9ff;  --accent-productos-strip:    #e0f2fe;
+  --accent-stock:            #fb923c;  --accent-stock-deep:        #c2410c;  --accent-stock-bg:        #fff7ed;  --accent-stock-strip:        #ffedd5;
+  --accent-proveedores:      #fbbf24;  --accent-proveedores-deep:  #b45309;  --accent-proveedores-bg:  #fffbeb;  --accent-proveedores-strip:  #fef3c7;
+  --accent-reportes:         #c084fc;  --accent-reportes-deep:     #7e22ce;  --accent-reportes-bg:     #faf5ff;  --accent-reportes-strip:     #f3e8ff;
+  --accent-config:           #cbd5e1;  --accent-config-deep:       #475569;  --accent-config-bg:       #f8fafc;  --accent-config-strip:       #f1f5f9;
+
+  /* Métricas band — used to visually wall off KPI tiles from operational lists */
+  --metrics-bg:     linear-gradient(135deg, #031d49 0%, #0a2761 60%, #0d3a8a 100%);
+  --metrics-fg:     #ffffff;
+  --metrics-fg-2:   rgba(255,255,255,0.65);
+  --metrics-tile:   rgba(255,255,255,0.08);
+  --metrics-tile-b: rgba(255,255,255,0.10);
+
+  /* Operación state dots — used on card lists */
+  --state-borrador:      #9ca3af;   --state-enviado:   #fbbf24;
+  --state-aprobado:      #10b981;   --state-produccion:#3b82f6;
+  --state-listo:         #14b8a6;   --state-instalado: #8b5cf6;
+  --state-entregado:     #22c55e;   --state-cancelado: #f87171;
+
+  /* ── TYPE ────────────────────────────────────────────────── */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Weights — the system uses 400/500/600/700/800.
+     Big numbers, headings, KPI values are ALWAYS 800 (extrabold). */
+  --w-light:      300;
+  --w-regular:    400;
+  --w-medium:     500;
+  --w-semibold:   600;
+  --w-bold:       700;
+  --w-extrabold:  800;
+
+  /* Sizes — tight scale; app is information-dense.
+     Tiny labels (10–11px) are everywhere — they look intentional, not broken. */
+  --t-2xs:    10px;   /* uppercase meta, dot-indicator labels, tags */
+  --t-xs:     11px;   /* secondary body, captions, table sub-text */
+  --t-sm:     12px;   /* primary body in dense areas */
+  --t-base:   13px;   /* form inputs, button text */
+  --t-md:     14px;   /* default body in spacious areas */
+  --t-lg:     15px;   /* section sub-headers */
+  --t-xl:     18px;   /* card titles */
+  --t-2xl:    20px;   /* KPI numbers */
+  --t-3xl:    24px;   /* page H1 */
+  --t-display:32px;   /* hero numbers / proforma totals */
+
+  /* Letter-spacing — micro-tracking is heavily used on uppercase labels */
+  --tracking-tight:   -0.01em;
+  --tracking-normal:   0;
+  --tracking-wide:     0.04em;
+  --tracking-widest:   0.12em;   /* uppercase section labels: "COMERCIAL" */
+
+  /* ── SPACING ─────────────────────────────────────────────── */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+
+  /* ── RADII ───────────────────────────────────────────────── */
+  /* Note the system uses rounded shapes liberally, but card radii
+     are larger than control radii — a deliberate hierarchy. */
+  --radius-sm:    6px;    /* dot-pulse, tiny chips */
+  --radius-md:    8px;    /* icon tiles, small badges (rounded-lg) */
+  --radius-lg:    12px;   /* buttons, large badges, table rows (rounded-xl) */
+  --radius-xl:    16px;   /* CARDS — the default (rounded-2xl) */
+  --radius-pill:  9999px;
+
+  /* ── SHADOWS ─────────────────────────────────────────────── */
+  --shadow-card:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-soft:  0 2px 15px -3px rgba(0,0,0,.07), 0 10px 20px -2px rgba(0,0,0,.04);
+  --shadow-lift:  0 10px 32px -6px rgba(3,29,73,0.13), 0 4px 12px -2px rgba(3,29,73,0.07);
+  --shadow-top:   0 2px 12px rgba(3,29,73,0.25);     /* top nav bar */
+  --shadow-btn:   0 4px 16px rgba(3,29,73,0.25);     /* btn-brand hover */
+  --shadow-pop:   0 8px 32px -8px rgba(0,0,0,0.18);  /* dropdowns, popovers */
+
+  /* ── MOTION ──────────────────────────────────────────────── */
+  --ease-out:    cubic-bezier(.22,.68,0,1.1);
+  --ease-std:    cubic-bezier(.4,0,.2,1);
+  --dur-fast:    120ms;
+  --dur-base:    180ms;
+  --dur-mid:     280ms;
+  --dur-slow:    380ms;
+}
+
+
+/* ── SEMANTIC ELEMENT STYLES ───────────────────────────────── */
+
+body, .ds-body {
+  background-color: var(--app-bg);
+  color: var(--fg2);
+  font-family: var(--font-sans);
+  font-size: var(--t-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ds-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--t-3xl);
+  font-weight: var(--w-extrabold);
+  color: var(--fg1);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
+}
+
+.ds-h2 {
+  font-size: var(--t-md);
+  font-weight: var(--w-bold);
+  color: var(--fg2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.ds-h3 {
+  font-size: var(--t-xs);
+  font-weight: var(--w-bold);
+  color: var(--fg3);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+}
+
+.ds-kpi {
+  font-size: var(--t-2xl);
+  font-weight: var(--w-extrabold);
+  color: var(--fg1);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+}
+
+.ds-money {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-extrabold);
+  color: var(--fg1);
+}
+
+.ds-meta {
+  font-size: var(--t-xs);
+  color: var(--fg5);
+}
+
+.ds-mono {
+  font-family: var(--font-mono);
+  font-weight: var(--w-bold);
+  color: var(--info-fg);
+}
+
+.ds-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.ds-btn-brand {
+  background: var(--brand-navy);
+  color: var(--fg-on-navy);
+  border-radius: var(--radius-lg);
+  padding: 10px 16px;
+  font-weight: var(--w-semibold);
+  font-size: var(--t-base);
+  transition: background-color var(--dur-base), transform var(--dur-fast), box-shadow var(--dur-base);
+}
+.ds-btn-brand:hover  { background: var(--brand-navy-h); box-shadow: var(--shadow-btn); }
+.ds-btn-brand:active { transform: scale(.98); }
+
+.ds-btn-red {
+  background: var(--brand-red); color: #fff;
+  border-radius: var(--radius-lg); padding: 10px 16px;
+  font-weight: var(--w-semibold); font-size: var(--t-base);
+  transition: background-color var(--dur-base), transform var(--dur-fast);
+}
+.ds-btn-red:hover  { background: var(--brand-red-h); }
+.ds-btn-red:active { transform: scale(.98); }
+
+.ds-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  font-size: var(--t-base);
+  font-family: var(--font-sans);
+  background: var(--bg-surface);
+  color: var(--fg2);
+  transition: border-color var(--dur-base);
+}
+.ds-input:focus { outline: none; border-color: var(--border-focus); }
+.ds-input::placeholder { color: var(--fg5); }
+
+/* Brand text gradient — Dashboard hero, big numbers occasionally */
+.ds-gradient-text {
+  background: var(--brand-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+</style>
+  <style>/* ─── App UI Kit page styles ───────────────────────────────────────
+   Loaded after colors_and_type.css. Adds Tailwind-style utility
+   coverage *only for what the kit needs* so we don't pull a CDN. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background-color: var(--app-bg);
+  color: var(--fg2);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+button { font-family: inherit; cursor: pointer; border: 0; background: transparent; padding: 0; color: inherit; }
+input, select, textarea { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(3,29,73,0.15); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(3,29,73,0.28); }
+
+/* ── app layout ── */
+.app-shell { display: flex; min-height: 100vh; position: relative; }
+.app-main  { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; z-index: 1; }
+.app-page  { flex: 1; overflow: auto; padding: 0; transition: background-color .35s ease; }
+.app-page-inner { max-width: 1340px; margin: 0 auto; padding: 0 24px 32px; }
+
+/* Page-level background tint per section. The hero strip sits in this
+   same wash; cards stay white so KPI tiles + lists pop. */
+.app-page[data-section="dashboard"]    { background-color: var(--accent-dashboard-bg); }
+.app-page[data-section="crm"]          { background-color: var(--accent-crm-bg); }
+.app-page[data-section="presupuestos"] { background-color: var(--accent-presupuestos-bg); }
+.app-page[data-section="operaciones"]  { background-color: var(--accent-operaciones-bg); }
+.app-page[data-section="remitos"]      { background-color: var(--accent-remitos-bg); }
+.app-page[data-section="pedidos"]      { background-color: var(--accent-pedidos-bg); }
+.app-page[data-section="recibos"]      { background-color: var(--accent-recibos-bg); }
+.app-page[data-section="clientes"]     { background-color: var(--accent-clientes-bg); }
+.app-page[data-section="estado"]       { background-color: var(--accent-estado-bg); }
+.app-page[data-section="productos"]    { background-color: var(--accent-productos-bg); }
+.app-page[data-section="stock"]        { background-color: var(--accent-stock-bg); }
+.app-page[data-section="proveedores"]  { background-color: var(--accent-proveedores-bg); }
+.app-page[data-section="reportes"]     { background-color: var(--accent-reportes-bg); }
+.app-page[data-section="config"]       { background-color: var(--accent-config-bg); }
+
+/* ── section hero strip — the colored band at the top of each page ── */
+.section-hero {
+  position: relative;
+  padding: 28px 0 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.section-hero-inner {
+  max-width: 1340px; margin: 0 auto; padding: 0 24px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.section-hero-mark {
+  width: 56px; height: 56px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(255,255,255,0.6);
+  box-shadow: 0 4px 16px -8px rgba(0,0,0,0.20);
+  flex-shrink: 0;
+}
+.section-hero-text { flex: 1; min-width: 0; }
+.section-hero-crumb {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; margin: 0 0 4px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.section-hero-crumb .sep { opacity: .5; }
+.section-hero-title {
+  font-size: 30px; font-weight: 800; letter-spacing: -0.015em;
+  color: var(--fg1); margin: 0; line-height: 1.05;
+}
+.section-hero-sub {
+  font-size: 13px; color: var(--fg3); margin: 4px 0 0;
+}
+.section-hero-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Decorative bottom accent — a 3px coloured line in the section accent */
+.section-hero::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+}
+.app-page[data-section="dashboard"]    .section-hero::after { background: linear-gradient(90deg, #031d49 0%, #e31e24 100%); }
+.app-page[data-section="crm"]          .section-hero::after { background: var(--accent-crm); }
+.app-page[data-section="presupuestos"] .section-hero::after { background: var(--accent-presupuestos); }
+.app-page[data-section="operaciones"]  .section-hero::after { background: var(--accent-operaciones); }
+.app-page[data-section="remitos"]      .section-hero::after { background: var(--accent-remitos); }
+.app-page[data-section="pedidos"]      .section-hero::after { background: var(--accent-pedidos); }
+.app-page[data-section="recibos"]      .section-hero::after { background: var(--accent-recibos); }
+.app-page[data-section="clientes"]     .section-hero::after { background: var(--accent-clientes); }
+.app-page[data-section="estado"]       .section-hero::after { background: var(--accent-estado); }
+.app-page[data-section="productos"]    .section-hero::after { background: var(--accent-productos); }
+.app-page[data-section="stock"]        .section-hero::after { background: var(--accent-stock); }
+.app-page[data-section="proveedores"]  .section-hero::after { background: var(--accent-proveedores); }
+.app-page[data-section="reportes"]     .section-hero::after { background: var(--accent-reportes); }
+.app-page[data-section="config"]       .section-hero::after { background: var(--accent-config-deep); }
+
+/* Section-tinted CTA — picks up the section's deep tone */
+.app-page[data-section="crm"]          .btn-section { background: var(--accent-crm-deep); color:#fff; }
+.app-page[data-section="presupuestos"] .btn-section { background: var(--accent-presupuestos-deep); color:#fff; }
+.app-page[data-section="operaciones"]  .btn-section { background: var(--accent-operaciones-deep); color:#fff; }
+.app-page[data-section="remitos"]      .btn-section { background: var(--accent-remitos-deep); color:#fff; }
+.app-page[data-section="pedidos"]      .btn-section { background: var(--accent-pedidos-deep); color:#fff; }
+.app-page[data-section="recibos"]      .btn-section { background: var(--accent-recibos-deep); color:#fff; }
+.app-page[data-section="clientes"]     .btn-section { background: var(--accent-clientes-deep); color:#fff; }
+.app-page[data-section="estado"]       .btn-section { background: var(--accent-estado-deep); color:#fff; }
+.app-page[data-section="productos"]    .btn-section { background: var(--accent-productos-deep); color:#fff; }
+.app-page[data-section="stock"]        .btn-section { background: var(--accent-stock-deep); color:#fff; }
+.app-page[data-section="proveedores"]  .btn-section { background: var(--accent-proveedores-deep); color:#fff; }
+.app-page[data-section="reportes"]     .btn-section { background: var(--accent-reportes-deep); color:#fff; }
+.app-page[data-section="config"]       .btn-section { background: var(--accent-config-deep); color:#fff; }
+.btn-section { box-shadow: 0 4px 16px -6px rgba(0,0,0,.25); }
+.btn-section:hover { filter: brightness(.92); }
+
+/* Section-tinted breadcrumb pill */
+.section-hero-crumb { color: var(--fg4); }
+.app-page[data-section="crm"]          .section-hero-crumb .accent { color: var(--accent-crm-deep); }
+.app-page[data-section="presupuestos"] .section-hero-crumb .accent { color: var(--accent-presupuestos-deep); }
+.app-page[data-section="operaciones"]  .section-hero-crumb .accent { color: var(--accent-operaciones-deep); }
+.app-page[data-section="remitos"]      .section-hero-crumb .accent { color: var(--accent-remitos-deep); }
+.app-page[data-section="pedidos"]      .section-hero-crumb .accent { color: var(--accent-pedidos-deep); }
+.app-page[data-section="recibos"]      .section-hero-crumb .accent { color: var(--accent-recibos-deep); }
+.app-page[data-section="clientes"]     .section-hero-crumb .accent { color: var(--accent-clientes-deep); }
+.app-page[data-section="estado"]       .section-hero-crumb .accent { color: var(--accent-estado-deep); }
+.app-page[data-section="productos"]    .section-hero-crumb .accent { color: var(--accent-productos-deep); }
+.app-page[data-section="stock"]        .section-hero-crumb .accent { color: var(--accent-stock-deep); }
+.app-page[data-section="proveedores"]  .section-hero-crumb .accent { color: var(--accent-proveedores-deep); }
+.app-page[data-section="reportes"]     .section-hero-crumb .accent { color: var(--accent-reportes-deep); }
+.app-page[data-section="config"]       .section-hero-crumb .accent { color: var(--accent-config-deep); }
+.app-page[data-section="dashboard"]    .section-hero-crumb .accent { color: #e31e24; }
+
+/* ── Metrics band — dark navy block that walls off KPIs ── */
+.metrics-band {
+  background: var(--metrics-bg);
+  border-radius: 20px;
+  padding: 22px 24px 26px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 32px -12px rgba(3,29,73,0.40);
+}
+.metrics-band::before {
+  /* subtle isolation grid — echoes the brand window-frame motif */
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0, transparent 79px, rgba(255,255,255,0.04) 79px, rgba(255,255,255,0.04) 80px),
+    repeating-linear-gradient( 0deg, transparent 0, transparent 79px, rgba(255,255,255,0.04) 79px, rgba(255,255,255,0.04) 80px);
+  pointer-events: none;
+}
+.metrics-band::after {
+  content: '';
+  position: absolute; right: -80px; bottom: -80px;
+  width: 280px; height: 280px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(227,30,36,0.18) 0%, transparent 65%);
+  pointer-events: none;
+}
+.metrics-band-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+  position: relative; z-index: 1;
+}
+.metrics-band-title {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.16em; color: rgba(255,255,255,0.85);
+}
+.metrics-band-sub { color: rgba(255,255,255,0.40); font-size: 11px; margin-left: 4px; }
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  position: relative; z-index: 1;
+}
+.metrics-tile {
+  background: var(--metrics-tile);
+  border: 1px solid var(--metrics-tile-b);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  backdrop-filter: blur(6px);
+}
+.metrics-tile-label  { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.60); line-height: 1.3; }
+.metrics-tile-value  { font-size: 26px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.02em; }
+.metrics-tile-sub    { font-size: 11px; color: rgba(255,255,255,0.50); }
+.metrics-tile .bar   { background: rgba(255,255,255,0.10); }
+.metrics-tile-icon {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: rgba(255,255,255,0.10);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+}
+@keyframes fadeInUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+@keyframes scaleIn  { from { opacity:0; transform: scale(.96); }      to { opacity:1; transform: scale(1); } }
+@keyframes pulseDot { 0%,100% { opacity:1; transform: scale(1); } 50% { opacity:.55; transform: scale(1.25); } }
+@keyframes shimmer  { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.page-enter { animation: fadeInUp .35s cubic-bezier(.22,.68,0,1.1) both; }
+.fade-in    { animation: fadeInUp .38s cubic-bezier(.22,.68,0,1.1) both; }
+.scale-in   { animation: scaleIn  .28s ease-out both; }
+.d1{animation-delay:.05s} .d2{animation-delay:.10s} .d3{animation-delay:.15s}
+.d4{animation-delay:.20s} .d5{animation-delay:.26s} .d6{animation-delay:.32s}
+
+.dot-pulse::before {
+  content:''; display:inline-block; width:6px; height:6px; border-radius:50%;
+  background: currentColor; margin-right:5px; vertical-align:middle;
+  animation: pulseDot 1.8s ease-in-out infinite;
+}
+
+/* ── card primitive ── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+.card-tight { padding: 12px; }
+.card-lift { transition: transform .22s ease, box-shadow .22s ease; }
+.card-lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
+
+/* ── buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: 12px;
+  font-size: 13px; font-weight: 600;
+  transition: background-color .18s, transform .12s, box-shadow .18s, color .18s;
+  white-space: nowrap;
+}
+.btn-sm  { padding: 6px 10px; font-size: 11px; border-radius: 10px; gap: 6px; }
+.btn-brand    { background: var(--brand-navy); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.btn-brand:hover  { background: var(--brand-navy-h); box-shadow: var(--shadow-btn); }
+.btn-brand:active { transform: scale(.98); }
+.btn-gradient { background: var(--brand-gradient); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.btn-gradient:hover  { opacity: .92; }
+.btn-red      { background: var(--brand-red); color: #fff; }
+.btn-red:hover{ background: var(--brand-red-h); }
+.btn-ghost    { background: #fff; color: var(--fg2); border: 1px solid var(--border-1); }
+.btn-ghost:hover { background: var(--bg-subtle); }
+.btn-text     { color: var(--info-fg); padding: 6px 4px; font-weight: 600; }
+.btn-text:hover { color: #1e40af; }
+.btn-icon     { width: 36px; height: 36px; padding: 0; justify-content: center; background:#fff; border:1px solid var(--border-1); color: var(--fg3); border-radius: 10px;}
+.btn-icon:hover { background: var(--bg-subtle); }
+
+/* ── inputs ── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label {
+  font-size: 11px; font-weight: 600; color: var(--fg4);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--border-input); border-radius: 8px;
+  font-size: 13px; color: var(--fg2); background: #fff; outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.input:focus { border-color: var(--brand-navy); box-shadow: 0 0 0 3px rgba(3,29,73,.08); }
+.input::placeholder { color: var(--fg5); }
+
+/* ── pills / badges ── */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 700;
+  padding: 3px 9px; border-radius: 9999px;
+  white-space: nowrap;
+}
+.pill-dot::before {
+  content:''; width:5px; height:5px; border-radius:50%; background: currentColor; flex-shrink: 0;
+}
+.chip-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 18px; padding: 0 5px;
+  font-size: 10px; font-weight: 800; color: #fff;
+  background: var(--danger); border-radius: 9999px;
+}
+
+/* ── icon tile (the workhorse pattern) ── */
+.ic-tile {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; flex-shrink: 0;
+}
+.ic-tile-sm { width: 28px; height: 28px; border-radius: 8px; }
+.ic-tile-md { width: 32px; height: 32px; }
+.ic-tile-lg { width: 40px; height: 40px; border-radius: 12px; }
+.ic-tile-xl { width: 48px; height: 48px; border-radius: 12px; }
+
+/* ── headings ── */
+.h-page { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; color: var(--fg1); line-height: 1.15; }
+.h-section { font-size: 14px; font-weight: 700; color: var(--fg2); text-transform: uppercase; letter-spacing: .04em; }
+.h-sub  { font-size: 11px; font-weight: 700; color: var(--fg3); text-transform: uppercase; letter-spacing: .10em; }
+.meta   { font-size: 11px; color: var(--fg5); }
+.money  { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--fg1); }
+.mono   { font-family: var(--font-mono); font-weight: 700; color: var(--info-fg); }
+
+/* ── progress bar ── */
+.bar { height: 6px; background: #f3f4f6; border-radius: 9999px; overflow: hidden; flex: 1; }
+.bar-fill { height: 100%; border-radius: 9999px; transition: width .4s ease; }
+
+/* utility */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-5 { gap: 20px; }
+.min-w-0 { min-width: 0; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ── Standard page layout (consistent across all sections) ──
+   [CompactStatsBar]
+   [main content flex row]
+     [list / table / kanban — flex:1]   [right col 280px — acciones, secundarios]
+   On mobile: stack vertically, right col below main. */
+.page-layout { display: flex; gap: 16px; align-items: flex-start; }
+.page-main   { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.page-aside  { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 960px) {
+  .page-aside { width: 240px; }
+}
+@media (max-width: 767px) {
+  .page-layout { flex-direction: column; }
+  .page-aside  { width: 100%; }
+}
+
+/* Quick-action button inside the right sidebar */
+.qa-btn {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.06); cursor: pointer;
+  font-size: 12px; font-weight: 600; text-align: left;
+  transition: transform 120ms, box-shadow 150ms;
+}
+.qa-btn:hover { transform: scale(1.015); box-shadow: 0 4px 12px rgba(0,0,0,0.09); }
+
+/* ── Compact stats bar ── */
+.compact-stats-bar {
+  background: #031d49;
+  border-radius: 12px;
+  height: 52px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 16px -8px rgba(3,29,73,0.35);
+  flex-wrap: nowrap;
+}
+.compact-stats-head {
+  display: flex; align-items: center; gap: 6px;
+  margin-right: 14px; flex-shrink: 0;
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.14em; color: rgba(255,255,255,0.45);
+}
+.compact-stats-divider {
+  width: 1px; height: 28px;
+  background: rgba(255,255,255,0.12);
+  margin: 0 14px; flex-shrink: 0;
+}
+.compact-stats-item {
+  display: flex; align-items: baseline; gap: 5px;
+  flex-shrink: 0;
+}
+.compact-stats-value {
+  font-size: 19px; font-weight: 800; color: #fff;
+  font-variant-numeric: tabular-nums; line-height: 1;
+  letter-spacing: -0.02em;
+}
+.compact-stats-label {
+  font-size: 11px; color: rgba(255,255,255,0.50);
+  font-weight: 500; white-space: nowrap;
+}
+
+/* ── Kanban column ── */
+.kanban-col { flex: 0 0 215px; min-width: 195px; }
+
+/* ── Mobile sidebar rail + drawer ── */
+.sidebar-rail { display: flex; }  /* visible by default */
+.mob-bottom-nav { display: none; } /* hidden by default */
+
+/* ─────────────────────────────────────────────────────────────────
+   RESPONSIVE — 1366 × 768 (tight desktop)
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 1400px) {
+  .app-page-inner { padding: 0 16px 24px; }
+  .section-hero   { padding: 16px 0 14px; }
+  .section-hero-title { font-size: 22px; }
+  .section-hero-mark  { width: 44px; height: 44px; border-radius: 11px; }
+  .section-hero-sub   { font-size: 12px; }
+  .metrics-band { padding: 16px 18px 20px; }
+  .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .metrics-tile-value { font-size: 22px; }
+  .kanban-col { flex: 0 0 190px; min-width: 175px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RESPONSIVE — tablet 768 → 1024px
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .section-hero-actions .hide-tablet { display: none; }
+  .kanban-col { flex: 0 0 200px; min-width: 185px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RESPONSIVE — mobile < 768px
+   Sidebar hides. Bottom nav takes over. Content fills full width.
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* hide desktop sidebar */
+  .sidebar-rail { display: none; }
+
+  /* top bar: shorter */
+  .topbar-slogan { display: none; }
+  .topbar-inner  { height: 56px; padding: 0 14px; }
+
+  /* page layout */
+  .app-page-inner { padding: 0 12px 80px; } /* 80px bottom = bottom nav clearance */
+
+  /* section hero — compact */
+  .section-hero { padding: 14px 0 12px; }
+  .section-hero-inner { gap: 10px; padding: 0 12px; }
+  .section-hero-mark  { display: none; }
+  .section-hero-title { font-size: 20px; }
+  .section-hero-sub   { font-size: 12px; }
+  .section-hero-actions { width: 100%; order: 3; margin-top: 2px; }
+
+  /* metrics */
+  .metrics-band { padding: 14px 14px 16px; border-radius: 14px; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metrics-tile-value { font-size: 20px; }
+
+  /* compact stats bar — scrollable row on mobile */
+  .compact-stats-bar { overflow-x: auto; height: auto; padding: 10px 14px; flex-wrap: nowrap; gap: 0; border-radius: 10px; }
+  .compact-stats-value { font-size: 16px; }
+
+  /* kanban — one column visible, others scroll */
+  .kanban-col { flex: 0 0 260px; min-width: 240px; }
+
+  /* cards: tighter padding on mobile */
+  .card  { padding: 12px; }
+  .card .h-section { font-size: 12px; }
+
+  /* bottom nav */
+  .mob-bottom-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    height: 56px;
+    background: #031d49;
+    border-top: 1px solid rgba(255,255,255,0.10);
+    padding: 0 4px;
+    align-items: stretch;
+  }
+
+  /* mobile drawer overlay */
+  .mob-drawer-overlay {
+    display: flex;
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.55);
+  }
+  .mob-drawer-panel {
+    width: 256px;
+    background: #031d49;
+    height: 100%;
+    overflow-y: auto;
+    box-shadow: 8px 0 40px rgba(0,0,0,0.30);
+  }
+}
+
+/* Drawer overlay hidden by default */
+.mob-drawer-overlay { display: none; }
+.mob-drawer-overlay.open { display: flex; }
+
+/* ── Mobile nav item ── */
+.mob-nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 3px;
+  color: rgba(255,255,255,0.50);
+  padding: 6px 2px;
+  font-size: 10px; font-weight: 600;
+  transition: color 150ms;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+}
+.mob-nav-item.active  { color: #60a5fa; }
+.mob-nav-item:hover   { color: rgba(255,255,255,0.85); }
+
+/* hamburger — only shown on mobile */
+.mob-hamburger { display: none; }
+
+@media (max-width: 767px) {
+  .mob-hamburger { display: flex !important; }
+  /* reduce topbar height on mobile */
+  header.topbar-inner, header { height: 56px !important; }
+  /* notification panel drops from smaller topbar */
+  .mob-notif-offset { top: 56px !important; }
+}
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" data-presets="react" data-filename="icons.jsx">
+/* Lucide icon registry — inline SVG paths from lucide-static.
+   Stroke 2, fill none. Add new icons as needed; keep names matching
+   the Lucide React component PascalCase name. */
+
+const ICON_PATHS = {
+  LayoutDashboard:    '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+  GitBranch:          '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  FileText:           '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+  Hammer:             '<path d="m15 12-8.5 8.5a2.12 2.12 0 1 1-3-3L12 9"/><path d="M17.64 15 22 10.64"/><path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/>',
+  Truck:              '<rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+  ShoppingCart:       '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+  Receipt:            '<path d="M2 17h2.5a2 2 0 0 0 1.4-.6L7 16h10l1.1 1.4a2 2 0 0 0 1.4.6H22"/><path d="M2 8v9M22 8v9M5 8h14"/><path d="M8 12h8M8 5h8"/>',
+  Users:              '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  BookOpen:           '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  Layers:             '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  Boxes:              '<path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5l-5.03-3.04a2 2 0 0 0-2.06 0z"/><path d="m7 16.5-4.74-2.85"/><path d="m7 16.5 5-3"/><path d="M7 16.5v5.17"/><path d="M12 13V8.5a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8A2 2 0 0 0 2 8.5v3.24"/><path d="M21.03 12.92A2 2 0 0 1 22 14.63v3.24a2 2 0 0 1-.97 1.71l-3 1.8a2 2 0 0 1-2.06 0L12 19v-5l5.03-3.04a2 2 0 0 1 2.06 0z"/><path d="m17 16.5 4.74-2.85"/><path d="m17 16.5-5-3"/><path d="M17 16.5v5.17"/>',
+  Factory:            '<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/>',
+  TrendingUp:         '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  SlidersHorizontal:  '<line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/>',
+  Bell:               '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  CheckCircle2:       '<circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/>',
+  AlertTriangle:      '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  XCircle:            '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+  X:                  '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  Plus:               '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  ChevronRight:       '<polyline points="9 18 15 12 9 6"/>',
+  ChevronDown:        '<polyline points="6 9 12 15 18 9"/>',
+  Phone:              '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  Mail:               '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+  MessageCircle:      '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+  CalendarClock:      '<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4M8 2v4M3 10h5"/><circle cx="17" cy="17" r="5"/><path d="M17 14v3h2"/>',
+  Clock:              '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  DollarSign:         '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  Package:            '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  Target:             '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  BarChart3:          '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  Activity:           '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  Lightbulb:          '<path d="M9 21h6"/><path d="M12 17v4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.5 1 1.3 1 2.5h6c0-1.2.4-2 1-2.5A6 6 0 0 0 12 3z"/>',
+  Sparkles:           '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>',
+  LogOut:             '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  Search:             '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  Menu:               '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+  Eye:                '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  Share2:             '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
+  Pencil:             '<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+  Filter:             '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+  Zap:                '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  ClipboardCheck:     '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>',
+  ShoppingBag:        '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+};
+
+function Icon({ name, size = 16, color, className = '', style = {}, strokeWidth = 2 }) {
+  const body = ICON_PATHS[name];
+  if (!body) return null;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color || 'currentColor'}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+      dangerouslySetInnerHTML={{ __html: body }}
+    />
+  );
+}
+
+window.Icon = Icon;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="primitives.jsx">
+/* Primitives — LogoMark, Watermark, IconTile, Pill, Card, Button, KpiTile.
+   All globals on window so other JSX files can use them. */
+
+// ── Brand mark — 2×2 rounded squares ───────────────────────────────
+function LogoMark({ size = 32, variant = 'dark' /* dark | color */ }) {
+  // 'dark' uses the navy-bg variant (white/red/translucent whites).
+  // 'color' uses the brand-sheet colours (navy/red/white/black).
+  const gap = Math.round(size * 0.083);
+  const sq  = Math.round((size - gap * 3) / 2);
+  const r   = Math.round(sq * 0.22);
+  const fills = variant === 'color'
+    ? ['#031d49', '#e31e24', '#fcfcfc', '#000000']
+    : ['rgba(255,255,255,0.90)', '#e31e24', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.20)'];
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" aria-hidden="true">
+      <rect x={gap}        y={gap}        width={sq} height={sq} rx={r} fill={fills[0]} stroke={variant==='color'?'#d1d5db':'none'} strokeWidth={variant==='color'?1:0}/>
+      <rect x={gap*2 + sq} y={gap}        width={sq} height={sq} rx={r} fill={fills[1]}/>
+      <rect x={gap}        y={gap*2 + sq} width={sq} height={sq} rx={r} fill={fills[2]}/>
+      <rect x={gap*2 + sq} y={gap*2 + sq} width={sq} height={sq} rx={r} fill={fills[3]}/>
+    </svg>
+  );
+}
+
+// ── Watermark — fixed full-bleed brand layer for the app shell ─────
+function Watermark() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed', inset: 0, overflow: 'hidden',
+        pointerEvents: 'none', zIndex: 0,
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: `
+            repeating-linear-gradient(90deg, transparent 0, transparent 149px, rgba(3,29,73,0.038) 149px, rgba(3,29,73,0.038) 150px),
+            repeating-linear-gradient( 0deg, transparent 0, transparent 149px, rgba(3,29,73,0.038) 149px, rgba(3,29,73,0.038) 150px)
+          `,
+        }}
+      />
+      <svg viewBox="0 0 200 200" fill="none"
+        style={{ position:'absolute', right:'6%', bottom:'8%', width:340, height:340, opacity:0.072, filter:'blur(0.5px)' }}>
+        <rect x="8"   y="8"   width="84" height="84" rx="14" fill="#031d49" />
+        <rect x="108" y="8"   width="84" height="84" rx="14" fill="#031d49" />
+        <rect x="8"   y="108" width="84" height="84" rx="14" fill="#031d49" />
+        <rect x="108" y="108" width="84" height="84" rx="14" fill="#031d49" />
+      </svg>
+      <svg viewBox="0 0 200 200" fill="none"
+        style={{ position:'absolute', left:'20%', top:'12%', width:140, height:140, opacity:0.038, filter:'blur(0.4px)' }}>
+        <rect x="8"   y="8"   width="84" height="84" rx="14" fill="#031d49" />
+        <rect x="108" y="8"   width="84" height="84" rx="14" fill="#031d49" />
+        <rect x="8"   y="108" width="84" height="84" rx="14" fill="#031d49" />
+        <rect x="108" y="108" width="84" height="84" rx="14" fill="#031d49" />
+      </svg>
+      <div style={{
+        position:'absolute', right:'3%', bottom:'5%', width:420, height:420, borderRadius:'50%',
+        background:'radial-gradient(circle, rgba(227,30,36,0.055) 0%, transparent 65%)',
+      }}/>
+    </div>
+  );
+}
+
+// ── Icon tile (rounded coloured backing for a Lucide icon) ─────────
+function IconTile({ name, size = 'lg', tone = 'navy', iconSize, className = '', style = {} }) {
+  // tones map to the section accent system. Each is a {bg, fg} pair
+  // following Tailwind's 100/600 (or 100/700 for high contrast).
+  const TONES = {
+    navy:     { bg: '#e0e7ef', fg: '#031d49' },
+    blue:     { bg: '#dbeafe', fg: '#1d4ed8' },
+    rose:     { bg: '#ffe4e6', fg: '#be123c' },
+    violet:   { bg: '#ede9fe', fg: '#6d28d9' },
+    amber:    { bg: '#fef3c7', fg: '#b45309' },
+    teal:     { bg: '#ccfbf1', fg: '#0f766e' },
+    lime:     { bg: '#ecfccb', fg: '#4d7c0f' },
+    emerald:  { bg: '#d1fae5', fg: '#047857' },
+    cyan:     { bg: '#cffafe', fg: '#0e7490' },
+    indigo:   { bg: '#e0e7ff', fg: '#4338ca' },
+    sky:      { bg: '#e0f2fe', fg: '#0369a1' },
+    orange:   { bg: '#ffedd5', fg: '#c2410c' },
+    purple:   { bg: '#f3e8ff', fg: '#7e22ce' },
+    slate:    { bg: '#f1f5f9', fg: '#475569' },
+    gray:     { bg: '#f3f4f6', fg: '#4b5563' },
+    red:      { bg: '#fee2e2', fg: '#b91c1c' },
+    green:    { bg: '#dcfce7', fg: '#15803d' },
+  };
+  const t = TONES[tone] || TONES.gray;
+  const sz = { sm: 28, md: 32, lg: 40, xl: 48 }[size] ?? 40;
+  const isz = iconSize ?? (size === 'sm' ? 13 : size === 'md' ? 15 : size === 'xl' ? 22 : 18);
+  const r = size === 'sm' ? 8 : size === 'xl' ? 14 : 10;
+  return (
+    <div
+      className={'ic-tile ' + className}
+      style={{ width: sz, height: sz, borderRadius: r, background: t.bg, color: t.fg, ...style }}
+    >
+      <Icon name={name} size={isz} />
+    </div>
+  );
+}
+
+// ── Pill ────────────────────────────────────────────────────────────
+function Pill({ tone = 'gray', dot = false, children, style = {} }) {
+  const TONES = {
+    gray:    { bg: '#f3f4f6', fg: '#4b5563' },
+    blue:    { bg: '#dbeafe', fg: '#1d4ed8' },
+    emerald: { bg: '#d1fae5', fg: '#047857' },
+    amber:   { bg: '#fef3c7', fg: '#b45309' },
+    teal:    { bg: '#ccfbf1', fg: '#0f766e' },
+    bluish:  { bg: '#bfdbfe', fg: '#1e3a8a' },
+    red:     { bg: '#fee2e2', fg: '#b91c1c' },
+    violet:  { bg: '#ede9fe', fg: '#6d28d9' },
+    rose:    { bg: '#ffe4e6', fg: '#be123c' },
+  };
+  const t = TONES[tone] || TONES.gray;
+  return (
+    <span className={'pill' + (dot ? ' pill-dot' : '')} style={{ background: t.bg, color: t.fg, ...style }}>
+      {children}
+    </span>
+  );
+}
+
+// ── Card primitives ─────────────────────────────────────────────────
+function Card({ children, className = '', tight = false, style = {} }) {
+  return <div className={'card ' + (tight ? 'card-tight ' : '') + className} style={style}>{children}</div>;
+}
+
+function CardHeader({ icon, iconTone = 'navy', title, sub, action }) {
+  return (
+    <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
+      {icon && <Icon name={icon} size={15} style={{ color: iconToneFg(iconTone), flexShrink: 0 }} />}
+      <h2 className="h-section">{title}</h2>
+      {sub && <span className="meta" style={{ marginLeft: 4 }}>{sub}</span>}
+      {action && <div style={{ marginLeft: 'auto' }}>{action}</div>}
+    </div>
+  );
+}
+
+function iconToneFg(t) {
+  return {
+    navy:'#031d49', red:'#e31e24', amber:'#f59e0b', blue:'#3b82f6',
+    emerald:'#10b981', rose:'#fb7185', violet:'#8b5cf6', teal:'#14b8a6',
+    purple:'#a855f7', orange:'#fb923c', slate:'#94a3b8', gray:'#6b7280',
+    cyan:'#06b6d4', sky:'#0ea5e9', lime:'#84cc16', indigo:'#6366f1',
+    green:'#22c55e',
+  }[t] || '#6b7280';
+}
+
+// ── Button ──────────────────────────────────────────────────────────
+function Button({ variant = 'brand', size = 'md', icon, iconAfter, children, onClick, type = 'button', disabled, style = {} }) {
+  const cls = `btn ${size === 'sm' ? 'btn-sm ' : ''}btn-${variant}`;
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} className={cls} style={{ opacity: disabled ? 0.6 : 1, ...style }}>
+      {icon && <Icon name={icon} size={size === 'sm' ? 12 : 14} />}
+      {children}
+      {iconAfter && <Icon name={iconAfter} size={size === 'sm' ? 12 : 14} />}
+    </button>
+  );
+}
+
+// ── KPI tile ────────────────────────────────────────────────────────
+function KpiTile({ label, value, sub, icon, tone = 'blue', progress, progressColor }) {
+  return (
+    <div className="card card-tight" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex items-center justify-between">
+        <p className="meta" style={{ fontWeight: 500, color: '#6b7280', lineHeight: 1.3 }}>{label}</p>
+        {icon && <IconTile name={icon} size="md" tone={tone} />}
+      </div>
+      <p className="money" style={{ fontSize: 22, lineHeight: 1, letterSpacing: '-0.01em' }}>{value}</p>
+      {progress != null && (
+        <div className="flex items-center gap-2">
+          <div className="bar">
+            <div className="bar-fill" style={{ background: progressColor || iconToneFg(tone), width: `${Math.min(progress, 100)}%` }} />
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 800, color: progressColor || iconToneFg(tone) }} className="tabular">{progress}%</span>
+        </div>
+      )}
+      {sub && <p className="meta">{sub}</p>}
+    </div>
+  );
+}
+
+// ── Format helpers ──────────────────────────────────────────────────
+function formatCurrency(v) {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(v);
+}
+function fmtRel(ms) {
+  const min = Math.floor((Date.now() - ms) / 60000);
+  if (min < 1)  return 'Ahora mismo';
+  if (min < 60) return `Hace ${min} min`;
+  const hs = Math.floor(min / 60);
+  if (hs < 24)  return `Hace ${hs} h`;
+  return `Hace ${Math.floor(hs / 24)} d`;
+}
+
+Object.assign(window, { LogoMark, Watermark, IconTile, Pill, Card, CardHeader, Button, KpiTile, iconToneFg, formatCurrency, fmtRel });
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="SectionHeroV2.jsx">
+/* SectionHero + MetricsBand — the two patterns that wall off sections.
+
+   <SectionHero> sits at the top of every page. It renders a tinted strip
+   in the section's accent colour, with breadcrumb · title · sub-title on
+   the left and a primary CTA on the right. The page background also
+   takes on a soft wash of the section accent — together these announce
+   "you are HERE" before the user reads a word.
+
+   <MetricsBand> wraps KPI tiles in a dark navy block, visually walling
+   them off from the lighter operational areas below. */
+
+function SectionHero({ section, icon, title, sub, breadcrumb, actions }) {
+  return (
+    <div className="section-hero">
+      <div className="section-hero-inner">
+        {icon && (
+          <div className="section-hero-mark">
+            <Icon name={icon} size={28} color={sectionDeep(section)} />
+          </div>
+        )}
+        <div className="section-hero-text">
+          {breadcrumb && (
+            <div className="section-hero-crumb">
+              {breadcrumb.map((c, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="sep">/</span>}
+                  <span className={i === breadcrumb.length - 1 ? 'accent' : ''}>{c}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+          <h1 className="section-hero-title">{title}</h1>
+          {sub && <p className="section-hero-sub">{sub}</p>}
+        </div>
+        {actions && <div className="section-hero-actions">{actions}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MetricsBand({ title = 'Métricas del negocio', sub, children }) {
+  return (
+    <div className="metrics-band">
+      <div className="metrics-band-head">
+        <Icon name="BarChart3" size={14} color="#fbbf24" />
+        <span className="metrics-band-title">{title}</span>
+        {sub && <span className="metrics-band-sub">{sub}</span>}
+      </div>
+      <div className="metrics-grid">{children}</div>
+    </div>
+  );
+}
+
+function MetricTile({ label, value, sub, icon, progress, progressColor = '#fbbf24' }) {
+  return (
+    <div className="metrics-tile">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <p className="metrics-tile-label">{label}</p>
+        {icon && (
+          <div className="metrics-tile-icon">
+            <Icon name={icon} size={16} />
+          </div>
+        )}
+      </div>
+      <p className="metrics-tile-value">{value}</p>
+      {progress != null && (
+        <div className="flex items-center gap-2">
+          <div className="bar">
+            <div className="bar-fill" style={{ background: progressColor, width: `${Math.min(progress, 100)}%` }} />
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 800, color: progressColor }} className="tabular">{progress}%</span>
+        </div>
+      )}
+      {sub && <p className="metrics-tile-sub">{sub}</p>}
+    </div>
+  );
+}
+
+function sectionDeep(section) {
+  return {
+    dashboard: '#1d4ed8', crm: '#be123c', presupuestos: '#6d28d9',
+    operaciones: '#b45309', remitos: '#0f766e', pedidos: '#4d7c0f',
+    recibos: '#047857', clientes: '#0e7490', estado: '#4338ca',
+    productos: '#0369a1', stock: '#c2410c', proveedores: '#b45309',
+    reportes: '#7e22ce', config: '#475569',
+  }[section] || '#031d49';
+}
+
+/* ── CompactStatsBar — slim navy strip with value + label per metric ── */
+function CompactStatsBar({ items }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(100deg, #031d49 0%, #0d2e6e 60%, #0a2761 100%)',
+      borderRadius: 14,
+      padding: '0 6px',
+      display: 'flex',
+      alignItems: 'stretch',
+      minHeight: 64,
+      gap: 0,
+      overflowX: 'auto',
+      boxShadow: '0 4px 20px -6px rgba(3,29,73,0.40)',
+      flexWrap: 'nowrap',
+      flexShrink: 0,
+      position: 'relative',
+    }}>
+      {/* Window-frame motif background */}
+      <div style={{
+        position:'absolute',inset:0,borderRadius:14,overflow:'hidden',pointerEvents:'none',
+        backgroundImage:'repeating-linear-gradient(90deg,transparent 0,transparent 79px,rgba(255,255,255,0.03) 79px,rgba(255,255,255,0.03) 80px)',
+      }}/>
+
+      {items.map((item, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && (
+            <div style={{
+              width: 1, alignSelf: 'stretch', margin: '12px 0',
+              background: 'rgba(255,255,255,0.10)',
+              flexShrink: 0,
+            }} />
+          )}
+          <div style={{
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            alignItems: 'flex-start',
+            padding: '10px 18px',
+            flexShrink: 0, minWidth: 100,
+            position: 'relative', zIndex: 1,
+          }}>
+            {item.icon && (
+              <div style={{ marginBottom: 3 }}>
+                <Icon name={item.icon} size={12} color={item.color || 'rgba(255,255,255,0.50)'} />
+              </div>
+            )}
+            <span style={{
+              fontSize: 20, fontWeight: 800,
+              color: item.color || '#ffffff',
+              fontVariantNumeric: 'tabular-nums',
+              lineHeight: 1, letterSpacing: '-0.02em',
+              display: 'block',
+            }}>{item.value}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 600,
+              color: 'rgba(255,255,255,0.50)',
+              whiteSpace: 'nowrap', marginTop: 3, letterSpacing: '0.01em',
+              display: 'block',
+            }}>{item.label}</span>
+            {item.alert && (
+              <span style={{
+                marginTop: 3, fontSize: 9, fontWeight: 700,
+                color: '#fbbf24', letterSpacing: '0.04em', textTransform: 'uppercase',
+              }}>{item.alert}</span>
+            )}
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+Object.assign(window, { SectionHero, MetricsBand, MetricTile, CompactStatsBar, sectionDeep });
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="SidebarV2.jsx">
+/* Sidebar — navy icon rail with section accents.
+   Active item: vertical accent bar on the left + tinted bg + colored icon.
+   Hover (idle): icon scales 1.10 with accent backing. */
+
+const NAV_GROUPS = [
+  { items: [
+    { id: 'dashboard',    label: 'Dashboard',        icon: 'LayoutDashboard',    tone: 'blue'    },
+  ]},
+  { label: 'Comercial', items: [
+    { id: 'crm',          label: 'CRM',              icon: 'GitBranch',          tone: 'rose'    },
+    { id: 'presupuestos', label: 'Presupuestos',     icon: 'FileText',           tone: 'violet'  },
+    { id: 'operaciones',  label: 'Operaciones',      icon: 'Hammer',             tone: 'amber'   },
+    { id: 'remitos',      label: 'Remitos',          icon: 'Truck',              tone: 'teal'    },
+    { id: 'pedidos',      label: 'Pedidos',          icon: 'ShoppingCart',       tone: 'lime'    },
+    { id: 'recibos',      label: 'Recibos',          icon: 'Receipt',            tone: 'emerald' },
+    { id: 'clientes',     label: 'Clientes',         icon: 'Users',              tone: 'cyan'    },
+    { id: 'estado',       label: 'Estado de Cuenta', icon: 'BookOpen',           tone: 'indigo'  },
+  ]},
+  { label: 'Catálogo', items: [
+    { id: 'productos',    label: 'Productos',        icon: 'Layers',             tone: 'sky'     },
+    { id: 'stock',        label: 'Existencias',      icon: 'Boxes',              tone: 'orange'  },
+    { id: 'proveedores',  label: 'Proveedores',      icon: 'Factory',            tone: 'amber'   },
+  ]},
+  { label: 'Sistema', items: [
+    { id: 'reportes',     label: 'Reportes',         icon: 'TrendingUp',         tone: 'purple'  },
+    { id: 'config',       label: 'Configuración',    icon: 'SlidersHorizontal',  tone: 'slate'   },
+  ]},
+];
+
+const TONE_ACCENT = {
+  blue:'#60a5fa', rose:'#fb7185', violet:'#a78bfa', amber:'#fbbf24',
+  teal:'#2dd4bf', lime:'#a3e635', emerald:'#34d399', cyan:'#22d3ee',
+  indigo:'#818cf8', sky:'#38bdf8', orange:'#fb923c', purple:'#c084fc',
+  slate:'#cbd5e1',
+};
+const TONE_BG = {
+  blue:'rgba(96,165,250,0.10)', rose:'rgba(251,113,133,0.10)', violet:'rgba(167,139,250,0.10)',
+  amber:'rgba(251,191,36,0.10)', teal:'rgba(45,212,191,0.10)', lime:'rgba(163,230,53,0.10)',
+  emerald:'rgba(52,211,153,0.10)', cyan:'rgba(34,211,238,0.10)', indigo:'rgba(129,140,248,0.10)',
+  sky:'rgba(56,189,248,0.10)', orange:'rgba(251,146,60,0.10)', purple:'rgba(192,132,252,0.10)',
+  slate:'rgba(148,163,184,0.10)',
+};
+
+function SidebarItem({ item, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  const [tipY, setTipY]   = React.useState(0);
+  const btnRef            = React.useRef(null);
+  const accent  = TONE_ACCENT[item.tone] || '#fff';
+  const accentBg = TONE_BG[item.tone]   || 'rgba(255,255,255,0.05)';
+
+  function handleEnter() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setTipY(r.top + r.height / 2);
+    }
+    setHover(true);
+  }
+
+  return (
+    <div style={{ position: 'relative', padding: '0 6px', marginBottom: 2 }}>
+      <button
+        ref={btnRef}
+        onClick={onClick}
+        onMouseEnter={handleEnter}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '100%', height: 40, position: 'relative',
+          borderRadius: 12,
+          background: active ? accentBg : (hover ? 'rgba(255,255,255,0.05)' : 'transparent'),
+          color: active ? accent : (hover ? accent : 'rgba(255,255,255,0.45)'),
+          transition: 'all 150ms',
+        }}
+      >
+        {active && (
+          <span style={{
+            position: 'absolute', left: -6, top: '50%', transform: 'translateY(-50%)',
+            width: 2, height: 18, background: accent, borderRadius: '0 4px 4px 0',
+          }} />
+        )}
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: active ? 'rgba(255,255,255,0.10)' : (hover ? accentBg : 'transparent'),
+          color: 'inherit',
+          transform: !active && hover ? 'scale(1.10)' : 'none',
+          transition: 'transform 150ms',
+        }}>
+          <Icon name={item.icon} size={20} />
+        </div>
+      </button>
+
+      {/* Tooltip — position:fixed so overflow:auto on <nav> doesn't clip it */}
+      {hover && (
+        <div style={{
+          position: 'fixed', left: 62, top: tipY, transform: 'translateY(-50%)',
+          display: 'flex', alignItems: 'center', pointerEvents: 'none',
+          whiteSpace: 'nowrap', zIndex: 9999,
+        }}>
+          <span style={{
+            borderWidth: 5, borderStyle: 'solid',
+            borderColor: 'transparent', borderRightColor: '#1a2744',
+          }} />
+          <span style={{
+            background: '#1a2744', color: accent,
+            fontSize: 11, fontWeight: 700, padding: '7px 12px',
+            borderRadius: 9, boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            letterSpacing: '0.01em',
+          }}>{item.label}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Sidebar({ active, onNavigate, user, onSignOut }) {
+  const initials = user?.nombre
+    ? user.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'CB';
+  const [logoutHover, setLogoutHover] = React.useState(false);
+
+  return (
+    <aside className="sidebar-rail" style={{
+      width: 56, minHeight: '100vh', background: '#031d49',
+      display: 'flex', flexDirection: 'column', userSelect: 'none',
+      position: 'relative', zIndex: 30, flexShrink: 0,
+    }}>
+      {/* Header */}
+      <div style={{
+        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <LogoMark size={30} variant="dark" />
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto', scrollbarWidth: 'none' }}>
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={gi} style={{ marginTop: gi > 0 ? 4 : 0 }}>
+            {group.label && (
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.10)', margin: '8px 8px 6px' }} />
+            )}
+            {group.items.map(item => (
+              <SidebarItem
+                key={item.id}
+                item={item}
+                active={item.id === active}
+                onClick={() => onNavigate(item.id)}
+              />
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      {/* User footer */}
+      <div style={{
+        padding: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, background: '#e31e24',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: 11, fontWeight: 800,
+        }}>{initials}</div>
+        <button
+          onClick={onSignOut}
+          onMouseEnter={() => setLogoutHover(true)}
+          onMouseLeave={() => setLogoutHover(false)}
+          title="Cerrar sesión"
+          style={{
+            width: 36, height: 36, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: logoutHover ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)',
+            background: logoutHover ? 'rgba(255,255,255,0.08)' : 'transparent',
+            transition: 'all 150ms',
+          }}
+        >
+          <Icon name="LogOut" size={18} />
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+window.Sidebar = Sidebar;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="TopBar.jsx">
+/* Top bar — navy header with prominent brand identity.
+   Shows a hamburger button on mobile (hidden on desktop via CSS). */
+
+function TopBar({ notifCount = 0, onBellClick, bellOpen, onMenuClick }) {
+  return (
+    <header style={{
+      height: 72, background: '#031d49',
+      display: 'flex', alignItems: 'center', padding: '0 22px', gap: 14,
+      boxShadow: '0 2px 14px rgba(3,29,73,0.30)',
+      position: 'relative', zIndex: 20,
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      {/* Hamburger — only visible on mobile via CSS */}
+      <button
+        className="mob-hamburger"
+        onClick={onMenuClick}
+        style={{
+          display: 'none',   /* CSS .mob-hamburger overrides to flex on mobile */
+          width: 36, height: 36, borderRadius: 10,
+          alignItems: 'center', justifyContent: 'center',
+          color: 'rgba(255,255,255,0.75)', flexShrink: 0,
+        }}
+      >
+        <Icon name="Menu" size={20} />
+      </button>
+
+      {/* Brand cluster */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <LogoMark size={28} variant="dark" />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+          <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            CÉSAR BRÍTEZ
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#e31e24', letterSpacing: '0.22em', textTransform: 'uppercase', marginTop: 2 }}>
+            Aberturas
+          </span>
+        </div>
+      </div>
+
+      {/* Slogan — hidden on mobile via CSS .topbar-slogan */}
+      <div className="topbar-slogan" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflow: 'hidden' }}>
+        <span style={{ height: 32, width: 1, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', fontStyle: 'italic', fontWeight: 300, letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Aberturas bien pensadas.
+        </span>
+      </div>
+
+      {/* Spacer on mobile (when slogan hidden) */}
+      <div style={{ flex: 1 }} aria-hidden="true" />
+
+      {/* Notification bell */}
+      <button
+        onClick={onBellClick}
+        title="Notificaciones"
+        style={{
+          width: 40, height: 40, borderRadius: 12, position: 'relative', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: notifCount > 0 ? '#fbbf24' : 'rgba(255,255,255,0.55)',
+          background: bellOpen ? 'rgba(255,255,255,0.10)' : 'transparent',
+          transition: 'all 150ms',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.10)'}
+        onMouseLeave={e => e.currentTarget.style.background = bellOpen ? 'rgba(255,255,255,0.10)' : 'transparent'}
+      >
+        <Icon name="Bell" size={20} />
+        {notifCount > 0 && (
+          <span style={{
+            position: 'absolute', top: 6, right: 6,
+            minWidth: 16, height: 16, padding: '0 4px',
+            background: '#e31e24', color: '#fff', fontSize: 9, fontWeight: 800,
+            borderRadius: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid #031d49',
+          }}>{notifCount > 9 ? '9+' : notifCount}</span>
+        )}
+      </button>
+    </header>
+  );
+}
+
+function NotificationPanel({ notifs, onClose, onSelect, onMarkRead }) {
+  return (
+    <div style={{
+      position: 'absolute', right: 14, top: 72, marginTop: 6, zIndex: 100,
+      width: 320, background: '#0a2761',
+      border: '1px solid rgba(255,255,255,0.10)', borderRadius: 16, overflow: 'hidden',
+      boxShadow: '0 8px 32px -8px rgba(0,0,0,0.30)',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 12, fontWeight: 700 }}>
+          <Icon name="Bell" size={14} color="#fbbf24" />
+          Notificaciones
+          {notifs.length > 0 && (
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#fcd34d', background: 'rgba(251,191,36,0.10)', padding: '2px 7px', borderRadius: 9999 }}>
+              {notifs.length} nueva{notifs.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {notifs.length > 0 && (
+            <button onClick={onMarkRead} style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)', padding: '4px 8px', borderRadius: 8 }}>
+              Marcar leídas
+            </button>
+          )}
+          <button onClick={onClose} style={{ padding: 4, borderRadius: 6, color: 'rgba(255,255,255,0.40)' }}>
+            <Icon name="X" size={13} />
+          </button>
+        </div>
+      </div>
+      <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+        {notifs.length === 0 ? (
+          <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+            <Icon name="CheckCircle2" size={24} color="rgba(16,185,129,0.60)" />
+            <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: 11, marginTop: 8 }}>Sin notificaciones pendientes</p>
+          </div>
+        ) : notifs.map(n => (
+          <button key={n.id} onClick={() => onSelect && onSelect(n)}
+            style={{ width: '100%', display: 'flex', gap: 10, padding: '12px 16px', textAlign: 'left', transition: 'background 150ms', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <div style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: 'rgba(34,197,94,0.15)', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="CheckCircle2" size={16} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, color: '#fff', fontSize: 12, fontWeight: 600 }}>{n.cliente}</p>
+              <small style={{ display: 'block', color: 'rgba(255,255,255,0.50)', fontSize: 11, marginTop: 2 }}>
+                Aprobó el presupuesto <span style={{ fontFamily: 'monospace', color: '#34d399', fontWeight: 700 }}>{n.numero}</span>
+              </small>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <span style={{ color: '#34d399', fontSize: 11, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(n.monto)}</span>
+                <span style={{ color: 'rgba(255,255,255,0.30)', fontSize: 10 }}>{n.when}</span>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { TopBar, NotificationPanel });
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="Login.jsx">
+/* Login screen — split layout: navy panel left, form panel right.
+   Mirrors src/pages/Login.tsx from the codebase. */
+
+function Login({ onSignIn }) {
+  const [email, setEmail] = React.useState('admin@aberturas.local');
+  const [pwd, setPwd]     = React.useState('Admin1234!');
+  const [loading, setLoading] = React.useState(false);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setTimeout(() => { setLoading(false); onSignIn({ nombre: 'César', rol: 'admin' }); }, 450);
+  }
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f0f2f5' }}>
+      {/* Brand panel */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        width: 320, flexShrink: 0, background: '#031d49', padding: 24,
+      }}>
+        <LogoMark size={72} variant="color" />
+        <p style={{ marginTop: 20, fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>
+          CÉSAR BRÍTEZ
+        </p>
+        <p style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#e31e24', marginTop: 4 }}>
+          Aberturas
+        </p>
+        <p style={{ fontSize: 11, marginTop: 24, textAlign: 'center', padding: '0 24px', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>
+          Aberturas bien pensadas.
+        </p>
+      </div>
+
+      {/* Form */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
+          <div className="card" style={{ padding: 28, borderRadius: 16 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1f2937' }}>Bienvenido</h2>
+            <p style={{ margin: '4px 0 24px', fontSize: 13, color: '#6b7280' }}>
+              Ingresá tus credenciales para continuar
+            </p>
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div className="field">
+                <label className="field-label">Email</label>
+                <input
+                  className="input" type="email" value={email}
+                  onChange={e => setEmail(e.target.value)} required autoFocus
+                  placeholder="tu@email.com"
+                />
+              </div>
+              <div className="field">
+                <label className="field-label">Contraseña</label>
+                <input
+                  className="input" type="password" value={pwd}
+                  onChange={e => setPwd(e.target.value)} required
+                  placeholder="••••••••"
+                />
+              </div>
+              <Button variant="brand" type="submit" disabled={loading}
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 16px', marginTop: 4 }}>
+                {loading ? 'Ingresando...' : 'Ingresar'}
+              </Button>
+            </form>
+          </div>
+          <p style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', marginTop: 22 }}>
+            César Brítez Aberturas · Formosa Capital
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.Login = Login;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="Dashboard.jsx">
+/* Dashboard — landing page.
+   New shape:
+   - Section hero (gradient navy→red accent) with greeting
+   - MetricsBand (dark navy block) for KPIs — walls off metrics
+   - Operational cards on white below (priorities, riesgo, top productos)
+   - Right column: sugerencias, problemas, actividad */
+
+const PRIORIDADES = [
+  { icon: 'Truck',          tone: 'amber',   title: '3 pedidos listos para entregar',     sub: 'Coordiná la entrega hoy',            count: 3 },
+  { icon: 'Phone',          tone: 'blue',    title: '5 clientes esperando confirmación',  sub: 'Presupuestos enviados sin respuesta', count: 5 },
+  { icon: 'MessageCircle',  tone: 'teal',    title: '8 presupuestos para dar seguimiento', sub: 'Sin confirmar aún',                  count: 8 },
+  { icon: 'CalendarClock',  tone: 'violet',  title: '2 compromisos de pago próximos',     sub: 'Vencen en los próximos 2 días',      count: 2 },
+  { icon: 'AlertTriangle',  tone: 'red',     title: '1 pedido atrasado',                  sub: 'Superaron la fecha estimada',         count: 1 },
+];
+
+const VENTAS_RIESGO = [
+  { id: 'PR-0042', cliente: 'Familia González',          item: 'Ventana corrediza PVC 1.50×1.10', monto: 1250000, dias: 3 },
+  { id: 'PR-0039', cliente: 'Mariela Ojeda',             item: 'Puerta de entrada aluminio',      monto:  480000, dias: 6 },
+  { id: 'PR-0036', cliente: 'Estudio Britos & Asoc.',    item: 'Ventanas balconeras (×3)',         monto: 2150000, dias: 9 },
+  { id: 'PR-0033', cliente: 'Hugo Rodríguez',            item: 'Mosquitero rebatible',             monto:   95000, dias:11 },
+];
+
+const TOP_PRODS = [
+  { n: 1, desc: 'Ventana corrediza PVC blanco',  unidades: 24, monto: 4250000, tone: 'blue'   },
+  { n: 2, desc: 'Puerta entrada aluminio negro', unidades: 18, monto: 3120000, tone: 'teal'   },
+  { n: 3, desc: 'Balconera PVC símil madera',    unidades: 12, monto: 2180000, tone: 'violet' },
+  { n: 4, desc: 'Mosquitero rebatible',          unidades: 31, monto:  640000, tone: 'amber'  },
+];
+
+function Dashboard({ user, onNavigate }) {
+  const now = new Date();
+  const h = now.getHours();
+  const saludo = h < 12 ? '¡Buenos días' : h < 19 ? '¡Buenas tardes' : '¡Buenas noches';
+  const fechaHoy = now.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const monthPct = Math.round((dayOfMonth / daysInMonth) * 100);
+
+  return (
+    <React.Fragment>
+      <SectionHero
+        section="dashboard"
+        icon="LayoutDashboard"
+        breadcrumb={['Inicio', 'Dashboard']}
+        title={`${saludo}, ${user?.nombre ?? 'usuario'}`}
+        sub={`${fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} · Acá tenés todo lo importante de tu negocio`}
+        actions={
+          <React.Fragment>
+            <div className="card card-tight flex items-center gap-2" style={{ padding: '8px 14px', fontSize: 13, color: '#4b5563' }}>
+              <Icon name="CalendarClock" size={13} color="#9ca3af" />
+              Hoy, {now.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
+            </div>
+            <Button variant="gradient" icon="Plus" onClick={() => onNavigate('presupuestos')}>
+              Nuevo presupuesto
+            </Button>
+          </React.Fragment>
+        }
+      />
+
+      <div className="app-page-inner">
+
+        {/* ── PULSO DEL NEGOCIO — métricas específicas de aberturas ── */}
+        <div style={{
+          background: 'linear-gradient(110deg, #031d49 0%, #0d2e6e 55%, #0a2761 100%)',
+          borderRadius: 18, padding: '20px 24px 22px',
+          position: 'relative', overflow: 'hidden',
+          boxShadow: '0 10px 32px -12px rgba(3,29,73,0.40)',
+        }}>
+          {/* window-frame grid motif */}
+          <div style={{ position:'absolute',inset:0,pointerEvents:'none',borderRadius:18,
+            backgroundImage:'repeating-linear-gradient(90deg,transparent 0,transparent 79px,rgba(255,255,255,0.03) 79px,rgba(255,255,255,0.03) 80px),repeating-linear-gradient(0deg,transparent 0,transparent 79px,rgba(255,255,255,0.03) 79px,rgba(255,255,255,0.03) 80px)',
+          }}/>
+          {/* red mist */}
+          <div style={{ position:'absolute',right:-60,bottom:-60,width:260,height:260,borderRadius:'50%',background:'radial-gradient(circle,rgba(227,30,36,0.15) 0%,transparent 65%)',pointerEvents:'none' }}/>
+
+          {/* header */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:18, position:'relative', zIndex:1 }}>
+            <Icon name="Activity" size={13} color="#fbbf24" />
+            <span style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.18em', color:'rgba(255,255,255,0.70)' }}>
+              Pulso del negocio
+            </span>
+            <span style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginLeft:4 }}>
+              Hoy, {now.toLocaleDateString('es-AR',{day:'numeric',month:'long'})} · Día {dayOfMonth}/{daysInMonth}
+            </span>
+          </div>
+
+          {/* KPI grid — 2 rows: ventas + operativo */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10, position:'relative', zIndex:1 }}>
+
+            {/* Facturación del mes */}
+            <div style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.10)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>Facturación del mes</span>
+                <div style={{ width:26,height:26,borderRadius:8,background:'rgba(96,165,250,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                  <Icon name="DollarSign" size={13} color="#60a5fa" />
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#fff', fontVariantNumeric:'tabular-nums', letterSpacing:'-0.02em', lineHeight:1 }}>$ 8.450.000</p>
+              <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ flex:1, height:4, background:'rgba(255,255,255,0.10)', borderRadius:9999, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${monthPct}%`, background:'#60a5fa', borderRadius:9999 }}/>
+                </div>
+                <span style={{ fontSize:10, fontWeight:700, color:'#60a5fa' }}>{monthPct}%</span>
+              </div>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.40)' }}>24 operaciones · objetivo $ 14M</p>
+            </div>
+
+            {/* Presup. sin respuesta — ATENCIÓN CLIENTE */}
+            <div style={{ background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>Sin respuesta</span>
+                <div style={{ width:26,height:26,borderRadius:8,background:'rgba(239,68,68,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                  <Icon name="Phone" size={13} color="#f87171" />
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#f87171', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>4</p>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.40)' }}>presup. enviados · esperando OK</p>
+              <div style={{ marginTop:8, display:'flex', gap:4 }}>
+                <span style={{ fontSize:9, fontWeight:700, background:'rgba(239,68,68,0.25)', color:'#fca5a5', padding:'2px 6px', borderRadius:9999 }}>2 hace +7 días</span>
+              </div>
+            </div>
+
+            {/* En producción */}
+            <div style={{ background:'rgba(251,191,36,0.10)', border:'1px solid rgba(251,191,36,0.20)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>En producción</span>
+                <div style={{ width:26,height:26,borderRadius:8,background:'rgba(251,191,36,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                  <Icon name="Hammer" size={13} color="#fbbf24" />
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#fbbf24', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>2</p>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.40)' }}>en fábrica con proveedor</p>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.35)' }}>Est. entrega: 20–25 jun</p>
+            </div>
+
+            {/* Listos para entregar */}
+            <div style={{ background:'rgba(45,212,191,0.10)', border:'1px solid rgba(45,212,191,0.20)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>Listos p/ entregar</span>
+                <div style={{ width:26,height:26,borderRadius:8,background:'rgba(45,212,191,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                  <Icon name="Truck" size={13} color="#2dd4bf" />
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#2dd4bf', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>3</p>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.40)' }}>material disponible en el local</p>
+              <div style={{ marginTop:8 }}>
+                <span style={{ fontSize:9, fontWeight:700, background:'rgba(45,212,191,0.20)', color:'#99f6e4', padding:'2px 6px', borderRadius:9999 }}>Coordiná entrega hoy</span>
+              </div>
+            </div>
+
+            {/* Saldo a cobrar */}
+            <div style={{ background:'rgba(167,139,250,0.10)', border:'1px solid rgba(167,139,250,0.20)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>Saldo a cobrar</span>
+                <div style={{ width:26,height:26,borderRadius:8,background:'rgba(167,139,250,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                  <Icon name="Receipt" size={13} color="#a78bfa" />
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#a78bfa', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>$ 4.590.000</p>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.40)' }}>5 clientes · cobros pendientes</p>
+              <div style={{ marginTop:8, display:'flex', gap:4 }}>
+                <span style={{ fontSize:9, fontWeight:700, background:'rgba(167,139,250,0.20)', color:'#c4b5fd', padding:'2px 6px', borderRadius:9999 }}>1 cheque a vencer</span>
+              </div>
+            </div>
+
+            {/* % Conversión */}
+            <div style={{ background:'rgba(52,211,153,0.10)', border:'1px solid rgba(52,211,153,0.20)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>Conversión cotiz→venta</span>
+                <div style={{ width:26,height:26,borderRadius:8,background:'rgba(52,211,153,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                  <Icon name="Target" size={13} color="#34d399" />
+                </div>
+              </div>
+              <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#34d399', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>38%</p>
+              <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ flex:1, height:4, background:'rgba(255,255,255,0.10)', borderRadius:9999, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:'38%', background:'#34d399', borderRadius:9999 }}/>
+                </div>
+                <span style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.40)' }}>9/24</span>
+              </div>
+              <p style={{ margin:'4px 0 0', fontSize:10, color:'rgba(255,255,255,0.40)' }}>histórico: 32% — ↑ mejorando</p>
+            </div>
+
+          </div>
+        </div>
+
+        <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* PRIORIDADES */}
+            <Card>
+              <CardHeader
+                icon="Target" iconTone="red"
+                title="Prioridades de hoy"
+                sub="Tu foco para hoy"
+                action={<a className="btn-text" href="#" style={{ fontSize: 12 }}>Ver agenda completa <Icon name="ChevronRight" size={12}/></a>}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                {PRIORIDADES.map(p => (
+                  <button key={p.title} className="card-lift"
+                    onClick={() => onNavigate('operaciones')}
+                    style={{
+                      display: 'flex', gap: 10, padding: 14, alignItems: 'flex-start',
+                      background: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: 12,
+                      textAlign: 'left', cursor: 'pointer',
+                    }}>
+                    <IconTile name={p.icon} tone={p.tone} size="lg" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1f2937', lineHeight: 1.35 }}>{p.title}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280', lineHeight: 1.25 }}>{p.sub}</p>
+                    </div>
+                    {p.count > 0 && <span className="chip-count">{p.count}</span>}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {/* RIESGO + SEGUIMIENTO */}
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+              <Card>
+                <CardHeader
+                  icon="AlertTriangle" iconTone="amber"
+                  title="Ventas en riesgo"
+                  action={<a className="btn-text" href="#" style={{ fontSize: 12 }}>Ver todos <Icon name="ChevronRight" size={12}/></a>}
+                />
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', margin: '0 0 8px' }}>
+                  Presupuestos enviados sin respuesta
+                </p>
+                <div>
+                  {VENTAS_RIESGO.map(op => (
+                    <button key={op.id}
+                      onClick={() => onNavigate('presupuestos')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                        padding: '10px 12px', borderRadius: 12, textAlign: 'left',
+                        transition: 'background 150ms',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#1f2937' }} className="truncate">{op.cliente}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af' }} className="truncate">{op.item}</p>
+                      </div>
+                      <p className="money" style={{ fontSize: 14 }}>{formatCurrency(op.monto)}</p>
+                      <Pill tone={op.dias > 7 ? 'red' : op.dias > 3 ? 'amber' : 'gray'}>
+                        Hace {op.dias} días
+                      </Pill>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+
+              <Card>
+                <CardHeader
+                  icon="MessageCircle" iconTone="violet"
+                  title="Seguimiento"
+                  action={<a className="btn-text" href="#" style={{ fontSize: 12 }}>Ver todos <Icon name="ChevronRight" size={12}/></a>}
+                />
+                <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px' }}>A quién contactar hoy</p>
+                {[
+                  { nombre: 'Carlos Britos',       pref: 'whatsapp', dias: 14 },
+                  { nombre: 'Familia Rodríguez',   pref: 'email',    dias: 21 },
+                  { nombre: 'Lorena Castro',       pref: 'whatsapp', dias: 8 },
+                  { nombre: 'Constructora Norte',  pref: 'email',    dias: 32 },
+                ].map(c => (
+                  <div key={c.nombre} className="flex items-center gap-2" style={{ padding: '6px 0' }}>
+                    <IconTile
+                      name={c.pref === 'email' ? 'Mail' : 'MessageCircle'}
+                      tone={c.pref === 'email' ? 'blue' : 'emerald'}
+                      size="sm"
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#1f2937' }} className="truncate">{c.nombre}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>Hace {c.dias} días</p>
+                    </div>
+                    {c.pref === 'whatsapp'
+                      ? <button className="btn btn-sm" style={{ background: '#22c55e', color: '#fff', padding: '4px 10px', fontWeight: 700 }}>Contactar</button>
+                      : <button className="btn btn-sm" style={{ background: '#ede9fe', color: '#6d28d9', padding: '4px 10px', fontWeight: 700 }}>Ver</button>}
+                  </div>
+                ))}
+              </Card>
+            </div>
+
+            {/* TOP PRODUCTOS */}
+            <Card>
+              <CardHeader
+                icon="ShoppingBag" iconTone="amber"
+                title="Productos más vendidos"
+                sub="Este mes"
+                action={<a className="btn-text" href="#" style={{ fontSize: 12 }}>Ver reporte completo <Icon name="ChevronRight" size={12}/></a>}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                {TOP_PRODS.map(p => {
+                  const palettes = {
+                    blue:   { num: '#2563eb', bar: '#eff6ff', border: '#dbeafe', price: '#1d4ed8' },
+                    teal:   { num: '#0d9488', bar: '#f0fdfa', border: '#ccfbf1', price: '#0f766e' },
+                    violet: { num: '#7c3aed', bar: '#f5f3ff', border: '#ede9fe', price: '#6d28d9' },
+                    amber:  { num: '#f59e0b', bar: '#fffbeb', border: '#fef3c7', price: '#b45309' },
+                  };
+                  const pal = palettes[p.tone];
+                  return (
+                    <div key={p.n} style={{
+                      background: pal.bar, border: `1px solid ${pal.border}`, borderRadius: 12,
+                      padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
+                    }}>
+                      <div className="flex items-center gap-2">
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: pal.num,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 900, fontSize: 14 }}>{p.n}</div>
+                        <div style={{
+                          flex: 1, height: 44, borderRadius: 8, background: 'rgba(255,255,255,0.6)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <Icon name="Package" size={22} color="#d1d5db" />
+                        </div>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1f2937', lineHeight: 1.3 }}>{p.desc}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: '#6b7280' }}>{p.unidades} unidades</p>
+                      <p className="money" style={{ fontSize: 14, color: pal.price }}>{formatCurrency(p.monto)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+
+          {/* Right column */}
+          <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Card>
+              <CardHeader icon="Lightbulb" iconTone="amber" title="Sugerencias del sistema" />
+              {[
+                { ic: 'Users',       tone: 'blue',    txt: 'Hoy podés hacer seguimiento a 4 clientes clave que mostraron interés.' },
+                { ic: 'DollarSign',  tone: 'emerald', txt: 'Tenés $ 4.215.000 en presupuestos sin cerrar.' },
+                { ic: 'ShoppingBag', tone: 'amber',   txt: 'Las ventanas PVC se están vendiendo más esta semana.' },
+              ].map((s, i) => (
+                <button key={i} style={{
+                  display: 'flex', gap: 10, width: '100%', padding: '10px 12px',
+                  borderRadius: 12, textAlign: 'left', transition: 'background 150ms', alignItems: 'flex-start',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <IconTile name={s.ic} tone={s.tone} size="sm" />
+                  <p style={{ flex: 1, fontSize: 12, color: '#4b5563', margin: 0, lineHeight: 1.4 }}>{s.txt}</p>
+                  <Icon name="ChevronRight" size={14} color="#d1d5db" />
+                </button>
+              ))}
+              <a href="#" style={{
+                display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 8,
+                padding: '8px 12px', background: '#10b981', color: '#fff', borderRadius: 12,
+                fontSize: 12, fontWeight: 700,
+              }}>Ver oportunidades de venta</a>
+            </Card>
+
+            <Card>
+              <CardHeader icon="AlertTriangle" iconTone="amber" title="Problemas operativos"
+                action={<a className="btn-text" href="#" style={{ fontSize: 11 }}>Ver todos <Icon name="ChevronRight" size={11}/></a>} />
+              {[
+                { ic: 'Package', tone: 'red',    label: 'Stock crítico',       sub: '3 productos',  count: 3, badge: '#ef4444' },
+                { ic: 'Truck',   tone: 'amber',  label: 'Pedidos demorados',   sub: '1 pedido',     count: 1, badge: '#f59e0b' },
+                { ic: 'Clock',   tone: 'orange', label: 'Entregas pendientes', sub: '5 entregas',   count: 5, badge: '#fb923c' },
+              ].map(r => (
+                <a key={r.label} href="#" className="flex items-center gap-3" style={{
+                  padding: '10px 8px', borderRadius: 12, transition: 'background 150ms',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <IconTile name={r.ic} tone={r.tone} size="lg" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#1f2937' }}>{r.label}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>{r.sub}</p>
+                  </div>
+                  <span style={{
+                    background: r.badge, color: '#fff', fontSize: 11, fontWeight: 800,
+                    minWidth: 24, height: 20, padding: '0 6px', borderRadius: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{r.count}</span>
+                </a>
+              ))}
+            </Card>
+
+            <Card>
+              <CardHeader icon="Activity" iconTone="blue" title="Actividad reciente" />
+              {[
+                { ic:'CheckCircle2', tone:'emerald', label: 'Familia González · Aprobado',     monto: 1250000, when: 'Hace 12 min' },
+                { ic:'FileText',     tone:'gray',    label: 'Hugo Rodríguez · Nuevo borrador', monto:   95000, when: 'Hace 2 h'   },
+                { ic:'Truck',        tone:'green',   label: 'Constructora Norte · Entregado',  monto: 3200000, when: 'Hace 5 h'   },
+                { ic:'FileText',     tone:'amber',   label: 'Lorena Castro · Enviado',         monto:  420000, when: 'Hace 1 d'   },
+              ].map((a, i) => (
+                <button key={i} style={{
+                  display: 'flex', gap: 10, alignItems: 'flex-start', width: '100%',
+                  padding: '8px 8px', borderRadius: 12, textAlign: 'left', transition: 'background 150ms',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <IconTile name={a.ic} tone={a.tone} size="sm" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#1f2937' }} className="truncate">{a.label}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }} className="truncate">{formatCurrency(a.monto)}</p>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 10, color: '#9ca3af', whiteSpace: 'nowrap' }}>{a.when}</p>
+                </button>
+              ))}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+window.Dashboard = Dashboard;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="Operaciones.jsx">
+/* Operaciones — Kanban tablero of 6 columns. Mirrors src/pages/Operaciones.tsx. */
+
+const ESTADO_LABEL = {
+  presupuesto: 'Borrador', enviado: 'Enviado', aprobado: 'Aprobado',
+  en_produccion: 'En producción', listo: 'Listo',
+  entregado: 'Entregado', cancelado: 'Cancelado',
+};
+
+const COL_DEFS = [
+  { key: 'sin_confirmar',   title: 'Sin confirmar',         tone: 'slate'   },
+  { key: 'confirmadas',     title: 'Confirmadas',           tone: 'emerald' },
+  { key: 'con_pedido',      title: 'Pedido al proveedor',   tone: 'amber'   },
+  { key: 'listas_entregar', title: 'Listas p/ entregar',    tone: 'teal'    },
+  { key: 'entregadas',      title: 'Entregadas',            tone: 'blue'    },
+  { key: 'canceladas',      title: 'Canceladas',            tone: 'red'     },
+];
+
+const HEADER_TONE = {
+  slate:   { border:'#94a3b8', bg:'#f1f5f9', fg:'#334155', badge:'#64748b' },
+  emerald: { border:'#34d399', bg:'#ecfdf5', fg:'#047857', badge:'#10b981' },
+  amber:   { border:'#fbbf24', bg:'#fffbeb', fg:'#b45309', badge:'#f59e0b' },
+  teal:    { border:'#2dd4bf', bg:'#f0fdfa', fg:'#0f766e', badge:'#14b8a6' },
+  blue:    { border:'#60a5fa', bg:'#eff6ff', fg:'#1d4ed8', badge:'#3b82f6' },
+  red:     { border:'#fca5a5', bg:'#fef2f2', fg:'#b91c1c', badge:'#f87171' },
+};
+
+const SAMPLE_OPS = {
+  sin_confirmar: [
+    { id: 'OP-0142', cliente: 'Hugo Rodríguez',          item: 'Mosquitero rebatible',                monto:   95000, estado: 'presupuesto', pago: 'sin_pago',   fecha: '12/06' },
+    { id: 'OP-0143', cliente: 'Lorena Castro',           item: 'Ventana balconera PVC',                monto:  420000, estado: 'enviado',     pago: 'sin_pago',   fecha: '15/06' },
+    { id: 'OP-0144', cliente: 'Estudio Britos & Asoc.',  item: 'Ventanas balconeras (×3)',             monto: 2150000, estado: 'enviado',     pago: 'sin_pago',   fecha: '20/06' },
+  ],
+  confirmadas: [
+    { id: 'OP-0140', cliente: 'Familia González',        item: 'Ventana corrediza PVC 1.50×1.10',      monto: 1250000, estado: 'aprobado',    pago: 'pagado',     fecha: '08/06' },
+    { id: 'OP-0138', cliente: 'Mariela Ojeda',           item: 'Puerta de entrada aluminio',           monto:  480000, estado: 'aprobado',    pago: 'señado',     fecha: '10/06' },
+  ],
+  con_pedido: [
+    { id: 'OP-0135', cliente: 'Constructora del Norte',  item: 'Ventanal fijo 3m × 2.4m',              monto: 3200000, estado: 'en_produccion', pago: 'señado', fecha: '24/06' },
+    { id: 'OP-0133', cliente: 'Ramírez S.A.',            item: 'Frente vidriado oficina',              monto: 5400000, estado: 'en_produccion', pago: 'pagado', fecha: '28/06' },
+  ],
+  listas_entregar: [
+    { id: 'OP-0130', cliente: 'Familia Britos',          item: 'Puerta corredera + 2 ventanas',        monto: 1820000, estado: 'listo',       pago: 'pagado',     fecha: '06/06' },
+    { id: 'OP-0129', cliente: 'Pablo Sánchez',           item: 'Ventana corrediza balcón',             monto:  680000, estado: 'listo',       pago: 'pagado',     fecha: '07/06' },
+    { id: 'OP-0128', cliente: 'Andrea Méndez',           item: 'Mampara de baño 80×190',               monto:  340000, estado: 'listo',       pago: 'pagado',     fecha: '07/06' },
+  ],
+  entregadas: [
+    { id: 'OP-0120', cliente: 'Edificio Las Tipas',      item: 'Ventanas piso 3 (×6)',                 monto: 4900000, estado: 'entregado',   pago: 'pagado',     fecha: '01/06' },
+    { id: 'OP-0118', cliente: 'Familia Acuña',           item: 'Puerta principal + lateral',           monto: 1450000, estado: 'entregado',   pago: 'pagado',     fecha: '30/05' },
+  ],
+  canceladas: [
+    { id: 'OP-0117', cliente: 'Daniel Mereles',          item: 'Ventana hojas batientes',              monto:  290000, estado: 'cancelado',   pago: 'sin_pago',   fecha: '28/05' },
+  ],
+};
+
+function PagoBadge({ pago }) {
+  if (pago === 'pagado') return <Pill tone="emerald">Pagado</Pill>;
+  if (pago === 'señado') return <Pill tone="amber">Señado</Pill>;
+  return <Pill tone="red">Sin pago</Pill>;
+}
+
+function EstadoBadge({ estado }) {
+  const tone = {
+    presupuesto:'gray', enviado:'bluish', aprobado:'emerald',
+    en_produccion:'amber', listo:'teal', entregado:'bluish', cancelado:'red',
+  }[estado] || 'gray';
+  return <Pill tone={tone}>{ESTADO_LABEL[estado] || estado}</Pill>;
+}
+
+function OpCard({ op, col, onClick }) {
+  const showPago = col === 'sin_confirmar' || col === 'confirmadas';
+  const showCta = col === 'confirmadas' || col === 'listas_entregar';
+  return (
+    <button onClick={onClick} className="card-lift" style={{
+      width: '100%', textAlign: 'left',
+      background: '#fff', border: '1px solid #f3f4f6', borderRadius: 12,
+      padding: 12, marginBottom: 8, cursor: 'pointer', display: 'block',
+    }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+        <span className="mono" style={{ fontSize: 11 }}>{op.id}</span>
+        <EstadoBadge estado={op.estado} />
+      </div>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1f2937' }} className="truncate">{op.cliente}</p>
+      <p style={{ margin: '2px 0 0', fontSize: 10, color: '#9ca3af' }} className="truncate">{op.item}</p>
+      {op.fecha && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#9ca3af' }}>Entrega {op.fecha}</p>}
+      <div className="flex items-center justify-between" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
+        <p className="money" style={{ fontSize: 13 }}>{formatCurrency(op.monto)}</p>
+        {showPago && <PagoBadge pago={op.pago} />}
+        {col === 'canceladas'  && <Icon name="XCircle"      size={14} color="#f87171" />}
+        {col === 'entregadas'  && <Icon name="CheckCircle2" size={14} color="#10b981" />}
+      </div>
+      {showCta && col === 'confirmadas' && (
+        <div style={{
+          marginTop: 8, padding: '4px 8px', textAlign: 'center',
+          background: '#fffbeb', border: '1px solid #fef3c7', color: '#b45309',
+          borderRadius: 8, fontSize: 10, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}><Icon name="ShoppingCart" size={10} /> Crear pedido →</div>
+      )}
+      {showCta && col === 'listas_entregar' && (
+        <div style={{
+          marginTop: 8, padding: '4px 8px', textAlign: 'center',
+          background: '#f0fdfa', border: '1px solid #ccfbf1', color: '#0f766e',
+          borderRadius: 8, fontSize: 10, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}><Icon name="Truck" size={10} /> Crear remito →</div>
+      )}
+    </button>
+  );
+}
+
+function KanbanCol({ col, title, tone, ops, onSelect }) {
+  const t = HEADER_TONE[tone];
+  return (
+    <div className="kanban-col">
+      <div className="flex items-center justify-between" style={{
+        padding: '8px 12px', marginBottom: 8, borderRadius: 10,
+        borderLeft: `4px solid ${t.border}`, background: t.bg, color: t.fg,
+      }}>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }} className="truncate">{title}</p>
+        <span style={{
+          background: t.badge, color: '#fff', borderRadius: 9999,
+          minWidth: 20, height: 18, padding: '0 6px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 10, fontWeight: 800,
+        }}>{ops.length}</span>
+      </div>
+      {ops.length === 0
+        ? <p style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', padding: '20px 0' }}>Sin operaciones</p>
+        : ops.map(op => <OpCard key={op.id} op={op} col={col} onClick={() => onSelect && onSelect(op)} />)
+      }
+    </div>
+  );
+}
+
+function Operaciones({ onSelectOp }) {
+  return (
+    <React.Fragment>
+      <SectionHero
+        section="operaciones"
+        icon="Hammer"
+        breadcrumb={['Comercial', 'Operaciones']}
+        title="Tablero de Operaciones"
+        sub="Estado del flujo de trabajo — del presupuesto a la entrega"
+        actions={<button className="btn btn-section" type="button"><Icon name="Plus" size={14}/>Nueva operación</button>}
+      />
+
+      <div className="app-page-inner" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* MÉTRICAS — slim strip, keeps the kanban as the hero */}
+        <CompactStatsBar items={[
+          { value: '13',        label: 'activas · ' + formatCurrency(17400000), color: '#60a5fa' },
+          { value: '3',         label: 'sin confirmar',            color: '#a78bfa' },
+          { value: '3',         label: 'listas p/ entregar',       color: '#2dd4bf' },
+          { value: '2',         label: 'entregadas esta semana',   color: '#34d399' },
+        ]} />
+
+        {/* Kanban */}
+        <Card>
+          <CardHeader icon="Zap" iconTone="amber" title="Tablero — flujo completo" sub="6 estados" />
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
+            {COL_DEFS.map(c => (
+              <KanbanCol
+                key={c.key} col={c.key} title={c.title} tone={c.tone}
+                ops={SAMPLE_OPS[c.key] || []}
+                onSelect={onSelectOp}
+              />
+            ))}
+          </div>
+        </Card>
+      </div>
+    </React.Fragment>
+  );
+}
+
+window.Operaciones = Operaciones;
+window.SAMPLE_OPS = SAMPLE_OPS;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="PresupuestosV2.jsx">
+/* Presupuestos — métricas compactas + tabla PRINCIPAL + columna lateral */
+
+const PRESUPUESTOS = [
+  { id:'PR-0042', cliente:'Familia González',       item:'Ventana corrediza PVC 1.50×1.10', monto:1250000, estado:'aprobado',      pago:'pagado',   fecha:'04/06', online:true,  validez:'22/06' },
+  { id:'PR-0041', cliente:'Mariela Ojeda',          item:'Puerta de entrada aluminio',      monto: 480000, estado:'aprobado',      pago:'señado',   fecha:'03/06', online:true,  validez:'21/06' },
+  { id:'PR-0040', cliente:'Hugo Rodríguez',         item:'Mosquitero rebatible',            monto:  95000, estado:'enviado',       pago:'sin_pago', fecha:'02/06', online:false, validez:'20/06' },
+  { id:'PR-0039', cliente:'Lorena Castro',          item:'Ventana balconera PVC',           monto: 420000, estado:'enviado',       pago:'sin_pago', fecha:'01/06', online:false, validez:'19/06' },
+  { id:'PR-0038', cliente:'Estudio Britos & Asoc.', item:'Ventanas balconeras (×3)',        monto:2150000, estado:'enviado',       pago:'sin_pago', fecha:'31/05', online:false, validez:'18/06' },
+  { id:'PR-0037', cliente:'Constructora del Norte', item:'Ventanal fijo 3m × 2.4m',        monto:3200000, estado:'en_produccion', pago:'señado',   fecha:'28/05', online:false, validez:'15/06' },
+  { id:'PR-0036', cliente:'Daniel Mereles',         item:'Ventana hojas batientes',         monto: 290000, estado:'cancelado',     pago:'sin_pago', fecha:'27/05', online:false, validez:'14/06' },
+  { id:'PR-0035', cliente:'Familia Britos',         item:'Puerta corredera + 2 ventanas',   monto:1820000, estado:'listo',         pago:'pagado',   fecha:'26/05', online:false, validez:'13/06' },
+];
+
+const SEGUIMIENTO_P = [
+  { nombre:'Lorena Castro',     dias:3, monto: 420000, motivo:'PR-0039 sin respuesta', pref:'whatsapp' },
+  { nombre:'Hugo Rodríguez',    dias:4, monto:  95000, motivo:'PR-0040 sin respuesta', pref:'whatsapp' },
+  { nombre:'Estudio Britos',    dias:6, monto:2150000, motivo:'Vence en 12 días',      pref:'email'    },
+  { nombre:'Carlos Méndez',     dias:9, monto: 340000, motivo:'No cotizó aún',         pref:'phone'    },
+];
+
+function PresBadge({ estado }) {
+  const m = { presupuesto:'gray', enviado:'bluish', aprobado:'emerald', en_produccion:'amber', listo:'teal', entregado:'bluish', cancelado:'red' };
+  const labels = { presupuesto:'Borrador', enviado:'Enviado', aprobado:'Aprobado', en_produccion:'En producción', listo:'Listo', entregado:'Entregado', cancelado:'Cancelado' };
+  return <Pill tone={m[estado]||'gray'}>{labels[estado]||estado}</Pill>;
+}
+function PagoBadge({ pago }) {
+  if (pago==='pagado') return <Pill tone="emerald">Pagado</Pill>;
+  if (pago==='señado') return <Pill tone="amber">Señado</Pill>;
+  return <Pill tone="red">Sin pago</Pill>;
+}
+
+function Presupuestos({ onOpen }) {
+  const [filter, setFilter] = React.useState('todos');
+  const [query,  setQuery]  = React.useState('');
+
+  const filtered = PRESUPUESTOS.filter(p =>
+    (filter==='todos' || p.estado===filter) &&
+    (query==='' || p.cliente.toLowerCase().includes(query.toLowerCase()) || p.id.includes(query.toUpperCase()))
+  );
+
+  const enviados   = PRESUPUESTOS.filter(p=>p.estado==='enviado').length;
+  const aprobados  = PRESUPUESTOS.filter(p=>p.estado==='aprobado').length;
+  const enTraMonto = PRESUPUESTOS.filter(p=>p.estado==='enviado').reduce((s,p)=>s+p.monto,0);
+  const conv       = Math.round((aprobados/PRESUPUESTOS.length)*100);
+
+  const FILTROS = [
+    {k:'todos',l:'Todos'},{k:'enviado',l:'Enviados'},{k:'aprobado',l:'Aprobados'},
+    {k:'en_produccion',l:'En producción'},{k:'listo',l:'Listos'},{k:'cancelado',l:'Cancelados'},
+  ];
+
+  return (
+    <React.Fragment>
+      <SectionHero section="presupuestos" icon="FileText"
+        breadcrumb={['Comercial','Presupuestos']} title="Presupuestos"
+        sub="Cotizaciones activas y su estado de cobranza"
+        actions={<button className="btn btn-section"><Icon name="Plus" size={14}/>Nuevo presupuesto</button>}
+      />
+      <div className="app-page-inner" style={{display:'flex',flexDirection:'column',gap:14}}>
+
+        <CompactStatsBar items={[
+          {value:String(enviados),           label:'enviados sin respuesta', color:'#a78bfa', icon:'FileText'},
+          {value:String(aprobados),          label:'aprobados este mes',     color:'#34d399', icon:'CheckCircle2'},
+          {value:formatCurrency(enTraMonto), label:'monto en trámite',       color:'#60a5fa', icon:'DollarSign'},
+          {value:conv+'%',                   label:'tasa de conversión',     color:'#fbbf24', icon:'Target'},
+          {value:String(PRESUPUESTOS.filter(p=>p.estado==='cancelado').length), label:'cancelados', color:'#f87171', icon:'XCircle'},
+        ]}/>
+
+        <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+
+          {/* ── MAIN: buscador + tabla ── */}
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:12}}>
+            {/* Filter bar */}
+            <Card tight>
+              <div className="flex items-center gap-3" style={{flexWrap:'wrap'}}>
+                <div style={{flex:1,minWidth:180,position:'relative'}}>
+                  <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'#9ca3af',display:'flex'}}><Icon name="Search" size={14}/></span>
+                  <input className="input" placeholder="Buscar cliente o número…" value={query} onChange={e=>setQuery(e.target.value)} style={{paddingLeft:32}}/>
+                </div>
+                {FILTROS.map(f=>(
+                  <button key={f.k} onClick={()=>setFilter(f.k)} style={{
+                    padding:'6px 12px',borderRadius:9999,fontSize:12,fontWeight:600,
+                    border:'1px solid '+(filter===f.k?'#6d28d9':'#e5e7eb'),
+                    background:filter===f.k?'#6d28d9':'#fff',
+                    color:filter===f.k?'#fff':'#4b5563',transition:'all 150ms',
+                  }}>{f.l}</button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Table */}
+            <Card style={{padding:0,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
+                    {['Número','Cliente','Ítem','Monto','Estado','Pago','Fecha',''].map((h,i)=>(
+                      <th key={i} style={{textAlign:i===3?'right':'left',padding:'10px 14px',fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(p=>(
+                    <tr key={p.id} style={{borderBottom:'1px solid #f3f4f6',cursor:'pointer',
+                      background:p.online?'rgba(209,250,229,0.30)':'#fff',
+                      borderLeft:p.online?'4px solid #34d399':'4px solid transparent',transition:'background 150ms'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'}
+                      onMouseLeave={e=>e.currentTarget.style.background=p.online?'rgba(209,250,229,0.30)':'#fff'}
+                    >
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono">{p.id}</span></td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}>
+                        <p style={{margin:0,fontWeight:600,color:'#1f2937'}}>{p.cliente}</p>
+                        {p.online&&<p style={{margin:0,fontSize:10,color:'#047857',fontWeight:700}}>✓ Aprobado online</p>}
+                      </td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.item}</td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle',textAlign:'right'}}><span className="money">{formatCurrency(p.monto)}</span></td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}><PresBadge estado={p.estado}/></td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}><PagoBadge pago={p.pago}/></td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#9ca3af',fontSize:12}}>{p.fecha}</td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Icon name="ChevronRight" size={14} color="#9ca3af"/></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filtered.length===0&&(
+                <div style={{padding:40,textAlign:'center',color:'#9ca3af'}}>
+                  <Icon name="FileText" size={32} color="#d1d5db"/>
+                  <p style={{marginTop:8,fontSize:12}}>Sin presupuestos con esos filtros.</p>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* ── RIGHT COL: acciones secundarias ── */}
+          <div style={{width:280,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <CardHeader icon="Zap" iconTone="violet" title="Acciones rápidas"/>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {[
+                  {icon:'Plus',          label:'Nuevo presupuesto',       bg:'#6d28d9',fg:'#fff'},
+                  {icon:'AlertTriangle', label:'Ver vencidos',             bg:'#fef3c7',fg:'#b45309'},
+                  {icon:'Share2',        label:'Compartir por WhatsApp',   bg:'#d1fae5',fg:'#047857'},
+                  {icon:'Filter',        label:'Exportar listado',         bg:'#dbeafe',fg:'#1d4ed8'},
+                ].map(a=>(
+                  <button key={a.label} className="qa-btn" style={{background:a.bg,color:a.fg}}>
+                    <Icon name={a.icon} size={13}/>{a.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            <Card tight>
+              <CardHeader icon="Phone" iconTone="blue" title="Seguimiento sugerido hoy"/>
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                {SEGUIMIENTO_P.map((c,i)=>(
+                  <div key={i} style={{
+                    padding:'8px 10px',borderRadius:10,
+                    borderLeft:`3px solid ${c.dias>7?'#ef4444':c.dias>4?'#f59e0b':'#10b981'}`,
+                    background:c.dias>7?'#fef2f2':c.dias>4?'#fffbeb':'#f0fdf4',
+                  }}>
+                    <div className="flex items-center gap-2" style={{marginBottom:4}}>
+                      <IconTile name={c.pref==='email'?'Mail':c.pref==='phone'?'Phone':'MessageCircle'} tone={c.pref==='email'?'blue':c.pref==='phone'?'violet':'emerald'} size="sm"/>
+                      <p style={{margin:0,fontSize:12,fontWeight:700,color:'#1f2937',flex:1}} className="truncate">{c.nombre}</p>
+                      <span style={{fontSize:10,fontWeight:700,color:c.dias>7?'#b91c1c':'#6b7280'}}>Hace {c.dias}d</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p style={{margin:0,fontSize:11,color:'#6b7280'}} className="truncate">{c.motivo}</p>
+                      <button style={{padding:'4px 8px',borderRadius:7,fontSize:10,fontWeight:700,background:c.pref==='whatsapp'?'#22c55e':c.pref==='email'?'#6d28d9':'#3b82f6',color:'#fff',marginLeft:6,flexShrink:0}}>
+                        Contactar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+window.Presupuestos = Presupuestos;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="ClientesV2.jsx">
+/* Clientes — lista principal + columna lateral */
+
+const CLIENTES_DATA = [
+  { id:'CLI-001', nombre:'Familia González',        tel:'3704-123456', localidad:'Formosa Capital', ultimaOp:'OP-0140', monto:1250000, saldo:0,       contacto:'04/06', activo:true  },
+  { id:'CLI-002', nombre:'Mariela Ojeda',           tel:'3704-234567', localidad:'Formosa Capital', ultimaOp:'OP-0138', monto: 480000, saldo:240000,  contacto:'03/06', activo:true  },
+  { id:'CLI-003', nombre:'Constructora del Norte',  tel:'3704-345678', localidad:'Clorinda',        ultimaOp:'OP-0135', monto:3200000, saldo:1600000, contacto:'28/05', activo:true  },
+  { id:'CLI-004', nombre:'Hugo Rodríguez',          tel:'3704-456789', localidad:'Formosa Capital', ultimaOp:'PR-0040', monto:  95000, saldo: 95000,  contacto:'02/06', activo:true  },
+  { id:'CLI-005', nombre:'Lorena Castro',           tel:'3704-567890', localidad:'Formosa Capital', ultimaOp:'PR-0039', monto: 420000, saldo:420000,  contacto:'01/06', activo:true  },
+  { id:'CLI-006', nombre:'Estudio Britos & Asoc.',  tel:'3704-678901', localidad:'Formosa Capital', ultimaOp:'PR-0038', monto:2150000, saldo:2150000, contacto:'31/05', activo:true  },
+  { id:'CLI-007', nombre:'Ramírez S.A.',            tel:'3704-789012', localidad:'Ingeniero Juárez',ultimaOp:'OP-0133', monto:5400000, saldo:0,       contacto:'15/05', activo:false },
+  { id:'CLI-008', nombre:'Familia Acuña',           tel:'3704-890123', localidad:'Formosa Capital', ultimaOp:'OP-0118', monto:1450000, saldo:0,       contacto:'30/05', activo:true  },
+  { id:'CLI-009', nombre:'Daniel Mereles',          tel:'3704-901234', localidad:'El Colorado',     ultimaOp:'PR-0036', monto: 290000, saldo: 290000, contacto:'27/05', activo:false },
+  { id:'CLI-010', nombre:'Edificio Las Tipas',      tel:'3704-012345', localidad:'Formosa Capital', ultimaOp:'OP-0120', monto:4900000, saldo:0,       contacto:'01/06', activo:true  },
+];
+
+function Clientes() {
+  const [query, setQuery] = React.useState('');
+  const filtered = CLIENTES_DATA.filter(c =>
+    query==='' || c.nombre.toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toUpperCase())
+  );
+  const totalSaldo = CLIENTES_DATA.reduce((s,c)=>s+c.saldo,0);
+  const sinContacto = CLIENTES_DATA.filter(c=>{
+    const [d,m] = c.contacto.split('/').map(Number);
+    const dias = Math.floor((new Date()-new Date(2026,m-1,d))/(86400000));
+    return dias > 14;
+  }).length;
+
+  return (
+    <React.Fragment>
+      <SectionHero section="clientes" icon="Users"
+        breadcrumb={['Comercial','Clientes']} title="Clientes"
+        sub="Base de datos comercial y estado de cuenta"
+        actions={<button className="btn btn-section"><Icon name="Plus" size={14}/>Nuevo cliente</button>}
+      />
+      <div className="app-page-inner" style={{display:'flex',flexDirection:'column',gap:14}}>
+        <CompactStatsBar items={[
+          {value:String(CLIENTES_DATA.filter(c=>c.activo).length),             label:'clientes activos',      color:'#22d3ee', icon:'Users'},
+          {value:String(sinContacto),                                           label:'sin contacto +14d',    color:'#fbbf24', icon:'Phone'},
+          {value:formatCurrency(totalSaldo),                                    label:'saldo total pendiente', color:'#fb7185', icon:'Receipt'},
+          {value:String(CLIENTES_DATA.filter(c=>c.saldo===0&&c.activo).length),label:'clientes al día',      color:'#34d399', icon:'CheckCircle2'},
+          {value:String(CLIENTES_DATA.filter(c=>!c.activo).length),            label:'inactivos',             color:'#9ca3af', icon:'Users'},
+        ]}/>
+
+        <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'#9ca3af',display:'flex'}}><Icon name="Search" size={14}/></span>
+                <input className="input" placeholder="Buscar por nombre, ID o localidad…" value={query} onChange={e=>setQuery(e.target.value)} style={{paddingLeft:32}}/>
+              </div>
+            </Card>
+            <Card style={{padding:0,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
+                    {['Cliente','Teléfono','Localidad','Última op.','Facturado','Saldo','Contacto',''].map((h,i)=>(
+                      <th key={i} style={{textAlign:i>=4&&i<=5?'right':'left',padding:'10px 14px',fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(c=>{
+                    const [d,m] = c.contacto.split('/').map(Number);
+                    const dias = Math.floor((new Date()-new Date(2026,m-1,d))/(86400000));
+                    return (
+                      <tr key={c.id} style={{borderBottom:'1px solid #f3f4f6',cursor:'pointer',transition:'background 150ms',
+                        borderLeft: c.saldo>0?'4px solid #f59e0b':'4px solid transparent'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                      >
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <div style={{width:28,height:28,borderRadius:8,background:c.activo?'#cffafe':'#f3f4f6',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                              <span style={{fontSize:10,fontWeight:800,color:c.activo?'#0e7490':'#6b7280'}}>{c.nombre.slice(0,2).toUpperCase()}</span>
+                            </div>
+                            <div>
+                              <p style={{margin:0,fontWeight:700,color:'#1f2937',fontSize:13}}>{c.nombre}</p>
+                              <p style={{margin:0,fontSize:10,color:'#9ca3af'}}>{c.id}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#4b5563',fontSize:12}}>{c.tel}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12}}>{c.localidad}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono" style={{fontSize:11}}>{c.ultimaOp}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',textAlign:'right'}}><span className="money" style={{fontSize:13}}>{formatCurrency(c.monto)}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',textAlign:'right'}}>
+                          {c.saldo>0
+                            ? <span style={{fontSize:12,fontWeight:800,color:'#b91c1c',fontVariantNumeric:'tabular-nums'}}>{formatCurrency(c.saldo)}</span>
+                            : <Pill tone="emerald">Al día</Pill>}
+                        </td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}>
+                          <Pill tone={dias>14?'red':dias>7?'amber':'gray'}>Hace {dias}d</Pill>
+                        </td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Icon name="ChevronRight" size={14} color="#9ca3af"/></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          <div style={{width:280,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <CardHeader icon="Zap" iconTone="cyan" title="Acciones rápidas"/>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {[
+                  {icon:'Plus',       label:'Nuevo cliente',         bg:'#0e7490',fg:'#fff'},
+                  {icon:'Mail',       label:'Campaña de seguimiento', bg:'#cffafe',fg:'#0e7490'},
+                  {icon:'Filter',     label:'Exportar clientes',      bg:'#dbeafe',fg:'#1d4ed8'},
+                  {icon:'BookOpen',   label:'Ver estado de cuenta',   bg:'#e0e7ff',fg:'#4338ca'},
+                ].map(a=>(
+                  <button key={a.label} className="qa-btn" style={{background:a.bg,color:a.fg}}>
+                    <Icon name={a.icon} size={13}/>{a.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            <Card tight>
+              <CardHeader icon="AlertTriangle" iconTone="amber" title="Con saldo pendiente"/>
+              {CLIENTES_DATA.filter(c=>c.saldo>0).slice(0,4).map(c=>(
+                <div key={c.id} className="flex items-center gap-2" style={{padding:'7px 0',borderBottom:'1px solid #f3f4f6'}}>
+                  <div style={{width:28,height:28,borderRadius:8,background:'#fef3c7',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <span style={{fontSize:9,fontWeight:800,color:'#b45309'}}>{c.nombre.slice(0,2).toUpperCase()}</span>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{margin:0,fontSize:12,fontWeight:600,color:'#1f2937'}} className="truncate">{c.nombre}</p>
+                  </div>
+                  <span style={{fontSize:12,fontWeight:800,color:'#b91c1c',fontVariantNumeric:'tabular-nums',flexShrink:0}}>{formatCurrency(c.saldo)}</span>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+window.Clientes = Clientes;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="CRMV2.jsx">
+/* CRM — pipeline de oportunidades con etapas + columna lateral */
+
+const ETAPAS = ['Prospecto','Interesado','Cotizado','Negociando','Ganado','Perdido'];
+const ETAPA_TONE = { Prospecto:'gray', Interesado:'blue', Cotizado:'violet', Negociando:'amber', Ganado:'emerald', Perdido:'red' };
+
+const OPS_CRM = [
+  { id:'OPP-012', nombre:'Edificio Rio Grande',      etapa:'Negociando', monto:8500000, contacto:'Arq. Suárez',   tel:'3704-111222', dias:2  },
+  { id:'OPP-011', nombre:'Country Las Acacias',       etapa:'Cotizado',   monto:4200000, contacto:'Ing. Morales',  tel:'3704-222333', dias:5  },
+  { id:'OPP-010', nombre:'Fraccionamiento Norte',     etapa:'Interesado', monto:2800000, contacto:'Carlos Vera',   tel:'3704-333444', dias:1  },
+  { id:'OPP-009', nombre:'Hotel Formosa Palace',      etapa:'Cotizado',   monto:6100000, contacto:'Gte. Gimenez',  tel:'3704-444555', dias:8  },
+  { id:'OPP-008', nombre:'Municipalidad Clorinda',    etapa:'Ganado',     monto:3900000, contacto:'Licitación',    tel:'—',           dias:14 },
+  { id:'OPP-007', nombre:'Viviendas IPV Lote 12',     etapa:'Negociando', monto:5700000, contacto:'Arq. Ledesma',  tel:'3704-555666', dias:3  },
+  { id:'OPP-006', nombre:'Supermercado La Estrella',  etapa:'Interesado', monto:1400000, contacto:'Dueño Quiroga', tel:'3704-666777', dias:6  },
+  { id:'OPP-005', nombre:'Clínica San Martín',        etapa:'Perdido',    monto:2200000, contacto:'Adm. López',    tel:'—',           dias:22 },
+];
+
+function CRM() {
+  const [filtroEtapa, setFiltroEtapa] = React.useState('todas');
+  const filtered = filtroEtapa==='todas' ? OPS_CRM : OPS_CRM.filter(o=>o.etapa===filtroEtapa);
+  const montoActivo = OPS_CRM.filter(o=>o.etapa!=='Ganado'&&o.etapa!=='Perdido').reduce((s,o)=>s+o.monto,0);
+  const ganadas = OPS_CRM.filter(o=>o.etapa==='Ganado').length;
+
+  return (
+    <React.Fragment>
+      <SectionHero section="crm" icon="GitBranch"
+        breadcrumb={['Comercial','CRM']} title="CRM — Pipeline"
+        sub="Oportunidades comerciales por etapa"
+        actions={<button className="btn btn-section"><Icon name="Plus" size={14}/>Nueva oportunidad</button>}
+      />
+      <div className="app-page-inner" style={{display:'flex',flexDirection:'column',gap:14}}>
+        <CompactStatsBar items={[
+          {value:String(OPS_CRM.filter(o=>!['Ganado','Perdido'].includes(o.etapa)).length), label:'oportunidades activas', color:'#fb7185', icon:'GitBranch'},
+          {value:formatCurrency(montoActivo), label:'en pipeline total', color:'#60a5fa', icon:'DollarSign'},
+          {value:String(ganadas), label:'ganadas este mes', color:'#34d399', icon:'CheckCircle2'},
+          {value:Math.round((ganadas/OPS_CRM.length)*100)+'%', label:'tasa de cierre', color:'#fbbf24', icon:'Target'},
+          {value:String(OPS_CRM.filter(o=>o.etapa==='Perdido').length), label:'perdidas', color:'#9ca3af', icon:'XCircle'},
+        ]}/>
+
+        <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:12}}>
+            {/* Filtro por etapa */}
+            <Card tight>
+              <div className="flex items-center gap-2" style={{flexWrap:'wrap'}}>
+                <span style={{fontSize:11,fontWeight:600,color:'#6b7280'}}>Etapa:</span>
+                {['todas',...ETAPAS].map(e=>(
+                  <button key={e} onClick={()=>setFiltroEtapa(e)} style={{
+                    padding:'5px 11px',borderRadius:9999,fontSize:11,fontWeight:600,
+                    border:'1px solid '+(filtroEtapa===e?'#be123c':'#e5e7eb'),
+                    background:filtroEtapa===e?'#be123c':'#fff',
+                    color:filtroEtapa===e?'#fff':'#4b5563',transition:'all 150ms',
+                    textTransform:'capitalize',
+                  }}>{e==='todas'?'Todas':e}</button>
+                ))}
+              </div>
+            </Card>
+
+            <Card style={{padding:0,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
+                    {['Oportunidad','Contacto','Teléfono','Monto','Etapa','Días',''].map((h,i)=>(
+                      <th key={i} style={{textAlign:i===3?'right':'left',padding:'10px 14px',fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(o=>(
+                    <tr key={o.id} style={{borderBottom:'1px solid #f3f4f6',cursor:'pointer',transition:'background 150ms'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'}
+                      onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                    >
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}>
+                        <p style={{margin:0,fontWeight:700,color:'#1f2937'}}>{o.nombre}</p>
+                        <p style={{margin:0,fontSize:10,color:'#9ca3af'}}>{o.id}</p>
+                      </td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle',fontSize:12,color:'#4b5563'}}>{o.contacto}</td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle',fontSize:12,color:'#6b7280'}}>{o.tel}</td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle',textAlign:'right'}}><span className="money">{formatCurrency(o.monto)}</span></td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}>
+                        <Pill tone={ETAPA_TONE[o.etapa]||'gray'}>{o.etapa}</Pill>
+                      </td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}>
+                        <Pill tone={o.dias>14?'red':o.dias>7?'amber':'gray'}>Hace {o.dias}d</Pill>
+                      </td>
+                      <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Icon name="ChevronRight" size={14} color="#9ca3af"/></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          <div style={{width:280,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <CardHeader icon="Zap" iconTone="rose" title="Acciones rápidas"/>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {[
+                  {icon:'Plus',         label:'Nueva oportunidad',    bg:'#be123c',fg:'#fff'},
+                  {icon:'Phone',        label:'Llamadas pendientes',   bg:'#ffe4e6',fg:'#be123c'},
+                  {icon:'TrendingUp',   label:'Ver reporte pipeline',  bg:'#dbeafe',fg:'#1d4ed8'},
+                  {icon:'Filter',       label:'Exportar CRM',          bg:'#f3f4f6',fg:'#4b5563'},
+                ].map(a=>(
+                  <button key={a.label} className="qa-btn" style={{background:a.bg,color:a.fg}}>
+                    <Icon name={a.icon} size={13}/>{a.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            <Card tight>
+              <CardHeader icon="BarChart3" iconTone="rose" title="Por etapa"/>
+              {ETAPAS.map(e=>{
+                const n = OPS_CRM.filter(o=>o.etapa===e).length;
+                const pct = Math.round((n/OPS_CRM.length)*100);
+                return (
+                  <div key={e} className="flex items-center gap-2" style={{padding:'6px 0'}}>
+                    <Pill tone={ETAPA_TONE[e]||'gray'} style={{width:90,justifyContent:'center'}}>{e}</Pill>
+                    <div className="bar" style={{flex:1}}><div className="bar-fill" style={{width:pct+'%',background:iconToneFg(ETAPA_TONE[e]||'gray')}}/></div>
+                    <span style={{fontSize:11,fontWeight:700,color:'#1f2937',width:20,textAlign:'right'}}>{n}</span>
+                  </div>
+                );
+              })}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+window.CRM = CRM;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="RemitosV2.jsx">
+/* Remitos — notas de entrega + columna lateral */
+
+const REMITOS_DATA = [
+  { id:'REM-042', op:'OP-0140', cliente:'Familia González',       item:'Ventana corrediza PVC 1.50×1.10', fecha:'06/06', estado:'pendiente',  chofer:'Juan P.',    monto:1250000 },
+  { id:'REM-041', op:'OP-0130', cliente:'Familia Britos',         item:'Puerta corredera + 2 ventanas',   fecha:'06/06', estado:'pendiente',  chofer:'Juan P.',    monto:1820000 },
+  { id:'REM-040', op:'OP-0129', cliente:'Pablo Sánchez',          item:'Ventana corrediza balcón',        fecha:'07/06', estado:'programado', chofer:'Mario G.',   monto: 680000 },
+  { id:'REM-039', op:'OP-0128', cliente:'Andrea Méndez',          item:'Mampara de baño 80×190',          fecha:'07/06', estado:'programado', chofer:'Mario G.',   monto: 340000 },
+  { id:'REM-038', op:'OP-0120', cliente:'Edificio Las Tipas',     item:'Ventanas piso 3 (×6)',            fecha:'01/06', estado:'entregado',  chofer:'Juan P.',    monto:4900000 },
+  { id:'REM-037', op:'OP-0118', cliente:'Familia Acuña',          item:'Puerta principal + lateral',      fecha:'30/05', estado:'entregado',  chofer:'Rubén H.',   monto:1450000 },
+  { id:'REM-036', op:'OP-0115', cliente:'Constructora del Norte', item:'Ventanal fijo — avance',         fecha:'25/05', estado:'entregado',  chofer:'Rubén H.',   monto:1600000 },
+];
+
+const ESTADO_REM = { pendiente:{tone:'amber',label:'Pendiente'}, programado:{tone:'blue',label:'Programado'}, entregado:{tone:'emerald',label:'Entregado'} };
+
+function Remitos() {
+  const [query, setQuery] = React.useState('');
+  const filtered = REMITOS_DATA.filter(r=>query===''||r.cliente.toLowerCase().includes(query.toLowerCase())||r.id.includes(query.toUpperCase()));
+  const hoy = REMITOS_DATA.filter(r=>r.estado!=='entregado').length;
+
+  return (
+    <React.Fragment>
+      <SectionHero section="remitos" icon="Truck"
+        breadcrumb={['Comercial','Remitos']} title="Remitos"
+        sub="Notas de entrega e historial de despacho"
+        actions={<button className="btn btn-section"><Icon name="Plus" size={14}/>Nuevo remito</button>}
+      />
+      <div className="app-page-inner" style={{display:'flex',flexDirection:'column',gap:14}}>
+        <CompactStatsBar items={[
+          {value:String(REMITOS_DATA.filter(r=>r.estado==='pendiente').length),  label:'pendientes hoy',  color:'#fbbf24', icon:'Clock'},
+          {value:String(REMITOS_DATA.filter(r=>r.estado==='programado').length), label:'programados',     color:'#60a5fa', icon:'CalendarClock'},
+          {value:String(REMITOS_DATA.filter(r=>r.estado==='entregado').length),  label:'entregados (mes)',color:'#34d399', icon:'CheckCircle2'},
+          {value:formatCurrency(REMITOS_DATA.filter(r=>r.estado!=='entregado').reduce((s,r)=>s+r.monto,0)), label:'monto en tránsito', color:'#2dd4bf', icon:'Truck'},
+        ]}/>
+
+        <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'#9ca3af',display:'flex'}}><Icon name="Search" size={14}/></span>
+                <input className="input" placeholder="Buscar remito o cliente…" value={query} onChange={e=>setQuery(e.target.value)} style={{paddingLeft:32}}/>
+              </div>
+            </Card>
+            <Card style={{padding:0,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
+                    {['Remito','Op.','Cliente','Material','Fecha','Chofer','Monto','Estado',''].map((h,i)=>(
+                      <th key={i} style={{padding:'10px 14px',fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em',textAlign:'left'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(r=>{
+                    const es = ESTADO_REM[r.estado]||{tone:'gray',label:r.estado};
+                    return (
+                      <tr key={r.id} style={{borderBottom:'1px solid #f3f4f6',cursor:'pointer',transition:'background 150ms',
+                        borderLeft:r.estado==='pendiente'?'4px solid #fbbf24':r.estado==='programado'?'4px solid #60a5fa':'4px solid #34d399'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                      >
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono">{r.id}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono" style={{fontSize:11,color:'#9ca3af'}}>{r.op}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',fontWeight:600,color:'#1f2937'}}>{r.cliente}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.item}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12}}>{r.fecha}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12}}>{r.chofer}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="money" style={{fontSize:13}}>{formatCurrency(r.monto)}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Pill tone={es.tone}>{es.label}</Pill></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Icon name="ChevronRight" size={14} color="#9ca3af"/></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          <div style={{width:280,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <CardHeader icon="Zap" iconTone="teal" title="Acciones rápidas"/>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {[
+                  {icon:'Plus',          label:'Nuevo remito',          bg:'#0f766e',fg:'#fff'},
+                  {icon:'Pencil',        label:'Registrar entrega',      bg:'#ccfbf1',fg:'#0f766e'},
+                  {icon:'Filter',        label:'Imprimir hojas de ruta', bg:'#dbeafe',fg:'#1d4ed8'},
+                  {icon:'Activity',      label:'Ver historial',          bg:'#f3f4f6',fg:'#4b5563'},
+                ].map(a=>(
+                  <button key={a.label} className="qa-btn" style={{background:a.bg,color:a.fg}}>
+                    <Icon name={a.icon} size={13}/>{a.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            <Card tight>
+              <CardHeader icon="Truck" iconTone="teal" title="Entregas de hoy"/>
+              {REMITOS_DATA.filter(r=>r.estado!=='entregado').map(r=>(
+                <div key={r.id} className="flex items-center gap-2" style={{padding:'7px 0',borderBottom:'1px solid #f3f4f6'}}>
+                  <IconTile name="Truck" tone={r.estado==='pendiente'?'amber':'blue'} size="sm"/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{margin:0,fontSize:12,fontWeight:600,color:'#1f2937'}} className="truncate">{r.cliente}</p>
+                    <p style={{margin:0,fontSize:10,color:'#9ca3af'}}>{r.chofer} · {r.fecha}</p>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+window.Remitos = Remitos;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="RecibosV2.jsx">
+/* Recibos — cobros y compromisos de pago + columna lateral */
+
+const RECIBOS_DATA = [
+  { id:'REC-056', cliente:'Familia González',       concepto:'Saldo OP-0140',          monto:1250000, forma:'Transferencia', fecha:'04/06', estado:'cobrado'   },
+  { id:'REC-055', cliente:'Edificio Las Tipas',     concepto:'Saldo OP-0120',          monto:1600000, forma:'Cheque',        fecha:'03/06', estado:'cobrado'   },
+  { id:'REC-054', cliente:'Mariela Ojeda',          concepto:'Seña OP-0138 (50%)',     monto: 240000, forma:'Transferencia', fecha:'02/06', estado:'cobrado'   },
+  { id:'REC-053', cliente:'Constructora del Norte', concepto:'Seña OP-0135 (50%)',     monto:1600000, forma:'Cheque 30d',    fecha:'01/06', estado:'pendiente' },
+  { id:'REC-052', cliente:'Familia Britos',         concepto:'Saldo OP-0130',          monto:1820000, forma:'Transferencia', fecha:'31/05', estado:'cobrado'   },
+  { id:'REC-051', cliente:'Ramírez S.A.',           concepto:'Anticipo OP-0133',       monto:2700000, forma:'Cheque 60d',    fecha:'28/05', estado:'pendiente' },
+  { id:'REC-050', cliente:'Familia Acuña',          concepto:'Saldo OP-0118',          monto: 725000, forma:'Efectivo',      fecha:'25/05', estado:'cobrado'   },
+  { id:'REC-049', cliente:'Hugo Rodríguez',         concepto:'Anticipo PR-0040',       monto:  47500, forma:'Transferencia', fecha:'24/05', estado:'vencido'   },
+];
+
+function Recibos() {
+  const [query, setQuery] = React.useState('');
+  const filtered = RECIBOS_DATA.filter(r=>query===''||r.cliente.toLowerCase().includes(query.toLowerCase())||r.id.includes(query.toUpperCase()));
+  const cobradoMes = RECIBOS_DATA.filter(r=>r.estado==='cobrado').reduce((s,r)=>s+r.monto,0);
+  const pendiente = RECIBOS_DATA.filter(r=>r.estado==='pendiente').reduce((s,r)=>s+r.monto,0);
+
+  return (
+    <React.Fragment>
+      <SectionHero section="recibos" icon="Receipt"
+        breadcrumb={['Comercial','Recibos']} title="Recibos"
+        sub="Cobros realizados y compromisos de pago"
+        actions={<button className="btn btn-section"><Icon name="Plus" size={14}/>Registrar cobro</button>}
+      />
+      <div className="app-page-inner" style={{display:'flex',flexDirection:'column',gap:14}}>
+        <CompactStatsBar items={[
+          {value:formatCurrency(cobradoMes),  label:'cobrado este mes',   color:'#34d399', icon:'DollarSign'},
+          {value:formatCurrency(pendiente),   label:'pendiente cobro',    color:'#fbbf24', icon:'Clock'},
+          {value:String(RECIBOS_DATA.filter(r=>r.estado==='vencido').length), label:'cheques vencidos', color:'#fb7185', icon:'AlertTriangle'},
+          {value:String(RECIBOS_DATA.filter(r=>r.estado==='cobrado').length), label:'recibos emitidos', color:'#60a5fa', icon:'Receipt'},
+        ]}/>
+
+        <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'#9ca3af',display:'flex'}}><Icon name="Search" size={14}/></span>
+                <input className="input" placeholder="Buscar recibo o cliente…" value={query} onChange={e=>setQuery(e.target.value)} style={{paddingLeft:32}}/>
+              </div>
+            </Card>
+            <Card style={{padding:0,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
+                    {['Número','Cliente','Concepto','Monto','Forma de pago','Fecha','Estado',''].map((h,i)=>(
+                      <th key={i} style={{padding:'10px 14px',fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em',textAlign:i===3?'right':'left'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(r=>{
+                    const tone = {cobrado:'emerald',pendiente:'amber',vencido:'red'}[r.estado]||'gray';
+                    return (
+                      <tr key={r.id} style={{borderBottom:'1px solid #f3f4f6',cursor:'pointer',transition:'background 150ms',
+                        borderLeft:r.estado==='vencido'?'4px solid #ef4444':r.estado==='pendiente'?'4px solid #f59e0b':'4px solid #34d399'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                      >
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono">{r.id}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',fontWeight:600,color:'#1f2937'}}>{r.cliente}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12}}>{r.concepto}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',textAlign:'right'}}><span className="money">{formatCurrency(r.monto)}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#4b5563',fontSize:12}}>{r.forma}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#9ca3af',fontSize:12}}>{r.fecha}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Pill tone={tone}>{r.estado.charAt(0).toUpperCase()+r.estado.slice(1)}</Pill></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Icon name="ChevronRight" size={14} color="#9ca3af"/></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          <div style={{width:280,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <CardHeader icon="Zap" iconTone="emerald" title="Acciones rápidas"/>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {[
+                  {icon:'Plus',        label:'Registrar cobro',       bg:'#047857',fg:'#fff'},
+                  {icon:'DollarSign',  label:'Cobrar saldo',          bg:'#d1fae5',fg:'#047857'},
+                  {icon:'Filter',      label:'Exportar recibos',      bg:'#dbeafe',fg:'#1d4ed8'},
+                  {icon:'AlertTriangle',label:'Ver cheques vencidos', bg:'#fee2e2',fg:'#b91c1c'},
+                ].map(a=>(
+                  <button key={a.label} className="qa-btn" style={{background:a.bg,color:a.fg}}>
+                    <Icon name={a.icon} size={13}/>{a.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            <Card tight>
+              <CardHeader icon="Clock" iconTone="amber" title="Cobros pendientes"/>
+              {RECIBOS_DATA.filter(r=>r.estado!=='cobrado').map(r=>(
+                <div key={r.id} style={{padding:'8px 0',borderBottom:'1px solid #f3f4f6'}}>
+                  <div className="flex items-center justify-between">
+                    <p style={{margin:0,fontSize:12,fontWeight:600,color:'#1f2937'}} className="truncate">{r.cliente}</p>
+                    <span className="money" style={{fontSize:12,color:r.estado==='vencido'?'#b91c1c':'#b45309',flexShrink:0,marginLeft:8}}>{formatCurrency(r.monto)}</span>
+                  </div>
+                  <div className="flex items-center justify-between" style={{marginTop:2}}>
+                    <p style={{margin:0,fontSize:10,color:'#9ca3af'}}>{r.forma} · {r.fecha}</p>
+                    <Pill tone={r.estado==='vencido'?'red':'amber'} style={{fontSize:9}}>{r.estado}</Pill>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+window.Recibos = Recibos;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="PedidosV2.jsx">
+/* Pedidos — órdenes a proveedores + columna lateral */
+
+const PEDIDOS_DATA = [
+  { id:'PED-028', op:'OP-0140', proveedor:'Aluminios del Norte',   item:'Ventana corrediza PVC 1.50×1.10', monto: 625000, estado:'recibido',    fecha:'28/05', estimado:'04/06' },
+  { id:'PED-027', op:'OP-0138', proveedor:'Perfisa S.A.',          item:'Puerta aluminio negro',           monto: 190000, estado:'en_transito', fecha:'01/06', estimado:'08/06' },
+  { id:'PED-026', op:'OP-0135', proveedor:'Aluminios del Norte',   item:'Ventanal fijo 3m × 2.4m',        monto:1280000, estado:'fabricando',   fecha:'03/06', estimado:'20/06' },
+  { id:'PED-025', op:'OP-0133', proveedor:'Vidrios Formosa',       item:'Frente vidriado oficina',         monto:2160000, estado:'fabricando',   fecha:'28/05', estimado:'25/06' },
+  { id:'PED-024', op:'OP-0130', proveedor:'Perfisa S.A.',          item:'Puerta corredera + 2 ventanas',  monto: 728000, estado:'recibido',     fecha:'26/05', estimado:'05/06' },
+  { id:'PED-023', op:'OP-0129', proveedor:'Mosquiteros & Co.',     item:'Ventana balcón c/mosquitero',    monto: 272000, estado:'atrasado',     fecha:'20/05', estimado:'03/06' },
+  { id:'PED-022', op:'OP-0128', proveedor:'Vidrios Formosa',       item:'Mampara vidrio templado',        monto: 136000, estado:'recibido',     fecha:'28/05', estimado:'06/06' },
+];
+
+const ESTADO_PED = { recibido:{tone:'emerald',label:'Recibido'}, en_transito:{tone:'blue',label:'En tránsito'}, fabricando:{tone:'amber',label:'Fabricando'}, atrasado:{tone:'red',label:'Atrasado'} };
+
+function Pedidos() {
+  const [query, setQuery] = React.useState('');
+  const filtered = PEDIDOS_DATA.filter(p=>query===''||p.proveedor.toLowerCase().includes(query.toLowerCase())||p.id.includes(query.toUpperCase()));
+
+  return (
+    <React.Fragment>
+      <SectionHero section="pedidos" icon="ShoppingCart"
+        breadcrumb={['Comercial','Pedidos']} title="Pedidos"
+        sub="Órdenes de compra a proveedores y su estado de fabricación"
+        actions={<button className="btn btn-section"><Icon name="Plus" size={14}/>Nuevo pedido</button>}
+      />
+      <div className="app-page-inner" style={{display:'flex',flexDirection:'column',gap:14}}>
+        <CompactStatsBar items={[
+          {value:String(PEDIDOS_DATA.filter(p=>p.estado==='fabricando').length),   label:'en fabricación',   color:'#fbbf24', icon:'Hammer'},
+          {value:String(PEDIDOS_DATA.filter(p=>p.estado==='en_transito').length),  label:'en tránsito',      color:'#60a5fa', icon:'Truck'},
+          {value:String(PEDIDOS_DATA.filter(p=>p.estado==='atrasado').length),     label:'atrasados',        color:'#fb7185', icon:'AlertTriangle'},
+          {value:formatCurrency(PEDIDOS_DATA.filter(p=>p.estado!=='recibido').reduce((s,p)=>s+p.monto,0)), label:'monto comprometido', color:'#a3e635', icon:'DollarSign'},
+        ]}/>
+
+        <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'#9ca3af',display:'flex'}}><Icon name="Search" size={14}/></span>
+                <input className="input" placeholder="Buscar pedido o proveedor…" value={query} onChange={e=>setQuery(e.target.value)} style={{paddingLeft:32}}/>
+              </div>
+            </Card>
+            <Card style={{padding:0,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                <thead>
+                  <tr style={{background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
+                    {['Pedido','Op.','Proveedor','Material','Monto','Pedido','Estimado','Estado',''].map((h,i)=>(
+                      <th key={i} style={{padding:'10px 14px',fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em',textAlign:'left'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(p=>{
+                    const es = ESTADO_PED[p.estado]||{tone:'gray',label:p.estado};
+                    return (
+                      <tr key={p.id} style={{borderBottom:'1px solid #f3f4f6',cursor:'pointer',transition:'background 150ms',
+                        borderLeft:p.estado==='atrasado'?'4px solid #ef4444':p.estado==='fabricando'?'4px solid #fbbf24':'4px solid #34d399'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+                      >
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono">{p.id}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="mono" style={{fontSize:11,color:'#9ca3af'}}>{p.op}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',fontWeight:600,color:'#1f2937'}}>{p.proveedor}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#6b7280',fontSize:12,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.item}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><span className="money" style={{fontSize:13}}>{formatCurrency(p.monto)}</span></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#9ca3af',fontSize:12}}>{p.fecha}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle',color:'#4b5563',fontSize:12}}>{p.estimado}</td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Pill tone={es.tone}>{es.label}</Pill></td>
+                        <td style={{padding:'11px 14px',verticalAlign:'middle'}}><Icon name="ChevronRight" size={14} color="#9ca3af"/></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          <div style={{width:280,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+            <Card tight>
+              <CardHeader icon="Zap" iconTone="lime" title="Acciones rápidas"/>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {[
+                  {icon:'Plus',          label:'Nuevo pedido',           bg:'#4d7c0f',fg:'#fff'},
+                  {icon:'CheckCircle2',  label:'Marcar recibido',        bg:'#ecfccb',fg:'#4d7c0f'},
+                  {icon:'Phone',         label:'Contactar proveedor',    bg:'#dbeafe',fg:'#1d4ed8'},
+                  {icon:'Filter',        label:'Exportar pedidos',       bg:'#f3f4f6',fg:'#4b5563'},
+                ].map(a=>(
+                  <button key={a.label} className="qa-btn" style={{background:a.bg,color:a.fg}}>
+                    <Icon name={a.icon} size={13}/>{a.label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+            <Card tight>
+              <CardHeader icon="AlertTriangle" iconTone="amber" title="Alertas de demora"/>
+              {PEDIDOS_DATA.filter(p=>p.estado==='atrasado'||p.estado==='fabricando').map(p=>(
+                <div key={p.id} style={{padding:'8px 0',borderBottom:'1px solid #f3f4f6'}}>
+                  <div className="flex items-center justify-between">
+                    <p style={{margin:0,fontSize:12,fontWeight:600,color:'#1f2937'}} className="truncate">{p.proveedor}</p>
+                    <Pill tone={p.estado==='atrasado'?'red':'amber'} style={{fontSize:9,flexShrink:0,marginLeft:6}}>{p.estado==='atrasado'?'Atrasado':'Fabricando'}</Pill>
+                  </div>
+                  <p style={{margin:'2px 0 0',fontSize:10,color:'#9ca3af'}}>Est. {p.estimado} · {p.op}</p>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+window.Pedidos = Pedidos;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="Placeholder.jsx">
+/* Placeholder — for sidebar items we don't fully implement.
+   Uses the SectionHero so wayfinding stays consistent. */
+
+function Placeholder({ section, icon, title, sub, breadcrumb }) {
+  return (
+    <React.Fragment>
+      <SectionHero
+        section={section}
+        icon={icon}
+        breadcrumb={breadcrumb || ['Sistema', title]}
+        title={title}
+        sub={sub}
+      />
+      <div className="app-page-inner">
+        <Card style={{ padding: 56, textAlign: 'center' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: 18,
+            background: 'rgba(0,0,0,0.04)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto',
+          }}>
+            <Icon name={icon} size={32} color={sectionDeep(section)} />
+          </div>
+          <p style={{ marginTop: 16, fontSize: 16, fontWeight: 800, color: '#1f2937' }}>{title}</p>
+          <p style={{ marginTop: 6, fontSize: 13, color: '#6b7280', maxWidth: 480, margin: '6px auto 0', lineHeight: 1.5 }}>
+            Esta sección está disponible en el sistema en producción. El UI kit cubre los patrones
+            principales en Dashboard, Operaciones y Presupuestos — todas las secciones comparten esta
+            misma estructura visual: hero coloreado, banda de métricas y zona operativa.
+          </p>
+        </Card>
+      </div>
+    </React.Fragment>
+  );
+}
+
+window.Placeholder = Placeholder;
+
+</script>
+
+<script type="text/babel" data-presets="react" data-filename="appV2.jsx">
+/* App shell — router + mobile nav + drawer. */
+
+const MOB_NAV = [
+  { id: 'dashboard',    icon: 'LayoutDashboard', label: 'Inicio'    },
+  { id: 'operaciones',  icon: 'Hammer',          label: 'Ops'       },
+  { id: 'presupuestos', icon: 'FileText',         label: 'Presup.'   },
+  { id: 'clientes',     icon: 'Users',            label: 'Clientes'  },
+  { id: 'menu',         icon: 'Menu',             label: 'Más'       },
+];
+
+function MobileDrawer({ active, onNavigate, user, onSignOut, onClose }) {
+  return (
+    <div className="mob-drawer-overlay open" onClick={onClose}>
+      <div className="mob-drawer-panel" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <LogoMark size={32} variant="dark" />
+              <div>
+                <p style={{ margin: 0, color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.04em' }}>CÉSAR BRÍTEZ</p>
+                <p style={{ margin: 0, color: '#e31e24', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' }}>Aberturas</p>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ color: 'rgba(255,255,255,0.50)', padding: 4 }}>
+              <Icon name="X" size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Nav groups — full labels visible in drawer */}
+        <nav style={{ padding: '8px 8px', overflowY: 'auto' }}>
+          {[
+            { label: null, items: [{ id:'dashboard', icon:'LayoutDashboard', label:'Dashboard', tone:'blue' }] },
+            { label: 'Comercial', items: [
+              { id:'crm',          icon:'GitBranch',         label:'CRM',              tone:'rose'    },
+              { id:'presupuestos', icon:'FileText',          label:'Presupuestos',     tone:'violet'  },
+              { id:'operaciones',  icon:'Hammer',            label:'Operaciones',      tone:'amber'   },
+              { id:'remitos',      icon:'Truck',             label:'Remitos',          tone:'teal'    },
+              { id:'pedidos',      icon:'ShoppingCart',      label:'Pedidos',          tone:'lime'    },
+              { id:'recibos',      icon:'Receipt',           label:'Recibos',          tone:'emerald' },
+              { id:'clientes',     icon:'Users',             label:'Clientes',         tone:'cyan'    },
+              { id:'estado',       icon:'BookOpen',          label:'Estado de Cuenta', tone:'indigo'  },
+            ]},
+            { label: 'Catálogo', items: [
+              { id:'productos',    icon:'Layers',            label:'Productos',        tone:'sky'     },
+              { id:'stock',        icon:'Boxes',             label:'Existencias',      tone:'orange'  },
+              { id:'proveedores',  icon:'Factory',           label:'Proveedores',      tone:'amber'   },
+            ]},
+            { label: 'Sistema', items: [
+              { id:'reportes',     icon:'TrendingUp',        label:'Reportes',         tone:'purple'  },
+              { id:'config',       icon:'SlidersHorizontal', label:'Configuración',    tone:'slate'   },
+            ]},
+          ].map((group, gi) => (
+            <div key={gi} style={{ marginTop: gi > 0 ? 4 : 0 }}>
+              {group.label && (
+                <p style={{ margin: '10px 8px 4px', fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.30)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{group.label}</p>
+              )}
+              {group.items.map(item => {
+                const isActive = item.id === active;
+                return (
+                  <button key={item.id}
+                    onClick={() => { onNavigate(item.id); onClose(); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '9px 10px', borderRadius: 10,
+                      color: isActive ? '#fff' : 'rgba(255,255,255,0.60)',
+                      background: isActive ? 'rgba(255,255,255,0.10)' : 'transparent',
+                      fontWeight: isActive ? 700 : 500, fontSize: 13,
+                      transition: 'all 150ms',
+                    }}
+                  >
+                    <IconTile name={item.icon} tone={item.tone} size="sm" />
+                    {item.label}
+                    {isActive && <Icon name="ChevronRight" size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e31e24', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>
+            {user?.nombre?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'CB'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, color: '#fff', fontSize: 12, fontWeight: 600 }}>{user?.nombre || 'Usuario'}</p>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.40)', fontSize: 11 }}>{user?.rol || 'admin'}</p>
+          </div>
+          <button onClick={onSignOut} style={{ color: 'rgba(255,255,255,0.40)', padding: 4 }} title="Cerrar sesión">
+            <Icon name="LogOut" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileBottomNav({ active, onNavigate, notifCount, onBellClick }) {
+  return (
+    <nav className="mob-bottom-nav">
+      {MOB_NAV.map(item => {
+        const isActive = item.id !== 'menu' && item.id === active;
+        return (
+          <button key={item.id}
+            className={'mob-nav-item' + (isActive ? ' active' : '')}
+            onClick={() => item.id === 'menu' ? onBellClick() : onNavigate(item.id)}
+          >
+            <div style={{ position: 'relative' }}>
+              <Icon name={item.id === 'menu' ? (notifCount > 0 ? 'Bell' : 'Menu') : item.icon} size={20} />
+              {item.id === 'menu' && notifCount > 0 && (
+                <span style={{ position: 'absolute', top: -3, right: -5, width: 8, height: 8, background: '#e31e24', borderRadius: '50%', border: '1.5px solid #031d49' }} />
+              )}
+            </div>
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function App() {
+  const [user, setUser]           = React.useState(null);
+  const [active, setActive]       = React.useState('dashboard');
+  const [bellOpen, setBellOpen]   = React.useState(false);
+  const [drawerOpen, setDrawer]   = React.useState(false);
+  const [notifs, setNotifs]       = React.useState([
+    { id: 'n1', cliente: 'Familia González', numero: 'PR-0042', monto: 1250000, when: 'Hace 12 min' },
+    { id: 'n2', cliente: 'Mariela Ojeda',    numero: 'PR-0039', monto:  480000, when: 'Hace 2 h'   },
+  ]);
+
+  if (!user) return <Login onSignIn={setUser} />;
+
+  function navigate(id) { setActive(id); setBellOpen(false); setDrawer(false); }
+  function signOut()     { setUser(null); setActive('dashboard'); }
+  function markRead()    { setNotifs([]); }
+
+  let screen;
+  switch (active) {
+    case 'dashboard':    screen = <Dashboard    user={user} onNavigate={navigate} />; break;
+    case 'operaciones':  screen = <Operaciones  onSelectOp={() => navigate('presupuestos')} />; break;
+    case 'presupuestos': screen = <Presupuestos onOpen={() => {}} />; break;
+    case 'crm':          screen = <CRM />; break;
+    case 'remitos':      screen = <Remitos />; break;
+    case 'pedidos':      screen = <Pedidos />; break;
+    case 'recibos':      screen = <Recibos />; break;
+    case 'clientes':     screen = <Clientes />; break;
+    case 'estado':       screen = <Placeholder section="estado"       icon="BookOpen"          title="Estado de Cuenta"  sub="Cuenta corriente por cliente"             breadcrumb={['Comercial','Estado de Cuenta']} />; break;
+    case 'productos':    screen = <Placeholder section="productos"    icon="Layers"            title="Productos"         sub="Catálogo de aberturas"                    breadcrumb={['Catálogo','Productos']} />; break;
+    case 'stock':        screen = <Placeholder section="stock"        icon="Boxes"             title="Existencias"       sub="Inventario y movimientos de stock"         breadcrumb={['Catálogo','Existencias']} />; break;
+    case 'proveedores':  screen = <Placeholder section="proveedores"  icon="Factory"           title="Proveedores"       sub="Fabricantes y revendedores"               breadcrumb={['Catálogo','Proveedores']} />; break;
+    case 'reportes':     screen = <Placeholder section="reportes"     icon="TrendingUp"        title="Reportes"          sub="Ventas, conversión, productos"            breadcrumb={['Sistema','Reportes']} />; break;
+    case 'config':       screen = <Placeholder section="config"       icon="SlidersHorizontal" title="Configuración"     sub="Empresa, usuarios y catálogos"            breadcrumb={['Sistema','Configuración']} />; break;
+    default: screen = null;
+  }
+
+  return (
+    <div className="app-shell">
+      <Watermark />
+      <Sidebar active={active} onNavigate={navigate} user={user} onSignOut={signOut} />
+      <div className="app-main">
+        <TopBar
+          notifCount={notifs.length}
+          onBellClick={() => setBellOpen(v => !v)}
+          bellOpen={bellOpen}
+          onMenuClick={() => setDrawer(true)}
+        />
+        {bellOpen && (
+          <NotificationPanel
+            notifs={notifs}
+            onClose={() => setBellOpen(false)}
+            onSelect={() => { setBellOpen(false); navigate('presupuestos'); }}
+            onMarkRead={markRead}
+          />
+        )}
+        <main className="app-page" data-section={active}>
+          {screen}
+        </main>
+        <MobileBottomNav
+          active={active}
+          onNavigate={navigate}
+          notifCount={notifs.length}
+          onBellClick={() => setBellOpen(v => !v)}
+        />
+      </div>
+      {drawerOpen && (
+        <MobileDrawer
+          active={active}
+          onNavigate={navigate}
+          user={user}
+          onSignOut={signOut}
+          onClose={() => setDrawer(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+</script>
+
+</body>
+</html>

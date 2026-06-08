@@ -1,0 +1,27 @@
+<!-- @dsCard group="Spacing" -->
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Motion</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--app-bg);font-family:var(--font-sans);overflow:hidden;}
+  .wrap{padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .card{background:#fff;border:1px solid #f3f4f6;border-radius:16px;padding:14px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:8px;}
+  .lbl{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;}
+  .name{font-size:13px;font-weight:700;color:#111827;}
+  .meta{font-family:var(--font-mono);font-size:10px;color:#9ca3af;}
+  .demo{height:34px;background:#f0f4fb;border-radius:10px;position:relative;overflow:hidden;}
+  @keyframes slide { 0%{left:-30%} 50%{left:60%} 100%{left:-30%} }
+  .demo .ball{position:absolute;top:7px;left:0;width:20px;height:20px;border-radius:50%;background:#031d49;animation:slide 2.4s cubic-bezier(.22,.68,0,1.1) infinite;}
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  .skel{height:14px;border-radius:6px;background:linear-gradient(90deg,rgba(3,29,73,.06) 0%,rgba(3,29,73,.02) 50%,rgba(3,29,73,.06) 100%);background-size:200% 100%;animation:shimmer 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.25)}}
+  .dotp{width:8px;height:8px;border-radius:50%;background:#e31e24;animation:pulse 1.8s ease-in-out infinite;}
+  .dotrow{display:flex;align-items:center;gap:8px;}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="card"><div class="lbl">Ease — fade-up</div><div class="name">cubic-bezier(.22,.68,0,1.1)</div><div class="demo"><div class="ball"></div></div><div class="meta">page enter · 380ms</div></div>
+    <div class="card"><div class="lbl">Skeleton shimmer</div><div class="name">200% sweep · 1.6s linear</div><div class="skel"></div><div class="skel" style="width:70%"></div><div class="meta">loading placeholder</div></div>
+    <div class="card"><div class="lbl">Dot pulse</div><div class="name">opacity + scale · 1.8s</div><div class="dotrow"><div class="dotp"></div><span style="font-size:12px;color:#1f2937">Aprobado online</span></div><div class="meta">live status indicator</div></div>
+    <div class="card"><div class="lbl">Durations</div><div class="name">120 / 180 / 280 / 380 ms</div><div class="meta">fast · base · mid · slow</div><div class="meta">hover · transition · enter · stagger</div></div>
+  </div>
+</body></html>
