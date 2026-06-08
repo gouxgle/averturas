@@ -640,7 +640,7 @@ export default function Pedidos() {
               <div className="min-w-[640px]">
                 {/* Header */}
                 <div className="grid text-[11px] font-semibold uppercase tracking-wider text-gray-400 px-4 py-2 border-b border-gray-100"
-                  style={{ gridTemplateColumns: '140px 1fr 1fr 120px 110px 90px' }}>
+                  style={{ gridTemplateColumns: '160px 1fr 1fr 120px 110px 90px' }}>
                   <span>Pedido</span>
                   <span>Proveedor</span>
                   <span>Operación / Cliente</span>
@@ -667,12 +667,12 @@ export default function Pedidos() {
                         'grid items-center px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors',
                         'border-l-2', borderColor(p.estado)
                       )}
-                      style={{ gridTemplateColumns: '140px 1fr 1fr 120px 110px 90px' }}
+                      style={{ gridTemplateColumns: '160px 1fr 1fr 120px 110px 90px' }}
                       onClick={() => setDetailId(p.id)}
                     >
                       {/* Pedido */}
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{p.numero}</p>
+                      <div className="min-w-0 overflow-hidden">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{p.numero}</p>
                         <p className="text-[11px] text-gray-400">{formatFecha(p.fecha_pedido)}</p>
                         {p.operacion?.cliente && (
                           <p className="text-[11px] font-medium text-blue-700 truncate mt-0.5">

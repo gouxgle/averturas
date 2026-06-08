@@ -18,6 +18,7 @@ interface TOp {
   created_at: string; fecha_entrega_estimada: string | null;
   updated_at: string; dias_en_estado: number;
   primer_item: string | null;
+  pedido_fecha_entrega_est: string | null;
   cliente: { id: string; nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string; telefono: string | null };
 }
 
@@ -57,6 +58,16 @@ function fmtFecha(iso: string) {
   return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
+function fmtLlegada(iso: string | null): string | null {
+  if (!iso) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const fecha = new Date(iso.slice(0, 10) + 'T12:00:00');
+  const diff = Math.round((fecha.getTime() - today.getTime()) / 86400000);
+  if (diff <= 0) return 'llega hoy';
+  if (diff === 1) return 'llega mañana';
+  return `llega el ${fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}`;
+}
+
 // ── Sub-componentes ──────────────────────────────────────────────────
 
 function KpiCard({ icon: Icon, label, value, sub, iconBg, iconCl, subCl = 'text-gray-400' }: {
@@ -79,7 +90,7 @@ function KpiCard({ icon: Icon, label, value, sub, iconBg, iconCl, subCl = 'text-
 
 function PagoBadge({ cobrado, total }: { cobrado: number; total: number }) {
   if (cobrado >= total * 0.99)
-    return <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Pagado</span>;
+    return <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Pago total</span>;
   if (cobrado > 0)
     return <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">Señado</span>;
   return <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full">Sin pago</span>;
@@ -136,6 +147,17 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
         {col === 'canceladas' && <XCircle size={14} className="text-red-400 shrink-0" />}
         {col === 'entregadas' && <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />}
       </div>
+
+      {col === 'con_pedido' && (() => {
+        const llegada = fmtLlegada(op.pedido_fecha_entrega_est);
+        if (!llegada) return null;
+        const urgente = llegada === 'llega hoy' || llegada === 'llega mañana';
+        return (
+          <p className={cn('text-[10px] font-semibold mt-1.5', urgente ? 'text-amber-600' : 'text-gray-400')}>
+            {llegada}
+          </p>
+        );
+      })()}
 
       {col === 'confirmadas' && (
         <Link

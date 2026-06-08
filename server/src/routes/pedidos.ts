@@ -82,10 +82,7 @@ pedidos.get('/tablero', async (c) => {
         ) AS items_resumen
         FROM pedido_items pi WHERE pi.pedido_id = p.id
       ) items_agg ON true
-      ORDER BY
-        CASE WHEN p.estado IN ('pendiente','enviado') THEN 0 ELSE 1 END,
-        p.fecha_entrega_est ASC NULLS LAST,
-        p.created_at DESC
+      ORDER BY p.created_at DESC
       LIMIT 300
     `),
 

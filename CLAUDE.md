@@ -44,8 +44,11 @@ Aberturas/
 │   │   ├── Dashboard.tsx             # 5 indicadores accionables
 │   │   ├── Presupuestos.tsx          # Lista + modal detalle + Compartir
 │   │   ├── NuevoPresupuesto.tsx      # Crear/editar presupuesto
+│   │   ├── Operaciones.tsx           # Tablero kanban — 6 columnas
 │   │   ├── Recibos.tsx               # Lista + modal detalle con anulación
 │   │   ├── NuevoRecibo.tsx           # Crear/editar recibo (vinculado a op. aprobada)
+│   │   ├── Pedidos.tsx               # Lista de pedidos al proveedor (orden: created_at DESC)
+│   │   ├── NuevoPedido.tsx           # Crear pedido al proveedor
 │   │   ├── VistaPublicaPresupuesto.tsx  # Página pública /p/:token (sin auth)
 │   │   └── print/
 │   │       ├── ImprimirPresupuesto.tsx
@@ -62,7 +65,8 @@ Aberturas/
 │   ├── routes/
 │   │   ├── pub.ts                    # Rutas PÚBLICAS sin auth (/pub/presupuesto/:token)
 │   │   ├── notificaciones.ts         # GET/PATCH notificaciones de aprobación
-│   │   ├── operaciones.ts            # + POST /:id/generar-link
+│   │   ├── operaciones.ts            # + POST /:id/generar-link; tablero incluye pedido_fecha_entrega_est
+│   │   ├── pedidos.ts                # GET /tablero, CRUD; lista ordenada por created_at DESC
 │   │   ├── recibos.ts
 │   │   ├── dashboard.ts              # GET /indicadores (5 KPIs accionables)
 │   │   └── ...resto de rutas
@@ -99,6 +103,8 @@ remito_items        — líneas de remito
 recibos             — cobros (vinculados a operacion_id, estado: emitido|anulado)
 recibo_items        — líneas de recibo
 compromisos_pago    — compromisos de saldo pendiente (fecha_vencimiento, estado: pendiente|cobrado|...)
+pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE)
+pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden)
 ```
 
 ### Campos clave en `operaciones`
@@ -170,6 +176,7 @@ emitido  → entregado (registra fecha_entrega_real)
 | `/stock` | routes/stock.ts | `/alertas` y `/lotes` ANTES de `/:id` |
 | `/remitos` | routes/remitos.ts | `/conteos` ANTES de `/:id` |
 | `/recibos` | routes/recibos.ts | `/conteos` ANTES de `/:id` |
+| `/pedidos` | routes/pedidos.ts | `/tablero` ANTES de `/:id` |
 | `/estado-cuenta` | routes/estadoCuenta.ts | |
 
 **Crítico — Hono matchea en orden de registro:**
@@ -186,6 +193,7 @@ emitido  → entregado (registra fecha_entrega_real)
 /presupuestos/nuevo
 /presupuestos/:id/editar
 /operaciones, /operaciones/:id, /operaciones/nueva
+/pedidos, /pedidos/nuevo, /pedidos/:id/editar
 /remitos, /remitos/nuevo, /remitos/:id/editar
 /recibos, /recibos/nuevo, /recibos/:id/editar
 /clientes, /clientes/:id, /clientes/nuevo, /clientes/:id/editar
@@ -287,6 +295,23 @@ Sistema:
   Reportes        /reportes
   Configuración   /configuracion
 ```
+
+## Convenciones de UI — badges y labels
+
+| Badge / label | Contexto | Condición |
+|---|---|---|
+| `Pago total` | Operaciones tablero, PagoBadge | `cobrado >= precio_total * 0.99` |
+| `Señado` | Operaciones tablero, PagoBadge | `cobrado > 0` |
+| `Envío total al proveedor` | Presupuestos lista | `items_en_pedido >= items_total` |
+| `Env. parcial proveedor` | Presupuestos lista | `items_en_pedido > 0 && < items_total` |
+| `llega hoy / llega mañana / llega el DD/MM` | Operaciones tablero col. `con_pedido` | `pedido_fecha_entrega_est` del pedido activo más reciente |
+
+### Convención de ordenamiento en listas
+Todos los módulos: `ORDER BY created_at DESC` (más nuevos arriba). Excepción puntual documentada en el código.
+
+### Tablero Operaciones — columna `con_pedido`
+`baseSelect` incluye subquery `pedido_fecha_entrega_est` → pedido activo más reciente (excluye cancelado/recibido).
+Helper `fmtLlegada()` en Operaciones.tsx: diff ≤0 → "llega hoy", 1 → "llega mañana", N → "llega el DD/MM".
 
 ## Patrones de código establecidos
 

@@ -83,7 +83,10 @@ operaciones.get('/tablero', async (c) => {
         'telefono', c.telefono
       ) AS cliente,
       (SELECT oi.descripcion FROM operacion_items oi
-       WHERE oi.operacion_id = o.id ORDER BY oi.orden LIMIT 1) AS primer_item
+       WHERE oi.operacion_id = o.id ORDER BY oi.orden LIMIT 1) AS primer_item,
+      (SELECT p.fecha_entrega_est FROM pedidos p
+       WHERE p.operacion_id = o.id AND p.estado NOT IN ('cancelado', 'recibido')
+       ORDER BY p.created_at DESC LIMIT 1) AS pedido_fecha_entrega_est
     FROM operaciones o
     JOIN clientes c ON c.id = o.cliente_id
   `;

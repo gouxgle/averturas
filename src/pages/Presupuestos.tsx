@@ -983,7 +983,7 @@ export function Presupuestos() {
                           const parcial = (p.items_en_pedido ?? 0) > 0 && (p.items_en_pedido ?? 0) < (p.items_total ?? 1);
                           const completo = (p.items_total ?? 0) > 0 && (p.items_en_pedido ?? 0) >= (p.items_total ?? 1);
                           const label = p.pedido_estado === 'recibido' ? 'Pedido recibido'
-                            : completo ? 'Enviado al proveedor'
+                            : completo ? 'Envío total al proveedor'
                             : parcial ? 'Env. parcial proveedor'
                             : 'Pedido generado';
                           const cls = p.pedido_estado === 'recibido' ? 'bg-emerald-100 text-emerald-700'
