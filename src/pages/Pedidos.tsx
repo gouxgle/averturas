@@ -720,11 +720,6 @@ export default function Pedidos() {
                       <div className="min-w-0 overflow-hidden">
                         <p className="text-sm font-semibold text-gray-900 truncate">{p.numero}</p>
                         <p className="text-[11px] text-gray-400">{formatFecha(p.fecha_pedido)}</p>
-                        {p.operacion?.cliente && (
-                          <p className="text-[11px] font-medium text-blue-700 truncate mt-0.5">
-                            {nombreCliente(p.operacion)}
-                          </p>
-                        )}
                       </div>
 
                       {/* Proveedor */}
