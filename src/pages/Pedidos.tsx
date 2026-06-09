@@ -738,7 +738,7 @@ export default function Pedidos() {
                         {p.operacion ? (
                           <>
                             <p className="text-sm text-blue-700 font-medium">{p.operacion.numero}</p>
-                            <p className="text-[11px] text-gray-400 truncate">{nombreCliente(p.operacion)}</p>
+                            <p className="text-xs text-gray-700 font-medium truncate">{nombreCliente(p.operacion)}</p>
                           </>
                         ) : (
                           <span className="text-[11px] text-gray-300">—</span>
