@@ -561,10 +561,12 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
   // Compromiso pendiente (igual que GET /:id)
   let compromiso = null;
   if (r.operacion_id) {
-    const { rows: comps } = await db.query(
-      `SELECT monto, fecha_vencimiento, tipo FROM compromisos_pago WHERE recibo_id=$1 AND estado='pendiente' ORDER BY fecha_vencimiento LIMIT 1`,
-      [id]
-    );
+    const { rows: comps } = await db.query(`
+      SELECT monto, fecha_vencimiento, tipo
+      FROM compromisos_pago
+      WHERE operacion_id = $1 AND estado = 'pendiente'
+      ORDER BY fecha_vencimiento ASC LIMIT 1
+    `, [r.operacion_id]);
     if (comps.length) compromiso = comps[0];
   }
 
