@@ -100,6 +100,12 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
   const [activeImg, setActiveImg]     = useState(0);
   const [confirmando, setConfirmando] = useState(false);
   const [eliminando, setEliminando]   = useState(false);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
   const costo  = producto.costo_base;
   const precio = producto.precio_base;
   const margen = precio > 0 ? Math.round((precio - costo) / precio * 100) : 0;

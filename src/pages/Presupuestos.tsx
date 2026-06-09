@@ -246,12 +246,14 @@ function DonutChart({ segments }: { segments: { value: number; color: string }[]
 // ── PresupuestoModal ──────────────────────────────────────────────────────────
 
 function PresupuestoModal({
-  id, onClose, onEstadoChange, onRefresh,
+  id, onClose, onEstadoChange, onRefresh, itemsEnPedido, itemsTotal,
 }: {
   id: string;
   onClose: () => void;
   onEstadoChange: (id: string, estado: EstadoOperacion) => void;
   onRefresh: () => void;
+  itemsEnPedido?: number;
+  itemsTotal?: number;
 }) {
   const navigate = useNavigate();
   const [op, setOp] = useState<OpDetalle | null>(null);
@@ -264,6 +266,15 @@ function PresupuestoModal({
   const [copiado, setCopiado]             = useState(false);
   const [copiadoMsg, setCopiadoMsg]       = useState(false);
   const [pedidos, setPedidos]             = useState<PedidoResumen[]>([]);
+
+  // ESC cierra el modal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const todosItemsEnviados = (itemsTotal ?? 0) > 0 && (itemsEnPedido ?? 0) >= (itemsTotal ?? 1);
 
   useEffect(() => {
     setLoading(true); setError(null);
@@ -594,7 +605,7 @@ function PresupuestoModal({
                       <Receipt size={13} /> Registrar cobro
                     </button>
                   )}
-                  {cobrado > 0.01 && (
+                  {cobrado > 0.01 && !todosItemsEnviados && (
                     <button
                       onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
                       className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
@@ -691,6 +702,9 @@ export function Presupuestos() {
   const [busqueda, setBusqueda] = useState('');
   const [page, setPage]         = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailPanel, setDetailPanel] = useState<PresupuestoPanel | null>(null);
+
+  function abrirDetalle(p: PresupuestoPanel) { setDetailId(p.id); setDetailPanel(p); }
   const [ordenOpen, setOrdenOpen] = useState(false);
   const ordenRef = useRef<HTMLDivElement>(null);
 
@@ -929,7 +943,7 @@ export function Presupuestos() {
                         isRechazado && !isAprobadoOnline && 'bg-red-50/30 hover:bg-red-50/50'
                       )}
                       style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}
-                      onClick={() => setDetailId(p.id)}>
+                      onClick={() => abrirDetalle(p)}>
 
                       {/* Presupuesto */}
                       <div>
@@ -953,17 +967,19 @@ export function Presupuestos() {
 
                       {/* Estado / Prioridad */}
                       <div className="space-y-1">
-                        {/* Estado badge — "Pendiente de aprobación" reemplaza "Borrador" cuando el link fue enviado */}
-                        <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold',
-                          p.link_enviado && p.estado === 'presupuesto' && !p.aprobado_online_at
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-700'
-                        )}>
-                          {p.link_enviado && p.estado === 'presupuesto' && !p.aprobado_online_at
-                            ? '⏳ Pendiente de aprobación'
-                            : ESTADO_LABEL[p.estado] ?? p.estado}
-                        </span>
-                        {/* Badge adicional solo para aprobación online */}
+                        {/* Estado badge — oculto si aprobado online (ese badge lo reemplaza) */}
+                        {!p.aprobado_online_at && (
+                          <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold',
+                            p.link_enviado && p.estado === 'presupuesto'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-700'
+                          )}>
+                            {p.link_enviado && p.estado === 'presupuesto'
+                              ? '⏳ Pendiente de aprobación'
+                              : ESTADO_LABEL[p.estado] ?? p.estado}
+                          </span>
+                        )}
+                        {/* Aprobado online reemplaza al badge de estado */}
                         {p.aprobado_online_at && (
                           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
                             ✓ Aprobado Online
@@ -1065,7 +1081,7 @@ export function Presupuestos() {
                             <Mail size={13} className="text-violet-600" />
                           </a>
                         )}
-                        <button onClick={() => setDetailId(p.id)}
+                        <button onClick={() => abrirDetalle(p)}
                           className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors">
                           <MoreVertical size={13} className="text-gray-400" />
                         </button>
@@ -1136,7 +1152,7 @@ export function Presupuestos() {
             ) : (
               <div className="space-y-3">
                 {seg.map(p => (
-                  <button key={p.id} onClick={() => setDetailId(p.id)}
+                  <button key={p.id} onClick={() => abrirDetalle(p)}
                     className="w-full flex items-center gap-2.5 hover:bg-gray-50 rounded-lg p-1.5 transition-colors text-left">
                     <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0', avatarColor(p.cliente))}>
                       {initials(p.cliente)}
@@ -1216,9 +1232,11 @@ export function Presupuestos() {
       {detailId && (
         <PresupuestoModal
           id={detailId}
-          onClose={() => setDetailId(null)}
+          onClose={() => { setDetailId(null); setDetailPanel(null); }}
           onEstadoChange={onEstadoChange}
           onRefresh={load}
+          itemsEnPedido={detailPanel?.items_en_pedido}
+          itemsTotal={detailPanel?.items_total}
         />
       )}
     </div>

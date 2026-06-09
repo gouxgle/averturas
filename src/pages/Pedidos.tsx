@@ -182,6 +182,12 @@ function PedidoModal({ id, onClose, onSaved }: {
   const [avisandoCliente, setAvisandoCliente] = useState(false);
   const [avisadoCliente, setAvisadoCliente]   = useState(false);
 
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
   async function enviarWhatsApp() {
     if (!pedido) return;
     setEnviandoWA(true);

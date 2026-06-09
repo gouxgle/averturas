@@ -47,6 +47,7 @@ interface Operacion {
   numero: string;
   estado: string;
   precio_total: number;
+  cobrado_total: number;
   forma_pago: string | null;
   cliente: { nombre: string | null; apellido: string | null };
 }
@@ -193,7 +194,7 @@ export function NuevoRecibo() {
       return;
     }
     api.get<Operacion[]>(`/operaciones?cliente_id=${clienteId}&estado=aprobado`)
-      .then(setOperaciones)
+      .then(ops => setOperaciones(ops.filter(o => Number(o.cobrado_total) < Number(o.precio_total) - 0.01)))
       .catch(() => setOperaciones([]));
   }, [clienteId]);
 

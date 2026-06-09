@@ -151,6 +151,12 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
       .finally(() => setLoading(false));
   }, [remito.id]);
 
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
   async function enviarWA() {
     setEnviandoWA(true);
     try {

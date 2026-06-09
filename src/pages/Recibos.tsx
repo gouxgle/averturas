@@ -243,6 +243,12 @@ function ReciboModal({ id, onClose, onAnulado }: {
       .catch(err => { setError(err.message ?? 'Error al cargar'); setLoading(false); });
   }, [id]);
 
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
   async function handleAnular() {
     if (!rec) return;
     setAnulando(true);

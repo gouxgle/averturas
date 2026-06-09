@@ -3,6 +3,7 @@ import pkg from 'pg';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ReciboSchema } from '../lib/schemas.js';
+import { generarPDFRecibo } from '../lib/pdf.js';
 
 const recibos = new Hono();
 
@@ -519,41 +520,56 @@ recibos.post('/:id/generar-link', async (c) => {
   return c.json({ token: '', url: '' });
 });
 
-// POST /:id/enviar-whatsapp — envía confirmación de pago al cliente via Evolution API
+// POST /:id/enviar-whatsapp — genera PDF del recibo y lo envía al cliente via Evolution API
 recibos.post('/:id/enviar-whatsapp', async (c) => {
   const { id } = c.req.param();
   const user = c.get('user');
 
-  const { rows: [rec] } = await db.query(`
-    SELECT r.id, r.numero, r.monto_total, r.estado,
-      json_build_object(
-        'id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
-        'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
-        'telefono', cl.telefono
-      ) AS cliente,
-      o.numero AS operacion_numero
-    FROM recibos r
-    JOIN clientes cl ON cl.id = r.cliente_id
-    LEFT JOIN operaciones o ON o.id = r.operacion_id
-    WHERE r.id = $1
-  `, [id]);
-  if (!rec) return c.json({ error: 'Recibo no encontrado' }, 404);
-  if (!rec.cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+  // Cargar recibo completo (mismo query que GET /:id)
+  const [{ rows: [r] }, { rows: items }, { rows: [emp] }] = await Promise.all([
+    db.query(`
+      SELECT r.*,
+        json_build_object('id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
+          'telefono', cl.telefono, 'email', cl.email,
+          'direccion', cl.direccion, 'localidad', cl.localidad,
+          'documento_nro', cl.documento_nro) AS cliente,
+        json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total) AS operacion,
+        u.nombre AS created_by_nombre
+      FROM recibos r
+      JOIN clientes cl ON cl.id = r.cliente_id
+      LEFT JOIN operaciones op ON op.id = r.operacion_id
+      LEFT JOIN usuarios u ON u.id = r.created_by
+      WHERE r.id = $1
+    `, [id]),
+    db.query(`
+      SELECT ri.*, p.nombre AS producto_nombre
+      FROM recibo_items ri LEFT JOIN catalogo_productos p ON p.id = ri.producto_id
+      WHERE ri.recibo_id = $1 ORDER BY ri.orden, ri.id
+    `, [id]),
+    db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa LIMIT 1`),
+  ]);
 
-  const digits = rec.cliente.telefono.replace(/\D/g, '');
+  if (!r) return c.json({ error: 'Recibo no encontrado' }, 404);
+  if (!r.cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  // Total cobrado para calcular saldo en el PDF
+  let cobrado_operacion = 0;
+  if (r.operacion_id) {
+    const { rows: [tot] } = await db.query(
+      `SELECT COALESCE(SUM(monto_total), 0) AS total FROM recibos WHERE operacion_id=$1 AND estado='emitido'`,
+      [r.operacion_id]
+    );
+    cobrado_operacion = Number(tot?.total ?? 0);
+  }
+
+  // Normalizar número
+  const digits = r.cliente.telefono.replace(/\D/g, '');
   let numero: string;
   if (digits.startsWith('549') && digits.length >= 13) numero = digits;
   else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
   else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
   else numero = `549${digits}`;
-
-  const nombre = rec.cliente.tipo_persona === 'juridica'
-    ? (rec.cliente.razon_social ?? 'estimado/a')
-    : `${rec.cliente.nombre ?? ''} ${rec.cliente.apellido ?? ''}`.trim() || 'estimado/a';
-
-  const monto = Number(rec.monto_total).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
-  const opRef = rec.operacion_numero ? ` (Presupuesto ${rec.operacion_numero})` : '';
-  const mensaje = `Hola ${nombre}, confirmamos la recepción de tu pago.\n\n*Recibo N° ${rec.numero}*${opRef}\n*Monto:* ${monto}\n\n¡Muchas gracias! 🏠`;
 
   const evoUrl  = process.env.EVOLUTION_API_URL;
   const evoKey  = process.env.EVOLUTION_API_KEY;
@@ -561,10 +577,29 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
   if (!evoUrl || !evoKey || !evoInst)
     return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
 
-  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+  // Generar PDF
+  const empresa = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
+  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion }, empresa);
+  const base64 = pdfBuffer.toString('base64');
+
+  const nombre = r.cliente.tipo_persona === 'juridica'
+    ? (r.cliente.razon_social ?? 'estimado/a')
+    : `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim() || 'estimado/a';
+  const monto = Number(r.monto_total).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
+  const caption = `Hola ${nombre}, adjuntamos el comprobante de pago recibo *N° ${r.numero}* por *${monto}*. ¡Muchas gracias! 🏠`;
+
+  // Enviar PDF como documento
+  const resp = await fetch(`${evoUrl}/message/sendMedia/${evoInst}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
-    body: JSON.stringify({ number: numero, text: mensaje }),
+    body: JSON.stringify({
+      number: numero,
+      mediatype: 'document',
+      mimetype: 'application/pdf',
+      media: base64,
+      fileName: `Recibo-${r.numero}.pdf`,
+      caption,
+    }),
   });
 
   if (!resp.ok) {
@@ -581,10 +616,10 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
 
   db.query(
     `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,
-    [rec.cliente.id, `Confirmación de pago recibo ${rec.numero} enviada por WhatsApp`, user?.id ?? null]
+    [r.cliente.id, `PDF Recibo ${r.numero} enviado por WhatsApp`, user?.id ?? null]
   );
 
-  return c.json({ enviado: true, numero, mensaje });
+  return c.json({ enviado: true, numero });
 });
 
 export default recibos;
