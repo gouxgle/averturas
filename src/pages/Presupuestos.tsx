@@ -953,19 +953,22 @@ export function Presupuestos() {
 
                       {/* Estado / Prioridad */}
                       <div className="space-y-1">
-                        <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold', ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-700')}>
-                          {ESTADO_LABEL[p.estado] ?? p.estado}
+                        {/* Estado badge — "Pendiente de aprobación" reemplaza "Borrador" cuando el link fue enviado */}
+                        <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold',
+                          p.link_enviado && p.estado === 'presupuesto' && !p.aprobado_online_at
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-700'
+                        )}>
+                          {p.link_enviado && p.estado === 'presupuesto' && !p.aprobado_online_at
+                            ? '⏳ Pendiente de aprobación'
+                            : ESTADO_LABEL[p.estado] ?? p.estado}
                         </span>
-                        {/* Badge de aprobación online */}
-                        {p.aprobado_online_at ? (
+                        {/* Badge adicional solo para aprobación online */}
+                        {p.aprobado_online_at && (
                           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
                             ✓ Aprobado Online
                           </span>
-                        ) : p.link_enviado && ['presupuesto','enviado'].includes(p.estado) ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            ⏳ Pendiente de aprobación
-                          </span>
-                        ) : null}
+                        )}
                         {['presupuesto','enviado'].includes(p.estado) && (
                           <div className={cn('flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded w-fit', prio.bg, prio.text)}>
                             {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}

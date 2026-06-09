@@ -121,7 +121,7 @@ export function NuevoRecibo() {
   const [fecha,       setFecha]       = useState(new Date().toISOString().split('T')[0]);
   const [formaPago,   setFormaPago]   = useState('Contado');
   const [referencia,  setReferencia]  = useState('');
-  const [concepto,    setConcepto]    = useState(urlConcepto ?? '');
+  const [concepto,    setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
   const [notas,       setNotas]       = useState('');
 
   // "Pago total" toma saldo automático; "parcial" pide monto manual
@@ -143,6 +143,7 @@ export function NuevoRecibo() {
   const [cobradoOp,          setCobradoOp]          = useState(0);
   const [operacionSel,       setOperacionSel]       = useState<Operacion | null>(null);
   const [presupuestoDetalle, setPresupuestoDetalle] = useState<PresupuestoDetalle | null>(null);
+  const [tienePedido,        setTienePedido]        = useState(false);
 
   // ── UI ────────────────────────────────────────────────────
   const [saving,        setSaving]        = useState(false);
@@ -217,6 +218,10 @@ export function NuevoRecibo() {
         }
       })
       .catch(() => setPresupuestoDetalle(null));
+
+    api.get<{ id: string; estado: string }[]>(`/pedidos?operacion_id=${operacionId}`)
+      .then(data => setTienePedido(data.some(p => p.estado !== 'cancelado')))
+      .catch(() => setTienePedido(false));
 
     api.get<{ monto_total: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)
       .then(data => {
@@ -831,7 +836,14 @@ export function NuevoRecibo() {
           onClose={() => { setSavedId(null); navigate('/recibos'); }}
           onNavigate={() => navigate('/recibos')}
           navigateLabel="Ir a recibos"
-          pedidoProveedorUrl={operacionId ? `/pedidos/nuevo?operacion_id=${operacionId}` : undefined}
+          entityEndpoint={`/recibos/${savedId}`}
+          clienteNombre={presupuestoDetalle ? (
+            presupuestoDetalle.cliente.tipo_persona === 'juridica'
+              ? presupuestoDetalle.cliente.razon_social ?? undefined
+              : [presupuestoDetalle.cliente.apellido, presupuestoDetalle.cliente.nombre].filter(Boolean).join(' ') || undefined
+          ) : undefined}
+          clienteTelefono={presupuestoDetalle?.cliente.telefono ?? undefined}
+          pedidoProveedorUrl={operacionId && !tienePedido ? `/pedidos/nuevo?operacion_id=${operacionId}` : undefined}
         />
       )}
     </div>

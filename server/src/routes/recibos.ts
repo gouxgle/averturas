@@ -514,4 +514,77 @@ recibos.patch('/:id/anular', async (c) => {
   return c.json(rec);
 });
 
+// POST /:id/generar-link — no-op para satisfacer el flujo de PDFDialog (recibos no tienen link público)
+recibos.post('/:id/generar-link', async (c) => {
+  return c.json({ token: '', url: '' });
+});
+
+// POST /:id/enviar-whatsapp — envía confirmación de pago al cliente via Evolution API
+recibos.post('/:id/enviar-whatsapp', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+
+  const { rows: [rec] } = await db.query(`
+    SELECT r.id, r.numero, r.monto_total, r.estado,
+      json_build_object(
+        'id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
+        'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
+        'telefono', cl.telefono
+      ) AS cliente,
+      o.numero AS operacion_numero
+    FROM recibos r
+    JOIN clientes cl ON cl.id = r.cliente_id
+    LEFT JOIN operaciones o ON o.id = r.operacion_id
+    WHERE r.id = $1
+  `, [id]);
+  if (!rec) return c.json({ error: 'Recibo no encontrado' }, 404);
+  if (!rec.cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  const digits = rec.cliente.telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  else numero = `549${digits}`;
+
+  const nombre = rec.cliente.tipo_persona === 'juridica'
+    ? (rec.cliente.razon_social ?? 'estimado/a')
+    : `${rec.cliente.nombre ?? ''} ${rec.cliente.apellido ?? ''}`.trim() || 'estimado/a';
+
+  const monto = Number(rec.monto_total).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
+  const opRef = rec.operacion_numero ? ` (Presupuesto ${rec.operacion_numero})` : '';
+  const mensaje = `Hola ${nombre}, confirmamos la recepción de tu pago.\n\n*Recibo N° ${rec.numero}*${opRef}\n*Monto:* ${monto}\n\n¡Muchas gracias! 🏠`;
+
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+
+  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, text: mensaje }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error('[whatsapp-recibo] Evolution API error:', resp.status, errText);
+    try {
+      const errJson = JSON.parse(errText);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste) return c.json({ error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp.` }, 422);
+    } catch { /* no JSON */ }
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,
+    [rec.cliente.id, `Confirmación de pago recibo ${rec.numero} enviada por WhatsApp`, user?.id ?? null]
+  );
+
+  return c.json({ enviado: true, numero, mensaje });
+});
+
 export default recibos;
