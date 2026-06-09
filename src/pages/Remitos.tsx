@@ -625,7 +625,10 @@ export function Remitos() {
 
                           return (
                             <tr key={r.id}
-                              className={cn('hover:bg-gray-50/80 transition-colors cursor-pointer', URG_BORDER[urg])}
+                              className={cn(
+                                'hover:bg-gray-50/80 transition-colors cursor-pointer', URG_BORDER[urg],
+                                r.recepcion_estado === 'conforme' && 'bg-green-50 hover:bg-green-100/60'
+                              )}
                               onClick={() => setDetailRemito(r)}>
                               <td className="px-4 py-3">
                                 <p className="text-[12px] font-mono font-bold text-blue-600">{r.numero}</p>
@@ -668,7 +671,14 @@ export function Remitos() {
                                   <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full', badge.cls)}>
                                     {badge.label}
                                   </span>
-                                  {r.recepcion_estado && RECEPCION_BADGE[r.recepcion_estado] && (
+                                  {r.recepcion_estado === 'conforme' && (
+                                    <div>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">
+                                        ✓ Confirmación Online
+                                      </span>
+                                    </div>
+                                  )}
+                                  {r.recepcion_estado && r.recepcion_estado !== 'conforme' && RECEPCION_BADGE[r.recepcion_estado] && (
                                     <div>
                                       <span className={cn('text-[10px] px-1.5 py-0.5 rounded', RECEPCION_BADGE[r.recepcion_estado].cls)}>
                                         {RECEPCION_BADGE[r.recepcion_estado].label}

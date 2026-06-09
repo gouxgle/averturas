@@ -195,6 +195,46 @@ remitos.get('/conteos', async (c) => {
   return c.json(conteos);
 });
 
+// GET /listos-para-enviar — operaciones con pago completo + pedidos recibidos + sin remito emitido
+remitos.get('/listos-para-enviar', async (c) => {
+  const { rows } = await db.query(`
+    WITH cobros AS (
+      SELECT operacion_id, COALESCE(SUM(monto_total), 0) AS cobrado_total
+      FROM recibos WHERE estado = 'emitido'
+      GROUP BY operacion_id
+    )
+    SELECT o.id, o.numero, o.precio_total,
+      COALESCE(co.cobrado_total, 0) AS cobrado_total,
+      json_build_object(
+        'id', cl.id,
+        'nombre', cl.nombre,
+        'apellido', cl.apellido,
+        'razon_social', cl.razon_social,
+        'tipo_persona', cl.tipo_persona,
+        'telefono', cl.telefono,
+        'direccion', cl.direccion,
+        'localidad', cl.localidad
+      ) AS cliente,
+      (SELECT COUNT(*)::int FROM pedidos p
+       WHERE p.operacion_id = o.id AND p.estado = 'recibido') AS pedidos_recibidos
+    FROM operaciones o
+    JOIN clientes cl ON cl.id = o.cliente_id
+    LEFT JOIN cobros co ON co.operacion_id = o.id
+    WHERE o.estado = 'aprobado'
+      AND COALESCE(co.cobrado_total, 0) >= o.precio_total - 0.01
+      AND NOT EXISTS (
+        SELECT 1 FROM remitos rm
+        WHERE rm.operacion_id = o.id AND rm.estado IN ('emitido', 'entregado')
+      )
+      AND EXISTS (
+        SELECT 1 FROM pedidos p
+        WHERE p.operacion_id = o.id AND p.estado = 'recibido'
+      )
+    ORDER BY o.created_at DESC
+  `);
+  return c.json(rows);
+});
+
 // POST /:id/generar-link — genera token de confirmación digital
 remitos.post('/:id/generar-link', async (c) => {
   const { id } = c.req.param();

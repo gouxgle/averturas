@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
   MapPin, Hash, RefreshCw, Search, X as XIcon,
-  FileText, CheckSquare, Square, Download
+  FileText, CheckSquare, Square, Download, ChevronDown
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -37,6 +37,16 @@ interface Cliente {
   tipo_persona: string;
   telefono: string | null;
   direccion: string | null;
+  localidad: string | null;
+}
+
+interface ListoParaEnviar {
+  id: string;
+  numero: string;
+  precio_total: number;
+  cobrado_total: number;
+  pedidos_recibidos: number;
+  cliente: Cliente;
 }
 
 interface Producto {
@@ -117,6 +127,8 @@ export function NuevoRemito() {
   const [loadingOp, setLoadingOp]   = useState(false);
   const [saldoPendiente, setSaldoPendiente] = useState<number | null>(null);
   const [pedidosSinRecibir, setPedidosSinRecibir] = useState<Array<{ numero: string; proveedor: { nombre: string }; estado: string }>>([]);
+  const [listosParaEnviar, setListosParaEnviar] = useState<ListoParaEnviar[]>([]);
+  const [showListos, setShowListos] = useState(true);
 
   // Campos
   const [clienteId, setClienteId]         = useState(searchParams.get('cliente_id') ?? '');
@@ -136,15 +148,22 @@ export function NuevoRemito() {
   const [prodOpen, setProdOpen]           = useState<boolean[]>([false]);
 
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
-  const clientesFiltrados   = clientes.filter(c =>
-    clienteLabel(c).toLowerCase().includes(clienteSearch.toLowerCase()) ||
-    (c.telefono ?? '').includes(clienteSearch)
-  );
+  const clientesFiltrados = clientes.filter(c => {
+    const q = clienteSearch.toLowerCase().trim();
+    if (!q) return true;
+    const words = q.split(/\s+/);
+    const haystack = [c.nombre, c.apellido, c.razon_social, c.telefono]
+      .filter(Boolean).join(' ').toLowerCase();
+    return words.every(w => haystack.includes(w));
+  });
 
   useEffect(() => {
     api.get<Cliente[]>('/clientes').then(setClientes).catch(() => {});
     api.get<Producto[]>('/catalogo/productos').then(setProductos).catch(() => {});
-  }, []);
+    if (!isEdit) {
+      api.get<ListoParaEnviar[]>('/remitos/listos-para-enviar').then(setListosParaEnviar).catch(() => {});
+    }
+  }, [isEdit]);
 
   // Al cambiar cliente → cargar sus operaciones aprobadas/en producción/listas
   useEffect(() => {
@@ -310,6 +329,18 @@ export function NuevoRemito() {
 
   const necesitaTransportista = ['encomienda','flete_propio','flete_tercero','correo_argentino'].includes(medioEnvio);
 
+  function seleccionarListoParaEnviar(listo: ListoParaEnviar) {
+    setClienteId(listo.cliente.id);
+    setClienteSearch('');
+    setOperacionId(listo.id);
+    if (!direccionEntrega) {
+      const dir = [listo.cliente.direccion, listo.cliente.localidad].filter(Boolean).join(', ');
+      if (dir) setDireccionEntrega(dir);
+    }
+    setShowListos(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   return (
     <div className="p-3 sm:p-4 lg:p-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -335,6 +366,61 @@ export function NuevoRemito() {
           {isEdit ? 'Guardar cambios' : 'Crear remito'}
         </button>
       </div>
+
+      {/* Listos para enviar */}
+      {!isEdit && listosParaEnviar.length > 0 && (
+        <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-2xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowListos(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-3 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold">
+                {listosParaEnviar.length}
+              </span>
+              <span className="text-sm font-semibold text-emerald-800">
+                Operaciones listas para enviar
+              </span>
+              <span className="text-xs text-emerald-600">— pago completo + mercadería recibida</span>
+            </div>
+            <ChevronDown size={16} className={cn('text-emerald-600 transition-transform', showListos && 'rotate-180')} />
+          </button>
+          {showListos && (
+            <div className="border-t border-emerald-200">
+              {listosParaEnviar.map(listo => (
+                <button
+                  key={listo.id}
+                  type="button"
+                  onClick={() => seleccionarListoParaEnviar(listo)}
+                  className="w-full flex items-center gap-4 px-5 py-3 hover:bg-emerald-100 transition-colors border-b border-emerald-100 last:border-0 text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-emerald-800">{listo.numero}</span>
+                      <span className="text-xs text-gray-500">—</span>
+                      <span className="text-sm text-gray-800 font-medium truncate">
+                        {listo.cliente.tipo_persona === 'juridica'
+                          ? listo.cliente.razon_social
+                          : `${listo.cliente.nombre ?? ''} ${listo.cliente.apellido ?? ''}`.trim()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-gray-500">
+                        $ {Number(listo.precio_total).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                        {listo.pedidos_recibidos} pedido{listo.pedidos_recibidos !== 1 ? 's' : ''} recibido{listo.pedidos_recibidos !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs text-emerald-600 font-medium shrink-0">Usar →</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
@@ -376,7 +462,16 @@ export function NuevoRemito() {
                 {showClienteList && clientesFiltrados.length > 0 && (
                   <div className="absolute z-20 w-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
                     {clientesFiltrados.slice(0, 8).map(cl => (
-                      <button key={cl.id} onMouseDown={() => { setClienteId(cl.id); setShowClienteList(false); setClienteSearch(''); }}
+                      <button key={cl.id} onMouseDown={() => {
+                        setClienteId(cl.id);
+                        setShowClienteList(false);
+                        setClienteSearch('');
+                        // Auto-fill dirección si el campo está vacío
+                        if (!direccionEntrega) {
+                          const dir = [cl.direccion, cl.localidad].filter(Boolean).join(', ');
+                          if (dir) setDireccionEntrega(dir);
+                        }
+                      }}
                         className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-50 last:border-0">
                         <span className="font-medium">{clienteLabel(cl)}</span>
                         {cl.telefono && <span className="text-gray-400 ml-2 text-xs">{cl.telefono}</span>}

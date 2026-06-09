@@ -74,47 +74,75 @@ interface Remito {
   items: Item[];
 }
 
+type FlowState = 'view' | 'survey' | 'confirmando' | 'confirmado';
+
+const MOTIVOS_ENCUESTA = [
+  { id: 'danado',     label: 'Producto dañado o en mal estado' },
+  { id: 'faltante',   label: 'Falta algún producto o accesorio' },
+  { id: 'incorrecto', label: 'No coincide con lo solicitado (medidas, color, modelo)' },
+  { id: 'demora',     label: 'Demora o inconveniente en la entrega' },
+  { id: 'otro',       label: 'Otro' },
+];
+
 export function VistaPublicaRemito() {
   const { token } = useParams<{ token: string }>();
-  const [remito,   setRemito]   = useState<Remito | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const [confirmando, setConfirmando] = useState(false);
-  const [estadoSel,   setEstadoSel]   = useState<string | null>(null);
-  const [obs,          setObs]         = useState('');
-  const [confirmado,   setConfirmado]  = useState(false);
+  const [remito,  setRemito]  = useState<Remito | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+  const [flow,    setFlow]    = useState<FlowState>('view');
+  const [motivoSel, setMotivoSel] = useState<string | null>(null);
+  const [detalleOtro, setDetalleOtro] = useState('');
 
   useEffect(() => {
     if (!token) return;
     apiFetch<Remito>(`/pub/remito/${token}`)
-      .then(r => { setRemito(r); setLoading(false); })
+      .then(r => {
+        setRemito(r);
+        setLoading(false);
+        if (r.recepcion_estado) setFlow('confirmado');
+      })
       .catch(() => { setError('Link inválido o expirado.'); setLoading(false); });
   }, [token]);
 
-  async function confirmar() {
-    if (!estadoSel || !token) return;
-    if (estadoSel === 'con_observaciones' && !obs.trim()) {
-      alert('Por favor describí brevemente la observación.');
-      return;
-    }
-    setConfirmando(true);
+  async function confirmarConforme() {
+    if (!token) return;
+    setFlow('confirmando');
     try {
-      const r = await apiFetch<{ ok: boolean; ya_confirmado: boolean; estado?: string }>(
-        `/pub/remito/${token}/confirmar`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estado: estadoSel, observaciones: obs }),
-        }
-      );
-      if (r.ok) {
-        setConfirmado(true);
-        if (remito) setRemito({ ...remito, recepcion_estado: estadoSel, recepcion_obs: obs });
-      }
+      await apiFetch(`/pub/remito/${token}/confirmar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'conforme', observaciones: '' }),
+      });
+      if (remito) setRemito({ ...remito, recepcion_estado: 'conforme', recepcion_obs: '' });
+      setFlow('confirmado');
     } catch {
       alert('Error al confirmar. Intentá de nuevo.');
-    } finally {
-      setConfirmando(false);
+      setFlow('view');
+    }
+  }
+
+  async function confirmarConObservaciones() {
+    if (!motivoSel || !token) return;
+    if (motivoSel === 'otro' && !detalleOtro.trim()) {
+      alert('Por favor describí el problema.');
+      return;
+    }
+    const motivo = MOTIVOS_ENCUESTA.find(m => m.id === motivoSel);
+    const obs = motivoSel === 'otro'
+      ? detalleOtro.trim()
+      : motivo?.label + (detalleOtro.trim() ? ': ' + detalleOtro.trim() : '');
+    setFlow('confirmando');
+    try {
+      await apiFetch(`/pub/remito/${token}/confirmar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'con_observaciones', observaciones: obs }),
+      });
+      if (remito) setRemito({ ...remito, recepcion_estado: 'con_observaciones', recepcion_obs: obs });
+      setFlow('confirmado');
+    } catch {
+      alert('Error al confirmar. Intentá de nuevo.');
+      setFlow('survey');
     }
   }
 
@@ -140,7 +168,6 @@ export function VistaPublicaRemito() {
     ? (cl.tipo_persona === 'juridica' ? `CUIT: ${cl.documento_nro}` : `DNI: ${cl.documento_nro}`)
     : null;
   const proformaNumero = remito.operacion?.numero?.replace(/^OP-/, 'PRO-') ?? null;
-  const yaConfirmado   = !!remito.recepcion_estado || confirmado;
 
   const RECEPCION_INFO: Record<string, { icon: string; titulo: string; subtitulo: string; bg: string; border: string; color: string }> = {
     conforme:          { icon: '✓', titulo: 'ESTOY CONFORME',           subtitulo: 'Recibí todo en perfectas condiciones',        bg: '#f0fdf4', border: GREEN,    color: GREEN    },
@@ -189,13 +216,13 @@ export function VistaPublicaRemito() {
                 🔗 Relacionado a Proforma: <strong style={{ color: NAVY }}>{proformaNumero}</strong>
               </div>
             )}
-            {yaConfirmado && remito.recepcion_estado ? (
+            {flow === 'confirmado' && remito.recepcion_estado ? (
               <div style={{
                 display: 'inline-block', marginTop: 6, padding: '4px 14px',
-                background: RECEPCION_INFO[remito.recepcion_estado]?.bg ?? '#f9fafb',
-                color: RECEPCION_INFO[remito.recepcion_estado]?.color ?? '#374151',
+                background: remito.recepcion_estado === 'conforme' ? '#f0fdf4' : '#fffbeb',
+                color: remito.recepcion_estado === 'conforme' ? GREEN : '#d97706',
                 fontSize: 10, fontWeight: 800, borderRadius: 4,
-                border: `1px solid ${RECEPCION_INFO[remito.recepcion_estado]?.border ?? '#e5e7eb'}44`,
+                border: `1px solid ${remito.recepcion_estado === 'conforme' ? GREEN : '#d97706'}44`,
               }}>
                 ✓ Confirmado
               </div>
@@ -368,149 +395,144 @@ export function VistaPublicaRemito() {
         </div>
 
         {/* CONFIRMACIÓN DE RECEPCIÓN */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'white', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '24px' }}>
+          <div style={{ maxWidth: 560, margin: '0 auto' }}>
 
-          {/* Izquierda: instrucciones */}
-          <div style={{ padding: '20px 24px', borderRight: '1px solid #e5e7eb' }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-              Confirmación de Recepción
-            </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14, lineHeight: 1.6 }}>
-              Para finalizar el proceso de entrega, te pedimos confirmar que recibiste correctamente los productos detallados.
-            </div>
-            {[
-              'Recibí la mercadería detallada en este remito.',
-              'Verificá cantidad y estado visible de los productos.',
-              'Cualquier observación debe informarse dentro de las 48 hs.',
-              'La recepción no reemplaza la garantía por fallas de fabricación.',
-            ].map((txt, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 12, color: '#374151', lineHeight: 1.4 }}>
-                <span style={{ color: GREEN, fontWeight: 700, flexShrink: 0 }}>✓</span>
-                <span>{txt}</span>
-              </div>
-            ))}
-            <div style={{
-              marginTop: 14, padding: '10px 14px', background: '#fef3c7',
-              borderLeft: '3px solid #f59e0b', borderRadius: 4, fontSize: 11, color: '#92400e',
-            }}>
-              <span style={{ fontWeight: 700 }}>IMPORTANTE: </span>
-              Al confirmar, quedará registrado digitalmente con fecha, hora y tu identificación.
-            </div>
-          </div>
-
-          {/* Derecha: botones */}
-          <div style={{ padding: '20px 24px' }}>
-            {yaConfirmado && remito.recepcion_estado ? (
-              /* Ya confirmado */
-              <div style={{ textAlign: 'center', paddingTop: 20 }}>
-                <div style={{ fontSize: 40, marginBottom: 10 }}>
-                  {remito.recepcion_estado === 'conforme' ? '✅' : remito.recepcion_estado === 'con_observaciones' ? '⚠️' : '❌'}
+            {/* Ya confirmado */}
+            {flow === 'confirmado' && remito.recepcion_estado && (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontSize: 52, marginBottom: 12 }}>
+                  {remito.recepcion_estado === 'conforme' ? '✅' : '⚠️'}
                 </div>
                 <div style={{
-                  padding: '12px 20px', borderRadius: 10,
-                  background: RECEPCION_INFO[remito.recepcion_estado]?.bg ?? '#f9fafb',
-                  border: `1px solid ${RECEPCION_INFO[remito.recepcion_estado]?.border ?? '#e5e7eb'}`,
-                  color: RECEPCION_INFO[remito.recepcion_estado]?.color ?? '#374151',
-                  fontSize: 14, fontWeight: 800, marginBottom: 10,
+                  padding: '14px 24px', borderRadius: 12, marginBottom: 12,
+                  background: remito.recepcion_estado === 'conforme' ? '#f0fdf4' : '#fffbeb',
+                  border: `1px solid ${remito.recepcion_estado === 'conforme' ? GREEN : '#d97706'}`,
+                  color: remito.recepcion_estado === 'conforme' ? GREEN : '#d97706',
+                  fontSize: 16, fontWeight: 900,
                 }}>
-                  {RECEPCION_INFO[remito.recepcion_estado]?.titulo}
-                </div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>
-                  Recepción confirmada. Gracias por tu respuesta.
+                  {remito.recepcion_estado === 'conforme' ? '¡Recepción confirmada! Gracias.' : 'Observación registrada, nos contactaremos.'}
                 </div>
                 {remito.recepcion_obs && (
-                  <div style={{ marginTop: 10, padding: '8px 12px', background: '#f9fafb', borderRadius: 6, fontSize: 12, color: '#374151', textAlign: 'left' }}>
-                    <span style={{ fontWeight: 700 }}>Tu observación:</span> {remito.recepcion_obs}
+                  <div style={{ padding: '10px 14px', background: '#f9fafb', borderRadius: 8, fontSize: 12, color: '#374151', textAlign: 'left' }}>
+                    <span style={{ fontWeight: 700 }}>Observación registrada:</span> {remito.recepcion_obs}
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+
+            {/* Vista inicial — 2 botones grandes */}
+            {flow === 'view' && (
               <>
-                <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
-                  ¿Recibiste correctamente tu pedido?
-                </div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14 }}>Elegí una opción:</div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
-                  {Object.entries(RECEPCION_INFO).map(([key, info]) => (
-                    <button key={key} type="button" onClick={() => setEstadoSel(key)}
-                      style={{
-                        padding: '12px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
-                        border: `2px solid ${estadoSel === key ? info.border : '#e5e7eb'}`,
-                        background: estadoSel === key ? info.bg : 'white',
-                        transition: 'all .15s',
-                      }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%', background: info.bg,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 18, fontWeight: 900, color: info.color,
-                        margin: '0 auto 8px', border: `2px solid ${info.border}`,
-                      }}>
-                        {info.icon}
-                      </div>
-                      <div style={{ fontSize: 10, fontWeight: 800, color: info.color, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>
-                        {info.titulo}
-                      </div>
-                      <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.4 }}>
-                        {info.subtitulo}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Campo observaciones */}
-                {estadoSel === 'con_observaciones' && (
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
-                      Describí la observación *
-                    </label>
-                    <textarea
-                      value={obs}
-                      onChange={e => setObs(e.target.value)}
-                      placeholder="¿Qué detalle notaste? Ej: falta un accesorio, la ventana tiene un rayón..."
-                      style={{
-                        width: '100%', padding: '8px 10px', fontSize: 12,
-                        border: '1px solid #d1d5db', borderRadius: 6, resize: 'vertical', minHeight: 70,
-                        fontFamily: 'inherit', color: '#374151', outline: 'none',
-                      }}
-                    />
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+                    Confirmación de Recepción
                   </div>
-                )}
-                {estadoSel === 'no_conforme' && (
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
-                      Detallá el problema <span style={{ fontWeight: 400, color: '#9ca3af' }}>(opcional)</span>
-                    </label>
-                    <textarea
-                      value={obs}
-                      onChange={e => setObs(e.target.value)}
-                      placeholder="¿Qué falta o qué problema encontraste?"
-                      style={{
-                        width: '100%', padding: '8px 10px', fontSize: 12,
-                        border: '1px solid #fca5a5', borderRadius: 6, resize: 'vertical', minHeight: 70,
-                        fontFamily: 'inherit', color: '#374151', outline: 'none',
-                      }}
-                    />
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                    Confirmá cómo recibiste los productos de este remito
                   </div>
-                )}
-
-                <button type="button" onClick={confirmar} disabled={!estadoSel || confirmando}
-                  style={{
-                    width: '100%', padding: '12px', borderRadius: 8, cursor: estadoSel ? 'pointer' : 'not-allowed',
-                    background: estadoSel ? NAVY : '#e5e7eb',
-                    color: estadoSel ? 'white' : '#9ca3af',
-                    fontSize: 13, fontWeight: 700, border: 'none',
-                    transition: 'all .15s',
-                  }}>
-                  {confirmando ? 'Confirmando...' : 'Confirmar recepción'}
-                </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 11, color: '#9ca3af' }}>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <button type="button" onClick={confirmarConforme}
+                    style={{
+                      padding: '20px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
+                      border: `2px solid ${GREEN}`, background: '#f0fdf4',
+                      transition: 'all .15s',
+                    }}>
+                    <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: GREEN, marginBottom: 6 }}>
+                      Recibí Correctamente
+                    </div>
+                    <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>
+                      Todo en orden, productos completos y en buen estado
+                    </div>
+                  </button>
+                  <button type="button" onClick={() => setFlow('survey')}
+                    style={{
+                      padding: '20px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
+                      border: '2px solid #f59e0b', background: '#fffbeb',
+                      transition: 'all .15s',
+                    }}>
+                    <div style={{ fontSize: 36, marginBottom: 10 }}>⚠️</div>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: '#d97706', marginBottom: 6 }}>
+                      Recibí Con Observaciones
+                    </div>
+                    <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>
+                      Hubo algún inconveniente o detalle a reportar
+                    </div>
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14, fontSize: 11, color: '#9ca3af', justifyContent: 'center' }}>
                   <span>🔒</span>
-                  <span>Tu confirmación es segura y quedará registrada en nuestro sistema. Esto nos ayuda a brindarte un mejor servicio y respaldo.</span>
+                  <span>Tu confirmación queda registrada digitalmente con fecha y hora.</span>
                 </div>
               </>
             )}
+
+            {/* Mini-encuesta */}
+            {(flow === 'survey' || flow === 'confirmando') && (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <button type="button" onClick={() => setFlow('view')}
+                    style={{ fontSize: 12, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 12 }}>
+                    ← Volver
+                  </button>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>
+                    ¿Cuál fue el inconveniente?
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>Seleccioná el motivo principal:</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  {MOTIVOS_ENCUESTA.map(m => (
+                    <button key={m.id} type="button" onClick={() => setMotivoSel(m.id)}
+                      style={{
+                        padding: '12px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                        border: `2px solid ${motivoSel === m.id ? '#f59e0b' : '#e5e7eb'}`,
+                        background: motivoSel === m.id ? '#fffbeb' : 'white',
+                        fontSize: 13, color: motivoSel === m.id ? '#92400e' : '#374151', fontWeight: motivoSel === m.id ? 700 : 400,
+                        transition: 'all .12s',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}>
+                      <span style={{
+                        width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${motivoSel === m.id ? '#f59e0b' : '#d1d5db'}`,
+                        background: motivoSel === m.id ? '#f59e0b' : 'white',
+                        display: 'inline-block',
+                      }} />
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {motivoSel && (
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
+                      {motivoSel === 'otro' ? 'Describí el problema *' : 'Detalles adicionales (opcional)'}
+                    </label>
+                    <textarea
+                      value={detalleOtro}
+                      onChange={e => setDetalleOtro(e.target.value)}
+                      placeholder="Ej: la ventana tiene un rayón en el marco, falta un tornillo..."
+                      style={{
+                        width: '100%', padding: '8px 10px', fontSize: 12,
+                        border: '1px solid #d1d5db', borderRadius: 6, resize: 'vertical', minHeight: 64,
+                        fontFamily: 'inherit', color: '#374151', outline: 'none', boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                )}
+                <button type="button" onClick={confirmarConObservaciones}
+                  disabled={!motivoSel || flow === 'confirmando'}
+                  style={{
+                    width: '100%', padding: '13px', borderRadius: 8,
+                    cursor: motivoSel ? 'pointer' : 'not-allowed',
+                    background: motivoSel ? '#d97706' : '#e5e7eb',
+                    color: motivoSel ? 'white' : '#9ca3af',
+                    fontSize: 13, fontWeight: 700, border: 'none', transition: 'all .15s',
+                  }}>
+                  {flow === 'confirmando' ? 'Registrando...' : 'Registrar observación'}
+                </button>
+              </>
+            )}
+
           </div>
         </div>
 
@@ -531,8 +553,3 @@ export function VistaPublicaRemito() {
   );
 }
 
-const RECEPCION_INFO: Record<string, { icon: string; titulo: string; subtitulo: string; bg: string; border: string; color: string }> = {
-  conforme:          { icon: '✓', titulo: 'ESTOY CONFORME',           subtitulo: 'Recibí todo en perfectas condiciones',   bg: '#f0fdf4', border: GREEN,    color: GREEN    },
-  con_observaciones: { icon: '!', titulo: 'RECIBÍ CON OBSERVACIONES', subtitulo: 'Hubo algún detalle a tener en cuenta',   bg: '#fffbeb', border: '#d97706', color: '#d97706' },
-  no_conforme:       { icon: '✕', titulo: 'NO RECIBÍ CORRECTAMENTE',  subtitulo: 'Faltan productos o hay problemas',       bg: '#fef2f2', border: RED,       color: RED      },
-};
