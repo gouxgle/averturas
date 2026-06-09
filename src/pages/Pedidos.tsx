@@ -723,7 +723,7 @@ export default function Pedidos() {
                       </div>
 
                       {/* Proveedor */}
-                      <div className="pr-2">
+                      <div className="pr-2 min-w-0 overflow-hidden">
                         <p className="text-sm font-medium text-gray-800 truncate">{p.proveedor.nombre}</p>
                         {primerItem && (
                           <p className="text-[11px] text-gray-400 truncate">
@@ -734,10 +734,10 @@ export default function Pedidos() {
                       </div>
 
                       {/* Operación / Cliente */}
-                      <div className="pr-2">
+                      <div className="pr-2 min-w-0 overflow-hidden">
                         {p.operacion ? (
                           <>
-                            <p className="text-sm text-blue-700 font-medium">{p.operacion.numero}</p>
+                            <p className="text-sm text-blue-700 font-medium truncate">{p.operacion.numero}</p>
                             <p className="text-xs text-gray-700 font-medium truncate">{nombreCliente(p.operacion)}</p>
                           </>
                         ) : (
