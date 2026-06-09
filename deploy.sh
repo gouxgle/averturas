@@ -75,7 +75,15 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-# ── 6. Resumen ────────────────────────────────────────────────
+# ── 6. Limpieza Docker (imágenes y capas huérfanas) ──────────────
+echo ""
+echo "🧹 Limpiando imágenes Docker no usadas..."
+docker image prune -f
+docker builder prune -f
+DISK_FREE=$(df -h / | awk 'NR==2{print $4}')
+echo "✅ Disco libre: $DISK_FREE"
+
+# ── 7. Resumen ────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════"
 echo "✅ Deploy completo"
