@@ -113,7 +113,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
                 ${fmt(saldo)}
                 ${recibo.compromiso?.fecha_vencimiento ? `
                   <span style="font-weight:400;font-size:11px;color:#555;margin-left:8px;">
-                    a cancelar el ${new Date(recibo.compromiso.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    a cancelar el ${new Date(String(recibo.compromiso.fecha_vencimiento).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </span>
                 ` : ''}
               </div>
