@@ -6,6 +6,7 @@ import {
   FileText, CheckSquare, Square, Download, ChevronDown
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
