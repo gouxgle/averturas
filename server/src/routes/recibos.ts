@@ -525,7 +525,7 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
   const { id } = c.req.param();
   const user = c.get('user');
 
-  // Cargar recibo completo (mismo query que GET /:id)
+  // Mismo query que GET /:id — incluye remito y todos los campos del PDF
   const [{ rows: [r] }, { rows: items }, { rows: [emp] }] = await Promise.all([
     db.query(`
       SELECT r.*,
@@ -535,10 +535,12 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
           'direccion', cl.direccion, 'localidad', cl.localidad,
           'documento_nro', cl.documento_nro) AS cliente,
         json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total) AS operacion,
+        json_build_object('id', rm.id, 'numero', rm.numero) AS remito,
         u.nombre AS created_by_nombre
       FROM recibos r
       JOIN clientes cl ON cl.id = r.cliente_id
       LEFT JOIN operaciones op ON op.id = r.operacion_id
+      LEFT JOIN remitos rm ON rm.id = r.remito_id
       LEFT JOIN usuarios u ON u.id = r.created_by
       WHERE r.id = $1
     `, [id]),
@@ -552,6 +554,19 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
 
   if (!r) return c.json({ error: 'Recibo no encontrado' }, 404);
   if (!r.cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  // remito null si no tiene id real (LEFT JOIN retorna objeto con nulls)
+  if (r.remito && !r.remito.id) r.remito = null;
+
+  // Compromiso pendiente (igual que GET /:id)
+  let compromiso = null;
+  if (r.operacion_id) {
+    const { rows: comps } = await db.query(
+      `SELECT monto, fecha_vencimiento, tipo FROM compromisos_pago WHERE recibo_id=$1 AND estado='pendiente' ORDER BY fecha_vencimiento LIMIT 1`,
+      [id]
+    );
+    if (comps.length) compromiso = comps[0];
+  }
 
   // Total cobrado para calcular saldo en el PDF
   let cobrado_operacion = 0;
@@ -579,7 +594,7 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
 
   // Generar PDF
   const empresa = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
-  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion }, empresa);
+  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion, compromiso }, empresa);
   const base64 = pdfBuffer.toString('base64');
 
   const nombre = r.cliente.tipo_persona === 'juridica'

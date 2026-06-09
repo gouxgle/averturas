@@ -1,4 +1,6 @@
-import PDFDocument from 'pdfkit';
+import puppeteer from 'puppeteer-core';
+import fs from 'fs';
+import path from 'path';
 
 const NAVY = '#031d49';
 const RED  = '#e31e24';
@@ -16,13 +18,13 @@ const PAGO_LABEL: Record<string, string> = {
   efectivo:        'Efectivo',
   transferencia:   'Transferencia bancaria',
   cheque:          'Cheque',
-  tarjeta_debito:  'Tarjeta de débito',
-  tarjeta_credito: 'Tarjeta de crédito',
+  tarjeta_debito:  'Tarjeta de debito',
+  tarjeta_credito: 'Tarjeta de credito',
   mercadopago:     'MercadoPago',
   otro:            'Otro',
 };
 
-interface EmpresaPDF {
+export interface EmpresaPDF {
   nombre: string;
   cuit: string | null;
   telefono: string | null;
@@ -34,153 +36,238 @@ interface ClientePDF {
   nombre: string | null; apellido: string | null; razon_social: string | null;
   tipo_persona: string; documento_nro: string | null;
   direccion: string | null; localidad: string | null;
+  telefono: string | null; email: string | null;
 }
 
 interface ItemPDF {
-  descripcion: string; cantidad: number; monto: number; producto_nombre: string | null;
+  id?: string; descripcion: string; cantidad: number; monto: number; producto_nombre: string | null;
 }
 
-interface ReciboPDF {
+interface CompromisoPDF {
+  monto: number; fecha_vencimiento: string; tipo: string;
+}
+
+export interface ReciboPDF {
   numero: string; fecha: string; estado: string;
   forma_pago: string; referencia_pago: string | null;
   concepto: string | null; notas: string | null; monto_total: number;
   cliente: ClientePDF;
-  operacion: { numero: string; precio_total: number } | null;
+  operacion: { id?: string; numero: string; precio_total: number } | null;
+  remito: { id?: string; numero: string } | null;
   items: ItemPDF[];
   created_by_nombre: string | null;
   cobrado_operacion: number;
+  compromiso: CompromisoPDF | null;
 }
 
-export function generarPDFRecibo(recibo: ReciboPDF, empresa: EmpresaPDF): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
+  const cl = recibo.cliente;
+  const clienteNombre = cl.tipo_persona === 'juridica'
+    ? (cl.razon_social ?? '—')
+    : `${cl.apellido ?? ''} ${cl.nombre ?? ''}`.trim() || '—';
 
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
+  // Logo embebido en base64
+  let logoTag = '';
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'logochico.png');
+    const logoData = fs.readFileSync(logoPath);
+    const b64 = logoData.toString('base64');
+    logoTag = `<img src="data:image/png;base64,${b64}" alt="Logo" style="height:34px;margin-right:10px;">`;
+  } catch { /* sin logo */ }
 
-    const W = doc.page.width - 100; // ancho útil (margins 50 c/lado)
+  const tieneItems = recibo.items && recibo.items.length > 0;
 
-    // ── Encabezado ───────────────────────────────────────────
-    doc.rect(50, 40, W, 70).fill(NAVY);
+  const itemsHTML = tieneItems ? `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <thead>
+        <tr style="background:#f0f0f0;">
+          <th style="text-align:left;padding:7px 10px;font-size:11px;font-weight:600;color:#555;">Descripcion</th>
+          <th style="text-align:right;padding:7px 10px;font-size:11px;font-weight:600;color:#555;">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${recibo.items.map((item, i) => `
+          <tr style="background:${i % 2 === 0 ? 'white' : '#f8f9fa'};">
+            <td style="padding:7px 10px;font-size:13px;color:#333;border-bottom:1px solid #eee;">${item.descripcion}</td>
+            <td style="padding:7px 10px;font-size:13px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;">${fmt(Number(item.monto))}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '';
 
-    doc.fillColor('white').fontSize(18).font('Helvetica-Bold')
-       .text(empresa.nombre, 60, 55, { width: W * 0.6 });
+  let operacionHTML = '';
+  if (recibo.operacion) {
+    const saldo = Math.max(0, Number(recibo.operacion.precio_total) - Number(recibo.cobrado_operacion ?? 0));
+    operacionHTML = `
+      <div style="padding-top:10px;border-top:1px solid #eee;margin-bottom:20px;">
+        <div style="display:flex;gap:40px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Total de la operacion</div>
+            <div style="font-size:13px;font-weight:600;color:#333;">${fmt(Number(recibo.operacion.precio_total))}</div>
+          </div>
+          ${saldo >= 0.01 ? `
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Saldo pendiente</div>
+              <div style="font-size:13px;font-weight:700;color:${RED};">
+                ${fmt(saldo)}
+                ${recibo.compromiso?.fecha_vencimiento ? `
+                  <span style="font-weight:400;font-size:11px;color:#555;margin-left:8px;">
+                    a cancelar el ${new Date(recibo.compromiso.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
 
-    if (empresa.cuit) {
-      doc.fontSize(9).font('Helvetica')
-         .text(`CUIT: ${empresa.cuit}`, 60, 78, { width: W * 0.6 });
-    }
-    if (empresa.telefono) {
-      doc.text(`Tel: ${empresa.telefono}`, 60, 90, { width: W * 0.6 });
-    }
+  const footerParts = [
+    empresa.nombre,
+    empresa.cuit ? `CUIT ${empresa.cuit}` : null,
+    empresa.telefono ? `Tel: ${empresa.telefono}` : null,
+    empresa.email,
+    empresa.direccion,
+  ].filter(Boolean).join(' · ');
 
-    // Recibo title (derecha)
-    doc.fillColor(RED).fontSize(20).font('Helvetica-Bold')
-       .text('RECIBO', 50 + W * 0.62, 50, { width: W * 0.38, align: 'right' });
-    doc.fillColor('white').fontSize(11).font('Helvetica')
-       .text(`N° ${recibo.numero}`, 50 + W * 0.62, 75, { width: W * 0.38, align: 'right' });
-    doc.text(fmtFecha(recibo.fecha), 50 + W * 0.62, 90, { width: W * 0.38, align: 'right' });
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: white; color: #333; }
+</style>
+</head>
+<body>
+<div style="max-width:750px;margin:0 auto;padding:32px 40px;background:white;min-height:297mm;">
 
-    let y = 130;
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        ${logoTag}
+        <div style="color:${NAVY};font-size:15px;font-weight:900;">${empresa.nombre}</div>
+      </div>
+      ${empresa.cuit     ? `<div style="color:#555;font-size:11px;">CUIT: ${empresa.cuit}</div>` : ''}
+      ${empresa.telefono ? `<div style="color:#555;font-size:11px;">Tel: ${empresa.telefono}</div>` : ''}
+      ${empresa.email    ? `<div style="color:#555;font-size:11px;">${empresa.email}</div>` : ''}
+      ${empresa.direccion? `<div style="color:#555;font-size:11px;">${empresa.direccion}</div>` : ''}
+    </div>
+    <div style="text-align:right;">
+      <div style="color:${RED};font-size:26px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Recibo</div>
+      <div style="color:${NAVY};font-size:16px;font-weight:700;margin-top:4px;">${recibo.numero}</div>
+      <div style="color:#666;font-size:11px;margin-top:4px;">Fecha: ${fmtFecha(recibo.fecha)}</div>
+      ${recibo.operacion ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. presupuesto: <strong>${recibo.operacion.numero}</strong></div>` : ''}
+      ${recibo.remito    ? `<div style="font-size:11px;color:#555;">Ref. remito: <strong>${recibo.remito.numero}</strong></div>` : ''}
+    </div>
+  </div>
 
-    // ── Cliente ──────────────────────────────────────────────
-    const cl = recibo.cliente;
-    const clienteNombre = cl.tipo_persona === 'juridica'
-      ? (cl.razon_social ?? '—')
-      : `${cl.apellido ?? ''} ${cl.nombre ?? ''}`.trim() || '—';
+  <!-- Divisor -->
+  <div style="background:${NAVY};height:2px;margin-bottom:20px;"></div>
 
-    doc.fillColor(NAVY).fontSize(9).font('Helvetica-Bold').text('CLIENTE', 50, y);
-    doc.moveTo(50, y + 12).lineTo(50 + W, y + 12).strokeColor(NAVY).lineWidth(0.5).stroke();
-    y += 18;
+  <!-- Cliente -->
+  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:20px;border-left:4px solid ${NAVY};">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Recibimos de</div>
+    <div style="display:flex;align-items:baseline;gap:16px;">
+      <span style="font-size:15px;font-weight:700;color:#1a1a1a;">${clienteNombre}</span>
+      ${cl.documento_nro ? `<span style="font-size:11px;color:#555;">${cl.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'}: ${cl.documento_nro}</span>` : ''}
+    </div>
+    ${(cl.telefono || cl.email) ? `
+      <div style="display:flex;gap:18px;font-size:11px;color:#555;margin-top:2px;">
+        ${cl.telefono ? `<span>Tel: ${cl.telefono}</span>` : ''}
+        ${cl.email    ? `<span>${cl.email}</span>` : ''}
+      </div>
+    ` : ''}
+    ${(cl.direccion || cl.localidad) ? `
+      <div style="font-size:11px;color:#555;margin-top:1px;">${[cl.direccion, cl.localidad].filter(Boolean).join(', ')}</div>
+    ` : ''}
+  </div>
 
-    doc.fillColor('#333').font('Helvetica-Bold').fontSize(10).text(clienteNombre, 50, y);
-    y += 14;
-    doc.font('Helvetica').fontSize(9);
-    if (cl.documento_nro) { doc.fillColor('#555').text(`DNI/CUIT: ${cl.documento_nro}`, 50, y); y += 12; }
-    if (cl.direccion)     { doc.text(cl.direccion + (cl.localidad ? `, ${cl.localidad}` : ''), 50, y); y += 12; }
+  <!-- Monto grande -->
+  <div style="border:2px solid ${NAVY};border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div>
+      <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Importe total</div>
+      <div style="color:${NAVY};font-size:28px;font-weight:900;font-family:monospace;margin-top:2px;">${fmt(Number(recibo.monto_total))}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Forma de pago</div>
+      <div style="color:${NAVY};font-size:14px;font-weight:700;margin-top:2px;">${PAGO_LABEL[recibo.forma_pago] ?? recibo.forma_pago}</div>
+      ${recibo.referencia_pago ? `<div style="color:#555;font-size:11px;margin-top:2px;">Ref: ${recibo.referencia_pago}</div>` : ''}
+    </div>
+  </div>
 
-    y += 10;
+  <!-- Concepto -->
+  ${recibo.concepto ? `
+    <div style="margin-bottom:18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Concepto</div>
+      <div style="font-size:13px;color:#333;">${recibo.concepto}</div>
+    </div>
+  ` : ''}
 
-    // ── Detalle del pago ─────────────────────────────────────
-    doc.fillColor(NAVY).fontSize(9).font('Helvetica-Bold').text('DETALLE DEL PAGO', 50, y);
-    doc.moveTo(50, y + 12).lineTo(50 + W, y + 12).strokeColor(NAVY).lineWidth(0.5).stroke();
-    y += 18;
+  <!-- Items -->
+  ${itemsHTML}
 
-    const infoRows: [string, string][] = [
-      ['Forma de pago', PAGO_LABEL[recibo.forma_pago] ?? recibo.forma_pago],
-    ];
-    if (recibo.referencia_pago) infoRows.push(['Referencia', recibo.referencia_pago]);
-    if (recibo.concepto) infoRows.push(['Concepto', recibo.concepto]);
-    if (recibo.operacion) infoRows.push(['Presupuesto', recibo.operacion.numero]);
+  <!-- Operacion + saldo -->
+  ${operacionHTML}
 
-    doc.font('Helvetica').fontSize(9).fillColor('#333');
-    for (const [label, value] of infoRows) {
-      doc.font('Helvetica-Bold').text(`${label}:`, 50, y, { continued: true, width: 130 });
-      doc.font('Helvetica').text(` ${value}`, { width: W - 130 });
-      y += 14;
-    }
+  <!-- Notas -->
+  ${recibo.notas ? `
+    <div style="border:1px solid #ddd;border-radius:6px;padding:8px 12px;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:3px;">Notas</div>
+      <div style="font-size:12px;color:#444;">${recibo.notas}</div>
+    </div>
+  ` : ''}
 
-    y += 8;
+  <!-- Firma -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:52px;">
+    <div style="text-align:center;">
+      <div style="height:52px;"></div>
+      <div style="border-top:1px solid #999;padding-top:10px;font-size:11px;color:#555;">
+        Firma &mdash; ${empresa.nombre}${recibo.created_by_nombre ? ` (${recibo.created_by_nombre})` : ''}
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div style="height:52px;"></div>
+      <div style="border-top:1px solid #999;padding-top:10px;font-size:11px;color:#555;">
+        Firma y aclaracion &mdash; Cliente
+      </div>
+    </div>
+  </div>
 
-    // ── Items ────────────────────────────────────────────────
-    if (recibo.items.length > 0) {
-      doc.fillColor(NAVY).fontSize(9).font('Helvetica-Bold').text('ITEMS', 50, y);
-      doc.moveTo(50, y + 12).lineTo(50 + W, y + 12).strokeColor(NAVY).lineWidth(0.5).stroke();
-      y += 18;
+  <!-- Footer -->
+  <div style="border-top:2px solid ${RED};margin-top:28px;padding-top:12px;text-align:center;font-size:10px;color:#999;">
+    ${footerParts}
+  </div>
 
-      // Header
-      doc.rect(50, y, W, 16).fill('#f0f4f8');
-      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(8)
-         .text('Descripción', 56, y + 4, { width: W * 0.55 });
-      doc.text('Cant.', 56 + W * 0.55, y + 4, { width: W * 0.15, align: 'right' });
-      doc.text('Monto', 56 + W * 0.7, y + 4, { width: W * 0.3 - 6, align: 'right' });
-      y += 16;
+</div>
+</body>
+</html>`;
+}
 
-      for (const item of recibo.items) {
-        const desc = item.producto_nombre ?? item.descripcion;
-        doc.fillColor('#333').font('Helvetica').fontSize(9)
-           .text(desc, 56, y, { width: W * 0.55 });
-        doc.text(String(item.cantidad), 56 + W * 0.55, y, { width: W * 0.15, align: 'right' });
-        doc.text(fmt(item.monto), 56 + W * 0.7, y, { width: W * 0.3 - 6, align: 'right' });
-        y += 14;
-        doc.moveTo(50, y).lineTo(50 + W, y).strokeColor('#e5e7eb').lineWidth(0.3).stroke();
-      }
-      y += 6;
-    }
+export async function generarPDFRecibo(recibo: ReciboPDF, empresa: EmpresaPDF): Promise<Buffer> {
+  const html = buildHTML(recibo, empresa);
 
-    // ── Total ────────────────────────────────────────────────
-    y += 4;
-    doc.rect(50 + W * 0.5, y, W * 0.5, 28).fill(NAVY);
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(11)
-       .text('TOTAL RECIBIDO', 56 + W * 0.5, y + 4, { width: W * 0.5 - 12, align: 'left' });
-    doc.fontSize(13)
-       .text(fmt(recibo.monto_total), 56 + W * 0.5, y + 4, { width: W * 0.5 - 12, align: 'right' });
-    y += 36;
+  const executablePath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium-browser';
 
-    // Saldo pendiente si corresponde
-    if (recibo.operacion && recibo.cobrado_operacion < recibo.operacion.precio_total - 0.01) {
-      const saldo = recibo.operacion.precio_total - recibo.cobrado_operacion;
-      doc.fillColor('#b45309').font('Helvetica').fontSize(8)
-         .text(`Saldo pendiente de esta operación: ${fmt(saldo)}`, 50 + W * 0.5, y, { width: W * 0.5, align: 'right' });
-      y += 14;
-    }
-
-    // ── Notas ────────────────────────────────────────────────
-    if (recibo.notas) {
-      y += 10;
-      doc.fillColor('#6b7280').font('Helvetica').fontSize(8).text(`Notas: ${recibo.notas}`, 50, y, { width: W });
-      y += 14;
-    }
-
-    // ── Pie ──────────────────────────────────────────────────
-    const pageBottom = doc.page.height - 60;
-    doc.moveTo(50, pageBottom).lineTo(50 + W, pageBottom).strokeColor('#d1d5db').lineWidth(0.5).stroke();
-    doc.fillColor('#9ca3af').font('Helvetica').fontSize(7)
-       .text(empresa.nombre + (empresa.email ? ` | ${empresa.email}` : '') + (empresa.telefono ? ` | ${empresa.telefono}` : ''),
-         50, pageBottom + 6, { width: W, align: 'center' });
-
-    doc.end();
+  const browser = await puppeteer.launch({
+    executablePath,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    headless: true,
   });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '12mm', right: '18mm', bottom: '12mm', left: '18mm' },
+    });
+    return Buffer.from(pdfBuffer);
+  } finally {
+    await browser.close();
+  }
 }

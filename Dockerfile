@@ -1,4 +1,4 @@
-# ── Etapa 1: build del backend ────────────────────────────────
+# Etapa 1: build del backend
 # Va primero para que BuildKit no lo paralelice con el frontend
 FROM node:20-alpine AS server-build
 WORKDIR /server
@@ -7,7 +7,7 @@ RUN npm install
 COPY server/ .
 RUN NODE_OPTIONS="--max-old-space-size=512" npm run build
 
-# ── Etapa 2: build del frontend ───────────────────────────────
+# Etapa 2: build del frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json* bun.lock* ./
@@ -15,17 +15,20 @@ RUN npm install --legacy-peer-deps
 COPY . .
 ARG VITE_SENTRY_DSN
 ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
-# Salta tsc (type-check, no genera código) y va directo a vite build
 RUN NODE_OPTIONS="--max-old-space-size=512" npx vite build
 
-# ── Etapa 3: imagen final ─────────────────────────────────────
+# Etapa 3: imagen final
 FROM node:20-alpine
+# Chromium para generacion de PDFs con puppeteer-core
+RUN apk add --no-cache chromium ttf-dejavu
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 WORKDIR /app
 
 COPY --from=server-build /server/node_modules ./node_modules
 COPY --from=server-build /server/dist ./dist
 
-# Frontend build → el servidor lo sirve como archivos estáticos
+# Frontend build -> el servidor lo sirve como archivos estaticos
 COPY --from=frontend-build /app/dist ./public
 
 ENV NODE_ENV=production
