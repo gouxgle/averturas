@@ -542,9 +542,9 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
 
   const digits = rec.cliente.telefono.replace(/\D/g, '');
   let numero: string;
-  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
   else numero = `549${digits}`;
 
   const nombre = rec.cliente.tipo_persona === 'juridica'

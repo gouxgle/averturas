@@ -173,8 +173,12 @@ function ModalProveedor({
 }) {
   const [form, setForm] = useState<FormData>(initial);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  function set(field: keyof FormData, value: unknown) { setForm(p => ({ ...p, [field]: value })); }
+  function set(field: keyof FormData, value: unknown) {
+    setForm(p => ({ ...p, [field]: value }));
+    setFieldErrors(e => { const n = { ...e }; delete n[field as string]; return n; });
+  }
   function toggleMat(mat: string) {
     setForm(p => ({ ...p, materiales: p.materiales.includes(mat) ? p.materiales.filter(m => m !== mat) : [...p.materiales, mat] }));
   }
@@ -183,10 +187,30 @@ function ModalProveedor({
     e.preventDefault();
     if (!form.nombre.trim()) { toast.error('Nombre requerido'); return; }
     setSaving(true);
-    try { await onSave(form); } finally { setSaving(false); }
+    setFieldErrors({});
+    try {
+      await onSave(form);
+    } catch (err: any) {
+      if (err?.detalle?.length) {
+        const map: Record<string, string> = {};
+        for (const d of err.detalle) map[d.campo] = d.mensaje;
+        setFieldErrors(map);
+        toast.error('Corregí los campos marcados en rojo');
+      } else {
+        toast.error(err?.message ?? 'Error al guardar');
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const inp = 'w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white';
+  function fe(field: string) { return fieldErrors[field]; }
+  const inp = (field: string) =>
+    `w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-white ${
+      fe(field)
+        ? 'border-red-400 focus:ring-red-300'
+        : 'border-gray-200 focus:ring-amber-400'
+    }`;
   const lbl = 'block text-xs font-medium text-gray-500 mb-1';
 
   return (
@@ -209,12 +233,13 @@ function ModalProveedor({
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className={lbl}>Nombre / Razón social *</label>
-                <input required type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
-                  className={inp} placeholder="Ej: Aluminios del Norte S.A." autoFocus />
+                <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
+                  className={inp('nombre')} placeholder="Ej: Aluminios del Norte S.A." autoFocus />
+                {fe('nombre') && <p className="text-xs text-red-500 mt-1">{fe('nombre')}</p>}
               </div>
               <div>
                 <label className={lbl}>Tipo</label>
-                <select value={form.tipo ?? ''} onChange={e => set('tipo', e.target.value || null)} className={inp}>
+                <select value={form.tipo ?? ''} onChange={e => set('tipo', e.target.value || null)} className={inp('tipo')}>
                   <option value="">— Sin especificar —</option>
                   {TIPO_PROVEEDOR.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -225,22 +250,24 @@ function ModalProveedor({
               <div>
                 <label className={lbl}>Contacto</label>
                 <input type="text" value={form.contacto ?? ''} onChange={e => set('contacto', e.target.value || null)}
-                  className={inp} placeholder="Nombre vendedor / rep." />
+                  className={inp('contacto')} placeholder="Nombre vendedor / rep." />
               </div>
               <div>
                 <label className={lbl}>Teléfono</label>
                 <input type="text" value={form.telefono ?? ''} onChange={e => set('telefono', e.target.value || null)}
-                  className={inp} placeholder="+54 9 11 1234-5678" />
+                  className={inp('telefono')} placeholder="3704592000" />
+                {fe('telefono') && <p className="text-xs text-red-500 mt-1">{fe('telefono')}</p>}
               </div>
               <div>
                 <label className={lbl}>Email</label>
-                <input type="email" value={form.email ?? ''} onChange={e => set('email', e.target.value || null)}
-                  className={inp} placeholder="ventas@proveedor.com" />
+                <input type="text" value={form.email ?? ''} onChange={e => set('email', e.target.value || null)}
+                  className={inp('email')} placeholder="ventas@proveedor.com" />
+                {fe('email') && <p className="text-xs text-red-500 mt-1">{fe('email')}</p>}
               </div>
               <div>
                 <label className={lbl}>CUIT</label>
                 <input type="text" value={form.cuit ?? ''} onChange={e => set('cuit', e.target.value || null)}
-                  className={inp} placeholder="30-12345678-9" />
+                  className={inp('cuit')} placeholder="30-12345678-9" />
               </div>
             </div>
 
@@ -248,24 +275,25 @@ function ModalProveedor({
               <div>
                 <label className={lbl}>Dirección</label>
                 <input type="text" value={form.direccion ?? ''} onChange={e => set('direccion', e.target.value || null)}
-                  className={inp} placeholder="Calle y número" />
+                  className={inp('direccion')} placeholder="Calle y número" />
               </div>
               <div>
                 <label className={lbl}>Localidad</label>
                 <input type="text" value={form.localidad ?? ''} onChange={e => set('localidad', e.target.value || null)}
-                  className={inp} placeholder="Ciudad" />
+                  className={inp('localidad')} placeholder="Ciudad" />
               </div>
               <div>
                 <label className={lbl}>Provincia</label>
                 <input type="text" value={form.provincia ?? ''} onChange={e => set('provincia', e.target.value || null)}
-                  className={inp} placeholder="Buenos Aires" />
+                  className={inp('provincia')} placeholder="Buenos Aires" />
               </div>
             </div>
 
             <div className="mt-3">
               <label className={lbl}>Sitio web</label>
-              <input type="url" value={form.web ?? ''} onChange={e => set('web', e.target.value || null)}
-                className={inp} placeholder="https://www.proveedor.com" />
+              <input type="text" value={form.web ?? ''} onChange={e => set('web', e.target.value || null)}
+                className={inp('web')} placeholder="https://www.proveedor.com" />
+              {fe('web') && <p className="text-xs text-red-500 mt-1">{fe('web')}</p>}
             </div>
           </div>
 
@@ -292,7 +320,7 @@ function ModalProveedor({
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={lbl}>Forma de entrega</label>
-                <select value={form.forma_entrega ?? 'propia'} onChange={e => set('forma_entrega', e.target.value)} className={inp}>
+                <select value={form.forma_entrega ?? 'propia'} onChange={e => set('forma_entrega', e.target.value)} className={inp('forma_entrega')}>
                   <option value="propia">Entrega propia</option>
                   <option value="tercerizada">Tercerizada</option>
                   <option value="retiro">Retiro en fábrica</option>
@@ -301,12 +329,12 @@ function ModalProveedor({
               <div>
                 <label className={lbl}>Plazo entrega (días)</label>
                 <input type="number" min="0" value={form.plazo_entrega_dias ?? ''} onChange={e => set('plazo_entrega_dias', e.target.value ? parseInt(e.target.value) : null)}
-                  className={inp} placeholder="Ej: 5" />
+                  className={inp('plazo_entrega_dias')} placeholder="Ej: 5" />
               </div>
               <div>
-                <label className={lbl}>Costo flete ($)</label>
-                <input type="number" min="0" value={form.costo_flete || ''} onChange={e => set('costo_flete', parseFloat(e.target.value) || 0)}
-                  className={inp} placeholder="0" />
+                <label className={lbl}>Costo flete (%)</label>
+                <input type="number" min="0" max="100" step="0.5" value={form.costo_flete ?? ''} onChange={e => set('costo_flete', parseFloat(e.target.value) || 0)}
+                  className={inp('costo_flete')} placeholder="Ej: 10" />
               </div>
             </div>
           </div>
@@ -328,13 +356,13 @@ function ModalProveedor({
               </div>
               <div>
                 <label className={lbl}>Deuda actual ($)</label>
-                <input type="number" min="0" value={form.deuda_actual || ''} onChange={e => set('deuda_actual', parseFloat(e.target.value) || 0)}
-                  className={inp} placeholder="0" />
+                <input type="number" min="0" value={form.deuda_actual ?? ''} onChange={e => set('deuda_actual', parseFloat(e.target.value) || 0)}
+                  className={inp('deuda_actual')} placeholder="0" />
               </div>
               <div>
                 <label className={lbl}>Margen de venta (%) <span className="text-gray-400 font-normal">— fallback</span></label>
-                <input type="number" min="0" max="999" step="1" value={form.margen_venta || ''} onChange={e => set('margen_venta', parseFloat(e.target.value) || 0)}
-                  className={inp} placeholder="0" />
+                <input type="number" min="0" max="999" step="1" value={form.margen_venta ?? ''} onChange={e => set('margen_venta', parseFloat(e.target.value) || 0)}
+                  className={inp('margen_venta')} placeholder="0" />
               </div>
             </div>
             <div className="mt-3">
@@ -467,7 +495,7 @@ function ProveedorRow({
             <p className="text-[10px] text-gray-400 mt-0.5">Prom. {prov.plazo_entrega_dias}d</p>
           )}
           {prov.costo_flete > 0 && (
-            <p className="text-[10px] text-gray-400">{fmtMonto(prov.costo_flete)}</p>
+            <p className="text-[10px] text-gray-400">Flete: {prov.costo_flete}%</p>
           )}
         </div>
 

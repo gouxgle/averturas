@@ -32,8 +32,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(err.error ?? `Error ${res.status}`);
+    const err = await res.json().catch(() => ({})) as { error?: string; detalle?: { campo: string; mensaje: string }[] };
+    const e = new Error(err.error ?? `Error ${res.status}`) as Error & { detalle?: typeof err.detalle };
+    e.detalle = err.detalle;
+    throw e;
   }
 
   // 204 No Content

@@ -185,11 +185,11 @@ export const ProveedorSchema = z.object({
   notas:              zText(2000).optional(),
   forma_entrega:      z.enum(['propia','tercerizada','retiro']).optional().default('propia'),
   plazo_entrega_dias: z.number().int().positive().optional().nullable(),
-  costo_flete:        zPosNum.optional().default(0),
+  costo_flete:        z.number().min(0).max(100).optional().nullable().default(0),
   calificacion:       z.number().int().min(1).max(5).optional().nullable(),
-  deuda_actual:       zPosNum.optional().default(0),
+  deuda_actual:       zPosNum.optional().nullable().default(0),
   es_principal:       z.boolean().optional().default(false),
-  margen_venta:       z.number().min(0).max(100).optional().default(0),
+  margen_venta:       z.number().min(0).max(100).optional().nullable().default(0),
   activo:             z.boolean().optional(),
 });
 

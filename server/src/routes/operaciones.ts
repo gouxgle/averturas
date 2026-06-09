@@ -395,12 +395,11 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
   // Normalizar a formato Evolution API: 549XXXXXXXXXX (Argentina)
   const digits = telefono.replace(/\D/g, '');
   let numero: string;
-  if (digits.startsWith('549') && digits.length >= 12) {
+  if (digits.startsWith('549') && digits.length >= 13) {
     numero = digits;
-  } else if (digits.startsWith('54') && digits.length >= 11) {
-    // 5411... o 543... sin el 9 de móvil → insertar 9
+  } else if (digits.startsWith('54') && digits.length >= 12) {
     numero = `549${digits.slice(2)}`;
-  } else if (digits.startsWith('0') && digits.length >= 10) {
+  } else if (digits.startsWith('0') && digits.length >= 11) {
     numero = `549${digits.slice(1)}`;
   } else {
     numero = `549${digits}`;

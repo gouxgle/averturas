@@ -346,10 +346,17 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
   // Normalizar número Argentina → 549XXXXXXXXXX
   const digits = prov.telefono.replace(/\D/g, '');
   let numero: string;
-  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
   else numero = `549${digits}`;
+
+  // Validar longitud mínima del número resultante (Argentina: 549 + 10 dígitos = 13)
+  if (numero.length < 13) {
+    return c.json({
+      error: `Número incompleto para WhatsApp: "${prov.telefono}" → ${numero} (${numero.length} dígitos, se esperan 13). Guardá el número completo en la ficha del proveedor, ej: +5493704590000`
+    }, 422);
+  }
 
   // Leer plantilla de DB (fallback a texto inline si no existe)
   const { rows: [tpl] } = await db.query(
@@ -431,9 +438,9 @@ pedidos.post('/:id/avisar-recepcion-cliente', async (c) => {
   // Normalizar número Argentina → 549XXXXXXXXXX
   const digits = cliente.telefono.replace(/\D/g, '');
   let numero: string;
-  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
   else numero = `549${digits}`;
 
   const nombre = cliente.tipo_persona === 'juridica'

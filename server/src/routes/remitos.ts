@@ -234,9 +234,9 @@ remitos.post('/:id/enviar-whatsapp', async (c) => {
   // Normalizar número Argentina → 549XXXXXXXXXX
   const digits = telefono.replace(/\D/g, '');
   let numero: string;
-  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
   else numero = `549${digits}`;
 
   // Generar/regenerar token de recepción

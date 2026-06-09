@@ -4,7 +4,7 @@ import {
   ShoppingCart, Plus, Search, X, ChevronRight,
   Phone, MessageCircle, Package, Clock,
   CheckCircle, XCircle, AlertTriangle, Edit,
-  Truck, RefreshCw, Calendar, DollarSign,
+  Truck, RefreshCw, Calendar, DollarSign, Copy, Check,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -177,23 +177,42 @@ function PedidoModal({ id, onClose, onSaved }: {
   const [fechaRecepcion, setFechaRecepcion] = useState(new Date().toISOString().split('T')[0]);
   const [enviandoWA, setEnviandoWA] = useState(false);
   const [enviadoWA, setEnviadoWA]   = useState(false);
+  const [errorWA, setErrorWA]       = useState<string | null>(null);
+  const [copiado, setCopiado]       = useState(false);
   const [avisandoCliente, setAvisandoCliente] = useState(false);
   const [avisadoCliente, setAvisadoCliente]   = useState(false);
 
   async function enviarWhatsApp() {
     if (!pedido) return;
     setEnviandoWA(true);
+    setErrorWA(null);
     try {
       const res = await api.post<{ enviado: boolean; pedido?: typeof pedido }>(`/pedidos/${pedido.id}/enviar-whatsapp`, {});
       setEnviadoWA(true);
       toast.success('Pedido enviado por WhatsApp');
-      // Si el backend actualizó el estado (pendiente → enviado), refrescar
       if (res.pedido) { setPedido(res.pedido as any); onSaved(); }
     } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+      setErrorWA(e?.message ?? 'Error al enviar por WhatsApp');
     } finally {
       setEnviandoWA(false);
     }
+  }
+
+  async function copiarTextoWA() {
+    if (!pedido) return;
+    const texto = waTextoPedido(pedido, pedido.items);
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = texto;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
   }
 
   const cargar = useCallback(async () => {
@@ -286,14 +305,28 @@ function PedidoModal({ id, onClose, onSaved }: {
                 )}
               </div>
               {pedido.proveedor.telefono && (
-                <button
-                  onClick={enviarWhatsApp}
-                  disabled={enviandoWA || enviadoWA}
-                  className="flex items-center gap-1.5 bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
-                >
-                  <MessageCircle size={13} />
-                  {enviadoWA ? 'Enviado ✓' : enviandoWA ? 'Enviando...' : pedido.estado === 'enviado' || pedido.estado === 'recibido' ? 'Reenviar por WhatsApp' : 'Enviar por WhatsApp'}
-                </button>
+                <div className="flex flex-col items-end gap-1.5">
+                  <button
+                    onClick={enviarWhatsApp}
+                    disabled={enviandoWA || enviadoWA}
+                    className="flex items-center gap-1.5 bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
+                  >
+                    <MessageCircle size={13} />
+                    {enviadoWA ? 'Enviado ✓' : enviandoWA ? 'Enviando...' : pedido.estado === 'enviado' || pedido.estado === 'recibido' ? 'Reenviar por WhatsApp' : 'Enviar por WhatsApp'}
+                  </button>
+                  {errorWA && (
+                    <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg text-right max-w-[220px]">
+                      <p className="text-[11px] text-red-600 mb-1.5">{errorWA}</p>
+                      <button
+                        onClick={copiarTextoWA}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:underline"
+                      >
+                        {copiado ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                        {copiado ? 'Copiado' : 'Copiar texto del pedido'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
