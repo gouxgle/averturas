@@ -197,6 +197,14 @@ export function NuevoCliente() {
       nombre:       esFisica ? (titleCase(nombre) || titleCase(apellido)) : null,
       razon_social: !esFisica ? titleCase(nombreCompleto) : null,
       documento_nro: form.documento_nro.replace(/\D/g, '') || null,
+      // emails: string vacío falla validación zEmail → null
+      email:              form.email.trim()              || null,
+      email_alternativo:  form.email_alternativo.trim()  || null,
+      // UUIDs: string vacío falla validación uuid → null
+      categoria_id:       form.categoria_id    || null,
+      referido_por_id:    form.referido_por_id || null,
+      // fechas vacías → null
+      fecha_nacimiento:   form.fecha_nacimiento || null,
       dom_obra:             obraEsMisma ? form.direccion    : (form.dom_obra      || null),
       dom_obra_localidad:   obraEsMisma ? form.localidad    : (form.dom_obra_localidad || null),
     };
