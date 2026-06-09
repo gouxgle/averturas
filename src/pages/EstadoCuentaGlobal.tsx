@@ -802,6 +802,19 @@ export function EstadoCuentaGlobal() {
   const [expandedId,   setExpandedId]       = useState<string | null>(null);
   const [modal, setModal]                   = useState<{ clienteId: string; nombre: string } | null>(null);
   const [detalleClienteId, setDetalleClienteId] = useState<string | null>(null);
+  const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
+
+  async function enviarMensajeWa(clienteId: string, mensaje: string) {
+    setEnviandoWaIds(s => new Set(s).add(clienteId));
+    try {
+      await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
+      toast.success('Mensaje enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } finally {
+      setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -939,11 +952,14 @@ export function EstadoCuentaGlobal() {
                       Cobrar ahora
                     </button>
                     {c.telefono && (
-                      <a href={`https://wa.me/${(c.telefono).replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${nombreCliente(c)}, te recordamos el saldo pendiente de ${formatCurrency(Number(c.saldo))}.`)}`}
-                        target="_blank" rel="noreferrer"
-                        className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center transition-colors">
-                        <MessageSquare size={14} className="text-white" />
-                      </a>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); enviarMensajeWa(c.id, `Hola ${nombreCliente(c)}, te recordamos el saldo pendiente de ${formatCurrency(Number(c.saldo))}.`); }}
+                        disabled={enviandoWaIds.has(c.id)}
+                        className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-60 flex items-center justify-center transition-colors">
+                        {enviandoWaIds.has(c.id)
+                          ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                          : <MessageSquare size={14} className="text-white" />}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1047,7 +1063,7 @@ export function EstadoCuentaGlobal() {
                           cfg.border
                         )}
                         style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}
-                        onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                        onClick={() => setDetalleClienteId(c.id)}
                       >
                         {/* Cliente */}
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -1129,11 +1145,14 @@ export function EstadoCuentaGlobal() {
                         <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
                           {c.telefono && (
                             <>
-                              <a href={`https://wa.me/${(c.telefono).replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${nombreCliente(c)}, te contactamos por el saldo pendiente de ${formatCurrency(Number(c.saldo))}.`)}`}
-                                target="_blank" rel="noreferrer"
-                                className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors" title="WhatsApp">
-                                <MessageSquare size={12} className="text-green-600" />
-                              </a>
+                              <button
+                                onClick={() => enviarMensajeWa(c.id, `Hola ${nombreCliente(c)}, te contactamos por el saldo pendiente de ${formatCurrency(Number(c.saldo))}.`)}
+                                disabled={enviandoWaIds.has(c.id)}
+                                className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 disabled:opacity-60 flex items-center justify-center transition-colors" title="Enviar WhatsApp">
+                                {enviandoWaIds.has(c.id)
+                                  ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
+                                  : <MessageSquare size={12} className="text-green-600" />}
+                              </button>
                               <a href={`tel:${c.telefono}`}
                                 className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors" title="Llamar">
                                 <Phone size={12} className="text-blue-600" />

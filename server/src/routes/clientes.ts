@@ -404,6 +404,59 @@ clientes.get('/validar-dni', async (c) => {
   return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
 });
 
+// POST /:id/enviar-mensaje-whatsapp — envía mensaje de texto por WhatsApp via Evolution API
+clientes.post('/:id/enviar-mensaje-whatsapp', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const { mensaje } = await c.req.json<{ mensaje: string }>();
+
+  if (!mensaje?.trim()) return c.json({ error: 'Mensaje requerido' }, 422);
+
+  const { rows: [cliente] } = await db.query(
+    `SELECT nombre, apellido, razon_social, tipo_persona, telefono FROM clientes WHERE id = $1`, [id]
+  );
+  if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
+  if (!cliente.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  const digits = cliente.telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
+  else numero = `549${digits}`;
+
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+
+  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, text: mensaje }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error('[whatsapp-mensaje] Evolution API error:', resp.status, errText);
+    try {
+      const errJson = JSON.parse(errText);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste) return c.json({ error: `El número ${noExiste.number ?? numero} no está en WhatsApp.` }, 422);
+    } catch { /* no JSON */ }
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,
+    [id, `Mensaje enviado: ${mensaje.slice(0, 100)}`, user?.id ?? null]
+  );
+
+  return c.json({ enviado: true, numero });
+});
+
 // POST /:id/enviar-estado-cuenta-whatsapp — genera PDF y lo envía por WhatsApp
 clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
   const { id } = c.req.param();
@@ -482,7 +535,7 @@ clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
     totalCobrado += Number(r.monto_total);
   }
 
-  entries.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  entries.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
   let saldoAcum = 0;
   const movimientos = entries.map(e => {
     saldoAcum = e.tipo === 'cargo' ? saldoAcum + e.monto : saldoAcum - e.monto;

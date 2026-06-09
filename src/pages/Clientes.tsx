@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 
@@ -186,6 +187,19 @@ export function Clientes() {
   const [ordenOpen, setOrdenOpen] = useState(false);
   const ordenRef = useRef<HTMLDivElement>(null);
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
+
+  async function enviarMensajeWa(clienteId: string, mensaje: string) {
+    setEnviandoWaIds(s => new Set(s).add(clienteId));
+    try {
+      await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
+      toast.success('Mensaje enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } finally {
+      setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
+    }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -616,11 +630,14 @@ export function Clientes() {
                       {/* Acciones */}
                       <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
                         {c.telefono && (
-                          <a href={`https://wa.me/${c.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(waMsg)}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 transition-colors">
-                            <MessageCircle size={14} />
-                          </a>
+                          <button
+                            onClick={() => enviarMensajeWa(c.id, waMsg)}
+                            disabled={enviandoWaIds.has(c.id)}
+                            className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
+                            {enviandoWaIds.has(c.id)
+                              ? <span className="w-3.5 h-3.5 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
+                              : <MessageCircle size={14} />}
+                          </button>
                         )}
                         {c.telefono && (
                           <a href={`tel:${c.telefono}`}

@@ -11,6 +11,7 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // ── Tipos ────────────────────────────────────────────────────────────
 
@@ -106,6 +107,19 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardResumen | null>(null);
   const [loading, setLoading] = useState(true);
+  const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
+
+  async function enviarMensajeWa(clienteId: string, mensaje: string) {
+    setEnviandoWaIds(s => new Set(s).add(clienteId));
+    try {
+      await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
+      toast.success('Mensaje enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } finally {
+      setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
+    }
+  }
 
   useEffect(() => {
     api.get<DashboardResumen>('/dashboard/resumen')
@@ -400,9 +414,7 @@ export function Dashboard() {
                           : [cl.apellido, cl.nombre].filter(Boolean).join(', ') || '—';
                         const pref = cl.preferencia_contacto;
                         const ChannelIcon = pref === 'email' ? Mail : MessageCircle;
-                        const waLink = cl.telefono
-                          ? `https://wa.me/${cl.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${cl.nombre ?? ''}, te contactamos desde César Brítez Aberturas.`)}`
-                          : null;
+                        const waMensaje = `Hola ${cl.nombre ?? ''}, te contactamos desde César Brítez Aberturas.`;
                         const dias = cl.dias_sin_contacto;
                         return (
                           <div key={cl.id} className="flex items-center gap-2">
@@ -415,15 +427,15 @@ export function Dashboard() {
                               <p className="text-[12px] font-semibold text-gray-800 truncate leading-tight">{nombre}</p>
                               <p className="text-[10px] text-gray-400">Hace {dias} día{dias !== 1 ? 's' : ''}</p>
                             </div>
-                            {waLink ? (
-                              <a
-                                href={waLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2.5 py-1 text-[11px] font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors shrink-0"
+                            {cl.telefono ? (
+                              <button
+                                onClick={() => enviarMensajeWa(cl.id, waMensaje)}
+                                disabled={enviandoWaIds.has(cl.id)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-white bg-green-500 hover:bg-green-600 disabled:opacity-60 rounded-lg transition-colors shrink-0 flex items-center gap-1"
                               >
+                                {enviandoWaIds.has(cl.id) ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
                                 Contactar
-                              </a>
+                              </button>
                             ) : (
                               <Link
                                 to={`/clientes/${cl.id}`}

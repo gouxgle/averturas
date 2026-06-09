@@ -703,6 +703,19 @@ export function Presupuestos() {
   const [page, setPage]         = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailPanel, setDetailPanel] = useState<PresupuestoPanel | null>(null);
+  const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
+
+  async function enviarMensajeWa(clienteId: string, mensaje: string) {
+    setEnviandoWaIds(s => new Set(s).add(clienteId));
+    try {
+      await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
+      toast.success('Mensaje enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } finally {
+      setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
+    }
+  }
 
   function abrirDetalle(p: PresupuestoPanel) { setDetailId(p.id); setDetailPanel(p); }
   const [ordenOpen, setOrdenOpen] = useState(false);
@@ -1062,11 +1075,14 @@ export function Presupuestos() {
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                         {p.cliente.telefono && (
                           <>
-                            <a href={whatsappUrl(p.cliente.telefono)} target="_blank" rel="noreferrer"
-                              className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors"
-                              title="WhatsApp">
-                              <MessageSquare size={13} className="text-green-600" />
-                            </a>
+                            <button
+                              onClick={() => enviarMensajeWa(p.cliente_id, `Hola ${p.cliente.nombre ?? ''}, te contactamos por el presupuesto ${p.numero}.`)}
+                              disabled={enviandoWaIds.has(p.cliente_id)}
+                              className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 disabled:opacity-60 flex items-center justify-center transition-colors" title="Enviar WhatsApp">
+                              {enviandoWaIds.has(p.cliente_id)
+                                ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
+                                : <MessageSquare size={13} className="text-green-600" />}
+                            </button>
                             <a href={`tel:${p.cliente.telefono}`}
                               className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
                               title="Llamar">

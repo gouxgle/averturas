@@ -476,6 +476,19 @@ export function Recibos() {
   const [filtro, setFiltro]     = useState<FiltroEstado>('todos');
   const [page, setPage]         = useState(1);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
+
+  async function enviarMensajeWa(clienteId: string, mensaje: string) {
+    setEnviandoWaIds(s => new Set(s).add(clienteId));
+    try {
+      await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
+      toast.success('Mensaje enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } finally {
+      setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
+    }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -756,11 +769,14 @@ export function Recibos() {
                         </span>
                         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           {fila.cliente_telefono && (
-                            <a href={`https://wa.me/${fila.cliente_telefono.replace(/\D/g, '')}?text=${encodeURIComponent(waMsg)}`}
-                              target="_blank" rel="noopener noreferrer"
-                              className="p-1 rounded hover:bg-green-50 text-green-600 transition-colors">
-                              <MessageCircle size={13} />
-                            </a>
+                            <button
+                              onClick={() => enviarMensajeWa(fila.cliente_id, waMsg)}
+                              disabled={enviandoWaIds.has(fila.cliente_id)}
+                              className="p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
+                              {enviandoWaIds.has(fila.cliente_id)
+                                ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
+                                : <MessageCircle size={13} />}
+                            </button>
                           )}
                           <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
                             className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors">
