@@ -6,6 +6,8 @@ import {
   DollarSign, Phone, MessageSquare, Mail, MoreVertical,
   TrendingUp, TrendingDown, RefreshCw, Download, Plus,
   ExternalLink, Flame, BookOpen,
+  FileText, Truck, ArrowDownLeft, ArrowUpRight, Check, Clock,
+  ChevronDown, ChevronUp, Send, X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -112,6 +114,61 @@ function formatDate(d: string | null): string {
   if (!d) return '—';
   const s = d.split('T')[0].split('-');
   return `${s[2]}/${s[1]}/${s[0]}`;
+}
+
+// ── Types para modal de detalle ──────────────────────────────────────────────
+
+interface ModalCliInfo {
+  id: string; nombre: string | null; apellido: string | null; razon_social: string | null;
+  tipo_persona: string; telefono: string | null; email: string | null;
+  direccion: string | null; localidad: string | null; documento_nro: string | null;
+}
+interface ModalReciboR {
+  id: string; numero: string; fecha: string; monto_total: number;
+  forma_pago: string; concepto: string | null; estado: string; operacion_id: string | null;
+}
+interface ModalRemitoR {
+  id: string; numero: string; fecha_emision: string; estado: string; operacion_id: string | null;
+}
+interface ModalCompPromise {
+  id: string; tipo: string; monto: number; fecha_vencimiento: string;
+  descripcion: string | null; numero_cheque: string | null; banco: string | null;
+  estado: 'pendiente' | 'cobrado' | 'rechazado' | 'vencido';
+  operacion: { id: string; numero: string } | null;
+}
+interface ModalOpDetalle {
+  id: string; numero: string; tipo: string; estado: string;
+  precio_total: number; created_at: string;
+  items: Array<{
+    id: string; descripcion: string; cantidad: number; precio_total: number;
+    tipo_abertura: string | null; sistema: string | null;
+    medida_ancho: number | null; medida_alto: number | null;
+    color: string | null; incluye_instalacion: boolean;
+  }>;
+  recibos: ModalReciboR[]; remitos: ModalRemitoR[];
+  cobrado: number | null; saldo: number | null; genera_saldo: boolean;
+}
+interface EstadoCuentaDetalleData {
+  cliente: ModalCliInfo;
+  operaciones: ModalOpDetalle[];
+  recibos_directos: ModalReciboR[];
+  compromisos: ModalCompPromise[];
+  totales: { presupuestado: number; cobrado: number; saldo: number; pendiente_aprobacion: number };
+}
+interface MovimientoM { fecha: string; tipo: 'cargo' | 'abono'; numero: string; concepto: string; monto: number; saldo: number; }
+
+function buildLedgerM(ops: ModalOpDetalle[], directos: ModalReciboR[]): MovimientoM[] {
+  const APROBADOS = new Set(['aprobado','en_produccion','listo','instalado','entregado']);
+  const entries: Omit<MovimientoM, 'saldo'>[] = [];
+  for (const op of ops) {
+    if (!APROBADOS.has(op.estado)) continue;
+    entries.push({ fecha: op.created_at, tipo: 'cargo', numero: op.numero, concepto: op.numero, monto: Number(op.precio_total) });
+    for (const r of op.recibos) entries.push({ fecha: r.fecha, tipo: 'abono', numero: r.numero, concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''), monto: Number(r.monto_total) });
+  }
+  for (const r of directos) entries.push({ fecha: r.fecha, tipo: 'abono', numero: r.numero, concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''), monto: Number(r.monto_total) });
+  entries.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  let saldo = 0;
+  return entries.map(e => { saldo = e.tipo === 'cargo' ? saldo + e.monto : saldo - e.monto; return { ...e, saldo }; });
 }
 
 function diasHasta(dateStr: string): number {
@@ -400,6 +457,334 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
   );
 }
 
+// ── Modal Estado de Cuenta ────────────────────────────────────────────────────
+
+const ESTADO_OP_COLOR_M: Record<string, string> = {
+  presupuesto: 'bg-gray-100 text-gray-700', enviado: 'bg-blue-100 text-blue-700',
+  aprobado: 'bg-green-100 text-green-700', rechazado: 'bg-red-100 text-red-700',
+  en_produccion: 'bg-amber-100 text-amber-700', listo: 'bg-teal-100 text-teal-700',
+  instalado: 'bg-purple-100 text-purple-700', entregado: 'bg-indigo-100 text-indigo-700',
+};
+const ESTADO_OP_LABEL_M: Record<string, string> = {
+  presupuesto: 'Presupuesto', enviado: 'Enviado', aprobado: 'Aprobado',
+  rechazado: 'Rechazado', en_produccion: 'En producción', listo: 'Listo',
+  instalado: 'Instalado', entregado: 'Entregado',
+};
+const COMP_TIPO_M: Record<string, string> = {
+  cuota: 'Cuota', cheque: 'Cheque', efectivo_futuro: 'Efectivo futuro', transferencia: 'Transferencia',
+};
+const COMP_ESTADO_COLOR_M: Record<string, string> = {
+  pendiente: 'bg-amber-100 text-amber-700', cobrado: 'bg-emerald-100 text-emerald-700',
+  rechazado: 'bg-red-100 text-red-700', vencido: 'bg-red-200 text-red-800',
+};
+
+function isVencidoM(fecha: string) { return new Date(fecha.slice(0,10) + 'T12:00:00') < new Date(new Date().toDateString()); }
+
+function OpCardM({ op }: { op: ModalOpDetalle }) {
+  const [open, setOpen] = useState(false);
+  const cobrado = Number(op.cobrado ?? 0);
+  const saldo = op.saldo !== null ? Number(op.saldo) : null;
+  const saldada = saldo !== null && saldo <= 0.01;
+  const pct = op.genera_saldo && op.precio_total ? Math.min(100, Math.round((cobrado / Number(op.precio_total)) * 100)) : 0;
+  return (
+    <div className={cn('rounded-xl border overflow-hidden', op.genera_saldo ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-75')}>
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left">
+        <FileText size={13} className="text-gray-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-gray-800">{op.numero}</span>
+            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', ESTADO_OP_COLOR_M[op.estado])}>{ESTADO_OP_LABEL_M[op.estado] ?? op.estado}</span>
+            <span className="text-xs text-gray-400">{formatDate(op.created_at)}</span>
+          </div>
+          {op.genera_saldo && (
+            <div className="mt-1 flex items-center gap-2">
+              <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                <div className={cn('h-full rounded-full', saldada ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-gray-200')} style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-[10px] text-gray-500">{pct}%</span>
+            </div>
+          )}
+        </div>
+        <div className="text-right shrink-0 ml-2">
+          <p className="text-sm font-bold text-gray-800 font-mono">{formatCurrency(Number(op.precio_total))}</p>
+          {op.genera_saldo && !saldada && saldo !== null && <p className="text-[10px] text-amber-600 font-medium">Saldo: {formatCurrency(saldo)}</p>}
+          {op.genera_saldo && saldada && <p className="text-[10px] text-emerald-600 flex items-center gap-0.5 justify-end"><Check size={9} /> Saldado</p>}
+        </div>
+        {open ? <ChevronUp size={12} className="text-gray-400 shrink-0" /> : <ChevronDown size={12} className="text-gray-400 shrink-0" />}
+      </button>
+      {open && (
+        <div className="border-t border-gray-100 px-3 py-2.5 space-y-2">
+          {op.items.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Ítems</p>
+              <div className="space-y-1">
+                {op.items.map((item, i) => (
+                  <div key={item.id ?? i} className="flex justify-between text-xs">
+                    <span className="text-gray-700">{item.tipo_abertura ?? item.descripcion}{item.cantidad > 1 ? ` ×${item.cantidad}` : ''}</span>
+                    <span className="font-mono font-semibold text-gray-800">{formatCurrency(Number(item.precio_total))}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {op.remitos.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {op.remitos.map(rm => (
+                <div key={rm.id} className="flex items-center gap-1 bg-blue-50 rounded px-2 py-1 text-xs">
+                  <Truck size={10} className="text-blue-500" />
+                  <span className="font-semibold text-blue-800">{rm.numero}</span>
+                  <span className="text-gray-500">{ESTADO_OP_LABEL_M[rm.estado] ?? rm.estado}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; onClose: () => void }) {
+  const navigate = useNavigate();
+  const [data, setData] = useState<EstadoCuentaDetalleData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    api.get<EstadoCuentaDetalleData>(`/clientes/${clienteId}/estado-cuenta`)
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [clienteId]);
+
+  async function enviarWhatsApp() {
+    setEnviando(true);
+    try {
+      await api.post(`/clientes/${clienteId}/enviar-estado-cuenta-whatsapp`, {});
+      toast.success('Estado de cuenta enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const ledger = data ? buildLedgerM(data.operaciones, data.recibos_directos) : [];
+  const saldo = data?.totales.saldo ?? 0;
+  const saldado = Math.abs(saldo) <= 0.01;
+  const compPendientes = data?.compromisos.filter(c => c.estado === 'pendiente') ?? [];
+  const compVencidos = compPendientes.filter(c => isVencidoM(c.fecha_vencimiento));
+  const totalCompromisos = compPendientes.reduce((s, c) => s + Number(c.monto), 0);
+  const compFuturos = compPendientes.filter(c => !isVencidoM(c.fecha_vencimiento));
+
+  const nombre = data
+    ? (data.cliente.tipo_persona === 'juridica'
+        ? (data.cliente.razon_social ?? '—')
+        : [data.cliente.apellido, data.cliente.nombre].filter(Boolean).join(', ') || '—')
+    : '…';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Estado de Cuenta</p>
+            <h3 className="font-bold text-gray-800 truncate">{nombre}</h3>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {data?.cliente.telefono && (
+              <button onClick={enviarWhatsApp} disabled={enviando}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-60">
+                <Send size={12} />
+                {enviando ? 'Enviando...' : 'WhatsApp PDF'}
+              </button>
+            )}
+            <button onClick={() => navigate(`/clientes/${clienteId}/estado-cuenta`)}
+              className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors" title="Ver página completa">
+              <ExternalLink size={14} />
+            </button>
+            <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors">
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Contenido */}
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+          {loading && (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-20 bg-gray-100 rounded-xl" />
+              <div className="h-40 bg-gray-100 rounded-xl" />
+            </div>
+          )}
+          {!loading && !data && (
+            <p className="text-center text-gray-400 py-8">Error al cargar datos</p>
+          )}
+          {!loading && data && (
+            <>
+              {/* Resumen financiero */}
+              <div className={cn('rounded-xl border-2 p-4', saldado ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200')}>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total facturado</p>
+                    <p className="text-base font-bold text-gray-800 font-mono">{formatCurrency(data.totales.presupuestado)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total cobrado</p>
+                    <p className="text-base font-bold text-emerald-700 font-mono">{formatCurrency(data.totales.cobrado)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Saldo</p>
+                    <p className={cn('text-base font-bold font-mono', saldado ? 'text-emerald-600' : 'text-amber-600')}>
+                      {formatCurrency(Math.max(0, saldo))}
+                    </p>
+                    <p className={cn('text-[10px] mt-0.5', saldado ? 'text-emerald-600' : 'text-amber-600')}>
+                      {saldado ? '✓ Sin deuda' : 'Pendiente de cobro'}
+                    </p>
+                  </div>
+                </div>
+                {totalCompromisos > 0 && (
+                  <div className={cn('mt-3 pt-3 border-t flex items-center gap-2 text-xs', compVencidos.length > 0 ? 'border-red-200 text-red-700' : 'border-amber-200 text-amber-700')}>
+                    <Calendar size={11} className="shrink-0" />
+                    <span className="font-medium">
+                      {compVencidos.length > 0 ? `${compVencidos.length} vencido${compVencidos.length !== 1 ? 's' : ''} — ` : ''}
+                      {formatCurrency(totalCompromisos)} comprometido
+                      {compFuturos.length > 0 ? ` (próximo: ${formatDate(compFuturos[0].fecha_vencimiento)})` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Ledger */}
+              {ledger.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta corriente</p>
+                    <p className="text-xs text-gray-400">{ledger.length} movimientos</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100 bg-gray-50">
+                          <th className="text-left py-2 px-3 font-semibold text-gray-500 w-20">Fecha</th>
+                          <th className="text-left py-2 px-2 font-semibold text-gray-500 w-24">Comprob.</th>
+                          <th className="text-left py-2 px-2 font-semibold text-gray-500">Concepto</th>
+                          <th className="text-right py-2 px-2 font-semibold text-gray-500 w-24">Cargo</th>
+                          <th className="text-right py-2 px-2 font-semibold text-gray-500 w-24">Abono</th>
+                          <th className="text-right py-2 px-3 font-semibold text-gray-500 w-24">Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {ledger.map((mov, i) => (
+                          <tr key={i} className={cn('hover:bg-gray-50', mov.tipo === 'abono' && 'bg-emerald-50/30')}>
+                            <td className="py-2 px-3 text-gray-500">{formatDate(mov.fecha)}</td>
+                            <td className="py-2 px-2">
+                              <div className="flex items-center gap-1">
+                                {mov.tipo === 'cargo'
+                                  ? <ArrowUpRight size={11} className="text-amber-500 shrink-0" />
+                                  : <ArrowDownLeft size={11} className="text-emerald-500 shrink-0" />}
+                                <span className={cn('font-semibold', mov.tipo === 'cargo' ? 'text-gray-700' : 'text-emerald-700')}>{mov.numero}</span>
+                              </div>
+                            </td>
+                            <td className="py-2 px-2 text-gray-600 max-w-[100px] truncate">{mov.concepto}</td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              {mov.tipo === 'cargo' ? <span className="font-semibold text-gray-800">{formatCurrency(mov.monto)}</span> : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              {mov.tipo === 'abono' ? <span className="font-semibold text-emerald-700">{formatCurrency(mov.monto)}</span> : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className={cn('py-2 px-3 text-right font-mono font-bold', mov.saldo <= 0.01 ? 'text-emerald-600' : 'text-gray-800')}>
+                              {formatCurrency(Math.max(0, mov.saldo))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-gray-200 bg-gray-50">
+                          <td colSpan={3} className="py-2 px-3 text-xs font-semibold text-gray-500">SALDO ACTUAL</td>
+                          <td className="py-2 px-2 text-right font-mono font-bold text-gray-700">{formatCurrency(data.totales.presupuestado)}</td>
+                          <td className="py-2 px-2 text-right font-mono font-bold text-emerald-700">{formatCurrency(data.totales.cobrado)}</td>
+                          <td className={cn('py-2 px-3 text-right font-mono font-bold text-sm', saldado ? 'text-emerald-600' : 'text-amber-600')}>
+                            {formatCurrency(Math.max(0, saldo))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Compromisos */}
+              {data.compromisos.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compromisos de pago</p>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {data.compromisos.map(comp => {
+                      const vencido = comp.estado === 'pendiente' && isVencidoM(comp.fecha_vencimiento);
+                      return (
+                        <div key={comp.id} className={cn('flex items-center gap-3 px-4 py-2.5', vencido && 'bg-red-50')}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-semibold text-gray-800">{COMP_TIPO_M[comp.tipo] ?? comp.tipo}</span>
+                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', COMP_ESTADO_COLOR_M[comp.estado])}>
+                                {comp.estado === 'vencido' || vencido ? 'VENCIDO' : comp.estado}
+                              </span>
+                              {comp.operacion && <span className="text-[10px] text-gray-400">{comp.operacion.numero}</span>}
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400">
+                              <span>{formatDate(comp.fecha_vencimiento)}</span>
+                              {comp.descripcion && <span>{comp.descripcion}</span>}
+                              {comp.banco && <span>{comp.banco}</span>}
+                              {comp.numero_cheque && <span>Ch. {comp.numero_cheque}</span>}
+                            </div>
+                          </div>
+                          <p className={cn('text-sm font-bold font-mono shrink-0', comp.estado === 'cobrado' ? 'text-emerald-600' : vencido ? 'text-red-600' : 'text-gray-800')}>
+                            {formatCurrency(Number(comp.monto))}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {compPendientes.length > 0 && (
+                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
+                        {compPendientes.length} pendiente{compPendientes.length !== 1 ? 's' : ''}
+                        {compVencidos.length > 0 && <span className="ml-2 text-red-600 font-semibold">({compVencidos.length} vencido{compVencidos.length !== 1 ? 's' : ''})</span>}
+                      </span>
+                      <span className="text-xs font-bold text-gray-700 font-mono">{formatCurrency(totalCompromisos)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Detalle por operación */}
+              {data.operaciones.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Detalle por operación</p>
+                  <div className="space-y-2">
+                    {data.operaciones.map(op => <OpCardM key={op.id} op={op} />)}
+                  </div>
+                </div>
+              )}
+
+              {ledger.length === 0 && data.compromisos.length === 0 && (
+                <div className="text-center py-10">
+                  <Clock size={24} className="text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">Sin movimientos financieros todavía.</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 type FiltroRapido = 'todos' | 'vencidos' | 'hoy' | 'semana' | 'sin_vencer';
@@ -416,6 +801,7 @@ export function EstadoCuentaGlobal() {
   const [ordenLocal,   setOrdenLocal]       = useState<OrdenLocal>('prioridad');
   const [expandedId,   setExpandedId]       = useState<string | null>(null);
   const [modal, setModal]                   = useState<{ clienteId: string; nombre: string } | null>(null);
+  const [detalleClienteId, setDetalleClienteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -760,9 +1146,9 @@ export function EstadoCuentaGlobal() {
                               <Mail size={12} className="text-violet-600" />
                             </a>
                           )}
-                          <button onClick={() => navigate(`/clientes/${c.id}/estado-cuenta`)}
-                            className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors" title="Ver detalle">
-                            <MoreVertical size={12} className="text-gray-400" />
+                          <button onClick={() => setDetalleClienteId(c.id)}
+                            className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors" title="Ver estado de cuenta">
+                            <BookOpen size={12} className="text-gray-400" />
                           </button>
                         </div>
                       </div>
@@ -897,6 +1283,13 @@ export function EstadoCuentaGlobal() {
           clienteNombre={modal.nombre}
           onClose={() => setModal(null)}
           onCreated={load}
+        />
+      )}
+
+      {detalleClienteId && (
+        <ModalDetalleEstadoCuenta
+          clienteId={detalleClienteId}
+          onClose={() => setDetalleClienteId(null)}
         />
       )}
     </div>

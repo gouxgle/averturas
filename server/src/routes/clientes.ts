@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ClienteSchema } from '../lib/schemas.js';
+import { generarPDFEstadoCuenta, type EstadoCuentaPDF, type EmpresaPDF } from '../lib/pdf.js';
 
 const clientes = new Hono();
 
@@ -401,6 +402,164 @@ clientes.get('/validar-dni', async (c) => {
   if (excluirId) { params.push(excluirId); q += ` AND id != $2`; }
   const { rows } = await db.query(q, params);
   return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
+});
+
+// POST /:id/enviar-estado-cuenta-whatsapp — genera PDF y lo envía por WhatsApp
+clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+
+  const [
+    { rows: [cliente] },
+    { rows: operaciones },
+    { rows: recibos_all },
+    { rows: compromisos_all },
+    { rows: [emp] },
+  ] = await Promise.all([
+    db.query(`
+      SELECT id, nombre, apellido, razon_social, tipo_persona,
+        telefono, email, direccion, localidad, documento_nro
+      FROM clientes WHERE id = $1
+    `, [id]),
+    db.query(`
+      SELECT id, numero, estado, precio_total, created_at
+      FROM operaciones
+      WHERE cliente_id = $1 AND estado != 'cancelado'
+      ORDER BY created_at ASC
+    `, [id]),
+    db.query(`
+      SELECT id, numero, fecha, monto_total, forma_pago, concepto, estado, operacion_id
+      FROM recibos
+      WHERE cliente_id = $1 AND estado != 'anulado'
+      ORDER BY fecha ASC, created_at ASC
+    `, [id]),
+    db.query(`
+      SELECT cp.tipo, cp.monto, cp.fecha_vencimiento, cp.descripcion,
+        cp.estado, cp.numero_cheque, cp.banco,
+        CASE WHEN o.id IS NOT NULL
+          THEN json_build_object('id', o.id, 'numero', o.numero)
+          ELSE NULL END AS operacion
+      FROM compromisos_pago cp
+      LEFT JOIN operaciones o ON o.id = cp.operacion_id
+      WHERE cp.cliente_id = $1
+      ORDER BY cp.fecha_vencimiento ASC, cp.created_at ASC
+    `, [id]),
+    db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa LIMIT 1`),
+  ]);
+
+  if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
+  if (!cliente.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  // Agrupar recibos por operacion
+  const recibosMap: Record<string, typeof recibos_all> = {};
+  const recibosDirectos: typeof recibos_all = [];
+  for (const r of recibos_all) {
+    if (r.operacion_id) {
+      if (!recibosMap[r.operacion_id]) recibosMap[r.operacion_id] = [];
+      recibosMap[r.operacion_id].push(r);
+    } else {
+      recibosDirectos.push(r);
+    }
+  }
+
+  // Construir ledger
+  const ESTADOS_APROBADOS = new Set(['aprobado','en_produccion','listo','instalado','entregado']);
+  const entries: Array<{ fecha: string; tipo: 'cargo' | 'abono'; numero: string; concepto: string; monto: number }> = [];
+  let totalPresupuestado = 0;
+  let totalCobrado = 0;
+
+  for (const op of operaciones) {
+    if (!ESTADOS_APROBADOS.has(op.estado)) continue;
+    entries.push({ fecha: op.created_at, tipo: 'cargo', numero: op.numero, concepto: `Operación ${op.numero}`, monto: Number(op.precio_total) });
+    totalPresupuestado += Number(op.precio_total);
+    for (const r of (recibosMap[op.id] ?? [])) {
+      entries.push({ fecha: r.fecha, tipo: 'abono', numero: r.numero, concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''), monto: Number(r.monto_total) });
+      totalCobrado += Number(r.monto_total);
+    }
+  }
+  for (const r of recibosDirectos) {
+    entries.push({ fecha: r.fecha, tipo: 'abono', numero: r.numero, concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''), monto: Number(r.monto_total) });
+    totalCobrado += Number(r.monto_total);
+  }
+
+  entries.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  let saldoAcum = 0;
+  const movimientos = entries.map(e => {
+    saldoAcum = e.tipo === 'cargo' ? saldoAcum + e.monto : saldoAcum - e.monto;
+    return { ...e, saldo: saldoAcum };
+  });
+
+  // Normalizar teléfono
+  const digits = cliente.telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
+  else numero = `549${digits}`;
+
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+
+  const empresa: EmpresaPDF = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
+  const pdfData: EstadoCuentaPDF = {
+    cliente: {
+      nombre: cliente.nombre, apellido: cliente.apellido, razon_social: cliente.razon_social,
+      tipo_persona: cliente.tipo_persona, documento_nro: cliente.documento_nro,
+      telefono: cliente.telefono, email: cliente.email,
+      direccion: cliente.direccion, localidad: cliente.localidad,
+    },
+    totales: { presupuestado: totalPresupuestado, cobrado: totalCobrado, saldo: totalPresupuestado - totalCobrado },
+    movimientos,
+    compromisos: compromisos_all,
+  };
+
+  const pdfBuffer = await generarPDFEstadoCuenta(pdfData, empresa);
+  const base64 = pdfBuffer.toString('base64');
+
+  const clienteNombreStr = cliente.tipo_persona === 'juridica'
+    ? (cliente.razon_social ?? 'estimado/a')
+    : `${cliente.nombre ?? ''} ${cliente.apellido ?? ''}`.trim() || 'estimado/a';
+
+  const saldo = totalPresupuestado - totalCobrado;
+  const saldado = Math.abs(saldo) <= 0.01;
+  const caption = saldado
+    ? `Hola ${clienteNombreStr}, adjuntamos tu estado de cuenta al ${new Date().toLocaleDateString('es-AR')}. Tu cuenta está al día. ¡Muchas gracias!`
+    : `Hola ${clienteNombreStr}, adjuntamos tu estado de cuenta al ${new Date().toLocaleDateString('es-AR')}. Saldo pendiente: ${Number(saldo).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 })}. Ante cualquier consulta, estamos a disposición.`;
+
+  const resp = await fetch(`${evoUrl}/message/sendMedia/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({
+      number: numero,
+      mediatype: 'document',
+      mimetype: 'application/pdf',
+      media: base64,
+      fileName: `EstadoCuenta-${clienteNombreStr.replace(/\s+/g, '-')}.pdf`,
+      caption,
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error('[whatsapp-estado-cuenta] Evolution API error:', resp.status, errText);
+    try {
+      const errJson = JSON.parse(errText);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste) return c.json({ error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp.` }, 422);
+    } catch { /* no JSON */ }
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,
+    [id, `Estado de cuenta enviado por WhatsApp`, user?.id ?? null]
+  );
+
+  return c.json({ enviado: true, numero });
 });
 
 // GET /:id/estado-cuenta — resumen financiero completo del cliente (ANTES de /:id)
