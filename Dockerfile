@@ -1,4 +1,13 @@
-# ── Etapa 1: build del frontend ──────────────────────────────
+# ── Etapa 1: build del backend ────────────────────────────────
+# Va primero para que BuildKit no lo paralelice con el frontend
+FROM node:20-alpine AS server-build
+WORKDIR /server
+COPY server/package.json ./
+RUN npm install
+COPY server/ .
+RUN NODE_OPTIONS="--max-old-space-size=512" npm run build
+
+# ── Etapa 2: build del frontend ───────────────────────────────
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json* bun.lock* ./
@@ -6,15 +15,8 @@ RUN npm install --legacy-peer-deps
 COPY . .
 ARG VITE_SENTRY_DSN
 ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
-RUN npm run build
-
-# ── Etapa 2: build del backend ────────────────────────────────
-FROM node:20-alpine AS server-build
-WORKDIR /server
-COPY server/package.json ./
-RUN npm install
-COPY server/ .
-RUN npm run build
+# Salta tsc (type-check, no genera código) y va directo a vite build
+RUN NODE_OPTIONS="--max-old-space-size=512" npx vite build
 
 # ── Etapa 3: imagen final ─────────────────────────────────────
 FROM node:20-alpine
