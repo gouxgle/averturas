@@ -120,11 +120,6 @@ function borderColor(estado: EstadoPedido) {
   }[estado] ?? 'border-gray-300';
 }
 
-function waLink(telefono: string | null | undefined, texto: string) {
-  if (!telefono) return null;
-  const num = telefono.replace(/\D/g, '');
-  return `https://wa.me/${num.startsWith('54') ? num : '54' + num}?text=${encodeURIComponent(texto)}`;
-}
 
 function waTextoPedido(pedido: PedidoDetalle | PedidoRow, items?: PedidoItem[]) {
   const allItems = items ?? (pedido as PedidoDetalle).items ?? [];
@@ -313,17 +308,6 @@ function PedidoModal({ id, onClose, onSaved }: {
                     <p className="font-medium text-blue-900">{pedido.operacion.numero}</p>
                     <p className="text-sm text-blue-700">{nombreCliente(pedido.operacion)}</p>
                   </div>
-                  {pedido.operacion.cliente?.telefono && (
-                    <a
-                      href={waLink(pedido.operacion.cliente.telefono, `Hola ${nombreCliente(pedido.operacion)}, te aviso que tu pedido fue recibido y estamos preparándolo para entregarte!`) ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                    >
-                      <MessageCircle size={12} />
-                      Avisar cliente
-                    </a>
-                  )}
                 </div>
               </div>
             </div>

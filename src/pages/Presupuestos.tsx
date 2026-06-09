@@ -36,6 +36,7 @@ interface PresupuestoPanel {
   created_at: string;
   fecha_validez: string | null;
   aprobado_online_at: string | null;
+  link_enviado: boolean;
   motivo_rechazo: string | null;
   dias_vencido: number | null;
   dias_hasta_vencimiento: number | null;
@@ -955,6 +956,16 @@ export function Presupuestos() {
                         <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold', ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-700')}>
                           {ESTADO_LABEL[p.estado] ?? p.estado}
                         </span>
+                        {/* Badge de aprobación online */}
+                        {p.aprobado_online_at ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
+                            ✓ Aprobado Online
+                          </span>
+                        ) : p.link_enviado && ['presupuesto','enviado'].includes(p.estado) ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            ⏳ Pendiente de aprobación
+                          </span>
+                        ) : null}
                         {['presupuesto','enviado'].includes(p.estado) && (
                           <div className={cn('flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded w-fit', prio.bg, prio.text)}>
                             {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}

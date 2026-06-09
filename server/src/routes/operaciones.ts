@@ -231,6 +231,7 @@ operaciones.get('/ventas-panel', async (c) => {
       SELECT
         o.id, o.numero, o.tipo, o.estado, o.precio_total::numeric,
         o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo,
+        (o.token_acceso IS NOT NULL) AS link_enviado,
         EXTRACT(DAY FROM now() - o.fecha_validez)::int                         AS dias_vencido,
         EXTRACT(DAY FROM o.fecha_validez - now())::int                         AS dias_hasta_vencimiento,
         COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int     AS dias_sin_respuesta,
