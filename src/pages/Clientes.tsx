@@ -548,16 +548,9 @@ export function Clientes() {
                           {getInitials(c)}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 overflow-hidden">
-                            <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-emerald-700 transition-colors min-w-0">
-                              {nombreDisplay(c)}
-                            </p>
-                            {(seg === 'frecuente' || seg === 'top' || seg === 'nuevo') && (
-                              <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', segCfg.bg, segCfg.text)}>
-                                {segCfg.label}
-                              </span>
-                            )}
-                          </div>
+                          <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-emerald-700 transition-colors">
+                            {nombreDisplay(c)}
+                          </p>
                           <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
                             {c.documento_nro && (
                               <span>{c.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'} {c.documento_nro}</span>
