@@ -407,6 +407,84 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
     return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
   }
 
+  // Si estaba pendiente, pasa automáticamente a enviado
+  if (pedido.estado === 'pendiente') {
+    await db.query(`UPDATE pedidos SET estado = 'enviado', updated_at = now() WHERE id = $1`, [id]);
+  }
+
+  const { rows: [updated] } = await db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]);
+  return c.json({ enviado: true, numero, mensaje, pedido: updated });
+});
+
+// POST /:id/avisar-recepcion-cliente — notifica al cliente que la mercadería llegó
+pedidos.post('/:id/avisar-recepcion-cliente', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+
+  const { rows: [pedido] } = await db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]);
+  if (!pedido) return c.json({ error: 'Pedido no encontrado' }, 404);
+  if (!pedido.operacion) return c.json({ error: 'Este pedido no tiene operación vinculada' }, 422);
+
+  const cliente = pedido.operacion.cliente;
+  if (!cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  // Normalizar número Argentina → 549XXXXXXXXXX
+  const digits = cliente.telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 12) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 11) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 10) numero = `549${digits.slice(1)}`;
+  else numero = `549${digits}`;
+
+  const nombre = cliente.tipo_persona === 'juridica'
+    ? (cliente.razon_social ?? 'estimado/a')
+    : `${cliente.nombre ?? ''} ${cliente.apellido ?? ''}`.trim() || 'estimado/a';
+
+  // Leer plantilla de DB (fallback a texto inline)
+  const { rows: [tpl] } = await db.query(
+    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'recepcion_cliente'`
+  );
+  const mensaje = tpl?.contenido
+    ? tpl.contenido
+        .replace(/\{\{nombre\}\}/g, nombre)
+        .replace(/\{\{numero_op\}\}/g, pedido.operacion.numero)
+    : `Hola ${nombre}, te informamos que los materiales de tu pedido *${pedido.operacion.numero}* han llegado.\n\nNos comunicamos pronto para coordinar la entrega. ¡Gracias! 🏠`;
+
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+
+  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, text: mensaje }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error('[whatsapp-recepcion] Evolution API error:', resp.status, errText);
+    try {
+      const errJson = JSON.parse(errText);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste) {
+        return c.json({
+          error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp. Verificá el número en la ficha del cliente.`
+        }, 422);
+      }
+    } catch { /* no JSON */ }
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  // Interacción CRM
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
+     VALUES ($1, 'whatsapp', $2, $3)`,
+    [cliente.id, `Aviso de recepción de mercadería (pedido ${pedido.numero}) enviado por WhatsApp`, user?.id ?? null]
+  );
+
   return c.json({ enviado: true, numero, mensaje });
 });
 

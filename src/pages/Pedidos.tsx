@@ -182,14 +182,18 @@ function PedidoModal({ id, onClose, onSaved }: {
   const [fechaRecepcion, setFechaRecepcion] = useState(new Date().toISOString().split('T')[0]);
   const [enviandoWA, setEnviandoWA] = useState(false);
   const [enviadoWA, setEnviadoWA]   = useState(false);
+  const [avisandoCliente, setAvisandoCliente] = useState(false);
+  const [avisadoCliente, setAvisadoCliente]   = useState(false);
 
   async function enviarWhatsApp() {
     if (!pedido) return;
     setEnviandoWA(true);
     try {
-      await api.post(`/pedidos/${pedido.id}/enviar-whatsapp`, {});
+      const res = await api.post<{ enviado: boolean; pedido?: typeof pedido }>(`/pedidos/${pedido.id}/enviar-whatsapp`, {});
       setEnviadoWA(true);
       toast.success('Pedido enviado por WhatsApp');
+      // Si el backend actualizó el estado (pendiente → enviado), refrescar
+      if (res.pedido) { setPedido(res.pedido as any); onSaved(); }
     } catch (e: any) {
       toast.error(e?.message ?? 'Error al enviar por WhatsApp');
     } finally {
@@ -293,7 +297,7 @@ function PedidoModal({ id, onClose, onSaved }: {
                   className="flex items-center gap-1.5 bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
                 >
                   <MessageCircle size={13} />
-                  {enviadoWA ? 'Enviado ✓' : enviandoWA ? 'Enviando...' : 'Enviar por WhatsApp'}
+                  {enviadoWA ? 'Enviado ✓' : enviandoWA ? 'Enviando...' : pedido.estado === 'enviado' || pedido.estado === 'recibido' ? 'Reenviar por WhatsApp' : 'Enviar por WhatsApp'}
                 </button>
               )}
             </div>
@@ -420,19 +424,38 @@ function PedidoModal({ id, onClose, onSaved }: {
           )}
 
           {pedido.estado === 'recibido' && pedido.operacion && (
-            <div className="pt-2 border-t">
+            <div className="pt-2 border-t space-y-2">
               <div className="flex items-start gap-2 p-3 bg-emerald-50 rounded-xl">
                 <CheckCircle size={16} className="text-emerald-600 mt-0.5 shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-emerald-800">Mercadería recibida</p>
                   <p className="text-xs text-emerald-700 mt-0.5">
-                    Preparar el packaging y coordinar entrega con el cliente.
+                    Avisá al cliente y generá el remito de entrega.
                   </p>
                 </div>
               </div>
               <button
+                disabled={avisandoCliente || avisadoCliente}
+                onClick={async () => {
+                  setAvisandoCliente(true);
+                  try {
+                    await api.post(`/pedidos/${pedido.id}/avisar-recepcion-cliente`, {});
+                    setAvisadoCliente(true);
+                    toast.success('Cliente avisado por WhatsApp');
+                  } catch (e: any) {
+                    toast.error(e?.message ?? 'Error al enviar WhatsApp');
+                  } finally {
+                    setAvisandoCliente(false);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-green-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-green-600 disabled:opacity-50 transition-colors"
+              >
+                <MessageCircle size={15} />
+                {avisadoCliente ? '✓ Cliente avisado' : avisandoCliente ? 'Enviando...' : 'Avisar al cliente por WhatsApp'}
+              </button>
+              <button
                 onClick={() => navigate(`/remitos/nuevo?operacion_id=${pedido.operacion!.id}`)}
-                className="mt-2 w-full flex items-center justify-center gap-2 bg-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-600 transition-colors"
+                className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-600 transition-colors"
               >
                 <Truck size={15} />
                 Generar remito de entrega

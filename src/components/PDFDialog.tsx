@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileDown, ExternalLink, Share2, Copy, Check, X, Send, CheckCircle2 } from 'lucide-react';
+import { FileDown, ExternalLink, Share2, X, Send, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -33,7 +33,6 @@ export function PDFDialog({
 }: PDFDialogProps) {
   const navigate = useNavigate();
   const [linkUrl,    setLinkUrl]    = useState('');
-  const [copiado,    setCopiado]    = useState(false);
   const [preview,    setPreview]    = useState(false);
   const [enviando,   setEnviando]   = useState(false);
   const [enviado,    setEnviado]    = useState(false);
@@ -82,24 +81,6 @@ export function PDFDialog({
     }
   }
 
-  function copiar(texto: string) {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(texto).catch(() => fallbackCopy(texto));
-    } else {
-      fallbackCopy(texto);
-    }
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
-  }
-
-  function fallbackCopy(texto: string) {
-    const ta = document.createElement('textarea');
-    ta.value = texto;
-    ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.focus(); ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  }
 
   // ── Vista previa / confirmación de envío ─────────────────────────────
   if (preview) {
@@ -152,10 +133,6 @@ export function PDFDialog({
                 <button onClick={() => navigate('/presupuestos')}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors">
                   <ExternalLink size={14} /> Ver presupuestos
-                </button>
-                <button onClick={onNavigate}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-                  {navigateLabel}
                 </button>
               </>
             ) : (
@@ -223,30 +200,6 @@ export function PDFDialog({
                   {WA_ICON} Enviar por WhatsApp
                 </button>
 
-                {/* Copiar link (genera si no existe) */}
-                <button onClick={async () => {
-                  if (linkUrl) { copiar(linkUrl); return; }
-                  try {
-                    const { url } = await api.post<{ token: string; url: string }>(
-                      `${baseEndpoint}/generar-link`, {}
-                    );
-                    setLinkUrl(url);
-                    copiar(url);
-                    toast.success('Link generado y copiado');
-                  } catch { toast.error('Error al generar link'); }
-                }}
-                  className="w-full flex items-center justify-center gap-2 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-semibold transition-colors">
-                  {copiado ? <><Check size={12} /> Copiado!</> : <><Copy size={12} /> Copiar link</>}
-                </button>
-
-                {linkUrl && (
-                  <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100">
-                    <span className="flex-1 text-[10px] text-gray-500 truncate font-mono">{linkUrl}</span>
-                    <button onClick={() => copiar(linkUrl)} className="shrink-0 text-gray-400 hover:text-violet-600 transition-colors">
-                      {copiado ? <Check size={11} className="text-violet-500" /> : <Copy size={11} />}
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
