@@ -265,7 +265,8 @@ export default function NuevoPedido() {
     d.setDate(d.getDate() + 3);
     return d.toISOString().split('T')[0];
   });
-  const [notas,         setNotas]         = useState('');
+  const [notas,            setNotas]            = useState('');
+  const [costoEnvioManual, setCostoEnvioManual] = useState<number | null>(null);
 
   // Estado de UI
   const [saving,        setSaving]        = useState(false);
@@ -461,12 +462,13 @@ export default function NuevoPedido() {
     setItems(prev => prev.filter((_, i) => i !== idx));
   }
 
-  const itemsSeleccionados = items.filter(i => !i.is_covered && i.selected !== false);
-  const itemsCubiertos     = items.filter(i => i.is_covered);
-  const itemsDeselected    = items.filter(i => !i.is_covered && i.selected === false);
-  const montoItems  = itemsSeleccionados.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
-  const costoEnvio  = montoItems > 0 ? Math.round(montoItems * 0.10) : 0;
-  const montoTotal  = montoItems + costoEnvio;
+  const itemsSeleccionados  = items.filter(i => !i.is_covered && i.selected !== false);
+  const itemsCubiertos      = items.filter(i => i.is_covered);
+  const itemsDeselected     = items.filter(i => !i.is_covered && i.selected === false);
+  const montoItems          = itemsSeleccionados.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
+  const costoEnvioSugerido  = montoItems > 0 ? Math.round(montoItems * 0.10) : 0;
+  const costoEnvio          = costoEnvioManual !== null ? costoEnvioManual : costoEnvioSugerido;
+  const montoTotal          = montoItems + costoEnvio;
 
   // ── Guardar ───────────────────────────────────────────────────
   async function handleSave() {
@@ -942,12 +944,25 @@ export default function NuevoPedido() {
                   <span>Subtotal productos</span>
                   <span>{formatCurrency(montoItems)}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Costo de envío (10%)</span>
-                  <span>{formatCurrency(costoEnvio)}</span>
+                <div className="flex justify-between items-center gap-2">
+                  <div>
+                    <span className="text-sm text-gray-500">Costo de envío estimado</span>
+                    {costoEnvioManual === null && (
+                      <span className="text-[10px] text-gray-400 ml-1">(10% sugerido)</span>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    value={costoEnvioManual ?? costoEnvioSugerido}
+                    onChange={e => setCostoEnvioManual(e.target.value === '' ? null : Number(e.target.value))}
+                    onFocus={e => e.target.select()}
+                    className="w-28 text-right border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+                    min={0}
+                    step={1}
+                  />
                 </div>
                 <div className="flex justify-between items-center pt-1 border-t border-gray-100">
-                  <span className="text-sm font-semibold text-gray-700">Total al proveedor</span>
+                  <span className="text-sm font-semibold text-gray-700">Total estimado</span>
                   <span className="text-lg font-bold text-gray-900">{formatCurrency(montoTotal)}</span>
                 </div>
               </div>
@@ -1041,15 +1056,15 @@ export default function NuevoPedido() {
             {montoItems > 0 && (
               <div className="border-t border-lime-300 pt-2 space-y-1">
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Subtotal productos</span>
+                  <span>Al proveedor (productos)</span>
                   <span>{formatCurrency(montoItems)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Envío (10%)</span>
+                <div className="flex justify-between text-sm text-amber-600">
+                  <span>Envío estimado al transporte</span>
                   <span>{formatCurrency(costoEnvio)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-1 border-t border-lime-300">
-                  <span className="text-sm font-bold text-lime-900">Total al proveedor</span>
+                  <span className="text-sm font-bold text-lime-900">Total estimado</span>
                   <span className="text-xl font-extrabold text-lime-800">{formatCurrency(montoTotal)}</span>
                 </div>
               </div>

@@ -432,10 +432,6 @@ function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
 
         {/* Compartir — aparece al hover */}
         <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-          <button onClick={shareWA} title="Compartir por WhatsApp"
-            className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 font-medium">
-            <MessageCircle size={9}/>WA
-          </button>
           <button onClick={shareEmail} title="Compartir por email"
             className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium">
             <Mail size={9}/>Email
@@ -553,17 +549,23 @@ export function Productos() {
     );
   }, [productos, search]);
 
-  const { ventanas, puertas, balcon, otros } = useMemo(() => {
-    const ventanas: Producto[] = [], puertas: Producto[] = [], balcon: Producto[] = [], otros: Producto[] = [];
+  const { ventanas, puertas, balcon, mosquiteras, otros } = useMemo(() => {
+    const ventanas: Producto[] = [], puertas: Producto[] = [], balcon: Producto[] = [];
+    const mosquiteras: Producto[] = [], otros: Producto[] = [];
     filtered.forEach(p => {
       const n = ((p.tipo_abertura as any)?.nombre ?? '').toLowerCase();
       if      (n.includes('balc'))    balcon.push(p);
       else if (n.includes('ventana')) ventanas.push(p);
       else if (n.includes('puerta'))  puertas.push(p);
+      else if (n.includes('mosquer') || n.includes('mosquit')) mosquiteras.push(p);
       else                            otros.push(p);
     });
     const byName = (a: Producto, b: Producto) => a.nombre.localeCompare(b.nombre);
-    return { ventanas: ventanas.sort(byName), puertas: puertas.sort(byName), balcon: balcon.sort(byName), otros: otros.sort(byName) };
+    return {
+      ventanas: ventanas.sort(byName), puertas: puertas.sort(byName),
+      balcon: balcon.sort(byName), mosquiteras: mosquiteras.sort(byName),
+      otros: otros.sort(byName),
+    };
   }, [filtered]);
 
   const columnas = [
@@ -582,6 +584,11 @@ export function Productos() {
       headerBg: 'bg-teal-50', headerText: 'text-teal-700', badgeBg: 'bg-white', badgeText: 'text-teal-600 border-teal-200',
       borderCol: 'border-teal-100', priceColor: 'text-teal-700',
     },
+    ...(mosquiteras.length ? [{
+      titulo: 'Mosqueras', items: mosquiteras, icono: Package,
+      headerBg: 'bg-orange-50', headerText: 'text-orange-700', badgeBg: 'bg-white', badgeText: 'text-orange-600 border-orange-200',
+      borderCol: 'border-orange-100', priceColor: 'text-orange-700',
+    }] : []),
     ...(otros.length ? [{
       titulo: 'Otros', items: otros, icono: Package,
       headerBg: 'bg-gray-50', headerText: 'text-gray-600', badgeBg: 'bg-white', badgeText: 'text-gray-500 border-gray-200',

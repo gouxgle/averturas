@@ -143,8 +143,10 @@ export const PedidoSchema = z.object({
 });
 
 export const PedidoEstadoSchema = z.object({
-  estado:          z.enum(['pendiente','enviado','recibido','cancelado']),
-  fecha_recepcion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  estado:           z.enum(['pendiente','enviado','recibido','cancelado']),
+  fecha_recepcion:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  transportista_id: z.string().uuid().optional().nullable(),
+  costo_envio_real: z.number().min(0).optional().nullable(),
 });
 
 // ── Catálogo ───────────────────────────────────────────────────

@@ -110,7 +110,7 @@ const ESTADO_BADGE: Record<string, string> = {
 };
 
 const ESTADO_LABEL: Record<string, string> = {
-  presupuesto: 'Borrador', enviado: 'Enviado', aprobado: 'Aprobado',
+  presupuesto: 'Pendiente de Aprobación', enviado: 'Enviado', aprobado: 'Aprobado',
   en_produccion: 'En producción', listo: 'Listo',
   entregado: 'Entregado', cancelado: 'Cancelado', rechazado: 'Rechazado',
 };

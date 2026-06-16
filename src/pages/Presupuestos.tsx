@@ -126,7 +126,7 @@ const ESTADO_COLOR: Record<string, string> = {
 };
 
 const ESTADO_LABEL: Record<string, string> = {
-  presupuesto: 'Borrador',
+  presupuesto: 'Pendiente de Aprobación',
   enviado:     'Enviado',
   aprobado:    'Aprobado',
   rechazado:   'Rechazado',

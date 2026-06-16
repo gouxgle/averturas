@@ -45,10 +45,21 @@ interface PedidoRow {
   fecha_entrega_est: string | null;
   fecha_recepcion: string | null;
   monto_total: number;
+  costo_envio: number;
+  transportista_id: string | null;
+  transportista_nombre: string | null;
   notas: string | null;
+  operacion_id: string | null;
   proveedor: ProveedorMin;
   operacion: OperacionMin | null;
   items_resumen: { descripcion: string; cantidad: number }[] | null;
+  items_total_op: number | null;
+  items_cubiertos: number | null;
+}
+
+interface Transportista {
+  id: string;
+  nombre: string;
 }
 
 interface PedidoItem {
@@ -94,6 +105,32 @@ function nombreCliente(op: OperacionMin | null) {
   return c.tipo_persona === 'juridica'
     ? (c.razon_social ?? '—')
     : `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim() || '—';
+}
+
+function entregaBadge(fechaEst: string | null, estado: EstadoPedido) {
+  if (!fechaEst || estado === 'recibido' || estado === 'cancelado') {
+    return <span className="text-sm text-gray-700">{formatFecha(fechaEst)}</span>;
+  }
+  const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
+  const dest = new Date(fechaEst.slice(0, 10) + 'T12:00:00');
+  const diff = Math.round((dest.getTime() - hoy.getTime()) / 86_400_000);
+
+  if (diff < 0) return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+      Demorado {Math.abs(diff)}d
+    </span>
+  );
+  if (diff === 0) return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+      Llega hoy
+    </span>
+  );
+  if (diff === 1) return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-700 border border-sky-200">
+      Mañana
+    </span>
+  );
+  return <span className="text-sm text-gray-700">{formatFecha(fechaEst)}</span>;
 }
 
 function estadoBadge(estado: EstadoPedido) {
@@ -175,6 +212,9 @@ function PedidoModal({ id, onClose, onSaved }: {
   const [confirmarCancelar, setConfirmarCancelar] = useState(false);
   const [modalRecepcion, setModalRecepcion] = useState(false);
   const [fechaRecepcion, setFechaRecepcion] = useState(new Date().toISOString().split('T')[0]);
+  const [transportistas, setTransportistas] = useState<Transportista[]>([]);
+  const [transportistaId, setTransportistaId] = useState('');
+  const [costoEnvioReal, setCostoEnvioReal] = useState<number | null>(null);
   const [enviandoWA, setEnviandoWA] = useState(false);
   const [enviadoWA, setEnviadoWA]   = useState(false);
   const [errorWA, setErrorWA]       = useState<string | null>(null);
@@ -226,6 +266,7 @@ function PedidoModal({ id, onClose, onSaved }: {
     try {
       const d = await api.get<PedidoDetalle>(`/pedidos/${id}`);
       setPedido(d);
+      setCostoEnvioReal(null);
     } catch {
       toast.error('Error al cargar el pedido');
       onClose();
@@ -236,7 +277,11 @@ function PedidoModal({ id, onClose, onSaved }: {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  async function cambiarEstado(nuevoEstado: string, extra?: Record<string, string>) {
+  useEffect(() => {
+    api.get<Transportista[]>('/transportistas').then(setTransportistas).catch(() => {});
+  }, []);
+
+  async function cambiarEstado(nuevoEstado: string, extra?: Record<string, unknown>) {
     if (!pedido) return;
     setCambiandoEstado(true);
     try {
@@ -390,9 +435,27 @@ function PedidoModal({ id, onClose, onSaved }: {
               ))}
             </div>
             {pedido.monto_total > 0 && (
-              <div className="flex justify-between items-center mt-3 pt-3 border-t">
-                <span className="text-sm font-semibold text-gray-600">Total</span>
-                <span className="text-lg font-bold text-gray-900">{formatCurrency(pedido.monto_total)}</span>
+              <div className="mt-3 pt-3 border-t space-y-1">
+                {pedido.costo_envio > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Al proveedor (productos)</span>
+                      <span>{formatCurrency(pedido.monto_total - pedido.costo_envio)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-amber-600">
+                      <span>
+                        {pedido.transportista_nombre
+                          ? `Al transporte · ${pedido.transportista_nombre}`
+                          : 'Costo de envío'}
+                      </span>
+                      <span>{formatCurrency(pedido.costo_envio)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                  <span className="text-sm font-semibold text-gray-600">Total</span>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(pedido.monto_total)}</span>
+                </div>
               </div>
             )}
           </div>
@@ -402,6 +465,30 @@ function PedidoModal({ id, onClose, onSaved }: {
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
               <p className="text-xs font-semibold text-amber-700 mb-1">Notas</p>
               <p className="text-sm text-amber-900">{pedido.notas}</p>
+            </div>
+          )}
+
+          {/* Items faltantes — completar pedido */}
+          {pedido.operacion_id && pedido.estado !== 'cancelado' &&
+           pedido.items_total_op !== null && pedido.items_cubiertos !== null &&
+           pedido.items_cubiertos < pedido.items_total_op && (
+            <div className="p-3 bg-orange-50 rounded-xl border border-orange-200 flex items-start gap-3">
+              <AlertTriangle size={16} className="text-orange-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-orange-800">
+                  {pedido.items_total_op - pedido.items_cubiertos} ítem{pedido.items_total_op - pedido.items_cubiertos > 1 ? 's' : ''} sin pedido en esta operación
+                </p>
+                <p className="text-xs text-orange-600 mt-0.5">
+                  Podés completar los faltantes con otro pedido, al mismo proveedor u otro.
+                </p>
+                <button
+                  onClick={() => navigate(`/pedidos/nuevo?operacion_id=${pedido.operacion_id}`)}
+                  className="mt-2 flex items-center gap-1.5 bg-orange-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  <Plus size={12} />
+                  Completar pedido faltante
+                </button>
+              </div>
             </div>
           )}
 
@@ -528,9 +615,48 @@ function PedidoModal({ id, onClose, onSaved }: {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 space-y-3">
+                <p className="text-xs font-semibold text-amber-700 uppercase">Datos del envío</p>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Transportista</label>
+                  <select
+                    value={transportistaId}
+                    onChange={e => setTransportistaId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">Sin especificar</option>
+                    {transportistas.map(t => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Costo de envío real
+                    {pedido.costo_envio > 0 && (
+                      <span className="text-gray-400 font-normal ml-1">
+                        (estimado: {formatCurrency(pedido.costo_envio)})
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    value={costoEnvioReal ?? pedido.costo_envio}
+                    onChange={e => setCostoEnvioReal(e.target.value === '' ? null : Number(e.target.value))}
+                    onFocus={e => e.target.select()}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-right"
+                    min={0}
+                    step={1}
+                  />
+                </div>
+              </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => cambiarEstado('recibido', { fecha_recepcion: fechaRecepcion })}
+                  onClick={() => cambiarEstado('recibido', {
+                    fecha_recepcion: fechaRecepcion,
+                    ...(transportistaId ? { transportista_id: transportistaId } : {}),
+                    ...(costoEnvioReal !== null ? { costo_envio_real: costoEnvioReal } : {}),
+                  })}
                   disabled={cambiandoEstado}
                   className="flex-1 bg-emerald-500 text-white text-sm font-semibold py-2 rounded-lg hover:bg-emerald-600 disabled:opacity-50"
                 >
@@ -746,17 +872,33 @@ export default function Pedidos() {
                       </div>
 
                       {/* Estado */}
-                      <div>{estadoBadge(p.estado)}</div>
+                      <div>
+                        {p.operacion && p.items_total_op !== null && p.items_cubiertos !== null && p.items_cubiertos < p.items_total_op
+                          ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200" title={`${p.items_cubiertos} de ${p.items_total_op} ítems enviados al proveedor`}>
+                              <AlertTriangle size={9} />
+                              Envío parcial · {p.items_total_op - p.items_cubiertos} pend.
+                            </span>
+                          )
+                          : estadoBadge(p.estado)
+                        }
+                      </div>
 
                       {/* Fecha entrega */}
                       <div>
-                        <p className="text-sm text-gray-700">{formatFecha(p.fecha_entrega_est)}</p>
+                        {entregaBadge(p.fecha_entrega_est, p.estado)}
                       </div>
 
                       {/* Monto */}
                       <div className="text-right" onClick={e => e.stopPropagation()}>
                         {p.monto_total > 0 && (
                           <p className="text-sm font-semibold text-gray-700">{formatCurrency(p.monto_total)}</p>
+                        )}
+                        {p.costo_envio > 0 && (
+                          <p className="text-[10px] text-amber-500">
+                            envío: {formatCurrency(p.costo_envio)}
+                            {p.transportista_nombre && ` · ${p.transportista_nombre}`}
+                          </p>
                         )}
                         <div className="flex justify-end gap-1 mt-1">
                           {p.proveedor.telefono && (

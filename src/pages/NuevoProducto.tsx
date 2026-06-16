@@ -40,10 +40,10 @@ const CONFIG_HOJAS = [
 ];
 
 const ANCHOS_HOJA: Record<string, number[]> = {
-  hoja_simple:      [80, 85, 90],
-  hoja_y_media:     [80, 85, 90],
-  dos_hojas:        [80, 90],
-  puerta_pano_fijo: [80, 85, 90],
+  hoja_simple:      [70, 80, 85, 90],
+  hoja_y_media:     [70, 80, 85, 90],
+  dos_hojas:        [70, 80, 90],
+  puerta_pano_fijo: [70, 80, 85, 90],
 };
 
 const TIPO_PROVISION = [
@@ -1212,6 +1212,115 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
   );
 }
 
+// ── Sección mosqueras ─────────────────────────────────────────
+
+const TIPO_MOSQUITERA = [
+  { v: 'fija',       l: 'Fija' },
+  { v: 'enrollable', l: 'Enrollable' },
+  { v: 'corrediza',  l: 'Corrediza' },
+  { v: 'plisada',    l: 'Plisada' },
+];
+
+const MARCO_MOSQUITERA = [
+  { v: 'aluminio', l: 'Aluminio' },
+  { v: 'pvc',      l: 'PVC' },
+];
+
+const MALLA_MOSQUITERA = [
+  { v: 'estandar',   l: 'Estándar' },
+  { v: 'ultrafina',  l: 'Ultrafina' },
+  { v: 'reforzada',  l: 'Reforzada' },
+  { v: 'anti_polvo', l: 'Anti-polvo' },
+];
+
+const COLORES_MOSQUITERA = ['Blanco', 'Negro', 'Anodizado Natural', 'Gris'];
+
+function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }: {
+  atributos: Atributos;
+  setAttr: (k: string, v: unknown) => void;
+  onColorChange: (c: string) => void;
+  colorActual: string;
+}) {
+  const tipo  = atributos.tipo_mosquitera as string ?? '';
+  const marco = atributos.material_marco  as string ?? '';
+  const malla = atributos.tipo_malla      as string ?? '';
+
+  const all = [tipo !== '', marco !== '', malla !== '', colorActual !== ''];
+  const completed = all.filter(Boolean).length;
+  const pct = Math.round(completed / all.length * 100);
+
+  function btn(active: boolean) {
+    return cn(
+      'py-2 rounded-lg border text-xs font-medium transition-all',
+      active
+        ? 'border-sky-500 bg-sky-50 text-sky-800'
+        : 'border-gray-200 text-gray-600 hover:border-sky-300'
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        <span className="text-sm font-semibold text-gray-700">Atributos de mosquera</span>
+        <div className="flex items-center gap-2">
+          <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <span className={cn('text-[10px] font-semibold', pct === 100 ? 'text-emerald-700' : 'text-gray-400')}>
+            {pct}%
+          </span>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <SectionDivider label="Tipo de mosquera" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {TIPO_MOSQUITERA.map(o => (
+            <button key={o.v} type="button" onClick={() => setAttr('tipo_mosquitera', o.v)} className={btn(tipo === o.v)}>
+              {o.l}
+            </button>
+          ))}
+        </div>
+
+        <SectionDivider label="Material y malla" />
+        <div className="grid grid-cols-2 gap-3">
+          <FieldCard title="Material del marco" complete={marco !== ''}>
+            <div className="flex flex-col gap-1.5">
+              {MARCO_MOSQUITERA.map(o => (
+                <button key={o.v} type="button" onClick={() => setAttr('material_marco', o.v)} className={btn(marco === o.v)}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+          <FieldCard title="Tipo de malla" complete={malla !== ''}>
+            <div className="flex flex-col gap-1.5">
+              {MALLA_MOSQUITERA.map(o => (
+                <button key={o.v} type="button" onClick={() => setAttr('tipo_malla', o.v)} className={btn(malla === o.v)}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </FieldCard>
+        </div>
+
+        <SectionDivider label="Color" />
+        <FieldCard title="Color" complete={colorActual !== ''}>
+          <div className="flex flex-wrap gap-2">
+            {COLORES_MOSQUITERA.map(c => (
+              <button key={c} type="button" onClick={() => onColorChange(c)}
+                className={cn('px-3 py-1.5 rounded-lg border text-sm transition-all',
+                  colorActual === c ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </FieldCard>
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────
 export function NuevoProducto() {
   const navigate = useNavigate();
@@ -1279,6 +1388,7 @@ export function NuevoProducto() {
   const esPuertaBalcon   = _nombreTipo.includes('balc');
   const esPuerta         = _nombreTipo.includes('puerta') && !esPuertaBalcon;
   const esVentana        = _nombreTipo.includes('ventana');
+  const esMosquitera     = _nombreTipo.includes('mosquer') || _nombreTipo.includes('mosquit');
 
   useEffect(() => {
     Promise.all([
@@ -1443,7 +1553,7 @@ export function NuevoProducto() {
         premarco:         form.tipo !== 'estandar' ? form.premarco : false,
         accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
-        atributos:        (esPuerta || esVentana || esPuertaBalcon) ? atributos : {},
+        atributos:        (esPuerta || esVentana || esPuertaBalcon || esMosquitera) ? atributos : {},
         etiqueta:         form.etiqueta || null,
         margen_tipo:      form.margen_tipo || null,
         promocion:        form.promo_activa ? {
@@ -1535,6 +1645,17 @@ export function NuevoProducto() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <SectionHeader icon={Package} label="Datos del producto" primary />
         <div className="p-4 space-y-3">
+          <div>
+            <label className={labelCls}>Tipo de abertura *</label>
+            <select value={form.tipo_abertura_id} onChange={e => {
+              set('tipo_abertura_id', e.target.value);
+              setAtributos({});
+            }} className={inputCls}>
+              <option value="">Seleccionar tipo...</option>
+              {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className={labelCls}>Nombre *</label>
@@ -1546,17 +1667,6 @@ export function NuevoProducto() {
               <input value={form.codigo} onChange={e => set('codigo', e.target.value)}
                 placeholder="Ej: PU-ALU-090" className={inputCls} />
             </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Tipo de abertura *</label>
-            <select value={form.tipo_abertura_id} onChange={e => {
-              set('tipo_abertura_id', e.target.value);
-              setAtributos({});
-            }} className={inputCls}>
-              <option value="">Seleccionar tipo...</option>
-              {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
           </div>
 
           {/* Aviso hasta que seleccione tipo */}
@@ -1665,8 +1775,49 @@ export function NuevoProducto() {
         </div>
       )}
 
-      {/* ── SECCIÓN GENÉRICA (otros tipos de abertura, no puerta ni ventana ni puerta-balcón) ── */}
-      {!esPuerta && !esVentana && !esPuertaBalcon && form.tipo_abertura_id && (
+      {/* ── SECCIÓN ESPECÍFICA MOSQUITERAS ── */}
+      {esMosquitera && (
+        <MosquiteraAtributos
+          atributos={atributos}
+          setAttr={setAttr}
+          onColorChange={c => set('color', c)}
+          colorActual={form.color}
+        />
+      )}
+
+      {/* Medidas para mosqueras (ancho x alto libres en cm) */}
+      {esMosquitera && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <SectionHeader icon={Ruler} label="Medidas (cm)" />
+          <div className="p-4 grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Ancho *</label>
+              <div className="relative">
+                <input type="number" min={20} max={600} value={form.ancho}
+                  onChange={e => set('ancho', e.target.value)}
+                  placeholder="100"
+                  className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
+                    form.ancho ? 'border-emerald-300' : 'border-gray-200')} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">cm</span>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Alto *</label>
+              <div className="relative">
+                <input type="number" min={20} max={400} value={form.alto}
+                  onChange={e => set('alto', e.target.value)}
+                  placeholder="100"
+                  className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
+                    form.alto ? 'border-emerald-300' : 'border-gray-200')} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">cm</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECCIÓN GENÉRICA (otros tipos de abertura, no puerta ni ventana ni puerta-balcón ni mosquera) ── */}
+      {!esPuerta && !esVentana && !esPuertaBalcon && !esMosquitera && form.tipo_abertura_id && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Ruler} label="Especificaciones" primary />
           <div className="p-4 space-y-3">
@@ -1713,8 +1864,8 @@ export function NuevoProducto() {
         </div>
       )}
 
-      {/* A medida — campos extra (solo genérico, no puerta ni ventana ni puerta-balcón) */}
-      {form.tipo !== 'estandar' && !esPuerta && !esVentana && !esPuertaBalcon && form.tipo_abertura_id && (
+      {/* A medida — campos extra (solo genérico, no puerta ni ventana ni puerta-balcón ni mosquera) */}
+      {form.tipo !== 'estandar' && !esPuerta && !esVentana && !esPuertaBalcon && !esMosquitera && form.tipo_abertura_id && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <SectionHeader icon={Ruler} label="Detalles a medida / fabricación" primary />
           <div className="p-4 space-y-4">

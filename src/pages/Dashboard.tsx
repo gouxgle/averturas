@@ -89,7 +89,7 @@ function fmtFecha(iso: string) {
 }
 
 const ESTADO_LABEL: Record<string, string> = {
-  presupuesto: 'Borrador', enviado: 'Enviado', aprobado: 'Aprobado',
+  presupuesto: 'Pendiente de Aprobación', enviado: 'Enviado', aprobado: 'Aprobado',
   en_produccion: 'En producción', listo: 'Listo', instalado: 'Instalado',
   entregado: 'Entregado', cancelado: 'Cancelado',
 };

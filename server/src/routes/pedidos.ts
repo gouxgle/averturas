@@ -17,6 +17,7 @@ async function nextNumero(): Promise<string> {
 
 const WITH_PROVEEDOR = `
   SELECT p.*,
+    t.nombre AS transportista_nombre,
     json_build_object(
       'id', prov.id, 'nombre', prov.nombre, 'telefono', prov.telefono,
       'email', prov.email, 'contacto', prov.contacto
@@ -36,6 +37,7 @@ const WITH_PROVEEDOR = `
   JOIN  proveedores prov ON prov.id = p.proveedor_id
   LEFT JOIN operaciones o ON o.id = p.operacion_id
   LEFT JOIN clientes c ON c.id = o.cliente_id
+  LEFT JOIN transportistas t ON t.id = p.transportista_id
 `;
 
 // GET /tablero
@@ -70,7 +72,19 @@ pedidos.get('/tablero', async (c) => {
             )
           )
           ELSE NULL END AS operacion,
-        items_agg.items_resumen
+        items_agg.items_resumen,
+        (CASE WHEN p.operacion_id IS NOT NULL
+          THEN (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = p.operacion_id)
+          ELSE NULL END) AS items_total_op,
+        (CASE WHEN p.operacion_id IS NOT NULL
+          THEN (SELECT COUNT(*)::int FROM operacion_items oi
+                WHERE oi.operacion_id = p.operacion_id
+                  AND EXISTS (
+                    SELECT 1 FROM pedido_items pi2
+                    JOIN pedidos p2 ON p2.id = pi2.pedido_id
+                    WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado'
+                  ))
+          ELSE NULL END) AS items_cubiertos
       FROM pedidos p
       JOIN  proveedores prov ON prov.id = p.proveedor_id
       LEFT JOIN operaciones o  ON o.id = p.operacion_id
@@ -495,10 +509,29 @@ pedidos.post('/:id/avisar-recepcion-cliente', async (c) => {
   return c.json({ enviado: true, numero, mensaje });
 });
 
+// GET /reporte-envios — totales de costo de envío por mes y transportista
+pedidos.get('/reporte-envios', async (c) => {
+  const { rows } = await db.query(`
+    SELECT
+      TO_CHAR(DATE_TRUNC('month', p.fecha_pedido), 'YYYY-MM') AS mes,
+      COALESCE(t.nombre, 'Sin especificar') AS transportista,
+      COUNT(*)::int AS cantidad_pedidos,
+      SUM(p.costo_envio)::numeric AS total_envios,
+      SUM(p.monto_total - p.costo_envio)::numeric AS total_productos,
+      SUM(p.monto_total)::numeric AS total_pedidos
+    FROM pedidos p
+    LEFT JOIN transportistas t ON t.id = p.transportista_id
+    WHERE p.estado = 'recibido'
+    GROUP BY mes, t.nombre
+    ORDER BY mes DESC, total_envios DESC
+  `);
+  return c.json(rows);
+});
+
 // GET /:id — detalle con items
 pedidos.get('/:id', async (c) => {
   const { id } = c.req.param();
-  const [{ rows: [pedido] }, { rows: items }] = await Promise.all([
+  const [{ rows: [pedido] }, { rows: items }, { rows: [coverage] }] = await Promise.all([
     db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]),
     db.query(`
       SELECT pi.*,
@@ -511,9 +544,25 @@ pedidos.get('/:id', async (c) => {
       WHERE pi.pedido_id = $1
       ORDER BY pi.orden
     `, [id]),
+    db.query(`
+      SELECT
+        (CASE WHEN p.operacion_id IS NOT NULL
+          THEN (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = p.operacion_id)
+          ELSE NULL END) AS items_total_op,
+        (CASE WHEN p.operacion_id IS NOT NULL
+          THEN (SELECT COUNT(*)::int FROM operacion_items oi
+                WHERE oi.operacion_id = p.operacion_id
+                  AND EXISTS (
+                    SELECT 1 FROM pedido_items pi2
+                    JOIN pedidos p2 ON p2.id = pi2.pedido_id
+                    WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado'
+                  ))
+          ELSE NULL END) AS items_cubiertos
+      FROM pedidos p WHERE p.id = $1
+    `, [id]),
   ]);
   if (!pedido) return c.json({ error: 'Pedido no encontrado' }, 404);
-  return c.json({ ...pedido, items });
+  return c.json({ ...pedido, items, ...coverage });
 });
 
 // PUT /:id — editar (solo pendiente)
@@ -586,7 +635,7 @@ pedidos.patch('/:id/estado', async (c) => {
   const user    = c.get('user');
   const b = await validateBody(c, PedidoEstadoSchema);
   if (b instanceof Response) return b;
-  const { estado: nuevoEstado, fecha_recepcion } = b;
+  const { estado: nuevoEstado, fecha_recepcion, transportista_id, costo_envio_real } = b;
 
   const TRANSICIONES: Record<string, string[]> = {
     pendiente: ['enviado', 'cancelado'],
@@ -644,13 +693,30 @@ pedidos.patch('/:id/estado', async (c) => {
       ? (fecha_recepcion || new Date().toISOString().split('T')[0])
       : null;
 
-    await client.query(`
-      UPDATE pedidos SET
-        estado = $1,
-        fecha_recepcion = COALESCE($2::date, fecha_recepcion),
-        updated_at = now()
-      WHERE id = $3
-    `, [nuevoEstado, fechaRecepcionFinal, id]);
+    if (nuevoEstado === 'recibido') {
+      // Actualizar transportista y costo de envío real si se proporcionaron
+      const costoReal = typeof costo_envio_real === 'number' ? costo_envio_real : null;
+      await client.query(`
+        UPDATE pedidos SET
+          estado          = $1,
+          fecha_recepcion = COALESCE($2::date, fecha_recepcion),
+          transportista_id = COALESCE($3::uuid, transportista_id),
+          costo_envio     = CASE WHEN $4::numeric IS NOT NULL THEN $4::numeric ELSE costo_envio END,
+          monto_total     = CASE WHEN $4::numeric IS NOT NULL
+                              THEN (monto_total - costo_envio) + $4::numeric
+                              ELSE monto_total END,
+          updated_at      = now()
+        WHERE id = $5
+      `, [nuevoEstado, fechaRecepcionFinal, transportista_id ?? null, costoReal, id]);
+    } else {
+      await client.query(`
+        UPDATE pedidos SET
+          estado = $1,
+          fecha_recepcion = COALESCE($2::date, fecha_recepcion),
+          updated_at = now()
+        WHERE id = $3
+      `, [nuevoEstado, fechaRecepcionFinal, id]);
+    }
 
     await client.query('COMMIT');
     const { rows: [updated] } = await db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]);

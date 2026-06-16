@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2, Check,
+  Phone, MessageCircle, CheckCircle2, Check, AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -410,6 +410,7 @@ export function NuevoPresupuesto() {
   const [productosLoading, setProductosLoading] = useState(false);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
   const [showNotas, setShowNotas] = useState(false);
+  const [showValidacionModal, setShowValidacionModal] = useState(false);
 
   // Buscador por código / scanner
   const [codigoSearch, setCodigoSearch]   = useState('');
@@ -714,12 +715,146 @@ export function NuevoPresupuesto() {
     ? clienteNombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
     : '?';
 
+  // ── Validación de 5 pasos ────────────────────────────────────────────────────
+  const formaEnvioLabel = FORMAS_ENVIO.find(f => f.value === formaEnvio)?.label.split('(')[0].trim() ?? '—';
+
+  const pasos = [
+    {
+      titulo: 'Carga de cliente',
+      subtitulo: clienteId ? clienteNombre.split(' ').slice(0, 2).join(' ') || 'Cargado' : 'Completar datos',
+      done: !!clienteId,
+      tieneDefault: false,
+      defaultLabel: null,
+    },
+    {
+      titulo: 'Forma de pago',
+      subtitulo: formaPago || 'Seleccionar opción',
+      done: !!formaPago && userSetFormaPago,
+      tieneDefault: true,
+      defaultLabel: 'Precio de lista',
+    },
+    {
+      titulo: 'Entrega',
+      subtitulo: formaEnvioLabel,
+      done: !!formaEnvio && userSetFormaEnvio,
+      tieneDefault: true,
+      defaultLabel: 'Retira en local',
+    },
+    {
+      titulo: 'Validez',
+      subtitulo: validezDias !== 'custom'
+        ? `${validezDias}d`
+        : fechaValidezLabel !== '—' ? `Hasta ${fechaValidezLabel}` : 'Sin definir',
+      done: !!fechaValidez && userSetFechaValidez,
+      tieneDefault: true,
+      defaultLabel: '7 días',
+    },
+    {
+      titulo: 'Agregar producto',
+      subtitulo: items.length > 0
+        ? `${items.length} producto${items.length > 1 ? 's' : ''}`
+        : 'Seleccionar productos',
+      done: items.length > 0,
+      tieneDefault: false,
+      defaultLabel: null,
+    },
+  ];
+
+  const todosCompletos = pasos.every(p => p.done);
+  const pasosIncompletos = pasos.filter(p => !p.done);
+  const puedeAvanzarConDefaults = pasosIncompletos.every(p => p.tieneDefault);
+
+  function handleGenerarProforma() {
+    if (todosCompletos) {
+      handleSave(true);
+      return;
+    }
+    setShowValidacionModal(true);
+  }
+
+  function avanzarConDefaults() {
+    setUserSetFormaPago(true);
+    setUserSetFormaEnvio(true);
+    if (!userSetFechaValidez && fechaValidez) setUserSetFechaValidez(true);
+    setShowValidacionModal(false);
+    handleSave(true);
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   const editItemData = editItemKey ? items.find(it => it._key === editItemKey) : null;
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+
+      {/* ── MODAL VALIDACIÓN DE PASOS ── */}
+      {showValidacionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle size={18} className="text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Faltan completar pasos</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {puedeAvanzarConDefaults
+                    ? 'Podés avanzar con los valores por defecto o volver a completarlos.'
+                    : 'Completá los campos obligatorios para generar la proforma.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Lista de pasos incompletos */}
+            <div className="px-6 py-4 space-y-2">
+              {pasosIncompletos.map((p, i) => (
+                <div key={i} className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl border',
+                  p.tieneDefault ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
+                )}>
+                  <div className={cn('w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white',
+                    p.tieneDefault ? 'bg-amber-400' : 'bg-red-400'
+                  )}>
+                    {pasos.indexOf(p) + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-sm font-semibold', p.tieneDefault ? 'text-amber-800' : 'text-red-800')}>
+                      {p.titulo}
+                    </p>
+                    {p.tieneDefault && p.defaultLabel && (
+                      <p className="text-[11px] text-amber-600 mt-0.5">
+                        Valor por defecto: <span className="font-semibold">{p.defaultLabel}</span>
+                      </p>
+                    )}
+                    {!p.tieneDefault && (
+                      <p className="text-[11px] text-red-500 mt-0.5">Obligatorio — no tiene valor por defecto</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Acciones */}
+            <div className="px-6 py-4 border-t border-gray-100 flex flex-col gap-2">
+              {puedeAvanzarConDefaults && (
+                <button
+                  onClick={avanzarConDefaults}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors"
+                >
+                  Avanzar con valores por defecto
+                </button>
+              )}
+              <button
+                onClick={() => setShowValidacionModal(false)}
+                className="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition-colors"
+              >
+                Volver y seguir cargando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TOP BAR ── */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
@@ -749,12 +884,18 @@ export function NuevoPresupuesto() {
           </button>
           <div className="hidden sm:flex">
             <button
-              onClick={() => handleSave(true)}
+              onClick={handleGenerarProforma}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-l-xl text-xs font-semibold transition-colors disabled:opacity-50"
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-1.5 text-white rounded-l-xl text-xs font-semibold transition-colors disabled:opacity-50',
+                todosCompletos
+                  ? 'bg-[#10b981] hover:bg-emerald-600'
+                  : 'bg-amber-500 hover:bg-amber-600'
+              )}
             >
               <FileText size={14} />
               {saving ? 'Guardando...' : 'Generar proforma'}
+              {!todosCompletos && <span className="ml-1 bg-white/20 rounded-full px-1.5 text-[10px] font-bold">{pasosIncompletos.length}</span>}
             </button>
             <button className="px-2 py-1.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-r-xl border-l border-emerald-500 transition-colors">
               <ChevronDown size={13} />
@@ -907,39 +1048,6 @@ export function NuevoPresupuesto() {
 
       {/* ── BARRA DE PROGRESO — 5 pasos ── */}
       {(() => {
-        const formaEnvioLabel = FORMAS_ENVIO.find(f => f.value === formaEnvio)?.label.split('(')[0].trim() ?? '—';
-        const pasos = [
-          {
-            titulo: 'Carga de cliente',
-            subtitulo: clienteId ? clienteNombre.split(' ').slice(0, 2).join(' ') || 'Cargado' : 'Completar datos',
-            done: !!clienteId,
-          },
-          {
-            titulo: 'Forma de pago',
-            subtitulo: formaPago || 'Seleccionar opción',
-            done: !!formaPago && userSetFormaPago,
-          },
-          {
-            titulo: 'Entrega',
-            subtitulo: formaEnvioLabel,
-            done: !!formaEnvio && userSetFormaEnvio,
-          },
-          {
-            titulo: 'Validez',
-            subtitulo: validezDias !== 'custom'
-              ? `${validezDias}d por defecto`
-              : fechaValidezLabel !== '—' ? `Hasta ${fechaValidezLabel}` : 'Sin definir',
-            done: !!fechaValidez && userSetFechaValidez,
-          },
-          {
-            titulo: 'Agregar producto',
-            subtitulo: items.length > 0
-              ? `${items.length} producto${items.length > 1 ? 's' : ''} agregado${items.length > 1 ? 's' : ''}`
-              : 'Seleccionar productos',
-            done: items.length > 0,
-          },
-        ];
-
         return (
           <div className="bg-white border-b border-gray-100 px-4 py-1 shrink-0">
             <div className="flex items-center">
@@ -988,7 +1096,7 @@ export function NuevoPresupuesto() {
       })()}
 
       {/* ── CUERPO 3 COLUMNAS ── */}
-      <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[300px_1fr_240px] xl:grid-cols-[360px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
+      <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_1fr_240px] xl:grid-cols-[420px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
 
         {/* ─────────────────────── COLUMNA IZQUIERDA — AGREGAR PRODUCTOS ─────────────────────── */}
         <div className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
@@ -1084,11 +1192,6 @@ export function NuevoPresupuesto() {
                       {productosOrdenados.map(p => {
                         const img = p.imagenes?.[0] || p.imagen_url;
                         const enCarrito = items.some(it => it.producto_id === p.id);
-                        const stockBadge = p.stock_actual > 5
-                          ? { label: 'Stock', cls: 'bg-emerald-100 text-emerald-700' }
-                          : p.stock_actual >= 1
-                          ? { label: 'Pocas', cls: 'bg-amber-100 text-amber-700' }
-                          : { label: 'Sin stock', cls: 'bg-red-100 text-red-600' };
                         return (
                           <div
                             key={p.id}
@@ -1105,10 +1208,6 @@ export function NuevoPresupuesto() {
                                 : <div className="w-full h-full flex items-center justify-center"><Package size={24} className="text-gray-200" /></div>
                               }
                             </div>
-                            {/* Stock badge */}
-                            <span className={cn('absolute top-1.5 left-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full', stockBadge.cls)}>
-                              {stockBadge.label}
-                            </span>
                             {/* En carrito badge */}
                             {enCarrito && (
                               <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-violet-600 rounded-full flex items-center justify-center">
@@ -1121,6 +1220,11 @@ export function NuevoPresupuesto() {
                                 <span className="font-mono text-[8px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded mb-1 inline-block">{p.codigo}</span>
                               )}
                               <p className="text-[11px] font-semibold text-gray-800 leading-tight line-clamp-2">{p.nombre}</p>
+                              {(p.ancho || p.alto) && (
+                                <p className="text-[9px] text-sky-600 font-bold mt-0.5 font-mono">
+                                  {[p.ancho && `${p.ancho}cm`, p.alto && `${p.alto}cm`].filter(Boolean).join(' × ')}
+                                </p>
+                              )}
                               <p className="text-xs font-bold text-[#7c3aed] mt-1">{formatCurrency(Number(p.precio_base))}</p>
                             </div>
                             {/* Botón + */}
