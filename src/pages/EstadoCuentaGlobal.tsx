@@ -280,7 +280,7 @@ function ModalNuevoCompromiso({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div>
             <h3 className="font-bold text-gray-800">Nuevo compromiso de pago</h3>
             <p className="text-xs text-gray-500 mt-0.5">{cNombre}</p>
@@ -391,7 +391,7 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
   }
 
   return (
-    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Compromisos de pago</span>
         <button onClick={() => onNuevoCompromiso(cliente.id, nombreCliente(cliente))}
@@ -412,7 +412,7 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
             return (
               <div key={comp.id} className={cn(
                 'flex items-center gap-2.5 bg-white rounded-lg px-3 py-2 border',
-                vencido ? 'border-red-200' : 'border-gray-100'
+                vencido ? 'border-red-200' : 'border-gray-200'
               )}>
                 <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center shrink-0',
                   comp.estado === 'cobrado' ? 'bg-emerald-100' : comp.estado === 'rechazado' ? 'bg-red-100' : 'bg-blue-100')}>
@@ -513,7 +513,7 @@ function OpCardM({ op }: { op: ModalOpDetalle }) {
         {open ? <ChevronUp size={12} className="text-gray-400 shrink-0" /> : <ChevronDown size={12} className="text-gray-400 shrink-0" />}
       </button>
       {open && (
-        <div className="border-t border-gray-100 px-3 py-2.5 space-y-2">
+        <div className="border-t border-gray-200 px-3 py-2.5 space-y-2">
           {op.items.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Ítems</p>
@@ -588,7 +588,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Estado de Cuenta</p>
             <h3 className="font-bold text-gray-800 truncate">{nombre}</h3>
@@ -660,14 +660,14 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               {/* Ledger */}
               {ledger.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                  <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta corriente</p>
                     <p className="text-xs text-gray-400">{ledger.length} movimientos</p>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-gray-100 bg-gray-50">
+                        <tr className="border-b border-gray-200 bg-gray-50">
                           <th className="text-left py-2 px-3 font-semibold text-gray-500 w-20">Fecha</th>
                           <th className="text-left py-2 px-2 font-semibold text-gray-500 w-24">Comprob.</th>
                           <th className="text-left py-2 px-2 font-semibold text-gray-500">Concepto</th>
@@ -719,7 +719,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               {/* Compromisos */}
               {data.compromisos.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-gray-100">
+                  <div className="px-4 py-2.5 border-b border-gray-200">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compromisos de pago</p>
                   </div>
                   <div className="divide-y divide-gray-50">
@@ -750,7 +750,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
                     })}
                   </div>
                   {compPendientes.length > 0 && (
-                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                       <span className="text-xs text-gray-500">
                         {compPendientes.length} pendiente{compPendientes.length !== 1 ? 's' : ''}
                         {compVencidos.length > 0 && <span className="ml-2 text-red-600 font-semibold">({compVencidos.length} vencido{compVencidos.length !== 1 ? 's' : ''})</span>}
@@ -882,7 +882,7 @@ export function EstadoCuentaGlobal() {
   ];
 
   return (
-    <div className="p-5 min-h-screen space-y-4" data-section="estado">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1340px] mx-auto page-enter space-y-4" data-section="estado">
       <SectionHero
         section="estado"
         icon={BookOpen}
@@ -893,7 +893,7 @@ export function EstadoCuentaGlobal() {
             <RefreshCw size={15} className="text-gray-500" />
           </button>
           <button onClick={() => navigate('/recibos/nuevo')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors">
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md transition-colors">
             <Plus size={15} /> Nuevo cobro
           </button>
         </>}
@@ -911,7 +911,7 @@ export function EstadoCuentaGlobal() {
 
       {/* Cobros prioritarios */}
       {!loading && cobros.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Flame size={15} className="text-red-500" />
             <span className="text-sm font-bold text-gray-800">Cobros prioritarios del día</span>
@@ -1014,11 +1014,11 @@ export function EstadoCuentaGlobal() {
       <div className="flex gap-4 items-start">
         {/* Table */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <div className="overflow-x-auto">
           <div className="min-w-[997px]">
             {/* Table header */}
-            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-100 bg-gray-50"
+            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50"
               style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
               <span className="whitespace-nowrap">Cliente</span>
               <span className="whitespace-nowrap">Última compra</span>
@@ -1188,7 +1188,7 @@ export function EstadoCuentaGlobal() {
 
             {/* Footer totales */}
             {!loading && t && filtrado.length > 1 && (
-              <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+              <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
                 <div className="grid text-xs gap-x-2" style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
                   <span className="text-gray-500">Mostrando {filtrado.length} de {clientes.length} clientes</span>
                   <span />
@@ -1209,7 +1209,7 @@ export function EstadoCuentaGlobal() {
         {/* Sidebar */}
         <div className="w-64 shrink-0 space-y-4">
           {/* Resumen de saldos */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Resumen de saldos</p>
             {t && (
               <div className="flex items-center gap-3">
@@ -1238,7 +1238,7 @@ export function EstadoCuentaGlobal() {
           </div>
 
           {/* Análisis de cobranzas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Análisis de cobranzas</p>
             {t && (
               <div className="space-y-2.5">
@@ -1271,7 +1271,7 @@ export function EstadoCuentaGlobal() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Acciones rápidas</p>
             <div className="space-y-1.5">
               {[

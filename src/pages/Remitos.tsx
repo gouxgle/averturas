@@ -223,7 +223,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
             {/* Items */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Items del remito</p>
-              <div className="divide-y divide-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+              <div className="divide-y divide-gray-50 border border-gray-200 rounded-xl overflow-hidden">
                 {detalle.items.map(it => (
                   <div key={it.id} className="flex items-center justify-between px-3 py-2.5">
                     <div className="flex-1 min-w-0">
@@ -336,14 +336,14 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="p-5 border-b border-gray-100">
+        <div className="p-5 border-b border-gray-200">
           <h2 className="font-bold text-gray-900">Cambiar estado</h2>
           <p className="text-xs text-gray-500 mt-0.5">{remito.numero}</p>
         </div>
         <div className="p-5 space-y-2">
           {opciones.map(op => (
             <button key={op.value} type="button" onClick={() => setNuevoEstado(op.value)}
-              className={`w-full text-left p-3 rounded-xl border-2 transition-all ${nuevoEstado === op.value ? op.cls : 'border-gray-100 hover:border-gray-200'}`}>
+              className={`w-full text-left p-3 rounded-xl border-2 transition-all ${nuevoEstado === op.value ? op.cls : 'border-gray-200 hover:border-gray-200'}`}>
               <p className="font-semibold text-sm">{op.label}</p>
               <p className="text-xs opacity-70 mt-0.5">{op.desc}</p>
             </button>
@@ -368,7 +368,7 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
             </div>
           )}
         </div>
-        <div className="flex gap-3 p-5 border-t border-gray-100">
+        <div className="flex gap-3 p-5 border-t border-gray-200">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
@@ -522,7 +522,7 @@ export function Remitos() {
             <RefreshCw size={16} className={cn('text-gray-500', loading && 'animate-spin')} />
           </button>
           <Link to="/remitos/nuevo"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:opacity-90 bg-teal-600">
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all hover:opacity-90 bg-teal-600">
             <Plus size={15} /> Nuevo remito
           </Link>
         </>}
@@ -552,7 +552,7 @@ export function Remitos() {
             ]} />
 
             {/* Filtros + búsqueda */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {([
                   { key: 'todos',      label: 'Todos',      count: data.remitos.length },
@@ -598,7 +598,7 @@ export function Remitos() {
             </div>
 
             {/* Tabla */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-x-auto">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
@@ -609,7 +609,7 @@ export function Remitos() {
                   <div>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <tr className="border-b border-gray-200 bg-gray-50/60">
                           {['Remito', 'Cliente', 'Productos', 'Entrega', 'Estado', 'F. entrega', 'Acciones'].map(h => (
                             <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                           ))}
@@ -731,7 +731,7 @@ export function Remitos() {
                   </div>
 
                   {/* Paginación */}
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
                     <p className="text-[11px] text-gray-400">
                       Mostrando {Math.min((page - 1) * perPage + 1, filtrado.length)} a {Math.min(page * perPage, filtrado.length)} de {filtrado.length} remito{filtrado.length !== 1 ? 's' : ''}
                     </p>
@@ -762,7 +762,7 @@ export function Remitos() {
             {/* Bottom bar de métricas */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Métodos de entrega */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
                     <Truck size={14} className="text-blue-600" />
@@ -781,7 +781,7 @@ export function Remitos() {
               </div>
 
               {/* Tiempo promedio */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center">
                     <Clock size={14} className="text-teal-600" />
@@ -793,7 +793,7 @@ export function Remitos() {
               </div>
 
               {/* % a tiempo */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CheckCircle2 size={14} className="text-emerald-600" />
@@ -805,7 +805,7 @@ export function Remitos() {
               </div>
 
               {/* Valor entregado */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
                     <DollarSign size={14} className="text-green-600" />
@@ -822,7 +822,7 @@ export function Remitos() {
           <div className="w-[280px] shrink-0 space-y-4">
 
             {/* Entregas del día */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-1">
                 <CalendarClock size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Entregas del día</h2>
@@ -856,7 +856,7 @@ export function Remitos() {
 
             {/* Entregas atrasadas */}
             {data.entregas_atrasadas.length > 0 && (
-              <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-4">
+              <div className="bg-white rounded-2xl border border-red-100 shadow-md p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle size={14} className="text-red-500" />
                   <h2 className="text-xs font-bold text-red-700 uppercase tracking-wider">Entregas atrasadas</h2>
@@ -881,7 +881,7 @@ export function Remitos() {
             )}
 
             {/* Resumen logístico */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={14} className="text-teal-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen logístico</h2>
@@ -911,7 +911,7 @@ export function Remitos() {
             </div>
 
             {/* Acciones rápidas */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-violet-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Acciones rápidas</h2>

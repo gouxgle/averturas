@@ -106,7 +106,7 @@ export function PDFDialog({
           </div>
 
           {/* Burbuja WhatsApp con URL como enlace */}
-          <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-sm">
+          <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-md">
             <p className="text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed">
               {linkUrl ? (
                 <>
@@ -187,8 +187,8 @@ export function PDFDialog({
           )}
 
           {baseEndpoint && (
-            <div className="border border-gray-100 rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
                 <Share2 size={12} className="text-gray-400" />
                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Compartir con el cliente</span>
               </div>

@@ -235,7 +235,7 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
       <div className="fixed right-0 top-0 bottom-0 z-50 w-[440px] bg-white shadow-2xl flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
               <BookOpen size={16} className="text-violet-600" />
@@ -252,7 +252,7 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
 
         {/* Nav de secciones (solo si hay más de una) */}
         {data.sections.length > 1 && (
-          <div className="flex gap-1 px-4 py-2.5 border-b border-gray-100 overflow-x-auto">
+          <div className="flex gap-1 px-4 py-2.5 border-b border-gray-200 overflow-x-auto">
             {data.sections.map(s => (
               <button key={s.id} onClick={() => setActiveSection(s.id)}
                 className={cn(
@@ -301,12 +301,12 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
 
           {/* Tabla */}
           {section.table && section.table.length > 0 && (
-            <div className="rounded-xl border border-gray-100 overflow-hidden">
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
               {section.table.map((row, i) => (
                 <div key={i} className={cn(
                   'flex gap-3 px-3 py-2.5 text-sm',
                   i % 2 === 0 ? 'bg-gray-50' : 'bg-white',
-                  i < section.table!.length - 1 && 'border-b border-gray-100'
+                  i < section.table!.length - 1 && 'border-b border-gray-200'
                 )}>
                   <span className={cn(
                     'shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full h-fit mt-0.5',
@@ -336,7 +336,7 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
         </div>
 
         {/* Footer — otros temas */}
-        <div className="border-t border-gray-100 px-5 py-3">
+        <div className="border-t border-gray-200 px-5 py-3">
           <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-2">Otros temas</p>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(HELP_CONTENT) as HelpTopic[]).filter(k => k !== topic).map(k => (

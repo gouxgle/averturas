@@ -257,7 +257,7 @@ export function ClienteDetalle() {
     <div className="p-4 max-w-6xl mx-auto space-y-4">
 
       {/* ── Header ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/clientes')}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
@@ -337,7 +337,7 @@ export function ClienteDetalle() {
                     onClick={() => setShowMore(false)}>
                     <FileText size={14} className="text-gray-400" /> Nuevo presupuesto
                   </Link>
-                  <div className="border-t border-gray-100" />
+                  <div className="border-t border-gray-200" />
                   <button
                     onClick={() => { setShowMore(false); setShowDeleteConfirm(true); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
@@ -349,7 +349,7 @@ export function ClienteDetalle() {
 
             <Link
               to={`/operaciones/nueva?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm transition-all">
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-md transition-all">
               <Plus size={14} /> Nueva operación
             </Link>
           </div>
@@ -377,7 +377,7 @@ export function ClienteDetalle() {
       {/* ── Stats row ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button onClick={() => setActiveTab('presupuestos')}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-left hover:border-blue-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-blue-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <FileText size={14} className="text-blue-500" />
             <span className="text-xs text-gray-500">Presupuestos</span>
@@ -387,7 +387,7 @@ export function ClienteDetalle() {
         </button>
 
         <button onClick={() => setActiveTab('operaciones')}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-left hover:border-emerald-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-emerald-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <ClipboardList size={14} className="text-emerald-500" />
             <span className="text-xs text-gray-500">Operaciones</span>
@@ -397,7 +397,7 @@ export function ClienteDetalle() {
         </button>
 
         <button onClick={() => setActiveTab('remitos')}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-left hover:border-indigo-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-indigo-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <Truck size={14} className="text-indigo-500" />
             <span className="text-xs text-gray-500">Remitos</span>
@@ -407,7 +407,7 @@ export function ClienteDetalle() {
         </button>
 
         <button onClick={() => setActiveTab('recibos')}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-left hover:border-teal-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-teal-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={14} className="text-teal-500" />
             <span className="text-xs text-gray-500">Compras totales</span>
@@ -424,8 +424,8 @@ export function ClienteDetalle() {
         <div className="col-span-12 lg:col-span-4 space-y-3">
 
           {/* Info general */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Info general</span>
               <Link to={`/clientes/${cliente.id}/editar`}
                 className="text-xs text-emerald-600 hover:underline">Editar</Link>
@@ -502,8 +502,8 @@ export function ClienteDetalle() {
 
           {/* CRM */}
           {(data.crm_etapa || data.interes || data.producto_interes || data.proxima_accion || data.monto_estimado) && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Clasificación CRM</span>
               </div>
               <div className="p-4 space-y-3">
@@ -570,7 +570,7 @@ export function ClienteDetalle() {
           )}
 
           {/* Valor histórico */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <TrendingUp size={14} className="text-emerald-500" />
@@ -583,7 +583,7 @@ export function ClienteDetalle() {
 
         {/* Columna der: Tabs */}
         <div className="col-span-12 lg:col-span-8">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
 
             {/* Tab bar */}
             <div className="flex border-b border-gray-200 overflow-x-auto">
@@ -676,7 +676,7 @@ export function ClienteDetalle() {
                   </div>
 
                   {mostrarFormTarea && (
-                    <div className="p-3 bg-gray-50 border-b border-gray-100 space-y-2">
+                    <div className="p-3 bg-gray-50 border-b border-gray-200 space-y-2">
                       <input
                         autoFocus
                         value={nuevaTarea.descripcion}
@@ -740,7 +740,7 @@ export function ClienteDetalle() {
                   )}
 
                   {tareasCompletadas.length > 0 && (
-                    <div className="border-t border-gray-100">
+                    <div className="border-t border-gray-200">
                       <button onClick={() => setShowCompletadas(v => !v)}
                         className="flex items-center gap-2 w-full px-4 py-2 text-xs text-gray-400 hover:bg-gray-50 transition-colors">
                         <ChevronDown size={12} className={cn('transition-transform', showCompletadas ? 'rotate-180' : '')} />
@@ -766,7 +766,7 @@ export function ClienteDetalle() {
 
                 {/* Timeline */}
                 <div>
-                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200">
                     <Clock size={13} className="text-gray-400" />
                     <span className="text-xs font-semibold text-gray-500">Historial de actividad</span>
                     <span className="ml-auto text-xs text-gray-400">{timeline.length} eventos</span>
@@ -961,7 +961,7 @@ export function ClienteDetalle() {
                         </Link>
                       ))}
                     </div>
-                    <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+                    <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50">
                       <span className="text-xs text-gray-500">Total cobrado</span>
                       <span className="text-base font-bold text-emerald-700">{formatCurrency(cobrosTotal)}</span>
                     </div>

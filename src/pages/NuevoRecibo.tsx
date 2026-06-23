@@ -89,10 +89,10 @@ function SectionCard({
   title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-md">
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
-        accent ?? 'bg-gray-50 border-gray-100',
+        accent ?? 'bg-gray-50 border-gray-200',
       )}>
         <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-400'} />
         <span className={cn(
@@ -233,10 +233,6 @@ export function NuevoRecibo() {
       .catch(() => setCobradoOp(0));
   }, [operacionId, operaciones]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Al cambiar formaPago → limpiar bonificación si no es Contado ──
-  useEffect(() => {
-    if (formaPago !== 'Contado') resetBonificacion();
-  }, [formaPago]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reset parcial cuando cambia a pago total ──────────────
   useEffect(() => {
@@ -248,7 +244,8 @@ export function NuevoRecibo() {
   const saldoOp = Math.max(0, totalPresupuesto - cobradoOp);
 
   // ── Breakdown bonificación ────────────────────────────────
-  const aplicaBonificacion = !isEdit && formaPago === 'Contado' && !!presupuestoDetalle;
+  // Descuentos disponibles en cualquier forma de pago (típicamente Contado, excepcionalmente otros)
+  const aplicaBonificacion = !isEdit && !!presupuestoDetalle;
 
   const montoProductos = presupuestoDetalle
     ? presupuestoDetalle.items.reduce(
@@ -267,7 +264,7 @@ export function NuevoRecibo() {
   const descuentoMonto = Math.round(montoProductos * pctActual * 100) / 100;
   const totalConBonif  = montoProductos - descuentoMonto + montoInstalacion + envioExtra;
 
-  // ── Saldo efectivo (aplica descuento si corresponde) ──────
+  // ── Saldo efectivo (aplica descuento si hay bonificación activa) ──
   const saldoEfectivo = (aplicaBonificacion && pctActual > 0)
     ? Math.max(0, totalConBonif - cobradoOp)
     : saldoOp;
@@ -328,6 +325,11 @@ export function NuevoRecibo() {
       return;
     }
 
+    // Campos de descuento — monto_lista - monto_descuento = monto_total (cobrado)
+    const descPct    = aplicaBonificacion && pctActual > 0 ? Math.round(pctActual * 10000) / 100 : 0;
+    const descMonto  = aplicaBonificacion && pctActual > 0 ? Math.round(descuentoMonto * 100) / 100 : 0;
+    const listaTotal = Math.round((montoFinal + descMonto) * 100) / 100;
+
     const payload: Record<string, unknown> = {
       cliente_id:      clienteId,
       operacion_id:    operacionId || null,
@@ -339,6 +341,9 @@ export function NuevoRecibo() {
       notas:           notas      || null,
       monto_total:     montoFinal,
       items:           [],
+      descuento_pct:   descPct,
+      monto_lista:     listaTotal,
+      monto_descuento: descMonto,
     };
 
     if (!isEdit && esParcial && crearCompromiso && compromisoFecha) {
@@ -392,7 +397,7 @@ export function NuevoRecibo() {
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-md">
             {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
             {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear recibo'}
           </button>
@@ -522,22 +527,24 @@ export function NuevoRecibo() {
         </SectionCard>
       )}
 
-      {/* ── 4. Bonificación (solo Contado) ───────────────── */}
+      {/* ── 4. Descuento (típicamente pago contado) ──────── */}
       {aplicaBonificacion && (
         <SectionCard
-          title="Bonificación por pago al contado"
+          title="Descuento"
           icon={Gift}
           accent="bg-violet-50 border-violet-100 text-violet-700"
         >
           <div className="space-y-3">
             <p className="text-xs text-gray-500">
-              Bonificación sobre precio de productos.
-              No aplica sobre instalación ni envío.
+              {formaPago === 'Contado'
+                ? 'Descuento sobre precio de productos. No aplica sobre instalación ni envío.'
+                : <span className="text-amber-600">Descuento habitual es solo contado. Confirmar si aplica en esta forma de pago.</span>
+              }
             </p>
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-400 font-semibold">Descuento:</span>
-              {[5, 10, 15, 20].map(pct => (
+              {[5, 7, 10, 15].map(pct => (
                 <button key={pct}
                   onClick={() => aplicarPreset(pct / 100)}
                   className={cn(
@@ -629,9 +636,9 @@ export function NuevoRecibo() {
                 <span className={cn('text-lg font-bold', tipoPago === 'total' ? 'text-emerald-800' : 'text-gray-700')}>
                   {formatCurrency(saldoEfectivo)}
                 </span>
-                {pctActual > 0 && aplicaBonificacion && (
+                {pctActual > 0 && (
                   <span className="text-[10px] text-violet-600 font-medium">
-                    incl. {(pctActual * 100).toFixed(0)}% bonif.
+                    incl. {(pctActual * 100 % 1 === 0 ? (pctActual * 100).toFixed(0) : (pctActual * 100).toFixed(1))}% desc.
                   </span>
                 )}
               </button>
@@ -775,7 +782,7 @@ export function NuevoRecibo() {
 
       {/* ── 8. Resumen final ──────────────────────────────── */}
       {operacionId && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Total del recibo</p>
@@ -820,7 +827,7 @@ export function NuevoRecibo() {
                 Cancelar
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-sm">
+                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-md">
                 {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
                 {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear recibo'}
               </button>

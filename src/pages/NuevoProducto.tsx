@@ -259,7 +259,7 @@ function FieldCard({ title, complete, optional = false, children }: {
     )}>
       <div className={cn(
         'flex items-center justify-between px-3 py-2 border-b',
-        complete ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'
+        complete ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'
       )}>
         <span className={cn(
           'text-[10px] font-semibold uppercase tracking-wider',
@@ -353,7 +353,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
     <div className="space-y-3">
 
       {/* Barra de progreso — sticky */}
-      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-md px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
             <DoorOpen size={13} className="text-sky-500" />
@@ -755,7 +755,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
     <div className="space-y-3">
 
       {/* Barra de progreso — sticky */}
-      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-md px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
             <AppWindow size={13} className="text-sky-500" />
@@ -1014,7 +1014,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
     <div className="space-y-3">
 
       {/* Barra de progreso */}
-      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-200 shadow-md px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
             <AppWindow size={13} className="text-sky-500" />
@@ -1259,8 +1259,8 @@ function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }:
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-700">Atributos de mosquera</span>
         <div className="flex items-center gap-2">
           <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -1587,7 +1587,7 @@ export function NuevoProducto() {
   const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
 
   const SectionHeader = ({ icon: Icon, label, primary = false }: { icon: React.ElementType; label: string; primary?: boolean }) => (
-    <div className={cn('flex items-center gap-2 px-4 py-2.5 border-b', primary ? 'bg-sky-50 border-sky-100' : 'bg-gray-50 border-gray-100')}>
+    <div className={cn('flex items-center gap-2 px-4 py-2.5 border-b', primary ? 'bg-sky-50 border-sky-100' : 'bg-gray-50 border-gray-200')}>
       <Icon size={13} className={primary ? 'text-sky-500' : 'text-gray-400'} />
       <span className={cn('text-[11px] font-semibold uppercase tracking-wider', primary ? 'text-sky-600' : 'text-gray-500')}>{label}</span>
     </div>
@@ -1613,7 +1613,7 @@ export function NuevoProducto() {
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-sm">
+            className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium shadow-md">
             <Save size={14} />
             {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
           </button>
@@ -1621,7 +1621,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Categoría */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
         <SectionHeader icon={Tag} label="Categoría de producto *" primary />
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CATEGORIAS.map(t => (
@@ -1642,7 +1642,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Datos principales */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
         <SectionHeader icon={Package} label="Datos del producto" primary />
         <div className="p-4 space-y-3">
           <div>
@@ -1691,7 +1691,7 @@ export function NuevoProducto() {
 
       {/* Medidas para puertas */}
       {esPuerta && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
             <div>
@@ -1745,7 +1745,7 @@ export function NuevoProducto() {
 
       {/* Medidas para ventanas / puerta-balcón (ambos libres, cm) */}
       {(esVentana || esPuertaBalcon) && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
             <div>
@@ -1787,7 +1787,7 @@ export function NuevoProducto() {
 
       {/* Medidas para mosqueras (ancho x alto libres en cm) */}
       {esMosquitera && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
             <div>
@@ -1818,7 +1818,7 @@ export function NuevoProducto() {
 
       {/* ── SECCIÓN GENÉRICA (otros tipos de abertura, no puerta ni ventana ni puerta-balcón ni mosquera) ── */}
       {!esPuerta && !esVentana && !esPuertaBalcon && !esMosquitera && form.tipo_abertura_id && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Ruler} label="Especificaciones" primary />
           <div className="p-4 space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1866,7 +1866,7 @@ export function NuevoProducto() {
 
       {/* A medida — campos extra (solo genérico, no puerta ni ventana ni puerta-balcón ni mosquera) */}
       {form.tipo !== 'estandar' && !esPuerta && !esVentana && !esPuertaBalcon && !esMosquitera && form.tipo_abertura_id && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Ruler} label="Detalles a medida / fabricación" primary />
           <div className="p-4 space-y-4">
             <div>
@@ -1931,7 +1931,7 @@ export function NuevoProducto() {
 
       {/* Stock + Proveedor */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Boxes} label="Stock" />
           <div className="p-4 grid grid-cols-2 gap-3">
             <div>
@@ -1947,7 +1947,7 @@ export function NuevoProducto() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
           <SectionHeader icon={Tag} label="Proveedor" />
           <div className="p-4 space-y-3">
             <div>
@@ -1974,7 +1974,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Precios */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
         <SectionHeader icon={DollarSign} label={`Precios base${form.precio_por_m2 ? ' (por m²)' : ''}`} />
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-4">
@@ -2076,8 +2076,8 @@ export function NuevoProducto() {
       </div>
 
       {/* Promociones */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
             <Tag size={14} className="text-pink-500" />
             Promoción / Oferta
@@ -2160,7 +2160,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Imágenes y video */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
         <SectionHeader icon={ImageIcon} label="Imágenes y video" />
         <div className="p-4 space-y-4">
 
@@ -2220,7 +2220,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Características */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
         <SectionHeader icon={FileText} label="Características del producto" />
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2244,13 +2244,13 @@ export function NuevoProducto() {
       </div>
 
       {/* Botón guardar al final */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
         <button onClick={() => navigate('/productos')}
           className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
           Cancelar
         </button>
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-sm">
+          className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-md">
           <Save size={15} />
           {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
         </button>

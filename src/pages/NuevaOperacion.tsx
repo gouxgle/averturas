@@ -131,7 +131,7 @@ export function NuevaOperacion() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Tipo de operación *</h2>
         <div className="grid grid-cols-3 gap-3">
           {TIPOS.map(t => (
@@ -145,7 +145,7 @@ export function NuevaOperacion() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Cliente *</h2>
         {clienteSeleccionado ? (
           <div className="flex items-center justify-between bg-amber-50 rounded-lg px-4 py-3 border border-amber-200">
@@ -182,7 +182,7 @@ export function NuevaOperacion() {
       </div>
 
       {tipo === 'a_medida_proveedor' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">Proveedor</h2>
           <select value={proveedorId} onChange={e => setProveedorId(e.target.value)}
             className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
@@ -192,7 +192,7 @@ export function NuevaOperacion() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">Detalle de ítems</h2>
           <button onClick={() => setItems(prev => [...prev, emptyItem()])}
@@ -285,7 +285,7 @@ export function NuevaOperacion() {
           </div>
         ))}
 
-        <div className="border-t border-gray-100 pt-4 flex justify-end">
+        <div className="border-t border-gray-200 pt-4 flex justify-end">
           <div className="space-y-1.5 text-right">
             <div className="flex gap-8">
               <span className="text-sm text-gray-500">Costo total:</span>
@@ -303,7 +303,7 @@ export function NuevaOperacion() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm grid grid-cols-2 gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md grid grid-cols-2 gap-4">
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Notas para el cliente</label>
@@ -328,7 +328,7 @@ export function NuevaOperacion() {
       <div className="flex justify-end gap-3">
         <button onClick={() => navigate(-1)} className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">Cancelar</button>
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+          className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors shadow-md">
           <Save size={15} />
           {saving ? 'Guardando...' : 'Guardar operación'}
         </button>

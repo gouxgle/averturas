@@ -383,11 +383,16 @@ recibos.post('/', async (c) => {
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
+    const montoLista     = Number(b.monto_lista     ?? b.monto_total);
+    const montoDescuento = Number(b.monto_descuento ?? 0);
+    const descuentoPct   = Number(b.descuento_pct   ?? 0);
+
     const { rows: [rec] } = await client.query(`
       INSERT INTO recibos
         (numero, fecha, cliente_id, operacion_id, remito_id, monto_total,
-         forma_pago, referencia_pago, concepto, notas, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         forma_pago, referencia_pago, concepto, notas, created_by,
+         descuento_pct, monto_lista, monto_descuento)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *
     `, [
       numero,
@@ -401,6 +406,9 @@ recibos.post('/', async (c) => {
       b.concepto        || null,
       b.notas           || null,
       user?.id          || null,
+      descuentoPct,
+      montoLista,
+      montoDescuento,
     ]);
 
     for (let i = 0; i < items.length; i++) {
@@ -466,12 +474,18 @@ recibos.put('/:id', async (c) => {
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
+    const updMontoLista     = Number(b.monto_lista     ?? b.monto_total);
+    const updMontoDescuento = Number(b.monto_descuento ?? 0);
+    const updDescuentoPct   = Number(b.descuento_pct   ?? 0);
+
     const { rows: [rec] } = await client.query(`
       UPDATE recibos SET
         fecha = $1, operacion_id = $2, remito_id = $3,
         monto_total = $4, forma_pago = $5, referencia_pago = $6,
-        concepto = $7, notas = $8, updated_at = now()
-      WHERE id = $9 RETURNING *
+        concepto = $7, notas = $8,
+        descuento_pct = $9, monto_lista = $10, monto_descuento = $11,
+        updated_at = now()
+      WHERE id = $12 RETURNING *
     `, [
       b.fecha,
       b.operacion_id    || null,
@@ -481,6 +495,9 @@ recibos.put('/:id', async (c) => {
       b.referencia_pago || null,
       b.concepto        || null,
       b.notas           || null,
+      updDescuentoPct,
+      updMontoLista,
+      updMontoDescuento,
       id,
     ]);
 

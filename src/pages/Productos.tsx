@@ -157,7 +157,7 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-100 px-5 py-4 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-200 px-5 py-4 flex items-start justify-between z-10">
           <div className="flex-1 min-w-0 pr-3">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>{TIPO_LABEL[producto.tipo]}</span>
@@ -177,7 +177,7 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
         <div className="p-5 space-y-4">
           {imagenes.length > 0 && (
             <div className="space-y-2">
-              <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video flex items-center justify-center">
+              <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-video flex items-center justify-center">
                 <img src={imagenes[activeImg]} alt={producto.nombre} className="max-w-full max-h-full object-contain"/>
               </div>
               {imagenes.length > 1 && (
@@ -270,10 +270,10 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
               </div>
             </div>
           )}
-          {producto.descripcion && <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">{producto.descripcion}</p>}
+          {producto.descripcion && <p className="text-xs text-gray-500 border-t border-gray-200 pt-3">{producto.descripcion}</p>}
         </div>
 
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
           <button onClick={onToggle}
             className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors',
               producto.activo ? 'border-gray-200 text-gray-500 hover:border-orange-200 hover:text-orange-500' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50')}>
@@ -366,12 +366,12 @@ function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
         {/* Badges */}
         <div className="absolute top-1.5 left-1.5 flex flex-col gap-0.5">
           {etiquetaCfg && (
-            <span className={cn('text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm leading-none', etiquetaCfg.cls)}>
+            <span className={cn('text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md leading-none', etiquetaCfg.cls)}>
               <etiquetaCfg.Icon size={7}/>{etiquetaCfg.label}
             </span>
           )}
           {promoOk && (
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-pink-600 text-white leading-none shadow-sm flex items-center gap-0.5">
+            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-pink-600 text-white leading-none shadow-md flex items-center gap-0.5">
               <Tag size={7}/>OFERTA
             </span>
           )}
@@ -467,7 +467,7 @@ function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeB
   const visibles = expandida ? productos : productos.slice(0, COL_INIT);
 
   return (
-    <div className={cn('flex-1 min-w-0 flex flex-col rounded-2xl border overflow-hidden bg-white shadow-sm', borderCol)}>
+    <div className={cn('flex-1 min-w-0 flex flex-col rounded-2xl border overflow-hidden bg-white shadow-md', borderCol)}>
       {/* Header */}
       <div className={cn('px-4 py-3 flex items-center gap-2.5', headerBg)}>
         <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', headerText)}>
@@ -605,7 +605,7 @@ export function Productos() {
         sub={`Catálogo de aberturas y precios base · ${productos.length} productos`}
         actions={
           <Link to="/productos/nuevo"
-            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
             <Plus size={16}/> Nuevo producto
           </Link>
         }
@@ -617,7 +617,7 @@ export function Productos() {
         <input
           type="text" placeholder="Buscar por nombre, código o tipo..."
           value={search} onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-sm"
+          className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-md"
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -655,7 +655,7 @@ export function Productos() {
         /* Búsqueda: grid plano */
         <div className="space-y-2">
           <p className="text-sm text-gray-500">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{search}"</p>
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md divide-y divide-gray-100 overflow-hidden">
             {filtered.map(p => (
               <TarjetaProducto key={p.id} producto={p} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
             ))}

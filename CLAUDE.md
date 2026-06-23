@@ -8,8 +8,15 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 ## Repositorio
 - GitHub: `git@github.com:gouxgle/averturas.git`
 - Rama principal: `main`
-- Deploy local: `http://localhost:3000`
-- Deploy VM: `http://149.50.150.131:3000` (HTTP, no HTTPS — importante para crypto APIs)
+
+## Ambientes
+| Ambiente | URL | Uso |
+|---|---|---|
+| **Local** | `http://localhost:3000` | Desarrollo |
+| **Test** | `http://aberturas.solucionesgps.com.ar` | Staging / pruebas |
+| **Prod** | `http://aberturas.cesarbritez.com.ar` | Producción cliente |
+
+- VM: `149.50.150.131` — HTTP sin HTTPS (importante: `crypto.randomUUID()` necesita fallback en HTTP)
 
 ## Stack técnico
 
@@ -103,8 +110,9 @@ remito_items        — líneas de remito
 recibos             — cobros (vinculados a operacion_id, estado: emitido|anulado)
 recibo_items        — líneas de recibo
 compromisos_pago    — compromisos de saldo pendiente (fecha_vencimiento, estado: pendiente|cobrado|...)
-pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE)
-pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden)
+transportistas      — tabla maestra de empresas de transporte (nombre, activo); seeds: Andreani, OCA, Correo Argentino, transporte propio
+pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE; costo_envio NUMERIC; transportista_id UUID FK)
+pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden; operacion_item_id UUID nullable FK → vincula ítem con operación origen)
 ```
 
 ### Campos clave en `operaciones`
@@ -176,7 +184,8 @@ emitido  → entregado (registra fecha_entrega_real)
 | `/stock` | routes/stock.ts | `/alertas` y `/lotes` ANTES de `/:id` |
 | `/remitos` | routes/remitos.ts | `/conteos` ANTES de `/:id` |
 | `/recibos` | routes/recibos.ts | `/conteos` ANTES de `/:id` |
-| `/pedidos` | routes/pedidos.ts | `/tablero` ANTES de `/:id` |
+| `/pedidos` | routes/pedidos.ts | `/tablero` y `/reporte-envios` ANTES de `/:id` |
+| `/transportistas` | routes/transportistas.ts | GET lista activos, POST crear, PATCH activar/desactivar |
 | `/estado-cuenta` | routes/estadoCuenta.ts | |
 
 **Crítico — Hono matchea en orden de registro:**
@@ -296,6 +305,15 @@ Sistema:
   Configuración   /configuracion
 ```
 
+## Convenciones de UI — diseño visual
+
+### Sistema de contraste (fondo/cards)
+- **Fondo app**: `#f0f4fb` (CSS var `--app-bg`) — azul muy claro
+- **Cards principales**: `bg-white rounded-2xl border border-gray-200 shadow-md p-4` — borde y sombra marcados para destacar del fondo
+- **Sección PRIORIDADES DE HOY**: contenedor `bg-gray-50 border-gray-200 shadow-md`, items internos `bg-white border-gray-200 shadow-sm` — items blancos sobre gris claro
+- **KPIs (NÚMEROS CLAVE)**: cada KPI en `bg-gray-50 border border-gray-200 rounded-xl p-3` — recuadro individual por métrica
+- **Regla general**: nunca usar `border-gray-100` ni `shadow-sm` solos — quedan invisibles contra `#f0f4fb`. Mínimo `border-gray-200 shadow-md`.
+
 ## Convenciones de UI — badges y labels
 
 | Badge / label | Contexto | Condición |
@@ -305,6 +323,8 @@ Sistema:
 | `Envío total al proveedor` | Presupuestos lista | `items_en_pedido >= items_total` |
 | `Env. parcial proveedor` | Presupuestos lista | `items_en_pedido > 0 && < items_total` |
 | `llega hoy / llega mañana / llega el DD/MM` | Operaciones tablero col. `con_pedido` | `pedido_fecha_entrega_est` del pedido activo más reciente |
+| `Llega hoy` (emerald) / `Mañana` (sky) / `Demorado Xd` (red) | Pedidos lista col. fecha entrega | diff días vs hoy; solo en estados pendiente/enviado |
+| `Pendiente de Aprobación` | Presupuestos, Operaciones, Dashboard — ESTADO_LABEL | presupuesto sin aprobar (antes era "Borrador") |
 
 ### Convención de ordenamiento en listas
 Todos los módulos: `ORDER BY created_at DESC` (más nuevos arriba). Excepción puntual documentada en el código.
@@ -343,6 +363,21 @@ api.get(`/recibos?${new URLSearchParams({ search })}`)  // ✅
 ### fecha_validez en operaciones
 Viene de PostgreSQL tipo `date` como ISO string completo `"2026-05-22T00:00:00.000Z"`.
 Siempre usar `.slice(0, 10) + 'T12:00:00'` antes de formatear — de lo contrario RangeError en Intl.
+
+### Pedidos al proveedor — lógica de costo de envío
+
+Los pedidos son contra-reembolso: el transportista cobra la parte de envío (~10%) directamente al recibir; el proveedor solo recibe el costo de productos.
+
+- `pedidos.costo_envio` = monto que va al transporte (NO al proveedor)
+- `pedidos.monto_total` = subtotal_items + costo_envio (total desembolsado)
+- Al crear pedido: `costo_envio` se sugiere como 10% editable (estado `costoEnvioManual`)
+- Al marcar `recibido`: se registra el transportista real (`transportista_id`) y se puede ajustar `costo_envio_real` → backend recalcula `monto_total`
+
+**`WITH_PROVEEDOR` CTE** en `server/src/routes/pedidos.ts`: constante SQL reutilizada en todos los GET, incluye `LEFT JOIN transportistas t ON t.id = p.transportista_id` y campo `t.nombre AS transportista_nombre`.
+
+**Coverage de ítems** (GET /:id): el detalle incluye `items_total_op` y `items_cubiertos` — calculados con subquery contando `operacion_items` vinculados via `pedido_items.operacion_item_id`. Si `items_cubiertos < items_total_op` → modal muestra botón naranja "Completar pedido faltante" → navega a `/pedidos/nuevo?operacion_id=XXX`.
+
+**`GET /pedidos/reporte-envios`**: agrupa pedidos `recibido` por mes y transportista, devuelve totales. Registrar ANTES de `GET /:id` en el router.
 
 ### Migraciones
 Al crear nueva migración:

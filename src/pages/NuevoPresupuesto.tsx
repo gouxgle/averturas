@@ -189,7 +189,7 @@ function EditItemModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
           <h2 className="text-sm font-bold text-gray-900">Editar ítem</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
             <X size={16} className="text-gray-500" />
@@ -792,7 +792,7 @@ export function NuevoPresupuesto() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-start gap-3">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-start gap-3">
               <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
                 <AlertCircle size={18} className="text-amber-600" />
               </div>
@@ -836,7 +836,7 @@ export function NuevoPresupuesto() {
             </div>
 
             {/* Acciones */}
-            <div className="px-6 py-4 border-t border-gray-100 flex flex-col gap-2">
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col gap-2">
               {puedeAvanzarConDefaults && (
                 <button
                   onClick={avanzarConDefaults}
@@ -908,7 +908,7 @@ export function NuevoPresupuesto() {
       <div className="bg-white border-b border-gray-200 px-4 py-1 flex items-center gap-3">
 
         {/* Card 1: Cliente */}
-        <div className="flex items-center gap-3 min-w-0 flex-1 border-r border-gray-100 pr-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1 border-r border-gray-200 pr-3">
           {clienteSeleccionado ? (
             <>
               <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
@@ -988,7 +988,7 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* Card 2: Forma de pago */}
-        <div className="flex items-center gap-2 shrink-0 border-r border-gray-100 pr-3">
+        <div className="flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3">
           <div>
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Forma de pago</p>
             <select
@@ -1002,7 +1002,7 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* Card 3: Entrega / Instalación */}
-        <div className="flex items-center gap-2 shrink-0 border-r border-gray-100 pr-3">
+        <div className="flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3">
           <div>
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Entrega / Instalación</p>
             <select
@@ -1049,7 +1049,7 @@ export function NuevoPresupuesto() {
       {/* ── BARRA DE PROGRESO — 5 pasos ── */}
       {(() => {
         return (
-          <div className="bg-white border-b border-gray-100 px-4 py-1 shrink-0">
+          <div className="bg-white border-b border-gray-200 px-4 py-1 shrink-0">
             <div className="flex items-center">
               {pasos.map((paso, i) => {
                 const lineColor = i < pasos.length - 1
@@ -1099,9 +1099,9 @@ export function NuevoPresupuesto() {
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_1fr_240px] xl:grid-cols-[420px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
 
         {/* ─────────────────────── COLUMNA IZQUIERDA — AGREGAR PRODUCTOS ─────────────────────── */}
-        <div className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex flex-col bg-white rounded-xl shadow-md overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
               <span className="text-white text-[10px] font-bold">1</span>
             </div>
@@ -1109,7 +1109,7 @@ export function NuevoPresupuesto() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-100">
+          <div className="flex border-b border-gray-200">
             {([
               { key: 'galeria',   icon: LayoutGrid, label: 'Galería' },
               { key: 'buscar',    icon: Search,     label: 'Buscador' },
@@ -1231,7 +1231,7 @@ export function NuevoPresupuesto() {
                             <button
                               type="button"
                               onClick={e => { e.stopPropagation(); agregarProducto(p); }}
-                              className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center shadow-sm"
+                              className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center shadow-md"
                             >
                               <Plus size={12} className="text-white" />
                             </button>
@@ -1355,9 +1355,9 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* ─────────────────────── COLUMNA CENTRAL — PRODUCTOS AGREGADOS ─────────────────────── */}
-        <div className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex flex-col bg-white rounded-xl shadow-md overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
                 <span className="text-white text-[10px] font-bold">2</span>
@@ -1485,7 +1485,7 @@ export function NuevoPresupuesto() {
           </div>
 
           {/* Notas toggle */}
-          <div className="border-t border-gray-100">
+          <div className="border-t border-gray-200">
             <button
               onClick={() => setShowNotas(v => !v)}
               className="w-full px-4 py-2 text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
@@ -1522,9 +1522,9 @@ export function NuevoPresupuesto() {
 
         {/* ─────────────────────── COLUMNA DERECHA — RESUMEN ─────────────────────── */}
         <div className="flex flex-col gap-3 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-sm sticky top-4 self-start w-full">
+          <div className="bg-white rounded-xl shadow-md sticky top-4 self-start w-full">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
                 <span className="text-white text-[10px] font-bold">3</span>
               </div>
@@ -1544,7 +1544,7 @@ export function NuevoPresupuesto() {
                     <span className="text-xs font-semibold text-gray-700">{formatCurrency(costoEnvio)}</span>
                   </div>
                 )}
-                <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
+                <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
                   <span className="text-sm font-bold text-gray-900">TOTAL</span>
                   <span className="text-lg font-black text-[#7c3aed]">{formatCurrency(totalConEnvio)}</span>
                 </div>
@@ -1566,7 +1566,7 @@ export function NuevoPresupuesto() {
                         'flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all',
                         formaEnvio === value
                           ? 'border-violet-400 bg-violet-50 text-violet-700'
-                          : 'border-gray-100 text-gray-400 hover:border-gray-200 bg-gray-50'
+                          : 'border-gray-200 text-gray-400 hover:border-gray-200 bg-gray-50'
                       )}
                     >
                       <Icon size={12} className={formaEnvio === value ? 'text-violet-500' : color} />
@@ -1614,7 +1614,7 @@ export function NuevoPresupuesto() {
               </div>
 
               {/* Condiciones */}
-              <div className="space-y-1.5 border-t border-gray-100 pt-3">
+              <div className="space-y-1.5 border-t border-gray-200 pt-3">
                 {[
                   validezDias === 'custom' ? 'Presupuesto sujeto a validez' : `Presupuesto válido ${validezDias} días`,
                   'Los precios incluyen IVA',
@@ -1628,7 +1628,7 @@ export function NuevoPresupuesto() {
               </div>
 
               {/* Notas colapsadas */}
-              <div className="border-t border-gray-100 pt-3 space-y-2">
+              <div className="border-t border-gray-200 pt-3 space-y-2">
                 <details className="group">
                   <summary className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
                     <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />

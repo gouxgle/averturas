@@ -216,7 +216,7 @@ function ModalProveedor({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
               <Truck size={18} className="text-amber-600" />
@@ -386,13 +386,13 @@ function ModalProveedor({
               placeholder="Condiciones comerciales, plazos, descuentos..." />
           </div>
 
-          <div className="flex justify-end gap-2 pt-1 border-t border-gray-100">
+          <div className="flex justify-end gap-2 pt-1 border-t border-gray-200">
             <button type="button" onClick={onClose}
               className="px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 font-medium">
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              className="flex items-center gap-1.5 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm rounded-xl font-semibold shadow-sm">
+              className="flex items-center gap-1.5 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm rounded-xl font-semibold shadow-md">
               <Check size={14} /> {saving ? 'Guardando...' : 'Guardar proveedor'}
             </button>
           </div>
@@ -418,7 +418,7 @@ function ProveedorRow({
 
   return (
     <div className={cn(
-      'bg-white rounded-xl border border-gray-100 shadow-sm border-l-4 transition-opacity',
+      'bg-white rounded-xl border border-gray-200 shadow-md border-l-4 transition-opacity',
       prov.es_principal ? 'border-l-amber-400' : 'border-l-gray-200',
       !prov.activo && 'opacity-50'
     )}>
@@ -674,7 +674,7 @@ export function Proveedores() {
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={() => setModal('nuevo')}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold shadow-sm">
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold shadow-md">
             <Plus size={15} /> Nuevo proveedor
           </button>
         </>}
@@ -683,7 +683,7 @@ export function Proveedores() {
       {/* KPI tiles — compactos */}
       {stats && (
         <div className="flex gap-2 flex-wrap">
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-md px-3 py-2">
             <Truck size={13} className="text-amber-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-gray-900">{stats.activos_count}</span>
@@ -691,7 +691,7 @@ export function Proveedores() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-md px-3 py-2">
             <ShoppingCart size={13} className="text-blue-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-blue-600">{fmtMonto(stats.compras_mes_actual)}</span>
@@ -704,7 +704,7 @@ export function Proveedores() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-md px-3 py-2">
             <DollarSign size={13} className="text-red-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-red-600">{fmtMonto(stats.deuda_total)}</span>
@@ -712,7 +712,7 @@ export function Proveedores() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-md px-3 py-2">
             <Clock size={13} className="text-purple-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-gray-900">{stats.prom_plazo_dias || '—'}</span>
@@ -720,7 +720,7 @@ export function Proveedores() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-md px-3 py-2">
             <BarChart2 size={13} className="text-emerald-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-gray-900">{feTotal > 0 ? Math.round((fe.propia ?? 0) / feTotal * 100) : 0}%</span>
@@ -757,7 +757,7 @@ export function Proveedores() {
             {FILTROS.map(f => (
               <button key={f.key} onClick={() => setFiltro(f.key)}
                 className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                  filtro === f.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+                  filtro === f.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700')}>
                 {f.label}
                 {f.count > 0 && (
                   <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
@@ -791,7 +791,7 @@ export function Proveedores() {
               <RefreshCw size={20} className="animate-spin text-gray-400" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md py-16 text-center">
               <Truck size={32} className="mx-auto mb-3 text-gray-200" />
               <p className="text-sm text-gray-400">
                 {(tablero?.proveedores ?? []).length === 0
@@ -853,7 +853,7 @@ export function Proveedores() {
         <div className="w-64 shrink-0 space-y-4">
 
           {/* Resumen de transporte */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
               Resumen de transporte
             </p>
@@ -888,7 +888,7 @@ export function Proveedores() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Zap size={12} className="text-amber-500" /> Acciones rápidas
             </p>
@@ -914,7 +914,7 @@ export function Proveedores() {
 
           {/* Top proveedores */}
           {(tablero?.top_proveedores.length ?? 0) > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
                 Top por compras (6m)
               </p>
@@ -943,7 +943,7 @@ export function Proveedores() {
       {(tablero?.compras_por_rubro.length ?? 0) > 0 && (
         <div className="grid grid-cols-2 gap-4">
           {/* Compras por rubro */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <Package size={12} /> Compras por rubro (últ. 6 meses)
             </p>
@@ -973,7 +973,7 @@ export function Proveedores() {
           </div>
 
           {/* Deuda por proveedor */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <DollarSign size={12} /> Deudas a pagar
             </p>

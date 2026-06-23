@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -733,11 +733,138 @@ function PanelMensajes() {
   );
 }
 
+// ── Panel: Localidades ────────────────────────────────────────────────────────
+
+interface Localidad { id: string; nombre: string; activo: boolean; orden: number; }
+
+function PanelLocalidades() {
+  const [lista, setLista]     = useState<Localidad[]>([]);
+  const [editId, setEditId]   = useState<string | null>(null);
+  const [editVal, setEditVal] = useState('');
+  const [nuevo, setNuevo]     = useState('');
+  const [saving, setSaving]   = useState(false);
+
+  useEffect(() => { reload(); }, []);
+
+  function reload() {
+    api.get<Localidad[]>('/localidades').then(setLista).catch(() => {});
+  }
+
+  async function guardarNuevo() {
+    if (!nuevo.trim()) return;
+    setSaving(true);
+    try {
+      await api.post('/localidades', { nombre: nuevo.trim(), orden: lista.length });
+      setNuevo('');
+      reload();
+      toast.success('Localidad agregada');
+    } catch { toast.error('Error al guardar'); }
+    finally { setSaving(false); }
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!editVal.trim()) return;
+    setSaving(true);
+    try {
+      await api.patch(`/localidades/${id}`, { nombre: editVal.trim() });
+      setEditId(null);
+      reload();
+      toast.success('Localidad actualizada');
+    } catch { toast.error('Error al guardar'); }
+    finally { setSaving(false); }
+  }
+
+  async function toggleActivo(loc: Localidad) {
+    try {
+      await api.patch(`/localidades/${loc.id}`, { activo: !loc.activo });
+      reload();
+    } catch { toast.error('Error'); }
+  }
+
+  async function eliminar(loc: Localidad) {
+    try {
+      await api.delete(`/localidades/${loc.id}`);
+      reload();
+      toast.success('Localidad eliminada');
+    } catch (e: unknown) {
+      const msg = (e as Error).message || 'Error';
+      toast.error(msg.includes('uso') ? 'Localidad en uso por clientes' : 'Error al eliminar');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        Lista de localidades disponibles al cargar clientes. Se puede desactivar sin eliminar.
+      </p>
+
+      {/* Lista */}
+      <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+        {lista.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-4">Sin localidades</p>
+        )}
+        {lista.map(loc => (
+          <div key={loc.id} className="flex items-center gap-2 px-3 py-2.5 bg-white hover:bg-gray-50">
+            <GripVertical size={14} className="text-gray-300 shrink-0" />
+            {editId === loc.id ? (
+              <input
+                autoFocus
+                value={editVal}
+                onChange={e => setEditVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') guardarEdicion(loc.id); if (e.key === 'Escape') setEditId(null); }}
+                className="flex-1 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            ) : (
+              <span className={cn('flex-1 text-sm', loc.activo ? 'text-gray-800' : 'text-gray-400 line-through')}>{loc.nombre}</span>
+            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {editId === loc.id ? (
+                <>
+                  <button onClick={() => guardarEdicion(loc.id)} disabled={saving}
+                    className="p-1 rounded hover:bg-emerald-100 text-emerald-600"><Check size={13} /></button>
+                  <button onClick={() => setEditId(null)}
+                    className="p-1 rounded hover:bg-gray-100 text-gray-400"><X size={13} /></button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => { setEditId(loc.id); setEditVal(loc.nombre); }}
+                    className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={13} /></button>
+                  <button onClick={() => toggleActivo(loc)}
+                    className={cn('p-1 rounded', loc.activo ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-300 hover:bg-gray-100')}>
+                    {loc.activo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                  </button>
+                  <button onClick={() => eliminar(loc)}
+                    className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Agregar */}
+      <div className="flex gap-2">
+        <input
+          value={nuevo}
+          onChange={e => setNuevo(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && guardarNuevo()}
+          placeholder="Nueva localidad..."
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+        <button onClick={guardarNuevo} disabled={saving || !nuevo.trim()}
+          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-40">
+          <Plus size={14} /> Agregar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'tipos_abertura' | 'sistemas' | 'colores' | 'mensajes' | null;
+type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'mensajes' | null;
 
-const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | null>; label: string; icon: typeof Layers; desc: string }[] = [
+const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
@@ -768,7 +895,7 @@ function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }
         <X size={16} className={cn('text-gray-400 transition-transform', open ? 'rotate-0' : 'rotate-45')} />
       </button>
       {open && (
-        <div className="px-5 pb-5 pt-2 border-t border-gray-100">
+        <div className="px-5 pb-5 pt-2 border-t border-gray-200">
           {children}
         </div>
       )}
@@ -796,15 +923,20 @@ export function Configuracion() {
       {/* General */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">General</h2>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
           <AccordionItem id="empresa" label="Empresa" icon={Building2} desc="Datos del negocio, CUIT, contacto"
             open={openPanel === 'empresa'} onToggle={() => togglePanel('empresa')}>
             <PanelEmpresa />
           </AccordionItem>
-          <div className="border-t border-gray-100" />
+          <div className="border-t border-gray-200" />
           <AccordionItem id="usuarios" label="Usuarios" icon={Users} desc="Accesos y roles del equipo"
             open={openPanel === 'usuarios'} onToggle={() => togglePanel('usuarios')}>
             <PanelUsuarios currentUserId={user?.id ?? ''} />
+          </AccordionItem>
+          <div className="border-t border-gray-200" />
+          <AccordionItem id="localidades" label="Localidades" icon={MapPin} desc="Ciudades y zonas disponibles al cargar clientes"
+            open={openPanel === 'localidades'} onToggle={() => togglePanel('localidades')}>
+            <PanelLocalidades />
           </AccordionItem>
         </div>
       </div>
@@ -812,10 +944,10 @@ export function Configuracion() {
       {/* Catálogo de productos */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Catálogo de productos</h2>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
           {CATALOG_BTNS.map(({ id, label, icon, desc }, idx) => (
             <div key={id}>
-              {idx > 0 && <div className="border-t border-gray-100" />}
+              {idx > 0 && <div className="border-t border-gray-200" />}
               <AccordionItem id={id} label={label} icon={icon} desc={desc}
                 open={openPanel === id} onToggle={() => togglePanel(id)}>
                 {id === 'tipos_abertura' && <PanelTiposAbertura />}
@@ -830,7 +962,7 @@ export function Configuracion() {
       {/* Mensajes WhatsApp */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Comunicación</h2>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
           <AccordionItem id="mensajes" label="Mensajes WhatsApp" icon={MessageSquare}
             desc="Texto de pedidos, presupuestos y remitos enviados por WhatsApp"
             open={openPanel === 'mensajes'} onToggle={() => togglePanel('mensajes')}>

@@ -435,7 +435,7 @@ export function Clientes() {
         <div className="flex-1 min-w-0 space-y-3">
 
           {/* Tabs + ordenar */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md px-4 py-3">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
               <div className="flex items-center gap-1 flex-wrap">
                 {TABS.map(t => {
@@ -465,7 +465,7 @@ export function Clientes() {
                   Ordenar por: <span className="text-gray-900">{ORDEN_LABELS[orden]}</span>
                 </button>
                 {ordenOpen && (
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 w-44">
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 w-44">
                     {(Object.entries(ORDEN_LABELS) as [Orden, string][]).map(([k, label]) => (
                       <button key={k} onClick={() => { setOrden(k); setOrdenOpen(false); }}
                         className={cn('w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors',
@@ -508,9 +508,9 @@ export function Clientes() {
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-x-auto">
             {/* Cabecera */}
-            <div className="grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
+            <div className="grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
               style={{ gridTemplateColumns: '1fr 150px 110px 130px 120px 100px 120px 80px', minWidth: '820px' }}>
               <span>Cliente</span>
               <span>Contacto</span>
@@ -658,7 +658,7 @@ export function Clientes() {
 
             {/* Paginación */}
             {filtrado.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50/50">
                 <p className="text-xs text-gray-500">
                   Mostrando {(page - 1) * PER_PAGE + 1} a {Math.min(page * PER_PAGE, filtrado.length)} de {filtrado.length} clientes
                 </p>
@@ -692,7 +692,7 @@ export function Clientes() {
           {/* Barra inferior — 4 tiles resumen */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                   <Clock size={15} className="text-amber-600" />
@@ -703,7 +703,7 @@ export function Clientes() {
               <p className="text-[10px] text-gray-400 mt-0.5">Sin actividad en más de 60 días</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <TrendingUp size={15} className="text-emerald-600" />
@@ -719,7 +719,7 @@ export function Clientes() {
               ) : <p className="text-xs text-gray-400">Sin datos</p>}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                   <Star size={15} className="text-amber-600" />
@@ -735,7 +735,7 @@ export function Clientes() {
               ) : <p className="text-xs text-gray-400">Sin datos</p>}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
                   {resumen.ticket_trend >= 0
@@ -759,7 +759,7 @@ export function Clientes() {
         <div className="w-full 2xl:w-[260px] 2xl:shrink-0 space-y-4">
 
           {/* Oportunidades para hoy */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-gray-800">Oportunidades para hoy</p>
             </div>
@@ -788,7 +788,7 @@ export function Clientes() {
 
           {/* Clientes por localidad */}
           {por_localidad.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Clientes por localidad</p>
               <DonutChart data={por_localidad.map(l => ({ label: l.localidad, pct: l.pct, count: l.count }))} />
             </div>
@@ -796,7 +796,7 @@ export function Clientes() {
 
           {/* Actividad reciente */}
           {actividad_reciente.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Actividad reciente</p>
               <div className="space-y-2.5">
                 {actividad_reciente.map((a, i) => {

@@ -31,6 +31,8 @@ informes.get('/resumen', async (c) => {
     topClientesResult,
     metodospagoResult,
     objetivoResult,
+    descuentosResult,
+    topClientesDescuentoResult,
   ] = await Promise.all([
 
     // 1. KPIs principales (período actual)
@@ -220,6 +222,36 @@ informes.get('/resumen', async (c) => {
 
     // 13. Objetivo ventas mensual
     db.query(`SELECT COALESCE(objetivo_ventas_mensual, 0)::numeric AS objetivo FROM empresa LIMIT 1`),
+
+    // 14. Resumen descuentos del período
+    db.query(`
+      SELECT
+        COALESCE(SUM(monto_descuento), 0)::numeric AS total_descuentos,
+        COALESCE(SUM(monto_lista),     0)::numeric AS total_lista,
+        COUNT(*) FILTER (WHERE monto_descuento > 0)::int AS recibos_con_descuento
+      FROM recibos
+      WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
+    `, [desde, hasta]),
+
+    // 15. Top clientes por descuentos del período
+    db.query(`
+      SELECT
+        c.id,
+        c.tipo_persona,
+        c.nombre,
+        c.apellido,
+        c.razon_social,
+        COALESCE(SUM(r.monto_descuento), 0)::numeric AS total_descuento,
+        COUNT(*)::int AS cant_recibos
+      FROM recibos r
+      JOIN clientes c ON c.id = r.cliente_id
+      WHERE r.estado = 'emitido'
+        AND r.fecha BETWEEN $1::date AND $2::date
+        AND r.monto_descuento > 0
+      GROUP BY c.id, c.tipo_persona, c.nombre, c.apellido, c.razon_social
+      ORDER BY total_descuento DESC
+      LIMIT 5
+    `, [desde, hasta]),
   ]);
 
   const pct = (cur: number, prev: number) =>
@@ -344,6 +376,19 @@ informes.get('/resumen', async (c) => {
       cumplimiento_pct: cumplimiento_obj,
     },
     alertas,
+    descuentos: {
+      total_descuentos:    Number(descuentosResult.rows[0]?.total_descuentos    ?? 0),
+      total_lista:         Number(descuentosResult.rows[0]?.total_lista          ?? 0),
+      recibos_con_descuento: Number(descuentosResult.rows[0]?.recibos_con_descuento ?? 0),
+      top_clientes: topClientesDescuentoResult.rows.map((r: any) => ({
+        id:              r.id,
+        nombre:          r.tipo_persona === 'juridica'
+                           ? (r.razon_social || '—')
+                           : [r.apellido, r.nombre].filter(Boolean).join(', ') || '—',
+        total_descuento: Number(r.total_descuento),
+        cant_recibos:    r.cant_recibos,
+      })),
+    },
   });
 });
 

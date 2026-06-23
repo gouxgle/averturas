@@ -167,7 +167,7 @@ function KpiCard({ icon, color, label, value, sub }: {
   icon: React.ReactNode; color: string; label: string; value: string; sub?: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5 flex flex-col gap-1">
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-3.5 flex flex-col gap-1">
       <div className={`w-8 h-8 rounded-xl ${color} flex items-center justify-center`}>{icon}</div>
       <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">{label}</div>
       <div className="text-xl font-bold text-gray-900 leading-none">{value}</div>
@@ -246,7 +246,7 @@ function PipelineCard({
   const monto = cliente.ultimo_op_monto ?? cliente.monto_estimado;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
         <span
@@ -360,7 +360,7 @@ function ModalNuevoLead({ onClose, onSuccess }: { onClose: () => void; onSuccess
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
               <Plus size={16} className="text-blue-600" />
@@ -480,7 +480,7 @@ function ModalMoverEtapa({ cliente, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="font-bold text-gray-900 text-sm">Mover etapa</h2>
           <button onClick={onClose}><X size={16} className="text-gray-400" /></button>
         </div>
@@ -560,7 +560,7 @@ function ModalRegistrarContacto({ cliente, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="font-bold text-gray-900 text-sm">Registrar contacto</h2>
           <button onClick={onClose}><X size={16} className="text-gray-400" /></button>
         </div>
@@ -678,7 +678,7 @@ export function CRM() {
   const EMBUDO_COLORS = ['#3B82F6','#8B5CF6','#F59E0B','#F97316','#10B981'];
 
   return (
-    <div className="p-4 space-y-4 max-w-[1700px]" data-section="crm">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 max-w-[1440px] mx-auto" data-section="crm">
       <SectionHero
         section="crm"
         icon={Users}
@@ -735,7 +735,7 @@ export function CRM() {
                   <div className="space-y-2">
                     {loading ? (
                       Array.from({ length: 2 }).map((_, i) => (
-                        <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />
+                        <div key={i} className="bg-white rounded-xl border border-gray-200 h-20 animate-pulse" />
                       ))
                     ) : visible.length === 0 ? (
                       <div className="text-center py-6 text-xs text-gray-300">Sin leads</div>
@@ -768,7 +768,7 @@ export function CRM() {
         <div className="w-60 shrink-0 space-y-3">
 
           {/* Seguimientos del día */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Clock size={12} className="text-blue-500" />
               Seguimientos de hoy
@@ -812,7 +812,7 @@ export function CRM() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Acciones rápidas</h3>
             <div className="space-y-0.5">
               {[
@@ -832,7 +832,7 @@ export function CRM() {
           </div>
 
           {/* Clientes por valor */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Trophy size={12} className="text-amber-500" />
               Clientes por valor (12m)
@@ -860,13 +860,13 @@ export function CRM() {
       {/* ── Analytics bottom ── */}
       {loading ? (
         <div className="grid grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="bg-white rounded-2xl border border-gray-100 h-52 animate-pulse" />)}
+          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="bg-white rounded-2xl border border-gray-200 h-52 animate-pulse" />)}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
           {/* Embudo */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <TrendingUp size={12} className="text-blue-500" /> Embudo de ventas
             </h3>
@@ -884,7 +884,7 @@ export function CRM() {
               ))}
             </div>
             {data && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="mt-3 pt-3 border-t border-gray-200">
                 <div className="text-xs text-gray-500">Tasa de conversión global:
                   <strong className="text-gray-800 ml-1">{kpis?.tasa_cierre ?? 0}%</strong>
                 </div>
@@ -893,7 +893,7 @@ export function CRM() {
           </div>
 
           {/* Ventas por período */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <DollarSign size={12} className="text-green-500" /> Ventas por período
             </h3>
@@ -928,7 +928,7 @@ export function CRM() {
           </div>
 
           {/* Origen de leads */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Globe size={12} className="text-violet-500" /> Origen de leads
             </h3>
@@ -967,7 +967,7 @@ export function CRM() {
           </div>
 
           {/* Productos más consultados */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Star size={12} className="text-amber-500" /> Productos más consultados
             </h3>
@@ -995,7 +995,7 @@ export function CRM() {
                 })}
               </div>
             )}
-            <div className="mt-3 pt-2 border-t border-gray-100">
+            <div className="mt-3 pt-2 border-t border-gray-200">
               <Link to="/productos" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
                 Ver todos los productos <ChevronRight size={10} />
               </Link>
@@ -1006,15 +1006,15 @@ export function CRM() {
 
       {/* ── Últimas oportunidades ── */}
       {!loading && (data?.ultimas_oportunidades ?? []).length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
             <h3 className="text-sm font-bold text-gray-800">Últimas oportunidades</h3>
             <span className="text-xs text-gray-400">{data?.ultimas_oportunidades.length} activas</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-gray-200">
                   {['Cliente','Producto','Monto est.','Etapa','Último contacto','Próxima acción',''].map(h => (
                     <th key={h} className="text-left px-4 py-2.5 text-gray-400 font-semibold">{h}</th>
                   ))}

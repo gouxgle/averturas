@@ -714,7 +714,7 @@ export function VistaPublicaPresupuesto() {
           onClick={e => e.stopPropagation()}>
 
           {/* Header */}
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#031d49' }}>
               <ScrollText size={16} className="text-white" />
             </div>
@@ -774,7 +774,7 @@ export function VistaPublicaPresupuesto() {
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-4 border-t border-gray-100 shrink-0">
+          <div className="px-5 py-4 border-t border-gray-200 shrink-0">
             <button onClick={() => setShowTerminos(false)}
               className="w-full py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: '#031d49' }}>

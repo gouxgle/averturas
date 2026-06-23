@@ -242,7 +242,7 @@ function ModalIngreso({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
               <ArrowDownCircle size={18} className="text-emerald-600" />
@@ -355,7 +355,7 @@ function ModalIngreso({
           </div>
         </div>
 
-        <div className="flex gap-3 p-5 border-t border-gray-100">
+        <div className="flex gap-3 p-5 border-t border-gray-200">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
@@ -421,7 +421,7 @@ function ModalEgreso({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
               <ArrowUpCircle size={18} className="text-blue-600" />
@@ -509,7 +509,7 @@ function ModalEgreso({
           </div>
         </div>
 
-        <div className="flex gap-3 p-5 border-t border-gray-100">
+        <div className="flex gap-3 p-5 border-t border-gray-200">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
@@ -571,7 +571,7 @@ function ModalAjuste({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
               <Wrench size={18} className="text-gray-600" />
@@ -660,7 +660,7 @@ function ModalAjuste({
           </div>
         </div>
 
-        <div className="flex gap-3 p-5 border-t border-gray-100">
+        <div className="flex gap-3 p-5 border-t border-gray-200">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
@@ -781,7 +781,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
           <RefreshCw size={20} className="animate-spin text-gray-400" />
         </div>
       ) : lotes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md py-16 text-center">
           <Layers size={32} className="mx-auto mb-3 text-gray-200" />
           <p className="text-sm text-gray-400">No hay lotes registrados</p>
         </div>
@@ -796,7 +796,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
             const isOpen   = expanded[lote.id];
 
             return (
-              <div key={lote.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div key={lote.id} className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
                 <div className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggle(lote.id)}>
                   <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
@@ -856,7 +856,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                 </div>
 
                 {isOpen && lote.items.length > 0 && (
-                  <div className="border-t border-gray-100">
+                  <div className="border-t border-gray-200">
                     <table className="w-full">
                       <thead>
                         <tr className="bg-gray-50">
@@ -920,7 +920,7 @@ function ProductoRow({
   const rotCfg     = ROTACION_CFG[producto.rotacion];
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-100 shadow-sm border-l-4 ${estadoCfg.border} overflow-hidden`}>
+    <div className={`bg-white rounded-xl border border-gray-200 shadow-md border-l-4 ${estadoCfg.border} overflow-hidden`}>
       <div
         className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
         style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}
@@ -1015,7 +1015,7 @@ function ProductoRow({
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
+        <div className="border-t border-gray-200 px-4 py-3 bg-gray-50/50">
           <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
             <History size={12} /> Últimos movimientos
           </p>
@@ -1127,7 +1127,8 @@ export function Stock() {
   [tablero]);
 
   return (
-    <div className="p-6 flex gap-6 min-h-0" data-section="stock">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto page-enter" data-section="stock">
+      <div className="flex gap-6 min-h-0">
       {/* ── Contenido principal ── */}
       <div className="flex-1 min-w-0 space-y-5">
         <SectionHero
@@ -1220,7 +1221,7 @@ export function Stock() {
               ] as const).map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    tab === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    tab === t.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700'
                   }`}>
                   <t.icon size={14} /> {t.label}
                 </button>
@@ -1251,7 +1252,7 @@ export function Stock() {
                     {FILTROS.map(f => (
                       <button key={f.key} onClick={() => setFiltro(f.key)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          filtro === f.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                          filtro === f.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700'
                         }`}>
                         {f.label}
                         {(f.count ?? 0) > 0 && (
@@ -1287,7 +1288,7 @@ export function Stock() {
 
                 {/* Filas */}
                 {paginated.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-md py-16 text-center">
                     <Boxes size={32} className="mx-auto mb-3 text-gray-200" />
                     <p className="text-sm text-gray-400">
                       {filtro !== 'todos' || search
@@ -1354,7 +1355,7 @@ export function Stock() {
       <div className="w-64 shrink-0 space-y-4">
 
         {/* Reposición sugerida */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <Zap size={12} className="text-orange-500" /> Reposición sugerida
           </p>
@@ -1393,7 +1394,7 @@ export function Stock() {
         </div>
 
         {/* Rotación de inventario */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Rotación
           </p>
@@ -1428,7 +1429,7 @@ export function Stock() {
         </div>
 
         {/* Movimiento 30d */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Movimiento 30 días
           </p>
@@ -1464,7 +1465,7 @@ export function Stock() {
         </div>
 
         {/* Acciones rápidas */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Acciones rápidas
           </p>
@@ -1515,6 +1516,7 @@ export function Stock() {
           productoPreseleccionado={ajusteProducto}
         />
       )}
+      </div>
     </div>
   );
 }

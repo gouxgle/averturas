@@ -91,7 +91,7 @@ function MargenBadge({ fuente, nombre, valor }: { fuente: string; nombre: string
     producto:  'bg-blue-50 text-blue-700 border-blue-200',
     tipo:      'bg-violet-50 text-violet-700 border-violet-200',
     proveedor: 'bg-gray-100 text-gray-600 border-gray-200',
-    ninguno:   'bg-gray-50 text-gray-400 border-gray-100',
+    ninguno:   'bg-gray-50 text-gray-400 border-gray-200',
   }[fuente] ?? 'bg-gray-50 text-gray-400';
 
   const label = {
@@ -180,7 +180,7 @@ function VincularModal({
             />
           </div>
           {lista.length > 0 && (
-            <div className="border border-gray-100 rounded-xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-gray-50">
+            <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-gray-50">
               {lista.map(p => (
                 <button key={p.id} onClick={() => vincular(p.id)} disabled={saving}
                   className="w-full text-left px-4 py-3 hover:bg-lime-50 transition-colors flex items-center justify-between group disabled:opacity-50">
@@ -959,7 +959,7 @@ export function ProveedorPrecios() {
 
       {/* Tabla */}
       {precios.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-16 text-center">
           <Tag size={40} className="mx-auto mb-4 text-gray-300" />
           <p className="font-semibold text-gray-500 mb-1">Sin precios cargados</p>
           <p className="text-sm text-gray-400 mb-6">Agregá precios manualmente o importá un CSV del proveedor</p>
@@ -975,9 +975,9 @@ export function ProveedorPrecios() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 {[
                   { h: 'SKU / Código', align: 'left' },

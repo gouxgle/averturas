@@ -7,6 +7,10 @@ dist/
 dist-ssr/
 server/dist/
 
+# Credenciales de servicios externos (nunca al repo)
+*-service-account*.json
+backups-sistemas-*.json
+
 # Environment files (secretos - nunca al repo)
 .env
 .env.local

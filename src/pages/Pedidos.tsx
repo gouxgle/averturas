@@ -418,7 +418,7 @@ function PedidoModal({ id, onClose, onSaved }: {
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Items del pedido</p>
             <div className="space-y-2">
               {pedido.items.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl">
+                <div key={item.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{item.descripcion}</p>
                     {item.producto && (
@@ -452,7 +452,7 @@ function PedidoModal({ id, onClose, onSaved }: {
                     </div>
                   </>
                 )}
-                <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                <div className="flex justify-between items-center pt-1 border-t border-gray-200">
                   <span className="text-sm font-semibold text-gray-600">Total</span>
                   <span className="text-lg font-bold text-gray-900">{formatCurrency(pedido.monto_total)}</span>
                 </div>
@@ -773,8 +773,8 @@ export default function Pedidos() {
         <div className="flex-1 min-w-0">
 
           {/* Filtros */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="flex flex-col sm:flex-row gap-3 p-3 border-b border-gray-100">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+            <div className="flex flex-col sm:flex-row gap-3 p-3 border-b border-gray-200">
               <div className="flex gap-1 flex-wrap">
                 {TABS.map(t => (
                   <button
@@ -811,7 +811,7 @@ export default function Pedidos() {
             <div className="overflow-x-auto">
               <div className="min-w-[640px]">
                 {/* Header */}
-                <div className="grid text-[11px] font-semibold uppercase tracking-wider text-gray-400 px-4 py-2 border-b border-gray-100"
+                <div className="grid text-[11px] font-semibold uppercase tracking-wider text-gray-400 px-4 py-2 border-b border-gray-200"
                   style={{ gridTemplateColumns: '160px 1fr 1fr 120px 110px 90px' }}>
                   <span>Pedido</span>
                   <span>Proveedor</span>
@@ -920,7 +920,7 @@ export default function Pedidos() {
 
             {/* Paginación */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
                 <span className="text-xs text-gray-400">
                   Mostrando {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filas.length)} de {filas.length}
                 </span>
@@ -948,7 +948,7 @@ export default function Pedidos() {
 
           {/* Esperando recepción */}
           {(data?.esperando_recepcion?.length ?? 0) > 0 && (
-            <div className="bg-white rounded-xl border border-sky-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl border border-sky-200 shadow-md overflow-hidden">
               <div className="px-4 py-3 bg-sky-50 border-b border-sky-100 flex items-center gap-2">
                 <Truck size={14} className="text-sky-600" />
                 <p className="text-xs font-semibold text-sky-700">Esperando recepción</p>
@@ -976,7 +976,7 @@ export default function Pedidos() {
 
           {/* Para preparar */}
           {(data?.para_preparar?.length ?? 0) > 0 && (
-            <div className="bg-white rounded-xl border border-emerald-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl border border-emerald-200 shadow-md overflow-hidden">
               <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
                 <Package size={14} className="text-emerald-600" />
                 <p className="text-xs font-semibold text-emerald-700">Para preparar y entregar</p>
@@ -1000,7 +1000,7 @@ export default function Pedidos() {
           )}
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Acciones rápidas</p>
             <div className="space-y-1">
               <button

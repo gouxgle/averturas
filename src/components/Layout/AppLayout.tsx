@@ -160,7 +160,7 @@ export function AppLayout() {
           <NotificationBell />
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
           <Outlet />
         </main>
       </div>

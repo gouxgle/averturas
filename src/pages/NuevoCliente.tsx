@@ -94,6 +94,7 @@ export function NuevoCliente() {
   const [clientesRef, setClientesRef] = useState<Cliente[]>([]);
   const [dniWarning, setDniWarning]   = useState<string | null>(null);
   const [obraEsMisma, setObraEsMisma] = useState(false);
+  const [localidades, setLocalidades] = useState<string[]>([]);
   const nombreRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>(() => {
@@ -111,6 +112,9 @@ export function NuevoCliente() {
   useEffect(() => {
     api.get<CategoriaCliente[]>('/catalogo/categorias-cliente').then(setCategorias);
     api.get<Cliente[]>('/clientes').then(setClientesRef);
+    api.get<{ id: string; nombre: string; activo: boolean }[]>('/localidades')
+      .then(list => setLocalidades(list.filter(l => l.activo).map(l => l.nombre)))
+      .catch(() => {});
 
     if (isEdit) {
       api.get<Cliente>(`/clientes/${editId}`).then(c => {
@@ -283,6 +287,11 @@ export function NuevoCliente() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* datalist reutilizable para todos los campos de localidad */}
+      <datalist id="localidades-list">
+        {localidades.map(l => <option key={l} value={l} />)}
+      </datalist>
+
       {/* ── Header ── */}
       <div className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)}
@@ -313,9 +322,9 @@ export function NuevoCliente() {
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* ══ SECCIÓN 1: CARGA RÁPIDA ════════════════════════════════════════ */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
             {/* Header sección */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
                   <Zap size={17} className="text-emerald-600" />
@@ -400,7 +409,8 @@ export function NuevoCliente() {
                     <input
                       value={form.localidad}
                       onChange={e => set('localidad', e.target.value)}
-                      placeholder="Ej: Formosa"
+                      placeholder="Seleccionar o escribir"
+                      list="localidades-list"
                       className={cn(inp, 'pl-9')}
                     />
                   </div>
@@ -479,7 +489,7 @@ export function NuevoCliente() {
 
               {/* ¿Qué pasa después? */}
               {!isEdit && (
-                <div className="flex items-start gap-3 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                <div className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
                   <ChevronRight size={15} className="text-blue-400 mt-0.5 shrink-0" />
                   <div>
                     <div className="text-xs font-bold text-gray-700 mb-0.5">¿Qué pasa después?</div>
@@ -493,9 +503,9 @@ export function NuevoCliente() {
           </div>
 
           {/* ══ SECCIÓN 2: DATOS COMPLEMENTARIOS ══════════════════════════════ */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
             {/* Header sección */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
                   <Clock size={17} className="text-blue-600" />
@@ -586,7 +596,7 @@ export function NuevoCliente() {
                       <div>
                         <label className={lbl}>Localidad</label>
                         <input value={form.localidad} onChange={e => set('localidad', e.target.value)}
-                          placeholder="Ej: Formosa" className={inp} />
+                          placeholder="Seleccionar o escribir" list="localidades-list" className={inp} />
                       </div>
                       <div>
                         <label className={lbl}>Código postal</label>
@@ -608,7 +618,7 @@ export function NuevoCliente() {
                       <div>
                         <label className={lbl}>Localidad</label>
                         <input value={form.dom_alternativo_localidad} onChange={e => set('dom_alternativo_localidad', e.target.value)}
-                          placeholder="Ej: Formosa" className={inp} />
+                          placeholder="Seleccionar o escribir" list="localidades-list" className={inp} />
                       </div>
                       <div>
                         <label className={lbl}>Código postal</label>
@@ -688,7 +698,8 @@ export function NuevoCliente() {
                             value={obraEsMisma ? form.localidad : form.dom_obra_localidad}
                             onChange={e => set('dom_obra_localidad', e.target.value)}
                             disabled={obraEsMisma}
-                            placeholder="Ej: Formosa"
+                            placeholder="Seleccionar o escribir"
+                            list="localidades-list"
                             className={cn(inp, obraEsMisma && 'opacity-50 bg-gray-50')}
                           />
                         </div>
@@ -867,7 +878,7 @@ export function NuevoCliente() {
           </div>
 
           {/* ══ BOTTOM: Importante + Flujo ════════════════════════════════════ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white rounded-2xl border border-gray-200 shadow-md p-5">
             {/* Importante */}
             <div className="flex items-start gap-2">
               <Star size={14} className="text-amber-500 mt-0.5 shrink-0" />
@@ -909,7 +920,7 @@ export function NuevoCliente() {
         <div className="hidden lg:block w-56 shrink-0 space-y-4">
 
           {/* Perfil del cliente */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <User size={13} className="text-emerald-600" />
@@ -929,7 +940,7 @@ export function NuevoCliente() {
           </div>
 
           {/* Consejos */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center gap-2 mb-3">
               <Lightbulb size={13} className="text-amber-500" />
               <div className="text-xs font-bold text-gray-700">Consejos</div>

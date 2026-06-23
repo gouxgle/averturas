@@ -119,6 +119,9 @@ export const ReciboSchema = z.object({
   notas:           zText(1000).optional(),
   items:           z.array(ReciboItemSchema).optional().default([]),
   compromiso:      ReciboCompromisoSchema,
+  descuento_pct:   z.number().min(0).max(100).optional().default(0),
+  monto_lista:     z.number().min(0).optional().default(0),
+  monto_descuento: z.number().min(0).optional().default(0),
 });
 
 // ── Pedidos al proveedor ───────────────────────────────────────

@@ -33,7 +33,7 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
       <div className="flex items-center gap-4 flex-wrap">
         {/* Icon mark */}
         <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-md"
           style={{ background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.6)' }}
         >
           <Icon size={26} style={{ color: colors.icon }} />

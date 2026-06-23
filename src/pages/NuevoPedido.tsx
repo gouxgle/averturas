@@ -216,10 +216,10 @@ function SectionCard({
   title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-md">
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
-        accent ?? 'bg-gray-50 border-gray-100',
+        accent ?? 'bg-gray-50 border-gray-200',
       )}>
         <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-400'} />
         <span className={cn(
@@ -537,7 +537,7 @@ export default function NuevoPedido() {
 
     return (
       <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-8 text-center">
           <div className="w-16 h-16 bg-lime-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShoppingCart size={28} className="text-lime-600" />
           </div>
@@ -593,7 +593,7 @@ export default function NuevoPedido() {
               </div>
 
               {/* Burbuja WhatsApp */}
-              <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-sm max-h-64 overflow-y-auto">
+              <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-md max-h-64 overflow-y-auto">
                 <p className="text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed">{waText}</p>
               </div>
 
@@ -827,7 +827,7 @@ export default function NuevoPedido() {
                 'flex gap-2 items-start p-3 rounded-xl border transition-colors',
                 isCovered   ? 'bg-gray-100 border-gray-200 opacity-60' :
                 isDeselected ? 'bg-gray-50 border-dashed border-gray-300 opacity-70' :
-                               'bg-gray-50 border-gray-100'
+                               'bg-gray-50 border-gray-200'
               )}>
                 {/* Checkbox — solo para ítems de operación no cubiertos */}
                 {item.operacion_item_id && !isCovered && (
@@ -886,7 +886,7 @@ export default function NuevoPedido() {
                     disabled={isCovered || isDeselected}
                     className={cn(
                       'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200',
-                      (isCovered || isDeselected) ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-default' : 'border-gray-200'
+                      (isCovered || isDeselected) ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-default' : 'border-gray-200'
                     )}
                   />
                   {!isCovered && isActive && (
@@ -961,7 +961,7 @@ export default function NuevoPedido() {
                     step={1}
                   />
                 </div>
-                <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                <div className="flex justify-between items-center pt-1 border-t border-gray-200">
                   <span className="text-sm font-semibold text-gray-700">Total estimado</span>
                   <span className="text-lg font-bold text-gray-900">{formatCurrency(montoTotal)}</span>
                 </div>
@@ -1073,7 +1073,7 @@ export default function NuevoPedido() {
         )}
 
         {/* Guardar */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleSave}

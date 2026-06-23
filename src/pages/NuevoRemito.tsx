@@ -184,7 +184,7 @@ export function NuevoRemito() {
     }
     setLoadingOp(true);
     Promise.all([
-      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number }>(`/operaciones/${operacionId}`),
+      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
       api.get<Array<{ id: string; numero: string; estado: string; proveedor: { nombre: string } }>>(`/pedidos?operacion_id=${operacionId}`),
     ]).then(([op, peds]) => {
       setOpItems(op.items ?? []);
@@ -193,6 +193,16 @@ export function NuevoRemito() {
       setSaldoPendiente(saldo > 0.01 ? saldo : null);
       const sinRecibir = peds.filter(p => p.estado !== 'cancelado' && p.estado !== 'recibido');
       setPedidosSinRecibir(sinRecibir);
+      // Auto-set medio_envio según forma_envio del presupuesto (solo al crear, no editar)
+      if (!isEdit && op.forma_envio) {
+        const map: Record<string, string> = {
+          retiro_local:     'retiro_local',
+          envio_bonificado: 'flete_propio',
+          envio_destino:    'flete_propio',
+          envio_empresa:    'flete_tercero',
+        };
+        setMedioEnvio(map[op.forma_envio] ?? 'retiro_local');
+      }
     }).catch(() => { setOpItems([]); setSaldoPendiente(null); setPedidosSinRecibir([]); })
       .finally(() => setLoadingOp(false));
   }, [operacionId]);
@@ -429,7 +439,7 @@ export function NuevoRemito() {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Cliente */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">1</span>
               Cliente
@@ -486,7 +496,7 @@ export function NuevoRemito() {
 
           {/* Presupuesto vinculado */}
           {clienteId && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">2</span>
                 Presupuesto vinculado
@@ -553,9 +563,9 @@ export function NuevoRemito() {
                         <RefreshCw size={12} className="animate-spin" /> Cargando ítems...
                       </div>
                     ) : opItems.length > 0 ? (
-                      <div className="border border-gray-100 rounded-xl overflow-hidden">
+                      <div className="border border-gray-200 rounded-xl overflow-hidden">
                         {/* Header con seleccionar todos */}
-                        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
+                        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
                           <button
                             type="button"
                             onClick={() => {
@@ -609,7 +619,7 @@ export function NuevoRemito() {
                         ))}
 
                         {/* Botón importar */}
-                        <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                        <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                           <p className="text-[10px] text-gray-400">
                             {selectedOp.size === opItems.length ? 'Entrega total' : `Entrega parcial (${selectedOp.size} ítem${selectedOp.size !== 1 ? 's' : ''})`}
                           </p>
@@ -633,7 +643,7 @@ export function NuevoRemito() {
           )}
 
           {/* Ítems */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">
                 {clienteId ? '3' : '2'}
@@ -643,7 +653,7 @@ export function NuevoRemito() {
 
             <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-200">
                   <div className="grid grid-cols-12 gap-2 mb-2">
                     {/* Selector producto con búsqueda */}
                     <div className="col-span-5">
@@ -785,7 +795,7 @@ export function NuevoRemito() {
             </button>
 
             {precioTotal > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+              <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
                 <div className="text-right">
                   <p className="text-xs text-gray-400">Total estimado</p>
                   <p className="text-lg font-bold text-gray-900">
@@ -801,7 +811,7 @@ export function NuevoRemito() {
         <div className="space-y-4">
 
           {/* Medio de envío */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <Truck size={14} className="text-teal-500" /> Envío
             </h2>
@@ -811,7 +821,7 @@ export function NuevoRemito() {
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm border transition-all ${
                     medioEnvio === m.value
                       ? 'bg-teal-50 border-teal-300 text-teal-800 font-medium'
-                      : 'border-gray-100 text-gray-600 hover:border-gray-200 hover:bg-gray-50'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-200 hover:bg-gray-50'
                   }`}>
                   <span className="text-base">{m.icon}</span>
                   {m.label}
@@ -840,7 +850,7 @@ export function NuevoRemito() {
           </div>
 
           {/* Fechas y dirección */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Package size={14} className="text-teal-500" /> Detalles
             </h2>
@@ -879,7 +889,7 @@ export function NuevoRemito() {
       {/* Botón al pie — evita volver al header */}
       <div className="mt-5 flex justify-end">
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60 shadow-sm">
+          className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60 shadow-md">
           {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
           {isEdit ? 'Guardar cambios' : 'Crear remito'}
         </button>

@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, Package, Truck,
   DollarSign, Users, BarChart3, ShoppingCart, Target,
   Calendar, FileText, Download, Edit2, Check, X,
-  ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle,
+  ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle, Tag,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { SectionHero } from '@/components/SectionHero';
@@ -71,6 +71,12 @@ interface ResumenData {
   metodos_pago: Array<{ forma_pago: string; cant: number; monto_total: number }>;
   objetivo: { objetivo_ventas: number; ventas_actuales: number; cumplimiento_pct: number };
   alertas: Alerta[];
+  descuentos: {
+    total_descuentos: number;
+    total_lista: number;
+    recibos_con_descuento: number;
+    top_clientes: Array<{ id: string; nombre: string; total_descuento: number; cant_recibos: number }>;
+  };
 }
 
 type FiltroTiempo = 'hoy' | 'semana' | 'mes' | 'personalizado';
@@ -131,7 +137,7 @@ function KpiCard({
   badge?: { text: string; danger?: boolean };
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-1.5">
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 flex flex-col gap-1.5">
       <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center`}>
         {icon}
       </div>
@@ -369,7 +375,7 @@ export function Reportes() {
   const ops  = data?.operaciones;
 
   return (
-    <div className="p-5 space-y-5 max-w-[1600px]" data-section="reportes">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-5 max-w-[1440px] mx-auto" data-section="reportes">
       <SectionHero
         section="reportes"
         icon={BarChart3}
@@ -381,14 +387,14 @@ export function Reportes() {
             {(['hoy','semana','mes'] as FiltroTiempo[]).map(f => (
               <button key={f} onClick={() => aplicarFiltro(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
-                  filtro === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  filtro === f ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'
                 }`}>
                 {f === 'hoy' ? 'Hoy' : f === 'semana' ? 'Semana' : 'Mes'}
               </button>
             ))}
             <button onClick={() => setFiltro('personalizado')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                filtro === 'personalizado' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                filtro === 'personalizado' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}>
               <Calendar size={12} /> Personalizado
             </button>
@@ -419,7 +425,7 @@ export function Reportes() {
       {loading ? (
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 h-28 animate-pulse" />
+            <div key={i} className="bg-white rounded-2xl border border-gray-200 h-28 animate-pulse" />
           ))}
         </div>
       ) : (
@@ -476,7 +482,7 @@ export function Reportes() {
         {/* Columna izquierda: chart + 5 bloques */}
         <div className="flex-1 min-w-0 space-y-3">
         {/* Chart */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 min-w-0">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5 min-w-0">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">Evolución de ventas</h2>
           <p className="text-xs text-gray-400 mb-4">
             {data?.evolucion.some(e => e.actual > 0) ? 'Ventas aprobadas por día' : 'Sin datos en el período'}
@@ -534,13 +540,13 @@ export function Reportes() {
         {loading ? (
           <div className="grid grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 h-52 animate-pulse" />
+              <div key={i} className="bg-white rounded-2xl border border-gray-200 h-52 animate-pulse" />
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-5 gap-3">
             {/* Comercial */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
                   <TrendingUp size={13} className="text-green-600" />
@@ -552,7 +558,7 @@ export function Reportes() {
                 <MiniBar label="Aprobados" value={com?.aprobados ?? 0} max={com?.total_generados ?? 1} color="bg-green-500" />
                 <MiniBar label="Perdidos"  value={com?.cancelados ?? 0} max={com?.total_generados ?? 1} color="bg-red-400" />
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="mt-4 pt-3 border-t border-gray-200">
                 <div className="text-xs text-gray-500">Tasa de cierre</div>
                 <div className="text-2xl font-bold text-gray-900">{com?.tasa_cierre ?? 0}%</div>
                 <div className="h-1.5 bg-gray-100 rounded-full mt-1">
@@ -561,7 +567,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Finanzas */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
                   <DollarSign size={13} className="text-blue-600" />
@@ -582,12 +588,12 @@ export function Reportes() {
                   )}
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+              <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
                 Días prom. cobro: <span className="font-bold text-gray-800 ml-1">{fin?.dias_promedio_cobro ?? 0} días</span>
               </div>
             </div>
             {/* Productos */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
                   <Package size={13} className="text-amber-600" />
@@ -614,13 +620,13 @@ export function Reportes() {
                   })
                 )}
               </div>
-              <div className="mt-3 pt-3 border-t border-gray-100 flex gap-3 text-xs text-gray-500">
+              <div className="mt-3 pt-3 border-t border-gray-200 flex gap-3 text-xs text-gray-500">
                 <span>Sin stock: <strong className="text-red-600">{data?.stock_counts.sin_stock ?? 0}</strong></span>
                 <span>Sin mvto: <strong>{data?.stock_counts.sin_movimiento_30d ?? 0}</strong></span>
               </div>
             </div>
             {/* Operaciones */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
                   <BarChart3 size={13} className="text-violet-600" />
@@ -634,7 +640,7 @@ export function Reportes() {
                   <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /><span className="text-gray-500">Atrasados</span><span className="font-bold text-red-600 ml-auto">{ops?.atrasadas ?? 0}</span></div>
                 </div>
               </div>
-              <div className="mt-2 pt-3 border-t border-gray-100">
+              <div className="mt-2 pt-3 border-t border-gray-200">
                 <div className="text-xs text-gray-500 mb-1">Cumplimiento entregas</div>
                 <div className="flex items-center gap-2">
                   <GaugePct pct={ops?.cumplimiento_pct ?? 100} color={ops && ops.cumplimiento_pct >= 80 ? '#10B981' : ops && ops.cumplimiento_pct >= 60 ? '#F59E0B' : '#EF4444'} />
@@ -646,7 +652,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Proveedores */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
                   <ShoppingCart size={13} className="text-orange-600" />
@@ -668,7 +674,7 @@ export function Reportes() {
         {/* Alertas + Acciones */}
         <div className="w-64 shrink-0 space-y-3">
           {/* Alertas */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <AlertCircle size={13} className="text-red-500" />
               Alertas importantes
@@ -690,7 +696,7 @@ export function Reportes() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Acciones rápidas</h3>
             <div className="space-y-0.5">
               {[
@@ -721,14 +727,14 @@ export function Reportes() {
       {loading ? (
         <div className="grid grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 h-56 animate-pulse" />
+            <div key={i} className="bg-white rounded-2xl border border-gray-200 h-56 animate-pulse" />
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
           {/* Mejores clientes */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Users size={12} className="text-blue-500" />
@@ -759,7 +765,7 @@ export function Reportes() {
           </div>
 
           {/* Productos más vendidos */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Package size={12} className="text-amber-500" />
@@ -786,7 +792,7 @@ export function Reportes() {
           </div>
 
           {/* Métodos de pago */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <DollarSign size={12} className="text-green-500" />
@@ -825,8 +831,58 @@ export function Reportes() {
             )}
           </div>
 
+          {/* Descuentos otorgados */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+                <Tag size={12} className="text-violet-500" />
+                Descuentos otorgados
+              </h3>
+            </div>
+            {(data?.descuentos.total_descuentos ?? 0) === 0 ? (
+              <div className="text-center py-4">
+                <Tag size={24} className="text-gray-300 mx-auto mb-2" />
+                <p className="text-xs text-gray-400">Sin descuentos en el período</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-violet-50 rounded-xl p-2.5 text-center">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Total descontado</div>
+                    <div className="text-base font-bold text-violet-700">{fmtP(data?.descuentos.total_descuentos ?? 0)}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                    <div className="text-[10px] text-gray-500 mb-0.5">% sobre precio lista</div>
+                    <div className="text-base font-bold text-gray-700">
+                      {(data?.descuentos.total_lista ?? 0) > 0
+                        ? (((data!.descuentos.total_descuentos) / (data!.descuentos.total_lista)) * 100).toFixed(1)
+                        : '0'}%
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 text-right">
+                  {data?.descuentos.recibos_con_descuento ?? 0} recibo{(data?.descuentos.recibos_con_descuento ?? 0) !== 1 ? 's' : ''} con descuento
+                </div>
+                {(data?.descuentos.top_clientes ?? []).length > 0 && (
+                  <div className="space-y-1.5 pt-1 border-t border-gray-100">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Mayores descuentos</p>
+                    {(data?.descuentos.top_clientes ?? []).map((c, i) => (
+                      <div key={c.id} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 truncate mr-2">
+                          <span className="text-gray-400 mr-1">{i + 1}.</span>
+                          {c.nombre}
+                        </span>
+                        <span className="font-semibold text-violet-700 shrink-0">{fmtP(c.total_descuento)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Objetivos */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Target size={12} className="text-violet-500" />

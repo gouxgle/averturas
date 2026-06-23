@@ -231,7 +231,7 @@ export function OperacionDetalle() {
         {/* Columna izquierda */}
         <div className="space-y-4">
           {/* Cliente */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
@@ -253,7 +253,7 @@ export function OperacionDetalle() {
           </div>
 
           {/* Totales */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5 space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Totales</h3>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Costo</span>
@@ -263,7 +263,7 @@ export function OperacionDetalle() {
               <span className="text-gray-700">Precio venta</span>
               <span className="text-gray-800">{formatCurrency(operacion.precio_total)}</span>
             </div>
-            <div className="flex justify-between text-sm border-t border-gray-100 pt-3">
+            <div className="flex justify-between text-sm border-t border-gray-200 pt-3">
               <span className="text-gray-500">Margen</span>
               <span className={cn('font-semibold', operacion.margen >= 20 ? 'text-green-600' : 'text-amber-600')}>
                 {operacion.margen}%
@@ -278,7 +278,7 @@ export function OperacionDetalle() {
 
           {/* Notas / validez */}
           {(operacion.notas || operacion.fecha_validez) && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-2">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5 space-y-2">
               {operacion.fecha_validez && (
                 <div>
                   <p className="text-xs text-gray-400">Validez</p>
@@ -296,8 +296,8 @@ export function OperacionDetalle() {
 
           {/* Panel recibos */}
           {esComercial && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
                 <Receipt size={14} className="text-emerald-500" />
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">Recibos</span>
                 {operacion.estado === 'aprobado' && (
@@ -325,7 +325,7 @@ export function OperacionDetalle() {
                       </Link>
                     ))}
                   </div>
-                  <div className="px-3 py-2 border-t border-gray-100 space-y-1">
+                  <div className="px-3 py-2 border-t border-gray-200 space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-400">Cobrado</span>
                       <span className="font-semibold text-emerald-700">{formatCurrency(totalCobrado)}</span>
@@ -344,8 +344,8 @@ export function OperacionDetalle() {
 
           {/* Panel remitos */}
           {esComercial && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
                 <Truck size={14} className="text-blue-500" />
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">Remitos</span>
                 {operacion.estado === 'aprobado' && (
@@ -382,8 +382,8 @@ export function OperacionDetalle() {
         {/* Columna derecha */}
         <div className="lg:col-span-2 space-y-4">
           {/* Ítems */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-200">
               <Package size={15} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-800">Ítems</h2>
             </div>
@@ -395,7 +395,7 @@ export function OperacionDetalle() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wider">
+                    <tr className="border-b border-gray-200 text-xs text-gray-400 uppercase tracking-wider">
                       <th className="px-5 py-3 text-left font-medium">Descripción</th>
                       <th className="px-3 py-3 text-center font-medium">Cant.</th>
                       <th className="px-3 py-3 text-right font-medium">Precio unit.</th>
@@ -426,8 +426,8 @@ export function OperacionDetalle() {
 
           {/* Historial */}
           {operacion.historial.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-5 py-4 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+              <div className="px-5 py-4 border-b border-gray-200">
                 <h2 className="text-sm font-semibold text-gray-800">Historial de estados</h2>
               </div>
               <div className="divide-y divide-gray-50">

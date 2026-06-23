@@ -383,7 +383,7 @@ function PresupuestoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-10 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mb-10">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <FileText size={16} className="text-violet-600" />
             <div>
@@ -576,7 +576,7 @@ function PresupuestoModal({
                     <span className={cn('text-[10px] font-semibold', ecColor)}>{ecLabel}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mb-3 text-center">
-                    <div className="bg-white rounded-lg px-2 py-2 border border-gray-100">
+                    <div className="bg-white rounded-lg px-2 py-2 border border-gray-200">
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Total</p>
                       <p className="text-xs font-bold text-gray-800">{formatCurrency(total)}</p>
                     </div>
@@ -584,7 +584,7 @@ function PresupuestoModal({
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Cobrado</p>
                       <p className="text-xs font-bold text-emerald-700">{formatCurrency(cobrado)}</p>
                     </div>
-                    <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100')}>
+                    <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-200')}>
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Saldo</p>
                       <p className={cn('text-xs font-bold', saldo > 0.01 ? 'text-amber-700' : 'text-gray-400')}>{formatCurrency(saldo)}</p>
                     </div>
@@ -619,7 +619,7 @@ function PresupuestoModal({
 
                   {/* Pedidos vinculados — trazabilidad por proveedor */}
                   {pedidos.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
+                    <div className="mt-3 pt-3 border-t border-gray-200">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <ShoppingCart size={11} className="text-gray-400" />
@@ -829,7 +829,7 @@ export function Presupuestos() {
         actions={<>
           <HelpButton topic="presupuestos" />
           <Link to="/presupuestos/nuevo"
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
             <Plus size={16} /> Nuevo presupuesto
           </Link>
         </>}
@@ -911,9 +911,9 @@ export function Presupuestos() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-x-auto">
             {/* Header */}
-            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 border-b border-gray-100 bg-gray-50"
+            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 border-b border-gray-200 bg-gray-50"
               style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}>
               <span>Presupuesto</span>
               <span>Cliente</span>
@@ -1110,7 +1110,7 @@ export function Presupuestos() {
 
             {/* Pagination */}
             {!loading && filtrado.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
                 <span className="text-xs text-gray-500">
                   Mostrando {(page - 1) * PER_PAGE + 1} a {Math.min(page * PER_PAGE, filtrado.length)} de {filtrado.length} presupuestos
                 </span>
@@ -1143,7 +1143,7 @@ export function Presupuestos() {
         {/* Right sidebar */}
         <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
           {/* En riesgo total */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-amber-600">
                 <AlertTriangle size={14} />
@@ -1159,7 +1159,7 @@ export function Presupuestos() {
           </div>
 
           {/* Seguimiento sugerido */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-gray-700">Seguimiento sugerido hoy</span>
             </div>
@@ -1191,7 +1191,7 @@ export function Presupuestos() {
           </div>
 
           {/* Probabilidad de cierre */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Probabilidad de cierre</p>
             <div className="flex items-center gap-3">
               <DonutChart segments={[
@@ -1219,7 +1219,7 @@ export function Presupuestos() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Acciones rápidas</p>
             <div className="space-y-2">
               <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left">

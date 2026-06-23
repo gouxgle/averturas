@@ -204,13 +204,13 @@ function OperacionCard({ op }: { op: OperacionDetalle }) {
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 divide-y divide-gray-50">
+        <div className="border-t border-gray-200 divide-y divide-gray-50">
           {op.items.length > 0 && (
             <div className="px-4 py-3">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Ítems</p>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100">
+                  <tr className="border-b border-gray-200">
                     <th className="text-left py-1 font-semibold text-gray-500 pr-3">Descripción</th>
                     <th className="text-center py-1 font-semibold text-gray-500 w-10">Cant.</th>
                     <th className="text-right py-1 font-semibold text-gray-500">Total</th>
@@ -276,14 +276,14 @@ export function EstadoCuenta() {
   }, [id]);
 
   if (loading) return (
-    <div className="p-6 max-w-4xl mx-auto animate-pulse space-y-4">
+    <div className="p-6 max-w-[1340px] mx-auto animate-pulse space-y-4">
       <div className="h-8 bg-gray-100 rounded w-1/3" />
       <div className="h-24 bg-gray-100 rounded-xl" />
       <div className="h-64 bg-gray-100 rounded-xl" />
     </div>
   );
   if (!data) return (
-    <div className="p-6 max-w-4xl mx-auto text-center py-20">
+    <div className="p-6 max-w-[1340px] mx-auto text-center py-20">
       <p className="text-gray-400">No encontrado</p>
       <Link to="/clientes" className="text-emerald-600 text-sm mt-2 hover:underline block">Volver a clientes</Link>
     </div>
@@ -314,7 +314,7 @@ export function EstadoCuenta() {
         }
       `}</style>
 
-      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5 pb-12">
+      <div className="p-4 sm:p-6 max-w-[1340px] mx-auto space-y-5 pb-12">
 
         {/* Header */}
         <div className="flex items-center gap-3 no-print">
@@ -411,15 +411,15 @@ export function EstadoCuenta() {
 
         {/* Ledger — libro de movimientos */}
         {ledger.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta corriente</p>
               <p className="text-xs text-gray-400">{ledger.length} movimientos</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
+                  <tr className="border-b border-gray-200 bg-gray-50">
                     <th className="text-left py-2 px-4 font-semibold text-gray-500 w-24">Fecha</th>
                     <th className="text-left py-2 px-2 font-semibold text-gray-500 w-28">Documento</th>
                     <th className="text-left py-2 px-2 font-semibold text-gray-500">Concepto</th>
@@ -493,8 +493,8 @@ export function EstadoCuenta() {
 
         {/* Compromisos de pago */}
         {compromisos.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-200">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compromisos de pago</p>
             </div>
             <div className="divide-y divide-gray-50">
@@ -559,7 +559,7 @@ export function EstadoCuenta() {
               })}
             </div>
             {compPendientes.length > 0 && (
-              <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+              <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                 <span className="text-xs text-gray-500">
                   {compPendientes.length} pendiente{compPendientes.length !== 1 ? 's' : ''}
                   {compVencidos.length > 0 && (
@@ -588,8 +588,8 @@ export function EstadoCuenta() {
 
         {/* Recibos sin operación */}
         {recibos_directos.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-200">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pagos sin operación vinculada</p>
             </div>
             <div className="divide-y divide-gray-50">
