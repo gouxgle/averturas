@@ -235,17 +235,22 @@ export function ImprimirRecibo() {
 
         {/* Descuento aplicado */}
         {Number(recibo.monto_descuento) > 0 && (
-          <div style={{ backgroundColor: '#f5f0ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '8px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>
-              Bonificación {Number(recibo.descuento_pct) % 1 === 0 ? Number(recibo.descuento_pct).toFixed(0) : Number(recibo.descuento_pct).toFixed(1)}% aplicada
-            </span>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: 11, color: '#999', textDecoration: 'line-through', marginRight: 10 }}>
-                Precio lista: {fmt(Number(recibo.monto_lista))}
+          <div style={{ backgroundColor: '#f5f0ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700 }}>
+                Bonificación {Number(recibo.descuento_pct) % 1 === 0 ? Number(recibo.descuento_pct).toFixed(0) : Number(recibo.descuento_pct).toFixed(1)}% aplicada
               </span>
               <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700 }}>
-                − {fmt(Number(recibo.monto_descuento))}
+                Ahorro: {fmt(Number(recibo.monto_descuento))}
               </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666' }}>
+              <span>Sin bonificación pagaría</span>
+              <span style={{ textDecoration: 'line-through', color: '#999' }}>{fmt(Number(recibo.monto_lista))}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#555', marginTop: 2 }}>
+              <span>Con bonificación paga</span>
+              <span style={{ fontWeight: 600, color: '#7c3aed' }}>{fmt(Number(recibo.monto_total))}</span>
             </div>
           </div>
         )}

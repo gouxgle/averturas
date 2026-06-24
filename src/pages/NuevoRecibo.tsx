@@ -601,10 +601,28 @@ export function NuevoRecibo() {
                     <span className="font-medium">{formatCurrency(envioExtra)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm font-bold text-violet-700 pt-1.5 border-t border-violet-200">
-                  <span>Total con bonificación</span>
-                  <span>{formatCurrency(totalConBonif)}</span>
-                </div>
+                {/* Si hay pagos previos, mostrar el subtotal y la deducción para que cuadren los números */}
+                {cobradoOp > 0 ? (
+                  <>
+                    <div className="flex justify-between text-xs text-violet-600 pt-1.5 border-t border-violet-200">
+                      <span>Subtotal operación c/bonif.</span>
+                      <span className="font-semibold">{formatCurrency(totalConBonif)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Ya cobrado anteriormente</span>
+                      <span>− {formatCurrency(cobradoOp)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-violet-700 pt-1.5 border-t border-violet-200">
+                      <span>Saldo a cobrar en este recibo</span>
+                      <span>{formatCurrency(saldoEfectivo)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm font-bold text-violet-700 pt-1.5 border-t border-violet-200">
+                    <span>Total con bonificación</span>
+                    <span>{formatCurrency(totalConBonif)}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
