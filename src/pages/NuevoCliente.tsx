@@ -95,8 +95,9 @@ export function NuevoCliente() {
   const [dniWarning, setDniWarning]   = useState<string | null>(null);
   const [obraEsMisma, setObraEsMisma] = useState(false);
   const [localidades, setLocalidades] = useState<string[]>([]);
-  const [telPrefijo, setTelPrefijo]   = useState('3704');
-  const [telNumero,  setTelNumero]    = useState('');
+  const [telPrefijo, setTelPrefijo]     = useState('3704');
+  const [telNumero,  setTelNumero]      = useState('');
+  const [telWarning, setTelWarning]     = useState<string | null>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>(() => {
@@ -204,6 +205,21 @@ export function NuevoCliente() {
         setDniWarning(null);
       }
     } catch { setDniWarning(null); }
+  }
+
+  function checkTelefono(telefono: string) {
+    const clean = telefono.replace(/\D/g, '');
+    if (clean.length < 8) { setTelWarning(null); return; }
+    const dup = clientesRef.find(c => {
+      if (isEdit && c.id === editId) return false;
+      return c.telefono?.replace(/\D/g, '') === clean;
+    });
+    if (dup) {
+      const n = dup.razon_social ?? [dup.apellido, dup.nombre].filter(Boolean).join(', ');
+      setTelWarning(`Ya registrado: ${n}`);
+    } else {
+      setTelWarning(null);
+    }
   }
 
   function buildPayload() {
@@ -388,9 +404,10 @@ export function NuevoCliente() {
                           const v = e.target.value.replace(/\D/g, '').slice(0, 5);
                           setTelPrefijo(v);
                           set('telefono', v + (telNumero ? ' ' + telNumero : ''));
+                          setTelWarning(null);
                         }}
                         placeholder="3704"
-                        className={cn(inp, 'pl-7 w-[88px] text-center font-mono tracking-wider')}
+                        className={cn(inp, 'pl-7 w-[88px] text-center font-mono tracking-wider', telWarning && 'border-amber-400 focus:ring-amber-400')}
                       />
                     </div>
                     <span className="text-gray-400 font-bold select-none">—</span>
@@ -402,12 +419,19 @@ export function NuevoCliente() {
                         const v = e.target.value.replace(/\D/g, '').slice(0, 6);
                         setTelNumero(v);
                         set('telefono', (telPrefijo ? telPrefijo + ' ' : '') + v);
+                        setTelWarning(null);
                       }}
+                      onBlur={() => checkTelefono((telPrefijo ? telPrefijo + ' ' : '') + telNumero)}
                       placeholder="123456"
                       maxLength={6}
-                      className={cn(inp, 'flex-1 text-center font-mono tracking-widest')}
+                      className={cn(inp, 'flex-1 text-center font-mono tracking-widest', telWarning && 'border-amber-400 focus:ring-amber-400')}
                     />
                   </div>
+                  {telWarning && (
+                    <p className="flex items-center gap-1 mt-1 text-[11px] text-amber-600 font-medium">
+                      <AlertCircle size={10} /> {telWarning}
+                    </p>
+                  )}
                 </div>
               </div>
 
