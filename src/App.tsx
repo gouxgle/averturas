@@ -33,6 +33,7 @@ import { ImportarClientes } from '@/pages/ImportarClientes';
 import { ImprimirPresupuesto } from '@/pages/print/ImprimirPresupuesto';
 import { ImprimirRemito } from '@/pages/print/ImprimirRemito';
 import { ImprimirRecibo } from '@/pages/print/ImprimirRecibo';
+import { FormularioCliente } from '@/pages/print/FormularioCliente';
 import { VistaPublicaPresupuesto } from '@/pages/VistaPublicaPresupuesto';
 import { VistaPublicaRemito }      from '@/pages/VistaPublicaRemito';
 
@@ -52,9 +53,10 @@ export default function App() {
             <Route path="/r/:token" element={<VistaPublicaRemito />} />
             <Route element={<ProtectedRoute />}>
               {/* Páginas de impresión — sin AppLayout */}
-              <Route path="/imprimir/presupuesto/:id" element={<ImprimirPresupuesto />} />
-              <Route path="/imprimir/remito/:id"      element={<ImprimirRemito />} />
-              <Route path="/imprimir/recibo/:id"      element={<ImprimirRecibo />} />
+              <Route path="/imprimir/presupuesto/:id"  element={<ImprimirPresupuesto />} />
+              <Route path="/imprimir/remito/:id"       element={<ImprimirRemito />} />
+              <Route path="/imprimir/recibo/:id"       element={<ImprimirRecibo />} />
+              <Route path="/imprimir/formulario-cliente" element={<FormularioCliente />} />
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />

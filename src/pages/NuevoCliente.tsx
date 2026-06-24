@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Zap, Clock, User, Building2, MapPin, Phone,
   Tag, FileText, Hash, AlertCircle, Home, Briefcase,
-  MessageCircle, ChevronRight, Star, Lightbulb,
+  MessageCircle, ChevronRight, Star, Lightbulb, Printer,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -344,10 +344,19 @@ export function NuevoCliente() {
             </p>
           </div>
         </div>
-        <button onClick={() => navigate(-1)}
-          className="hidden sm:block px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50">
-          Cancelar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.open('/imprimir/formulario-cliente', '_blank')}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50"
+          >
+            <Printer size={13} />
+            Imprimir Formulario
+          </button>
+          <button onClick={() => navigate(-1)}
+            className="hidden sm:block px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50">
+            Cancelar
+          </button>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 lg:p-5 flex gap-5">
