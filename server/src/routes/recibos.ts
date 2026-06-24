@@ -357,18 +357,22 @@ recibos.get('/:id', async (c) => {
     if (comps.length) compromiso = comps[0];
   }
 
-  // Total ya cobrado para la operación (para calcular saldo real)
+  // Total cobrado + descuentos otorgados para la operación (para calcular saldo real)
   let cobrado_operacion = 0;
+  let total_descuentos_operacion = 0;
   if (r.operacion_id) {
     const { rows: [tot] } = await db.query(`
-      SELECT COALESCE(SUM(monto_total), 0) AS total
+      SELECT
+        COALESCE(SUM(monto_total),     0)::numeric AS total_cobrado,
+        COALESCE(SUM(monto_descuento), 0)::numeric AS total_descuentos
       FROM recibos
       WHERE operacion_id = $1 AND estado = 'emitido'
     `, [r.operacion_id]);
-    cobrado_operacion = Number(tot?.total ?? 0);
+    cobrado_operacion          = Number(tot?.total_cobrado   ?? 0);
+    total_descuentos_operacion = Number(tot?.total_descuentos ?? 0);
   }
 
-  return c.json({ ...r, items, compromiso, cobrado_operacion });
+  return c.json({ ...r, items, compromiso, cobrado_operacion, total_descuentos_operacion });
 });
 
 // POST / — crear recibo

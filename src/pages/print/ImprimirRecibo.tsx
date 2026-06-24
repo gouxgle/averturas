@@ -34,7 +34,11 @@ interface ReciboData {
   }[];
   created_by_nombre: string | null;
   cobrado_operacion: number;
+  total_descuentos_operacion: number;
   compromiso: { monto: number; fecha_vencimiento: string; tipo: string } | null;
+  descuento_pct:    number;
+  monto_lista:      number;
+  monto_descuento:  number;
 }
 
 const PAGO_LABEL: Record<string, string> = {
@@ -229,6 +233,23 @@ export function ImprimirRecibo() {
           </table>
         )}
 
+        {/* Descuento aplicado */}
+        {Number(recibo.monto_descuento) > 0 && (
+          <div style={{ backgroundColor: '#f5f0ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '8px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>
+              Bonificación {Number(recibo.descuento_pct) % 1 === 0 ? Number(recibo.descuento_pct).toFixed(0) : Number(recibo.descuento_pct).toFixed(1)}% aplicada
+            </span>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: 11, color: '#999', textDecoration: 'line-through', marginRight: 10 }}>
+                Precio lista: {fmt(Number(recibo.monto_lista))}
+              </span>
+              <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700 }}>
+                − {fmt(Number(recibo.monto_descuento))}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Operacion vinculada + saldo */}
         {recibo.operacion && (
           <div style={{ paddingTop: 10, borderTop: '1px solid #eee', marginBottom: 20 }}>
@@ -242,8 +263,19 @@ export function ImprimirRecibo() {
                 </div>
               </div>
               {(() => {
-                const saldo = Math.max(0, Number(recibo.operacion.precio_total) - Number(recibo.cobrado_operacion ?? 0));
+                // saldo real = precio_total - cobrado - descuentos otorgados (no son deuda)
+                const saldo = Math.max(
+                  0,
+                  Number(recibo.operacion.precio_total)
+                  - Number(recibo.cobrado_operacion ?? 0)
+                  - Number(recibo.total_descuentos_operacion ?? 0)
+                );
                 if (saldo < 0.01) return null;
+                const fvRaw = recibo.compromiso?.fecha_vencimiento;
+                const fvStr = fvRaw
+                  ? new Date(fvRaw.slice(0, 10) + 'T12:00:00')
+                      .toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : null;
                 return (
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
@@ -251,11 +283,9 @@ export function ImprimirRecibo() {
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: RED }}>
                       {fmt(saldo)}
-                      {recibo.compromiso?.fecha_vencimiento && (
+                      {fvStr && (
                         <span style={{ fontWeight: 400, fontSize: 11, color: '#555', marginLeft: 8 }}>
-                          a cancelar el{' '}
-                          {new Date(recibo.compromiso.fecha_vencimiento + 'T12:00:00')
-                            .toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          a cancelar el {fvStr}
                         </span>
                       )}
                     </div>

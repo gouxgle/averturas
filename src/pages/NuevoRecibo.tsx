@@ -142,6 +142,7 @@ export function NuevoRecibo() {
   const [clientes,           setClientes]           = useState<Cliente[]>([]);
   const [operaciones,        setOperaciones]        = useState<Operacion[]>([]);
   const [cobradoOp,          setCobradoOp]          = useState(0);
+  const [descuentosOp,       setDescuentosOp]       = useState(0);
   const [operacionSel,       setOperacionSel]       = useState<Operacion | null>(null);
   const [presupuestoDetalle, setPresupuestoDetalle] = useState<PresupuestoDetalle | null>(null);
   const [tienePedido,        setTienePedido]        = useState(false);
@@ -201,7 +202,7 @@ export function NuevoRecibo() {
   // ── Al cambiar operación → detalle + cobrado ──────────────
   useEffect(() => {
     if (!operacionId) {
-      setOperacionSel(null); setCobradoOp(0); setPresupuestoDetalle(null);
+      setOperacionSel(null); setCobradoOp(0); setDescuentosOp(0); setPresupuestoDetalle(null);
       resetBonificacion();
       return;
     }
@@ -224,13 +225,13 @@ export function NuevoRecibo() {
       .then(data => setTienePedido(data.some(p => p.estado !== 'cancelado')))
       .catch(() => setTienePedido(false));
 
-    api.get<{ monto_total: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)
+    api.get<{ monto_total: number; monto_descuento?: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)
       .then(data => {
-        const total = data.filter(r => r.estado === 'emitido')
-          .reduce((s, r) => s + Number(r.monto_total), 0);
-        setCobradoOp(total);
+        const emitidos = data.filter(r => r.estado === 'emitido');
+        setCobradoOp(emitidos.reduce((s, r) => s + Number(r.monto_total), 0));
+        setDescuentosOp(emitidos.reduce((s, r) => s + Number(r.monto_descuento ?? 0), 0));
       })
-      .catch(() => setCobradoOp(0));
+      .catch(() => { setCobradoOp(0); setDescuentosOp(0); });
   }, [operacionId, operaciones]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -241,7 +242,8 @@ export function NuevoRecibo() {
 
   // ── Cálculo del total de presupuesto ──────────────────────
   const totalPresupuesto = Number(operacionSel?.precio_total ?? 0);
-  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp);
+  // Descuentos ya otorgados en recibos previos no son deuda — restarlos del saldo
+  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp - descuentosOp);
 
   // ── Breakdown bonificación ────────────────────────────────
   // Descuentos disponibles en cualquier forma de pago (típicamente Contado, excepcionalmente otros)
