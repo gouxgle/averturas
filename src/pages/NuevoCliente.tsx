@@ -95,6 +95,8 @@ export function NuevoCliente() {
   const [dniWarning, setDniWarning]   = useState<string | null>(null);
   const [obraEsMisma, setObraEsMisma] = useState(false);
   const [localidades, setLocalidades] = useState<string[]>([]);
+  const [telPrefijo, setTelPrefijo]   = useState('3704');
+  const [telNumero,  setTelNumero]    = useState('');
   const nombreRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>(() => {
@@ -152,6 +154,21 @@ export function NuevoCliente() {
           interes:                   (c as any).interes      ?? '',
         };
         setForm(f);
+        // Parsear teléfono en prefijo + número para el split input
+        const raw = (c.telefono ?? '').trim();
+        if (raw) {
+          const spaceIdx = raw.indexOf(' ');
+          if (spaceIdx > 0) {
+            setTelPrefijo(raw.slice(0, spaceIdx));
+            setTelNumero(raw.slice(spaceIdx + 1));
+          } else if (raw.length > 4) {
+            setTelPrefijo(raw.slice(0, 4));
+            setTelNumero(raw.slice(4));
+          } else {
+            setTelPrefijo(raw);
+            setTelNumero('');
+          }
+        }
         setNombreCompleto(
           c.tipo_persona === 'fisica'
             ? combinarNombre(c.apellido, c.nombre)
@@ -360,14 +377,35 @@ export function NuevoCliente() {
                 </div>
                 <div>
                   <label className={lbl}>WhatsApp / Celular *</label>
-                  <div className="relative">
-                    <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <div className="flex items-center gap-1">
+                    <div className="relative">
+                      <Phone size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300" />
+                      {/* Prefijo editable (ej: 3704) */}
+                      <input
+                        type="tel"
+                        value={telPrefijo}
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, 5);
+                          setTelPrefijo(v);
+                          set('telefono', v + (telNumero ? ' ' + telNumero : ''));
+                        }}
+                        placeholder="3704"
+                        className={cn(inp, 'pl-7 w-[72px] text-center font-mono tracking-wider')}
+                      />
+                    </div>
+                    <span className="text-gray-400 font-bold select-none">—</span>
+                    {/* Número de 6 dígitos */}
                     <input
                       type="tel"
-                      value={form.telefono}
-                      onChange={e => set('telefono', e.target.value)}
-                      placeholder="Ej: 3704 123456"
-                      className={cn(inp, 'pl-9')}
+                      value={telNumero}
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setTelNumero(v);
+                        set('telefono', (telPrefijo ? telPrefijo + ' ' : '') + v);
+                      }}
+                      placeholder="123456"
+                      maxLength={6}
+                      className={cn(inp, 'flex-1 text-center font-mono tracking-widest')}
                     />
                   </div>
                 </div>
