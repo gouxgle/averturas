@@ -390,7 +390,7 @@ export function NuevoCliente() {
                           set('telefono', v + (telNumero ? ' ' + telNumero : ''));
                         }}
                         placeholder="3704"
-                        className={cn(inp, 'pl-7 w-[72px] text-center font-mono tracking-wider')}
+                        className={cn(inp, 'pl-7 w-[88px] text-center font-mono tracking-wider')}
                       />
                     </div>
                     <span className="text-gray-400 font-bold select-none">—</span>
