@@ -236,7 +236,7 @@ export function ImprimirRecibo() {
         {/* Descuento aplicado */}
         {Number(recibo.monto_descuento) > 0 && (
           <div style={{ backgroundColor: '#f5f0ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700 }}>
                 Bonificación {Number(recibo.descuento_pct) % 1 === 0 ? Number(recibo.descuento_pct).toFixed(0) : Number(recibo.descuento_pct).toFixed(1)}% aplicada
               </span>
@@ -244,6 +244,12 @@ export function ImprimirRecibo() {
                 Ahorro: {fmt(Number(recibo.monto_descuento))}
               </span>
             </div>
+            {recibo.operacion && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#888', marginBottom: 4 }}>
+                <span>Total de la operación sin descuento</span>
+                <span>{fmt(Number(recibo.operacion.precio_total))}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666' }}>
               <span>Sin bonificación pagaría</span>
               <span style={{ textDecoration: 'line-through', color: '#999' }}>{fmt(Number(recibo.monto_lista))}</span>
@@ -259,14 +265,17 @@ export function ImprimirRecibo() {
         {recibo.operacion && (
           <div style={{ paddingTop: 10, borderTop: '1px solid #eee', marginBottom: 20 }}>
             <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
-                  Total de la operación
+              {/* "Total de la operación" ya se muestra dentro del recuadro lila si hay descuento */}
+              {!Number(recibo.monto_descuento) && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
+                    Total de la operación
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
+                    {fmt(Number(recibo.operacion.precio_total))}
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
-                  {fmt(Number(recibo.operacion.precio_total))}
-                </div>
-              </div>
+              )}
               {(() => {
                 // saldo real = precio_total - cobrado - descuentos otorgados (no son deuda)
                 const saldo = Math.max(
