@@ -128,7 +128,7 @@ const fmtM = (n: number) => {
 };
 
 const clienteNombre = (c: { nombre: string; apellido?: string | null; razon_social?: string | null }) =>
-  c.razon_social || `${c.nombre}${c.apellido ? ' ' + c.apellido : ''}`;
+  c.razon_social || [c.apellido, c.nombre].filter(Boolean).join(' ');
 
 const diasBadge = (dias: number) => {
   if (dias >= 999) return { text: 'Sin contacto', bg: 'bg-gray-100', txt: 'text-gray-500' };
@@ -846,7 +846,7 @@ export function CRM() {
                     className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-1 py-0.5">
                     <span className="text-xs font-bold text-gray-300 w-4">{i + 1}</span>
                     <span className="flex-1 text-xs text-gray-700 truncate">
-                      {c.razon_social || `${c.nombre}${c.apellido ? ' ' + c.apellido : ''}`}
+                      {c.razon_social || [c.apellido, c.nombre].filter(Boolean).join(' ')}
                     </span>
                     <span className="text-xs font-bold text-gray-700">{fmtM(Number(c.valor_total_historico))}</span>
                   </Link>

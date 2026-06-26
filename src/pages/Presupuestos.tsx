@@ -294,7 +294,7 @@ function PresupuestoModal({
   function buildMensajeWA(url: string) {
     if (!op) return url;
     const cl = op.cliente;
-    const nombre = cl.tipo_persona === 'juridica' ? cl.razon_social : `${cl.nombre ?? ''} ${cl.apellido ?? ''}`.trim();
+    const nombre = cl.tipo_persona === 'juridica' ? cl.razon_social : `${cl.apellido ?? ''} ${cl.nombre ?? ''}`.trim();
     return `Hola ${nombre}, te envío el presupuesto *${op.numero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
   }
 

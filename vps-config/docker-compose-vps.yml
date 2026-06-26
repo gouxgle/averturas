@@ -1,0 +1,50 @@
+name: cesarbritez
+
+services:
+
+  # ── Sitio web estático ────────────────────────────────────────
+  web:
+    build: ./web
+    container_name: cesarbritez-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+
+  # ── Aberturas CRM — Base de datos ────────────────────────────
+  aberturas-db:
+    image: postgres:15-alpine
+    container_name: aberturas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       postgres
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: ${ABERTURAS_DB_PASS}
+    volumes:
+      - /var/lib/docker-data/aberturas/db:/var/lib/postgresql/data
+      - ./aberturas/docker/initdb:/docker-entrypoint-initdb.d:ro
+      - ./aberturas/supabase/migrations:/migrations:ro
+    ports:
+      - "127.0.0.1:${ABERTURAS_DB_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Aberturas CRM — App ───────────────────────────────────────
+  aberturas-app:
+    build: ./aberturas
+    container_name: aberturas-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ABERTURAS_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:${ABERTURAS_DB_PASS}@aberturas-db:5432/postgres
+      JWT_SECRET:   ${ABERTURAS_JWT_SECRET}
+      APP_URL:      ${ABERTURAS_URL}
+      NODE_ENV:     production
+    volumes:
+      - /var/lib/docker-data/aberturas/uploads:/app/uploads
+    depends_on:
+      aberturas-db:
+        condition: service_healthy

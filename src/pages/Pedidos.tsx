@@ -104,7 +104,7 @@ function nombreCliente(op: OperacionMin | null) {
   const c = op.cliente;
   return c.tipo_persona === 'juridica'
     ? (c.razon_social ?? '—')
-    : `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim() || '—';
+    : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim() || '—';
 }
 
 function entregaBadge(fechaEst: string | null, estado: EstadoPedido) {

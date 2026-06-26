@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2, Check, AlertCircle,
+  Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -709,7 +709,7 @@ export function NuevoPresupuesto() {
   const clienteNombre = clienteSeleccionado
     ? (clienteSeleccionado.tipo_persona === 'juridica'
         ? clienteSeleccionado.razon_social ?? ''
-        : `${clienteSeleccionado.nombre ?? ''} ${clienteSeleccionado.apellido ?? ''}`.trim())
+        : `${clienteSeleccionado.apellido ?? ''} ${clienteSeleccionado.nombre ?? ''}`.trim())
     : '';
   const clienteIniciales = clienteNombre
     ? clienteNombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -905,10 +905,18 @@ export function NuevoPresupuesto() {
       </div>
 
       {/* ── INFO BAR ── */}
-      <div className="bg-white border-b border-gray-200 px-4 py-1 flex items-center gap-3">
+      <div className={cn(
+        'border-b px-4 py-1 flex items-center gap-3 transition-all duration-300',
+        !clienteId
+          ? 'bg-violet-50 border-violet-200'
+          : 'bg-white border-gray-200'
+      )}>
 
         {/* Card 1: Cliente */}
-        <div className="flex items-center gap-3 min-w-0 flex-1 border-r border-gray-200 pr-3">
+        <div className={cn(
+          'flex items-center gap-3 min-w-0 flex-1 border-r pr-3 transition-all duration-300',
+          !clienteId ? 'border-violet-200' : 'border-gray-200'
+        )}>
           {clienteSeleccionado ? (
             <>
               <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
@@ -943,18 +951,23 @@ export function NuevoPresupuesto() {
             </>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0 relative">
-              <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                <Phone size={11} className="text-gray-300" />
+              {/* Badge "Paso 1" animado */}
+              <div className="relative shrink-0">
+                <div className="absolute inset-0 rounded-full bg-violet-400 animate-ping opacity-40" />
+                <div className="relative w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center">
+                  <Users size={13} className="text-white" />
+                </div>
               </div>
               <div className="flex-1 relative">
+                <p className="text-[9px] font-bold text-violet-500 uppercase tracking-wider mb-0.5">Paso 1 — Seleccioná el cliente para empezar</p>
                 <input
                   type="text"
-                  placeholder="Seleccionar cliente..."
+                  placeholder="Escribí nombre, teléfono o DNI..."
                   value={clienteSearch}
                   onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
                   onFocus={() => setShowClienteList(true)}
                   onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
-                  className="w-full bg-transparent text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                  className="w-full bg-transparent text-sm font-medium text-gray-800 placeholder:text-violet-300 focus:outline-none"
                 />
                 {showClienteList && clienteSearch && (
                   <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-72">
@@ -975,7 +988,7 @@ export function NuevoPresupuesto() {
                         className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                       >
                         <span className="text-sm text-gray-800">
-                          {c.tipo_persona === 'juridica' ? c.razon_social : `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim()}
+                          {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
                         </span>
                         <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
                       </button>
@@ -988,12 +1001,13 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* Card 2: Forma de pago */}
-        <div className="flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3">
+        <div className={cn('flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3 transition-opacity', !clienteId && 'opacity-40 pointer-events-none')}>
           <div>
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Forma de pago</p>
             <select
               value={formaPago}
               onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
+              disabled={!clienteId}
               className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4 max-w-[170px]"
             >
               {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
@@ -1002,12 +1016,13 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* Card 3: Entrega / Instalación */}
-        <div className="flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3">
+        <div className={cn('flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3 transition-opacity', !clienteId && 'opacity-40 pointer-events-none')}>
           <div>
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Entrega / Instalación</p>
             <select
               value={formaEnvio}
               onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
+              disabled={!clienteId}
               className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4"
             >
               {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
@@ -1016,7 +1031,7 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* Card 4: Validez */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className={cn('flex items-center gap-2 shrink-0 transition-opacity', !clienteId && 'opacity-40 pointer-events-none')}>
           <div>
             <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Validez</p>
             <div className="flex items-center gap-1.5">
@@ -1099,7 +1114,7 @@ export function NuevoPresupuesto() {
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_1fr_240px] xl:grid-cols-[420px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
 
         {/* ─────────────────────── COLUMNA IZQUIERDA — AGREGAR PRODUCTOS ─────────────────────── */}
-        <div className="flex flex-col bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="flex flex-col bg-white rounded-xl shadow-md overflow-hidden relative">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
@@ -1352,6 +1367,19 @@ export function NuevoPresupuesto() {
               </div>
             )}
           </div>
+
+          {/* Overlay — bloquea productos hasta seleccionar cliente */}
+          {!clienteId && (
+            <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-3 z-10 rounded-xl">
+              <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center">
+                <Users size={22} className="text-violet-500" />
+              </div>
+              <div className="text-center px-6">
+                <p className="text-sm font-bold text-gray-800">Primero seleccioná un cliente</p>
+                <p className="text-xs text-gray-500 mt-1">Buscá el cliente en la barra de arriba para continuar</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ─────────────────────── COLUMNA CENTRAL — PRODUCTOS AGREGADOS ─────────────────────── */}
@@ -1518,6 +1546,7 @@ export function NuevoPresupuesto() {
               <p className="text-xl font-black text-[#031d49]">{formatCurrency(totalConEnvio)}</p>
             </div>
           </div>
+
         </div>
 
         {/* ─────────────────────── COLUMNA DERECHA — RESUMEN ─────────────────────── */}
@@ -1695,7 +1724,7 @@ export function NuevoPresupuesto() {
       {/* ── BOTÓN FLOTANTE — Generar proforma (siempre visible) ── */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
         <button
-          onClick={() => handleSave(true)}
+          onClick={handleGenerarProforma}
           disabled={saving}
           className="flex items-center gap-2 px-4 py-2.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-lg transition-colors disabled:opacity-50"
         >

@@ -328,7 +328,7 @@ export function Reportes() {
       ['TOP CLIENTES', '', ''],
       ['Cliente', 'Ventas', 'Ops'],
       ...data.top_clientes.map(c => [
-        c.razon_social || `${c.nombre} ${c.apellido}`,
+        c.razon_social || `${c.apellido} ${c.nombre}`,
         c.total_ventas,
         c.cant_ops,
       ]),
@@ -751,7 +751,7 @@ export function Reportes() {
                     <span className="text-xs font-bold text-gray-400 w-4 text-center">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 truncate">
-                        {c.razon_social || `${c.nombre} ${c.apellido ?? ''}`.trim()}
+                        {c.razon_social || `${c.apellido ?? ''} ${c.nombre}`.trim()}
                       </div>
                       <div className="text-xs text-gray-400">{c.cant_ops} op{c.cant_ops !== 1 ? 's' : ''}</div>
                     </div>

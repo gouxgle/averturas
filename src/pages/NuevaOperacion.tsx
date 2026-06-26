@@ -150,7 +150,7 @@ export function NuevaOperacion() {
         {clienteSeleccionado ? (
           <div className="flex items-center justify-between bg-amber-50 rounded-lg px-4 py-3 border border-amber-200">
             <div>
-              <p className="text-sm font-semibold text-amber-800">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ''}</p>
+              <p className="text-sm font-semibold text-amber-800">{clienteSeleccionado.apellido ?? ''} {clienteSeleccionado.nombre}</p>
               <p className="text-xs text-amber-600">{clienteSeleccionado.telefono ?? '—'}</p>
             </div>
             <button onClick={() => { setClienteId(''); setClienteSearch(''); }} className="text-xs text-amber-600 hover:underline">Cambiar</button>
@@ -171,7 +171,7 @@ export function NuevaOperacion() {
                 ) : clientesFiltrados.slice(0, 8).map(c => (
                   <button key={c.id} onClick={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
                     className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
-                    <span className="text-sm text-gray-800">{c.nombre} {c.apellido ?? ''}</span>
+                    <span className="text-sm text-gray-800">{c.apellido ?? ''} {c.nombre}</span>
                     <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
                   </button>
                 ))}

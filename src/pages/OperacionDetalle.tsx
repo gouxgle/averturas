@@ -241,7 +241,7 @@ export function OperacionDetalle() {
                 {cliente ? (
                   <>
                     <Link to={`/clientes/${cliente.id}`} className="text-sm font-semibold text-gray-800 hover:text-amber-600">
-                      {cliente.nombre} {cliente.apellido ?? ''}
+                      {cliente.apellido ?? ''} {cliente.nombre}
                     </Link>
                     {cliente.telefono && <p className="text-xs text-gray-400">{cliente.telefono}</p>}
                   </>

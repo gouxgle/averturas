@@ -11,7 +11,7 @@ interface Notif {
 
 function nombreCliente(c: Notif['cliente']) {
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
-  return [c.nombre, c.apellido].filter(Boolean).join(' ') || '—';
+  return [c.apellido, c.nombre].filter(Boolean).join(' ') || '—';
 }
 
 function fmtRelativo(iso: string) {

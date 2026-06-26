@@ -108,7 +108,7 @@ function emptyItem(): RemitoItem {
 function clienteLabel(c: Cliente) {
   return c.tipo_persona === 'juridica'
     ? c.razon_social ?? ''
-    : `${c.nombre ?? ''} ${c.apellido ?? ''}`.trim();
+    : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim();
 }
 
 // ── Componente ────────────────────────────────────────────────
@@ -413,7 +413,7 @@ export function NuevoRemito() {
                       <span className="text-sm text-gray-800 font-medium truncate">
                         {listo.cliente.tipo_persona === 'juridica'
                           ? listo.cliente.razon_social
-                          : `${listo.cliente.nombre ?? ''} ${listo.cliente.apellido ?? ''}`.trim()}
+                          : `${listo.cliente.apellido ?? ''} ${listo.cliente.nombre ?? ''}`.trim()}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">

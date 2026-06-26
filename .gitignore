@@ -57,3 +57,6 @@ contacts*.csv
 
 # Claude Code
 .claude/
+service-account.json
+vps-config/stalwart-evolution-api.env
+vps-config/*.env
