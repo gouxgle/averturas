@@ -154,7 +154,7 @@ export function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 shadow-md">
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-600 shadow-lg">
             <CalendarClock size={14} className="text-gray-400" />
             Hoy, {now.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
           </div>
@@ -188,7 +188,7 @@ export function Dashboard() {
           <div className="flex-1 min-w-0 space-y-4">
 
             {/* PRIORIDADES DE HOY */}
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-slate-100 rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Target size={15} className="text-red-500" />
                 <h2 className="text-sm font-bold text-gray-800">PRIORIDADES DE HOY</h2>
@@ -233,7 +233,7 @@ export function Dashboard() {
                   <Link
                     key={href + title}
                     to={href}
-                    className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-gray-200 shadow-md hover:bg-blue-50 hover:border-blue-300 hover:shadow-xl hover:scale-[1.02] transition-all duration-150"
+                    className="flex items-start gap-3 p-3.5 rounded-xl bg-white border-2 border-gray-300 shadow-md hover:bg-blue-50 hover:border-blue-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-150"
                   >
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
                       <Icon size={17} className={color} />
@@ -253,14 +253,14 @@ export function Dashboard() {
             </div>
 
             {/* NÚMEROS CLAVE */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={15} className="text-blue-600" />
                 <h2 className="text-sm font-bold text-gray-800">NÚMEROS CLAVE DEL NEGOCIO</h2>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Ventas del día */}
-                <div className="space-y-1.5 bg-gray-50 border border-gray-200 rounded-xl p-3 cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.02]">
+                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
                   <p className="text-[11px] font-medium text-gray-500">Ventas del día</p>
                   <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">
                     {formatCurrency(data.stats.ventas_hoy)}
@@ -280,7 +280,7 @@ export function Dashboard() {
                 </div>
 
                 {/* Ventas del mes */}
-                <div className="space-y-1.5 bg-gray-50 border border-gray-200 rounded-xl p-3 cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.02]">
+                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
                   <p className="text-[11px] font-medium text-gray-500">Ventas del mes</p>
                   <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">
                     {formatCurrency(data.stats.monto_mes)}
@@ -295,7 +295,7 @@ export function Dashboard() {
                 </div>
 
                 {/* Presupuestos enviados */}
-                <div className="space-y-1.5 bg-gray-50 border border-gray-200 rounded-xl p-3 cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.02]">
+                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
                   <p className="text-[11px] font-medium text-gray-500">Presupuestos enviados</p>
                   <div className="flex items-end gap-2">
                     <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">{data.sin_confirmar.length}</p>
@@ -313,7 +313,7 @@ export function Dashboard() {
                 </div>
 
                 {/* % Cierre */}
-                <div className="space-y-1.5 bg-gray-50 border border-gray-200 rounded-xl p-3 cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.02]">
+                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
                   <p className="text-[11px] font-medium text-gray-500">% de cierre de ventas</p>
                   <div className="flex items-end gap-2">
                     <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">{convPct}%</p>
@@ -336,7 +336,7 @@ export function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
               {/* Ventas en riesgo */}
-              <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+              <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle size={14} className="text-amber-500" />
                   <h2 className="text-sm font-bold text-gray-800 flex-1">VENTAS EN RIESGO</h2>
@@ -390,7 +390,7 @@ export function Dashboard() {
               </div>
 
               {/* Seguimiento automático */}
-              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <MessageCircle size={14} className="text-violet-500" />
                   <h2 className="text-sm font-bold text-gray-800 flex-1">SEGUIMIENTO AUTOMÁTICO</h2>
@@ -460,7 +460,7 @@ export function Dashboard() {
             </div>
 
             {/* PRODUCTOS MÁS VENDIDOS */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <ShoppingBag size={15} className="text-amber-500" />
                 <h2 className="text-sm font-bold text-gray-800 flex-1">PRODUCTOS MÁS VENDIDOS</h2>
@@ -522,7 +522,7 @@ export function Dashboard() {
           <div className="w-full xl:w-[300px] xl:shrink-0 space-y-4">
 
             {/* SUGERENCIAS DEL SISTEMA */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Lightbulb size={14} className="text-amber-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Sugerencias del sistema</h2>
@@ -582,7 +582,7 @@ export function Dashboard() {
             </div>
 
             {/* PROBLEMAS OPERATIVOS */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <AlertTriangle size={14} className="text-amber-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex-1">Problemas operativos</h2>
@@ -617,7 +617,7 @@ export function Dashboard() {
             </div>
 
             {/* ACTIVIDAD RECIENTE */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Activity size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Actividad reciente</h2>

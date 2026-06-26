@@ -231,7 +231,7 @@ export function OperacionDetalle() {
         {/* Columna izquierda */}
         <div className="space-y-4">
           {/* Cliente */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-5">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
@@ -253,7 +253,7 @@ export function OperacionDetalle() {
           </div>
 
           {/* Totales */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5 space-y-3">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-5 space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Totales</h3>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Costo</span>
@@ -278,7 +278,7 @@ export function OperacionDetalle() {
 
           {/* Notas / validez */}
           {(operacion.notas || operacion.fecha_validez) && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5 space-y-2">
+            <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-5 space-y-2">
               {operacion.fecha_validez && (
                 <div>
                   <p className="text-xs text-gray-400">Validez</p>
@@ -296,7 +296,7 @@ export function OperacionDetalle() {
 
           {/* Panel recibos */}
           {esComercial && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
                 <Receipt size={14} className="text-emerald-500" />
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">Recibos</span>
@@ -344,7 +344,7 @@ export function OperacionDetalle() {
 
           {/* Panel remitos */}
           {esComercial && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
                 <Truck size={14} className="text-blue-500" />
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider flex-1">Remitos</span>
@@ -382,7 +382,7 @@ export function OperacionDetalle() {
         {/* Columna derecha */}
         <div className="lg:col-span-2 space-y-4">
           {/* Ítems */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-200">
               <Package size={15} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-800">Ítems</h2>
@@ -426,7 +426,7 @@ export function OperacionDetalle() {
 
           {/* Historial */}
           {operacion.historial.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+            <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
               <div className="px-5 py-4 border-b border-gray-200">
                 <h2 className="text-sm font-semibold text-gray-800">Historial de estados</h2>
               </div>

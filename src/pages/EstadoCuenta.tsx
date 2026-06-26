@@ -411,7 +411,7 @@ export function EstadoCuenta() {
 
         {/* Ledger — libro de movimientos */}
         {ledger.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta corriente</p>
               <p className="text-xs text-gray-400">{ledger.length} movimientos</p>
@@ -493,7 +493,7 @@ export function EstadoCuenta() {
 
         {/* Compromisos de pago */}
         {compromisos.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-200">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compromisos de pago</p>
             </div>
@@ -588,7 +588,7 @@ export function EstadoCuenta() {
 
         {/* Recibos sin operación */}
         {recibos_directos.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-200">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pagos sin operación vinculada</p>
             </div>

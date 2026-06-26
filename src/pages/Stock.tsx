@@ -781,7 +781,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
           <RefreshCw size={20} className="animate-spin text-gray-400" />
         </div>
       ) : lotes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md py-16 text-center">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg py-16 text-center">
           <Layers size={32} className="mx-auto mb-3 text-gray-200" />
           <p className="text-sm text-gray-400">No hay lotes registrados</p>
         </div>
@@ -796,7 +796,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
             const isOpen   = expanded[lote.id];
 
             return (
-              <div key={lote.id} className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+              <div key={lote.id} className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
                 <div className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggle(lote.id)}>
                   <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
@@ -920,7 +920,7 @@ function ProductoRow({
   const rotCfg     = ROTACION_CFG[producto.rotacion];
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 shadow-md border-l-4 ${estadoCfg.border} overflow-hidden`}>
+    <div className={`bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
       <div
         className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
         style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}
@@ -1288,7 +1288,7 @@ export function Stock() {
 
                 {/* Filas */}
                 {paginated.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-md py-16 text-center">
+                  <div className="bg-white rounded-2xl border border-gray-300 shadow-lg py-16 text-center">
                     <Boxes size={32} className="mx-auto mb-3 text-gray-200" />
                     <p className="text-sm text-gray-400">
                       {filtro !== 'todos' || search
@@ -1355,7 +1355,7 @@ export function Stock() {
       <div className="w-64 shrink-0 space-y-4">
 
         {/* Reposición sugerida */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <Zap size={12} className="text-orange-500" /> Reposición sugerida
           </p>
@@ -1394,7 +1394,7 @@ export function Stock() {
         </div>
 
         {/* Rotación de inventario */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Rotación
           </p>
@@ -1429,7 +1429,7 @@ export function Stock() {
         </div>
 
         {/* Movimiento 30d */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Movimiento 30 días
           </p>
@@ -1465,7 +1465,7 @@ export function Stock() {
         </div>
 
         {/* Acciones rápidas */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Acciones rápidas
           </p>

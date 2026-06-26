@@ -167,7 +167,7 @@ function KpiCard({ icon, color, label, value, sub }: {
   icon: React.ReactNode; color: string; label: string; value: string; sub?: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-3.5 flex flex-col gap-1">
+    <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-3.5 flex flex-col gap-1">
       <div className={`w-8 h-8 rounded-xl ${color} flex items-center justify-center`}>{icon}</div>
       <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">{label}</div>
       <div className="text-xl font-bold text-gray-900 leading-none">{value}</div>
@@ -768,7 +768,7 @@ export function CRM() {
         <div className="w-60 shrink-0 space-y-3">
 
           {/* Seguimientos del día */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Clock size={12} className="text-blue-500" />
               Seguimientos de hoy
@@ -812,7 +812,7 @@ export function CRM() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Acciones rápidas</h3>
             <div className="space-y-0.5">
               {[
@@ -832,7 +832,7 @@ export function CRM() {
           </div>
 
           {/* Clientes por valor */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Trophy size={12} className="text-amber-500" />
               Clientes por valor (12m)
@@ -866,7 +866,7 @@ export function CRM() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
           {/* Embudo */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <TrendingUp size={12} className="text-blue-500" /> Embudo de ventas
             </h3>
@@ -893,7 +893,7 @@ export function CRM() {
           </div>
 
           {/* Ventas por período */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <DollarSign size={12} className="text-green-500" /> Ventas por período
             </h3>
@@ -928,7 +928,7 @@ export function CRM() {
           </div>
 
           {/* Origen de leads */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Globe size={12} className="text-violet-500" /> Origen de leads
             </h3>
@@ -967,7 +967,7 @@ export function CRM() {
           </div>
 
           {/* Productos más consultados */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <Star size={12} className="text-amber-500" /> Productos más consultados
             </h3>
@@ -1006,7 +1006,7 @@ export function CRM() {
 
       {/* ── Últimas oportunidades ── */}
       {!loading && (data?.ultimas_oportunidades ?? []).length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
             <h3 className="text-sm font-bold text-gray-800">Últimas oportunidades</h3>
             <span className="text-xs text-gray-400">{data?.ultimas_oportunidades.length} activas</span>

@@ -911,7 +911,7 @@ export function Presupuestos() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-x-auto">
             {/* Header */}
             <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-2.5 border-b border-gray-200 bg-gray-50"
               style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}>
@@ -1143,7 +1143,7 @@ export function Presupuestos() {
         {/* Right sidebar */}
         <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
           {/* En riesgo total */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-amber-600">
                 <AlertTriangle size={14} />
@@ -1159,7 +1159,7 @@ export function Presupuestos() {
           </div>
 
           {/* Seguimiento sugerido */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-gray-700">Seguimiento sugerido hoy</span>
             </div>
@@ -1191,7 +1191,7 @@ export function Presupuestos() {
           </div>
 
           {/* Probabilidad de cierre */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Probabilidad de cierre</p>
             <div className="flex items-center gap-3">
               <DonutChart segments={[
@@ -1219,7 +1219,7 @@ export function Presupuestos() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Acciones rápidas</p>
             <div className="space-y-2">
               <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left">

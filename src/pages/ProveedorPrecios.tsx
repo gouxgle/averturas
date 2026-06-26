@@ -488,7 +488,7 @@ function ActualizarPreciosModal({
         {/* Paso 3: confirmar */}
         {paso === 3 && (
           <div className="p-6 space-y-5 overflow-y-auto">
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-2">
+            <div className="bg-gray-100 border border-gray-300 rounded-2xl p-4 space-y-2">
               <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Resumen</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
@@ -959,7 +959,7 @@ export function ProveedorPrecios() {
 
       {/* Tabla */}
       {precios.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-16 text-center">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-16 text-center">
           <Tag size={40} className="mx-auto mb-4 text-gray-300" />
           <p className="font-semibold text-gray-500 mb-1">Sin precios cargados</p>
           <p className="text-sm text-gray-400 mb-6">Agregá precios manualmente o importá un CSV del proveedor</p>
@@ -975,7 +975,7 @@ export function ProveedorPrecios() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-x-auto">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

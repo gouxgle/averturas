@@ -439,7 +439,7 @@ export function NuevoRemito() {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Cliente */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">1</span>
               Cliente
@@ -496,7 +496,7 @@ export function NuevoRemito() {
 
           {/* Presupuesto vinculado */}
           {clienteId && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">2</span>
                 Presupuesto vinculado
@@ -643,7 +643,7 @@ export function NuevoRemito() {
           )}
 
           {/* Ítems */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">
                 {clienteId ? '3' : '2'}
@@ -653,7 +653,7 @@ export function NuevoRemito() {
 
             <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div key={i} className="p-3 bg-gray-100 rounded-xl border border-gray-300">
                   <div className="grid grid-cols-12 gap-2 mb-2">
                     {/* Selector producto con búsqueda */}
                     <div className="col-span-5">
@@ -811,7 +811,7 @@ export function NuevoRemito() {
         <div className="space-y-4">
 
           {/* Medio de envío */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <Truck size={14} className="text-teal-500" /> Envío
             </h2>
@@ -850,7 +850,7 @@ export function NuevoRemito() {
           </div>
 
           {/* Fechas y dirección */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5 space-y-3">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Package size={14} className="text-teal-500" /> Detalles
             </h2>

@@ -10,13 +10,15 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 - Rama principal: `main`
 
 ## Ambientes
-| Ambiente | URL | Uso |
-|---|---|---|
-| **Local** | `http://localhost:3000` | Desarrollo |
-| **Test** | `http://aberturas.solucionesgps.com.ar` | Staging / pruebas |
-| **Prod** | `http://aberturas.cesarbritez.com.ar` | Producción cliente |
+| Ambiente | URL | IP | Notas |
+|---|---|---|---|
+| **Local** | `http://localhost:3000` | — | Desarrollo |
+| **Test** | `http://aberturas.solucionesgps.com.ar` | `149.50.150.131` | Staging / pruebas — HTTP sin HTTPS |
+| **Prod** | `http://aberturas.cesarbritez.com.ar` | `179.43.120.103` | Producción cliente |
 
-- VM: `149.50.150.131` — HTTP sin HTTPS (importante: `crypto.randomUUID()` necesita fallback en HTTP)
+- Test (149.50.150.131): HTTP sin HTTPS → `crypto.randomUUID()` necesita fallback
+- Compose en test: nombre `aberturas`, contenedor DB `aberturas-db`
+- Compose en prod: nombre `cesarbritez`, contenedor DB `aberturas-db`, proyecto en `/opt/docker/cesarbritez/aberturas/`, uploads montados en `/var/lib/docker-data/aberturas/uploads/` → `/app/uploads`
 
 ## Stack técnico
 

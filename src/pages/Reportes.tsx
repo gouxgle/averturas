@@ -137,7 +137,7 @@ function KpiCard({
   badge?: { text: string; danger?: boolean };
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 flex flex-col gap-1.5">
+    <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4 flex flex-col gap-1.5">
       <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center`}>
         {icon}
       </div>
@@ -482,7 +482,7 @@ export function Reportes() {
         {/* Columna izquierda: chart + 5 bloques */}
         <div className="flex-1 min-w-0 space-y-3">
         {/* Chart */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5 min-w-0">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5 min-w-0">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">Evolución de ventas</h2>
           <p className="text-xs text-gray-400 mb-4">
             {data?.evolucion.some(e => e.actual > 0) ? 'Ventas aprobadas por día' : 'Sin datos en el período'}
@@ -546,7 +546,7 @@ export function Reportes() {
         ) : (
           <div className="grid grid-cols-5 gap-3">
             {/* Comercial */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
                   <TrendingUp size={13} className="text-green-600" />
@@ -567,7 +567,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Finanzas */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
                   <DollarSign size={13} className="text-blue-600" />
@@ -593,7 +593,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Productos */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
                   <Package size={13} className="text-amber-600" />
@@ -626,7 +626,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Operaciones */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
                   <BarChart3 size={13} className="text-violet-600" />
@@ -652,7 +652,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Proveedores */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
                   <ShoppingCart size={13} className="text-orange-600" />
@@ -674,7 +674,7 @@ export function Reportes() {
         {/* Alertas + Acciones */}
         <div className="w-64 shrink-0 space-y-3">
           {/* Alertas */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <AlertCircle size={13} className="text-red-500" />
               Alertas importantes
@@ -696,7 +696,7 @@ export function Reportes() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Acciones rápidas</h3>
             <div className="space-y-0.5">
               {[
@@ -734,7 +734,7 @@ export function Reportes() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
           {/* Mejores clientes */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Users size={12} className="text-blue-500" />
@@ -765,7 +765,7 @@ export function Reportes() {
           </div>
 
           {/* Productos más vendidos */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Package size={12} className="text-amber-500" />
@@ -792,7 +792,7 @@ export function Reportes() {
           </div>
 
           {/* Métodos de pago */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <DollarSign size={12} className="text-green-500" />
@@ -832,7 +832,7 @@ export function Reportes() {
           </div>
 
           {/* Descuentos otorgados */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Tag size={12} className="text-violet-500" />
@@ -882,7 +882,7 @@ export function Reportes() {
           </div>
 
           {/* Objetivos */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Target size={12} className="text-violet-500" />

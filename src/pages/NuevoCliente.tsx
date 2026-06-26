@@ -364,7 +364,7 @@ export function NuevoCliente() {
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* ══ SECCIÓN 1: CARGA RÁPIDA ════════════════════════════════════════ */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
             {/* Header sección */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -560,7 +560,7 @@ export function NuevoCliente() {
 
               {/* ¿Qué pasa después? */}
               {!isEdit && (
-                <div className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                <div className="flex items-start gap-3 bg-gray-100 border border-gray-300 rounded-xl px-4 py-3">
                   <ChevronRight size={15} className="text-blue-400 mt-0.5 shrink-0" />
                   <div>
                     <div className="text-xs font-bold text-gray-700 mb-0.5">¿Qué pasa después?</div>
@@ -574,7 +574,7 @@ export function NuevoCliente() {
           </div>
 
           {/* ══ SECCIÓN 2: DATOS COMPLEMENTARIOS ══════════════════════════════ */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
             {/* Header sección */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -949,7 +949,7 @@ export function NuevoCliente() {
           </div>
 
           {/* ══ BOTTOM: Importante + Flujo ════════════════════════════════════ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
             {/* Importante */}
             <div className="flex items-start gap-2">
               <Star size={14} className="text-amber-500 mt-0.5 shrink-0" />
@@ -991,7 +991,7 @@ export function NuevoCliente() {
         <div className="hidden lg:block w-56 shrink-0 space-y-4">
 
           {/* Perfil del cliente */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <User size={13} className="text-emerald-600" />
@@ -1011,7 +1011,7 @@ export function NuevoCliente() {
           </div>
 
           {/* Consejos */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <Lightbulb size={13} className="text-amber-500" />
               <div className="text-xs font-bold text-gray-700">Consejos</div>

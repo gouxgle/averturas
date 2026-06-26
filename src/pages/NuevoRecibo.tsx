@@ -89,7 +89,7 @@ function SectionCard({
   title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+    <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
         accent ?? 'bg-gray-50 border-gray-200',
@@ -802,7 +802,7 @@ export function NuevoRecibo() {
 
       {/* ── 8. Resumen final ──────────────────────────────── */}
       {operacionId && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5">
+        <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Total del recibo</p>

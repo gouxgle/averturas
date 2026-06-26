@@ -483,7 +483,7 @@ function UserForm({ initial, onSave, onCancel, isEdit, currentUserId }: {
   const labelCls = 'block text-xs font-medium text-gray-500 mb-1';
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
+    <form onSubmit={handleSubmit} className="bg-gray-100 rounded-xl border border-gray-300 p-4 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Nombre *</label>
@@ -923,7 +923,7 @@ export function Configuracion() {
       {/* General */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">General</h2>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
           <AccordionItem id="empresa" label="Empresa" icon={Building2} desc="Datos del negocio, CUIT, contacto"
             open={openPanel === 'empresa'} onToggle={() => togglePanel('empresa')}>
             <PanelEmpresa />
@@ -944,7 +944,7 @@ export function Configuracion() {
       {/* Catálogo de productos */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Catálogo de productos</h2>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
           {CATALOG_BTNS.map(({ id, label, icon, desc }, idx) => (
             <div key={id}>
               {idx > 0 && <div className="border-t border-gray-200" />}
@@ -962,7 +962,7 @@ export function Configuracion() {
       {/* Mensajes WhatsApp */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Comunicación</h2>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
           <AccordionItem id="mensajes" label="Mensajes WhatsApp" icon={MessageSquare}
             desc="Texto de pedidos, presupuestos y remitos enviados por WhatsApp"
             open={openPanel === 'mensajes'} onToggle={() => togglePanel('mensajes')}>

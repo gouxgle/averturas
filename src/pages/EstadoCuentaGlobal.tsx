@@ -911,7 +911,7 @@ export function EstadoCuentaGlobal() {
 
       {/* Cobros prioritarios */}
       {!loading && cobros.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4 mb-4">
+        <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Flame size={15} className="text-red-500" />
             <span className="text-sm font-bold text-gray-800">Cobros prioritarios del día</span>
@@ -1014,7 +1014,7 @@ export function EstadoCuentaGlobal() {
       <div className="flex gap-4 items-start">
         {/* Table */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
           <div className="min-w-[997px]">
             {/* Table header */}
@@ -1209,7 +1209,7 @@ export function EstadoCuentaGlobal() {
         {/* Sidebar */}
         <div className="w-64 shrink-0 space-y-4">
           {/* Resumen de saldos */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Resumen de saldos</p>
             {t && (
               <div className="flex items-center gap-3">
@@ -1238,7 +1238,7 @@ export function EstadoCuentaGlobal() {
           </div>
 
           {/* Análisis de cobranzas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Análisis de cobranzas</p>
             {t && (
               <div className="space-y-2.5">
@@ -1271,7 +1271,7 @@ export function EstadoCuentaGlobal() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Acciones rápidas</p>
             <div className="space-y-1.5">
               {[

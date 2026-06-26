@@ -633,7 +633,7 @@ export function Recibos() {
         <div className="flex-1 min-w-0 space-y-3">
 
           {/* Tabs + búsqueda */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md px-4 py-3">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg px-4 py-3">
             <div className="flex items-center gap-2 flex-wrap mb-3">
               {TABS.map(t => {
                 const count = t.key === 'todos' ? filas.length : (conteos[t.key] ?? 0);
@@ -661,7 +661,7 @@ export function Recibos() {
           </div>
 
           {/* Tabla */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
             {/* Cabecera */}
             <div className="grid grid-cols-[160px_1fr_110px_80px_130px_105px_75px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               <span>Recibo</span>
@@ -827,7 +827,7 @@ export function Recibos() {
           <div className="grid grid-cols-2 gap-4">
 
             {/* Próximos vencimientos */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-gray-800">Próximos vencimientos</p>
               </div>
@@ -860,7 +860,7 @@ export function Recibos() {
             </div>
 
             {/* Información clave */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Información clave</p>
               <div className="space-y-2">
                 {[
@@ -883,7 +883,7 @@ export function Recibos() {
         <div className="w-full xl:w-[260px] xl:shrink-0 space-y-4">
 
           {/* Deudas por cliente */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-gray-800">Deudas por cliente</p>
             </div>
@@ -910,14 +910,14 @@ export function Recibos() {
 
           {/* Métodos de pago */}
           {donutData.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Métodos de pago (este mes)</p>
               <DonutChart data={donutData} />
             </div>
           )}
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
             <p className="text-sm font-bold text-gray-800 mb-3">Acciones rápidas</p>
             <div className="space-y-1">
               {[

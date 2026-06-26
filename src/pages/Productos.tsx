@@ -655,7 +655,7 @@ export function Productos() {
         /* Búsqueda: grid plano */
         <div className="space-y-2">
           <p className="text-sm text-gray-500">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{search}"</p>
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md divide-y divide-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg divide-y divide-gray-100 overflow-hidden">
             {filtered.map(p => (
               <TarjetaProducto key={p.id} producto={p} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
             ))}

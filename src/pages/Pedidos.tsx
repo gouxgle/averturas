@@ -773,7 +773,7 @@ export default function Pedidos() {
         <div className="flex-1 min-w-0">
 
           {/* Filtros */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
             <div className="flex flex-col sm:flex-row gap-3 p-3 border-b border-gray-200">
               <div className="flex gap-1 flex-wrap">
                 {TABS.map(t => (
@@ -1000,7 +1000,7 @@ export default function Pedidos() {
           )}
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-3">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Acciones rápidas</p>
             <div className="space-y-1">
               <button

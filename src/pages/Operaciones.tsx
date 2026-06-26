@@ -75,7 +75,7 @@ function KpiCard({ icon: Icon, label, value, sub, iconBg, iconCl, subCl = 'text-
   iconBg: string; iconCl: string; subCl?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+    <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
       <div className="flex items-start justify-between mb-2">
         <p className="text-[11px] font-medium text-gray-500 leading-tight">{label}</p>
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
@@ -284,7 +284,7 @@ export function Operaciones() {
             ]} />
 
             {/* Tablero 6 columnas */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Zap size={15} className="text-amber-500" />
                 <h2 className="text-sm font-bold text-gray-800">Tablero de Operaciones</h2>
@@ -306,7 +306,7 @@ export function Operaciones() {
           <div className="w-full xl:w-[280px] xl:shrink-0 space-y-4">
 
             {/* Entregas programadas */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CalendarClock size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Entregas programadas</h2>
@@ -346,7 +346,7 @@ export function Operaciones() {
             </div>
 
             {/* Resumen rápido */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={14} className="text-amber-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen del flujo</h2>
@@ -370,7 +370,7 @@ export function Operaciones() {
             </div>
 
             {/* Acciones rápidas */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-violet-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Acciones rápidas</h2>

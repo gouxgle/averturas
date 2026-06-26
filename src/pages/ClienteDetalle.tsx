@@ -257,7 +257,7 @@ export function ClienteDetalle() {
     <div className="p-4 max-w-6xl mx-auto space-y-4">
 
       {/* ── Header ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/clientes')}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
@@ -377,7 +377,7 @@ export function ClienteDetalle() {
       {/* ── Stats row ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button onClick={() => setActiveTab('presupuestos')}
-          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-blue-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-blue-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <FileText size={14} className="text-blue-500" />
             <span className="text-xs text-gray-500">Presupuestos</span>
@@ -387,7 +387,7 @@ export function ClienteDetalle() {
         </button>
 
         <button onClick={() => setActiveTab('operaciones')}
-          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-emerald-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-emerald-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <ClipboardList size={14} className="text-emerald-500" />
             <span className="text-xs text-gray-500">Operaciones</span>
@@ -397,7 +397,7 @@ export function ClienteDetalle() {
         </button>
 
         <button onClick={() => setActiveTab('remitos')}
-          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-indigo-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-indigo-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <Truck size={14} className="text-indigo-500" />
             <span className="text-xs text-gray-500">Remitos</span>
@@ -407,7 +407,7 @@ export function ClienteDetalle() {
         </button>
 
         <button onClick={() => setActiveTab('recibos')}
-          className="bg-white rounded-xl border border-gray-200 shadow-md p-4 text-left hover:border-teal-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-teal-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={14} className="text-teal-500" />
             <span className="text-xs text-gray-500">Compras totales</span>
@@ -424,7 +424,7 @@ export function ClienteDetalle() {
         <div className="col-span-12 lg:col-span-4 space-y-3">
 
           {/* Info general */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Info general</span>
               <Link to={`/clientes/${cliente.id}/editar`}
@@ -502,7 +502,7 @@ export function ClienteDetalle() {
 
           {/* CRM */}
           {(data.crm_etapa || data.interes || data.producto_interes || data.proxima_accion || data.monto_estimado) && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Clasificación CRM</span>
               </div>
@@ -570,7 +570,7 @@ export function ClienteDetalle() {
           )}
 
           {/* Valor histórico */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <TrendingUp size={14} className="text-emerald-500" />
@@ -583,7 +583,7 @@ export function ClienteDetalle() {
 
         {/* Columna der: Tabs */}
         <div className="col-span-12 lg:col-span-8">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
 
             {/* Tab bar */}
             <div className="flex border-b border-gray-200 overflow-x-auto">

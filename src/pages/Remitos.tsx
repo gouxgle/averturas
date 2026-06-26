@@ -552,7 +552,7 @@ export function Remitos() {
             ]} />
 
             {/* Filtros + búsqueda */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {([
                   { key: 'todos',      label: 'Todos',      count: data.remitos.length },
@@ -598,7 +598,7 @@ export function Remitos() {
             </div>
 
             {/* Tabla */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
@@ -762,7 +762,7 @@ export function Remitos() {
             {/* Bottom bar de métricas */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Métodos de entrega */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
                     <Truck size={14} className="text-blue-600" />
@@ -781,7 +781,7 @@ export function Remitos() {
               </div>
 
               {/* Tiempo promedio */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center">
                     <Clock size={14} className="text-teal-600" />
@@ -793,7 +793,7 @@ export function Remitos() {
               </div>
 
               {/* % a tiempo */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CheckCircle2 size={14} className="text-emerald-600" />
@@ -805,7 +805,7 @@ export function Remitos() {
               </div>
 
               {/* Valor entregado */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
                     <DollarSign size={14} className="text-green-600" />
@@ -822,7 +822,7 @@ export function Remitos() {
           <div className="w-[280px] shrink-0 space-y-4">
 
             {/* Entregas del día */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-1">
                 <CalendarClock size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Entregas del día</h2>
@@ -881,7 +881,7 @@ export function Remitos() {
             )}
 
             {/* Resumen logístico */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={14} className="text-teal-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen logístico</h2>
@@ -911,7 +911,7 @@ export function Remitos() {
             </div>
 
             {/* Acciones rápidas */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-violet-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Acciones rápidas</h2>

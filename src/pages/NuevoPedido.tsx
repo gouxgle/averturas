@@ -216,7 +216,7 @@ function SectionCard({
   title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-md">
+    <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
         accent ?? 'bg-gray-50 border-gray-200',
@@ -537,7 +537,7 @@ export default function NuevoPedido() {
 
     return (
       <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-8 text-center">
           <div className="w-16 h-16 bg-lime-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShoppingCart size={28} className="text-lime-600" />
           </div>
@@ -1073,7 +1073,7 @@ export default function NuevoPedido() {
         )}
 
         {/* Guardar */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-4">
+        <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleSave}
