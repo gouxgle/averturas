@@ -1114,13 +1114,13 @@ export function NuevoPresupuesto() {
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_1fr_240px] xl:grid-cols-[420px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">
 
         {/* ─────────────────────── COLUMNA IZQUIERDA — AGREGAR PRODUCTOS ─────────────────────── */}
-        <div className="flex flex-col bg-white rounded-xl shadow-md overflow-hidden relative">
+        <div className="flex flex-col bg-white rounded-xl border-2 border-violet-300 shadow-lg overflow-hidden relative">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+          <div className="px-4 py-3 border-b-2 border-violet-200 bg-violet-50 flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
               <span className="text-white text-[10px] font-bold">1</span>
             </div>
-            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Agregar productos</span>
+            <span className="text-xs font-bold text-violet-700 uppercase tracking-wider">Agregar productos</span>
           </div>
 
           {/* Tabs */}
@@ -1383,14 +1383,14 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* ─────────────────────── COLUMNA CENTRAL — PRODUCTOS AGREGADOS ─────────────────────── */}
-        <div className="flex flex-col bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="flex flex-col bg-white rounded-xl border-2 border-indigo-300 shadow-lg overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-4 py-3 border-b-2 border-indigo-200 bg-indigo-50 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
                 <span className="text-white text-[10px] font-bold">2</span>
               </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Productos agregados</span>
+              <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Productos agregados</span>
               {items.length > 0 && (
                 <span className="text-[10px] text-gray-400">({items.length})</span>
               )}
@@ -1551,13 +1551,13 @@ export function NuevoPresupuesto() {
 
         {/* ─────────────────────── COLUMNA DERECHA — RESUMEN ─────────────────────── */}
         <div className="flex flex-col gap-3 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-md sticky top-4 self-start w-full">
+          <div className="bg-white rounded-xl border-2 border-emerald-300 shadow-lg sticky top-4 self-start w-full">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+            <div className="px-4 py-3 border-b-2 border-emerald-200 bg-emerald-50 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
                 <span className="text-white text-[10px] font-bold">3</span>
               </div>
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen de la proforma</span>
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Resumen de la proforma</span>
             </div>
 
             <div className="p-4 space-y-4">

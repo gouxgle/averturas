@@ -25,23 +25,24 @@
     --radius: 0.5rem;
     --brand-navy: #031d49;
     --brand-red:  #e31e24;
-    --app-bg:     #f0f4fb;
+    --app-bg:     #b8ccdf;
 
     /* ── Section accent tokens (icon / deep / bg-wash / strip) ── */
-    --accent-dashboard:        #60a5fa;  --accent-dashboard-deep:    #1d4ed8;  --accent-dashboard-bg:    #eff6ff;  --accent-dashboard-strip:    #dbeafe;
-    --accent-crm:              #fb7185;  --accent-crm-deep:          #be123c;  --accent-crm-bg:          #fff1f2;  --accent-crm-strip:          #ffe4e6;
-    --accent-presupuestos:     #a78bfa;  --accent-presupuestos-deep: #6d28d9;  --accent-presupuestos-bg: #f5f3ff;  --accent-presupuestos-strip: #ede9fe;
-    --accent-operaciones:      #fbbf24;  --accent-operaciones-deep:  #b45309;  --accent-operaciones-bg:  #fffbeb;  --accent-operaciones-strip:  #fef3c7;
-    --accent-remitos:          #2dd4bf;  --accent-remitos-deep:      #0f766e;  --accent-remitos-bg:      #f0fdfa;  --accent-remitos-strip:      #ccfbf1;
-    --accent-pedidos:          #a3e635;  --accent-pedidos-deep:      #4d7c0f;  --accent-pedidos-bg:      #f7fee7;  --accent-pedidos-strip:      #ecfccb;
-    --accent-recibos:          #34d399;  --accent-recibos-deep:      #047857;  --accent-recibos-bg:      #ecfdf5;  --accent-recibos-strip:      #d1fae5;
-    --accent-clientes:         #22d3ee;  --accent-clientes-deep:     #0e7490;  --accent-clientes-bg:     #ecfeff;  --accent-clientes-strip:     #cffafe;
-    --accent-estado:           #818cf8;  --accent-estado-deep:       #4338ca;  --accent-estado-bg:       #eef2ff;  --accent-estado-strip:       #e0e7ff;
-    --accent-productos:        #38bdf8;  --accent-productos-deep:    #0369a1;  --accent-productos-bg:    #f0f9ff;  --accent-productos-strip:    #e0f2fe;
-    --accent-stock:            #fb923c;  --accent-stock-deep:        #c2410c;  --accent-stock-bg:        #fff7ed;  --accent-stock-strip:        #ffedd5;
-    --accent-proveedores:      #fbbf24;  --accent-proveedores-deep:  #b45309;  --accent-proveedores-bg:  #fffbeb;  --accent-proveedores-strip:  #fef3c7;
-    --accent-reportes:         #c084fc;  --accent-reportes-deep:     #7e22ce;  --accent-reportes-bg:     #faf5ff;  --accent-reportes-strip:     #f3e8ff;
-    --accent-config:           #cbd5e1;  --accent-config-deep:       #475569;  --accent-config-bg:       #f8fafc;  --accent-config-strip:       #f1f5f9;
+    /* bg = visible tint; strip = darker accent para bordes internos  */
+    --accent-dashboard:        #60a5fa;  --accent-dashboard-deep:    #1d4ed8;  --accent-dashboard-bg:    #d0e4fa;  --accent-dashboard-strip:    #bbd5f7;
+    --accent-crm:              #fb7185;  --accent-crm-deep:          #be123c;  --accent-crm-bg:          #fdd0d6;  --accent-crm-strip:          #fbb8c1;
+    --accent-presupuestos:     #a78bfa;  --accent-presupuestos-deep: #6d28d9;  --accent-presupuestos-bg: #dfd6fd;  --accent-presupuestos-strip: #cfc3fc;
+    --accent-operaciones:      #fbbf24;  --accent-operaciones-deep:  #b45309;  --accent-operaciones-bg:  #fdefc5;  --accent-operaciones-strip:  #fce4a0;
+    --accent-remitos:          #2dd4bf;  --accent-remitos-deep:      #0f766e;  --accent-remitos-bg:      #bff2ec;  --accent-remitos-strip:      #9de9e1;
+    --accent-pedidos:          #a3e635;  --accent-pedidos-deep:      #4d7c0f;  --accent-pedidos-bg:      #d8f5b0;  --accent-pedidos-strip:      #c3ef8a;
+    --accent-recibos:          #34d399;  --accent-recibos-deep:      #047857;  --accent-recibos-bg:      #b8f0d9;  --accent-recibos-strip:      #93e8c4;
+    --accent-clientes:         #22d3ee;  --accent-clientes-deep:     #0e7490;  --accent-clientes-bg:     #b0ecf8;  --accent-clientes-strip:     #87e1f4;
+    --accent-estado:           #818cf8;  --accent-estado-deep:       #4338ca;  --accent-estado-bg:       #cdd3fc;  --accent-estado-strip:       #b5bdfb;
+    --accent-productos:        #38bdf8;  --accent-productos-deep:    #0369a1;  --accent-productos-bg:    #bde8fd;  --accent-productos-strip:    #96d9fc;
+    --accent-stock:            #fb923c;  --accent-stock-deep:        #c2410c;  --accent-stock-bg:        #fdd9b8;  --accent-stock-strip:        #fcc89a;
+    --accent-proveedores:      #fbbf24;  --accent-proveedores-deep:  #b45309;  --accent-proveedores-bg:  #fdefc5;  --accent-proveedores-strip:  #fce4a0;
+    --accent-reportes:         #c084fc;  --accent-reportes-deep:     #7e22ce;  --accent-reportes-bg:     #e8d0fd;  --accent-reportes-strip:     #d9b5fc;
+    --accent-config:           #cbd5e1;  --accent-config-deep:       #475569;  --accent-config-bg:       #d4dde7;  --accent-config-strip:       #bfcbd9;
 
     /* ── Estado operation dots ── */
     --state-presupuesto: #9ca3af;  --state-enviado:    #fbbf24;
@@ -234,3 +235,38 @@
 [data-section="reportes"]     .section-hero::after { background: var(--accent-reportes); }
 [data-section="crm"]          .section-hero::after { background: var(--accent-crm); }
 [data-section="config"]       .section-hero::after { background: var(--accent-config); }
+
+/* ── Contraste global de cards ────────────────────────────────────────────── */
+/*
+ * Boost de borde + sombra para todos los panels white rounded dentro de main.
+ * Sin tocar archivos individuales — CSS outside @layer gana sobre utilities.
+ * Se aplica solo a rounded-xl/2xl para no afectar botones, inputs, chips.
+ */
+main .rounded-2xl.border-gray-200,
+main .rounded-xl.border-gray-200 {
+  border-color: #7ca6c8;
+}
+main .rounded-2xl.border-gray-300,
+main .rounded-xl.border-gray-300 {
+  border-color: #5d90b5;
+}
+main .rounded-2xl.shadow-md,
+main .rounded-xl.shadow-md {
+  box-shadow:
+    0 4px 18px rgba(0, 40, 100, 0.18),
+    0 1px 4px  rgba(0, 40, 100, 0.10);
+}
+main .rounded-2xl.shadow-lg,
+main .rounded-xl.shadow-lg {
+  box-shadow:
+    0 8px 28px rgba(0, 40, 100, 0.22),
+    0 3px 8px  rgba(0, 40, 100, 0.13);
+}
+
+/* Fondos internos de cards: bg-gray-50/100 más visibles sobre blanco */
+main .rounded-2xl .bg-gray-50,
+main .rounded-xl  .bg-gray-50 { background-color: #e8eef6; }
+main .rounded-2xl .bg-gray-100,
+main .rounded-xl  .bg-gray-100 { background-color: #d5e1ee; }
+main .rounded-2xl .bg-slate-100,
+main .rounded-xl  .bg-slate-100 { background-color: #cdd9e8; }
