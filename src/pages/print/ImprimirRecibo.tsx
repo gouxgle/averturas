@@ -83,13 +83,14 @@ export function ImprimirRecibo() {
     <>
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 12mm 18mm; }
+          @page { size: A4 portrait; margin: 8mm 12mm; }
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        body { font-family: Arial, 'Helvetica Neue', sans-serif; margin: 0; background: #d1d9e6; }
         .doc { background: white; }
+        .doc-title { font-family: Georgia, 'Times New Roman', serif; }
       `}</style>
 
       {/* Toolbar */}
@@ -109,40 +110,73 @@ export function ImprimirRecibo() {
       </div>
 
       {/* Document */}
-      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 p-10 shadow-lg" style={{ minHeight: '200mm' }}>
+      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl" style={{ minHeight: '297mm', display: 'flex', flexDirection: 'column' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <img src="/logochico.png" alt="Logo" style={{ height: 34 }} />
-              <div style={{ color: NAVY, fontSize: 15, fontWeight: 900 }}>{empresa?.nombre ?? ''}</div>
-            </div>
-            {empresa?.cuit     && <div style={{ color: '#555', fontSize: 11 }}>CUIT: {empresa.cuit}</div>}
-            {empresa?.telefono && <div style={{ color: '#555', fontSize: 11 }}>Tel: {empresa.telefono}</div>}
-            {empresa?.email    && <div style={{ color: '#555', fontSize: 11 }}>{empresa.email}</div>}
-            {empresa?.direccion && <div style={{ color: '#555', fontSize: 11 }}>{empresa.direccion}</div>}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: RED, fontSize: 26, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Recibo
-            </div>
-            <div style={{ color: NAVY, fontSize: 16, fontWeight: 700, marginTop: 4 }}>{recibo.numero}</div>
-            <div style={{ color: '#666', fontSize: 11, marginTop: 4 }}>Fecha: {fmtFecha(recibo.fecha)}</div>
-            {recibo.operacion && (
-              <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
-                Ref. presupuesto: <strong>{recibo.operacion.numero}</strong>
+        {/* ── HEADER unificado ──────────────────────────────────────────── */}
+        <div style={{ padding: '22px 28px 18px', background: 'white' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
+
+            {/* Izquierda: logo + contacto */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                <img src="/logo2.png" alt="Logo" style={{ height: 88, display: 'block' }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               </div>
-            )}
-            {recibo.remito && (
-              <div style={{ fontSize: 11, color: '#555' }}>
-                Ref. remito: <strong>{recibo.remito.numero}</strong>
+              <div style={{ height: 1, background: '#e5e7eb', marginBottom: 8 }} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px 0', fontSize: 10.5, color: '#555', marginBottom: 4 }}>
+                {empresa?.cuit && (
+                  <><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>🪪 CUIT: {empresa.cuit}</span>
+                  {(empresa?.telefono || empresa?.email) && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}</>
+                )}
+                {empresa?.telefono && (
+                  <><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>📞 {empresa.telefono}</span>
+                  {empresa?.email && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}</>
+                )}
+                {empresa?.email && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>✉️ {empresa.email}</span>}
               </div>
-            )}
+              {empresa?.direccion && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#555' }}>
+                  📍 {empresa.direccion}
+                </div>
+              )}
+            </div>
+
+            {/* Separador vertical */}
+            <div style={{ width: 1, background: '#d1d5db', alignSelf: 'stretch', margin: '4px 0' }} />
+
+            {/* Derecha: RECIBO */}
+            <div style={{ textAlign: 'right', minWidth: 170 }}>
+              <div className="doc-title"
+                style={{ color: RED, fontSize: 40, fontWeight: 900, letterSpacing: 3, lineHeight: 1, textTransform: 'uppercase' }}>
+                Recibo
+              </div>
+              <div className="doc-title"
+                style={{ color: NAVY, fontWeight: 800, fontSize: 16, marginTop: 8 }}>
+                {recibo.numero}
+              </div>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                📅 <span><strong style={{ color: NAVY }}>Fecha:</strong> {fmtFecha(recibo.fecha)}</span>
+              </div>
+              {recibo.operacion && (
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  🔗 Ref. presupuesto: <strong style={{ color: NAVY }}>{recibo.operacion.numero}</strong>
+                </div>
+              )}
+              {recibo.remito && (
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  📦 Ref. remito: <strong style={{ color: NAVY }}>{recibo.remito.numero}</strong>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div style={{ backgroundColor: NAVY, height: 2, marginBottom: 20 }} />
+        {/* Separador doble navy */}
+        <div style={{ height: 4, background: NAVY }} />
+        <div style={{ height: 1, background: '#3a5fad', marginBottom: 0 }} />
+
+        {/* padding del cuerpo */}
+        <div style={{ padding: '20px 28px', flex: 1 }}>
 
         {/* Cliente */}
         <div style={{ backgroundColor: '#f8f9fa', borderRadius: 8, padding: '10px 14px', marginBottom: 20, borderLeft: `4px solid ${NAVY}` }}>
@@ -336,9 +370,19 @@ export function ImprimirRecibo() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ borderTop: `2px solid ${RED}`, marginTop: 28, paddingTop: 12, textAlign: 'center', fontSize: 10, color: '#999' }}>
-          {[empresa?.nombre, empresa?.cuit ? `CUIT ${empresa.cuit}` : null, empresa?.telefono ? `Tel: ${empresa.telefono}` : null, empresa?.email, empresa?.direccion].filter(Boolean).join(' · ')}
+        </div>{/* fin padding cuerpo */}
+
+        {/* FOOTER unificado */}
+        <div style={{
+          marginTop: 'auto', background: NAVY,
+          padding: '10px 24px',
+          display: 'flex', justifyContent: 'center',
+          flexWrap: 'wrap' as const, gap: '0 28px',
+          fontSize: 10, color: '#bfdbfe',
+        }}>
+          {empresa?.telefono  && <span>📞 {empresa.telefono}</span>}
+          {empresa?.email     && <span>✉ {empresa.email}</span>}
+          {empresa?.direccion && <span>📍 {empresa.direccion}</span>}
         </div>
       </div>
     </>

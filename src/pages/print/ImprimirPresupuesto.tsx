@@ -169,15 +169,18 @@ export function ImprimirPresupuesto() {
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap');
         @media print {
           @page { size: A4 portrait; margin: 8mm 12mm; }
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #e5e7eb; }
+        body { font-family: Arial, 'Helvetica Neue', sans-serif; margin: 0; background: #d1d9e6; }
         .doc { background: white; }
         table { border-collapse: collapse; width: 100%; }
+        .empresa-nombre { font-family: Georgia, 'Times New Roman', serif; }
+        .empresa-tagline { font-family: 'Dancing Script', 'Brush Script MT', cursive, Georgia, serif; }
       `}</style>
 
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
@@ -200,78 +203,92 @@ export function ImprimirPresupuesto() {
       <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl"
         style={{ minHeight: '297mm', display: 'flex', flexDirection: 'column' }}>
 
-        {/* ── HEADER (fondo blanco, igual que la imagen) ─────────────────── */}
-        <div style={{ padding: '20px 24px 16px', background: 'white' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* ── HEADER ────────────────────────────────────────────────────── */}
+        <div style={{ padding: '22px 28px 18px', background: 'white' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
 
-            {/* Izquierda: logo + empresa + contacto */}
-            <div>
-              {/* Logo + nombre */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <img src="/logochico.png" alt="Logo" style={{ height: 38 }}
+            {/* Izquierda: logo + nombre + tagline + contacto */}
+            <div style={{ flex: 1 }}>
+
+              {/* Logo completo centrado en el área izquierda */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                <img src="/logo2.png" alt={empresa?.nombre ?? 'Logo'}
+                  style={{ height: 88, display: 'block' }}
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div>
-                  <div style={{ color: NAVY, fontSize: 17, fontWeight: 900, lineHeight: 1.1, letterSpacing: 0.5 }}>
-                    {empresa?.nombre ?? ''}
-                  </div>
-                </div>
               </div>
 
-              {/* Contacto */}
-              {empresa?.cuit && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
-                  <span style={{ fontSize: 12 }}>🪪</span> CUIT: {empresa.cuit}
-                </div>
-              )}
-              {empresa?.telefono && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
-                  <span style={{ fontSize: 12 }}>📞</span> {empresa.telefono}
-                </div>
-              )}
-              {empresa?.email && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
-                  <span style={{ fontSize: 12 }}>✉️</span> {empresa.email}
-                </div>
-              )}
+              {/* Separador vertical de datos de contacto */}
+              <div style={{ height: 1, background: '#e5e7eb', marginBottom: 8 }} />
+
+              {/* Contacto en una sola línea horizontal */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px 0', fontSize: 10.5, color: '#555', marginBottom: 4 }}>
+                {empresa?.cuit && (
+                  <>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span>🪪</span> CUIT: {empresa.cuit}
+                    </span>
+                    {(empresa?.telefono || empresa?.email) && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}
+                  </>
+                )}
+                {empresa?.telefono && (
+                  <>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span>📞</span> {empresa.telefono}
+                    </span>
+                    {empresa?.email && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}
+                  </>
+                )}
+                {empresa?.email && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>✉️</span> {empresa.email}
+                  </span>
+                )}
+              </div>
               {empresa?.direccion && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555', marginBottom: 3 }}>
-                  <span style={{ fontSize: 12 }}>📍</span> {empresa.direccion}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#555', marginBottom: 3 }}>
+                  <span>📍</span> {empresa.direccion}
                 </div>
               )}
               {instagram && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555' }}>
-                  <span style={{ fontSize: 12 }}>📷</span> Instagram: {instagram}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#555' }}>
+                  <span>📷</span> Instagram: {instagram}
                 </div>
               )}
             </div>
 
+            {/* Separador vertical */}
+            <div style={{ width: 1, background: '#d1d5db', alignSelf: 'stretch', margin: '4px 0' }} />
+
             {/* Derecha: PROFORMA + datos */}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ color: RED, fontSize: 34, fontWeight: 900, letterSpacing: 2, lineHeight: 1, textTransform: 'uppercase' }}>
+            <div style={{ textAlign: 'right', minWidth: 170 }}>
+              <div className="empresa-nombre"
+                style={{ color: RED, fontSize: 40, fontWeight: 900, letterSpacing: 3, lineHeight: 1, textTransform: 'uppercase' }}>
                 PROFORMA
               </div>
-              <div style={{ color: NAVY, fontWeight: 700, fontSize: 14, marginTop: 6 }}>
+              <div className="empresa-nombre"
+                style={{ color: NAVY, fontWeight: 800, fontSize: 16, marginTop: 8, letterSpacing: 0.5 }}>
                 N°: {proformaNumero}
               </div>
-              <div style={{ fontSize: 11, color: '#555', marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                📅 <span>Fecha: {fechaEmision}</span>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                📅 <span><strong style={{ color: NAVY }}>Fecha:</strong> {fechaEmision}</span>
               </div>
               {fechaValidez && (
-                <div style={{ fontSize: 11, color: RED, fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                  ⏱ <span>Válido hasta: {fechaValidez}</span>
+                <div style={{ fontSize: 11, marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  ⏱ <span><strong style={{ color: RED }}>Válido hasta:</strong> <span style={{ color: RED }}>{fechaValidez}</span></span>
                 </div>
               )}
               {op.tiempo_entrega && (
-                <div style={{ fontSize: 11, color: '#555', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                  🚚 <span>Entrega estimada: {op.tiempo_entrega} días hábiles</span>
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  🚚 <span>Entrega: {op.tiempo_entrega} días hábiles</span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── Línea separadora navy ──────────────────────────────────────── */}
-        <div style={{ height: 2, background: NAVY }} />
+        {/* ── Separador doble navy (igual al mockup) ────────────────────── */}
+        <div style={{ height: 4, background: NAVY }} />
+        <div style={{ height: 1, background: '#3a5fad' }} />
 
         {/* ── CLIENTE + GRACIAS ─────────────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'white', borderBottom: `1px solid #e5e7eb` }}>
@@ -318,12 +335,12 @@ export function ImprimirPresupuesto() {
           <table>
             <thead>
               <tr style={{ background: NAVY }}>
-                <th style={thStyle(36)}>Ítem</th>
-                <th style={thStyle(52)}></th>
+                <th style={thStyle(52)}>Artículo</th>
+                <th style={thStyle(58)}></th>
                 <th style={thStyle()}>Producto</th>
-                <th style={thStyle(50, 'center')}>Cant.</th>
-                <th style={thStyle(105, 'right')}>Precio Unit.</th>
-                <th style={thStyle(105, 'right')}>Subtotal</th>
+                <th style={thStyle(60, 'center')}>No Pedir.</th>
+                <th style={thStyle(115, 'right')}>Precio por Unidad.</th>
+                <th style={thStyle(110, 'right')}>Total Parcial</th>
               </tr>
             </thead>
             <tbody>

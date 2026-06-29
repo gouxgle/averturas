@@ -137,9 +137,10 @@ export function ImprimirRemito() {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #e5e7eb; }
+        body { font-family: Arial, 'Helvetica Neue', sans-serif; margin: 0; background: #d1d9e6; }
         .doc { background: white; }
         table { border-collapse: collapse; width: 100%; }
+        .doc-title { font-family: Georgia, 'Times New Roman', serif; }
       `}</style>
 
       {/* Toolbar */}
@@ -159,86 +160,91 @@ export function ImprimirRemito() {
       </div>
 
       {/* Documento */}
-      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl" style={{ minHeight: '297mm' }}>
+      <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl" style={{ minHeight: '297mm', display: 'flex', flexDirection: 'column' }}>
 
-        {/* HEADER */}
-        <div style={{ padding: '20px 24px 16px', background: 'white' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* ── HEADER unificado ──────────────────────────────────────────── */}
+        <div style={{ padding: '22px 28px 18px', background: 'white' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
 
-            {/* Izquierda: logo + empresa */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <img src="/logochico.png" alt="Logo" style={{ height: 38 }}
+            {/* Izquierda: logo + contacto */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                <img src="/logo2.png" alt="Logo" style={{ height: 88, display: 'block' }}
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div style={{ color: NAVY, fontSize: 17, fontWeight: 900, lineHeight: 1.1 }}>
-                  {empresa?.nombre ?? ''}
-                </div>
               </div>
-              {empresa?.cuit && (
-                <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>🪪 CUIT: {empresa.cuit}</div>
-              )}
-              {empresa?.telefono && (
-                <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>📞 {empresa.telefono}</div>
-              )}
-              {empresa?.email && (
-                <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>✉️ {empresa.email}</div>
-              )}
+              <div style={{ height: 1, background: '#e5e7eb', marginBottom: 8 }} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px 0', fontSize: 10.5, color: '#555', marginBottom: 4 }}>
+                {empresa?.cuit && (
+                  <><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>🪪 CUIT: {empresa.cuit}</span>
+                  {(empresa?.telefono || empresa?.email) && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}</>
+                )}
+                {empresa?.telefono && (
+                  <><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>📞 {empresa.telefono}</span>
+                  {empresa?.email && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}</>
+                )}
+                {empresa?.email && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>✉️ {empresa.email}</span>}
+              </div>
               {empresa?.direccion && (
-                <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>📍 {empresa.direccion}</div>
-              )}
-              {empresa?.instagram && (
-                <div style={{ fontSize: 11, color: '#555' }}>📷 Instagram: {empresa.instagram}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#555' }}>
+                  📍 {empresa.direccion}
+                </div>
               )}
             </div>
 
+            {/* Separador vertical */}
+            <div style={{ width: 1, background: '#d1d5db', alignSelf: 'stretch', margin: '4px 0' }} />
+
             {/* Derecha: título + datos */}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ color: NAVY, fontSize: 24, fontWeight: 900, letterSpacing: 1, lineHeight: 1, textTransform: 'uppercase' }}>
-                Remito de Entrega
+            <div style={{ textAlign: 'right', minWidth: 170 }}>
+              <div className="doc-title"
+                style={{ color: NAVY, fontSize: 36, fontWeight: 900, letterSpacing: 2, lineHeight: 1, textTransform: 'uppercase' }}>
+                Remito
               </div>
-              <div style={{
-                display: 'inline-block', background: NAVY, color: 'white',
-                fontWeight: 800, fontSize: 13, padding: '3px 14px', borderRadius: 6, marginTop: 6,
-              }}>
+              <div className="doc-title"
+                style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 4, letterSpacing: 0.5 }}>
+                de Entrega
+              </div>
+              <div className="doc-title"
+                style={{ color: NAVY, fontWeight: 800, fontSize: 15, marginTop: 8 }}>
                 N°: {remito.numero}
               </div>
-              <div style={{ fontSize: 11, color: '#555', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                📅 <span>Fecha de emisión: {fmtFecha(remito.fecha_emision)}</span>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                📅 <span><strong style={{ color: NAVY }}>Emisión:</strong> {fmtFecha(remito.fecha_emision)}</span>
               </div>
               {remito.fecha_entrega_est && (
-                <div style={{ fontSize: 11, color: '#555', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                  📋 <span>Fecha pactada: {fmtFecha(remito.fecha_entrega_est)}</span>
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  📋 <span><strong style={{ color: NAVY }}>Fecha pactada:</strong> {fmtFecha(remito.fecha_entrega_est)}</span>
                 </div>
               )}
               {proformaNumero && (
-                <div style={{ fontSize: 11, color: '#555', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                  🔗 <span>Relacionado a Proforma: <strong style={{ color: NAVY }}>{proformaNumero}</strong></span>
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  🔗 <span>Proforma: <strong style={{ color: NAVY }}>{proformaNumero}</strong></span>
                 </div>
               )}
-              {/* Badge estado recepción */}
               {recBadge ? (
                 <div style={{
-                  display: 'inline-block', marginTop: 6, padding: '3px 12px',
+                  display: 'inline-block', marginTop: 8, padding: '3px 12px',
                   background: recBadge.bg, color: recBadge.color,
                   fontSize: 10, fontWeight: 800, borderRadius: 4, border: `1px solid ${recBadge.color}33`,
                 }}>
-                  Estado: {recBadge.label}
+                  {recBadge.label}
                 </div>
               ) : (
                 <div style={{
-                  display: 'inline-block', marginTop: 6, padding: '3px 12px',
+                  display: 'inline-block', marginTop: 8, padding: '3px 12px',
                   background: '#fef3c7', color: '#d97706',
                   fontSize: 10, fontWeight: 800, borderRadius: 4, border: '1px solid #fbbf2433',
                 }}>
-                  Estado: PENDIENTE DE CONFIRMACIÓN
+                  PENDIENTE DE CONFIRMACIÓN
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Línea navy */}
-        <div style={{ height: 2, background: NAVY }} />
+        {/* Separador doble navy */}
+        <div style={{ height: 4, background: NAVY }} />
+        <div style={{ height: 1, background: '#3a5fad' }} />
 
         {/* CLIENTE + ENTREGA */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #e5e7eb' }}>
@@ -516,9 +522,9 @@ export function ImprimirRemito() {
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER unificado */}
         <div style={{
-          marginTop: 16, background: NAVY,
+          marginTop: 'auto', background: NAVY,
           padding: '10px 24px',
           display: 'flex', justifyContent: 'center',
           flexWrap: 'wrap' as const, gap: '0 28px',
