@@ -343,43 +343,43 @@ export function VistaPublicaPresupuesto() {
 
         {/* ── HEADER ────────────────────────────────────────────────────── */}
         <div className="rounded-t-2xl overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 px-4 sm:px-5 pt-5 pb-5 bg-white"
-            style={{ border: `2px solid ${NAVY}`, borderBottom: 'none' }}>
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 px-4 sm:px-5 pt-5 pb-5 bg-white">
 
             {/* Empresa */}
-            <div>
-              <img src="/logochico.png" alt="Logo" style={{ height: 36, marginBottom: 12, opacity: 0.9 }}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              {pres.empresa.cuit && (
-                <div className="text-xs mb-0.5" style={{ color: NAVY }}>
-                  <span className="font-semibold">CUIT:</span> {pres.empresa.cuit}
-                </div>
-              )}
-              {pres.empresa.telefono && (
-                <div className="flex items-center gap-1 text-xs mb-0.5" style={{ color: NAVY }}>
-                  <Phone size={10} /> {pres.empresa.telefono}
-                </div>
-              )}
-              {pres.empresa.email && (
-                <div className="flex items-center gap-1 text-xs mb-0.5" style={{ color: NAVY }}>
-                  <Mail size={10} /> {pres.empresa.email}
-                </div>
-              )}
+            <div style={{ flex: 1 }}>
+              {/* Logo centrado — mismo que PDF */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                <img src="/logo2.png" alt="Logo" style={{ height: 64, display: 'block' }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              </div>
+              <div style={{ height: 1, background: '#e5e7eb', marginBottom: 6 }} />
+              {/* Contacto en línea horizontal */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 0', fontSize: 11, color: '#555' }}>
+                {pres.empresa.cuit && (
+                  <><span>🪪 CUIT: {pres.empresa.cuit}</span>
+                  {(pres.empresa.telefono || pres.empresa.email) && <span style={{ color: '#ccc', margin: '0 8px' }}>|</span>}</>
+                )}
+                {pres.empresa.telefono && (
+                  <><span>📞 {pres.empresa.telefono}</span>
+                  {pres.empresa.email && <span style={{ color: '#ccc', margin: '0 8px' }}>|</span>}</>
+                )}
+                {pres.empresa.email && <span>✉️ {pres.empresa.email}</span>}
+              </div>
               {pres.empresa.direccion && (
-                <div className="flex items-center gap-1 text-xs mb-0.5" style={{ color: NAVY }}>
-                  <MapPin size={10} /> {pres.empresa.direccion}
+                <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
+                  📍 {pres.empresa.direccion}
                 </div>
               )}
               {pres.empresa.instagram && (
-                <div className="text-xs" style={{ color: NAVY }}>Instagram: {pres.empresa.instagram}</div>
+                <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>📷 {pres.empresa.instagram}</div>
               )}
             </div>
 
             {/* PROFORMA + detalles */}
-            <div className="sm:text-right shrink-0 sm:shrink-0">
-              <div className="text-2xl sm:text-3xl font-black tracking-widest leading-none mb-1"
-                style={{ color: RED }}>PROFORMA</div>
-              <div className="font-bold text-sm" style={{ color: NAVY }}>N°: {proformaNum}</div>
+            <div className="sm:text-right shrink-0">
+              <div className="font-black tracking-widest leading-none mb-1"
+                style={{ color: RED, fontFamily: 'Georgia, serif', fontSize: 32 }}>PROFORMA</div>
+              <div className="font-bold text-sm" style={{ color: NAVY, fontFamily: 'Georgia, serif' }}>N°: {proformaNum}</div>
               <div className="text-xs mt-2 text-gray-500">📅 Fecha: {fechaEmision}</div>
               {pres.fecha_validez && (
                 <div className={`text-xs mt-0.5 font-semibold ${vencido ? 'text-red-500' : 'text-amber-600'}`}>
@@ -393,7 +393,9 @@ export function VistaPublicaPresupuesto() {
               )}
             </div>
           </div>
-          <div style={{ height: 3, background: RED }} />
+          {/* Separador doble navy — igual que PDF */}
+          <div style={{ height: 4, background: NAVY }} />
+          <div style={{ height: 1, background: '#3a5fad' }} />
         </div>
 
         {/* ── CLIENTE + GRACIAS ─────────────────────────────────────────── */}

@@ -166,9 +166,18 @@ export function NuevoRemito() {
     }
   }, [isEdit]);
 
+  // operacion_id fijo desde URL (navegando desde Pedidos)
+  const operacionFromUrl = searchParams.get('operacion_id') ?? '';
+
   // Al cambiar cliente → cargar sus operaciones aprobadas/en producción/listas
   useEffect(() => {
-    if (!clienteId) { setOperaciones([]); setOperacionId(''); setOpItems([]); setSelectedOp(new Set()); return; }
+    if (!clienteId) {
+      setOperaciones([]);
+      // No limpiar operacionId si vino pre-cargado por URL (desde Pedidos)
+      if (!operacionFromUrl) setOperacionId('');
+      setOpItems([]); setSelectedOp(new Set());
+      return;
+    }
     api.get<Operacion[]>(
       `/operaciones?cliente_id=${clienteId}&estados=aprobado,en_produccion,listo,instalado&sin_remito=1`
     ).then(setOperaciones).catch(() => setOperaciones([]));
@@ -495,17 +504,45 @@ export function NuevoRemito() {
           </div>
 
           {/* Presupuesto vinculado */}
-          {clienteId && (
+          {(clienteId || operacionFromUrl) && (
             <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">2</span>
                 Presupuesto vinculado
               </h2>
 
-              {operaciones.length === 0 ? (
+              {operaciones.length === 0 && !operacionFromUrl ? (
                 <p className="text-xs text-gray-400 italic">No hay presupuestos aprobados para este cliente</p>
               ) : (
                 <>
+                  {/* Cuando viene de Pedidos: operación fija — no dropdown */}
+                  {operacionFromUrl ? (() => {
+                    const opFija = operaciones.find(o => o.id === operacionFromUrl);
+                    return (
+                      <div className="flex items-center gap-3 px-3 py-2.5 bg-teal-50 border border-teal-200 rounded-xl mb-3">
+                        <span className="text-teal-500 text-lg">🔗</span>
+                        <div className="flex-1 min-w-0">
+                          {opFija ? (
+                            <>
+                              <p className="text-sm font-bold text-teal-800">{opFija.numero}</p>
+                              <p className="text-xs text-teal-600">
+                                {opFija.estado} · ${Number(opFija.precio_total).toLocaleString('es-AR')}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-teal-700 font-medium">Operación pre-seleccionada desde pedido</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { window.history.pushState({}, '', '/remitos/nuevo'); setOperacionId(''); }}
+                          className="text-[10px] text-teal-500 hover:text-teal-700 underline shrink-0"
+                        >
+                          Cambiar
+                        </button>
+                      </div>
+                    );
+                  })() : (
                   <select
                     value={operacionId}
                     onChange={e => setOperacionId(e.target.value)}
@@ -518,6 +555,7 @@ export function NuevoRemito() {
                       </option>
                     ))}
                   </select>
+                  )}
 
                   {/* Aviso: pedidos no recibidos */}
                   {pedidosSinRecibir.length > 0 && (

@@ -564,7 +564,7 @@ function PedidoModal({ id, onClose, onSaved }: {
                 {avisadoCliente ? '✓ Cliente avisado' : avisandoCliente ? 'Enviando...' : 'Avisar al cliente por WhatsApp'}
               </button>
               <button
-                onClick={() => navigate(`/remitos/nuevo?operacion_id=${pedido.operacion!.id}`)}
+                onClick={() => navigate(`/remitos/nuevo?operacion_id=${pedido.operacion!.id}&cliente_id=${pedido.operacion!.cliente?.id ?? ''}`)}
                 className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-600 transition-colors"
               >
                 <Truck size={15} />

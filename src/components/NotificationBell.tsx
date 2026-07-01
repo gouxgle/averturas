@@ -31,11 +31,27 @@ export function NotificationBell() {
   const [open, setOpen]       = useState(false);
   const [marcando, setMarcando] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const prevIdsRef   = useRef<Set<string>>(new Set());
+  const inicializado = useRef(false);
 
   const fetchNotifs = useCallback(async () => {
     try {
       const data = await api.get<Notif[]>('/notificaciones');
       setNotifs(data);
+      if (!inicializado.current) {
+        // Primera carga: solo registrar IDs actuales sin disparar evento
+        prevIdsRef.current = new Set(data.map(n => n.id));
+        inicializado.current = true;
+      } else {
+        // Cargas siguientes: detectar IDs genuinamente nuevas
+        const nuevas = data.filter(n => !prevIdsRef.current.has(n.id));
+        if (nuevas.length > 0) {
+          window.dispatchEvent(new CustomEvent('presupuesto:aprobado-online', {
+            detail: { nuevas }
+          }));
+        }
+        prevIdsRef.current = new Set(data.map(n => n.id));
+      }
     } catch {
       // silencioso
     }

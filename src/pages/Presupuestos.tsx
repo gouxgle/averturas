@@ -81,7 +81,7 @@ interface PedidoResumen {
 
 interface OpDetalle {
   id: string; numero: string; tipo: string; estado: EstadoOperacion;
-  cliente_id: string; cobrado_total: number; proveedor_id: string | null;
+  cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
   tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; created_at: string; updated_at: string;
@@ -203,8 +203,9 @@ function fmtVencimiento(p: PresupuestoPanel): { text: string; color: string } | 
 }
 
 function borderColor(p: PresupuestoPanel): string {
-  if (['cancelado', 'rechazado'].includes(p.estado)) return 'border-l-gray-300';
-  if (p.estado === 'aprobado') return 'border-l-emerald-400';
+  if (p.estado === 'rechazado') return 'border-l-red-500';
+  if (p.estado === 'cancelado') return 'border-l-gray-300';
+  if (p.estado === 'aprobado') return 'border-l-emerald-500';
   return PRIO_CFG[p.prioridad].border;
 }
 
@@ -561,11 +562,12 @@ function PresupuestoModal({
             </div>
 
             {op.estado === 'aprobado' && (() => {
-              const cobrado = Number(op.cobrado_total ?? 0);
-              const saldo   = Math.max(0, total - cobrado);
-              const pct     = total > 0 ? Math.min(100, Math.round(cobrado / total * 100)) : 0;
-              const ecLabel = cobrado < 0.01 ? 'Sin cobrar' : saldo < 0.01 ? 'Cobrado' : 'Pago parcial (seña)';
-              const ecColor = cobrado < 0.01 ? 'text-amber-600' : saldo < 0.01 ? 'text-emerald-600' : 'text-sky-600';
+              const cobrado    = Number(op.cobrado_total    ?? 0);
+              const descuentos = Number(op.total_descuentos ?? 0);
+              const saldo      = Math.max(0, total - cobrado - descuentos);
+              const pct        = total > 0 ? Math.min(100, Math.round((cobrado + descuentos) / total * 100)) : 0;
+              const ecLabel    = cobrado < 0.01 ? 'Sin cobrar' : saldo < 0.01 ? 'Cobrado' : 'Pago parcial (seña)';
+              const ecColor    = cobrado < 0.01 ? 'text-amber-600' : saldo < 0.01 ? 'text-emerald-600' : 'text-sky-600';
               return (
                 <div className="px-5 py-4 bg-gray-50/60">
                   <div className="flex items-center justify-between mb-3">
@@ -583,6 +585,9 @@ function PresupuestoModal({
                     <div className="bg-emerald-50 rounded-lg px-2 py-2 border border-emerald-100">
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Cobrado</p>
                       <p className="text-xs font-bold text-emerald-700">{formatCurrency(cobrado)}</p>
+                      {descuentos > 0.01 && (
+                        <p className="text-[9px] text-violet-500 mt-0.5">+{formatCurrency(descuentos)} bonif.</p>
+                      )}
                     </div>
                     <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-200')}>
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Saldo</p>
@@ -738,6 +743,24 @@ export function Presupuestos() {
     function handleVisibility() { if (document.visibilityState === 'visible') load(); }
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [load]);
+
+  // Recargar cuando NotificationBell detecta aprobación online nueva
+  useEffect(() => {
+    function handleAprobado(e: Event) {
+      const detail = (e as CustomEvent).detail;
+      const nuevas: Array<{ numero?: string }> = detail?.nuevas ?? [];
+      load();
+      if (nuevas.length > 0) {
+        const nums = nuevas.map((n: { numero?: string }) => n.numero).filter(Boolean).join(', ');
+        toast.success(`Aprobación online recibida${nums ? ` — Presupuesto ${nums}` : ''}`, {
+          description: 'La lista se actualizó automáticamente',
+          duration: 6000,
+        });
+      }
+    }
+    window.addEventListener('presupuesto:aprobado-online', handleAprobado);
+    return () => window.removeEventListener('presupuesto:aprobado-online', handleAprobado);
   }, [load]);
 
   useEffect(() => {
@@ -952,8 +975,8 @@ export function Presupuestos() {
                       className={cn(
                         'grid items-center px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
                         borderColor(p),
-                        isAprobadoOnline && 'bg-emerald-50/50 hover:bg-emerald-50/70',
-                        isRechazado && !isAprobadoOnline && 'bg-red-50/30 hover:bg-red-50/50'
+                        isAprobadoOnline && 'bg-emerald-100 hover:bg-emerald-100/80',
+                        isRechazado && !isAprobadoOnline && 'bg-red-100 hover:bg-red-100/80'
                       )}
                       style={{ gridTemplateColumns: '160px 1fr 145px 130px 100px 95px 85px' }}
                       onClick={() => abrirDetalle(p)}>

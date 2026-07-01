@@ -135,6 +135,7 @@ export function ImprimirRemito() {
           @page { size: A4 portrait; margin: 8mm 12mm; }
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .doc { margin: 0 !important; min-height: auto !important; box-shadow: none !important; }
         }
         * { box-sizing: border-box; }
         body { font-family: Arial, 'Helvetica Neue', sans-serif; margin: 0; background: #d1d9e6; }

@@ -1007,6 +1007,7 @@ export function NuevoPresupuesto() {
             <select
               value={formaPago}
               onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
+              onFocus={() => setUserSetFormaPago(true)}
               disabled={!clienteId}
               className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4 max-w-[170px]"
             >
@@ -1022,6 +1023,7 @@ export function NuevoPresupuesto() {
             <select
               value={formaEnvio}
               onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
+              onFocus={() => setUserSetFormaEnvio(true)}
               disabled={!clienteId}
               className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4"
             >

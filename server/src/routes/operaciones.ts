@@ -254,7 +254,7 @@ operaciones.get('/ventas-panel', async (c) => {
         CASE
           WHEN o.estado NOT IN ('aprobado','en_produccion','listo','instalado','entregado') THEN NULL
           WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
-          WHEN cob.cobrado_total >= o.precio_total - 0.01 THEN 'cobrado'
+          WHEN cob.cobrado_total + cob.descuentos_total >= o.precio_total - 0.01 THEN 'cobrado'
           ELSE 'seña'
         END AS estado_cobro,
         COALESCE(ped.tiene_pedido, false) AS tiene_pedido,
@@ -270,7 +270,9 @@ operaciones.get('/ventas-panel', async (c) => {
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
       LEFT JOIN LATERAL (
-        SELECT COALESCE(SUM(r.monto_total), 0)::numeric AS cobrado_total
+        SELECT
+          COALESCE(SUM(r.monto_total),    0)::numeric AS cobrado_total,
+          COALESCE(SUM(r.monto_descuento),0)::numeric AS descuentos_total
         FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'
       ) cob ON true
       LEFT JOIN LATERAL (
@@ -488,6 +490,10 @@ operaciones.get('/:id', async (c) => {
           SELECT SUM(r.monto_total) FROM recibos r
           WHERE r.operacion_id = o.id AND r.estado = 'emitido'
         ), 0)::numeric AS cobrado_total,
+        COALESCE((
+          SELECT SUM(r.monto_descuento) FROM recibos r
+          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+        ), 0)::numeric AS total_descuentos,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
