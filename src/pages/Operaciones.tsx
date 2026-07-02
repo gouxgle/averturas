@@ -121,17 +121,17 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
 
   return (
     <div
-      className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:shadow-md transition-all"
+      className="bg-white border border-gray-200 rounded-xl p-2.5 cursor-pointer hover:shadow-md transition-all"
       onClick={() => navigate(`/operaciones/${op.id}`)}
     >
-      <div className="flex items-center justify-between gap-1 mb-1.5">
-        <span className="text-[11px] font-mono font-bold text-blue-600">{op.numero}</span>
-        <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', ESTADO_BADGE[op.estado] ?? 'bg-gray-100 text-gray-600')}>
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className="text-[10px] font-mono font-bold text-blue-600">{op.numero}</span>
+        <span className={cn('text-[9px] font-semibold px-1 py-0.5 rounded-full truncate max-w-[90px]', ESTADO_BADGE[op.estado] ?? 'bg-gray-100 text-gray-600')}>
           {ESTADO_LABEL[op.estado] ?? op.estado}
         </span>
       </div>
 
-      <p className="text-[12px] font-semibold text-gray-800 truncate">{ncl(op.cliente)}</p>
+      <p className="text-[11px] font-semibold text-gray-800 truncate">{ncl(op.cliente)}</p>
 
       {op.primer_item && (
         <p className="text-[10px] text-gray-400 mt-0.5 truncate">{op.primer_item}</p>
@@ -141,8 +141,8 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
         <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(op.fecha_entrega_estimada)}</p>
       )}
 
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
-        <p className="text-[13px] font-extrabold text-gray-900 tabular-nums">{formatCurrency(op.precio_total)}</p>
+      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-200">
+        <p className="text-[12px] font-extrabold text-gray-900 tabular-nums">{formatCurrency(op.precio_total)}</p>
         {showPago && <PagoBadge cobrado={op.cobrado_total} total={op.precio_total} />}
         {col === 'canceladas' && <XCircle size={14} className="text-red-400 shrink-0" />}
         {col === 'entregadas' && <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />}
@@ -198,7 +198,7 @@ function TCol({ col, title, color, ops }: {
   }[color] ?? { header: 'border-gray-300 text-gray-700 bg-gray-50', badge: 'bg-gray-400' };
 
   return (
-    <div className="flex-1 min-w-[175px] max-w-[240px]">
+    <div className="flex-1 min-w-[145px] max-w-[200px]">
       <div className={`flex items-center justify-between px-3 py-2 rounded-xl border-l-4 mb-2 ${cls.header}`}>
         <p className="text-[12px] font-bold truncate">{title}</p>
         <span className={`text-[10px] font-extrabold text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 ${cls.badge}`}>
@@ -290,10 +290,10 @@ export function Operaciones() {
                 <h2 className="text-sm font-bold text-gray-800">Tablero de Operaciones</h2>
                 <span className="text-[11px] text-gray-400">— flujo completo</span>
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <div className="flex gap-2 overflow-x-auto pb-2 w-full">
                 <TCol col="sin_confirmar"   title="Sin confirmar"       color="slate" ops={data.kanban.sin_confirmar} />
                 <TCol col="confirmadas"     title="Confirmadas"         color="green" ops={data.kanban.confirmadas} />
-                <TCol col="con_pedido"      title="Pedido al proveedor" color="amber" ops={data.kanban.con_pedido} />
+                <TCol col="con_pedido"      title="Pedido proveedor"    color="amber" ops={data.kanban.con_pedido} />
                 <TCol col="listas_entregar" title="Listas p/ entregar"  color="teal"  ops={data.kanban.listas_entregar} />
                 <TCol col="entregadas"      title="Entregadas"          color="blue"  ops={data.kanban.entregadas} />
                 <TCol col="canceladas"      title="Canceladas"          color="red"   ops={data.kanban.canceladas} />
@@ -303,7 +303,7 @@ export function Operaciones() {
           </div>
 
           {/* ── Sidebar ───────────────────────────────────────────── */}
-          <div className="w-full xl:w-[280px] xl:shrink-0 space-y-4">
+          <div className="w-full xl:w-[220px] xl:shrink-0 space-y-4">
 
             {/* Entregas programadas */}
             <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
