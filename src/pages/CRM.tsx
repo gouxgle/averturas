@@ -701,7 +701,7 @@ export function CRM() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => [formatCurrency(v), 'Ventas']} />
+              <Tooltip formatter={(v) => [formatCurrency(Number(v)), 'Ventas']} />
               <Area type="monotone" dataKey="ventas" stroke="#8b5cf6" strokeWidth={2} fill="url(#gVentas)" />
             </AreaChart>
           </ResponsiveContainer>

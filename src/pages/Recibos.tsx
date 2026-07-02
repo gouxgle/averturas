@@ -29,6 +29,7 @@ interface ReciboRow {
   saldo_pendiente: number;
   operacion_id: string | null;
   operacion_numero: string | null;
+  cliente_id: string;
   cliente_nombre: string;
   cliente_telefono: string | null;
 }

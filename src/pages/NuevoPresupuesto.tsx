@@ -904,213 +904,222 @@ export function NuevoPresupuesto() {
         </div>
       </div>
 
-      {/* ── INFO BAR ── */}
+      {/* ── BARRA UNIFICADA DE PASOS ── círculos arriba + inputs abajo, alineados por columna ── */}
       <div className={cn(
-        'border-b px-4 py-1 flex items-center gap-3 transition-all duration-300',
-        !clienteId
-          ? 'bg-violet-50 border-violet-200'
-          : 'bg-white border-gray-200'
+        'border-b px-4 pt-3 pb-2 transition-all duration-300 shrink-0',
+        !clienteId ? 'bg-gradient-to-b from-violet-50 to-white border-violet-200' : 'bg-white border-gray-200'
       )}>
-
-        {/* Card 1: Cliente */}
-        <div className={cn(
-          'flex items-center gap-3 min-w-0 flex-1 border-r pr-3 transition-all duration-300',
-          !clienteId ? 'border-violet-200' : 'border-gray-200'
-        )}>
-          {clienteSeleccionado ? (
-            <>
-              <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
-                <span className="text-white text-[10px] font-bold">{clienteIniciales}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-gray-900 truncate">{clienteNombre}</p>
-                {clienteSeleccionado.telefono && (
-                  <p className="text-[10px] text-gray-400">{clienteSeleccionado.telefono}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => { setClienteId(''); setClienteSearch(''); }}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg"
-                  title="Cambiar cliente"
-                >
-                  <Edit2 size={12} className="text-gray-400" />
-                </button>
-                {clienteSeleccionado.telefono && (
-                  <a
-                    href={`https://wa.me/${clienteSeleccionado.telefono.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 hover:bg-green-50 rounded-lg"
-                    title="WhatsApp"
-                  >
-                    <MessageCircle size={12} className="text-green-500" />
-                  </a>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-2 flex-1 min-w-0 relative">
-              {/* Badge "Paso 1" animado */}
-              <div className="relative shrink-0">
-                <div className="absolute inset-0 rounded-full bg-violet-400 animate-ping opacity-40" />
-                <div className="relative w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center">
-                  <Users size={13} className="text-white" />
+        {/* Fila superior: círculos + línea conectora */}
+        <div className="relative flex items-center mb-2">
+          {/* Línea de fondo continua */}
+          <div className="absolute inset-x-[10%] top-1/2 -translate-y-1/2 h-0.5 bg-gray-200 z-0" />
+          {/* Segmentos de progreso (verdes sobre gris) */}
+          {pasos.map((paso, i) => i < pasos.length - 1 && paso.done && (
+            <div key={i}
+              className="absolute h-0.5 bg-green-400 z-0 transition-all duration-500"
+              style={{
+                left:  `calc(10% + ${i * 20}% + 1.5%)`,
+                width: '17%',
+              }}
+            />
+          ))}
+          {pasos.map((paso, i) => {
+            const sinCliente = i === 0 && !clienteId;
+            return (
+              <div key={i} className="flex-1 flex justify-center relative z-10">
+                <div className="relative">
+                  {/* Ping exterior — solo paso 1 sin cliente */}
+                  {sinCliente && (
+                    <>
+                      <div className="absolute inset-0 rounded-full bg-violet-400 animate-ping opacity-50 scale-150" />
+                      <div className="absolute inset-0 rounded-full bg-violet-300 animate-pulse opacity-40 scale-125" />
+                    </>
+                  )}
+                  <div className={cn(
+                    'relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 font-bold text-white text-sm',
+                    paso.done     ? 'bg-green-500 shadow-md shadow-green-200' :
+                    sinCliente    ? 'bg-violet-600 shadow-lg shadow-violet-300 ring-4 ring-violet-200 animate-bounce' :
+                    /* pending */   'bg-amber-400'
+                  )}>
+                    {paso.done
+                      ? <Check size={14} strokeWidth={3} />
+                      : <span>{i + 1}</span>
+                    }
+                  </div>
                 </div>
               </div>
-              <div className="flex-1 relative">
-                <p className="text-[9px] font-bold text-violet-500 uppercase tracking-wider mb-0.5">Paso 1 — Seleccioná el cliente para empezar</p>
-                <input
-                  type="text"
-                  placeholder="Escribí nombre, teléfono o DNI..."
-                  value={clienteSearch}
-                  onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
-                  onFocus={() => setShowClienteList(true)}
-                  onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
-                  className="w-full bg-transparent text-sm font-medium text-gray-800 placeholder:text-violet-300 focus:outline-none"
-                />
-                {showClienteList && clienteSearch && (
-                  <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-72">
-                    {clientes.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-gray-500">
-                        No encontrado.{' '}
-                        <button
-                          className="text-violet-600 hover:underline"
-                          onMouseDown={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}
-                        >
-                          Crear cliente
+            );
+          })}
+        </div>
+
+        {/* Fila inferior: título + input/selector de cada paso */}
+        <div className="flex">
+          {pasos.map((paso, i) => {
+            const sinCliente = i === 0 && !clienteId;
+            const disabled   = i > 0 && !clienteId;
+            return (
+              <div key={i}
+                className={cn(
+                  'flex-1 flex flex-col items-center gap-1 px-1 transition-opacity',
+                  disabled && 'opacity-40 pointer-events-none'
+                )}>
+                {/* Título del paso */}
+                <p className={cn(
+                  'text-[9px] font-bold uppercase tracking-wider text-center leading-tight',
+                  paso.done  ? 'text-green-600' :
+                  sinCliente ? 'text-violet-600' :
+                               'text-amber-600'
+                )}>
+                  {paso.titulo}
+                </p>
+
+                {/* ── Paso 1: Cliente ── */}
+                {i === 0 && (
+                  <div className="w-full relative">
+                    {clienteSeleccionado ? (
+                      <div className={cn(
+                        'flex items-center gap-1.5 px-2 py-1 rounded-lg border',
+                        'bg-green-50 border-green-200'
+                      )}>
+                        <div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+                          <span className="text-white text-[9px] font-bold">{clienteIniciales}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-800 truncate flex-1">{clienteNombre.split(' ').slice(0,2).join(' ')}</span>
+                        <button onClick={() => { setClienteId(''); setClienteSearch(''); }}
+                          className="shrink-0 p-0.5 hover:bg-white rounded" title="Cambiar">
+                          <Edit2 size={10} className="text-gray-400" />
                         </button>
                       </div>
-                    ) : clientes.slice(0, 8).map(c => (
-                      <button
-                        key={c.id}
-                        onMouseDown={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
+                    ) : (
+                      <div>
+                        {sinCliente && (
+                          <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
+                            ▼ Empezá aquí
+                          </p>
+                        )}
+                        <div className={cn(
+                          'flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-colors',
+                          sinCliente
+                            ? 'border-violet-500 bg-white client-input-glow'
+                            : 'border-gray-200 bg-white'
+                        )}>
+                          <Users size={12} className={sinCliente ? 'text-violet-500 shrink-0' : 'text-gray-400 shrink-0'} />
+                          <input
+                            type="text"
+                            placeholder="Nombre, tel. o DNI..."
+                            value={clienteSearch}
+                            onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
+                            onFocus={() => setShowClienteList(true)}
+                            onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
+                            className={cn(
+                              'w-full bg-transparent text-xs focus:outline-none',
+                              sinCliente ? 'placeholder:text-violet-300 text-violet-800 font-medium' : 'placeholder:text-gray-300'
+                            )}
+                          />
+                        </div>
+                        {showClienteList && clienteSearch && (
+                          <div className="absolute z-30 top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-64">
+                            {clientes.length === 0 ? (
+                              <div className="px-4 py-3 text-sm text-gray-500">
+                                No encontrado.{' '}
+                                <button className="text-violet-600 hover:underline"
+                                  onMouseDown={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
+                                  Crear cliente
+                                </button>
+                              </div>
+                            ) : clientes.slice(0, 8).map(c => (
+                              <button key={c.id}
+                                onMouseDown={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0">
+                                <span className="text-sm text-gray-800">
+                                  {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
+                                </span>
+                                <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Paso 2: Forma de pago ── */}
+                {i === 1 && (
+                  <div className={cn(
+                    'w-full px-1.5 py-1 rounded-lg border text-center',
+                    paso.done ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                  )}>
+                    <select
+                      value={formaPago}
+                      onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
+                      onFocus={() => setUserSetFormaPago(true)}
+                      disabled={!clienteId}
+                      className="w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center text-gray-700"
+                    >
+                      {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* ── Paso 3: Entrega ── */}
+                {i === 2 && (
+                  <div className={cn(
+                    'w-full px-1.5 py-1 rounded-lg border text-center',
+                    paso.done ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                  )}>
+                    <select
+                      value={formaEnvio}
+                      onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
+                      onFocus={() => setUserSetFormaEnvio(true)}
+                      disabled={!clienteId}
+                      className="w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center text-gray-700"
+                    >
+                      {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label.split('(')[0].trim()}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* ── Paso 4: Validez ── */}
+                {i === 3 && (
+                  <div className="flex items-center gap-1 justify-center">
+                    {([7, 15, 30] as const).map(d => (
+                      <button key={d} type="button"
+                        onClick={() => {
+                          setValidezDias(d);
+                          const f = new Date(); f.setDate(f.getDate() + d);
+                          setFechaValidez(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`);
+                          setUserSetFechaValidez(true);
+                        }}
+                        className={cn(
+                          'px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all',
+                          validezDias === d
+                            ? 'border-violet-500 bg-violet-100 text-violet-700'
+                            : 'border-gray-200 text-gray-400 hover:border-violet-300 hover:text-violet-600'
+                        )}
                       >
-                        <span className="text-sm text-gray-800">
-                          {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
-                        </span>
-                        <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
+                        {d}d
                       </button>
                     ))}
                   </div>
                 )}
+
+                {/* ── Paso 5: Productos ── */}
+                {i === 4 && (
+                  <div className={cn(
+                    'px-3 py-1 rounded-lg border text-center text-[11px] font-semibold',
+                    paso.done ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-400'
+                  )}>
+                    {items.length > 0
+                      ? `${items.length} producto${items.length > 1 ? 's' : ''}`
+                      : 'Sin agregar'}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Card 2: Forma de pago */}
-        <div className={cn('flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3 transition-opacity', !clienteId && 'opacity-40 pointer-events-none')}>
-          <div>
-            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Forma de pago</p>
-            <select
-              value={formaPago}
-              onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
-              onFocus={() => setUserSetFormaPago(true)}
-              disabled={!clienteId}
-              className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4 max-w-[170px]"
-            >
-              {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Card 3: Entrega / Instalación */}
-        <div className={cn('flex items-center gap-2 shrink-0 border-r border-gray-200 pr-3 transition-opacity', !clienteId && 'opacity-40 pointer-events-none')}>
-          <div>
-            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Entrega / Instalación</p>
-            <select
-              value={formaEnvio}
-              onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
-              onFocus={() => setUserSetFormaEnvio(true)}
-              disabled={!clienteId}
-              className="text-xs font-medium text-gray-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4"
-            >
-              {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Card 4: Validez */}
-        <div className={cn('flex items-center gap-2 shrink-0 transition-opacity', !clienteId && 'opacity-40 pointer-events-none')}>
-          <div>
-            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Validez</p>
-            <div className="flex items-center gap-1.5">
-              {([7, 15, 30] as const).map(d => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => {
-                    setValidezDias(d);
-                    const f = new Date(); f.setDate(f.getDate() + d);
-                    setFechaValidez(`${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`);
-                    setUserSetFechaValidez(true);
-                  }}
-                  className={cn(
-                    'px-2 py-0.5 rounded text-[10px] font-semibold border transition-all',
-                    validezDias === d
-                      ? 'border-violet-500 bg-violet-50 text-violet-700'
-                      : 'border-gray-200 text-gray-400 hover:border-violet-300 hover:text-violet-600'
-                  )}
-                >
-                  {d}d
-                </button>
-              ))}
-              <span className="text-[10px] text-gray-500 ml-1">hasta {fechaValidezLabel}</span>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
-
-      {/* ── BARRA DE PROGRESO — 5 pasos ── */}
-      {(() => {
-        return (
-          <div className="bg-white border-b border-gray-200 px-4 py-1 shrink-0">
-            <div className="flex items-center">
-              {pasos.map((paso, i) => {
-                const lineColor = i < pasos.length - 1
-                  ? (paso.done ? 'bg-green-400' : 'bg-amber-200')
-                  : '';
-                return (
-                  <Fragment key={i}>
-                    {/* Step */}
-                    <div className="flex flex-col items-center gap-0.5 shrink-0" style={{ minWidth: 80 }}>
-                      {/* Círculo */}
-                      <div className={cn(
-                        'w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all',
-                        paso.done ? 'bg-green-500' : 'bg-amber-400'
-                      )}>
-                        {paso.done
-                          ? <Check size={11} className="text-white" strokeWidth={3} />
-                          : <span className="text-[10px] font-bold text-white">{i + 1}</span>
-                        }
-                      </div>
-                      {/* Labels */}
-                      <div className="text-center px-0.5">
-                        <p className={cn('text-[9px] font-bold uppercase tracking-wide leading-tight',
-                          paso.done ? 'text-green-600' : 'text-amber-600'
-                        )}>
-                          {paso.titulo}
-                        </p>
-                        <p className={cn('text-[8px] leading-snug max-w-[72px] hidden sm:block',
-                          paso.done ? 'text-gray-400' : 'text-amber-500'
-                        )}>
-                          {paso.subtitulo}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Línea conectora */}
-                    {i < pasos.length - 1 && (
-                      <div className={cn('flex-1 h-0.5 mb-4 mx-0.5 transition-all', lineColor)} />
-                    )}
-                  </Fragment>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── CUERPO 3 COLUMNAS ── */}
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_1fr_240px] xl:grid-cols-[420px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">

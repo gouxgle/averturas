@@ -61,7 +61,7 @@ recibos.get('/tablero', async (c) => {
     db.query(`
       SELECT
         r.id, r.numero, r.fecha, r.monto_total, r.forma_pago, r.referencia_pago,
-        r.estado, r.operacion_id, cl.telefono AS cliente_telefono,
+        r.estado, r.operacion_id, cl.id AS cliente_id, cl.telefono AS cliente_telefono,
         CASE
           WHEN cl.tipo_persona = 'juridica' THEN COALESCE(cl.razon_social, '—')
           WHEN cl.apellido IS NOT NULL AND cl.nombre IS NOT NULL THEN cl.apellido || ', ' || cl.nombre
@@ -218,6 +218,7 @@ recibos.get('/tablero', async (c) => {
       saldo_pendiente: Number(r.saldo_pendiente),
       operacion_id:    r.operacion_id,
       operacion_numero: r.operacion_numero,
+      cliente_id:      r.cliente_id,
       cliente_nombre:  r.cliente_nombre,
       cliente_telefono: r.cliente_telefono,
     })),
