@@ -254,15 +254,17 @@ export function Dashboard() {
     <div className="page-enter p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto" data-section="dashboard">
 
       {/* ── Encabezado ───────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+      <div className="flex items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
             {saludo}, {user?.nombre ?? 'usuario'}! 👋
           </h1>
-          <WeatherWidget />
           <p className="text-sm text-gray-500 capitalize">
             {fechaHoy} · Acá tenés todo lo importante de tu negocio
           </p>
+        </div>
+        <div className="flex-1 flex justify-center">
+          <WeatherWidget />
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-600 shadow-lg">

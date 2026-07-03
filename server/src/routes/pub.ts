@@ -269,7 +269,7 @@ pub.get('/remito/:token', async (c) => {
         oi.orden, oi.descripcion, oi.cantidad, oi.color,
         oi.medida_ancho, oi.medida_alto, oi.vidrio, oi.premarco,
         oi.accesorios, oi.notas,
-        oi.atributos AS producto_atributos,
+        cp.atributos AS producto_atributos,
         ta.nombre AS tipo_abertura_nombre,
         si.nombre AS sistema_nombre,
         cp.imagen_url AS producto_imagen_url
