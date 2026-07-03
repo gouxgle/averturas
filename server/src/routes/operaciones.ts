@@ -480,6 +480,78 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
   return c.json({ enviado: true, numero, url });
 });
 
+// POST /:id/avisar-cliente — avisa al cliente que su operación está lista para entrega
+operaciones.post('/:id/avisar-cliente', async (c) => {
+  const user = c.get('user');
+  const { id } = c.req.param();
+
+  const { rows: [op] } = await db.query(
+    `SELECT o.id, o.numero, o.cliente_id, o.estado,
+       cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona, cl.telefono
+     FROM operaciones o
+     JOIN clientes cl ON cl.id = o.cliente_id
+     WHERE o.id = $1`,
+    [id]
+  );
+  if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  const telefono: string | null = op.telefono;
+  if (!telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  const digits = telefono.replace(/\D/g, '');
+  let numero: string;
+  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
+  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
+  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
+  else numero = `549${digits}`;
+
+  const nombre = op.tipo_persona === 'juridica'
+    ? (op.razon_social ?? 'estimado/a')
+    : `${op.nombre ?? ''} ${op.apellido ?? ''}`.trim() || 'estimado/a';
+
+  const { rows: [tpl] } = await db.query(
+    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'operacion_lista_entrega'`
+  );
+  const mensaje = tpl?.contenido
+    ? tpl.contenido
+        .replace(/\{\{nombre\}\}/g, nombre)
+        .replace(/\{\{numero_op\}\}/g, op.numero)
+    : `Hola ${nombre}! Tu pedido *${op.numero}* ya está listo para la entrega.\n\nNos comunicamos para coordinar. ¡Gracias! 🏠`;
+
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+
+  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, text: mensaje }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error('[whatsapp-aviso-entrega] Evolution API error:', resp.status, errText);
+    try {
+      const errJson = JSON.parse(errText);
+      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
+      const noExiste = msgs.find(m => m.exists === false);
+      if (noExiste)
+        return c.json({ error: `El número ${noExiste.number ?? numero} no está en WhatsApp. Verificá la ficha del cliente.` }, 422);
+    } catch { /* no JSON */ }
+    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
+  }
+
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
+     VALUES ($1, 'whatsapp', $2, $3)`,
+    [op.cliente_id, `Aviso de operación lista para entrega (${op.numero}) enviado por WhatsApp`, user?.id ?? null]
+  ).catch(err => console.error('[crm] interaccion aviso-entrega:', err));
+
+  return c.json({ enviado: true, numero });
+});
+
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 

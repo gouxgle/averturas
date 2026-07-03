@@ -118,6 +118,9 @@ interface ReciboDetalle {
   items: { id: string; descripcion: string; cantidad: number; monto: number; producto_nombre: string | null }[];
   created_by_nombre: string | null;
   cobrado_operacion: number;
+  total_descuentos_operacion: number;
+  descuento_pct: number;
+  monto_descuento: number;
   compromiso: { monto: number; fecha_vencimiento: string; tipo: string } | null;
 }
 
@@ -302,7 +305,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
 
   const esEmitido = rec?.estado === 'emitido';
   const saldo = rec?.operacion
-    ? Math.max(0, Number(rec.operacion.precio_total) - Number(rec.cobrado_operacion ?? 0))
+    ? Math.max(0, Number(rec.operacion.precio_total) - Number(rec.cobrado_operacion ?? 0) - Number(rec.total_descuentos_operacion ?? 0))
     : 0;
 
   return (
@@ -426,6 +429,13 @@ function ReciboModal({ id, onClose, onAnulado }: {
                     <span className="font-semibold text-gray-800">{formatCurrency(Number(rec.operacion.precio_total))}</span></div>
                   <div><span className="text-gray-500 text-xs">Cobrado: </span>
                     <span className="font-semibold text-emerald-700">{formatCurrency(Number(rec.cobrado_operacion))}</span></div>
+                  {Number(rec.monto_descuento) > 0.01 && (
+                    <div><span className="text-gray-500 text-xs">
+                      Bonificación {Number(rec.descuento_pct) % 1 === 0 ? Number(rec.descuento_pct).toFixed(0) : Number(rec.descuento_pct).toFixed(1)}%:{' '}
+                    </span>
+                      <span className="font-semibold text-violet-600">− {formatCurrency(Number(rec.monto_descuento))}</span>
+                    </div>
+                  )}
                   {saldo >= 0.01 && (
                     <div><span className="text-gray-500 text-xs">Saldo: </span>
                       <span className="font-bold text-red-600">{formatCurrency(saldo)}</span>

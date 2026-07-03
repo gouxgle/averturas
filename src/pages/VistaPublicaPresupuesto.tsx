@@ -635,11 +635,7 @@ export function VistaPublicaPresupuesto() {
             ¿Querés avanzar con tu pedido?
           </h3>
           <p className="text-xs text-gray-400 mb-4">
-            Aceptá la proforma y confirmá que leíste y aceptás los{' '}
-            <button onClick={() => setShowTerminos(true)}
-              className="underline text-blue-500 hover:text-blue-700 font-medium">
-              términos y condiciones de venta
-            </button>.
+            Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
           </p>
 
           {vencido ? (
@@ -659,11 +655,7 @@ export function VistaPublicaPresupuesto() {
                   {estado === 'aprobando' ? 'Procesando...' : 'ACEPTO LA PROFORMA'}
                 </span>
                 <span className="text-green-200 text-xs font-normal">
-                  Leí y acepto los{' '}
-                  <span onClick={e => { e.stopPropagation(); setShowTerminos(true); }}
-                    className="underline cursor-pointer hover:text-white">
-                    términos y condiciones
-                  </span>
+                  Leí y acepto los términos y condiciones
                 </span>
               </button>
 

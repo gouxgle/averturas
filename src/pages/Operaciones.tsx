@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Plus, CheckCircle2, XCircle, Truck, Package,
   CalendarClock, BarChart3, Zap, ChevronRight,
-  ShoppingCart, FileText, ClipboardCheck,
+  ShoppingCart, FileText, ClipboardCheck, MessageCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 import { formatCurrency, cn } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
@@ -118,6 +119,8 @@ const ESTADO_LABEL: Record<string, string> = {
 function TCard({ op, col }: { op: TOp; col: ColKey }) {
   const navigate = useNavigate();
   const showPago = col === 'sin_confirmar' || col === 'confirmadas';
+  const [avisando, setAvisando] = useState(false);
+  const [avisado,  setAvisado]  = useState(false);
 
   return (
     <div
@@ -169,13 +172,35 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
         </Link>
       )}
       {col === 'listas_entregar' && (
-        <Link
-          to={`/remitos/nuevo?operacion_id=${op.id}`}
-          onClick={e => e.stopPropagation()}
-          className="mt-2 flex items-center justify-center gap-1 w-full text-[10px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg py-1 transition-colors"
-        >
-          <Truck size={10} />Crear remito →
-        </Link>
+        <div className="mt-2 space-y-1" onClick={e => e.stopPropagation()}>
+          {op.cliente.telefono && (
+            <button
+              disabled={avisando || avisado}
+              onClick={async () => {
+                setAvisando(true);
+                try {
+                  await api.post(`/operaciones/${op.id}/avisar-cliente`, {});
+                  setAvisado(true);
+                  toast.success('Cliente avisado por WhatsApp');
+                } catch (e: any) {
+                  toast.error(e?.message ?? 'Error al enviar WhatsApp');
+                } finally {
+                  setAvisando(false);
+                }
+              }}
+              className="flex items-center justify-center gap-1 w-full text-[10px] font-semibold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg py-1 transition-colors disabled:opacity-50"
+            >
+              <MessageCircle size={10} />
+              {avisado ? '✓ Avisado' : avisando ? 'Enviando...' : 'Avisar al cliente →'}
+            </button>
+          )}
+          <Link
+            to={`/remitos/nuevo?operacion_id=${op.id}`}
+            className="flex items-center justify-center gap-1 w-full text-[10px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg py-1 transition-colors"
+          >
+            <Truck size={10} />Crear remito →
+          </Link>
+        </div>
       )}
     </div>
   );

@@ -235,10 +235,9 @@ function SectionCard({
 function waTextoPedido(proveedor: Proveedor | null, items: PedidoItemForm[], operacion: OperacionAprobada | OperacionDetalle | null, fechaEst: string) {
   if (!proveedor) return '';
   const lineas = items.map(i => `- ${i.descripcion} x${i.cantidad}`).join('\n');
-  const opRef  = operacion ? ` para Op. ${operacion.numero}` : '';
-  const cliente = operacion ? ` — cliente: ${nombreCliente(operacion)}` : '';
-  const fecha  = fechaEst ? `\nNecesito para: ${fechaEst}` : '';
-  return `Hola ${proveedor.nombre}!\nTe hago el pedido${opRef}${cliente}:\n\n${lineas}${fecha}\nGracias!`;
+  const opRef = operacion ? ` para Op. ${operacion.numero}` : '';
+  const fecha = fechaEst ? `\nNecesito para: ${fechaEst}` : '';
+  return `Hola ${proveedor.nombre}!\nTe hago el pedido${opRef}:\n\n${lineas}${fecha}\nGracias!`;
 }
 
 // ── Componente principal ───────────────────────────────────────

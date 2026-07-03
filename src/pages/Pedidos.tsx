@@ -219,8 +219,6 @@ function PedidoModal({ id, onClose, onSaved }: {
   const [enviadoWA, setEnviadoWA]   = useState(false);
   const [errorWA, setErrorWA]       = useState<string | null>(null);
   const [copiado, setCopiado]       = useState(false);
-  const [avisandoCliente, setAvisandoCliente] = useState(false);
-  const [avisadoCliente, setAvisadoCliente]   = useState(false);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -540,29 +538,10 @@ function PedidoModal({ id, onClose, onSaved }: {
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-emerald-800">Mercadería recibida</p>
                   <p className="text-xs text-emerald-700 mt-0.5">
-                    Avisá al cliente y generá el remito de entrega.
+                    Generá el remito de entrega para el cliente.
                   </p>
                 </div>
               </div>
-              <button
-                disabled={avisandoCliente || avisadoCliente}
-                onClick={async () => {
-                  setAvisandoCliente(true);
-                  try {
-                    await api.post(`/pedidos/${pedido.id}/avisar-recepcion-cliente`, {});
-                    setAvisadoCliente(true);
-                    toast.success('Cliente avisado por WhatsApp');
-                  } catch (e: any) {
-                    toast.error(e?.message ?? 'Error al enviar WhatsApp');
-                  } finally {
-                    setAvisandoCliente(false);
-                  }
-                }}
-                className="w-full flex items-center justify-center gap-2 bg-green-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-green-600 disabled:opacity-50 transition-colors"
-              >
-                <MessageCircle size={15} />
-                {avisadoCliente ? '✓ Cliente avisado' : avisandoCliente ? 'Enviando...' : 'Avisar al cliente por WhatsApp'}
-              </button>
               <button
                 onClick={() => navigate(`/remitos/nuevo?operacion_id=${pedido.operacion!.id}&cliente_id=${pedido.operacion!.cliente?.id ?? ''}`)}
                 className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-600 transition-colors"

@@ -708,6 +708,22 @@ pedidos.patch('/:id/estado', async (c) => {
           updated_at      = now()
         WHERE id = $5
       `, [nuevoEstado, fechaRecepcionFinal, transportista_id ?? null, costoReal, id]);
+
+      // Si todos los pedidos de la operación quedaron recibidos/cancelados → listo para entregar
+      if (pedido.operacion_id) {
+        const { rows: [countRow] } = await client.query(`
+          SELECT COUNT(*) AS pendientes
+          FROM pedidos
+          WHERE operacion_id = $1 AND id != $2 AND estado NOT IN ('cancelado', 'recibido')
+        `, [pedido.operacion_id, id]);
+
+        if (parseInt(countRow.pendientes) === 0) {
+          await client.query(`
+            UPDATE operaciones SET estado = 'listo', updated_at = now()
+            WHERE id = $1 AND estado NOT IN ('listo', 'instalado', 'entregado', 'cancelado', 'rechazado')
+          `, [pedido.operacion_id]);
+        }
+      }
     } else {
       await client.query(`
         UPDATE pedidos SET
