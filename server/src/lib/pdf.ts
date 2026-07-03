@@ -8,10 +8,12 @@ const RED  = '#e31e24';
 const fmt = (n: number) =>
   `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const fmtFecha = (iso: string) => {
+// Maneja tanto strings ISO como objetos Date devueltos por pg para columnas DATE
+const fmtFecha = (iso: string | Date | unknown) => {
   try {
-    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch { return iso; }
+    const isoStr = iso instanceof Date ? iso.toISOString() : String(iso);
+    return new Date(isoStr.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch { return String(iso); }
 };
 
 const PAGO_LABEL: Record<string, string> = {
@@ -48,15 +50,17 @@ interface CompromisoPDF {
 }
 
 export interface ReciboPDF {
-  numero: string; fecha: string; estado: string;
+  numero: string; fecha: string | Date; estado: string;
   forma_pago: string; referencia_pago: string | null;
   concepto: string | null; notas: string | null; monto_total: number;
+  descuento_pct: number; monto_lista: number; monto_descuento: number;
   cliente: ClientePDF;
   operacion: { id?: string; numero: string; precio_total: number } | null;
   remito: { id?: string; numero: string } | null;
   items: ItemPDF[];
   created_by_nombre: string | null;
   cobrado_operacion: number;
+  total_descuentos_operacion: number;
   compromiso: CompromisoPDF | null;
 }
 
@@ -66,16 +70,23 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     ? (cl.razon_social ?? '—')
     : `${cl.apellido ?? ''} ${cl.nombre ?? ''}`.trim() || '—';
 
-  // Logo embebido en base64
   let logoTag = '';
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'logochico.png');
+    const logoPath = path.join(process.cwd(), 'public', 'logo2.png');
     const logoData = fs.readFileSync(logoPath);
-    const b64 = logoData.toString('base64');
-    logoTag = `<img src="data:image/png;base64,${b64}" alt="Logo" style="height:34px;margin-right:10px;">`;
-  } catch { /* sin logo */ }
+    logoTag = `<img src="data:image/png;base64,${logoData.toString('base64')}" alt="Logo" style="height:88px;display:block;">`;
+  } catch {
+    try {
+      const logoPath2 = path.join(process.cwd(), 'public', 'logochico.png');
+      logoTag = `<img src="data:image/png;base64,${fs.readFileSync(logoPath2).toString('base64')}" alt="Logo" style="height:60px;display:block;">`;
+    } catch { /* sin logo */ }
+  }
 
   const tieneItems = recibo.items && recibo.items.length > 0;
+  const montoDescuento = Number(recibo.monto_descuento ?? 0);
+  const descuentoPct   = Number(recibo.descuento_pct   ?? 0);
+  const montoLista     = Number(recibo.monto_lista     ?? recibo.monto_total);
+  const totalDesc      = Number(recibo.total_descuentos_operacion ?? 0);
 
   const itemsHTML = tieneItems ? `
     <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
@@ -96,26 +107,55 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     </table>
   ` : '';
 
+  const descuentoHTML = montoDescuento > 0 ? `
+    <div style="background:#f5f0ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;color:#7c3aed;font-weight:700;">
+          Bonificacion ${descuentoPct % 1 === 0 ? descuentoPct.toFixed(0) : descuentoPct.toFixed(1)}% aplicada
+        </span>
+        <span style="font-size:12px;color:#7c3aed;font-weight:700;">Ahorro: ${fmt(montoDescuento)}</span>
+      </div>
+      ${recibo.operacion ? `
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px;">
+          <span>Total de la operacion sin descuento</span><span>${fmt(Number(recibo.operacion.precio_total))}</span>
+        </div>
+      ` : ''}
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;">
+        <span>Sin bonificacion pagaria</span>
+        <span style="text-decoration:line-through;color:#999;">${fmt(montoLista)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:2px;">
+        <span>Con bonificacion paga</span>
+        <span style="font-weight:600;color:#7c3aed;">${fmt(Number(recibo.monto_total))}</span>
+      </div>
+    </div>
+  ` : '';
+
   let operacionHTML = '';
   if (recibo.operacion) {
-    const saldo = Math.max(0, Number(recibo.operacion.precio_total) - Number(recibo.cobrado_operacion ?? 0));
+    const saldo = Math.max(0,
+      Number(recibo.operacion.precio_total)
+      - Number(recibo.cobrado_operacion ?? 0)
+      - totalDesc
+    );
+    const fvStr = recibo.compromiso?.fecha_vencimiento
+      ? fmtFecha(recibo.compromiso.fecha_vencimiento)
+      : null;
     operacionHTML = `
       <div style="padding-top:10px;border-top:1px solid #eee;margin-bottom:20px;">
         <div style="display:flex;gap:40px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Total de la operacion</div>
-            <div style="font-size:13px;font-weight:600;color:#333;">${fmt(Number(recibo.operacion.precio_total))}</div>
-          </div>
+          ${!montoDescuento ? `
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Total de la operacion</div>
+              <div style="font-size:13px;font-weight:600;color:#333;">${fmt(Number(recibo.operacion.precio_total))}</div>
+            </div>
+          ` : ''}
           ${saldo >= 0.01 ? `
             <div>
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Saldo pendiente</div>
               <div style="font-size:13px;font-weight:700;color:${RED};">
                 ${fmt(saldo)}
-                ${recibo.compromiso?.fecha_vencimiento ? `
-                  <span style="font-weight:400;font-size:11px;color:#555;margin-left:8px;">
-                    a cancelar el ${new Date(String(recibo.compromiso.fecha_vencimiento).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                  </span>
-                ` : ''}
+                ${fvStr ? `<span style="font-weight:400;font-size:11px;color:#555;margin-left:8px;">a cancelar el ${fvStr}</span>` : ''}
               </div>
             </div>
           ` : ''}
@@ -124,13 +164,11 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     `;
   }
 
-  const footerParts = [
-    empresa.nombre,
-    empresa.cuit ? `CUIT ${empresa.cuit}` : null,
+  const contactParts = [
+    empresa.cuit ? `CUIT: ${empresa.cuit}` : null,
     empresa.telefono ? `Tel: ${empresa.telefono}` : null,
     empresa.email,
-    empresa.direccion,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' &nbsp;|&nbsp; ');
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -138,35 +176,37 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
 <meta charset="UTF-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: white; color: #333; }
+  body { font-family: Arial, 'Helvetica Neue', sans-serif; background: white; color: #333; }
 </style>
 </head>
 <body>
-<div style="max-width:750px;margin:0 auto;padding:32px 40px;background:white;min-height:297mm;">
+<div style="max-width:750px;margin:0 auto;padding:22px 28px;background:white;min-height:297mm;display:flex;flex-direction:column;">
 
-  <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-        ${logoTag}
-        <div style="color:${NAVY};font-size:15px;font-weight:900;">${empresa.nombre}</div>
+  <!-- Header: logo+datos izq, RECIBO der -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px;">
+    <div style="flex:1;">
+      <div style="display:flex;justify-content:center;margin-bottom:10px;">${logoTag}</div>
+      <div style="height:1px;background:#e5e7eb;margin-bottom:8px;"></div>
+      <div style="font-size:10.5px;color:#555;">
+        ${contactParts}
       </div>
-      ${empresa.cuit     ? `<div style="color:#555;font-size:11px;">CUIT: ${empresa.cuit}</div>` : ''}
-      ${empresa.telefono ? `<div style="color:#555;font-size:11px;">Tel: ${empresa.telefono}</div>` : ''}
-      ${empresa.email    ? `<div style="color:#555;font-size:11px;">${empresa.email}</div>` : ''}
-      ${empresa.direccion? `<div style="color:#555;font-size:11px;">${empresa.direccion}</div>` : ''}
+      ${empresa.direccion ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${empresa.direccion}</div>` : ''}
     </div>
-    <div style="text-align:right;">
-      <div style="color:${RED};font-size:26px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Recibo</div>
-      <div style="color:${NAVY};font-size:16px;font-weight:700;margin-top:4px;">${recibo.numero}</div>
-      <div style="color:#666;font-size:11px;margin-top:4px;">Fecha: ${fmtFecha(recibo.fecha)}</div>
-      ${recibo.operacion ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. presupuesto: <strong>${recibo.operacion.numero}</strong></div>` : ''}
-      ${recibo.remito    ? `<div style="font-size:11px;color:#555;">Ref. remito: <strong>${recibo.remito.numero}</strong></div>` : ''}
+    <div style="width:1px;background:#d1d5db;align-self:stretch;margin:4px 0;"></div>
+    <div style="text-align:right;min-width:170px;">
+      <div style="color:${RED};font-size:40px;font-weight:900;letter-spacing:3px;line-height:1;text-transform:uppercase;font-family:Georgia,serif;">Recibo</div>
+      <div style="color:${NAVY};font-weight:800;font-size:16px;margin-top:8px;">${recibo.numero}</div>
+      <div style="font-size:11px;color:#555;margin-top:10px;">
+        <strong style="color:${NAVY};">Fecha:</strong> ${fmtFecha(recibo.fecha)}
+      </div>
+      ${recibo.operacion ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. presupuesto: <strong style="color:${NAVY};">${recibo.operacion.numero}</strong></div>` : ''}
+      ${recibo.remito    ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. remito: <strong style="color:${NAVY};">${recibo.remito.numero}</strong></div>` : ''}
     </div>
   </div>
 
-  <!-- Divisor -->
-  <div style="background:${NAVY};height:2px;margin-bottom:20px;"></div>
+  <!-- Doble barra navy -->
+  <div style="height:4px;background:${NAVY};"></div>
+  <div style="height:1px;background:#3a5fad;margin-bottom:20px;"></div>
 
   <!-- Cliente -->
   <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:20px;border-left:4px solid ${NAVY};">
@@ -210,6 +250,9 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   <!-- Items -->
   ${itemsHTML}
 
+  <!-- Bonificacion -->
+  ${descuentoHTML}
+
   <!-- Operacion + saldo -->
   ${operacionHTML}
 
@@ -237,9 +280,11 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     </div>
   </div>
 
-  <!-- Footer -->
-  <div style="border-top:2px solid ${RED};margin-top:28px;padding-top:12px;text-align:center;font-size:10px;color:#999;">
-    ${footerParts}
+  <!-- Footer navy -->
+  <div style="margin-top:auto;background:${NAVY};padding:10px 24px;display:flex;justify-content:center;flex-wrap:wrap;gap:0 28px;font-size:10px;color:#bfdbfe;">
+    ${empresa.telefono  ? `<span>&#128222; ${empresa.telefono}</span>` : ''}
+    ${empresa.email     ? `<span>&#9993; ${empresa.email}</span>` : ''}
+    ${empresa.direccion ? `<span>&#128205; ${empresa.direccion}</span>` : ''}
   </div>
 
 </div>

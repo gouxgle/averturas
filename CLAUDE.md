@@ -362,6 +362,24 @@ api.get(`/recibos?${new URLSearchParams({ search })}`)  // ✅
 - Dropdown `z-30`, `onMouseDown` (no onClick) para evitar blur race
 - Badge de seleccionado con botón X para limpiar
 
+### Columnas DATE de PostgreSQL — comportamiento del driver `pg`
+`pg` v8.x con `pg-types` v2.x retorna columnas `DATE` (OID 1082) como **objetos JavaScript Date** (no strings). Al serializar con `c.json()`, los Date objects → `"YYYY-MMT03:00:00.000Z"` (hora TZ Argentina). Esto afecta TODAS las columnas DATE en todos los módulos.
+
+**Regla:** siempre usar el helper timezone-safe para formatear fechas:
+```typescript
+// Frontend (React):
+new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { ... })
+
+// Backend (PDF server-side, pdf.ts):
+const fmtFecha = (iso: string | Date | unknown) => {
+  const isoStr = iso instanceof Date ? iso.toISOString() : String(iso);
+  return new Date(isoStr.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { ... });
+};
+```
+
+**NO hacer:** `String(dateObj).slice(0, 10)` → da `"Thu Jul 10"` → Invalid Date.
+**NO hacer:** `new Date(dateStr)` directo sin slice → RangeError o día anterior por TZ offset.
+
 ### fecha_validez en operaciones
 Viene de PostgreSQL tipo `date` como ISO string completo `"2026-05-22T00:00:00.000Z"`.
 Siempre usar `.slice(0, 10) + 'T12:00:00'` antes de formatear — de lo contrario RangeError en Intl.
@@ -401,6 +419,48 @@ npm run migrate:dry    # preview sin ejecutar
 - Compara contra `schema_migrations` en DB
 - Aplica solo las pendientes, dentro de transacción por migración
 - Si una falla → rollback de esa sola, las anteriores ya aplicadas quedan
+
+### PDF generado en servidor (WhatsApp) vs PDF del navegador (print)
+Hay DOS rutas de generación de PDF para recibos:
+1. **Navegador**: `/imprimir/recibo/:id` → `ImprimirRecibo.tsx` → `window.print()` (browser CSS)
+2. **Servidor**: `POST /recibos/:id/whatsapp-pdf` → Puppeteer → `server/src/lib/pdf.ts` → `generarPDFRecibo()`
+
+Ambas deben mantener el mismo diseño. Si se actualiza el diseño en `ImprimirRecibo.tsx`, replicar los cambios en `pdf.ts`.
+
+`generarPDFRecibo()` recibe: `{ ...r, items, cobrado_operacion, total_descuentos_operacion, compromiso }`.
+- `r` incluye columnas directas de `recibos`: `monto_descuento`, `descuento_pct`, `monto_lista`.
+- `total_descuentos_operacion`: calculado aparte en la ruta WA (SUM de monto_descuento de todos los recibos emitidos).
+
+### Saldo de operación — fórmula correcta
+```
+saldo_real = precio_total - cobrado_operacion - total_descuentos_operacion
+```
+`cobrado_operacion` = SUM(monto_total) de recibos emitidos para esa operación (lo que pagó en efectivo/transferencia).
+`total_descuentos_operacion` = SUM(monto_descuento) de recibos emitidos (bonificación = no es deuda).
+**NO restar solo `cobrado_operacion`** — la bonificación NO es saldo deudor.
+
+### Flujo pedido → operación → kanban
+Cuando un pedido pasa a `recibido` y todos los pedidos de la operación están `recibido/cancelado`:
+- Backend (`PATCH /pedidos/:id/estado`): actualiza `operaciones.estado = 'listo'`
+- Solo avanza si estado actual no es ya `listo/instalado/entregado/cancelado/rechazado`
+- Tablero kanban: `listo` queda en columna `listas_entregar` (query verifica `pedido recibido + sin remito activo`)
+- Columna `listas_entregar` muestra botón "Avisar al cliente" → Evolution API
+
+### WhatsApp — Evolution API (no wa.me)
+Todos los envíos de WhatsApp usan Evolution API, NO `window.open('https://wa.me/...')`.
+Env vars requeridas: `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`.
+Normalización número Argentina: `549XXXXXXXXXX` (código país 54 + 9 + celular sin 0).
+
+### Kanban Operaciones — colores por columna
+Cada columna tiene su propio color (slate/green/amber/teal/blue/red).
+Las cards (`TCard`) usan `COL_CARD_BG[col]` para el fondo — mismo color que el header de la columna.
+No usar `bg-white` genérico para cards del kanban.
+
+### Dashboard — widget de pronóstico del tiempo
+Componente `WeatherWidget` en `Dashboard.tsx`:
+- API: Open-Meteo (gratuita, sin API key) — Formosa AR: lat -26.18, lon -58.18
+- Muestra: temperatura actual + emoji WMO + descripción (clic para ver semana)
+- Posición: entre el h1 de saludo y el p de fecha en el header del Dashboard
 
 ## Problemas conocidos y soluciones
 

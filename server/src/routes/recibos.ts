@@ -592,14 +592,17 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
     if (comps.length) compromiso = comps[0];
   }
 
-  // Total cobrado para calcular saldo en el PDF
+  // Total cobrado + descuentos para saldo en el PDF
   let cobrado_operacion = 0;
+  let total_descuentos_operacion = 0;
   if (r.operacion_id) {
     const { rows: [tot] } = await db.query(
-      `SELECT COALESCE(SUM(monto_total), 0) AS total FROM recibos WHERE operacion_id=$1 AND estado='emitido'`,
+      `SELECT COALESCE(SUM(monto_total), 0) AS total, COALESCE(SUM(monto_descuento), 0) AS total_desc
+       FROM recibos WHERE operacion_id=$1 AND estado='emitido'`,
       [r.operacion_id]
     );
-    cobrado_operacion = Number(tot?.total ?? 0);
+    cobrado_operacion          = Number(tot?.total      ?? 0);
+    total_descuentos_operacion = Number(tot?.total_desc ?? 0);
   }
 
   // Normalizar número
@@ -618,7 +621,7 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
 
   // Generar PDF
   const empresa = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
-  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion, compromiso }, empresa);
+  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion, total_descuentos_operacion, compromiso }, empresa);
   const base64 = pdfBuffer.toString('base64');
 
   const nombre = r.cliente.tipo_persona === 'juridica'

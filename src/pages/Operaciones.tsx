@@ -116,6 +116,15 @@ const ESTADO_LABEL: Record<string, string> = {
   entregado: 'Entregado', cancelado: 'Cancelado', rechazado: 'Rechazado',
 };
 
+const COL_CARD_BG: Record<ColKey, string> = {
+  sin_confirmar:   'bg-slate-50  border-slate-200',
+  confirmadas:     'bg-emerald-50 border-emerald-200',
+  con_pedido:      'bg-amber-50  border-amber-200',
+  listas_entregar: 'bg-teal-50   border-teal-200',
+  entregadas:      'bg-blue-50   border-blue-200',
+  canceladas:      'bg-red-50    border-red-200',
+};
+
 function TCard({ op, col }: { op: TOp; col: ColKey }) {
   const navigate = useNavigate();
   const showPago = col === 'sin_confirmar' || col === 'confirmadas';
@@ -124,7 +133,7 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
 
   return (
     <div
-      className="bg-white border border-gray-200 rounded-xl p-2.5 cursor-pointer hover:shadow-md transition-all"
+      className={cn('border rounded-xl p-2.5 cursor-pointer hover:shadow-md transition-all', COL_CARD_BG[col])}
       onClick={() => navigate(`/operaciones/${op.id}`)}
     >
       <div className="flex items-center justify-between gap-1 mb-1">
@@ -144,7 +153,7 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
         <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(op.fecha_entrega_estimada)}</p>
       )}
 
-      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-200">
+      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-black/10">
         <p className="text-[12px] font-extrabold text-gray-900 tabular-nums">{formatCurrency(op.precio_total)}</p>
         {showPago && <PagoBadge cobrado={op.cobrado_total} total={op.precio_total} />}
         {col === 'canceladas' && <XCircle size={14} className="text-red-400 shrink-0" />}
