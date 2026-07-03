@@ -160,33 +160,46 @@ function WeatherWidget() {
   const code = weather.current.weather_code;
 
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block my-2">
       <button
         onClick={() => setShowWeek(v => !v)}
-        className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors mt-1 mb-0.5"
+        className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border-2 border-sky-300 bg-gradient-to-r from-sky-50 to-blue-50 shadow-md hover:shadow-lg hover:border-sky-400 transition-all"
         title="Clic para ver pronóstico semanal — Formosa, Argentina"
       >
-        <span className="text-base leading-none">{wmoEmoji(code)}</span>
-        <span className="font-semibold">{temp}°C</span>
-        <span className="text-gray-400 text-xs">· {wmoDesc(code)}</span>
-        <span className="text-gray-300 text-[10px]">{showWeek ? '▲' : '▼'}</span>
+        <span className="text-3xl leading-none">{wmoEmoji(code)}</span>
+        <div className="flex flex-col items-start leading-tight">
+          <span className="text-xl font-black text-sky-700 tabular-nums">{temp}°C</span>
+          <span className="text-[11px] text-sky-500 font-medium">{wmoDesc(code)}</span>
+        </div>
+        <div className="flex flex-col items-end leading-tight ml-1 pl-3 border-l border-sky-200">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Formosa</span>
+          <span className="text-[10px] text-gray-400">Argentina</span>
+          <span className="text-sky-400 text-[9px] mt-0.5">{showWeek ? '▲ cerrar' : '▼ semana'}</span>
+        </div>
       </button>
 
       {showWeek && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-xl border border-gray-200 shadow-xl p-3 min-w-[280px]">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-            Pronóstico — Formosa, Argentina
+        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl border-2 border-sky-200 shadow-2xl p-4 min-w-[320px]">
+          <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3">
+            📍 Pronóstico 7 días — Formosa, Argentina
           </p>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1.5">
             {weather.daily.time.map((date, i) => {
-              const dayName = i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : DIAS_CORTOS[new Date(date + 'T12:00:00').getDay()];
+              const dayName = i === 0 ? 'Hoy' : i === 1 ? 'Mañ' : DIAS_CORTOS[new Date(date + 'T12:00:00').getDay()];
               const dCode = weather.daily.weather_code[i];
               return (
-                <div key={date} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg ${i === 0 ? 'bg-blue-50 border border-blue-200' : ''}`}>
-                  <span className="text-[10px] font-semibold text-gray-500">{dayName}</span>
-                  <span className="text-lg leading-none">{wmoEmoji(dCode)}</span>
-                  <span className="text-[11px] font-bold text-red-500">{Math.round(weather.daily.temperature_2m_max[i])}°</span>
-                  <span className="text-[10px] text-blue-400">{Math.round(weather.daily.temperature_2m_min[i])}°</span>
+                <div
+                  key={date}
+                  className={`flex flex-col items-center gap-0.5 p-2 rounded-xl ${
+                    i === 0
+                      ? 'bg-sky-100 border-2 border-sky-300'
+                      : 'bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  <span className={`text-[10px] font-bold ${i === 0 ? 'text-sky-600' : 'text-gray-500'}`}>{dayName}</span>
+                  <span className="text-xl leading-none my-0.5">{wmoEmoji(dCode)}</span>
+                  <span className="text-[11px] font-black text-orange-500">{Math.round(weather.daily.temperature_2m_max[i])}°</span>
+                  <span className="text-[10px] font-semibold text-sky-500">{Math.round(weather.daily.temperature_2m_min[i])}°</span>
                 </div>
               );
             })}
