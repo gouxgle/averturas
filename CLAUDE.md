@@ -171,7 +171,8 @@ emitido  → entregado (registra fecha_entrega_real)
 
 | Ruta | Archivo | Notas |
 |------|---------|-------|
-| `/pub/presupuesto/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle + POST aprobar |
+| `/pub/presupuesto/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle + POST aprobar + POST rechazar |
+| `/pub/remito/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle remito + POST confirmar recepción |
 | `/auth` | routes/auth.ts | Pública — login, me |
 | `/clientes` | routes/clientes.ts | `/validar-dni` ANTES de `/:id` |
 | `/productos` | routes/productos.ts | CRUD con upload de imagen |
@@ -199,6 +200,7 @@ emitido  → entregado (registra fecha_entrega_real)
 ```
 /login                          — pública
 /p/:token                       — pública, sin ProtectedRoute → VistaPublicaPresupuesto
+/r/:token                       — pública, sin ProtectedRoute → VistaPublicaRemito
 /dashboard
 /presupuestos                   — lista + modal detalle (click en fila)
 /presupuestos/nuevo
@@ -269,6 +271,13 @@ emitido  → entregado (registra fecha_entrega_real)
 5. Frontend llama `POST /api/pub/presupuesto/{token}/aprobar`
 6. Backend: `estado='aprobado'`, `aprobado_online_at=now()`, `notif_leida=false`
 7. Sistema admin: campanita muestra badge rojo, fila en lista resaltada en verde
+
+### Re-aprobación tras rechazo
+Si el cliente rechazó y el admin edita y reenvía:
+- `POST /operaciones/:id/generar-link` y `POST /operaciones/:id/enviar-whatsapp`: si `estado='rechazado'` → automáticamente setea `estado='enviado'` junto con el nuevo token
+- Así el cliente abre el nuevo link y ve la vista normal de aprobación (no "ya rechazado")
+- `POST /pub/presupuesto/:token/aprobar` ya permite `estado='enviado'` → funciona sin cambios adicionales
+- `motivo_rechazo` y `comentario_rechazo` quedan en DB como historial (no se borran)
 
 ## Notificaciones (NotificationBell)
 
@@ -460,7 +469,8 @@ No usar `bg-white` genérico para cards del kanban.
 Componente `WeatherWidget` en `Dashboard.tsx`:
 - API: Open-Meteo (gratuita, sin API key) — Formosa AR: lat -26.18, lon -58.18
 - Muestra: temperatura actual + emoji WMO + descripción (clic para ver semana)
-- Posición: entre el h1 de saludo y el p de fecha en el header del Dashboard
+- Posición: columna central del header (`flex-1 flex justify-center`), entre el bloque saludo/fecha y los botones de la derecha — NO debajo del saludo
+- Diseño: `border-2 border-sky-300 bg-gradient-to-r from-sky-50 to-blue-50 shadow-md`, emoji `text-3xl`, temp `text-xl font-black text-sky-700`
 
 ## Problemas conocidos y soluciones
 
@@ -486,6 +496,15 @@ Agregar `.catch()` en todos los useEffect que hacen fetch y setear estado de err
 ### operacion_items — columnas calculadas vs reales
 `precio_total`, `tipo_abertura_nombre`, `sistema_nombre` NO son columnas reales.
 En queries SQL de rutas públicas o nuevas: calcular/JOIN explícitamente.
+
+`atributos` tampoco existe en `operacion_items` — está en `catalogo_productos`. Siempre usar `cp.atributos` con JOIN:
+```sql
+LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
+-- luego: cp.atributos AS producto_atributos
+```
+
+### Google Translate crash en Android — `lang` y `translate`
+`index.html` tiene `lang="es" translate="no"`. Crítico: si se cambia a `lang="en"`, Chrome Android ofrece traducir → Google Translate muta text nodes del DOM → React 19 no puede hacer `insertBefore` → ErrorBoundary "Algo salió mal". No revertir este atributo.
 
 ## Comandos frecuentes
 
