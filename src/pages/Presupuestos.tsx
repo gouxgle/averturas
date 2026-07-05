@@ -382,8 +382,9 @@ function PresupuestoModal({
   const EnvioIcon   = fmtEnvio?.icon ?? null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-10 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mb-10">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+      <div className="flex min-h-full items-start justify-center p-4 pt-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mb-6">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <FileText size={16} className="text-violet-600" />
@@ -692,6 +693,7 @@ function PresupuestoModal({
             )}
           </div>
         ) : null}
+      </div>
       </div>
     </div>
   );
