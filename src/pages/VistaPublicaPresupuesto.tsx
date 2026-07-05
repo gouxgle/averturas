@@ -354,14 +354,12 @@ export function VistaPublicaPresupuesto() {
               </div>
               <div style={{ height: 1, background: '#e5e7eb', marginBottom: 6 }} />
               {/* Contacto en línea horizontal */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 0', fontSize: 11, color: '#555' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px 6px', fontSize: 11, color: '#555' }}>
                 {pres.empresa.cuit && (
-                  <><span>🪪 CUIT: {pres.empresa.cuit}</span>
-                  {(pres.empresa.telefono || pres.empresa.email) && <span style={{ color: '#ccc', margin: '0 8px' }}>|</span>}</>
+                  <span>🪪 CUIT: {pres.empresa.cuit}</span>
                 )}
                 {pres.empresa.telefono && (
-                  <><span>📞 {pres.empresa.telefono}</span>
-                  {pres.empresa.email && <span style={{ color: '#ccc', margin: '0 8px' }}>|</span>}</>
+                  <span>📞 {pres.empresa.telefono}</span>
                 )}
                 {pres.empresa.email && <span>✉️ {pres.empresa.email}</span>}
               </div>
@@ -376,9 +374,9 @@ export function VistaPublicaPresupuesto() {
             </div>
 
             {/* PROFORMA + detalles */}
-            <div className="sm:text-right shrink-0">
+            <div className="sm:text-right w-full sm:w-auto">
               <div className="font-black tracking-widest leading-none mb-1"
-                style={{ color: RED, fontFamily: 'Georgia, serif', fontSize: 32 }}>PROFORMA</div>
+                style={{ color: RED, fontFamily: 'Georgia, serif', fontSize: 28 }}>PROFORMA</div>
               <div className="font-bold text-sm" style={{ color: NAVY, fontFamily: 'Georgia, serif' }}>N°: {proformaNum}</div>
               <div className="text-xs mt-2 text-gray-500">📅 Fecha: {fechaEmision}</div>
               {pres.fecha_validez && (
@@ -534,7 +532,7 @@ export function VistaPublicaPresupuesto() {
 
         {/* ── TOTAL ─────────────────────────────────────────────────────── */}
         <div className="bg-white px-4 py-4 mt-px">
-          <div className="rounded-xl border-2 p-4 flex items-start justify-between gap-4" style={{ borderColor: NAVY }}>
+          <div className="rounded-xl border-2 p-4 flex flex-col sm:flex-row items-start sm:justify-between gap-3" style={{ borderColor: NAVY }}>
             <div>
               <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af', letterSpacing: 2 }}>Total Final</div>
               <div className="text-3xl font-black tabular-nums" style={{ color: NAVY }}>{fmtM(total)}</div>
@@ -551,9 +549,9 @@ export function VistaPublicaPresupuesto() {
               )}
             </div>
             {pres.forma_pago && (
-              <div className="text-right shrink-0">
+              <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-gray-100 pt-2 sm:pt-0 sm:pl-4 w-full sm:w-auto">
                 <div className="text-xs uppercase tracking-wider text-gray-400">Forma de pago</div>
-                <div className="font-bold text-sm mt-0.5" style={{ color: NAVY }}>{pres.forma_pago}</div>
+                <div className="font-bold text-sm mt-0.5 break-words" style={{ color: NAVY }}>{pres.forma_pago}</div>
               </div>
             )}
           </div>
