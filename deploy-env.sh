@@ -11,6 +11,7 @@ set -e
 
 # ── Config entornos ──────────────────────────────────────────
 TEST_HOST="149.50.150.131"
+TEST_PORT="5889"
 TEST_USER="root"
 TEST_DIR="/home/sistemas/claude/Aberturas"
 TEST_COMPOSE_SERVICE="app"
@@ -18,6 +19,7 @@ TEST_APP_CONTAINER="aberturas-app"
 TEST_DB_CONTAINER="aberturas-db"
 
 PROD_HOST="179.43.120.103"
+PROD_PORT="5912"
 PROD_USER="root"
 PROD_DEPLOY_SCRIPT="/opt/docker/cesarbritez/deploy.sh"
 
@@ -85,13 +87,13 @@ if [ "$ENV" = "prod" ]; then
 
   echo -e "${BOLD}🚀 Ejecutando deploy en PROD (${PROD_HOST})...${NC}"
   echo "────────────────────────────────────────"
-  ssh "${PROD_USER}@${PROD_HOST}" "bash ${PROD_DEPLOY_SCRIPT}"
+  ssh -p "${PROD_PORT}" "${PROD_USER}@${PROD_HOST}" "bash ${PROD_DEPLOY_SCRIPT}"
 
 elif [ "$ENV" = "test" ]; then
 
   echo -e "${BOLD}🧪 Ejecutando deploy en TEST (${TEST_HOST})...${NC}"
   echo "────────────────────────────────────────"
-  ssh "${TEST_USER}@${TEST_HOST}" bash << REMOTE
+  ssh -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" bash << REMOTE
 set -e
 cd "${TEST_DIR}"
 
