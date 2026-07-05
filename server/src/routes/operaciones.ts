@@ -356,9 +356,11 @@ operaciones.post('/:id/generar-link', async (c) => {
     ? crypto.randomUUID()
     : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 
+  // Si estaba rechazado, reabrirlo como "enviado" para que el cliente pueda volver a aprobar
+  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
   await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now() WHERE id = $2`,
-    [token, id]
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2 WHERE id = $3`,
+    [token, estadoNuevo, id]
   );
 
   // Interacción CRM automática
@@ -412,9 +414,11 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     ? crypto.randomUUID()
     : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 
+  // Si estaba rechazado, reabrirlo como "enviado" para que el cliente pueda volver a aprobar
+  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
   await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now() WHERE id = $2`,
-    [token, id]
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2 WHERE id = $3`,
+    [token, estadoNuevo, id]
   );
 
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
