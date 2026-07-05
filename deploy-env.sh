@@ -13,7 +13,7 @@ set -e
 TEST_HOST="149.50.150.131"
 TEST_PORT="5889"
 TEST_USER="root"
-TEST_DIR="/home/sistemas/claude/Aberturas"
+TEST_DIR="/etc/docker/averturas"
 TEST_COMPOSE_SERVICE="app"
 TEST_APP_CONTAINER="aberturas-app"
 TEST_DB_CONTAINER="aberturas-db"
