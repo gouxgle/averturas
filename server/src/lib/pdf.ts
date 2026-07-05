@@ -74,7 +74,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   try {
     const logoPath = path.join(process.cwd(), 'public', 'logo2.png');
     const logoData = fs.readFileSync(logoPath);
-    logoTag = `<img src="data:image/png;base64,${logoData.toString('base64')}" alt="Logo" style="height:88px;display:block;">`;
+    logoTag = `<img src="data:image/png;base64,${logoData.toString('base64')}" alt="Logo" style="height:64px;display:block;">`;
   } catch {
     try {
       const logoPath2 = path.join(process.cwd(), 'public', 'logochico.png');
@@ -180,10 +180,10 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
 </style>
 </head>
 <body>
-<div style="max-width:750px;margin:0 auto;padding:22px 28px;background:white;min-height:297mm;display:flex;flex-direction:column;">
+<div style="max-width:750px;margin:0 auto;padding:14px 20px;background:white;min-height:273mm;display:flex;flex-direction:column;">
 
   <!-- Header: logo+datos izq, RECIBO der -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:12px;">
     <div style="flex:1;">
       <div style="display:flex;justify-content:center;margin-bottom:10px;">${logoTag}</div>
       <div style="height:1px;background:#e5e7eb;margin-bottom:8px;"></div>
@@ -206,10 +206,10 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
 
   <!-- Doble barra navy -->
   <div style="height:4px;background:${NAVY};"></div>
-  <div style="height:1px;background:#3a5fad;margin-bottom:20px;"></div>
+  <div style="height:1px;background:#3a5fad;margin-bottom:14px;"></div>
 
   <!-- Cliente -->
-  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:20px;border-left:4px solid ${NAVY};">
+  <div style="background:#f8f9fa;border-radius:8px;padding:8px 12px;margin-bottom:14px;border-left:4px solid ${NAVY};">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Recibimos de</div>
     <div style="display:flex;align-items:baseline;gap:16px;">
       <span style="font-size:15px;font-weight:700;color:#1a1a1a;">${clienteNombre}</span>
@@ -227,7 +227,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   </div>
 
   <!-- Monto grande -->
-  <div style="border:2px solid ${NAVY};border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <div style="border:2px solid ${NAVY};border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div>
       <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Importe total</div>
       <div style="color:${NAVY};font-size:28px;font-weight:900;font-family:monospace;margin-top:2px;">${fmt(Number(recibo.monto_total))}</div>
@@ -241,9 +241,9 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
 
   <!-- Concepto -->
   ${recibo.concepto ? `
-    <div style="margin-bottom:18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Concepto</div>
-      <div style="font-size:13px;color:#333;">${recibo.concepto}</div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:3px;">Concepto</div>
+      <div style="font-size:12px;color:#333;">${recibo.concepto}</div>
     </div>
   ` : ''}
 
@@ -265,16 +265,16 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   ` : ''}
 
   <!-- Firma -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:52px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:20px;">
     <div style="text-align:center;">
-      <div style="height:52px;"></div>
+      <div style="height:32px;"></div>
       <div style="border-top:1px solid #999;padding-top:10px;font-size:11px;color:#555;">
         Firma &mdash; ${empresa.nombre}${recibo.created_by_nombre ? ` (${recibo.created_by_nombre})` : ''}
       </div>
     </div>
     <div style="text-align:center;">
-      <div style="height:52px;"></div>
-      <div style="border-top:1px solid #999;padding-top:10px;font-size:11px;color:#555;">
+      <div style="height:32px;"></div>
+      <div style="border-top:1px solid #999;padding-top:8px;font-size:11px;color:#555;">
         Firma y aclaracion &mdash; Cliente
       </div>
     </div>

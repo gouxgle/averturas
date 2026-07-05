@@ -664,7 +664,7 @@ export function NuevoRecibo() {
               </button>
 
               <button
-                onClick={() => { setTipoPago('parcial'); if (!concepto.trim()) setConcepto('Pago parcial'); }}
+                onClick={() => { setTipoPago('parcial'); if (!concepto.trim() || concepto === 'Pago total') setConcepto('Pago parcial'); }}
                 className={cn(
                   'relative flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
                   tipoPago === 'parcial'
