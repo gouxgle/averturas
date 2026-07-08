@@ -671,25 +671,18 @@ export function Recibos() {
             </div>
           </div>
 
-          {/* Tabla */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
-            {/* Cabecera */}
-            <div className="grid grid-cols-[160px_1fr_110px_80px_130px_105px_75px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              <span>Recibo</span>
-              <span>Cliente</span>
-              <span>Presupuesto / Op.</span>
-              <span>Fecha</span>
-              <span>Estado</span>
-              <span>Método</span>
-              <span className="text-right">Monto</span>
-            </div>
-
+          {/* Lista */}
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
             {loading ? (
-              <div className="divide-y divide-gray-50">
+              <div className="p-3 space-y-1.5">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="px-4 py-4 animate-pulse flex gap-3">
-                    <div className="h-4 bg-gray-100 rounded flex-1" />
-                    <div className="h-4 bg-gray-100 rounded w-24" />
+                  <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse flex gap-3">
+                    <div className="w-[76px] h-4 bg-gray-100 rounded shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-100 rounded w-40" />
+                      <div className="h-3 bg-gray-100 rounded w-24" />
+                    </div>
+                    <div className="w-16 h-4 bg-gray-100 rounded shrink-0" />
                   </div>
                 ))}
               </div>
@@ -701,7 +694,7 @@ export function Recibos() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="p-3 space-y-1.5">
                 {paginated.map(fila => {
                   const ec = fila.estado_cobro as EstadoCobro;
                   const FPIcon = pagoIcon(fila.forma_pago);
@@ -710,89 +703,74 @@ export function Recibos() {
                   return (
                     <div key={fila.id}
                       className={cn(
-                        'grid grid-cols-[160px_1fr_110px_80px_130px_105px_75px] gap-2 px-4 py-3 items-center',
-                        'border-l-4 hover:bg-gray-50/80 transition-colors cursor-pointer',
+                        'rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer hover:shadow-md transition-all',
                         ESTADO_BORDER[ec],
                       )}
                       onClick={() => setDetailId(fila.id)}
                     >
-                      {/* Número */}
-                      <div>
-                        <p className="font-mono text-xs font-bold text-gray-800 leading-tight">{fila.numero}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(fila.fecha)}</p>
-                      </div>
-
-                      {/* Cliente */}
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-800 truncate">{fila.cliente_nombre}</p>
-                      </div>
-
-                      {/* Operación */}
-                      <div>
-                        {fila.operacion_numero
-                          ? <span className="font-mono text-[11px] text-sky-600">{fila.operacion_numero}</span>
-                          : <span className="text-gray-300 text-xs">—</span>
-                        }
-                      </div>
-
-                      {/* Fecha */}
-                      <div className="text-xs text-gray-600">
-                        {fmtFecha(fila.fecha)}
-                      </div>
-
-                      {/* Estado + saldo */}
-                      <div>
-                        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold', ESTADO_BG[ec])}>
-                          {ESTADO_LABEL[ec]}
-                        </span>
-                        {ec === 'parcial' && fila.saldo_pendiente > 0 && (
-                          <div className="mt-1" onClick={e => e.stopPropagation()}>
-                            <p className="text-[9px] text-amber-600 font-semibold">
-                              Saldo: {formatCurrency(fila.saldo_pendiente)}
-                            </p>
-                            {fila.operacion_id && (
+                      <div className="px-3 py-2.5 flex items-start gap-3">
+                        {/* Número */}
+                        <div className="shrink-0 w-[76px]">
+                          <p className="font-mono text-[11px] text-gray-400">{fila.numero}</p>
+                          <p className="text-[10px] text-gray-300 mt-0.5">{fmtFecha(fila.fecha)}</p>
+                        </div>
+                        {/* Main */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900 truncate">{fila.cliente_nombre}</span>
+                            <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
+                            {fila.operacion_numero
+                              ? <span className="font-mono text-[11px] text-sky-600 shrink-0">{fila.operacion_numero}</span>
+                              : null
+                            }
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', ESTADO_BG[ec])}>
+                              {ESTADO_LABEL[ec]}
+                            </span>
+                            <FPIcon size={11} className="text-gray-400 shrink-0" />
+                            <span className="text-[10px] text-gray-500 truncate">{pagoLabel(fila.forma_pago)}</span>
+                            {ec === 'parcial' && fila.saldo_pendiente > 0 && (
+                              <span className="text-[10px] text-amber-600 font-semibold">Saldo: {formatCurrency(fila.saldo_pendiente)}</span>
+                            )}
+                          </div>
+                          {ec === 'parcial' && fila.saldo_pendiente > 0 && fila.operacion_id && (
+                            <div className="mt-1.5" onClick={e => e.stopPropagation()}>
                               <button
                                 onClick={() => navigate(
                                   `/recibos/nuevo?operacion_id=${fila.operacion_id}` +
                                   `&monto=${Math.round(fila.saldo_pendiente)}` +
                                   `&concepto=${encodeURIComponent('Cancelación de saldo')}`
                                 )}
-                                className="mt-0.5 text-[9px] text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-500 border border-amber-300 rounded px-1.5 py-0.5 font-semibold transition-colors"
+                                className="text-[10px] text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-500 border border-amber-300 rounded px-2 py-0.5 font-semibold transition-colors"
                               >
                                 Cobrar saldo
                               </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Método */}
-                      <div className="flex items-center gap-1">
-                        <FPIcon size={11} className="text-gray-400 shrink-0" />
-                        <span className="text-[11px] text-gray-600 truncate">{pagoLabel(fila.forma_pago)}</span>
-                      </div>
-
-                      {/* Monto + acciones */}
-                      <div className="flex flex-col items-end gap-1">
-                        <span className={cn('text-sm font-bold tabular-nums',
-                          ec === 'anulado' ? 'text-gray-400 line-through' : 'text-gray-900')}>
-                          {formatCurrency(fila.monto_total)}
-                        </span>
-                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                          {fila.cliente_telefono && (
-                            <button
-                              onClick={() => enviarMensajeWa(fila.cliente_id, waMsg)}
-                              disabled={enviandoWaIds.has(fila.cliente_id)}
-                              className="p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
-                              {enviandoWaIds.has(fila.cliente_id)
-                                ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
-                                : <MessageCircle size={13} />}
-                            </button>
+                            </div>
                           )}
-                          <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
-                            className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors">
-                            <Printer size={13} />
-                          </button>
+                        </div>
+                        {/* Monto + acciones */}
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          <span className={cn('text-sm font-bold tabular-nums',
+                            ec === 'anulado' ? 'text-gray-400 line-through' : 'text-gray-900')}>
+                            {formatCurrency(fila.monto_total)}
+                          </span>
+                          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                            {fila.cliente_telefono && (
+                              <button
+                                onClick={() => enviarMensajeWa(fila.cliente_id, waMsg)}
+                                disabled={enviandoWaIds.has(fila.cliente_id)}
+                                className="p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
+                                {enviandoWaIds.has(fila.cliente_id)
+                                  ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
+                                  : <MessageCircle size={13} />}
+                              </button>
+                            )}
+                            <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
+                              className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors">
+                              <Printer size={13} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

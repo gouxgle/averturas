@@ -786,139 +786,103 @@ export default function Pedidos() {
               </div>
             </div>
 
-            {/* Tabla */}
-            <div className="overflow-x-auto">
-              <div className="min-w-[640px]">
-                {/* Header */}
-                <div className="grid text-[11px] font-semibold uppercase tracking-wider text-gray-400 px-4 py-2 border-b border-gray-200"
-                  style={{ gridTemplateColumns: '160px 1fr 1fr 120px 110px 90px' }}>
-                  <span>Pedido</span>
-                  <span>Proveedor</span>
-                  <span>Operación / Cliente</span>
-                  <span>Estado</span>
-                  <span>Entrega est.</span>
-                  <span className="text-right">Monto</span>
+            {/* Lista */}
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
+              {paginated.length === 0 ? (
+                <div className="py-12 text-center text-gray-400 text-sm">
+                  <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
+                  No hay pedidos en este filtro
                 </div>
+              ) : (
+                <div className="p-3 space-y-1.5">
+                  {paginated.map(p => {
+                    const primerItem = p.items_resumen?.[0];
+                    const masItems   = (p.items_resumen?.length ?? 0) - 1;
+                    const lBorder = ({ pendiente: 'border-l-amber-400', enviado: 'border-l-sky-400', recibido: 'border-l-emerald-400', cancelado: 'border-l-gray-300' } as Record<string,string>)[p.estado] ?? 'border-l-gray-300';
 
-                {paginated.length === 0 && (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
-                    No hay pedidos en este filtro
-                  </div>
-                )}
-
-                {paginated.map(p => {
-                  const primerItem = p.items_resumen?.[0];
-                  const masItems   = (p.items_resumen?.length ?? 0) - 1;
-
-                  return (
-                    <div
-                      key={p.id}
-                      className={cn(
-                        'grid items-center px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors',
-                        'border-l-2', borderColor(p.estado)
-                      )}
-                      style={{ gridTemplateColumns: '160px 1fr 1fr 120px 110px 90px' }}
-                      onClick={() => setDetailId(p.id)}
-                    >
-                      {/* Pedido */}
-                      <div className="min-w-0 overflow-hidden">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{p.numero}</p>
-                        <p className="text-[11px] text-gray-400">{formatFecha(p.fecha_pedido)}</p>
-                      </div>
-
-                      {/* Proveedor */}
-                      <div className="pr-2 min-w-0 overflow-hidden">
-                        <p className="text-sm font-medium text-gray-800 truncate">{p.proveedor.nombre}</p>
-                        {primerItem && (
-                          <p className="text-[11px] text-gray-400 truncate">
-                            {primerItem.descripcion} x{primerItem.cantidad}
-                            {masItems > 0 && ` +${masItems} más`}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Operación / Cliente */}
-                      <div className="pr-2 min-w-0 overflow-hidden">
-                        {p.operacion ? (
-                          <>
-                            <p className="text-sm text-blue-700 font-medium truncate">{p.operacion.numero}</p>
-                            <p className="text-xs text-gray-700 font-medium truncate">{nombreCliente(p.operacion)}</p>
-                          </>
-                        ) : (
-                          <span className="text-[11px] text-gray-300">—</span>
-                        )}
-                      </div>
-
-                      {/* Estado */}
-                      <div>
-                        {p.operacion && p.items_total_op !== null && p.items_cubiertos !== null && p.items_cubiertos < p.items_total_op
-                          ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200" title={`${p.items_cubiertos} de ${p.items_total_op} ítems enviados al proveedor`}>
-                              <AlertTriangle size={9} />
-                              Envío parcial · {p.items_total_op - p.items_cubiertos} pend.
-                            </span>
-                          )
-                          : estadoBadge(p.estado)
-                        }
-                      </div>
-
-                      {/* Fecha entrega */}
-                      <div>
-                        {entregaBadge(p.fecha_entrega_est, p.estado)}
-                      </div>
-
-                      {/* Monto */}
-                      <div className="text-right" onClick={e => e.stopPropagation()}>
-                        {p.monto_total > 0 && (
-                          <p className="text-sm font-semibold text-gray-700">{formatCurrency(p.monto_total)}</p>
-                        )}
-                        {p.costo_envio > 0 && (
-                          <p className="text-[10px] text-amber-500">
-                            envío: {formatCurrency(p.costo_envio)}
-                            {p.transportista_nombre && ` · ${p.transportista_nombre}`}
-                          </p>
-                        )}
-                        <div className="flex justify-end gap-1 mt-1">
-                          {p.proveedor.telefono && (
-                            <WARowButton pedidoId={p.id} />
-                          )}
-                          <button
-                            onClick={() => setDetailId(p.id)}
-                            className="p-1 rounded hover:bg-gray-100 text-gray-400"
-                          >
-                            <ChevronRight size={13} />
-                          </button>
+                    return (
+                      <div
+                        key={p.id}
+                        className={cn('rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer hover:shadow-md transition-all', lBorder)}
+                        onClick={() => setDetailId(p.id)}
+                      >
+                        <div className="px-3 py-2.5 flex items-start gap-3">
+                          {/* Número */}
+                          <div className="shrink-0 w-[80px]">
+                            <p className="text-[11px] font-mono text-gray-400">{p.numero}</p>
+                            <p className="text-[10px] text-gray-300 mt-0.5">{formatFecha(p.fecha_pedido)}</p>
+                          </div>
+                          {/* Main */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-gray-900 truncate">{p.proveedor.nombre}</span>
+                              <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
+                              {p.operacion && (
+                                <span className="text-[10px] font-mono text-blue-600 shrink-0">{p.operacion.numero}</span>
+                              )}
+                              {p.operacion && (
+                                <span className="text-[10px] text-gray-400 shrink-0 truncate max-w-[100px]">{nombreCliente(p.operacion)}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              {p.operacion && p.items_total_op !== null && p.items_cubiertos !== null && p.items_cubiertos < p.items_total_op ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200">
+                                  <AlertTriangle size={9} />Parcial · {p.items_total_op - p.items_cubiertos} pend.
+                                </span>
+                              ) : estadoBadge(p.estado)}
+                              {primerItem && (
+                                <span className="text-[10px] text-gray-400 truncate">
+                                  {primerItem.descripcion} x{primerItem.cantidad}{masItems > 0 ? ` +${masItems}` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Entrega + monto */}
+                          <div className="shrink-0 text-right min-w-[80px]">
+                            <div>{entregaBadge(p.fecha_entrega_est, p.estado)}</div>
+                            {p.monto_total > 0 && (
+                              <p className="text-[12px] font-bold text-gray-800 tabular-nums mt-0.5">{formatCurrency(p.monto_total)}</p>
+                            )}
+                            {p.costo_envio > 0 && (
+                              <p className="text-[10px] text-amber-500">envío: {formatCurrency(p.costo_envio)}</p>
+                            )}
+                          </div>
+                          {/* Acciones */}
+                          <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                            {p.proveedor.telefono && <WARowButton pedidoId={p.id} />}
+                            <button onClick={() => setDetailId(p.id)}
+                              className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center">
+                              <ChevronRight size={13} className="text-gray-400" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Paginación */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                <span className="text-xs text-gray-400">
-                  Mostrando {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filas.length)} de {filas.length}
-                </span>
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                    <button
-                      key={n}
-                      onClick={() => setPage(n)}
-                      className={cn(
-                        'w-7 h-7 rounded-lg text-xs font-semibold',
-                        n === page ? 'bg-lime-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-                      )}
-                    >
-                      {n}
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              )}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+                  <span className="text-xs text-gray-400">
+                    Mostrando {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filas.length)} de {filas.length}
+                  </span>
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setPage(n)}
+                        className={cn(
+                          'w-7 h-7 rounded-lg text-xs font-semibold',
+                          n === page ? 'bg-lime-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

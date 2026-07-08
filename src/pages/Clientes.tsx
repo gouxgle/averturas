@@ -507,30 +507,18 @@ export function Clientes() {
             </div>
           </div>
 
-          {/* Tabla */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
-            {/* Cabecera */}
-            <div className="grid gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
-              style={{ gridTemplateColumns: '1fr 150px 110px 130px 120px 100px 120px 80px', minWidth: '820px' }}>
-              <span>Cliente</span>
-              <span>Contacto</span>
-              <span>Segmento</span>
-              <span>Última actividad</span>
-              <span>Compras</span>
-              <span>Ticket prom.</span>
-              <span>Deuda</span>
-              <span></span>
-            </div>
-
+          {/* Lista */}
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
             {loading ? (
-              <div className="divide-y divide-gray-50">
+              <div className="p-3 space-y-1.5">
                 {[...Array(7)].map((_, i) => (
-                  <div key={i} className="px-4 py-4 animate-pulse flex gap-4">
+                  <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-gray-100 shrink-0" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-3 bg-gray-100 rounded w-40" />
+                      <div className="h-4 bg-gray-100 rounded w-40" />
                       <div className="h-3 bg-gray-100 rounded w-24" />
                     </div>
+                    <div className="w-16 h-4 bg-gray-100 rounded shrink-0" />
                   </div>
                 ))}
               </div>
@@ -542,113 +530,80 @@ export function Clientes() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="p-3 space-y-1.5">
                 {paginated.map(c => {
                   const seg = efectivoSegmento(c);
                   const segCfg = SEG_CFG[seg];
                   const av = avatarColor(nombreDisplay(c));
                   const act = actividadInfo(c.dias_sin_contacto);
                   const waMsg = `Hola ${c.nombre ?? c.razon_social ?? ''}, te contactamos desde Aberturas.`;
+                  const lBorder = c.total_deuda > 0 ? 'border-l-amber-400' : 'border-l-emerald-300';
 
                   return (
                     <div key={c.id}
-                      className="grid gap-2 px-4 py-3.5 items-center hover:bg-gray-50/80 transition-colors cursor-pointer group"
-                      style={{ gridTemplateColumns: '1fr 150px 110px 130px 120px 100px 120px 80px', minWidth: '820px' }}
+                      className={cn('rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer hover:shadow-md transition-all group', lBorder)}
                       onClick={() => navigate(`/clientes/${c.id}`)}>
-
-                      {/* Cliente */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0', av.bg, av.text)}>
+                      <div className="px-3 py-2.5 flex items-start gap-3">
+                        {/* Avatar */}
+                        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 mt-0.5', av.bg, av.text)}>
                           {getInitials(c)}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-emerald-700 transition-colors">
-                            {nombreDisplay(c)}
-                          </p>
-                          <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
-                            {c.documento_nro && (
-                              <span>{c.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'} {c.documento_nro}</span>
+                        {/* Main */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900 truncate group-hover:text-emerald-700 transition-colors">
+                              {nombreDisplay(c)}
+                            </span>
+                            <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
+                            {c.telefono && <span className="text-[10px] text-gray-400 shrink-0">{c.telefono}</span>}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold', segCfg.bg, segCfg.text)}>
+                              {segCfg.label}
+                            </span>
+                            <div className={cn('w-2 h-2 rounded-full shrink-0', act.dotColor)} />
+                            <span className="text-[10px] text-gray-500">{act.label}</span>
+                            {c.total_deuda > 0 && (
+                              <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded-full">
+                                Deuda {formatCurrency(c.total_deuda)}
+                              </span>
                             )}
-                            {c.localidad && <span>{c.localidad}</span>}
+                            {c.documento_nro && (
+                              <span className="text-[10px] text-gray-300">
+                                {c.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'} {c.documento_nro}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </div>
-
-                      {/* Contacto */}
-                      <div className="min-w-0">
-                        {c.telefono && <p className="text-xs text-gray-700 truncate">{c.telefono}</p>}
-                        {c.email    && <p className="text-[10px] text-gray-400 truncate">{c.email}</p>}
-                      </div>
-
-                      {/* Segmento */}
-                      <div>
-                        <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-semibold', segCfg.bg, segCfg.text)}>
-                          {segCfg.label}
-                        </span>
-                      </div>
-
-                      {/* Última actividad */}
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <div className={cn('w-2 h-2 rounded-full shrink-0', act.dotColor)} />
-                          <p className="text-xs font-medium text-gray-700">{act.label}</p>
+                        {/* Stats */}
+                        <div className="shrink-0 text-right">
+                          {c.operaciones_count > 0 ? (
+                            <>
+                              <p className="text-[12px] font-bold text-gray-800 tabular-nums">{formatCurrency(c.valor_total_historico)}</p>
+                              <p className="text-[10px] text-gray-400">{c.operaciones_count} op.</p>
+                            </>
+                          ) : <p className="text-[11px] text-gray-300">Sin compras</p>}
                         </div>
-                        {c.ultima_interaccion && (
-                          <p className="text-[10px] text-gray-400 ml-3.5 mt-0.5">
-                            {fmtFechaCorta(c.ultima_interaccion)}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Compras */}
-                      <div>
-                        <p className="text-xs font-bold text-gray-900">
-                          {c.operaciones_count > 0 ? formatCurrency(c.valor_total_historico) : '—'}
-                        </p>
-                        <p className="text-[10px] text-gray-400">{c.operaciones_count} op.</p>
-                      </div>
-
-                      {/* Ticket promedio */}
-                      <div>
-                        <p className="text-xs font-semibold text-gray-700">
-                          {c.ticket_promedio > 0 ? formatCurrency(c.ticket_promedio) : '—'}
-                        </p>
-                      </div>
-
-                      {/* Deuda */}
-                      <div>
-                        {c.total_deuda > 0 ? (
-                          <>
-                            <p className="text-xs font-bold text-red-600">{formatCurrency(c.total_deuda)}</p>
-                            <p className="text-[10px] text-red-400">{c.count_deuda} pendiente{c.count_deuda !== 1 ? 's' : ''}</p>
-                          </>
-                        ) : (
-                          <p className="text-[10px] text-gray-400">Sin deuda</p>
-                        )}
-                      </div>
-
-                      {/* Acciones */}
-                      <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
-                        {c.telefono && (
-                          <button
-                            onClick={() => enviarMensajeWa(c.id, waMsg)}
-                            disabled={enviandoWaIds.has(c.id)}
-                            className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
-                            {enviandoWaIds.has(c.id)
-                              ? <span className="w-3.5 h-3.5 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
-                              : <MessageCircle size={14} />}
-                          </button>
-                        )}
-                        {c.telefono && (
-                          <a href={`tel:${c.telefono}`}
+                        {/* Acciones */}
+                        <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          {c.telefono && (
+                            <button onClick={() => enviarMensajeWa(c.id, waMsg)} disabled={enviandoWaIds.has(c.id)}
+                              className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
+                              {enviandoWaIds.has(c.id)
+                                ? <span className="w-3.5 h-3.5 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
+                                : <MessageCircle size={14} />}
+                            </button>
+                          )}
+                          {c.telefono && (
+                            <a href={`tel:${c.telefono}`} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                              <Phone size={14} />
+                            </a>
+                          )}
+                          <button onClick={() => navigate(`/clientes/${c.id}`)}
                             className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
-                            <Phone size={14} />
-                          </a>
-                        )}
-                        <button onClick={() => navigate(`/clientes/${c.id}`)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
-                          <History size={14} />
-                        </button>
+                            <History size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

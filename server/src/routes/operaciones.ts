@@ -71,7 +71,7 @@ operaciones.get('/tablero', async (c) => {
 
   const baseSelect = `
     SELECT o.id, o.numero, o.estado, o.tipo, o.precio_total::numeric,
-      o.created_at, o.fecha_entrega_estimada, o.updated_at,
+      o.created_at, o.fecha_entrega_estimada, o.fecha_validez, o.updated_at,
       EXTRACT(DAY FROM now() - o.updated_at)::int AS dias_en_estado,
       COALESCE((
         SELECT SUM(r2.monto_total) FROM recibos r2

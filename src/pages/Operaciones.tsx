@@ -17,6 +17,7 @@ interface TOp {
   id: string; numero: string; estado: string; tipo: string;
   precio_total: number; cobrado_total: number;
   created_at: string; fecha_entrega_estimada: string | null;
+  fecha_validez: string | null;
   updated_at: string; dias_en_estado: number;
   primer_item: string | null;
   pedido_fecha_entrega_est: string | null;
@@ -57,6 +58,17 @@ function nclProxima(c: TProxima['cliente']) {
 
 function fmtFecha(iso: string) {
   return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+function fmtVence(iso: string | null): { text: string; cls: string } | null {
+  if (!iso) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const fecha = new Date(iso.slice(0, 10) + 'T12:00:00');
+  const diff = Math.round((fecha.getTime() - today.getTime()) / 86400000);
+  if (diff < 0)  return { text: `venció hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`, cls: 'text-red-600 bg-red-100' };
+  if (diff === 0) return { text: 'vence hoy',    cls: 'text-red-600 bg-red-100' };
+  if (diff === 1) return { text: 'vence mañana', cls: 'text-amber-600 bg-amber-100' };
+  return { text: `vence en ${diff} días`, cls: 'text-gray-500 bg-gray-100' };
 }
 
 function fmtLlegada(iso: string | null): string | null {
@@ -138,9 +150,16 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
     >
       <div className="flex items-center justify-between gap-1 mb-1">
         <span className="text-[10px] font-mono font-bold text-blue-600">{op.numero}</span>
-        <span className={cn('text-[9px] font-semibold px-1 py-0.5 rounded-full truncate max-w-[90px]', ESTADO_BADGE[op.estado] ?? 'bg-gray-100 text-gray-600')}>
-          {ESTADO_LABEL[op.estado] ?? op.estado}
-        </span>
+        {col === 'sin_confirmar' ? (() => {
+          const v = fmtVence(op.fecha_validez);
+          return v
+            ? <span className={cn('text-[9px] font-semibold px-1 py-0.5 rounded-full truncate max-w-[110px]', v.cls)}>{v.text}</span>
+            : null;
+        })() : (
+          <span className={cn('text-[9px] font-semibold px-1 py-0.5 rounded-full truncate max-w-[90px]', ESTADO_BADGE[op.estado] ?? 'bg-gray-100 text-gray-600')}>
+            {ESTADO_LABEL[op.estado] ?? op.estado}
+          </span>
+        )}
       </div>
 
       <p className="text-[11px] font-semibold text-gray-800 truncate">{ncl(op.cliente)}</p>
@@ -217,8 +236,8 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
 
 const COL_SHOW = 4;
 
-function TCol({ col, title, color, ops }: {
-  col: ColKey; title: string; color: string; ops: TOp[];
+function TCol({ col, title, desc, color, ops }: {
+  col: ColKey; title: string; desc: string; color: string; ops: TOp[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? ops : ops.slice(0, COL_SHOW);
@@ -232,8 +251,8 @@ function TCol({ col, title, color, ops }: {
   }[color] ?? { header: 'border-gray-300 text-gray-700 bg-gray-50', badge: 'bg-gray-400' };
 
   return (
-    <div className="flex-1 min-w-[145px] max-w-[200px]">
-      <div className={`flex items-center justify-between px-3 py-2 rounded-xl border-l-4 mb-2 ${cls.header}`}>
+    <div className="flex-1 min-w-[150px]">
+      <div title={desc} className={`flex items-center justify-between px-3 py-2 rounded-xl border-l-4 mb-2 cursor-help ${cls.header}`}>
         <p className="text-[12px] font-bold truncate">{title}</p>
         <span className={`text-[10px] font-extrabold text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 ${cls.badge}`}>
           {ops.length}
@@ -263,6 +282,7 @@ function TCol({ col, title, color, ops }: {
 export function Operaciones() {
   const [data, setData] = useState<TableroData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCanceladas, setShowCanceladas] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -325,12 +345,11 @@ export function Operaciones() {
                 <span className="text-[11px] text-gray-400">— flujo completo</span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-2 w-full">
-                <TCol col="sin_confirmar"   title="Sin confirmar"       color="slate" ops={data.kanban.sin_confirmar} />
-                <TCol col="confirmadas"     title="Confirmadas"         color="green" ops={data.kanban.confirmadas} />
-                <TCol col="con_pedido"      title="Pedido proveedor"    color="amber" ops={data.kanban.con_pedido} />
-                <TCol col="listas_entregar" title="Listas p/ entregar"  color="teal"  ops={data.kanban.listas_entregar} />
-                <TCol col="entregadas"      title="Entregadas"          color="blue"  ops={data.kanban.entregadas} />
-                <TCol col="canceladas"      title="Canceladas"          color="red"   ops={data.kanban.canceladas} />
+                <TCol col="sin_confirmar"   title="Sin confirmar"       desc="El cliente no ha aprobado aún su presupuesto."                                           color="slate" ops={data.kanban.sin_confirmar} />
+                <TCol col="confirmadas"     title="Confirmadas"         desc="Operaciones aprobadas por el cliente."                                                    color="green" ops={data.kanban.confirmadas} />
+                <TCol col="con_pedido"      title="Pedido proveedor"    desc="Operaciones que ya se han pedido al proveedor y se aguarda recepción."                    color="amber" ops={data.kanban.con_pedido} />
+                <TCol col="listas_entregar" title="Listas p/ entregar"  desc="Operaciones recibidas del proveedor preparadas para entregar al cliente."                 color="teal"  ops={data.kanban.listas_entregar} />
+                <TCol col="entregadas"      title="Entregadas"          desc="Operaciones entregadas al cliente con remito de entrega."                                 color="blue"  ops={data.kanban.entregadas} />
               </div>
             </div>
 
@@ -392,7 +411,6 @@ export function Operaciones() {
                   { label: 'Pedido al proveedor', count: data.kanban.con_pedido.length,      color: 'bg-amber-500' },
                   { label: 'Listas p/ entregar',  count: data.kanban.listas_entregar.length, color: 'bg-teal-500' },
                   { label: 'Entregadas',           count: data.kanban.entregadas.length,     color: 'bg-blue-500' },
-                  { label: 'Canceladas',           count: data.kanban.canceladas.length,     color: 'bg-red-400' },
                 ].map(({ label, count, color }) => (
                   <div key={label} className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
@@ -423,8 +441,53 @@ export function Operaciones() {
                     <ChevronRight size={12} className="ml-auto" />
                   </Link>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setShowCanceladas(v => !v)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl border w-full text-[12px] font-semibold transition-all hover:opacity-80 text-red-600 bg-red-50 border-red-200">
+                  <XCircle size={14} />
+                  <span className="flex-1 text-left">Canceladas / Rechazadas</span>
+                  {data.kanban.canceladas.length > 0 && (
+                    <span className="text-[10px] font-extrabold bg-red-400 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                      {data.kanban.canceladas.length}
+                    </span>
+                  )}
+                  <ChevronRight size={12} className={cn('transition-transform', showCanceladas && 'rotate-90')} />
+                </button>
               </div>
             </div>
+
+            {/* Panel canceladas (toggle) */}
+            {showCanceladas && data.kanban.canceladas.length > 0 && (
+              <div className="bg-white rounded-2xl border border-red-200 shadow-lg p-4">
+                <p className="text-[11px] font-bold text-red-600 uppercase tracking-wider mb-2">
+                  Canceladas / Rechazadas
+                </p>
+                <div className="space-y-2">
+                  {data.kanban.canceladas.map(op => (
+                    <div
+                      key={op.id}
+                      className="border border-red-100 rounded-xl p-2.5 cursor-pointer hover:shadow-md transition-all bg-red-50"
+                      onClick={() => { window.location.href = `/operaciones/${op.id}`; }}
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-[10px] font-mono font-bold text-blue-600">{op.numero}</span>
+                        <span className="text-[9px] font-semibold px-1 py-0.5 rounded-full bg-red-100 text-red-600">
+                          {ESTADO_LABEL[op.estado] ?? op.estado}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-semibold text-gray-800 truncate">{ncl(op.cliente)}</p>
+                      <p className="text-[11px] font-bold text-gray-700 tabular-nums mt-1">{formatCurrency(op.precio_total)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {showCanceladas && data.kanban.canceladas.length === 0 && (
+              <div className="bg-white rounded-2xl border border-red-200 shadow-lg p-4">
+                <p className="text-[11px] text-gray-400 text-center py-2">Sin operaciones canceladas</p>
+              </div>
+            )}
 
           </div>
         </div>

@@ -597,8 +597,8 @@ export function Remitos() {
               </div>
             </div>
 
-            {/* Tabla */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
+            {/* Lista */}
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
@@ -606,128 +606,95 @@ export function Remitos() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200 bg-gray-50/60">
-                          {['Remito', 'Cliente', 'Productos', 'Entrega', 'Estado', 'F. entrega', 'Acciones'].map(h => (
-                            <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {paginated.map(r => {
-                          const urg = urgState(r);
-                          const badge = ESTADO_BADGE[urg];
-                          const medio = MEDIOS_TIPO[r.medio_envio] ?? { tipo: r.medio_envio, sub: (t: string | null) => t ?? '', envio: true };
-                          const waLink = r.cliente.telefono ? `https://wa.me/${r.cliente.telefono.replace(/\D/g, '')}` : null;
-                          const dias = diasHasta(r.fecha_entrega_est);
+                  <div className="p-3 space-y-1.5">
+                    {paginated.map(r => {
+                      const urg = urgState(r);
+                      const badge = ESTADO_BADGE[urg];
+                      const medio = MEDIOS_TIPO[r.medio_envio] ?? { tipo: r.medio_envio, sub: (t: string | null) => t ?? '', envio: true };
+                      const dias = diasHasta(r.fecha_entrega_est);
 
-                          return (
-                            <tr key={r.id}
-                              className={cn(
-                                'hover:bg-gray-50/80 transition-colors cursor-pointer', URG_BORDER[urg],
-                                r.recepcion_estado === 'conforme' && 'bg-green-50 hover:bg-green-100/60'
-                              )}
-                              onClick={() => setDetailRemito(r)}>
-                              <td className="px-4 py-3">
-                                <p className="text-[12px] font-mono font-bold text-blue-600">{r.numero}</p>
-                                <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(r.fecha_emision)}</p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="text-[12px] font-semibold text-gray-800 whitespace-nowrap">{ncl(r.cliente)}</p>
-                                {r.cliente.telefono && <p className="text-[10px] text-gray-400">{r.cliente.telefono}</p>}
-                              </td>
-                              <td className="px-4 py-3 max-w-[180px]">
-                                {r.items_resumen?.slice(0, 1).map((it, i) => (
-                                  <div key={i} className="flex items-start gap-1.5">
-                                    <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
-                                      <Package size={11} className="text-gray-400" />
-                                    </div>
-                                    <div>
-                                      <p className="text-[11px] font-semibold text-gray-800 leading-tight">{it.cantidad} {it.descripcion.slice(0, 30)}{it.descripcion.length > 30 ? '…' : ''}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                                {(r.items_resumen?.length ?? 0) > 1 && (
-                                  <p className="text-[10px] text-gray-400 mt-0.5 ml-6">+ {(r.items_resumen?.length ?? 0) - 1} más</p>
-                                )}
-                                {!r.items_resumen?.length && <p className="text-[11px] text-gray-400">—</p>}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-1.5">
+                      return (
+                        <div key={r.id}
+                          className={cn(
+                            'rounded-xl border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition-all',
+                            URG_BORDER[urg],
+                            r.recepcion_estado === 'conforme' && 'bg-emerald-50/40'
+                          )}
+                          onClick={() => setDetailRemito(r)}>
+                          <div className="px-3 py-2.5 flex items-start gap-3">
+                            {/* Número */}
+                            <div className="shrink-0 w-[76px]">
+                              <p className="text-[11px] font-mono text-gray-400">{r.numero}</p>
+                              <p className="text-[10px] text-gray-300 mt-0.5">{fmtFecha(r.fecha_emision)}</p>
+                            </div>
+                            {/* Main */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-gray-900 truncate">{ncl(r.cliente)}</span>
+                                <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
+                                <div className="flex items-center gap-1.5 shrink-0">
                                   {medio.envio
-                                    ? <Truck size={13} className="text-blue-400 shrink-0" />
-                                    : <Building2 size={13} className="text-teal-400 shrink-0" />
+                                    ? <Truck size={11} className="text-blue-400" />
+                                    : <Building2 size={11} className="text-teal-400" />
                                   }
-                                  <div>
-                                    <p className="text-[11px] font-semibold text-gray-700">{medio.tipo}</p>
-                                    <p className="text-[10px] text-gray-400">{medio.sub(r.transportista)}</p>
-                                  </div>
+                                  <span className="text-[10px] text-gray-500">{medio.tipo}{medio.sub(r.transportista) ? ` · ${medio.sub(r.transportista)}` : ''}</span>
                                 </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="space-y-1">
-                                  <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full', badge.cls)}>
-                                    {badge.label}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', badge.cls)}>{badge.label}</span>
+                                {r.recepcion_estado === 'conforme' && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">✓ Confirmado</span>
+                                )}
+                                {r.recepcion_estado && r.recepcion_estado !== 'conforme' && RECEPCION_BADGE[r.recepcion_estado] && (
+                                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', RECEPCION_BADGE[r.recepcion_estado].cls)}>
+                                    {RECEPCION_BADGE[r.recepcion_estado].label}
                                   </span>
-                                  {r.recepcion_estado === 'conforme' && (
-                                    <div>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">
-                                        ✓ Confirmación Online
-                                      </span>
-                                    </div>
-                                  )}
-                                  {r.recepcion_estado && r.recepcion_estado !== 'conforme' && RECEPCION_BADGE[r.recepcion_estado] && (
-                                    <div>
-                                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded', RECEPCION_BADGE[r.recepcion_estado].cls)}>
-                                        {RECEPCION_BADGE[r.recepcion_estado].label}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {urg === 'entregado' && r.fecha_entrega_real && (
-                                    <p className="text-[10px] text-gray-400">{fmtFecha(r.fecha_entrega_real)}</p>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                {r.fecha_entrega_est ? (
-                                  <>
-                                    <p className="text-[11px] text-gray-600">{fmtFecha(r.fecha_entrega_est)}</p>
-                                    {urg === 'entregado' && <p className="text-[10px] text-emerald-600 font-semibold">Entregado</p>}
-                                    {urg === 'cancelado' && <p className="text-[10px] text-gray-400">Cancelado</p>}
-                                    {urg === 'atrasado' && <p className="text-[10px] text-red-600 font-semibold">Vencida</p>}
-                                    {urg === 'para_hoy' && <p className="text-[10px] text-orange-600 font-semibold">Hoy</p>}
-                                    {urg === 'pendiente' && dias !== null && <p className="text-[10px] text-gray-400">{dias === 1 ? 'Mañana' : `En ${dias} días`}</p>}
-                                  </>
-                                ) : <p className="text-[11px] text-gray-400">—</p>}
-                              </td>
-                              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                                <div className="flex items-center gap-1.5">
-                                  {r.cliente.telefono && (
-                                    <button type="button" onClick={() => setShareRemito(r)}
-                                      title="Enviar por WhatsApp"
-                                      className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 border border-green-200 flex items-center justify-center transition-colors">
-                                      <MessageCircle size={13} className="text-green-600" />
-                                    </button>
-                                  )}
-                                  <button type="button" onClick={() => setDetailRemito(r)}
-                                    className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center transition-colors">
-                                    <Eye size={13} className="text-gray-600" />
-                                  </button>
-                                  {r.estado !== 'cancelado' && (
-                                    <button type="button" onClick={() => setEstadoModal(r)}
-                                      className="w-7 h-7 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center transition-colors">
-                                      <ChevronRight size={13} className="text-teal-600" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                )}
+                                {r.items_resumen?.slice(0, 1).map((it, i) => (
+                                  <span key={i} className="text-[10px] text-gray-400 truncate max-w-[160px]">
+                                    {it.cantidad} {it.descripcion.slice(0, 28)}{it.descripcion.length > 28 ? '…' : ''}
+                                    {(r.items_resumen?.length ?? 0) > 1 ? ` +${(r.items_resumen?.length ?? 0) - 1}` : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Fecha entrega */}
+                            <div className="shrink-0 text-right min-w-[70px]">
+                              {r.fecha_entrega_est ? (
+                                <>
+                                  <p className="text-[11px] text-gray-600">{fmtFecha(r.fecha_entrega_est)}</p>
+                                  {urg === 'entregado' && <p className="text-[10px] text-emerald-600 font-semibold">Entregado</p>}
+                                  {urg === 'cancelado' && <p className="text-[10px] text-gray-400">Cancelado</p>}
+                                  {urg === 'atrasado' && <p className="text-[10px] text-red-600 font-semibold">Vencida</p>}
+                                  {urg === 'para_hoy' && <p className="text-[10px] text-orange-600 font-semibold">Hoy</p>}
+                                  {urg === 'pendiente' && dias !== null && <p className="text-[10px] text-gray-400">{dias === 1 ? 'Mañana' : `En ${dias}d`}</p>}
+                                </>
+                              ) : <p className="text-[11px] text-gray-300">—</p>}
+                            </div>
+                            {/* Acciones */}
+                            <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                              {r.cliente.telefono && (
+                                <button type="button" onClick={() => setShareRemito(r)}
+                                  title="Enviar por WhatsApp"
+                                  className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 border border-green-200 flex items-center justify-center transition-colors">
+                                  <MessageCircle size={13} className="text-green-600" />
+                                </button>
+                              )}
+                              <button type="button" onClick={() => setDetailRemito(r)}
+                                className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center transition-colors">
+                                <Eye size={13} className="text-gray-600" />
+                              </button>
+                              {r.estado !== 'cancelado' && (
+                                <button type="button" onClick={() => setEstadoModal(r)}
+                                  className="w-7 h-7 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center transition-colors">
+                                  <ChevronRight size={13} className="text-teal-600" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Paginación */}
