@@ -936,14 +936,18 @@ export function Presupuestos() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
             {loading ? (
               <div className="p-3 space-y-1.5">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="rounded-xl border border-gray-200 px-4 py-3 animate-pulse flex gap-4">
-                    <div className="w-20 h-4 bg-gray-100 rounded" />
-                    <div className="flex-1 h-4 bg-gray-100 rounded" />
-                    <div className="w-24 h-4 bg-gray-100 rounded" />
+                  <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse grid gap-3"
+                    style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
+                    <div className="h-4 bg-gray-100 rounded" />
+                    <div className="h-4 bg-gray-100 rounded" />
+                    <div className="h-4 bg-gray-100 rounded" />
+                    <div className="h-4 bg-gray-100 rounded" />
+                    <div className="h-4 bg-gray-100 rounded" />
+                    <div className="h-4 bg-gray-100 rounded" />
                   </div>
                 ))}
               </div>
@@ -955,6 +959,17 @@ export function Presupuestos() {
               </div>
             ) : (
               <div className="p-3 space-y-1.5">
+                {/* Cabecera columnas */}
+                <div className="grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider"
+                  style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
+                  <span>N°</span>
+                  <span>Cliente</span>
+                  <span>Estado</span>
+                  <span>Vence</span>
+                  <span className="text-right">Importe</span>
+                  <span></span>
+                </div>
+
                 {paginated.map(p => {
                   const vc     = fmtVencimiento(p);
                   const canal  = p.ultimo_contacto_canal;
@@ -1024,78 +1039,71 @@ export function Presupuestos() {
                       )}
                       onClick={() => abrirDetalle(p)}>
 
-                      <div className="px-3 py-2.5 flex items-start gap-3">
+                      <div className="grid gap-3 px-3 py-2.5 items-start"
+                        style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
 
-                        {/* Número + fecha — sutil, columna fija */}
-                        <div className="shrink-0 w-[88px] pt-0.5">
+                        {/* N° + fecha */}
+                        <div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[11px] font-mono text-gray-400 group-hover:text-violet-500 transition-colors leading-none">{p.numero}</span>
+                            <span className="text-[11px] font-mono text-gray-400 group-hover:text-violet-500 transition-colors">{p.numero}</span>
                             {isAprobadoOnline && <Check size={10} className="text-emerald-500" />}
                           </div>
                           <p className="text-[10px] text-gray-300 mt-0.5">{formatDate(p.created_at)}</p>
                           {p.tipo && p.tipo !== 'estandar' && (
-                            <p className="text-[9px] text-gray-300 mt-0.5 leading-tight">
-                              {p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}
-                            </p>
+                            <p className="text-[9px] text-gray-300 mt-0.5">{p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}</p>
                           )}
                         </div>
 
-                        {/* Bloque principal — nombre como protagonista */}
-                        <div className="flex-1 min-w-0">
-
-                          {/* Fila 1: avatar + NOMBRE ─── contacto · vence */}
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0', avatarColor(p.cliente))}>
+                        {/* Cliente */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0', avatarColor(p.cliente))}>
                               {initials(p.cliente)}
                             </div>
                             <span className="text-sm font-bold text-gray-900 truncate group-hover:text-violet-700 transition-colors">
                               {nombreCliente(p.cliente)}
                             </span>
-                            {/* Línea separadora */}
-                            <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
-                            {/* Metadata inline */}
-                            <div className="flex items-center gap-2 shrink-0 text-[10px]">
-                              {p.dias_sin_respuesta !== undefined && (
-                                <span className="text-gray-400">{fmtDias(p.dias_sin_respuesta)}</span>
-                              )}
-                              {canal && (
-                                <span className={cn('font-medium', canalColor(canal))}>{canalLabel(canal)}</span>
-                              )}
-                              {(p.dias_sin_respuesta !== undefined || canal) && (vc || (isRechazado && p.motivo_rechazo)) && (
-                                <span className="text-gray-200">·</span>
-                              )}
-                              {isRechazado && p.motivo_rechazo ? (
-                                <span className="text-red-400 max-w-[120px] truncate" title={p.motivo_rechazo}>{p.motivo_rechazo}</span>
-                              ) : vc ? (
-                                <span className={cn('font-medium', vc.color)}>{vc.text}</span>
-                              ) : null}
-                            </div>
                           </div>
-
-                          {/* Fila 2: tel + badges */}
-                          <div className="flex items-center gap-1.5 mt-1.5 ml-9 flex-wrap">
-                            {p.cliente.telefono && (
-                              <span className="text-[10px] text-gray-400 mr-1">{p.cliente.telefono}</span>
-                            )}
-                            {estadoBadge}
-                            {['presupuesto','enviado'].includes(p.estado) && (
-                              <div className={cn('flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', prio.bg, prio.text)}>
-                                {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}
-                                {prio.label}
-                              </div>
-                            )}
-                            {cobroBadge}
+                          <div className="flex items-center gap-1.5 mt-1 ml-[30px] flex-wrap">
+                            {p.cliente.telefono && <span className="text-[10px] text-gray-400">{p.cliente.telefono}</span>}
+                            {canal && <span className={cn('text-[10px] font-medium', canalColor(canal))}>{canalLabel(canal)}</span>}
                             {pedidoBadge}
                           </div>
                         </div>
 
+                        {/* Estado + cobro + prioridad */}
+                        <div className="space-y-1">
+                          {estadoBadge}
+                          {cobroBadge && <div>{cobroBadge}</div>}
+                          {['presupuesto','enviado'].includes(p.estado) && (
+                            <div className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', prio.bg, prio.text)}>
+                              {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}
+                              {prio.label}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Vence */}
+                        <div>
+                          {isRechazado && p.motivo_rechazo ? (
+                            <span className="text-[10px] text-red-400 truncate block" title={p.motivo_rechazo}>{p.motivo_rechazo}</span>
+                          ) : vc ? (
+                            <span className={cn('text-[11px] font-semibold', vc.color)}>{vc.text}</span>
+                          ) : (
+                            <span className="text-[11px] text-gray-300">—</span>
+                          )}
+                          {p.dias_sin_respuesta !== undefined && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">{fmtDias(p.dias_sin_respuesta)}</p>
+                          )}
+                        </div>
+
                         {/* Importe */}
-                        <div className="shrink-0 text-right pt-0.5">
+                        <div className="text-right">
                           <p className="text-sm font-black text-gray-800 tabular-nums">{formatCurrency(p.precio_total)}</p>
                         </div>
 
                         {/* Acciones */}
-                        <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
                           {p.cliente.telefono && (
                             <>
                               <button
