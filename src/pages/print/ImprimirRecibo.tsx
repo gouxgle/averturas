@@ -62,7 +62,8 @@ export function ImprimirRecibo() {
     Promise.all([
       api.get<Empresa>('/empresa'),
       api.get<ReciboData>(`/recibos/${id}`),
-    ]).then(([e, r]) => { setEmpresa(e); setRecibo(r); setLoading(false); });
+    ]).then(([e, r]) => { setEmpresa(e); setRecibo(r); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [id]);
 
   if (loading) return (

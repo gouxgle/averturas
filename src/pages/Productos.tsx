@@ -94,8 +94,8 @@ function buildShareText(p: Producto): string {
 
 // ── Modal de detalle ──────────────────────────────────────────────────────────
 
-function ProductoModal({ producto, onClose, onToggle, onDelete }: {
-  producto: Producto; onClose: () => void; onToggle: () => void; onDelete: (id: string) => void;
+export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar }: {
+  producto: Producto; onClose: () => void; onToggle?: () => void; onDelete?: (id: string) => void; onAgregar?: () => void;
 }) {
   const [activeImg, setActiveImg]     = useState(0);
   const [confirmando, setConfirmando] = useState(false);
@@ -120,7 +120,7 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
     try {
       await api.delete(`/productos/${producto.id}`);
       toast.success(`"${producto.nombre}" eliminado del catálogo`);
-      onDelete(producto.id); onClose();
+      onDelete?.(producto.id); onClose();
     } catch (e) {
       toast.error((e as Error).message || 'No se pudo eliminar');
       setConfirmando(false);
@@ -273,19 +273,29 @@ function ProductoModal({ producto, onClose, onToggle, onDelete }: {
           {producto.descripcion && <p className="text-xs text-gray-500 border-t border-gray-200 pt-3">{producto.descripcion}</p>}
         </div>
 
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
-          <button onClick={onToggle}
-            className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors',
-              producto.activo ? 'border-gray-200 text-gray-500 hover:border-orange-200 hover:text-orange-500' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50')}>
-            {producto.activo ? <ToggleRight size={14}/> : <ToggleLeft size={14}/>}
-            {producto.activo ? 'Desactivar' : 'Activar'}
-          </button>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setConfirmando(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50"><Trash2 size={12}/>Eliminar</button>
-            <Link to={`/productos/${producto.id}`} onClick={onClose}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium"><Pencil size={12}/>Editar</Link>
+        {onAgregar ? (
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-5 py-3 flex items-center justify-end gap-2">
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">Cerrar</button>
+            <button onClick={() => { onAgregar(); onClose(); }}
+              className="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              <Plus size={13}/>Agregar a la proforma
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
+            <button onClick={onToggle}
+              className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors',
+                producto.activo ? 'border-gray-200 text-gray-500 hover:border-orange-200 hover:text-orange-500' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50')}>
+              {producto.activo ? <ToggleRight size={14}/> : <ToggleLeft size={14}/>}
+              {producto.activo ? 'Desactivar' : 'Activar'}
+            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setConfirmando(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50"><Trash2 size={12}/>Eliminar</button>
+              <Link to={`/productos/${producto.id}`} onClick={onClose}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium"><Pencil size={12}/>Editar</Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -344,7 +354,7 @@ function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
       onClick={() => onSelect(producto)}>
 
       {/* Imagen */}
-      <div className="relative w-[108px] shrink-0 self-stretch overflow-hidden bg-gray-100">
+      <div className="relative w-[108px] h-[108px] shrink-0 self-start overflow-hidden bg-gray-100">
         {imagenes.length > 0 ? (
           <img src={imagenes[imgIdx]} alt={producto.nombre} loading="lazy" decoding="async" className="w-full h-full object-contain p-1"/>
         ) : (
@@ -634,7 +644,7 @@ export function Productos() {
               <div className="h-12 bg-gray-100"/>
               {[...Array(4)].map((_, j) => (
                 <div key={j} className="flex gap-3 p-3 border-t border-gray-50">
-                  <div className="w-[108px] h-20 bg-gray-100 rounded"/>
+                  <div className="w-[108px] h-[108px] bg-gray-100 rounded"/>
                   <div className="flex-1 space-y-2 py-1">
                     <div className="h-3 bg-gray-100 rounded w-3/4"/>
                     <div className="h-2 bg-gray-100 rounded w-1/2"/>

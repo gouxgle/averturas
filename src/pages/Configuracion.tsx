@@ -381,6 +381,9 @@ function PanelEmpresa() {
         terminos_url: data.terminos_url ?? '',
       });
       setLoading(false);
+    }).catch(() => {
+      toast.error('No se pudo cargar los datos de la empresa');
+      setLoading(false);
     });
   }, []);
 
@@ -663,6 +666,8 @@ function PanelMensajes() {
     api.get<MensajePlantilla[]>('/configuracion/mensajes').then(data => {
       setPlantillas(data);
       setEditando(Object.fromEntries(data.map(p => [p.clave, p.contenido])));
+    }).catch(() => {
+      toast.error('No se pudieron cargar las plantillas de mensajes');
     });
   }, []);
 

@@ -515,7 +515,7 @@ function ProveedorRow({
         <div className="text-center">
           <p className="text-xs font-medium text-gray-700">
             {prov.ultima_compra_fecha
-              ? new Date(prov.ultima_compra_fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+              ? new Date(String(prov.ultima_compra_fecha).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
               : '—'}
           </p>
           <p className="text-[10px] text-gray-400">{fmtDias(prov.dias_sin_compra)}</p>

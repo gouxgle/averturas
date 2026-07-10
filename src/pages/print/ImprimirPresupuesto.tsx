@@ -124,7 +124,8 @@ export function ImprimirPresupuesto() {
     Promise.all([
       api.get<Empresa>('/empresa'),
       api.get<Operacion>(`/operaciones/${id}`),
-    ]).then(([e, o]) => { setEmpresa(e); setOp(o); setLoading(false); });
+    ]).then(([e, o]) => { setEmpresa(e); setOp(o); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [id]);
 
   if (loading) return (

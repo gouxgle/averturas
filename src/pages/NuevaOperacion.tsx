@@ -60,6 +60,8 @@ export function NuevaOperacion() {
       setTiposAbertura(ta);
       setSistemas(s);
       setProveedores(p);
+    }).catch(() => {
+      toast.error('No se pudieron cargar los datos — recargá la página');
     });
   }, []);
 

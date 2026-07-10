@@ -683,6 +683,7 @@ function MovimientosPanel({ productoId }: { productoId: string }) {
   useEffect(() => {
     api.get<Movimiento[]>(`/stock/producto/${productoId}/movimientos`)
       .then(data => setMovimientos(data))
+      .catch(() => toast.error('No se pudieron cargar los movimientos'))
       .finally(() => setLoading(false));
   }, [productoId]);
 

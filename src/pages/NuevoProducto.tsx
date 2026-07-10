@@ -1450,6 +1450,9 @@ export function NuevoProducto() {
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
         }
+      }).catch(() => {
+        toast.error('No se pudo cargar el producto a editar');
+        navigate('/productos');
       });
     }
   }, [id, isEdit]);

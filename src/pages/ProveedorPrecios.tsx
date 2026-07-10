@@ -125,10 +125,14 @@ function VincularModal({
   useEffect(() => {
     if (!search.trim() || search.length < 2) { setLista([]); return; }
     const t = setTimeout(async () => {
-      const data = await api.get<CatalogoProducto[]>(
-        `/productos?search=${encodeURIComponent(search)}`
-      );
-      setLista(data.slice(0, 20));
+      try {
+        const data = await api.get<CatalogoProducto[]>(
+          `/productos?search=${encodeURIComponent(search)}`
+        );
+        setLista(data.slice(0, 20));
+      } catch {
+        toast.error('Error al buscar productos');
+      }
     }, 250);
     return () => clearTimeout(t);
   }, [search]);

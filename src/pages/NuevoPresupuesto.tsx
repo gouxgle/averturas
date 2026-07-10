@@ -3,15 +3,16 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users,
+  Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users, Eye,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
-import type { Cliente, TipoAbertura, Sistema } from '@/types';
+import type { Cliente, TipoAbertura, Sistema, Producto } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
+import { ProductoModal } from './Productos';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -411,6 +412,18 @@ export function NuevoPresupuesto() {
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
   const [showNotas, setShowNotas] = useState(false);
   const [showValidacionModal, setShowValidacionModal] = useState(false);
+
+  // Modal "Ver más" — detalle de producto desde la galería
+  const [detalleOriginal, setDetalleOriginal] = useState<CatalogProduct | null>(null);
+  const [detalleProducto, setDetalleProducto] = useState<Producto | null>(null);
+
+  function verDetalle(e: React.MouseEvent, p: CatalogProduct) {
+    e.stopPropagation();
+    setDetalleOriginal(p);
+    api.get<Producto>(`/productos/${p.id}`)
+      .then(setDetalleProducto)
+      .catch(() => { toast.error('No se pudo cargar el detalle del producto'); setDetalleOriginal(null); });
+  }
 
   // Buscador por código / scanner
   const [codigoSearch, setCodigoSearch]   = useState('');
@@ -1240,6 +1253,15 @@ export function NuevoPresupuesto() {
                                 <CheckCircle2 size={10} className="text-white" />
                               </span>
                             )}
+                            {/* Ver más */}
+                            <button
+                              type="button"
+                              onClick={e => verDetalle(e, p)}
+                              title="Ver detalle"
+                              className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Eye size={11} className="text-gray-600" />
+                            </button>
                             {/* Info */}
                             <div className="p-2">
                               {p.codigo && (
@@ -1725,6 +1747,15 @@ export function NuevoPresupuesto() {
           operacionId={savedId}
           clienteNombre={clienteNombre}
           clienteTelefono={clienteSeleccionado?.telefono ?? undefined}
+        />
+      )}
+
+      {/* ── Modal "Ver más" — detalle de producto ── */}
+      {detalleProducto && (
+        <ProductoModal
+          producto={detalleProducto}
+          onClose={() => { setDetalleProducto(null); setDetalleOriginal(null); }}
+          onAgregar={() => detalleOriginal && agregarProducto(detalleOriginal)}
         />
       )}
 
