@@ -380,7 +380,7 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
 
   // Variables de sustitución
   const opRef = pedido.operacion
-    ? `\nReferencia: ${pedido.operacion.numero}${pedido.operacion.cliente ? ` — ${pedido.operacion.cliente.razon_social ?? `${pedido.operacion.cliente.apellido ?? ''} ${pedido.operacion.cliente.nombre ?? ''}`.trim()}` : ''}`
+    ? `\nReferencia: ${pedido.operacion.numero}`
     : '';
   const detalle = items.map((i: { descripcion: string; cantidad: number; costo_unitario: number }) =>
     `• ${i.descripcion} — Cant: ${i.cantidad}`

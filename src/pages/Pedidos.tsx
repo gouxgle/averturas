@@ -162,11 +162,10 @@ function waTextoPedido(pedido: PedidoDetalle | PedidoRow, items?: PedidoItem[]) 
   const allItems = items ?? (pedido as PedidoDetalle).items ?? [];
   const lineas = allItems.map(i => `- ${i.descripcion} x${i.cantidad}`).join('\n');
   const opRef = pedido.operacion ? ` para Op. ${pedido.operacion.numero}` : '';
-  const cliente = pedido.operacion ? ` — cliente: ${nombreCliente(pedido.operacion)}` : '';
   const fecha = pedido.fecha_entrega_est
     ? `\nNecesito para: ${formatFecha(pedido.fecha_entrega_est)}`
     : '';
-  return `Hola ${pedido.proveedor.nombre}!\nTe hago el pedido${opRef}${cliente}:\n\n${lineas}${fecha}\nGracias!`;
+  return `Hola ${pedido.proveedor.nombre}!\nTe hago el pedido${opRef}:\n\n${lineas}${fecha}\nGracias!`;
 }
 
 // ── Botón WA por fila (estado local) ──────────────────────────
