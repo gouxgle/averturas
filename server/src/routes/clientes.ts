@@ -152,6 +152,28 @@ clientes.post('/importar', async (c) => {
 // GET /panel — CRM completo: stats, lista enriquecida, oportunidades, sidebar (ANTES de /:id)
 clientes.get('/panel', async (c) => {
   const mesStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const search = c.req.query('search') ?? '';
+
+  // Mismo criterio de búsqueda que GET /clientes (incluye teléfono)
+  let searchWhere = '';
+  const searchParams: unknown[] = [];
+  if (search.trim()) {
+    searchParams.push(`%${search.trim()}%`);
+    searchWhere = ` AND (
+      c.nombre           ILIKE $1
+      OR c.apellido      ILIKE $1
+      OR c.razon_social  ILIKE $1
+      OR c.telefono      ILIKE $1
+      OR c.documento_nro ILIKE $1
+      OR c.email         ILIKE $1
+      OR c.localidad     ILIKE $1
+      OR c.direccion     ILIKE $1
+      OR c.notas         ILIKE $1
+      OR CONCAT(COALESCE(c.nombre,''), ' ', COALESCE(c.apellido,'')) ILIKE $1
+      OR CONCAT(COALESCE(c.apellido,''), ' ', COALESCE(c.nombre,'')) ILIKE $1
+    )`;
+  }
+  const clientesLimit = search.trim() ? '' : 'LIMIT 500';
 
   const [
     statsRows,
@@ -221,10 +243,10 @@ clientes.get('/panel', async (c) => {
           COUNT(*)::int AS count_deuda
         FROM compromisos_pago cp WHERE cp.cliente_id = c.id AND cp.estado = 'pendiente'
       ) deuda ON true
-      WHERE c.activo = true
+      WHERE c.activo = true${searchWhere}
       ORDER BY c.ultima_interaccion DESC NULLS LAST, c.created_at DESC
-      LIMIT 500
-    `, []),
+      ${clientesLimit}
+    `, searchParams),
 
     db.query(`
       SELECT
@@ -662,7 +684,7 @@ clientes.get('/:id/estado-cuenta', async (c) => {
         o.created_at DESC
     `, [id]),
     db.query(`
-      SELECT r.id, r.numero, r.fecha, r.monto_total, r.forma_pago,
+      SELECT r.id, r.numero, r.fecha, r.monto_total, r.monto_descuento, r.forma_pago,
         r.concepto, r.estado, r.operacion_id,
         COALESCE(
           json_agg(
@@ -725,6 +747,7 @@ clientes.get('/:id/estado-cuenta', async (c) => {
   // Calcular totales por operacion y globales
   let totalPresupuestado = 0;
   let totalCobrado = 0;
+  let totalDescuentos = 0;
   let totalPendienteAprobacion = 0;
 
   const operacionesConDetalle = operaciones.map((op: any) => {
@@ -732,19 +755,23 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     const remitosOp = remitosMap[op.id] ?? [];
     const generaSaldo = ESTADOS_APROBADOS.has(op.estado);
     const cobrado = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_total), 0);
-    // saldo financiero solo aplica a operaciones aprobadas
-    const saldo = generaSaldo ? Number(op.precio_total) - cobrado : null;
+    const descuentos = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_descuento ?? 0), 0);
+    // saldo financiero solo aplica a operaciones aprobadas — la bonificación no es deuda
+    const saldo = generaSaldo ? Number(op.precio_total) - cobrado - descuentos : null;
     if (generaSaldo) {
       totalPresupuestado += Number(op.precio_total);
       totalCobrado += cobrado;
+      totalDescuentos += descuentos;
     } else {
       totalPendienteAprobacion += Number(op.precio_total);
     }
-    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado: generaSaldo ? cobrado : null, saldo, genera_saldo: generaSaldo };
+    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado: generaSaldo ? cobrado : null, descuentos: generaSaldo ? descuentos : null, saldo, genera_saldo: generaSaldo };
   });
 
   const cobradoDirecto = recibosDirectos.reduce((s, r) => s + Number(r.monto_total), 0);
+  const descuentoDirecto = recibosDirectos.reduce((s, r) => s + Number((r as any).monto_descuento ?? 0), 0);
   totalCobrado += cobradoDirecto;
+  totalDescuentos += descuentoDirecto;
 
   return c.json({
     cliente,
@@ -754,7 +781,8 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     totales: {
       presupuestado: totalPresupuestado,
       cobrado: totalCobrado,
-      saldo: totalPresupuestado - totalCobrado,
+      descuentos: totalDescuentos,
+      saldo: totalPresupuestado - totalCobrado - totalDescuentos,
       pendiente_aprobacion: totalPendienteAprobacion,
     },
   });

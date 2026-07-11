@@ -201,16 +201,28 @@ export function Clientes() {
     }
   }
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (search?: string) => {
     setLoading(true);
     try {
-      setData(await api.get<PanelData>('/clientes/panel'));
+      const qs = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+      setData(await api.get<PanelData>(`/clientes/panel${qs}`));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Buscar en el backend (mismo criterio que Nuevo Presupuesto — incluye teléfono)
+  // cuando hay 2+ caracteres; con el campo vacío vuelve al panel completo (top 500).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (busqueda.trim().length >= 2) cargar(busqueda);
+      else if (!busqueda.trim()) cargar();
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -404,7 +416,7 @@ export function Clientes() {
         title="Clientes"
         sub="Gestión de clientes y oportunidades"
         actions={<>
-          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
+          <button onClick={() => cargar(busqueda)} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={exportarCSV}

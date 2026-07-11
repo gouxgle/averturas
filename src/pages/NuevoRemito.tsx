@@ -193,12 +193,12 @@ export function NuevoRemito() {
     }
     setLoadingOp(true);
     Promise.all([
-      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
+      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; total_descuentos: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
       api.get<Array<{ id: string; numero: string; estado: string; proveedor: { nombre: string } }>>(`/pedidos?operacion_id=${operacionId}`),
     ]).then(([op, peds]) => {
       setOpItems(op.items ?? []);
       setSelectedOp(new Set((op.items ?? []).map((_, i) => i)));
-      const saldo = Number(op.precio_total) - Number(op.cobrado_total ?? 0);
+      const saldo = Number(op.precio_total) - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0);
       setSaldoPendiente(saldo > 0.01 ? saldo : null);
       const sinRecibir = peds.filter(p => p.estado !== 'cancelado' && p.estado !== 'recibido');
       setPedidosSinRecibir(sinRecibir);

@@ -21,9 +21,9 @@ estadoCuenta.get('/', async (c) => {
 
   const params: unknown[] = [];
   let filtroExtra = '';
-  if (filtro === 'con_saldo')       filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) > 0.01';
+  if (filtro === 'con_saldo')       filtroExtra = 'AND (ops.total - COALESCE(rec.total,0) - COALESCE(rec.descuentos,0)) > 0.01';
   if (filtro === 'con_compromisos') filtroExtra = 'AND comp.total > 0';
-  if (filtro === 'saldados')        filtroExtra = 'AND (ops.total - COALESCE(rec.total,0)) <= 0.01';
+  if (filtro === 'saldados')        filtroExtra = 'AND (ops.total - COALESCE(rec.total,0) - COALESCE(rec.descuentos,0)) <= 0.01';
   if (filtro === 'vencidos')        filtroExtra = 'AND COALESCE(comp.compromisos_vencidos,0) > 0';
 
   let whereSearch = '';
@@ -40,7 +40,8 @@ estadoCuenta.get('/', async (c) => {
         ops.count                                            AS operaciones_count,
         ops.total                                            AS total_presupuestado,
         COALESCE(rec.total, 0)                               AS total_cobrado,
-        ops.total - COALESCE(rec.total, 0)                   AS saldo,
+        COALESCE(rec.descuentos, 0)                          AS total_descuentos,
+        ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0) AS saldo,
         COALESCE(pend.count, 0)                              AS pendientes_count,
         COALESCE(pend.total, 0)                              AS pendientes_monto,
         COALESCE(comp.total, 0)                              AS compromisos_pendientes,
@@ -51,9 +52,9 @@ estadoCuenta.get('/', async (c) => {
         ops.ultima                                           AS ultima_compra_fecha,
         EXTRACT(DAY FROM now() - ops.primera)::int           AS dias_desde_primera_op,
         EXTRACT(DAY FROM now() - ops.ultima)::int            AS dias_desde_ultima_compra,
-        COALESCE(ROUND(100.0 * COALESCE(rec.total,0) / NULLIF(ops.total,0), 0), 0)::int AS pct_cobrado,
+        COALESCE(ROUND(100.0 * (COALESCE(rec.total,0) + COALESCE(rec.descuentos,0)) / NULLIF(ops.total,0), 0), 0)::int AS pct_cobrado,
         CASE
-          WHEN (ops.total - COALESCE(rec.total, 0)) <= 0.01 THEN 'saldado'
+          WHEN (ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0)) <= 0.01 THEN 'saldado'
           WHEN COALESCE(comp.compromisos_vencidos, 0) > 0   THEN 'vencido'
           WHEN comp.proximo_vencimiento IS NOT NULL
             AND comp.proximo_vencimiento <= CURRENT_DATE + 7 THEN 'por_vencer'
@@ -78,6 +79,7 @@ estadoCuenta.get('/', async (c) => {
       ) pend ON true
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(monto_total), 0) AS total,
+               COALESCE(SUM(monto_descuento), 0) AS descuentos,
                MAX(created_at) AS ultima
         FROM recibos
         WHERE cliente_id = c.id AND estado != 'anulado'
