@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { db } from '../db.js';
 
 const productos = new Hono();
@@ -54,6 +55,9 @@ productos.get('/:id', async (c) => {
 });
 
 // ── Upload imagen ─────────────────────────────────────────────
+// Redimensiona a máx. 1600px de lado mayor y recodifica a WebP calidad 82.
+// Las fotos de celular llegan a pesar 2-8MB — se muestran como miniaturas
+// de ~100px en galerías, eso hacía la carga muy lenta en conexiones débiles.
 productos.post('/upload-imagen', async (c) => {
   const body = await c.req.formData();
   const file = body.get('imagen') as File | null;
@@ -63,10 +67,17 @@ productos.post('/upload-imagen', async (c) => {
   const allowed = ['jpg', 'jpeg', 'png', 'webp'];
   if (!allowed.includes(ext)) return c.json({ error: 'Formato no permitido' }, 400);
 
-  const filename = `${randomUUID()}.${ext}`;
+  const filename = `${randomUUID()}.webp`;
   const dir = './uploads/productos';
   await mkdir(dir, { recursive: true });
-  await writeFile(`${dir}/${filename}`, Buffer.from(await file.arrayBuffer()));
+
+  const optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
+    .rotate() // respeta orientación EXIF de fotos de celular
+    .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+
+  await writeFile(`${dir}/${filename}`, optimizado);
 
   return c.json({ url: `/uploads/productos/${filename}` });
 });
