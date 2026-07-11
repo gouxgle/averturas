@@ -628,7 +628,17 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
     ? (r.cliente.razon_social ?? 'estimado/a')
     : `${r.cliente.nombre ?? ''} ${r.cliente.apellido ?? ''}`.trim() || 'estimado/a';
   const monto = Number(r.monto_total).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
-  const caption = `Hola ${nombre}, adjuntamos el comprobante de pago recibo *N° ${r.numero}* por *${monto}*. ¡Muchas gracias! 🏠`;
+
+  const { rows: [tpl] } = await db.query(
+    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'recibo_cliente'`
+  );
+  const plantilla: string = tpl?.contenido ?? '';
+  const caption = plantilla
+    ? plantilla
+        .replace(/\{\{nombre\}\}/g, nombre)
+        .replace(/\{\{numero\}\}/g, r.numero)
+        .replace(/\{\{monto\}\}/g, monto)
+    : `Hola ${nombre}, adjuntamos el comprobante de pago recibo *N° ${r.numero}* por *${monto}*. ¡Muchas gracias! 🏠`;
 
   // Enviar PDF como documento
   const resp = await fetch(`${evoUrl}/message/sendMedia/${evoInst}`, {
