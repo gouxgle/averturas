@@ -711,6 +711,7 @@ export function Presupuestos() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailPanel, setDetailPanel] = useState<PresupuestoPanel | null>(null);
   const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
+  const [showCancelados, setShowCancelados] = useState(false);
 
   async function enviarMensajeWa(clienteId: string, mensaje: string) {
     setEnviandoWaIds(s => new Set(s).add(clienteId));
@@ -773,14 +774,15 @@ export function Presupuestos() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const presupuestos = data?.presupuestos ?? [];
+  const presupuestos = useMemo(() => (data?.presupuestos ?? []).filter(p => p.estado !== 'cancelado'), [data]);
+  const cancelados    = useMemo(() => (data?.presupuestos ?? []).filter(p => p.estado === 'cancelado'), [data]);
 
   const conteos = useMemo(() => {
     const sinResp  = presupuestos.filter(p => p.estado === 'enviado' && p.dias_sin_respuesta > 3).length;
     const porVence = presupuestos.filter(p => ['presupuesto','enviado'].includes(p.estado) && p.dias_hasta_vencimiento !== null && (p.dias_hasta_vencimiento ?? -1) >= 0 && (p.dias_hasta_vencimiento ?? -1) <= 7).length;
     const vencidos = presupuestos.filter(p => ['presupuesto','enviado'].includes(p.estado) && (p.dias_vencido ?? 0) > 0).length;
     const aprobados = presupuestos.filter(p => p.estado === 'aprobado').length;
-    const perdidos  = presupuestos.filter(p => ['cancelado','rechazado'].includes(p.estado)).length;
+    const perdidos  = presupuestos.filter(p => p.estado === 'rechazado').length;
     return { todos: presupuestos.length, sinResp, porVence, vencidos, aprobados, perdidos };
   }, [presupuestos]);
 
@@ -790,7 +792,7 @@ export function Presupuestos() {
     else if (tab === 'por_vencer') result = result.filter(p => ['presupuesto','enviado'].includes(p.estado) && p.dias_hasta_vencimiento !== null && (p.dias_hasta_vencimiento ?? -1) >= 0 && (p.dias_hasta_vencimiento ?? -1) <= 7);
     else if (tab === 'vencidos') result = result.filter(p => ['presupuesto','enviado'].includes(p.estado) && (p.dias_vencido ?? 0) > 0);
     else if (tab === 'aprobados') result = result.filter(p => p.estado === 'aprobado');
-    else if (tab === 'perdidos') result = result.filter(p => ['cancelado','rechazado'].includes(p.estado));
+    else if (tab === 'perdidos') result = result.filter(p => p.estado === 'rechazado');
 
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
@@ -1273,8 +1275,52 @@ export function Presupuestos() {
                 </div>
                 <span className="text-xs text-gray-700 font-medium">Reporte de seguimiento</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setShowCancelados(v => !v)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                  <XCircle size={13} className="text-red-600" />
+                </div>
+                <span className="text-xs text-gray-700 font-medium flex-1">Presupuestos cancelados</span>
+                {cancelados.length > 0 && (
+                  <span className="text-[10px] font-extrabold bg-red-400 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {cancelados.length}
+                  </span>
+                )}
+                <ChevronRight size={12} className={cn('text-gray-400 transition-transform', showCancelados && 'rotate-90')} />
+              </button>
             </div>
           </div>
+
+          {/* Panel presupuestos cancelados */}
+          {showCancelados && (
+            <div className="bg-white rounded-xl border border-red-200 shadow-lg p-4">
+              <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2">
+                Cancelados
+              </p>
+              {cancelados.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">Sin presupuestos cancelados</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {cancelados.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => abrirDetalle(p)}
+                      className="rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 cursor-pointer hover:shadow-sm transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-mono text-gray-400">{p.numero}</span>
+                        <span className="text-[10px] font-bold text-gray-800 tabular-nums">{formatCurrency(p.precio_total)}</span>
+                      </div>
+                      <p className="text-xs font-semibold text-gray-800 truncate mt-0.5">{nombreCliente(p.cliente)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
