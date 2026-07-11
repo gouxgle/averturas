@@ -173,7 +173,10 @@ clientes.get('/panel', async (c) => {
       OR CONCAT(COALESCE(c.apellido,''), ' ', COALESCE(c.nombre,'')) ILIKE $1
     )`;
   }
-  const clientesLimit = search.trim() ? '' : 'LIMIT 500';
+  // Con búsqueda: cap a 200 — evita transferir cientos de filas (ej. prefijos
+  // de área como "3704" matchean casi todo el padrón) cuando el frontend solo
+  // pagina de a 10. Sin búsqueda: 500 (listado general reciente).
+  const clientesLimit = search.trim() ? 'LIMIT 200' : 'LIMIT 500';
 
   const [
     statsRows,
