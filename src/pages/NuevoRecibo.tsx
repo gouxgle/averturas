@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
 import {
   ArrowLeft, Save, Receipt, Users, Calendar, CreditCard,
-  RefreshCw, Check, X, Package, Gift,
+  RefreshCw, Check, X, Package, Gift, ImagePlus, Trash2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -124,6 +124,8 @@ export function NuevoRecibo() {
   const [referencia,  setReferencia]  = useState('');
   const [concepto,    setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
   const [notas,       setNotas]       = useState('');
+  const [comprobanteUrl,     setComprobanteUrl]     = useState('');
+  const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
   // "Pago total" toma saldo automático; "parcial" pide monto manual
   const [tipoPago,     setTipoPago]     = useState<'total' | 'parcial'>(urlMonto ? 'parcial' : 'total');
@@ -153,6 +155,7 @@ export function NuevoRecibo() {
   const [searchCliente, setSearchCliente] = useState('');
   const [showClientes,  setShowClientes]  = useState(false);
   const clienteRef = useRef<HTMLInputElement>(null);
+  const comprobanteInputRef = useRef<HTMLInputElement>(null);
 
   // ── Carga inicial / edit ──────────────────────────────────
   useEffect(() => {
@@ -171,6 +174,7 @@ export function NuevoRecibo() {
         setReferencia(data.referencia_pago ?? '');
         setConcepto(data.concepto ?? '');
         setNotas(data.notas ?? '');
+        setComprobanteUrl(data.comprobante_url ?? '');
         setTipoPago('parcial');
         setMontoParcial(String(data.monto_total));
       });
@@ -316,6 +320,43 @@ export function NuevoRecibo() {
     }
   }
 
+  // ── Comprobante de pago (pegar / arrastrar / seleccionar) ──
+  async function subirComprobante(file: File) {
+    if (!file.type.startsWith('image/')) { toast.error('Solo se aceptan imágenes'); return; }
+    setUploadingComprobante(true);
+    try {
+      const token = sessionStorage.getItem('aberturas_token');
+      const fd = new FormData();
+      fd.append('comprobante', file);
+      const res = await fetch('/api/recibos/upload-comprobante', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Error al subir comprobante');
+      const { url } = await res.json();
+      setComprobanteUrl(url);
+      toast.success('Comprobante adjuntado');
+    } catch {
+      toast.error('No se pudo subir el comprobante');
+    } finally {
+      setUploadingComprobante(false);
+    }
+  }
+
+  function handlePasteComprobante(e: React.ClipboardEvent) {
+    const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    const file = item.getAsFile();
+    if (file) { e.preventDefault(); subirComprobante(file); }
+  }
+
+  function handleDropComprobante(e: React.DragEvent) {
+    e.preventDefault();
+    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+    if (file) subirComprobante(file);
+  }
+
   // ── Guardar ───────────────────────────────────────────────
   async function handleSave() {
     if (!clienteId)                { toast.error('Seleccioná un cliente'); return; }
@@ -346,6 +387,7 @@ export function NuevoRecibo() {
       descuento_pct:   descPct,
       monto_lista:     listaTotal,
       monto_descuento: descMonto,
+      comprobante_url: comprobanteUrl || null,
     };
 
     if (!isEdit && esParcial && crearCompromiso && compromisoFecha) {
@@ -526,6 +568,51 @@ export function NuevoRecibo() {
                 placeholder="Referencia del pago" className={inputCls} />
             </div>
           )}
+
+          {/* Comprobante de pago — transferencia o link de MercadoPago */}
+          <div className="mt-3">
+            <label className={labelCls}>Comprobante de pago</label>
+            {comprobanteUrl ? (
+              <div className="flex items-center gap-3 border border-gray-200 rounded-xl p-2">
+                <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  <img src={comprobanteUrl} alt="Comprobante" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                </a>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-600">Comprobante adjuntado</p>
+                  <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline">Ver completo</a>
+                </div>
+                <button type="button" onClick={() => setComprobanteUrl('')}
+                  className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors shrink-0" title="Quitar">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ) : (
+              <div
+                tabIndex={0}
+                onPaste={handlePasteComprobante}
+                onDrop={handleDropComprobante}
+                onDragOver={e => e.preventDefault()}
+                onClick={() => comprobanteInputRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-xl py-4 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              >
+                {uploadingComprobante ? (
+                  <RefreshCw size={18} className="text-gray-400 animate-spin" />
+                ) : (
+                  <ImagePlus size={18} className="text-gray-300" />
+                )}
+                <p className="text-xs text-gray-500 text-center">
+                  Hacé click y pegá (Ctrl+V) la captura de WhatsApp, o arrastrala acá
+                </p>
+                <input
+                  ref={comprobanteInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) subirComprobante(f); e.target.value = ''; }}
+                />
+              </div>
+            )}
+          </div>
         </SectionCard>
       )}
 

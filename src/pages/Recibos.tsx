@@ -106,6 +106,7 @@ interface TableroData {
 interface ReciboDetalle {
   id: string; numero: string; fecha: string; estado: 'emitido' | 'anulado';
   monto_total: number; forma_pago: string; referencia_pago: string | null;
+  comprobante_url: string | null;
   concepto: string | null; notas: string | null;
   cliente: {
     id: string; nombre: string | null; apellido: string | null;
@@ -390,6 +391,16 @@ function ReciboModal({ id, onClose, onAnulado }: {
                 {rec.referencia_pago && <p className="text-xs text-gray-400 mt-0.5">Ref: {rec.referencia_pago}</p>}
               </div>
             </div>
+
+            {rec.comprobante_url && (
+              <div className="px-5 py-3 border-t border-gray-100">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Comprobante de pago</p>
+                <a href={rec.comprobante_url} target="_blank" rel="noopener noreferrer" className="inline-block">
+                  <img src={rec.comprobante_url} alt="Comprobante de pago"
+                    className="max-h-40 rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
+                </a>
+              </div>
+            )}
 
             {rec.concepto && (
               <div className="px-5 py-3">

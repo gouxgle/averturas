@@ -1,11 +1,39 @@
 import { Hono } from 'hono';
 import pkg from 'pg';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ReciboSchema } from '../lib/schemas.js';
 import { generarPDFRecibo } from '../lib/pdf.js';
 
 const recibos = new Hono();
+
+// ── Upload comprobante de pago (captura WhatsApp / MercadoPago) ────
+recibos.post('/upload-comprobante', async (c) => {
+  const body = await c.req.formData();
+  const file = body.get('comprobante') as File | null;
+  if (!file || !file.size) return c.json({ error: 'No se recibió imagen' }, 400);
+
+  const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+  const allowed = ['jpg', 'jpeg', 'png', 'webp'];
+  if (!allowed.includes(ext)) return c.json({ error: 'Formato no permitido' }, 400);
+
+  const filename = `${randomUUID()}.webp`;
+  const dir = './uploads/comprobantes';
+  await mkdir(dir, { recursive: true });
+
+  const optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
+    .rotate()
+    .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 85 })
+    .toBuffer();
+
+  await writeFile(`${dir}/${filename}`, optimizado);
+
+  return c.json({ url: `/uploads/comprobantes/${filename}` });
+});
 
 async function nextNumero(): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
@@ -396,8 +424,8 @@ recibos.post('/', async (c) => {
       INSERT INTO recibos
         (numero, fecha, cliente_id, operacion_id, remito_id, monto_total,
          forma_pago, referencia_pago, concepto, notas, created_by,
-         descuento_pct, monto_lista, monto_descuento)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         descuento_pct, monto_lista, monto_descuento, comprobante_url)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *
     `, [
       numero,
@@ -414,6 +442,7 @@ recibos.post('/', async (c) => {
       descuentoPct,
       montoLista,
       montoDescuento,
+      b.comprobante_url || null,
     ]);
 
     for (let i = 0; i < items.length; i++) {
@@ -489,8 +518,9 @@ recibos.put('/:id', async (c) => {
         monto_total = $4, forma_pago = $5, referencia_pago = $6,
         concepto = $7, notas = $8,
         descuento_pct = $9, monto_lista = $10, monto_descuento = $11,
+        comprobante_url = $12,
         updated_at = now()
-      WHERE id = $12 RETURNING *
+      WHERE id = $13 RETURNING *
     `, [
       b.fecha,
       b.operacion_id    || null,
@@ -503,6 +533,7 @@ recibos.put('/:id', async (c) => {
       updDescuentoPct,
       updMontoLista,
       updMontoDescuento,
+      b.comprobante_url || null,
       id,
     ]);
 
