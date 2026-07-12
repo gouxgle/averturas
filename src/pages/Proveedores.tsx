@@ -418,11 +418,11 @@ function ProveedorRow({
 
   return (
     <div className={cn(
-      'bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 transition-opacity',
+      'bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 transition-opacity overflow-x-auto',
       prov.es_principal ? 'border-l-amber-400' : 'border-l-gray-200',
       !prov.activo && 'opacity-50'
     )}>
-      <div className="grid items-center gap-3 px-4 py-3"
+      <div className="grid items-center gap-3 px-4 py-3 min-w-[730px]"
         style={{ gridTemplateColumns: '1fr 110px 110px 110px 120px 90px 80px 80px' }}>
 
         {/* Proveedor */}
@@ -770,9 +770,9 @@ export function Proveedores() {
             ))}
           </div>
 
-          {/* Header tabla */}
+          {/* Header tabla — oculto en mobile, cada fila ya tiene sus valores auto-descriptivos */}
           {!loading && filtered.length > 0 && (
-            <div className="grid items-center gap-3 px-4 py-2"
+            <div className="hidden sm:grid items-center gap-3 px-4 py-2"
               style={{ gridTemplateColumns: '1fr 110px 110px 110px 120px 90px 80px 80px' }}>
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proveedor</span>
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Compras 6m</span>

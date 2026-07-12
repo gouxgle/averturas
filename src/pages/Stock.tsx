@@ -922,8 +922,9 @@ function ProductoRow({
 
   return (
     <div className={`bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
+      <div className="overflow-x-auto">
       <div
-        className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
+        className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-w-[565px]"
         style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}
         onClick={() => setExpanded(v => !v)}
       >
@@ -1013,6 +1014,7 @@ function ProductoRow({
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </div>
+      </div>
       </div>
 
       {expanded && (
@@ -1275,8 +1277,8 @@ export function Stock() {
                   </select>
                 </div>
 
-                {/* Header tabla */}
-                <div className="grid items-center gap-3 px-4 py-2"
+                {/* Header tabla — oculto en mobile, cada fila ya tiene sus valores auto-descriptivos */}
+                <div className="hidden sm:grid items-center gap-3 px-4 py-2"
                   style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}>
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</span>
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Stock</span>

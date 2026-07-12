@@ -938,9 +938,9 @@ export function Presupuestos() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
+          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-x-auto">
             {loading ? (
-              <div className="p-3 space-y-1.5">
+              <div className="p-3 space-y-1.5 min-w-[640px]">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse grid gap-3"
                     style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
@@ -960,7 +960,7 @@ export function Presupuestos() {
                 <Link to="/presupuestos/nuevo" className="text-sm text-violet-600 hover:underline">Crear el primero</Link>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5">
+              <div className="p-3 space-y-1.5 min-w-[640px]">
                 {/* Cabecera columnas */}
                 <div className="grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider"
                   style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>

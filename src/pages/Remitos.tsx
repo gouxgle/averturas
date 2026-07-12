@@ -598,7 +598,7 @@ export function Remitos() {
             </div>
 
             {/* Lista */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
@@ -606,7 +606,7 @@ export function Remitos() {
                 </div>
               ) : (
                 <>
-                  <div className="p-3 space-y-1.5">
+                  <div className="p-3 space-y-1.5 min-w-[680px]">
                     {paginated.map(r => {
                       const urg = urgState(r);
                       const badge = ESTADO_BADGE[urg];

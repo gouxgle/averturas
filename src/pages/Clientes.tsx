@@ -522,9 +522,9 @@ export function Clientes() {
           </div>
 
           {/* Lista */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
             {loading ? (
-              <div className="p-3 space-y-1.5">
+              <div className="p-3 space-y-1.5 min-w-[600px]">
                 {[...Array(7)].map((_, i) => (
                   <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-gray-100 shrink-0" />
@@ -544,7 +544,7 @@ export function Clientes() {
                 </p>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5">
+              <div className="p-3 space-y-1.5 min-w-[600px]">
                 {paginated.map(c => {
                   const seg = efectivoSegmento(c);
                   const segCfg = SEG_CFG[seg];

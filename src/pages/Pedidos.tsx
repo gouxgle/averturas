@@ -786,14 +786,14 @@ export default function Pedidos() {
             </div>
 
             {/* Lista */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
               {paginated.length === 0 ? (
                 <div className="py-12 text-center text-gray-400 text-sm">
                   <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
                   No hay pedidos en este filtro
                 </div>
               ) : (
-                <div className="p-3 space-y-1.5">
+                <div className="p-3 space-y-1.5 min-w-[680px]">
                   {paginated.map(p => {
                     const primerItem = p.items_resumen?.[0];
                     const masItems   = (p.items_resumen?.length ?? 0) - 1;

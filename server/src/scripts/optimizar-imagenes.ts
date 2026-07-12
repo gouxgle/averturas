@@ -67,7 +67,7 @@ async function main() {
       );
       const res2 = await db.query(
         `UPDATE catalogo_productos
-         SET imagenes = to_jsonb(replace(imagenes::text, $1, $2))::jsonb
+         SET imagenes = (replace(imagenes::text, $1, $2))::jsonb
          WHERE imagenes::text LIKE '%' || $1 || '%'`,
         [oldUrl, newUrl]
       );

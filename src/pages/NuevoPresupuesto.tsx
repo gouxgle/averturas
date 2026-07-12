@@ -1436,6 +1436,9 @@ export function NuevoPresupuesto() {
             </button>
           </div>
 
+          {/* Tabla — scroll horizontal en mobile, columnas fijas no entran en pantallas chicas */}
+          <div className="flex-1 overflow-x-auto flex flex-col">
+          <div className="min-w-[420px] flex flex-col flex-1">
           {/* Tabla header */}
           <div className="grid bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2" style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 40px' }}>
             <span>Producto</span>
@@ -1543,6 +1546,8 @@ export function NuevoPresupuesto() {
                 </div>
               );
             })}
+          </div>
+          </div>
           </div>
 
           {/* Notas toggle */}

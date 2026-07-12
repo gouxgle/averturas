@@ -672,9 +672,9 @@ export function Recibos() {
           </div>
 
           {/* Lista */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg">
+          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
             {loading ? (
-              <div className="p-3 space-y-1.5">
+              <div className="p-3 space-y-1.5 min-w-[560px]">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse flex gap-3">
                     <div className="w-[76px] h-4 bg-gray-100 rounded shrink-0" />
@@ -694,7 +694,7 @@ export function Recibos() {
                 </p>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5">
+              <div className="p-3 space-y-1.5 min-w-[560px]">
                 {paginated.map(fila => {
                   const ec = fila.estado_cobro as EstadoCobro;
                   const FPIcon = pagoIcon(fila.forma_pago);
