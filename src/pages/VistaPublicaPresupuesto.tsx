@@ -586,15 +586,15 @@ export function VistaPublicaPresupuesto() {
                   <span>{cond}</span>
                 </div>
               ))}
-              {pres.empresa.terminos_url && (
-                <div className="mt-2 text-xs text-gray-400">
-                  Más info:{' '}
-                  <a href={pres.empresa.terminos_url} target="_blank" rel="noopener noreferrer"
-                    className="underline font-semibold" style={{ color: NAVY }}>
-                    {pres.empresa.terminos_url}
-                  </a>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowTerminos(true)}
+                className="mt-2 flex items-center gap-1.5 text-xs font-semibold underline"
+                style={{ color: NAVY }}
+              >
+                <ScrollText size={12} />
+                Ver términos y condiciones completos
+              </button>
             </div>
             {/* Col 2: Tu compra protegida */}
             <div className="p-4 bg-gray-50 text-center">
