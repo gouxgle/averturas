@@ -430,6 +430,27 @@ clientes.get('/validar-dni', async (c) => {
   return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
 });
 
+// Normaliza por los últimos 10 dígitos — evita falsos negativos entre
+// formatos distintos del mismo número (+549..., con espacios, sin código país, etc.)
+clientes.get('/validar-telefono', async (c) => {
+  const telefono = c.req.query('telefono')?.trim();
+  const excluirId = c.req.query('excluir_id');
+  const digits = (telefono ?? '').replace(/\D/g, '');
+  if (digits.length < 8) return c.json({ existe: false });
+
+  let q = `
+    SELECT id, nombre, apellido, razon_social, tipo_persona, telefono,
+      direccion, localidad, email, documento_nro, estado, activo
+    FROM clientes
+    WHERE telefono IS NOT NULL AND telefono != ''
+      AND RIGHT(regexp_replace(telefono, '[^0-9]', '', 'g'), 10) = RIGHT($1, 10)
+  `;
+  const params: unknown[] = [digits];
+  if (excluirId) { params.push(excluirId); q += ` AND id != $2`; }
+  const { rows } = await db.query(q, params);
+  return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
+});
+
 // POST /:id/enviar-mensaje-whatsapp — envía mensaje de texto por WhatsApp via Evolution API
 clientes.post('/:id/enviar-mensaje-whatsapp', async (c) => {
   const { id } = c.req.param();

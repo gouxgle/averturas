@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Zap, Clock, User, Building2, MapPin, Phone,
   Tag, FileText, Hash, AlertCircle, Home, Briefcase,
-  MessageCircle, ChevronRight, Star, Lightbulb, Printer,
+  MessageCircle, ChevronRight, Star, Lightbulb, Printer, X, Mail,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -11,6 +11,13 @@ import { cn } from '@/lib/utils';
 import type { CategoriaCliente, Cliente } from '@/types';
 
 type TipoPersona = 'fisica' | 'juridica';
+
+interface TelValidacionCliente {
+  id: string; nombre: string | null; apellido: string | null; razon_social: string | null;
+  tipo_persona: TipoPersona; telefono: string | null;
+  direccion: string | null; localidad: string | null; email: string | null;
+  documento_nro: string | null; estado: string; activo: boolean;
+}
 
 function titleCase(str: string) {
   return str.trim().replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
@@ -98,6 +105,8 @@ export function NuevoCliente() {
   const [telPrefijo, setTelPrefijo]     = useState('3704');
   const [telNumero,  setTelNumero]      = useState('');
   const [telWarning, setTelWarning]     = useState<string | null>(null);
+  const [telDuplicado, setTelDuplicado] = useState<TelValidacionCliente | null>(null);
+  const [showTelModal, setShowTelModal] = useState(false);
   const nombreRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>(() => {
@@ -207,19 +216,24 @@ export function NuevoCliente() {
     } catch { setDniWarning(null); }
   }
 
-  function checkTelefono(telefono: string) {
+  async function checkTelefono(telefono: string): Promise<boolean> {
     const clean = telefono.replace(/\D/g, '');
-    if (clean.length < 8) { setTelWarning(null); return; }
-    const dup = clientesRef.find(c => {
-      if (isEdit && c.id === editId) return false;
-      return c.telefono?.replace(/\D/g, '') === clean;
-    });
-    if (dup) {
-      const n = dup.razon_social ?? [dup.apellido, dup.nombre].filter(Boolean).join(', ');
-      setTelWarning(`Ya registrado: ${n}`);
-    } else {
-      setTelWarning(null);
-    }
+    if (clean.length < 8) { setTelWarning(null); setTelDuplicado(null); return false; }
+    try {
+      const res = await api.get<{ existe: boolean; cliente: TelValidacionCliente | null }>(
+        `/clientes/validar-telefono?telefono=${encodeURIComponent(clean)}${isEdit ? `&excluir_id=${editId}` : ''}`
+      );
+      if (res.existe && res.cliente) {
+        const n = res.cliente.razon_social ?? [res.cliente.apellido, res.cliente.nombre].filter(Boolean).join(', ');
+        setTelWarning(`Ya registrado: ${n}`);
+        setTelDuplicado(res.cliente);
+        setShowTelModal(true);
+      } else {
+        setTelWarning(null);
+        setTelDuplicado(null);
+      }
+      return res.existe;
+    } catch { setTelWarning(null); setTelDuplicado(null); return false; }
   }
 
   function buildPayload() {
@@ -269,6 +283,13 @@ export function NuevoCliente() {
           return;
         }
       } catch { /* pasar */ }
+    }
+
+    // Re-validar teléfono
+    const telDup = await checkTelefono(form.telefono);
+    if (telDup) {
+      toast.error('Ese número de teléfono ya está registrado');
+      return;
     }
 
     setSaving(true);
@@ -1031,6 +1052,81 @@ export function NuevoCliente() {
           </div>
         </div>
       </div>
+
+      {/* ── Modal: teléfono ya registrado ────────────────────────── */}
+      {showTelModal && telDuplicado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowTelModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-5 py-4 bg-amber-50 border-b border-amber-200">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                <AlertCircle size={18} className="text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-900 text-sm">Este número ya está registrado</p>
+                <p className="text-[11px] text-gray-500">Revisá si es el mismo cliente antes de continuar</p>
+              </div>
+              <button onClick={() => setShowTelModal(false)}
+                className="p-1.5 hover:bg-white/60 rounded-lg transition-colors shrink-0">
+                <X size={16} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                {telDuplicado.tipo_persona === 'juridica'
+                  ? <Building2 size={14} className="text-gray-400 shrink-0" />
+                  : <User size={14} className="text-gray-400 shrink-0" />}
+                <p className="text-sm font-bold text-gray-900">
+                  {telDuplicado.razon_social ?? ([telDuplicado.apellido, telDuplicado.nombre].filter(Boolean).join(', ') || '—')}
+                </p>
+                {!telDuplicado.activo && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">Inactivo</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2.5 text-xs text-gray-600">
+                <Phone size={13} className="text-gray-300 shrink-0" />
+                {telDuplicado.telefono}
+              </div>
+              {telDuplicado.direccion && (
+                <div className="flex items-center gap-2.5 text-xs text-gray-600">
+                  <MapPin size={13} className="text-gray-300 shrink-0" />
+                  {telDuplicado.direccion}{telDuplicado.localidad ? `, ${telDuplicado.localidad}` : ''}
+                </div>
+              )}
+              {telDuplicado.email && (
+                <div className="flex items-center gap-2.5 text-xs text-gray-600">
+                  <Mail size={13} className="text-gray-300 shrink-0" />
+                  {telDuplicado.email}
+                </div>
+              )}
+              {telDuplicado.documento_nro && (
+                <div className="flex items-center gap-2.5 text-xs text-gray-600">
+                  <Hash size={13} className="text-gray-300 shrink-0" />
+                  DNI/CUIT: {telDuplicado.documento_nro}
+                </div>
+              )}
+              <div className="flex items-center gap-2.5 text-xs text-gray-600">
+                <Tag size={13} className="text-gray-300 shrink-0" />
+                Estado: {telDuplicado.estado}
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-200 flex gap-2">
+              <button onClick={() => setShowTelModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                Corregir número
+              </button>
+              <button onClick={() => navigate(`/clientes/${telDuplicado.id}`)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                style={{ background: '#031d49' }}>
+                Ver cliente <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
