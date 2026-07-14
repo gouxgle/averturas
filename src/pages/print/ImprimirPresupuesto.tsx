@@ -155,6 +155,9 @@ export function ImprimirPresupuesto() {
   const costoEnvio = op.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
   const total      = subtotal + costoEnvio;
   const esCuotas   = op.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
+  const totalInstalacion = op.items.reduce(
+    (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * it.cantidad : 0), 0
+  );
   const instagram   = empresa?.instagram   ?? null;
   const terminosUrl = empresa?.terminos_url ?? null;
 
@@ -470,6 +473,11 @@ export function ImprimirPresupuesto() {
               <div style={{ color: '#6b7280', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
                 Son: {numToWords(total)}
               </div>
+              {totalInstalacion > 0 && (
+                <div style={{ color: '#059669', fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                  Incluye costo de instalación: {fmtM(totalInstalacion)}
+                </div>
+              )}
               {esCuotas && (
                 <div style={{
                   display: 'inline-block', marginTop: 6, padding: '2px 10px',
