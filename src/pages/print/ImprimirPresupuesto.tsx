@@ -347,10 +347,10 @@ export function ImprimirPresupuesto() {
             </thead>
             <tbody>
               {op.items.map((item, i) => {
-                const attr    = item.producto_atributos ?? {};
-                const nombre  = item.producto_nombre ?? item.descripcion;
-                const pUnit   = Number(item.precio_unitario) +
-                  (item.incluye_instalacion ? Number(item.precio_instalacion) : 0);
+                const attr      = item.producto_atributos ?? {};
+                const nombre    = item.producto_nombre ?? item.descripcion;
+                const pUnit     = Number(item.precio_unitario);
+                const esAMedida = !item.producto_nombre;
 
                 const hojasNum    = attr.hojas ? `${attr.hojas} hojas` : null;
                 const hojasConfig = attr.config_hojas
@@ -392,7 +392,17 @@ export function ImprimirPresupuesto() {
                       )}
                     </td>
                     <td style={tdStyle('left')}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{nombre}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{nombre}</span>
+                        {esAMedida && (
+                          <span style={{
+                            fontSize: 8, fontWeight: 800, color: '#fff', background: NAVY,
+                            borderRadius: 3, padding: '1.5px 5px', letterSpacing: 0.3, whiteSpace: 'nowrap' as const,
+                          }}>
+                            A MEDIDA
+                          </span>
+                        )}
+                      </div>
                       {specs.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '2px 10px' }}>
                           {specs.map(([lbl, val]) => (
@@ -409,7 +419,7 @@ export function ImprimirPresupuesto() {
                       )}
                       {item.incluye_instalacion && (
                         <div style={{ fontSize: 9.5, color: '#059669', fontWeight: 600, marginTop: 2 }}>
-                          ✓ Incluye provisión e instalación
+                          ✓ Incluye instalación: {fmtM(Number(item.precio_instalacion))}
                         </div>
                       )}
                       {item.notas && (
