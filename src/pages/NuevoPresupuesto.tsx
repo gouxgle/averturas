@@ -4,6 +4,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
   Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users, Eye,
+  ImagePlus, Ruler,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -96,6 +97,7 @@ interface FullOperacion {
     incluye_instalacion: boolean; costo_instalacion: number; precio_instalacion: number;
     vidrio: string | null; premarco: boolean; origen: string | null;
     color: string | null; accesorios: string[]; producto_id: string | null;
+    calculo_url: string | null;
     tipo_abertura_nombre: string | null; sistema_nombre: string | null;
   }>;
 }
@@ -122,6 +124,7 @@ interface ItemForm {
   origen: 'proveedor' | 'fabricacion';
   color: string;
   accesorios: string[];
+  calculo_url: string;   // adjunto del cálculo del software externo (a medida)
   // datos del producto vinculado (solo lectura en UI)
   _prod_ancho: number | null;
   _prod_alto: number | null;
@@ -148,6 +151,7 @@ function emptyItem(): ItemForm {
     costo_unitario: 0, precio_unitario: 0,
     incluye_instalacion: false, costo_instalacion: 0, precio_instalacion: 0,
     vidrio: '', premarco: false, origen: 'proveedor', color: '', accesorios: [],
+    calculo_url: '',
     _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
     _prod_tipo_nombre: '', _prod_sistema_nombre: '',
     _prod_imagen_url: null,
@@ -172,6 +176,7 @@ function EditItemModal({
   tiposAbertura,
   sistemas,
   coloresDB,
+  esAMedida,
   onChange,
   onClose,
 }: {
@@ -179,12 +184,52 @@ function EditItemModal({
   tiposAbertura: TipoAbertura[];
   sistemas: Sistema[];
   coloresDB: { id: string; nombre: string }[];
+  esAMedida: boolean;
   onChange: (key: string, field: keyof ItemForm, value: unknown) => void;
   onClose: () => void;
 }) {
   const up = (f: keyof ItemForm, v: unknown) => onChange(item._key, f, v);
   const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
   const lbl = 'block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1';
+
+  const [subiendoCalculo, setSubiendoCalculo] = useState(false);
+  const calculoInputRef = useRef<HTMLInputElement>(null);
+
+  // Adjunto del cálculo del software externo — pegar / arrastrar / seleccionar
+  async function subirCalculo(file: File) {
+    if (!file.type.startsWith('image/')) { toast.error('Solo se aceptan imágenes'); return; }
+    setSubiendoCalculo(true);
+    try {
+      const token = sessionStorage.getItem('aberturas_token');
+      const fd = new FormData();
+      fd.append('calculo', file);
+      const res = await fetch('/api/operaciones/upload-calculo', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Error al subir');
+      const { url } = await res.json();
+      up('calculo_url', url);
+      toast.success('Cálculo adjuntado');
+    } catch {
+      toast.error('No se pudo subir el cálculo');
+    } finally {
+      setSubiendoCalculo(false);
+    }
+  }
+
+  function handlePasteCalculo(e: React.ClipboardEvent) {
+    const it = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+    const file = it?.getAsFile();
+    if (file) { e.preventDefault(); subirCalculo(file); }
+  }
+
+  function handleDropCalculo(e: React.DragEvent) {
+    e.preventDefault();
+    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+    if (file) subirCalculo(file);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -210,10 +255,19 @@ function EditItemModal({
             />
           </div>
 
-          {/* Precio unitario + Instalación */}
+          {/* Precio costo + Precio de venta (ambos los da el software externo) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>Precio unitario</label>
+              <label className={lbl}>{esAMedida ? 'Precio costo (software)' : 'Precio costo'}</label>
+              <MontoInput
+                value={item.costo_unitario ? String(item.costo_unitario) : ''}
+                onChange={v => up('costo_unitario', parseFloat(v) || 0)}
+                placeholder="0,00"
+                className={inp}
+              />
+            </div>
+            <div>
+              <label className={lbl}>{esAMedida ? 'Precio venta (software)' : 'Precio unitario'}</label>
               <MontoInput
                 value={item.precio_unitario ? String(item.precio_unitario) : ''}
                 onChange={v => up('precio_unitario', parseFloat(v) || 0)}
@@ -221,17 +275,19 @@ function EditItemModal({
                 className={inp}
               />
             </div>
-            <div>
-              <label className={lbl}>Instalación</label>
-              <select
-                value={item.incluye_instalacion ? 'si' : 'no'}
-                onChange={e => up('incluye_instalacion', e.target.value === 'si')}
-                className={inp}
-              >
-                <option value="no">No incluye</option>
-                <option value="si">Incluye instalación</option>
-              </select>
-            </div>
+          </div>
+
+          {/* Instalación */}
+          <div>
+            <label className={lbl}>Instalación</label>
+            <select
+              value={item.incluye_instalacion ? 'si' : 'no'}
+              onChange={e => up('incluye_instalacion', e.target.value === 'si')}
+              className={inp}
+            >
+              <option value="no">No incluye</option>
+              <option value="si">Incluye instalación</option>
+            </select>
           </div>
 
           {item.incluye_instalacion && (
@@ -336,6 +392,49 @@ function EditItemModal({
             </div>
           </div>
 
+          {/* Cálculo del software externo (adjunto) */}
+          <div>
+            <label className={lbl}>Cálculo del software {esAMedida ? '(respaldo)' : '(opcional)'}</label>
+            {item.calculo_url ? (
+              <div className="flex items-center gap-3 border border-gray-200 rounded-lg p-2">
+                <a href={item.calculo_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  <img src={item.calculo_url} alt="Cálculo" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                </a>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-600">Cálculo adjuntado</p>
+                  <a href={item.calculo_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline">Ver completo</a>
+                </div>
+                <button type="button" onClick={() => up('calculo_url', '')}
+                  className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors shrink-0" title="Quitar">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ) : (
+              <div
+                tabIndex={0}
+                onPaste={handlePasteCalculo}
+                onDrop={handleDropCalculo}
+                onDragOver={e => e.preventDefault()}
+                onClick={() => calculoInputRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-lg py-4 cursor-pointer hover:border-violet-300 hover:bg-violet-50/30 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                {subiendoCalculo
+                  ? <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  : <ImagePlus size={18} className="text-gray-300" />}
+                <p className="text-xs text-gray-500 text-center px-3">
+                  Hacé click y pegá (Ctrl+V) la captura del software, o arrastrala acá
+                </p>
+                <input
+                  ref={calculoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) subirCalculo(f); e.target.value = ''; }}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Subtotal */}
           {itemPrecioTotal(item) > 0 && (
             <div className="bg-violet-50 rounded-xl px-4 py-3 flex items-center justify-between border border-violet-100">
@@ -404,6 +503,9 @@ export function NuevoPresupuesto() {
   const [items, setItems] = useState<ItemForm[]>([]);
 
   // Estado nuevo UI
+  // Modo de carga: estándar (galería de catálogo) vs a medida (aberturas descritas a mano,
+  // con precio costo/venta que da el software externo de cálculo)
+  const [esAMedida, setEsAMedida] = useState(false);
   const [tab, setTab] = useState<'galeria' | 'buscar' | 'frecuentes' | 'scanner'>('galeria');
   const [categoriaSel, setCategoriaSel] = useState('');
   const [galSearch, setGalSearch] = useState('');
@@ -501,6 +603,8 @@ export function NuevoPresupuesto() {
       setFormaEnvio(op.forma_envio ?? 'retiro_local');
       setUserSetFormaEnvio(true);
       setCostoEnvio(Number(op.costo_envio) || 0);
+      // Reabrir en el mismo camino: si ningún ítem vino del catálogo, es a medida
+      setEsAMedida(op.items.length > 0 && op.items.every(it => !it.producto_id));
       setItems(op.items.map(it => ({
         _key: uuid(),
         producto_id:         it.producto_id ?? '',
@@ -521,6 +625,7 @@ export function NuevoPresupuesto() {
         origen:              (it.origen as 'proveedor' | 'fabricacion') ?? 'proveedor',
         color:               it.color ?? '',
         accesorios:          it.accesorios ?? [],
+        calculo_url:         it.calculo_url ?? '',
         _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
         _prod_tipo_nombre:    it.tipo_abertura_nombre ?? '',
         _prod_sistema_nombre: it.sistema_nombre ?? '',
@@ -572,6 +677,7 @@ export function NuevoPresupuesto() {
         origen:              'proveedor',
         color:               p.color              ?? '',
         accesorios:          p.accesorios         ?? [],
+        calculo_url:         '',
         _prod_ancho:         p.ancho              ?? null,
         _prod_alto:          p.alto               ?? null,
         _prod_atributos:     p.atributos          ?? {},
@@ -667,6 +773,7 @@ export function NuevoPresupuesto() {
           accesorios:          it.accesorios,
           orden:               idx,
           producto_id:         it.producto_id || null,
+          calculo_url:         it.calculo_url || null,
         })),
       };
       const op = isEdit
@@ -1144,10 +1251,72 @@ export function NuevoPresupuesto() {
             <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
               <span className="text-white text-[10px] font-bold">1</span>
             </div>
-            <span className="text-xs font-bold text-violet-700 uppercase tracking-wider">Agregar productos</span>
+            <span className="text-xs font-bold text-violet-700 uppercase tracking-wider">
+              {esAMedida ? 'Cargar aberturas a medida' : 'Agregar productos'}
+            </span>
           </div>
 
-          {/* Tabs */}
+          {/* Switch estándar / a medida */}
+          <div className="flex gap-1 p-1.5 border-b border-gray-200 bg-gray-50">
+            {([
+              { key: false, icon: LayoutGrid, label: 'Estándar', hint: 'Del catálogo' },
+              { key: true,  icon: Ruler,      label: 'A medida', hint: 'Cálculo externo' },
+            ] as const).map(({ key, icon: Icon, label, hint }) => (
+              <button
+                key={String(key)}
+                type="button"
+                onClick={() => setEsAMedida(key)}
+                title={hint}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-colors',
+                  esAMedida === key
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-white hover:text-gray-700'
+                )}
+              >
+                <Icon size={13} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── MODO A MEDIDA — carga manual con precio del software externo ── */}
+          {esAMedida && (
+            <div className="flex-1 flex flex-col overflow-y-auto p-4 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const nuevo = { ...emptyItem(), tipo_item: 'a_medida' as const };
+                  setItems(prev => [...prev, nuevo]);
+                  setEditItemKey(nuevo._key);
+                }}
+                className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-xl border-2 border-dashed border-violet-300 text-violet-600 hover:bg-violet-50 hover:border-violet-400 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                  <Plus size={20} />
+                </div>
+                <span className="text-sm font-bold">Agregar abertura a medida</span>
+              </button>
+
+              <div className="rounded-xl bg-violet-50 border border-violet-100 px-3 py-3">
+                <p className="text-[11px] font-bold text-violet-700 mb-1.5">Cómo cargarla</p>
+                <ol className="space-y-1 text-[11px] text-gray-600 leading-snug list-decimal list-inside">
+                  <li>Describí la abertura (tipo, sistema, medidas, color, vidrio).</li>
+                  <li>Cargá el <strong>precio costo</strong> y el <strong>precio de venta</strong> que dio el software.</li>
+                  <li>Adjuntá la captura del cálculo como respaldo.</li>
+                </ol>
+              </div>
+
+              {items.length > 0 && (
+                <p className="text-[11px] text-gray-400 text-center">
+                  {items.length} abertura{items.length !== 1 ? 's' : ''} cargada{items.length !== 1 ? 's' : ''} — editalas en la columna del medio
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Tabs — solo en modo estándar */}
+          {!esAMedida && (
           <div className="flex border-b border-gray-200">
             {([
               { key: 'galeria',   icon: LayoutGrid, label: 'Galería' },
@@ -1170,9 +1339,10 @@ export function NuevoPresupuesto() {
               </button>
             ))}
           </div>
+          )}
 
-          {/* Contenido del tab */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Contenido del tab — solo en modo estándar */}
+          <div className={cn('flex-1 flex-col overflow-hidden', esAMedida ? 'hidden' : 'flex')}>
 
             {/* TAB: Galería / Frecuentes */}
             {(tab === 'galeria' || tab === 'frecuentes') && (
@@ -1735,6 +1905,7 @@ export function NuevoPresupuesto() {
           tiposAbertura={tiposAbertura}
           sistemas={sistemas}
           coloresDB={coloresDB}
+          esAMedida={esAMedida}
           onChange={updateItem}
           onClose={() => setEditItemKey(null)}
         />

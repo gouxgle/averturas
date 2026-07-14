@@ -1,9 +1,38 @@
 import { Hono } from 'hono';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema } from '../lib/schemas.js';
 
 const operaciones = new Hono();
+
+// ── Upload del cálculo del software externo (por abertura a medida) ────
+// Debe ir ANTES de GET /:id — Hono matchea en orden de registro
+operaciones.post('/upload-calculo', async (c) => {
+  const body = await c.req.formData();
+  const file = body.get('calculo') as File | null;
+  if (!file || !file.size) return c.json({ error: 'No se recibió imagen' }, 400);
+
+  const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+  const allowed = ['jpg', 'jpeg', 'png', 'webp'];
+  if (!allowed.includes(ext)) return c.json({ error: 'Formato no permitido' }, 400);
+
+  const filename = `${randomUUID()}.webp`;
+  const dir = './uploads/calculos';
+  await mkdir(dir, { recursive: true });
+
+  const optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
+    .rotate()
+    .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 85 })
+    .toBuffer();
+
+  await writeFile(`${dir}/${filename}`, optimizado);
+
+  return c.json({ url: `/uploads/calculos/${filename}` });
+});
 
 operaciones.get('/', async (c) => {
   const estado     = c.req.query('estado');
@@ -660,8 +689,8 @@ operaciones.post('/', async (c) => {
             (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
-             vidrio, premarco, origen, color, accesorios, producto_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+             vidrio, premarco, origen, color, accesorios, producto_id, calculo_url)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
         `, [
           op.id,
           idx,
@@ -682,6 +711,7 @@ operaciones.post('/', async (c) => {
           item.color || null,
           item.accesorios ?? [],
           item.producto_id || null,
+          item.calculo_url || null,
         ]);
       }
     }
@@ -751,8 +781,8 @@ operaciones.put('/:id', async (c) => {
             (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
-             vidrio, premarco, origen, color, accesorios, producto_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+             vidrio, premarco, origen, color, accesorios, producto_id, calculo_url)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
         `, [
           id, idx,
           item.tipo_abertura_id || null,
@@ -772,6 +802,7 @@ operaciones.put('/:id', async (c) => {
           item.color || null,
           item.accesorios ?? [],
           item.producto_id || null,
+          item.calculo_url || null,
         ]);
       }
     }

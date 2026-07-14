@@ -68,6 +68,7 @@ const OperacionItemSchema = z.object({
   origen:              zText(100).optional(),
   accesorios:          z.array(z.string()).optional().default([]),
   notas:               zText(500).optional(),
+  calculo_url:         zText(300).optional().nullable(),
 });
 
 export const OperacionSchema = z.object({
