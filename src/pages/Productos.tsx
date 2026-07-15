@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
   X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
-  Trash2, AlertTriangle, ChevronLeft, ChevronRight, Star, Sparkles,
-  ThumbsUp, MessageCircle, Mail, Copy, Check, Shield, Truck, Headphones, Award,
+  Trash2, AlertTriangle, Star, Sparkles,
+  ThumbsUp, Shield, Truck, Headphones, Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -36,6 +36,15 @@ const ETIQUETA_CONFIG = {
   nuevo:       { label: 'Nuevo',       cls: 'bg-emerald-500 text-white', Icon: Sparkles  },
 } as const;
 
+// Botones de filtro por tipo de abertura — un color distinto por categoría
+const FILTRO_BTN: Record<string, { active: string; inactive: string }> = {
+  sky:    { active: 'bg-sky-600 text-white shadow-md shadow-sky-200',       inactive: 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100' },
+  violet: { active: 'bg-violet-600 text-white shadow-md shadow-violet-200', inactive: 'bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100' },
+  teal:   { active: 'bg-teal-600 text-white shadow-md shadow-teal-200',     inactive: 'bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100' },
+  orange: { active: 'bg-orange-600 text-white shadow-md shadow-orange-200',inactive: 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100' },
+  gray:   { active: 'bg-gray-700 text-white shadow-md shadow-gray-200',    inactive: 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100' },
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const L_TIPO_VENTANA: Record<string, string> = {
@@ -51,6 +60,15 @@ const L_CONFIG_HOJAS: Record<string, string> = {
 };
 const L_MARCO: Record<string, string> = { transitable:'Transitable',no_transitable:'No transitable' };
 const L_USO: Record<string, string> = { interior:'Interior',exterior:'Exterior',ingreso_frente:'Ingreso/Frente' };
+
+function categoriaKeyFromNombre(nombre: string): 'ventanas' | 'puertas' | 'balcon' | 'mosquiteras' | 'otros' {
+  const n = nombre.toLowerCase();
+  if (n.includes('balc'))    return 'balcon';
+  if (n.includes('ventana')) return 'ventanas';
+  if (n.includes('puerta'))  return 'puertas';
+  if (n.includes('mosquer') || n.includes('mosquit')) return 'mosquiteras';
+  return 'otros';
+}
 
 function buildSubtitle(p: Producto): string {
   const a = p.atributos ?? {};
@@ -75,23 +93,6 @@ function isPromoActiva(p: Producto): boolean {
   if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
   return true;
 }
-function buildShareText(p: Producto): string {
-  const promoOk = isPromoActiva(p);
-  const precio  = promoOk && p.promocion?.precio_oferta ? p.promocion.precio_oferta : p.precio_base;
-  const sub     = buildSubtitle(p);
-  const caracts = [p.caracteristica_1, p.caracteristica_2, p.caracteristica_3, p.caracteristica_4].filter(Boolean) as string[];
-  let txt = `*${p.nombre}*`;
-  if (sub) txt += `\n${sub}`;
-  if (caracts.length) txt += `\n✓ ${caracts.join('\n✓ ')}`;
-  txt += `\n\n💰 *${formatCurrency(precio)}*`;
-  if (promoOk && p.promocion?.precio_oferta && p.precio_base !== p.promocion.precio_oferta) {
-    const pct = Math.round((1 - p.promocion.precio_oferta / p.precio_base) * 100);
-    txt += ` (antes ${formatCurrency(p.precio_base)}, -${pct}%)`;
-  }
-  txt += '\n\n📞 Consultanos por disponibilidad y medidas personalizadas.';
-  return txt;
-}
-
 // ── Modal de detalle ──────────────────────────────────────────────────────────
 
 export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar }: {
@@ -308,17 +309,14 @@ function Tag2({ label }: { label: string }) {
   return <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded capitalize">{label}</span>;
 }
 
-// ── Tarjeta horizontal ────────────────────────────────────────────────────────
+// ── Tarjeta mosaico ───────────────────────────────────────────────────────────
 
-function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
+function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
   producto: Producto;
   priceColor: string;
   onSelect: (p: Producto) => void;
   onToggle: (p: Producto) => void;
 }) {
-  const [imgIdx, setImgIdx] = useState(0);
-  const [copied, setCopied] = useState(false);
-
   const imagenes = useMemo(
     () => producto.imagenes?.length ? producto.imagenes : producto.imagen_url ? [producto.imagen_url] : [],
     [producto],
@@ -328,137 +326,96 @@ function TarjetaProducto({ producto, priceColor, onSelect, onToggle }: {
   const precioOrig  = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
   const descPct     = precioOrig ? Math.round((1 - precioFinal / precioOrig) * 100) : 0;
   const subtitle    = buildSubtitle(producto);
-  const caracts     = [producto.caracteristica_1, producto.caracteristica_2, producto.caracteristica_3, producto.caracteristica_4].filter(Boolean) as string[];
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
 
-  function prev(e: React.MouseEvent) { e.stopPropagation(); setImgIdx(i => (i - 1 + imagenes.length) % imagenes.length); }
-  function next(e: React.MouseEvent) { e.stopPropagation(); setImgIdx(i => (i + 1) % imagenes.length); }
-
-  function shareWA(e: React.MouseEvent) {
-    e.stopPropagation();
-    window.open(`https://wa.me/?text=${encodeURIComponent(buildShareText(producto))}`, '_blank');
-  }
-  function shareEmail(e: React.MouseEvent) {
-    e.stopPropagation();
-    window.open(`mailto:?subject=${encodeURIComponent(producto.nombre)}&body=${encodeURIComponent(buildShareText(producto))}`);
-  }
-  function shareCopy(e: React.MouseEvent) {
-    e.stopPropagation();
-    navigator.clipboard.writeText(buildShareText(producto)).then(() => {
-      setCopied(true); toast.success('Copiado'); setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
   return (
-    <div className={cn('flex gap-0 hover:bg-gray-50/80 cursor-pointer group transition-colors', !producto.activo && 'opacity-50')}
-      onClick={() => onSelect(producto)}>
+    <div className={cn(
+      'group relative flex flex-col bg-white rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow overflow-hidden cursor-pointer',
+      !producto.activo && 'opacity-50'
+    )} onClick={() => onSelect(producto)}>
 
       {/* Imagen */}
-      <div className="relative w-[108px] h-[108px] shrink-0 self-start overflow-hidden bg-gray-100">
+      <div className="relative w-full aspect-square bg-gray-50 overflow-hidden">
         {imagenes.length > 0 ? (
-          <img src={imagenes[imgIdx]} alt={producto.nombre} loading="lazy" decoding="async" className="w-full h-full object-contain p-1"/>
+          <img src={imagenes[0]} alt={producto.nombre} loading="lazy" decoding="async" className="w-full h-full object-contain p-3"/>
         ) : (
-          <div className="w-full h-full flex items-center justify-center"><Package size={28} className="text-gray-200"/></div>
-        )}
-
-        {/* Carrusel flechas */}
-        {imagenes.length > 1 && (
-          <>
-            <button onClick={prev} className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
-              <ChevronLeft size={11} className="text-gray-600"/>
-            </button>
-            <button onClick={next} className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
-              <ChevronRight size={11} className="text-gray-600"/>
-            </button>
-          </>
+          <div className="w-full h-full flex items-center justify-center"><Package size={40} className="text-gray-200"/></div>
         )}
 
         {/* Badges */}
-        <div className="absolute top-1.5 left-1.5 flex flex-col gap-0.5">
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
           {etiquetaCfg && (
-            <span className={cn('text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md leading-none', etiquetaCfg.cls)}>
-              <etiquetaCfg.Icon size={7}/>{etiquetaCfg.label}
+            <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md leading-none', etiquetaCfg.cls)}>
+              <etiquetaCfg.Icon size={8}/>{etiquetaCfg.label}
             </span>
           )}
           {promoOk && (
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-pink-600 text-white leading-none shadow-md flex items-center gap-0.5">
-              <Tag size={7}/>OFERTA
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-pink-600 text-white leading-none shadow-md flex items-center gap-1">
+              <Tag size={8}/>-{descPct}%
             </span>
           )}
         </div>
 
-        {/* Video */}
         {producto.video_url && (
           <a href={producto.video_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-            className="absolute bottom-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700">
-            <Play size={8} className="fill-white ml-px"/>
+            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700">
+            <Play size={9} className="fill-white ml-px"/>
           </a>
         )}
+
+        {/* Toggle activo — al hover */}
+        <button onClick={e => { e.stopPropagation(); onToggle(producto); }}
+          className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          title={producto.activo ? 'Desactivar' : 'Activar'}>
+          {producto.activo
+            ? <ToggleRight size={16} className="text-emerald-500"/>
+            : <ToggleLeft  size={16} className="text-gray-300"/>}
+        </button>
       </div>
 
       {/* Contenido */}
-      <div className="flex-1 min-w-0 px-3 py-2.5 flex flex-col">
-        {/* Nombre */}
+      <div className="flex-1 flex flex-col p-3">
         <p className="text-[13px] font-bold text-gray-900 leading-snug line-clamp-2">{producto.nombre}</p>
-        {subtitle && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug truncate">{subtitle}</p>}
+        {subtitle && <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-1">{subtitle}</p>}
 
-        {/* Características */}
-        {caracts.length > 0 && (
-          <div className="flex flex-col gap-0.5 mt-1.5">
-            {caracts.slice(0, 2).map((c, i) => (
-              <span key={i} className="text-[10px] text-gray-500 flex items-center gap-1 leading-snug">
-                <Check size={9} className="text-sky-400 shrink-0"/> {c}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Precio */}
-        <div className="mt-2">
+        <div className="mt-auto pt-2">
           {precioOrig ? (
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className={cn('text-[15px] font-black leading-none', priceColor)}>{formatCurrency(precioFinal)}</span>
-              <span className="text-[11px] text-gray-400 line-through leading-none">{formatCurrency(precioOrig)}</span>
-              <span className="text-[9px] font-bold bg-pink-100 text-pink-700 px-1 py-0.5 rounded leading-none">-{descPct}%</span>
+              <span className="text-[10px] text-gray-400 line-through leading-none">{formatCurrency(precioOrig)}</span>
             </div>
           ) : (
             <span className={cn('text-[15px] font-black leading-none', priceColor)}>{formatCurrency(precioFinal)}</span>
           )}
           {producto.precio_por_m2 && <span className="text-[10px] text-gray-400 ml-0.5">/m²</span>}
-        </div>
 
-        {/* Tags */}
-        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-          <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
-            {TIPO_LABEL[producto.tipo]}
-          </span>
-          {producto.margen_tipo && (
-            <span className={cn('text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-0.5 font-medium', MARGEN_COLOR[producto.margen_tipo])}>
-              <Percent size={7}/>{MARGEN_LABEL[producto.margen_tipo]}
+          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+            <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
+              {TIPO_LABEL[producto.tipo]}
             </span>
-          )}
-          {promoOk && <span className="text-[9px] px-1.5 py-0.5 rounded border border-pink-200 bg-pink-50 text-pink-700 font-medium">Promo</span>}
-        </div>
-
-        {/* Compartir — aparece al hover */}
-        <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-          <button onClick={shareEmail} title="Compartir por email"
-            className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium">
-            <Mail size={9}/>Email
-          </button>
-          <button onClick={shareCopy} title="Copiar texto"
-            className={cn('flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded border font-medium transition-colors',
-              copied ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100')}>
-            {copied ? <Check size={9}/> : <Copy size={9}/>}{copied ? 'Ok' : 'Copiar'}
-          </button>
-          <button onClick={e => { e.stopPropagation(); onToggle(producto); }}
-            className="ml-auto flex items-center" title={producto.activo ? 'Desactivar' : 'Activar'}>
-            {producto.activo
-              ? <ToggleRight size={14} className="text-emerald-400"/>
-              : <ToggleLeft  size={14} className="text-gray-300"/>}
-          </button>
+            {producto.margen_tipo && (
+              <span className={cn('text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-0.5 font-medium', MARGEN_COLOR[producto.margen_tipo])}>
+                <Percent size={7}/>{MARGEN_LABEL[producto.margen_tipo]}
+              </span>
+            )}
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Grid mosaico (reutilizado por Columna y por las vistas planas) ─────────────
+
+function GridMosaico({ productos, priceColor, onSelect, onToggle }: {
+  productos: Producto[]; priceColor: string;
+  onSelect: (p: Producto) => void; onToggle: (p: Producto) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      {productos.map(p => (
+        <TarjetaProductoMosaico key={p.id} producto={p} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
+      ))}
     </div>
   );
 }
@@ -477,7 +434,7 @@ function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeB
   const visibles = expandida ? productos : productos.slice(0, COL_INIT);
 
   return (
-    <div className={cn('flex-1 min-w-0 flex flex-col rounded-2xl border overflow-hidden bg-white shadow-md', borderCol)}>
+    <div className={cn('flex flex-col rounded-2xl border overflow-hidden bg-white shadow-md', borderCol)}>
       {/* Header */}
       <div className={cn('px-4 py-3 flex items-center gap-2.5', headerBg)}>
         <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', headerText)}>
@@ -493,13 +450,12 @@ function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeB
         <div className="py-10 text-center text-xs text-gray-400">Sin productos en esta categoría</div>
       ) : (
         <>
-          <div className="divide-y divide-gray-100 flex-1">
-            {visibles.map(p => (
-              <TarjetaProducto key={p.id} producto={p} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
-            ))}
+          <div className="p-4">
+            <GridMosaico productos={visibles} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
           </div>
 
           {/* Ver todos / menos */}
+          {productos.length > COL_INIT && (
           <div className={cn('border-t', borderCol)}>
             <button
               onClick={() => setExpandida(v => !v)}
@@ -510,6 +466,7 @@ function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeB
                 : `Ver todos los productos de ${titulo.toLowerCase()} →`}
             </button>
           </div>
+          )}
         </>
       )}
     </div>
@@ -532,6 +489,7 @@ export function Productos() {
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
   const [selected, setSelected]   = useState<Producto | null>(null);
+  const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -541,6 +499,15 @@ export function Productos() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Selecciona por defecto el tipo de abertura con orden=1 (primero del catálogo)
+  useEffect(() => {
+    api.get<{ id: string; nombre: string; orden: number }[]>('/catalogo/tipos-abertura')
+      .then(rows => {
+        if (rows[0]?.nombre) setTipoFiltro(categoriaKeyFromNombre(rows[0].nombre));
+      })
+      .catch(() => {});
+  }, []);
 
   async function toggleActivo(producto: Producto) {
     const { activo } = await api.patch<{ id: string; activo: boolean }>(`/productos/${producto.id}/toggle`);
@@ -559,16 +526,13 @@ export function Productos() {
     );
   }, [productos, search]);
 
-  const { ventanas, puertas, balcon, mosquiteras, otros } = useMemo(() => {
+  function categorizar(lista: Producto[]) {
     const ventanas: Producto[] = [], puertas: Producto[] = [], balcon: Producto[] = [];
     const mosquiteras: Producto[] = [], otros: Producto[] = [];
-    filtered.forEach(p => {
-      const n = ((p.tipo_abertura as any)?.nombre ?? '').toLowerCase();
-      if      (n.includes('balc'))    balcon.push(p);
-      else if (n.includes('ventana')) ventanas.push(p);
-      else if (n.includes('puerta'))  puertas.push(p);
-      else if (n.includes('mosquer') || n.includes('mosquit')) mosquiteras.push(p);
-      else                            otros.push(p);
+    const grupos: Record<string, Producto[]> = { ventanas, puertas, balcon, mosquiteras, otros };
+    lista.forEach(p => {
+      const key = categoriaKeyFromNombre((p.tipo_abertura as any)?.nombre ?? '');
+      grupos[key].push(p);
     });
     const byName = (a: Producto, b: Producto) => a.nombre.localeCompare(b.nombre);
     return {
@@ -576,35 +540,47 @@ export function Productos() {
       balcon: balcon.sort(byName), mosquiteras: mosquiteras.sort(byName),
       otros: otros.sort(byName),
     };
-  }, [filtered]);
+  }
+
+  const { ventanas, puertas, balcon, mosquiteras, otros } = useMemo(() => categorizar(filtered), [filtered]);
+  // Existencia por categoría en TODO el catálogo (para que los botones no aparezcan/desaparezcan al buscar)
+  const existeCategoria = useMemo(() => {
+    const c = categorizar(productos);
+    return {
+      ventanas: c.ventanas.length > 0, puertas: c.puertas.length > 0, balcon: c.balcon.length > 0,
+      mosquiteras: c.mosquiteras.length > 0, otros: c.otros.length > 0,
+    };
+  }, [productos]);
 
   const columnas = [
     {
-      titulo: 'Ventanas', items: ventanas, icono: AppWindow,
+      key: 'ventanas', titulo: 'Ventanas', items: ventanas, icono: AppWindow, color: 'sky',
       headerBg: 'bg-sky-50', headerText: 'text-sky-700', badgeBg: 'bg-white', badgeText: 'text-sky-600 border-sky-200',
       borderCol: 'border-sky-100', priceColor: 'text-sky-700',
     },
     {
-      titulo: 'Puertas', items: puertas, icono: DoorOpen,
+      key: 'puertas', titulo: 'Puertas', items: puertas, icono: DoorOpen, color: 'violet',
       headerBg: 'bg-violet-50', headerText: 'text-violet-700', badgeBg: 'bg-white', badgeText: 'text-violet-600 border-violet-200',
       borderCol: 'border-violet-100', priceColor: 'text-violet-700',
     },
     {
-      titulo: 'Puerta-Balcón', items: balcon, icono: AppWindow,
+      key: 'balcon', titulo: 'Puerta-Balcón', items: balcon, icono: AppWindow, color: 'teal',
       headerBg: 'bg-teal-50', headerText: 'text-teal-700', badgeBg: 'bg-white', badgeText: 'text-teal-600 border-teal-200',
       borderCol: 'border-teal-100', priceColor: 'text-teal-700',
     },
-    ...(mosquiteras.length ? [{
-      titulo: 'Mosqueras', items: mosquiteras, icono: Package,
+    ...(existeCategoria.mosquiteras ? [{
+      key: 'mosquiteras', titulo: 'Mosqueras', items: mosquiteras, icono: Package, color: 'orange',
       headerBg: 'bg-orange-50', headerText: 'text-orange-700', badgeBg: 'bg-white', badgeText: 'text-orange-600 border-orange-200',
       borderCol: 'border-orange-100', priceColor: 'text-orange-700',
     }] : []),
-    ...(otros.length ? [{
-      titulo: 'Otros', items: otros, icono: Package,
+    ...(existeCategoria.otros ? [{
+      key: 'otros', titulo: 'Otros', items: otros, icono: Package, color: 'gray',
       headerBg: 'bg-gray-50', headerText: 'text-gray-600', badgeBg: 'bg-white', badgeText: 'text-gray-500 border-gray-200',
       borderCol: 'border-gray-200', priceColor: 'text-gray-700',
     }] : []),
   ];
+
+  const categoriaActiva = columnas.find(c => c.key === tipoFiltro) ?? null;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5" data-section="productos">
@@ -636,6 +612,41 @@ export function Productos() {
         )}
       </div>
 
+      {/* Filtro por tipo de abertura */}
+      {!loading && productos.length > 0 && (
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            onClick={() => setTipoFiltro(null)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all',
+              tipoFiltro === null
+                ? 'bg-gray-800 text-white shadow-md shadow-gray-300'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+            )}
+          >
+            <Layers size={16}/> Todos
+            <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full', tipoFiltro === null ? 'bg-white/20' : 'bg-gray-100')}>
+              {filtered.length}
+            </span>
+          </button>
+          {columnas.map(col => (
+            <button
+              key={col.key}
+              onClick={() => setTipoFiltro(prev => prev === col.key ? null : col.key)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all',
+                FILTRO_BTN[col.color][tipoFiltro === col.key ? 'active' : 'inactive']
+              )}
+            >
+              <col.icono size={16}/> {col.titulo}
+              <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full', tipoFiltro === col.key ? 'bg-white/20' : 'bg-white')}>
+                {col.items.length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Contenido */}
       {loading ? (
         <div className="flex gap-4">
@@ -661,19 +672,30 @@ export function Productos() {
           <p className="text-sm text-gray-400 mb-1">No hay productos en el catálogo</p>
           <Link to="/productos/nuevo" className="text-sm text-sky-600 hover:underline font-medium">Agregar el primero →</Link>
         </div>
+      ) : categoriaActiva ? (
+        /* Filtro por tipo activo: lista plana de esa categoría */
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500">
+            {categoriaActiva.items.length} producto{categoriaActiva.items.length !== 1 ? 's' : ''} en {categoriaActiva.titulo}
+          </p>
+          {categoriaActiva.items.length === 0 ? (
+            <div className="py-16 text-center">
+              <Package size={36} className="text-gray-200 mx-auto mb-3"/>
+              <p className="text-sm text-gray-400">Sin productos en esta categoría{search ? ' para tu búsqueda' : ''}</p>
+            </div>
+          ) : (
+            <GridMosaico productos={categoriaActiva.items} priceColor={categoriaActiva.priceColor} onSelect={setSelected} onToggle={toggleActivo}/>
+          )}
+        </div>
       ) : search ? (
-        /* Búsqueda: grid plano */
+        /* Búsqueda: mosaico plano */
         <div className="space-y-2">
           <p className="text-sm text-gray-500">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{search}"</p>
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg divide-y divide-gray-100 overflow-hidden">
-            {filtered.map(p => (
-              <TarjetaProducto key={p.id} producto={p} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
-            ))}
-          </div>
+          <GridMosaico productos={filtered} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
         </div>
       ) : (
-        /* Vista normal: columnas paralelas */
-        <div className="flex gap-4 items-start">
+        /* Vista normal: secciones apiladas por categoría, cada una en mosaico */
+        <div className="space-y-5">
           {columnas.map(col => (
             <Columna
               key={col.titulo}
@@ -694,7 +716,7 @@ export function Productos() {
       )}
 
       {/* Footer de marketing */}
-      {!loading && !search && (
+      {!loading && !search && !categoriaActiva && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
           {MARKETING.map(({ Icon, title, desc, bg, icon }) => (
             <div key={title} className={cn('rounded-2xl p-4 flex items-start gap-3', bg)}>
