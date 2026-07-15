@@ -97,6 +97,17 @@ function PanelTiposAbertura() {
     load();
   }
 
+  async function eliminar(item: TipoAbertura) {
+    try {
+      await api.delete(`/catalogo/tipos-abertura/${item.id}`);
+      toast.success('Tipo eliminado');
+      load();
+    } catch (e: unknown) {
+      const msg = (e as Error).message || 'Error';
+      toast.error(msg.includes('uso') ? 'En uso por productos — reasigná esos productos antes de eliminar' : 'Error al eliminar');
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -158,6 +169,9 @@ function PanelTiposAbertura() {
                 </button>
                 <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
                   {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+                </button>
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar">
+                  <Trash2 size={13} />
                 </button>
               </div>
             )}

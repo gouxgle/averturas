@@ -42,8 +42,14 @@ catalogo.put('/tipos-abertura/:id', async (c) => {
   return c.json(rows[0]);
 });
 
+// DELETE /tipos-abertura/:id — elimina definitivamente (solo si ningún producto lo usa)
 catalogo.delete('/tipos-abertura/:id', async (c) => {
-  await db.query(`UPDATE tipos_abertura SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  const { id } = c.req.param();
+  const { rows } = await db.query(`SELECT id FROM catalogo_productos WHERE tipo_abertura_id=$1 LIMIT 1`, [id]);
+  if (rows.length) return c.json({ error: 'Tipo de abertura en uso por productos' }, 409);
+
+  const { rowCount } = await db.query(`DELETE FROM tipos_abertura WHERE id=$1`, [id]);
+  if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
   return c.json({ ok: true });
 });
 

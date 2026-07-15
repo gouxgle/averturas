@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
   X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
-  Trash2, AlertTriangle, Star, Sparkles,
+  Trash2, AlertTriangle, Star, Sparkles, Store,
   ThumbsUp, Shield, Truck, Headphones, Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,20 +36,45 @@ const ETIQUETA_CONFIG = {
   nuevo:       { label: 'Nuevo',       cls: 'bg-emerald-500 text-white', Icon: Sparkles  },
 } as const;
 
-// Botones de filtro por tipo de abertura — un color distinto por categoría
-const FILTRO_BTN: Record<string, { active: string; inactive: string }> = {
-  sky:    { active: 'bg-sky-600 text-white shadow-md shadow-sky-200',       inactive: 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100' },
-  violet: { active: 'bg-violet-600 text-white shadow-md shadow-violet-200', inactive: 'bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100' },
-  teal:   { active: 'bg-teal-600 text-white shadow-md shadow-teal-200',     inactive: 'bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100' },
-  orange: { active: 'bg-orange-600 text-white shadow-md shadow-orange-200',inactive: 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100' },
-  gray:   { active: 'bg-gray-700 text-white shadow-md shadow-gray-200',    inactive: 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100' },
+// Paleta de categorías — cada tipo de abertura (real, de la DB) toma un color en orden,
+// ciclando si hay más tipos que colores. "Sin tipo" siempre queda gris al final.
+const PALETA_CATEGORIAS = [
+  { color: 'sky',     headerBg: 'bg-sky-50',     headerText: 'text-sky-700',     badgeText: 'text-sky-600 border-sky-200',     borderCol: 'border-sky-100',     priceColor: 'text-sky-700' },
+  { color: 'violet',  headerBg: 'bg-violet-50',  headerText: 'text-violet-700',  badgeText: 'text-violet-600 border-violet-200',  borderCol: 'border-violet-100',  priceColor: 'text-violet-700' },
+  { color: 'teal',    headerBg: 'bg-teal-50',    headerText: 'text-teal-700',    badgeText: 'text-teal-600 border-teal-200',    borderCol: 'border-teal-100',    priceColor: 'text-teal-700' },
+  { color: 'orange',  headerBg: 'bg-orange-50',  headerText: 'text-orange-700',  badgeText: 'text-orange-600 border-orange-200',  borderCol: 'border-orange-100',  priceColor: 'text-orange-700' },
+  { color: 'rose',    headerBg: 'bg-rose-50',    headerText: 'text-rose-700',    badgeText: 'text-rose-600 border-rose-200',    borderCol: 'border-rose-100',    priceColor: 'text-rose-700' },
+  { color: 'indigo',  headerBg: 'bg-indigo-50',  headerText: 'text-indigo-700',  badgeText: 'text-indigo-600 border-indigo-200',  borderCol: 'border-indigo-100',  priceColor: 'text-indigo-700' },
+  { color: 'amber',   headerBg: 'bg-amber-50',   headerText: 'text-amber-700',   badgeText: 'text-amber-600 border-amber-200',   borderCol: 'border-amber-100',   priceColor: 'text-amber-700' },
+  { color: 'fuchsia', headerBg: 'bg-fuchsia-50', headerText: 'text-fuchsia-700', badgeText: 'text-fuchsia-600 border-fuchsia-200', borderCol: 'border-fuchsia-100', priceColor: 'text-fuchsia-700' },
+];
+const CATEGORIA_SIN_TIPO = {
+  color: 'gray', headerBg: 'bg-gray-50', headerText: 'text-gray-600', badgeText: 'text-gray-500 border-gray-200',
+  borderCol: 'border-gray-200', priceColor: 'text-gray-700',
 };
+
+// Botones de filtro — clases completas por color (Tailwind necesita las clases literales)
+const FILTRO_BTN: Record<string, { active: string; inactive: string }> = {
+  sky:     { active: 'bg-sky-600 text-white shadow-md shadow-sky-200',         inactive: 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100' },
+  violet:  { active: 'bg-violet-600 text-white shadow-md shadow-violet-200',   inactive: 'bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100' },
+  teal:    { active: 'bg-teal-600 text-white shadow-md shadow-teal-200',       inactive: 'bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100' },
+  orange:  { active: 'bg-orange-600 text-white shadow-md shadow-orange-200',   inactive: 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100' },
+  rose:    { active: 'bg-rose-600 text-white shadow-md shadow-rose-200',       inactive: 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100' },
+  indigo:  { active: 'bg-indigo-600 text-white shadow-md shadow-indigo-200',   inactive: 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100' },
+  amber:   { active: 'bg-amber-600 text-white shadow-md shadow-amber-200',     inactive: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' },
+  fuchsia: { active: 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-200', inactive: 'bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 hover:bg-fuchsia-100' },
+  emerald: { active: 'bg-emerald-600 text-white shadow-md shadow-emerald-200', inactive: 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' },
+  gray:    { active: 'bg-gray-700 text-white shadow-md shadow-gray-200',       inactive: 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100' },
+};
+
+const SIN_TIPO_KEY = '__sin_tipo__';
+const EN_SALON_KEY = '__en_salon__';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const L_TIPO_VENTANA: Record<string, string> = {
   corrediza:'Corrediza',con_celosia:'Con celosía',de_abrir:'De abrir',
-  banderola:'Banderola',ventiluz:'Ventiluz',aireador:'Aireador',
+  banderola:'Banderola',ventiluz:'Ventiluz',aireador:'Aireador',persiana:'Persiana',
 };
 const L_HOJAS_VNT: Record<string, string> = {
   '2_hojas':'2 hojas','3_hojas':'3 hojas','4_hojas':'4 hojas',
@@ -60,15 +85,6 @@ const L_CONFIG_HOJAS: Record<string, string> = {
 };
 const L_MARCO: Record<string, string> = { transitable:'Transitable',no_transitable:'No transitable' };
 const L_USO: Record<string, string> = { interior:'Interior',exterior:'Exterior',ingreso_frente:'Ingreso/Frente' };
-
-function categoriaKeyFromNombre(nombre: string): 'ventanas' | 'puertas' | 'balcon' | 'mosquiteras' | 'otros' {
-  const n = nombre.toLowerCase();
-  if (n.includes('balc'))    return 'balcon';
-  if (n.includes('ventana')) return 'ventanas';
-  if (n.includes('puerta'))  return 'puertas';
-  if (n.includes('mosquer') || n.includes('mosquit')) return 'mosquiteras';
-  return 'otros';
-}
 
 function buildSubtitle(p: Producto): string {
   const a = p.atributos ?? {};
@@ -167,6 +183,11 @@ export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar
                 return <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', cfg.cls)}><cfg.Icon size={9}/>{cfg.label}</span>;
               })()}
               {producto.codigo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono">{producto.codigo}</span>}
+              {producto.en_salon && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 bg-emerald-100 text-emerald-700">
+                  <Store size={9}/>En salón
+                </span>
+              )}
               {!producto.activo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded">Inactivo</span>}
             </div>
             <h2 className="text-base font-bold text-gray-900">{producto.nombre}</h2>
@@ -354,6 +375,11 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
               <Tag size={8}/>-{descPct}%
             </span>
           )}
+          {producto.en_salon && (
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white leading-none shadow-md flex items-center gap-1">
+              <Store size={8}/>En salón
+            </span>
+          )}
         </div>
 
         {producto.video_url && (
@@ -490,6 +516,7 @@ export function Productos() {
   const [search, setSearch]       = useState('');
   const [selected, setSelected]   = useState<Producto | null>(null);
   const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
+  const [tiposAbertura, setTiposAbertura] = useState<{ id: string; nombre: string; orden: number }[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -500,11 +527,12 @@ export function Productos() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Selecciona por defecto el tipo de abertura con orden=1 (primero del catálogo)
+  // Catálogo real de tipos de abertura — define las categorías del filtro (ya viene ordenado por `orden`)
   useEffect(() => {
     api.get<{ id: string; nombre: string; orden: number }[]>('/catalogo/tipos-abertura')
       .then(rows => {
-        if (rows[0]?.nombre) setTipoFiltro(categoriaKeyFromNombre(rows[0].nombre));
+        setTiposAbertura(rows);
+        if (rows[0]?.id) setTipoFiltro(rows[0].id);
       })
       .catch(() => {});
   }, []);
@@ -526,61 +554,57 @@ export function Productos() {
     );
   }, [productos, search]);
 
+  // Agrupa por tipo_abertura_id real (no por matching de texto) — cualquier tipo nuevo
+  // cargado en Configuración aparece con su propia categoría automáticamente.
   function categorizar(lista: Producto[]) {
-    const ventanas: Producto[] = [], puertas: Producto[] = [], balcon: Producto[] = [];
-    const mosquiteras: Producto[] = [], otros: Producto[] = [];
-    const grupos: Record<string, Producto[]> = { ventanas, puertas, balcon, mosquiteras, otros };
+    const grupos: Record<string, Producto[]> = { [SIN_TIPO_KEY]: [] };
+    tiposAbertura.forEach(t => { grupos[t.id] = []; });
     lista.forEach(p => {
-      const key = categoriaKeyFromNombre((p.tipo_abertura as any)?.nombre ?? '');
+      const key = p.tipo_abertura_id && grupos[p.tipo_abertura_id] ? p.tipo_abertura_id : SIN_TIPO_KEY;
       grupos[key].push(p);
     });
     const byName = (a: Producto, b: Producto) => a.nombre.localeCompare(b.nombre);
-    return {
-      ventanas: ventanas.sort(byName), puertas: puertas.sort(byName),
-      balcon: balcon.sort(byName), mosquiteras: mosquiteras.sort(byName),
-      otros: otros.sort(byName),
-    };
+    Object.values(grupos).forEach(g => g.sort(byName));
+    return grupos;
   }
 
-  const { ventanas, puertas, balcon, mosquiteras, otros } = useMemo(() => categorizar(filtered), [filtered]);
+  const gruposFiltrados = useMemo(() => categorizar(filtered), [filtered, tiposAbertura]);
   // Existencia por categoría en TODO el catálogo (para que los botones no aparezcan/desaparezcan al buscar)
   const existeCategoria = useMemo(() => {
     const c = categorizar(productos);
-    return {
-      ventanas: c.ventanas.length > 0, puertas: c.puertas.length > 0, balcon: c.balcon.length > 0,
-      mosquiteras: c.mosquiteras.length > 0, otros: c.otros.length > 0,
-    };
-  }, [productos]);
+    return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v.length > 0]));
+  }, [productos, tiposAbertura]);
 
   const columnas = [
-    {
-      key: 'ventanas', titulo: 'Ventanas', items: ventanas, icono: AppWindow, color: 'sky',
-      headerBg: 'bg-sky-50', headerText: 'text-sky-700', badgeBg: 'bg-white', badgeText: 'text-sky-600 border-sky-200',
-      borderCol: 'border-sky-100', priceColor: 'text-sky-700',
-    },
-    {
-      key: 'puertas', titulo: 'Puertas', items: puertas, icono: DoorOpen, color: 'violet',
-      headerBg: 'bg-violet-50', headerText: 'text-violet-700', badgeBg: 'bg-white', badgeText: 'text-violet-600 border-violet-200',
-      borderCol: 'border-violet-100', priceColor: 'text-violet-700',
-    },
-    {
-      key: 'balcon', titulo: 'Puerta-Balcón', items: balcon, icono: AppWindow, color: 'teal',
-      headerBg: 'bg-teal-50', headerText: 'text-teal-700', badgeBg: 'bg-white', badgeText: 'text-teal-600 border-teal-200',
-      borderCol: 'border-teal-100', priceColor: 'text-teal-700',
-    },
-    ...(existeCategoria.mosquiteras ? [{
-      key: 'mosquiteras', titulo: 'Mosqueras', items: mosquiteras, icono: Package, color: 'orange',
-      headerBg: 'bg-orange-50', headerText: 'text-orange-700', badgeBg: 'bg-white', badgeText: 'text-orange-600 border-orange-200',
-      borderCol: 'border-orange-100', priceColor: 'text-orange-700',
-    }] : []),
-    ...(existeCategoria.otros ? [{
-      key: 'otros', titulo: 'Otros', items: otros, icono: Package, color: 'gray',
-      headerBg: 'bg-gray-50', headerText: 'text-gray-600', badgeBg: 'bg-white', badgeText: 'text-gray-500 border-gray-200',
-      borderCol: 'border-gray-200', priceColor: 'text-gray-700',
+    ...tiposAbertura.map((t, i) => {
+      const pal = PALETA_CATEGORIAS[i % PALETA_CATEGORIAS.length];
+      const n = t.nombre.toLowerCase();
+      const icono = n.includes('puerta') && !n.includes('balc') ? DoorOpen
+        : (n.includes('ventana') || n.includes('balc')) ? AppWindow : Package;
+      return {
+        key: t.id, titulo: t.nombre, items: gruposFiltrados[t.id] ?? [], icono, color: pal.color,
+        headerBg: pal.headerBg, headerText: pal.headerText, badgeBg: 'bg-white', badgeText: pal.badgeText,
+        borderCol: pal.borderCol, priceColor: pal.priceColor,
+      };
+    }),
+    ...(existeCategoria[SIN_TIPO_KEY] ? [{
+      key: SIN_TIPO_KEY, titulo: 'Sin tipo', items: gruposFiltrados[SIN_TIPO_KEY] ?? [], icono: Package, color: CATEGORIA_SIN_TIPO.color,
+      headerBg: CATEGORIA_SIN_TIPO.headerBg, headerText: CATEGORIA_SIN_TIPO.headerText, badgeBg: 'bg-white', badgeText: CATEGORIA_SIN_TIPO.badgeText,
+      borderCol: CATEGORIA_SIN_TIPO.borderCol, priceColor: CATEGORIA_SIN_TIPO.priceColor,
     }] : []),
   ];
 
-  const categoriaActiva = columnas.find(c => c.key === tipoFiltro) ?? null;
+  // "En salón" es un subgrupo transversal (cruza tipos) — es un filtro más, pero no se
+  // duplica dentro de la vista "Todos" apilada por tipo (columnas), solo vive como botón.
+  const existeEnSalon = productos.some(p => p.en_salon);
+  const columnaEnSalon = {
+    key: EN_SALON_KEY, titulo: 'En salón', items: filtered.filter(p => p.en_salon), icono: Store, color: 'emerald',
+    headerBg: 'bg-emerald-50', headerText: 'text-emerald-700', badgeBg: 'bg-white', badgeText: 'text-emerald-600 border-emerald-200',
+    borderCol: 'border-emerald-100', priceColor: 'text-emerald-700',
+  };
+  const columnasFiltro = [...columnas, ...(existeEnSalon ? [columnaEnSalon] : [])];
+
+  const categoriaActiva = columnasFiltro.find(c => c.key === tipoFiltro) ?? null;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5" data-section="productos">
@@ -629,12 +653,13 @@ export function Productos() {
               {filtered.length}
             </span>
           </button>
-          {columnas.map(col => (
+          {columnasFiltro.map(col => (
             <button
               key={col.key}
               onClick={() => setTipoFiltro(prev => prev === col.key ? null : col.key)}
               className={cn(
                 'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all',
+                col.key === EN_SALON_KEY && 'ml-1.5 border-l-2 border-gray-200 pl-3.5',
                 FILTRO_BTN[col.color][tipoFiltro === col.key ? 'active' : 'inactive']
               )}
             >
