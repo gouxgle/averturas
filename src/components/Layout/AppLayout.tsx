@@ -117,7 +117,7 @@ export function AppLayout() {
       {/* Contenido principal */}
       <div className="flex-1 flex flex-col min-w-0" style={{ position: 'relative', zIndex: 1 }}>
 
-        {/* Top bar — mobile: hamburger + logo + bell / desktop: solo bell */}
+        {/* Top bar — hamburger (mobile) + logo centrado + bell */}
         <header
           className="h-14 flex items-center px-4 gap-3 shrink-0"
           style={{
@@ -135,25 +135,28 @@ export function AppLayout() {
             <Menu size={20} />
           </button>
 
-          {/* Logo — solo mobile */}
-          <div className="lg:hidden flex items-center gap-2.5 flex-1">
-            <svg width="24" height="24" viewBox="0 0 200 200" fill="none">
+          {/* Logo — ícono + texto, centrado, tipografía de marca */}
+          <div className="flex-1 flex items-center justify-center gap-3">
+            <svg width="36" height="36" viewBox="0 0 200 200" fill="none" className="shrink-0">
               <rect x="8"   y="8"   width="84" height="84" rx="12" fill="rgba(255,255,255,0.90)" />
               <rect x="108" y="8"   width="84" height="84" rx="12" fill="#e31e24" />
               <rect x="8"   y="108" width="84" height="84" rx="12" fill="rgba(255,255,255,0.45)" />
               <rect x="108" y="108" width="84" height="84" rx="12" fill="rgba(255,255,255,0.20)" />
             </svg>
-            <div>
-              <span className="text-sm font-extrabold text-white tracking-wide">CÉSAR BRÍTEZ</span>
-              <span className="ml-2 text-[10px] font-semibold tracking-widest uppercase" style={{ color: '#e31e24' }}>Aberturas</span>
+            <div className="flex items-baseline gap-2.5 flex-wrap justify-center">
+              <span
+                className="text-white text-xl sm:text-2xl tracking-wide"
+                style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800 }}
+              >
+                CÉSAR BRÍTEZ
+              </span>
+              <span
+                className="text-sm sm:text-base"
+                style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: 'italic', color: 'rgba(255,255,255,0.75)' }}
+              >
+                Aberturas bien pensadas
+              </span>
             </div>
-          </div>
-
-          {/* Nombre + slogan — desktop */}
-          <div className="hidden lg:flex items-center gap-2 flex-1">
-            <span className="text-sm font-extrabold text-white tracking-wide">César Brítez</span>
-            <span className="text-xs font-light" style={{ color: 'rgba(255,255,255,0.35)' }}>—</span>
-            <span className="text-xs font-light italic" style={{ color: 'rgba(255,255,255,0.50)' }}>Aberturas Bien Pensadas</span>
           </div>
 
           {/* Bell — siempre visible, en área de contenido (sin problemas de overflow) */}
