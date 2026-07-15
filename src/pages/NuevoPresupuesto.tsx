@@ -24,11 +24,11 @@ const TIPOS_PROYECTO = [
 const VIDRIO_OPTS    = ['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'];
 const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
 const FORMA_PAGO = [
+  'Tarjeta de crédito 3 cuotas sin interés',
   'Precio de lista',
   'Contado',
   'Tarjeta de débito/crédito en 1 pago',
   'Transferencia',
-  'Tarjeta de crédito 3 cuotas sin interés',
 ];
 
 const FORMAS_ENVIO = [
@@ -843,22 +843,16 @@ export function NuevoPresupuesto() {
       titulo: 'Carga de cliente',
       subtitulo: clienteId ? clienteNombre.split(' ').slice(0, 2).join(' ') || 'Cargado' : 'Completar datos',
       done: !!clienteId,
-      tieneDefault: false,
-      defaultLabel: null,
     },
     {
       titulo: 'Forma de pago',
       subtitulo: formaPago || 'Seleccionar opción',
       done: !!formaPago && userSetFormaPago,
-      tieneDefault: true,
-      defaultLabel: 'Precio de lista',
     },
     {
       titulo: 'Entrega',
       subtitulo: formaEnvioLabel,
       done: !!formaEnvio && userSetFormaEnvio,
-      tieneDefault: true,
-      defaultLabel: 'Retira en local',
     },
     {
       titulo: 'Validez',
@@ -866,8 +860,6 @@ export function NuevoPresupuesto() {
         ? `${validezDias}d`
         : fechaValidezLabel !== '—' ? `Hasta ${fechaValidezLabel}` : 'Sin definir',
       done: !!fechaValidez && userSetFechaValidez,
-      tieneDefault: true,
-      defaultLabel: '7 días',
     },
     {
       titulo: 'Agregar producto',
@@ -875,14 +867,12 @@ export function NuevoPresupuesto() {
         ? `${items.length} producto${items.length > 1 ? 's' : ''}`
         : 'Seleccionar productos',
       done: items.length > 0,
-      tieneDefault: false,
-      defaultLabel: null,
     },
   ];
 
   const todosCompletos = pasos.every(p => p.done);
   const pasosIncompletos = pasos.filter(p => !p.done);
-  const puedeAvanzarConDefaults = pasosIncompletos.every(p => p.tieneDefault);
+  const pasoActivoIndex = pasos.findIndex(p => !p.done);
 
   function handleGenerarProforma() {
     if (todosCompletos) {
@@ -890,14 +880,6 @@ export function NuevoPresupuesto() {
       return;
     }
     setShowValidacionModal(true);
-  }
-
-  function avanzarConDefaults() {
-    setUserSetFormaPago(true);
-    setUserSetFormaEnvio(true);
-    if (!userSetFechaValidez && fechaValidez) setUserSetFechaValidez(true);
-    setShowValidacionModal(false);
-    handleSave(true);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -919,9 +901,7 @@ export function NuevoPresupuesto() {
               <div>
                 <h2 className="text-base font-bold text-gray-900">Faltan completar pasos</h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {puedeAvanzarConDefaults
-                    ? 'Podés avanzar con los valores por defecto o volver a completarlos.'
-                    : 'Completá los campos obligatorios para generar la proforma.'}
+                  Completá todos los campos para generar la proforma.
                 </p>
               </div>
             </div>
@@ -931,25 +911,16 @@ export function NuevoPresupuesto() {
               {pasosIncompletos.map((p, i) => (
                 <div key={i} className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl border',
-                  p.tieneDefault ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50'
+                  'border-red-200 bg-red-50'
                 )}>
-                  <div className={cn('w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white',
-                    p.tieneDefault ? 'bg-amber-400' : 'bg-red-400'
-                  )}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white bg-red-400">
                     {pasos.indexOf(p) + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn('text-sm font-semibold', p.tieneDefault ? 'text-amber-800' : 'text-red-800')}>
+                    <p className="text-sm font-semibold text-red-800">
                       {p.titulo}
                     </p>
-                    {p.tieneDefault && p.defaultLabel && (
-                      <p className="text-[11px] text-amber-600 mt-0.5">
-                        Valor por defecto: <span className="font-semibold">{p.defaultLabel}</span>
-                      </p>
-                    )}
-                    {!p.tieneDefault && (
-                      <p className="text-[11px] text-red-500 mt-0.5">Obligatorio — no tiene valor por defecto</p>
-                    )}
+                    <p className="text-[11px] text-red-500 mt-0.5">Obligatorio — completar para continuar</p>
                   </div>
                 </div>
               ))}
@@ -957,14 +928,6 @@ export function NuevoPresupuesto() {
 
             {/* Acciones */}
             <div className="px-6 py-4 border-t border-gray-200 flex flex-col gap-2">
-              {puedeAvanzarConDefaults && (
-                <button
-                  onClick={avanzarConDefaults}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors"
-                >
-                  Avanzar con valores por defecto
-                </button>
-              )}
               <button
                 onClick={() => setShowValidacionModal(false)}
                 className="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition-colors"
@@ -1044,12 +1007,12 @@ export function NuevoPresupuesto() {
             />
           ))}
           {pasos.map((paso, i) => {
-            const sinCliente = i === 0 && !clienteId;
+            const esActivo = i === pasoActivoIndex;
             return (
               <div key={i} className="flex-1 flex justify-center relative z-10">
                 <div className="relative">
-                  {/* Ping exterior — solo paso 1 sin cliente */}
-                  {sinCliente && (
+                  {/* Ping exterior — paso activo (siguiente a completar) */}
+                  {esActivo && (
                     <>
                       <div className="absolute inset-0 rounded-full bg-violet-400 animate-ping opacity-50 scale-150" />
                       <div className="absolute inset-0 rounded-full bg-violet-300 animate-pulse opacity-40 scale-125" />
@@ -1058,7 +1021,7 @@ export function NuevoPresupuesto() {
                   <div className={cn(
                     'relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 font-bold text-white text-sm',
                     paso.done     ? 'bg-green-500 shadow-md shadow-green-200' :
-                    sinCliente    ? 'bg-violet-600 shadow-lg shadow-violet-300 ring-4 ring-violet-200 animate-bounce' :
+                    esActivo      ? 'bg-violet-600 shadow-lg shadow-violet-300 ring-4 ring-violet-200 animate-bounce' :
                     /* pending */   'bg-amber-400'
                   )}>
                     {paso.done
@@ -1075,8 +1038,8 @@ export function NuevoPresupuesto() {
         {/* Fila inferior: título + input/selector de cada paso */}
         <div className="flex">
           {pasos.map((paso, i) => {
-            const sinCliente = i === 0 && !clienteId;
-            const disabled   = i > 0 && !clienteId;
+            const esActivo = i === pasoActivoIndex;
+            const disabled = i > 0 && !clienteId;
             return (
               <div key={i}
                 className={cn(
@@ -1087,7 +1050,7 @@ export function NuevoPresupuesto() {
                 <p className={cn(
                   'text-[9px] font-bold uppercase tracking-wider text-center leading-tight',
                   paso.done  ? 'text-green-600' :
-                  sinCliente ? 'text-violet-600' :
+                  esActivo   ? 'text-violet-600' :
                                'text-amber-600'
                 )}>
                   {paso.titulo}
@@ -1112,18 +1075,18 @@ export function NuevoPresupuesto() {
                       </div>
                     ) : (
                       <div>
-                        {sinCliente && (
+                        {esActivo && (
                           <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
                             ▼ Empezá aquí
                           </p>
                         )}
                         <div className={cn(
                           'flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-colors',
-                          sinCliente
+                          esActivo
                             ? 'border-violet-500 bg-white client-input-glow'
                             : 'border-gray-200 bg-white'
                         )}>
-                          <Users size={12} className={sinCliente ? 'text-violet-500 shrink-0' : 'text-gray-400 shrink-0'} />
+                          <Users size={12} className={esActivo ? 'text-violet-500 shrink-0' : 'text-gray-400 shrink-0'} />
                           <input
                             type="text"
                             placeholder="Nombre, tel. o DNI..."
@@ -1133,7 +1096,7 @@ export function NuevoPresupuesto() {
                             onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
                             className={cn(
                               'w-full bg-transparent text-xs focus:outline-none',
-                              sinCliente ? 'placeholder:text-violet-300 text-violet-800 font-medium' : 'placeholder:text-gray-300'
+                              esActivo ? 'placeholder:text-violet-300 text-violet-800 font-medium' : 'placeholder:text-gray-300'
                             )}
                           />
                         </div>
@@ -1166,73 +1129,115 @@ export function NuevoPresupuesto() {
 
                 {/* ── Paso 2: Forma de pago ── */}
                 {i === 1 && (
-                  <div className={cn(
-                    'w-full px-1.5 py-1 rounded-lg border text-center',
-                    paso.done ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
-                  )}>
-                    <select
-                      value={formaPago}
-                      onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
-                      onFocus={() => setUserSetFormaPago(true)}
-                      disabled={!clienteId}
-                      className="w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center text-gray-700"
-                    >
-                      {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
-                    </select>
+                  <div>
+                    {esActivo && (
+                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
+                        ▼ Elegí acá
+                      </p>
+                    )}
+                    <div className={cn(
+                      'w-full px-1.5 py-1 rounded-lg border text-center transition-colors',
+                      paso.done ? 'bg-green-50 border-green-200' :
+                      esActivo  ? 'border-violet-500 bg-white client-input-glow' :
+                                  'bg-amber-50 border-amber-200'
+                    )}>
+                      <select
+                        value={formaPago}
+                        onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
+                        onFocus={() => setUserSetFormaPago(true)}
+                        disabled={!clienteId}
+                        className={cn(
+                          'w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center',
+                          esActivo ? 'text-violet-800' : 'text-gray-700'
+                        )}
+                      >
+                        {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                    </div>
                   </div>
                 )}
 
                 {/* ── Paso 3: Entrega ── */}
                 {i === 2 && (
-                  <div className={cn(
-                    'w-full px-1.5 py-1 rounded-lg border text-center',
-                    paso.done ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
-                  )}>
-                    <select
-                      value={formaEnvio}
-                      onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
-                      onFocus={() => setUserSetFormaEnvio(true)}
-                      disabled={!clienteId}
-                      className="w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center text-gray-700"
-                    >
-                      {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label.split('(')[0].trim()}</option>)}
-                    </select>
+                  <div>
+                    {esActivo && (
+                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
+                        ▼ Elegí acá
+                      </p>
+                    )}
+                    <div className={cn(
+                      'w-full px-1.5 py-1 rounded-lg border text-center transition-colors',
+                      paso.done ? 'bg-green-50 border-green-200' :
+                      esActivo  ? 'border-violet-500 bg-white client-input-glow' :
+                                  'bg-amber-50 border-amber-200'
+                    )}>
+                      <select
+                        value={formaEnvio}
+                        onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
+                        onFocus={() => setUserSetFormaEnvio(true)}
+                        disabled={!clienteId}
+                        className={cn(
+                          'w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center',
+                          esActivo ? 'text-violet-800' : 'text-gray-700'
+                        )}
+                      >
+                        {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label.split('(')[0].trim()}</option>)}
+                      </select>
+                    </div>
                   </div>
                 )}
 
                 {/* ── Paso 4: Validez ── */}
                 {i === 3 && (
-                  <div className="flex items-center gap-1 justify-center">
-                    {([7, 15, 30] as const).map(d => (
-                      <button key={d} type="button"
-                        onClick={() => {
-                          setValidezDias(d);
-                          const f = new Date(); f.setDate(f.getDate() + d);
-                          setFechaValidez(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`);
-                          setUserSetFechaValidez(true);
-                        }}
-                        className={cn(
-                          'px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all',
-                          validezDias === d
-                            ? 'border-violet-500 bg-violet-100 text-violet-700'
-                            : 'border-gray-200 text-gray-400 hover:border-violet-300 hover:text-violet-600'
-                        )}
-                      >
-                        {d}d
-                      </button>
-                    ))}
+                  <div>
+                    {esActivo && (
+                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
+                        ▼ Elegí acá
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1 justify-center">
+                      {([7, 15, 30] as const).map(d => (
+                        <button key={d} type="button"
+                          onClick={() => {
+                            setValidezDias(d);
+                            const f = new Date(); f.setDate(f.getDate() + d);
+                            setFechaValidez(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`);
+                            setUserSetFechaValidez(true);
+                          }}
+                          className={cn(
+                            'px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all',
+                            validezDias === d
+                              ? 'border-violet-500 bg-violet-100 text-violet-700'
+                              : esActivo
+                                ? 'border-violet-300 text-violet-500 hover:border-violet-400 hover:text-violet-700'
+                                : 'border-gray-200 text-gray-400 hover:border-violet-300 hover:text-violet-600'
+                          )}
+                        >
+                          {d}d
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {/* ── Paso 5: Productos ── */}
                 {i === 4 && (
-                  <div className={cn(
-                    'px-3 py-1 rounded-lg border text-center text-[11px] font-semibold',
-                    paso.done ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-400'
-                  )}>
-                    {items.length > 0
-                      ? `${items.length} producto${items.length > 1 ? 's' : ''}`
-                      : 'Sin agregar'}
+                  <div>
+                    {esActivo && (
+                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
+                        ▼ Agregá acá
+                      </p>
+                    )}
+                    <div className={cn(
+                      'px-3 py-1 rounded-lg border text-center text-[11px] font-semibold',
+                      paso.done ? 'bg-green-50 border-green-200 text-green-700' :
+                      esActivo  ? 'border-violet-500 bg-white text-violet-700 client-input-glow' :
+                                  'bg-gray-50 border-gray-200 text-gray-400'
+                    )}>
+                      {items.length > 0
+                        ? `${items.length} producto${items.length > 1 ? 's' : ''}`
+                        : 'Sin agregar'}
+                    </div>
                   </div>
                 )}
               </div>

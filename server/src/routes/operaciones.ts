@@ -261,6 +261,8 @@ operaciones.get('/ventas-panel', async (c) => {
         o.id, o.numero, o.tipo, o.estado, o.precio_total::numeric,
         o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo,
         (o.token_acceso IS NOT NULL) AS link_enviado,
+        o.enviado_wa_at,
+        (o.enviado_wa_at IS NULL AND o.estado IN ('presupuesto','enviado')) AS pendiente_envio,
         EXTRACT(DAY FROM now() - o.fecha_validez)::int                         AS dias_vencido,
         EXTRACT(DAY FROM o.fecha_validez - now())::int                         AS dias_hasta_vencimiento,
         COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int     AS dias_sin_respuesta,
@@ -509,6 +511,8 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
      VALUES ($1, 'proforma_enviada', $2, $3)`,
     [op.cliente_id, `Proforma ${proformaNumero} enviada por WhatsApp (${numero})`, user?.id ?? null]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+
+  await db.query(`UPDATE operaciones SET enviado_wa_at = now() WHERE id = $1`, [id]);
 
   return c.json({ enviado: true, numero, url });
 });

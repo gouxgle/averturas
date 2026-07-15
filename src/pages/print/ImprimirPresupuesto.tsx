@@ -158,6 +158,8 @@ export function ImprimirPresupuesto() {
   const totalInstalacion = op.items.reduce(
     (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * it.cantidad : 0), 0
   );
+  const itemsConInstalacion = op.items.filter(it => it.incluye_instalacion).length;
+  const instalacionMixta = itemsConInstalacion > 0 && itemsConInstalacion < op.items.length;
   const instagram   = empresa?.instagram   ?? null;
   const terminosUrl = empresa?.terminos_url ?? null;
 
@@ -308,14 +310,14 @@ export function ImprimirPresupuesto() {
                 Cliente
               </span>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: NAVY, marginBottom: 3 }}>{clienteNombre}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: NAVY, marginBottom: 4 }}>{clienteNombre}</div>
             {(clienteDoc || c.telefono) && (
-              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>
+              <div style={{ fontSize: 12.5, color: '#6b7280', marginBottom: 2 }}>
                 {clienteDoc}{clienteDoc && c.telefono ? ' | ' : ''}{c.telefono && `Tel: ${c.telefono}`}
               </div>
             )}
-            {c.email     && <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>{c.email}</div>}
-            {clienteDireccion && <div style={{ fontSize: 11, color: '#6b7280' }}>{clienteDireccion}</div>}
+            {c.email     && <div style={{ fontSize: 12.5, color: '#6b7280', marginBottom: 2 }}>{c.email}</div>}
+            {clienteDireccion && <div style={{ fontSize: 12.5, color: '#6b7280' }}>{clienteDireccion}</div>}
           </div>
 
           {/* Gracias */}
@@ -420,9 +422,13 @@ export function ImprimirPresupuesto() {
                           <span style={{ fontWeight: 600 }}>Incluye:</span> {item.accesorios.join(' · ')}
                         </div>
                       )}
-                      {item.incluye_instalacion && (
+                      {item.incluye_instalacion ? (
                         <div style={{ fontSize: 9.5, color: '#059669', fontWeight: 600, marginTop: 2 }}>
-                          ✓ Incluye instalación: {fmtM(Number(item.precio_instalacion))}
+                          ✓ Incluye traslado e instalación: {fmtM(Number(item.precio_instalacion))}
+                        </div>
+                      ) : instalacionMixta && (
+                        <div style={{ fontSize: 9.5, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>
+                          ✕ No incluye traslado e instalación
                         </div>
                       )}
                       {item.notas && (
@@ -475,25 +481,30 @@ export function ImprimirPresupuesto() {
               </div>
               {totalInstalacion > 0 && (
                 <div style={{ color: '#059669', fontSize: 10, fontWeight: 700, marginTop: 3 }}>
-                  Incluye costo de instalación: {fmtM(totalInstalacion)}
+                  Incluye costo de traslado e instalación
+                  {instalacionMixta && ` (${itemsConInstalacion} de ${op.items.length} ítems)`}: {fmtM(totalInstalacion)}
                 </div>
               )}
               {esCuotas && (
                 <div style={{
-                  display: 'inline-block', marginTop: 6, padding: '2px 10px',
-                  background: '#ede9fe', color: '#7c3aed',
-                  fontSize: 10, fontWeight: 700, borderRadius: 5,
+                  display: 'inline-block', marginTop: 8, padding: '5px 14px',
+                  background: '#7c3aed', color: 'white',
+                  fontSize: 13, fontWeight: 800, borderRadius: 6,
                 }}>
                   3 cuotas de {fmtM(total / 3)}
                 </div>
               )}
             </div>
             {op.forma_pago && (
-              <div style={{ textAlign: 'right' }}>
+              <div style={{
+                textAlign: 'right', padding: '8px 14px', borderRadius: 8,
+                background: esCuotas ? '#ede9fe' : '#f3f4f6',
+                border: `1.5px solid ${esCuotas ? '#7c3aed' : '#d1d5db'}`,
+              }}>
                 <div style={{ color: '#9ca3af', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
                   Forma de pago
                 </div>
-                <div style={{ color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                <div style={{ color: esCuotas ? '#7c3aed' : NAVY, fontSize: 16, fontWeight: 800, marginTop: 2 }}>
                   {op.forma_pago}
                 </div>
               </div>
