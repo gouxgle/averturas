@@ -127,6 +127,7 @@ const TIPO_VENTANA = [
   { v: 'banderola',   l: 'Banderola' },
   { v: 'ventiluz',    l: 'Ventiluz' },
   { v: 'aireador',    l: 'Aireador' },
+  { v: 'persiana',    l: 'Persiana' },
 ];
 
 const VENTANA_CON_HOJAS = new Set(['corrediza', 'de_abrir']);
@@ -1373,6 +1374,7 @@ export function NuevoProducto() {
     video_url:           '',
     margen_venta:        '' as string,  // null en DB = heredado del tipo_abertura o proveedor
     precio_manual:       false,
+    en_salon:            false,
   });
   const [atributos, setAtributos] = useState<Atributos>({});
 
@@ -1446,6 +1448,7 @@ export function NuevoProducto() {
           video_url:           data.video_url ?? '',
           margen_venta:        data.margen_venta != null ? String(data.margen_venta) : '',
           precio_manual:       data.precio_manual ?? false,
+          en_salon:            data.en_salon ?? false,
         });
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
@@ -1556,6 +1559,7 @@ export function NuevoProducto() {
         premarco:         form.tipo !== 'estandar' ? form.premarco : false,
         accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
+        en_salon:         form.en_salon,
         atributos:        (esPuerta || esVentana || esPuertaBalcon || esMosquitera) ? atributos : {},
         etiqueta:         form.etiqueta || null,
         margen_tipo:      form.margen_tipo || null,
@@ -1948,6 +1952,13 @@ export function NuevoProducto() {
                 onChange={e => set('stock_minimo', e.target.value)} placeholder="0" className={inputCls} />
               <p className="text-[10px] text-gray-400 mt-1">Alerta de reposición</p>
             </div>
+            <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none pt-1 border-t border-gray-100 mt-1">
+              <input type="checkbox" checked={form.en_salon}
+                onChange={e => set('en_salon', e.target.checked)}
+                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              <span className="text-sm text-gray-700">Exhibido en salón</span>
+              <span className="text-xs text-gray-400">(muestra físicamente en el local, más allá del stock)</span>
+            </label>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">

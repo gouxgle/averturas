@@ -3,7 +3,7 @@ import {
   Boxes, Plus, Minus, AlertTriangle, TrendingDown, TrendingUp,
   ChevronDown, ChevronUp, Package, Truck, RotateCcw,
   Wrench, Search, RefreshCw, ArrowDownCircle, ArrowUpCircle,
-  History, X, Check, Info, Layers, Zap, BarChart2,
+  History, X, Check, Info, Layers, Zap, BarChart2, Store,
   ChevronLeft, ChevronRight, DollarSign
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -20,6 +20,7 @@ interface ProductoExistencias {
   tipo: 'estandar' | 'a_medida' | 'fabricacion_propia';
   color: string | null;
   imagen_url: string | null;
+  en_salon: boolean;
   stock_minimo: number;
   stock_inicial: number;
   stock_actual: number;
@@ -909,12 +910,13 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
 
 // ── ProductoRow ───────────────────────────────────────────────
 function ProductoRow({
-  producto, onIngreso, onEgreso, onAjuste
+  producto, onIngreso, onEgreso, onAjuste, onToggleSalon
 }: {
   producto: ProductoExistencias;
   onIngreso: () => void;
   onEgreso:  () => void;
   onAjuste:  () => void;
+  onToggleSalon: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const estadoCfg  = ESTADO_CFG[producto.estado];
@@ -924,8 +926,8 @@ function ProductoRow({
     <div className={`bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
       <div className="overflow-x-auto">
       <div
-        className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-w-[565px]"
-        style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}
+        className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-w-[595px]"
+        style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 130px' }}
         onClick={() => setExpanded(v => !v)}
       >
         {/* Producto */}
@@ -948,6 +950,11 @@ function ProductoRow({
                   producto.tipo === 'fabricacion_propia' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'
                 }`}>
                   {producto.tipo === 'fabricacion_propia' ? 'Fab.' : 'A medida'}
+                </span>
+              )}
+              {producto.en_salon && (
+                <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 bg-emerald-50 text-emerald-600">
+                  <Store size={9} />En salón
                 </span>
               )}
             </div>
@@ -1009,6 +1016,10 @@ function ProductoRow({
             className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
             <Wrench size={13} />
           </button>
+          <button onClick={onToggleSalon} title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
+            className={`p-1.5 rounded-lg transition-colors ${producto.en_salon ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'}`}>
+            <Store size={13} />
+          </button>
           <button onClick={() => setExpanded(v => !v)} title="Historial"
             className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -1069,6 +1080,14 @@ export function Stock() {
   function abrirIngreso(id?: string) { setIngresoProducto(id); setModal('ingreso'); }
   function abrirEgreso(id?: string)  { setEgresoProducto(id);  setModal('egreso');  }
   function abrirAjuste(id?: string)  { setAjusteProducto(id);  setModal('ajuste');  }
+
+  async function toggleSalon(id: string) {
+    await api.patch(`/productos/${id}/toggle-salon`);
+    setTablero(prev => prev ? {
+      ...prev,
+      productos: prev.productos.map(p => p.id === id ? { ...p, en_salon: !p.en_salon } : p),
+    } : prev);
+  }
 
   function onSaved() { setModal(null); cargar(); }
 
@@ -1279,7 +1298,7 @@ export function Stock() {
 
                 {/* Header tabla — oculto en mobile, cada fila ya tiene sus valores auto-descriptivos */}
                 <div className="hidden sm:grid items-center gap-3 px-4 py-2"
-                  style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 100px' }}>
+                  style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 130px' }}>
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</span>
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Stock</span>
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Estado</span>
@@ -1314,6 +1333,7 @@ export function Stock() {
                         onIngreso={() => abrirIngreso(p.id)}
                         onEgreso={() => abrirEgreso(p.id)}
                         onAjuste={() => abrirAjuste(p.id)}
+                        onToggleSalon={() => toggleSalon(p.id)}
                       />
                     ))}
                   </div>

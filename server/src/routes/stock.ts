@@ -102,7 +102,7 @@ stock.get('/tablero', async (c) => {
     db.query(`
       WITH base AS (
         SELECT
-          p.id, p.nombre, p.codigo, p.tipo, p.color,
+          p.id, p.nombre, p.codigo, p.tipo, p.color, p.en_salon,
           p.stock_minimo, p.stock_inicial, p.precio_base, p.costo_base, p.imagen_url,
           json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
           json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
@@ -116,7 +116,7 @@ stock.get('/tablero', async (c) => {
         LEFT JOIN sistemas s        ON s.id  = p.sistema_id
         LEFT JOIN stock_movimientos m ON m.producto_id = p.id
         WHERE p.activo = true
-        GROUP BY p.id, p.nombre, p.codigo, p.tipo, p.color,
+        GROUP BY p.id, p.nombre, p.codigo, p.tipo, p.color, p.en_salon,
                  p.stock_minimo, p.stock_inicial, p.precio_base, p.costo_base, p.imagen_url,
                  ta.id, ta.nombre, s.id, s.nombre
       )

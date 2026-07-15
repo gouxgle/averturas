@@ -96,8 +96,8 @@ productos.post('/', async (c) => {
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
        imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4,
        vidrio, premarco, accesorios, atributos, margen_tipo, promocion, imagenes, video_url, etiqueta,
-       proveedor_sku, margen_venta, precio_manual)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
+       proveedor_sku, margen_venta, precio_manual, en_salon)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
     RETURNING *
   `, [
     b.nombre?.trim(),
@@ -133,6 +133,7 @@ productos.post('/', async (c) => {
     b.proveedor_sku?.trim() || null,
     b.margen_venta != null ? parseFloat(b.margen_venta) : null,
     b.precio_manual ?? false,
+    b.en_salon ?? false,
   ]);
   return c.json(row, 201);
 });
@@ -173,8 +174,9 @@ productos.put('/:id', async (c) => {
       etiqueta         = $30,
       proveedor_sku    = $31,
       margen_venta     = $32,
-      precio_manual    = $33
-    WHERE id = $34 RETURNING *
+      precio_manual    = $33,
+      en_salon         = $34
+    WHERE id = $35 RETURNING *
   `, [
     b.nombre?.trim(),
     b.descripcion?.trim() || null,
@@ -209,6 +211,7 @@ productos.put('/:id', async (c) => {
     b.proveedor_sku?.trim() || null,
     b.margen_venta != null ? parseFloat(b.margen_venta) : null,
     b.precio_manual ?? false,
+    b.en_salon ?? false,
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
@@ -238,6 +241,15 @@ productos.patch('/:id/toggle', async (c) => {
   const { rows: [row] } = await db.query(`
     UPDATE catalogo_productos SET activo = NOT activo
     WHERE id = $1 RETURNING id, activo
+  `, [c.req.param('id')]);
+  if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
+  return c.json(row);
+});
+
+productos.patch('/:id/toggle-salon', async (c) => {
+  const { rows: [row] } = await db.query(`
+    UPDATE catalogo_productos SET en_salon = NOT en_salon
+    WHERE id = $1 RETURNING id, en_salon
   `, [c.req.param('id')]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
   return c.json(row);

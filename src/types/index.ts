@@ -199,6 +199,7 @@ export interface Producto {
   precio_base: number;
   precio_por_m2: boolean;
   activo: boolean;
+  en_salon: boolean;
   codigo: string | null;
   color: string | null;
   stock_inicial: number;
