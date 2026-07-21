@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
   X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
-  Trash2, AlertTriangle, Star, Sparkles, Store,
+  Trash2, AlertTriangle, Star, Sparkles, Store, DollarSign,
   ThumbsUp, Shield, Truck, Headphones, Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -606,6 +606,12 @@ export function Productos() {
 
   const categoriaActiva = columnasFiltro.find(c => c.key === tipoFiltro) ?? null;
 
+  // Productos visibles según el filtro/búsqueda activos — la barra de valor de stock se recalcula sobre esto
+  const productosVisibles = categoriaActiva ? categoriaActiva.items : filtered;
+  const valorCostoStock = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0) * Number(p.costo_base ?? 0), 0);
+  const valorVentaStock = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0) * Number(p.precio_base ?? 0), 0);
+  const unidadesStock   = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0), 0);
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5" data-section="productos">
       <SectionHero
@@ -669,6 +675,39 @@ export function Productos() {
               </span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Valor de stock — se recalcula según el filtro/búsqueda activos */}
+      {!loading && productos.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-500">
+              <Package size={13}/>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Unidades en stock</p>
+              <p className="text-sm font-black text-gray-800 tabular-nums">{unidadesStock}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0 text-amber-600">
+              <Tag size={13}/>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Valor de costo</p>
+              <p className="text-sm font-black text-amber-700 tabular-nums">{formatCurrency(valorCostoStock)}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 text-emerald-600">
+              <DollarSign size={13}/>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Valor de venta</p>
+              <p className="text-sm font-black text-emerald-700 tabular-nums">{formatCurrency(valorVentaStock)}</p>
+            </div>
+          </div>
         </div>
       )}
 

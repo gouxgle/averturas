@@ -38,10 +38,27 @@ productos.get('/', async (c) => {
     where += ` AND (cp.nombre ILIKE $${params.length} OR cp.codigo ILIKE $${params.length})`;
   }
 
-  const { rows } = await db.query(
-    `${withJoins} ${where} ORDER BY cp.tipo, cp.nombre`,
-    params
-  );
+  const { rows } = await db.query(`
+    SELECT cp.*,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual,
+      CASE WHEN ta.id IS NOT NULL
+        THEN json_build_object('id', ta.id, 'nombre', ta.nombre)
+        ELSE NULL END AS tipo_abertura,
+      CASE WHEN s.id IS NOT NULL
+        THEN json_build_object('id', s.id, 'nombre', s.nombre)
+        ELSE NULL END AS sistema,
+      CASE WHEN p.id IS NOT NULL
+        THEN json_build_object('id', p.id, 'nombre', p.nombre)
+        ELSE NULL END AS proveedor
+    FROM catalogo_productos cp
+    LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
+    LEFT JOIN sistemas s ON s.id = cp.sistema_id
+    LEFT JOIN proveedores p ON p.id = cp.proveedor_id
+    LEFT JOIN stock_movimientos m ON m.producto_id = cp.id
+    ${where}
+    GROUP BY cp.id, ta.id, s.id, p.id
+    ORDER BY cp.tipo, cp.nombre
+  `, params);
   return c.json(rows);
 });
 
