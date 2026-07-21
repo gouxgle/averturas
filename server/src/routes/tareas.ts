@@ -44,14 +44,17 @@ tareas.post('/', async (c) => {
   }
 
   const { rows: [row] } = await db.query(`
-    INSERT INTO tareas (cliente_id, descripcion, vencimiento, prioridad, created_by)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, hora, created_by)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `, [
     body.cliente_id,
+    body.operacion_id || null,
     body.descripcion.trim(),
     body.vencimiento || null,
     body.prioridad || 'normal',
+    body.tipo_accion || 'nota',
+    body.hora || null,
     user.id,
   ]);
 

@@ -217,6 +217,100 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
   return c.json({ ok: true, ya_rechazado: false });
 });
 
+// ─── Respuesta intermedia (no terminal): más tiempo / consulta / llamada / modificar ───
+const RESPUESTA_LABEL: Record<string, string> = {
+  mas_tiempo: 'Necesita más tiempo',
+  consulta:   'Tiene una consulta',
+  llamada:    'Pidió que lo llamen',
+  modificar:  'Pidió modificar la propuesta',
+};
+
+// Días de seguimiento sugeridos según el motivo de "necesito más tiempo"
+function diasSeguimiento(motivo: string | null): number {
+  const m = (motivo ?? '').toLowerCase();
+  if (m.includes('compar'))  return 5;   // comparando presupuestos
+  if (m.includes('cobr'))    return 15;  // esperando cobrar
+  if (m.includes('obra'))    return 30;  // obra sin comenzar
+  return 7;
+}
+
+// POST /pub/presupuesto/:token/responder — respuesta intermedia del cliente (no cambia el estado)
+pub.post('/presupuesto/:token/responder', async (c) => {
+  const { token } = c.req.param();
+  const body = await c.req.json().catch(() => ({})) as any;
+  const tipo: string = body.tipo;
+  const motivo: string | null       = body.motivo || null;
+  const comentario: string | null   = body.comentario || null;
+  const cambios: string[]           = Array.isArray(body.cambios) ? body.cambios : [];
+  const llamadaFecha: string | null = body.llamada_fecha || null;   // 'YYYY-MM-DD'
+  const llamadaHorario: string | null = body.llamada_horario || null; // 'HH:MM' o texto
+
+  if (!RESPUESTA_LABEL[tipo]) {
+    return c.json({ error: 'Tipo de respuesta inválido' }, 400);
+  }
+
+  const { rows: [op] } = await db.query(
+    `SELECT id, cliente_id, estado, numero FROM operaciones
+     WHERE token_acceso = $1
+       AND (token_expira_at IS NULL OR token_expira_at > now())`,
+    [token]
+  );
+
+  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
+  if (['aprobado', 'rechazado', 'cancelado'].includes(op.estado)) {
+    return c.json({ error: `La proforma está en estado "${op.estado}" y no admite esta respuesta` }, 400);
+  }
+
+  // Marca la intención sin tocar estado_operacion; enciende la campanita
+  await db.query(
+    `UPDATE operaciones
+     SET respuesta_cliente = $1, respuesta_cliente_at = now(), notif_leida = false, updated_at = now()
+     WHERE id = $2`,
+    [tipo, op.id]
+  );
+
+  // Descripción legible para la interacción (timeline del cliente)
+  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  const partes: string[] = [`${RESPUESTA_LABEL[tipo]} — Proforma ${proformaNumero}`];
+  if (motivo)              partes.push(`Motivo: ${motivo}`);
+  if (cambios.length)      partes.push(`Cambios pedidos: ${cambios.join(', ')}`);
+  if (llamadaFecha)        partes.push(`Prefiere ${llamadaFecha}${llamadaHorario ? ` ${llamadaHorario}` : ''}`);
+  if (comentario)          partes.push(`Comentario: ${comentario}`);
+  const descripcion = partes.join('. ');
+
+  db.query(
+    `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
+     VALUES ($1, $2, 'respuesta_proforma', $3, NULL)`,
+    [op.cliente_id, op.id, descripcion]
+  ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+
+  // Tarea de seguimiento con fecha sugerida
+  let vencimiento: string;   // 'YYYY-MM-DD'
+  if (tipo === 'llamada' && llamadaFecha) {
+    vencimiento = llamadaFecha;
+  } else {
+    const dias = tipo === 'mas_tiempo' ? diasSeguimiento(motivo) : 2;
+    const d = new Date();
+    d.setDate(d.getDate() + dias);
+    vencimiento = d.toISOString().slice(0, 10);
+  }
+  const tipoAccion = tipo === 'llamada' ? 'llamada' : 'seguimiento';
+  const tareaDesc =
+    tipo === 'llamada'   ? `Llamar al cliente — Proforma ${proformaNumero}${llamadaHorario ? ` (horario: ${llamadaHorario})` : ''}` :
+    tipo === 'consulta'  ? `Responder consulta del cliente — Proforma ${proformaNumero}` :
+    tipo === 'modificar' ? `Ajustar y reenviar proforma — Proforma ${proformaNumero}` :
+                           `Seguimiento de proforma — Proforma ${proformaNumero}`;
+
+  db.query(
+    `INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, hora)
+     VALUES ($1, $2, $3, $4, 'alta', $5, $6)`,
+    [op.cliente_id, op.id, `${tareaDesc}${comentario ? ` — "${comentario}"` : ''}`, vencimiento, tipoAccion,
+     tipo === 'llamada' && llamadaHorario && /^\d{2}:\d{2}/.test(llamadaHorario) ? llamadaHorario : null]
+  ).catch(err => console.error('[crm] Error al registrar tarea:', err));
+
+  return c.json({ ok: true, tipo, seguimiento: vencimiento });
+});
+
 // ─── REMITO PÚBLICO ──────────────────────────────────────────────────────────
 
 // GET /pub/remito/:token — datos del remito para la vista pública

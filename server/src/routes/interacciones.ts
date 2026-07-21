@@ -16,7 +16,7 @@ interacciones.post('/', async (c) => {
   }
 
   const tiposValidos = ['nota','llamada','visita','whatsapp','email',
-    'presupuesto_enviado','operacion_completada','reclamo','garantia'];
+    'presupuesto_enviado','operacion_completada','reclamo','garantia','respuesta_proforma'];
   const tipoFinal = tiposValidos.includes(tipo ?? '') ? tipo! : 'nota';
 
   const { rows: [row] } = await db.query(`

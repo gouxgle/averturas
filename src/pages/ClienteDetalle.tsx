@@ -55,6 +55,7 @@ const TIPO_INTERACCION: Record<TipoInteraccion, { label: string; icon: React.Ele
   operacion_completada: { label: 'Trabajo completado',  icon: CheckCircle2,  color: 'text-teal-600',    bg: 'bg-teal-100' },
   reclamo:              { label: 'Reclamo',             icon: AlertTriangle, color: 'text-red-600',     bg: 'bg-red-100' },
   garantia:             { label: 'Garantía',            icon: Shield,        color: 'text-amber-600',   bg: 'bg-amber-100' },
+  respuesta_proforma:   { label: 'Respuesta del cliente', icon: MessageSquare, color: 'text-sky-600',   bg: 'bg-sky-100' },
 };
 
 const TIPOS_QUICK: TipoInteraccion[] = ['llamada', 'visita', 'whatsapp', 'nota', 'email', 'reclamo'];

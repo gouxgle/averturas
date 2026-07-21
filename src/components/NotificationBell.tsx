@@ -5,9 +5,20 @@ import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 
 interface Notif {
-  id: string; numero: string; aprobado_online_at: string; precio_total: number;
+  id: string; numero: string; precio_total: number;
+  aprobado_online_at: string | null;
+  respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
+  respuesta_cliente_at: string | null;
+  evento_at: string;
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
+
+const RESP_NOTIF: Record<string, { texto: string; color: string; bg: string }> = {
+  mas_tiempo: { texto: 'pidió más tiempo',        color: '#7dd3fc', bg: 'rgba(56,189,248,0.15)' },
+  consulta:   { texto: 'hizo una consulta',       color: '#67e8f9', bg: 'rgba(34,211,238,0.15)' },
+  llamada:    { texto: 'pidió que lo llamen',     color: '#86efac', bg: 'rgba(34,197,94,0.15)' },
+  modificar:  { texto: 'pidió modificar la propuesta', color: '#c4b5fd', bg: 'rgba(139,92,246,0.15)' },
+};
 
 function nombreCliente(c: Notif['cliente']) {
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
@@ -159,7 +170,10 @@ export function NotificationBell() {
                 <p className="text-xs text-white/40">Sin notificaciones pendientes</p>
               </div>
             ) : (
-              notifs.map(n => (
+              notifs.map(n => {
+                const esRespuesta = !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
+                const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
+                return (
                 <button
                   key={n.id}
                   onClick={() => irAPresupuesto(n.id)}
@@ -168,8 +182,8 @@ export function NotificationBell() {
                 >
                   {/* Icono */}
                   <div className="mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: 'rgba(34,197,94,0.15)' }}>
-                    <CheckCircle2 size={16} className="text-emerald-400" />
+                    style={{ backgroundColor: rc ? rc.bg : 'rgba(34,197,94,0.15)' }}>
+                    <CheckCircle2 size={16} style={{ color: rc ? rc.color : '#34d399' }} />
                   </div>
                   {/* Texto */}
                   <div className="flex-1 min-w-0">
@@ -177,19 +191,23 @@ export function NotificationBell() {
                       {nombreCliente(n.cliente)}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }}>
-                      Aprobó el presupuesto <span className="font-mono text-emerald-400">{n.numero}</span>
+                      {rc ? <>{rc.texto} — <span className="font-mono" style={{ color: rc.color }}>{n.numero}</span></>
+                          : <>Aprobó el presupuesto <span className="font-mono text-emerald-400">{n.numero}</span></>}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
-                        {formatCurrency(Number(n.precio_total))}
-                      </span>
+                      {!rc && (
+                        <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
+                          {formatCurrency(Number(n.precio_total))}
+                        </span>
+                      )}
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
-                        {fmtRelativo(n.aprobado_online_at)}
+                        {fmtRelativo(n.evento_at)}
                       </span>
                     </div>
                   </div>
                 </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>

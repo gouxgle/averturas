@@ -39,6 +39,8 @@ interface PresupuestoPanel {
   link_enviado: boolean;
   enviado_wa_at: string | null;
   pendiente_envio: boolean;
+  respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
+  respuesta_cliente_at: string | null;
   motivo_rechazo: string | null;
   dias_vencido: number | null;
   dias_hasta_vencimiento: number | null;
@@ -84,6 +86,7 @@ interface PedidoResumen {
 interface OpDetalle {
   id: string; numero: string; tipo: string; estado: EstadoOperacion;
   enviado_wa_at: string | null;
+  respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
   tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
@@ -126,6 +129,13 @@ const ESTADO_COLOR: Record<string, string> = {
   cancelado:     'bg-red-100 text-red-700',
   en_produccion: 'bg-amber-100 text-amber-700',
   listo:         'bg-teal-100 text-teal-700',
+};
+
+const RESPUESTA_CLIENTE: Record<string, { label: string; cls: string }> = {
+  mas_tiempo: { label: '⏳ Pidió más tiempo', cls: 'bg-sky-50 text-sky-700 border border-sky-200' },
+  consulta:   { label: '💬 Consulta',         cls: 'bg-cyan-50 text-cyan-700 border border-cyan-200' },
+  llamada:    { label: '📞 Pidió llamado',    cls: 'bg-green-50 text-green-700 border border-green-200' },
+  modificar:  { label: '✏️ Pidió cambios',    cls: 'bg-violet-50 text-violet-700 border border-violet-200' },
 };
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -364,6 +374,11 @@ function PresupuestoModal({
                 {op && !op.enviado_wa_at && !['aprobado', 'cancelado', 'rechazado'].includes(op.estado) && (
                   <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-orange-50 text-orange-700 border border-orange-200">
                     ✉ Pendiente de envío
+                  </span>
+                )}
+                {op && op.respuesta_cliente && RESPUESTA_CLIENTE[op.respuesta_cliente] && op.estado !== 'aprobado' && (
+                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-semibold', RESPUESTA_CLIENTE[op.respuesta_cliente].cls)}>
+                    {RESPUESTA_CLIENTE[op.respuesta_cliente].label}
                   </span>
                 )}
               </div>
@@ -1032,6 +1047,13 @@ export function Presupuestos() {
                         {/* Estado + cobro + prioridad */}
                         <div className="space-y-1">
                           {estadoBadge}
+                          {p.respuesta_cliente && RESPUESTA_CLIENTE[p.respuesta_cliente] && !isAprobadoOnline && (
+                            <div>
+                              <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold', RESPUESTA_CLIENTE[p.respuesta_cliente].cls)}>
+                                {RESPUESTA_CLIENTE[p.respuesta_cliente].label}
+                              </span>
+                            </div>
+                          )}
                           {cobroBadge && <div>{cobroBadge}</div>}
                           {['presupuesto','enviado'].includes(p.estado) && (
                             <div className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', prio.bg, prio.text)}>

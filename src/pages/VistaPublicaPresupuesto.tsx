@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import {
   CheckCircle2, AlertTriangle, Clock, Loader2,
   Phone, Mail, MapPin, Package, Truck, Shield, X, ScrollText,
+  MessageCircle, Pencil, ChevronRight, ArrowLeft, CalendarClock,
 } from 'lucide-react';
 
 const NAVY  = '#031d49';
@@ -37,16 +38,35 @@ interface Presupuesto {
 }
 type Estado =
   | 'loading' | 'not_found' | 'error' | 'data'
+  | 'menu'
+  | 'form_mas_tiempo' | 'form_consulta' | 'form_llamada' | 'form_modificar'
+  | 'respondiendo' | 'respondido'
   | 'encuesta' | 'rechazando' | 'rechazado' | 'ya_rechazado'
   | 'aprobando' | 'aprobado' | 'ya_aprobado';
 
+// Motivos de "No voy a avanzar" (rechazo definitivo)
 const MOTIVOS = [
   'El precio no me cierra',
-  'Necesito modificar medidas / productos',
-  'Quiero pensarlo unos días',
   'Ya compré en otro lugar',
-  'Necesito otra forma de pago',
+  'Cancelé la obra',
+  'No era lo que buscaba',
   'Otro motivo',
+];
+
+// Motivos de "Necesito más tiempo" — definen la fecha de seguimiento sugerida
+const MOTIVOS_TIEMPO = [
+  'Estoy comparando presupuestos',
+  'Necesito consultarlo',
+  'Espero cobrar',
+  'La obra todavía no comenzó',
+  'Todavía no lo decidí',
+  'Quiero retomarlo más adelante',
+];
+
+// Opciones de "Quiero modificar la propuesta"
+const CAMBIOS = [
+  'Cambiar medidas', 'Cambiar color', 'Cambiar vidrio', 'Cambiar sistema',
+  'Cambiar cantidad', 'Una opción más económica', 'Agregar productos', 'Quitar productos',
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -110,6 +130,33 @@ function WaIcon() {
   );
 }
 
+// ── Wrapper de pantalla de formulario de intención ────────────────────────────
+function FormWrap({ Icon, color, titulo, sub, onBack, children }: {
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
+  color: string; titulo: string; sub: string;
+  onBack: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6">
+        <div className="text-center mb-5">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+            style={{ background: `${color}18`, color }}>
+            <Icon size={22} />
+          </div>
+          <h2 className="text-lg font-bold text-gray-800">{titulo}</h2>
+          <p className="text-sm text-gray-400 mt-1">{sub}</p>
+        </div>
+        {children}
+        <button onClick={onBack}
+          className="w-full mt-2 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+          <ArrowLeft size={14} /> Volver
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export function VistaPublicaPresupuesto() {
   const { token } = useParams<{ token: string }>();
@@ -119,6 +166,11 @@ export function VistaPublicaPresupuesto() {
   const [motivoSel, setMotivoSel] = useState<string | null>(null);
   const [comentario, setComentario] = useState('');
   const [showTerminos, setShowTerminos] = useState(false);
+  // Estado de las respuestas intermedias
+  const [cambiosSel, setCambiosSel]   = useState<string[]>([]);
+  const [llamadaFecha, setLlamadaFecha]     = useState('');
+  const [llamadaHorario, setLlamadaHorario] = useState('');
+  const [respTipo, setRespTipo] = useState<'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null>(null);
 
   useEffect(() => {
     if (!token) { setEstado('not_found'); return; }
@@ -156,6 +208,29 @@ export function VistaPublicaPresupuesto() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? 'Error');
       setEstado('rechazado');
+    } catch (e) { setErrMsg(String(e)); setEstado('error'); }
+  }
+
+  async function responder(tipo: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar') {
+    if (!token) return;
+    setRespTipo(tipo);
+    setEstado('respondiendo');
+    try {
+      const r = await fetch(`/api/pub/presupuesto/${token}/responder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo,
+          motivo:          tipo === 'mas_tiempo' ? motivoSel : null,
+          comentario:      comentario.trim() || null,
+          cambios:         tipo === 'modificar' ? cambiosSel : [],
+          llamada_fecha:   tipo === 'llamada' ? (llamadaFecha || null) : null,
+          llamada_horario: tipo === 'llamada' ? (llamadaHorario.trim() || null) : null,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Error');
+      setEstado('respondido');
     } catch (e) { setErrMsg(String(e)); setEstado('error'); }
   }
 
@@ -273,7 +348,188 @@ export function VistaPublicaPresupuesto() {
     </div>
   );
 
-  // ── Pantalla de encuesta ──────────────────────────────────────────────────
+  // ── Confirmación de respuesta intermedia ─────────────────────────────────
+  if (estado === 'respondido') {
+    const msg = respTipo === 'llamada'
+      ? 'Recibimos tu pedido de llamado. Te contactamos en el horario que indicaste.'
+      : respTipo === 'consulta'
+        ? 'Recibimos tu consulta. Un asesor te responde a la brevedad.'
+        : respTipo === 'modificar'
+          ? 'Recibimos tu pedido de cambios. Preparamos una propuesta ajustada y te la reenviamos.'
+          : 'Recibimos tu respuesta. Nos ponemos en contacto para acompañarte en tu decisión.';
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden max-w-sm w-full text-center">
+          <div className="px-6 py-8 flex flex-col items-center" style={{ background: NAVY }}>
+            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-4">
+              <CheckCircle2 size={36} className="text-white" />
+            </div>
+            <h2 className="text-white font-bold text-xl">¡Gracias por tu respuesta!</h2>
+            <p className="text-blue-200 text-sm mt-1">{pres?.numero}</p>
+          </div>
+          <div className="px-6 py-6">
+            <p className="text-sm text-gray-600 leading-relaxed">{msg}</p>
+            {waLink(pres?.empresa?.telefono ?? null) && (
+              <a href={waLink(pres!.empresa.telefono)!} target="_blank" rel="noopener noreferrer"
+                className="mt-5 flex items-center justify-center gap-2 w-full py-3 text-white rounded-xl text-sm font-semibold"
+                style={{ background: '#25D366' }}>
+                <WaIcon /> Escribinos por WhatsApp
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Menú de intención (2do nivel del CTA) ─────────────────────────────────
+  if (estado === 'menu') {
+    const opciones = [
+      { key: 'form_mas_tiempo', Icon: Clock,        color: '#0284c7', titulo: 'Necesito más tiempo',       sub: 'Todavía lo estoy pensando' },
+      { key: 'form_modificar',  Icon: Pencil,       color: '#7c3aed', titulo: 'Quiero modificar la propuesta', sub: 'Cambiar medidas, color, cantidad…' },
+      { key: 'form_consulta',   Icon: MessageCircle,color: '#0891b2', titulo: 'Tengo una consulta',        sub: 'Escribinos tu duda' },
+      { key: 'form_llamada',    Icon: Phone,        color: '#16a34a', titulo: 'Quiero que me llamen',      sub: 'Elegí día y horario' },
+      { key: 'encuesta',        Icon: X,            color: '#e31e24', titulo: 'No voy a avanzar',          sub: 'Prefiero no continuar' },
+    ] as const;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6">
+          <div className="text-center mb-5">
+            <h2 className="text-lg font-bold text-gray-800">¿Cómo querés continuar?</h2>
+            <p className="text-sm text-gray-400 mt-1">Elegí la opción que mejor te represente</p>
+          </div>
+          <div className="space-y-2.5">
+            {opciones.map(({ key, Icon, color, titulo, sub }) => (
+              <button key={key} onClick={() => { setMotivoSel(null); setComentario(''); setEstado(key as Estado); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: `${color}18`, color }}>
+                  <Icon size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-800">{titulo}</p>
+                  <p className="text-xs text-gray-400">{sub}</p>
+                </div>
+                <ChevronRight size={16} className="text-gray-300 shrink-0" />
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setEstado('data')}
+            className="w-full mt-4 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+            <ArrowLeft size={14} /> Volver al presupuesto
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Form: Necesito más tiempo ─────────────────────────────────────────────
+  if (estado === 'form_mas_tiempo' || (estado === 'respondiendo' && respTipo === 'mas_tiempo')) {
+    const enviando = estado === 'respondiendo';
+    return (
+      <FormWrap Icon={Clock} color="#0284c7" titulo="Necesito más tiempo"
+        sub="¿Qué te está frenando? Nos ayuda a acompañarte mejor" onBack={() => setEstado('menu')}>
+        <div className="grid grid-cols-1 gap-2 mb-4">
+          {MOTIVOS_TIEMPO.map(m => (
+            <button key={m} onClick={() => setMotivoSel(m)}
+              className={`text-left px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                motivoSel === m ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+              }`}>
+              {motivoSel === m && <span className="mr-1">✓</span>}{m}
+            </button>
+          ))}
+        </div>
+        <textarea value={comentario} onChange={e => setComentario(e.target.value)}
+          placeholder="Comentario (opcional)" rows={2}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-sky-200 mb-4" />
+        <button onClick={() => responder('mas_tiempo')} disabled={!motivoSel || enviando}
+          className="w-full py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ background: '#0284c7' }}>
+          {enviando ? <Loader2 size={15} className="animate-spin" /> : null}{enviando ? 'Enviando...' : 'Enviar respuesta'}
+        </button>
+      </FormWrap>
+    );
+  }
+
+  // ── Form: Tengo una consulta ──────────────────────────────────────────────
+  if (estado === 'form_consulta' || (estado === 'respondiendo' && respTipo === 'consulta')) {
+    const enviando = estado === 'respondiendo';
+    return (
+      <FormWrap Icon={MessageCircle} color="#0891b2" titulo="Tengo una consulta"
+        sub="Escribinos tu duda y te respondemos a la brevedad" onBack={() => setEstado('menu')}>
+        <textarea value={comentario} onChange={e => setComentario(e.target.value)}
+          placeholder="Escribí tu consulta…" rows={4} autoFocus
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-200 mb-4" />
+        <button onClick={() => responder('consulta')} disabled={!comentario.trim() || enviando}
+          className="w-full py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ background: '#0891b2' }}>
+          {enviando ? <Loader2 size={15} className="animate-spin" /> : null}{enviando ? 'Enviando...' : 'Enviar consulta'}
+        </button>
+      </FormWrap>
+    );
+  }
+
+  // ── Form: Quiero que me llamen ────────────────────────────────────────────
+  if (estado === 'form_llamada' || (estado === 'respondiendo' && respTipo === 'llamada')) {
+    const enviando = estado === 'respondiendo';
+    return (
+      <FormWrap Icon={Phone} color="#16a34a" titulo="Quiero que me llamen"
+        sub="Elegí cuándo te viene bien y te contactamos" onBack={() => setEstado('menu')}>
+        <label className="block text-xs font-semibold text-gray-500 mb-1">Día preferido</label>
+        <input type="date" value={llamadaFecha} onChange={e => setLlamadaFecha(e.target.value)}
+          min={new Date().toISOString().slice(0, 10)}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-200 mb-3" />
+        <label className="block text-xs font-semibold text-gray-500 mb-1">Franja horaria</label>
+        <select value={llamadaHorario} onChange={e => setLlamadaHorario(e.target.value)}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-200 mb-3">
+          <option value="">Cualquier horario</option>
+          <option value="Mañana (9 a 12 hs)">Mañana (9 a 12 hs)</option>
+          <option value="Mediodía (12 a 15 hs)">Mediodía (12 a 15 hs)</option>
+          <option value="Tarde (15 a 19 hs)">Tarde (15 a 19 hs)</option>
+        </select>
+        <textarea value={comentario} onChange={e => setComentario(e.target.value)}
+          placeholder="Comentario (opcional)" rows={2}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-green-200 mb-4" />
+        <button onClick={() => responder('llamada')} disabled={enviando}
+          className="w-full py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ background: '#16a34a' }}>
+          {enviando ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} />}{enviando ? 'Enviando...' : 'Pedir llamado'}
+        </button>
+      </FormWrap>
+    );
+  }
+
+  // ── Form: Quiero modificar la propuesta ───────────────────────────────────
+  if (estado === 'form_modificar' || (estado === 'respondiendo' && respTipo === 'modificar')) {
+    const enviando = estado === 'respondiendo';
+    const toggleCambio = (c: string) =>
+      setCambiosSel(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+    return (
+      <FormWrap Icon={Pencil} color="#7c3aed" titulo="Quiero modificar la propuesta"
+        sub="Marcá qué querés cambiar y te reenviamos una nueva versión" onBack={() => setEstado('menu')}>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {CAMBIOS.map(c => (
+            <button key={c} onClick={() => toggleCambio(c)}
+              className={`text-left px-3 py-2.5 rounded-xl border text-xs font-medium transition-all leading-snug ${
+                cambiosSel.includes(c) ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+              }`}>
+              {cambiosSel.includes(c) && <span className="mr-1">✓</span>}{c}
+            </button>
+          ))}
+        </div>
+        <textarea value={comentario} onChange={e => setComentario(e.target.value)}
+          placeholder="Contanos qué necesitás cambiar…" rows={3}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-violet-200 mb-4" />
+        <button onClick={() => responder('modificar')} disabled={(cambiosSel.length === 0 && !comentario.trim()) || enviando}
+          className="w-full py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ background: '#7c3aed' }}>
+          {enviando ? <Loader2 size={15} className="animate-spin" /> : null}{enviando ? 'Enviando...' : 'Pedir cambios'}
+        </button>
+      </FormWrap>
+    );
+  }
+
+  // ── Pantalla de encuesta (No voy a avanzar) ───────────────────────────────
   if (estado === 'encuesta' || estado === 'rechazando') return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6">
@@ -282,7 +538,7 @@ export function VistaPublicaPresupuesto() {
             style={{ background: `${RED}18` }}>
             <X size={22} style={{ color: RED }} />
           </div>
-          <h2 className="text-lg font-bold text-gray-800">¿Por qué no aceptás la proforma?</h2>
+          <h2 className="text-lg font-bold text-gray-800">¿Por qué no vas a avanzar?</h2>
           <p className="text-sm text-gray-400 mt-1">Tu opinión nos ayuda a mejorar</p>
         </div>
 
@@ -315,9 +571,9 @@ export function VistaPublicaPresupuesto() {
           {estado === 'rechazando' ? 'Enviando...' : 'Enviar respuesta'}
         </button>
 
-        <button onClick={() => { setMotivoSel(null); setComentario(''); setEstado('data'); }}
-          className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
-          ← Volver al presupuesto
+        <button onClick={() => { setMotivoSel(null); setComentario(''); setEstado('menu'); }}
+          className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+          <ArrowLeft size={14} /> Volver
         </button>
       </div>
     </div>
@@ -641,38 +897,33 @@ export function VistaPublicaPresupuesto() {
               Esta proforma venció. Solicitá una nueva cotización.
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Acepto */}
+            <div className="flex flex-col gap-3">
+              {/* Nivel 1 — CTA principal, baja fricción al sí */}
               <button onClick={aprobar} disabled={estado === 'aprobando'}
-                className="flex-1 py-4 rounded-xl text-white font-bold text-sm flex flex-col items-center justify-center gap-0.5 disabled:opacity-60 transition-all"
-                style={{ background: GREEN, boxShadow: '0 4px 14px rgba(22,163,74,0.30)' }}>
-                <span className="flex items-center gap-1.5">
+                className="w-full py-4 rounded-xl text-white font-bold text-base flex flex-col items-center justify-center gap-0.5 disabled:opacity-60 transition-all"
+                style={{ background: GREEN, boxShadow: '0 6px 18px rgba(22,163,74,0.32)' }}>
+                <span className="flex items-center gap-2">
                   {estado === 'aprobando'
-                    ? <Loader2 size={15} className="animate-spin" />
-                    : <CheckCircle2 size={15} />}
-                  {estado === 'aprobando' ? 'Procesando...' : 'ACEPTO LA PROFORMA'}
+                    ? <Loader2 size={17} className="animate-spin" />
+                    : <CheckCircle2 size={17} />}
+                  {estado === 'aprobando' ? 'Procesando...' : 'QUIERO AVANZAR'}
                 </span>
                 <span className="text-green-200 text-xs font-normal">
-                  Leí y acepto los términos y condiciones
+                  Acepto la proforma y los términos y condiciones
                 </span>
               </button>
 
-              {/* No acepto */}
-              <button onClick={() => setEstado('encuesta')}
-                className="flex-1 py-4 rounded-xl text-white font-bold text-sm flex flex-col items-center justify-center gap-0.5 transition-all"
-                style={{ background: RED, boxShadow: '0 4px 14px rgba(227,30,36,0.25)' }}>
-                <span className="flex items-center gap-1.5">
-                  <X size={15} /> NO ACEPTO LA PROFORMA
-                </span>
-                <span className="text-red-200 text-xs font-normal">
-                  Quiero modificar / No estoy conforme
-                </span>
+              {/* Nivel 2 — respuesta matizada, secundario */}
+              <button onClick={() => setEstado('menu')}
+                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all">
+                Todavía no / Tengo otra respuesta
+                <ChevronRight size={16} className="text-gray-400" />
               </button>
             </div>
           )}
 
           <p className="text-center text-xs text-gray-400 mt-3">
-            Si tenés consultas, comunicate con nosotros antes de decidir.
+            ¿Dudas? Elegí "Tengo otra respuesta" y contanos cómo seguir.
           </p>
         </div>
 

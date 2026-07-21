@@ -262,6 +262,7 @@ operaciones.get('/ventas-panel', async (c) => {
         o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo,
         (o.token_acceso IS NOT NULL) AS link_enviado,
         o.enviado_wa_at,
+        o.respuesta_cliente, o.respuesta_cliente_at,
         (o.enviado_wa_at IS NULL AND o.estado IN ('presupuesto','enviado')) AS pendiente_envio,
         EXTRACT(DAY FROM now() - o.fecha_validez)::int                         AS dias_vencido,
         EXTRACT(DAY FROM o.fecha_validez - now())::int                         AS dias_hasta_vencimiento,

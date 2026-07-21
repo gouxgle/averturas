@@ -31,7 +31,7 @@ export interface CategoriaCliente {
 }
 
 export type EstadoCliente = 'prospecto' | 'activo' | 'recurrente' | 'inactivo' | 'perdido';
-export type TipoInteraccion = 'nota' | 'llamada' | 'visita' | 'whatsapp' | 'email' | 'presupuesto_enviado' | 'operacion_completada' | 'reclamo' | 'garantia';
+export type TipoInteraccion = 'nota' | 'llamada' | 'visita' | 'whatsapp' | 'email' | 'presupuesto_enviado' | 'operacion_completada' | 'reclamo' | 'garantia' | 'respuesta_proforma';
 export type PrioridadTarea = 'alta' | 'normal' | 'baja';
 
 export interface Cliente {
@@ -204,6 +204,7 @@ export interface Producto {
   color: string | null;
   stock_inicial: number;
   stock_minimo: number;
+  stock_actual: number;
   proveedor_id: string | null;
   proveedor?: Proveedor;
   imagen_url: string | null;
