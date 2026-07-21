@@ -440,15 +440,6 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               )}
             </FieldCard>
 
-            <FieldCard title="Hoja principal" complete={Boolean(atributos.hoja_principal)}>
-              <div className="flex flex-col gap-1.5">
-                {[{ v: 'izquierda', l: '← Izquierda' }, { v: 'derecha', l: 'Derecha →' }].map(o => (
-                  <button key={o.v} type="button" onClick={() => setAttr('hoja_principal', o.v)} className={btn(atributos.hoja_principal === o.v)}>
-                    {o.l}
-                  </button>
-                ))}
-              </div>
-            </FieldCard>
           </div>
         </>
       )}
@@ -579,6 +570,15 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               <div className="grid grid-cols-2 gap-1.5">
                 {APERTURA.map(o => (
                   <button key={o.v} type="button" onClick={() => setAttr('apertura', o.v)} className={btn(atributos.apertura === o.v)}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            </FieldCard>
+            <FieldCard title="Sentido de apertura" complete={Boolean(atributos.hoja_principal)}>
+              <div className="flex flex-col gap-1.5">
+                {[{ v: 'izquierda', l: '← Izquierda' }, { v: 'derecha', l: 'Derecha →' }].map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('hoja_principal', o.v)} className={btn(atributos.hoja_principal === o.v)}>
                     {o.l}
                   </button>
                 ))}
