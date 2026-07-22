@@ -38,10 +38,10 @@ recibos.post('/upload-comprobante', async (c) => {
 async function nextNumero(): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
   const { rows } = await db.query(
-    `SELECT COUNT(*) AS n FROM recibos WHERE numero LIKE $1`,
+    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
     [`REC-${ym}-%`]
   );
-  const n = parseInt((rows[0] as { n: string }).n) + 1;
+  const n = Number((rows[0] as { n: number }).n) + 1;
   return `REC-${ym}-${String(n).padStart(4, '0')}`;
 }
 

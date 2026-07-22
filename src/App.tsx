@@ -21,6 +21,10 @@ const Productos                = lazy(() => import('@/pages/Productos').then(m =
 const NuevoProducto            = lazy(() => import('@/pages/NuevoProducto').then(m => ({ default: m.NuevoProducto })));
 const Presupuestos             = lazy(() => import('@/pages/Presupuestos').then(m => ({ default: m.Presupuestos })));
 const NuevoPresupuesto         = lazy(() => import('@/pages/NuevoPresupuesto').then(m => ({ default: m.NuevoPresupuesto })));
+const VentaRapida              = lazy(() => import('@/pages/VentaRapida').then(m => ({ default: m.VentaRapida })));
+const VisitaTecnica            = lazy(() => import('@/pages/VisitaTecnica').then(m => ({ default: m.VisitaTecnica })));
+const VisitasTecnicas          = lazy(() => import('@/pages/VisitasTecnicas').then(m => ({ default: m.VisitasTecnicas })));
+const CargarVisitaTecnica      = lazy(() => import('@/pages/CargarVisitaTecnica').then(m => ({ default: m.CargarVisitaTecnica })));
 const Proveedores              = lazy(() => import('@/pages/Proveedores').then(m => ({ default: m.Proveedores })));
 const ProveedorPrecios         = lazy(() => import('@/pages/ProveedorPrecios').then(m => ({ default: m.ProveedorPrecios })));
 const Remitos                  = lazy(() => import('@/pages/Remitos').then(m => ({ default: m.Remitos })));
@@ -36,6 +40,7 @@ const ImprimirPresupuesto      = lazy(() => import('@/pages/print/ImprimirPresup
 const ImprimirRemito           = lazy(() => import('@/pages/print/ImprimirRemito').then(m => ({ default: m.ImprimirRemito })));
 const ImprimirRecibo           = lazy(() => import('@/pages/print/ImprimirRecibo').then(m => ({ default: m.ImprimirRecibo })));
 const FormularioCliente        = lazy(() => import('@/pages/print/FormularioCliente').then(m => ({ default: m.FormularioCliente })));
+const ImprimirVisitaTecnica    = lazy(() => import('@/pages/print/ImprimirVisitaTecnica').then(m => ({ default: m.ImprimirVisitaTecnica })));
 const VistaPublicaPresupuesto  = lazy(() => import('@/pages/VistaPublicaPresupuesto').then(m => ({ default: m.VistaPublicaPresupuesto })));
 const VistaPublicaRemito       = lazy(() => import('@/pages/VistaPublicaRemito').then(m => ({ default: m.VistaPublicaRemito })));
 
@@ -68,6 +73,7 @@ export default function App() {
                 <Route path="/imprimir/remito/:id"       element={<ImprimirRemito />} />
                 <Route path="/imprimir/recibo/:id"       element={<ImprimirRecibo />} />
                 <Route path="/imprimir/formulario-cliente" element={<FormularioCliente />} />
+                <Route path="/imprimir/visita-tecnica"     element={<ImprimirVisitaTecnica />} />
                 <Route element={<AppLayout />}>
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
@@ -83,7 +89,11 @@ export default function App() {
                   <Route path="/crm" element={<CRM />} />
                   <Route path="/presupuestos" element={<Presupuestos />} />
                   <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />
+                  <Route path="/presupuestos/visita-tecnica" element={<VisitaTecnica />} />
+                  <Route path="/presupuestos/visitas-tecnicas" element={<VisitasTecnicas />} />
+                  <Route path="/presupuestos/visitas-tecnicas/:id" element={<CargarVisitaTecnica />} />
                   <Route path="/presupuestos/:id/editar" element={<NuevoPresupuesto />} />
+                  <Route path="/ventas/rapida" element={<VentaRapida />} />
                   <Route path="/productos" element={<Productos />} />
                   <Route path="/productos/nuevo" element={<NuevoProducto />} />
                   <Route path="/productos/:id" element={<NuevoProducto />} />

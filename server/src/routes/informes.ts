@@ -33,15 +33,28 @@ informes.get('/resumen', async (c) => {
     objetivoResult,
     descuentosResult,
     topClientesDescuentoResult,
+    remitosRecientesResult,
+    recibosRecientesResult,
   ] = await Promise.all([
 
-    // 1. KPIs principales (período actual)
+    // 1. KPIs principales (período actual) — "ventas" = remitos entregados en el período
+    // (no aprobación): recién cuenta como venta cuando efectivamente se entregó, incluye venta rápida.
     db.query(`
       SELECT
         (SELECT COALESCE(SUM(o.precio_total), 0)::numeric
-         FROM estados_historial eh JOIN operaciones o ON o.id = eh.operacion_id
-         WHERE eh.estado_nuevo = 'aprobado' AND eh.created_at::date BETWEEN $1::date AND $2::date
+         FROM remitos rem JOIN operaciones o ON o.id = rem.operacion_id
+         WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
         ) AS ventas_periodo,
+        (SELECT COUNT(*)::int
+         FROM remitos rem JOIN operaciones o ON o.id = rem.operacion_id
+         WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
+           AND o.es_venta_rapida = true
+        ) AS ventas_rapidas_cant,
+        (SELECT COALESCE(SUM(o.precio_total), 0)::numeric
+         FROM remitos rem JOIN operaciones o ON o.id = rem.operacion_id
+         WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
+           AND o.es_venta_rapida = true
+        ) AS ventas_rapidas_monto,
         (SELECT COALESCE(SUM(monto_total), 0)::numeric FROM recibos
          WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
         ) AS cobrado_periodo,
@@ -61,41 +74,41 @@ informes.get('/resumen', async (c) => {
     db.query(`
       SELECT
         (SELECT COALESCE(SUM(o.precio_total), 0)::numeric
-         FROM estados_historial eh JOIN operaciones o ON o.id = eh.operacion_id
-         WHERE eh.estado_nuevo = 'aprobado' AND eh.created_at::date BETWEEN $1::date AND $2::date
+         FROM remitos rem JOIN operaciones o ON o.id = rem.operacion_id
+         WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
         ) AS ventas_periodo,
         (SELECT COALESCE(SUM(monto_total), 0)::numeric FROM recibos
          WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
         ) AS cobrado_periodo
     `, [desdePrev, hastaPrev]),
 
-    // 3. Evolución diaria actual (para chart)
+    // 3. Evolución diaria actual (para chart) — por fecha de entrega del remito
     db.query(`
-      WITH aprobaciones AS (
-        SELECT DISTINCT ON (o.id) o.id, eh.created_at::date AS fecha, o.precio_total
-        FROM estados_historial eh
-        JOIN operaciones o ON o.id = eh.operacion_id
-        WHERE eh.estado_nuevo = 'aprobado' AND eh.created_at::date BETWEEN $1::date AND $2::date
-        ORDER BY o.id, eh.created_at ASC
+      WITH entregas AS (
+        SELECT DISTINCT ON (o.id) o.id, rem.fecha_entrega_real AS fecha, o.precio_total
+        FROM remitos rem
+        JOIN operaciones o ON o.id = rem.operacion_id
+        WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
+        ORDER BY o.id, rem.fecha_entrega_real ASC
       )
       SELECT gs::date AS fecha, COALESCE(SUM(a.precio_total), 0)::numeric AS ventas
       FROM generate_series($1::date, $2::date, '1 day'::interval) gs
-      LEFT JOIN aprobaciones a ON a.fecha = gs::date
+      LEFT JOIN entregas a ON a.fecha = gs::date
       GROUP BY gs ORDER BY gs
     `, [desde, hasta]),
 
     // 4. Evolución diaria período anterior
     db.query(`
-      WITH aprobaciones AS (
-        SELECT DISTINCT ON (o.id) o.id, eh.created_at::date AS fecha, o.precio_total
-        FROM estados_historial eh
-        JOIN operaciones o ON o.id = eh.operacion_id
-        WHERE eh.estado_nuevo = 'aprobado' AND eh.created_at::date BETWEEN $1::date AND $2::date
-        ORDER BY o.id, eh.created_at ASC
+      WITH entregas AS (
+        SELECT DISTINCT ON (o.id) o.id, rem.fecha_entrega_real AS fecha, o.precio_total
+        FROM remitos rem
+        JOIN operaciones o ON o.id = rem.operacion_id
+        WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
+        ORDER BY o.id, rem.fecha_entrega_real ASC
       )
       SELECT gs::date AS fecha, COALESCE(SUM(a.precio_total), 0)::numeric AS ventas
       FROM generate_series($1::date, $2::date, '1 day'::interval) gs
-      LEFT JOIN aprobaciones a ON a.fecha = gs::date
+      LEFT JOIN entregas a ON a.fecha = gs::date
       GROUP BY gs ORDER BY gs
     `, [desdePrev, hastaPrev]),
 
@@ -123,7 +136,7 @@ informes.get('/resumen', async (c) => {
         ) AS dias_promedio_cobro
     `, [desde, hasta]),
 
-    // 7. Top tipos abertura por ventas en el período
+    // 7. Top tipos abertura por ventas en el período (remitos entregados)
     db.query(`
       SELECT
         COALESCE(ta.nombre, 'Sin clasificar') AS tipo,
@@ -132,11 +145,11 @@ informes.get('/resumen', async (c) => {
           + CASE WHEN oi.incluye_instalacion THEN COALESCE(oi.precio_instalacion,0) * oi.cantidad ELSE 0 END
         ), 0)::numeric AS monto_total,
         COALESCE(SUM(oi.cantidad), 0)::int AS cant_total
-      FROM estados_historial eh
-      JOIN operaciones o ON o.id = eh.operacion_id
+      FROM remitos rem
+      JOIN operaciones o ON o.id = rem.operacion_id
       JOIN operacion_items oi ON oi.operacion_id = o.id
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
-      WHERE eh.estado_nuevo = 'aprobado' AND eh.created_at::date BETWEEN $1::date AND $2::date
+      WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
       GROUP BY ta.nombre
       ORDER BY monto_total DESC
       LIMIT 5
@@ -193,16 +206,16 @@ informes.get('/resumen', async (c) => {
       WHERE l.fecha_ingreso::date BETWEEN $1::date AND $2::date
     `, [desde, hasta]),
 
-    // 11. Top clientes
+    // 11. Top clientes (por remitos entregados en el período)
     db.query(`
       SELECT
         c.id, c.nombre, c.apellido, c.razon_social,
         COALESCE(SUM(o.precio_total), 0)::numeric AS total_ventas,
         COUNT(DISTINCT o.id)::int AS cant_ops
-      FROM estados_historial eh
-      JOIN operaciones o ON o.id = eh.operacion_id
+      FROM remitos rem
+      JOIN operaciones o ON o.id = rem.operacion_id
       JOIN clientes c ON c.id = o.cliente_id
-      WHERE eh.estado_nuevo = 'aprobado' AND eh.created_at::date BETWEEN $1::date AND $2::date
+      WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
       GROUP BY c.id, c.nombre, c.apellido, c.razon_social
       ORDER BY total_ventas DESC
       LIMIT 5
@@ -252,6 +265,31 @@ informes.get('/resumen', async (c) => {
       ORDER BY total_descuento DESC
       LIMIT 5
     `, [desde, hasta]),
+
+    // 16. Remitos emitidos en el período (listado compacto, últimos primero)
+    db.query(`
+      SELECT r.id, r.numero, r.estado, r.fecha_emision, r.fecha_entrega_real,
+        COALESCE(o.precio_total, 0)::numeric AS monto,
+        o.es_venta_rapida,
+        cl.tipo_persona, cl.nombre AS cliente_nombre, cl.apellido AS cliente_apellido, cl.razon_social AS cliente_razon_social
+      FROM remitos r
+      LEFT JOIN operaciones o ON o.id = r.operacion_id
+      JOIN clientes cl ON cl.id = r.cliente_id
+      WHERE r.fecha_emision BETWEEN $1::date AND $2::date AND r.estado != 'cancelado'
+      ORDER BY r.fecha_emision DESC, r.created_at DESC
+      LIMIT 10
+    `, [desde, hasta]),
+
+    // 17. Recibos emitidos en el período (listado compacto, últimos primero)
+    db.query(`
+      SELECT rec.id, rec.numero, rec.monto_total, rec.forma_pago, rec.fecha,
+        cl.tipo_persona, cl.nombre AS cliente_nombre, cl.apellido AS cliente_apellido, cl.razon_social AS cliente_razon_social
+      FROM recibos rec
+      JOIN clientes cl ON cl.id = rec.cliente_id
+      WHERE rec.fecha BETWEEN $1::date AND $2::date AND rec.estado = 'emitido'
+      ORDER BY rec.fecha DESC, rec.created_at DESC
+      LIMIT 10
+    `, [desde, hasta]),
   ]);
 
   const pct = (cur: number, prev: number) =>
@@ -290,6 +328,10 @@ informes.get('/resumen', async (c) => {
   const objetivo_ventas    = Number(objetivoResult.rows[0]?.objetivo ?? 0);
   const cumplimiento_obj   = objetivo_ventas > 0 ? Math.round(ventas_periodo / objetivo_ventas * 100) : 0;
 
+  const nombreCliente = (r: any) => r.tipo_persona === 'juridica'
+    ? (r.cliente_razon_social || '—')
+    : [r.cliente_apellido, r.cliente_nombre].filter(Boolean).join(' ') || '—';
+
   // Alertas dinámicas
   const alertas: Array<{ tipo: string; mensaje: string; accion: string; ruta: string }> = [];
 
@@ -319,6 +361,8 @@ informes.get('/resumen', async (c) => {
       stock_critico:        Number(stats?.stock_critico     ?? 0),
       entregas_atrasadas:   Number(stats?.entregas_atrasadas ?? 0),
       tasa_cierre,
+      ventas_rapidas_cant:  Number(stats?.ventas_rapidas_cant  ?? 0),
+      ventas_rapidas_monto: Number(stats?.ventas_rapidas_monto ?? 0),
     },
     evolucion,
     comercial: {
@@ -389,6 +433,18 @@ informes.get('/resumen', async (c) => {
         cant_recibos:    r.cant_recibos,
       })),
     },
+    remitos_recientes: remitosRecientesResult.rows.map((r: any) => ({
+      id: r.id, numero: r.numero, estado: r.estado,
+      fecha_emision: String(r.fecha_emision).slice(0, 10),
+      fecha_entrega_real: r.fecha_entrega_real ? String(r.fecha_entrega_real).slice(0, 10) : null,
+      monto: Number(r.monto), es_venta_rapida: r.es_venta_rapida ?? false,
+      cliente_nombre: nombreCliente(r),
+    })),
+    recibos_recientes: recibosRecientesResult.rows.map((r: any) => ({
+      id: r.id, numero: r.numero, monto_total: Number(r.monto_total),
+      forma_pago: r.forma_pago, fecha: String(r.fecha).slice(0, 10),
+      cliente_nombre: nombreCliente(r),
+    })),
   });
 });
 

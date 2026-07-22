@@ -8,7 +8,7 @@ import {
   X, Pen, Printer, Share2, Check, Phone, Mail, User,
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
-  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart,
+  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -826,6 +826,10 @@ export function Presupuestos() {
         sub="Gestión de cotizaciones"
         actions={<>
           <HelpButton topic="presupuestos" />
+          <Link to="/presupuestos/visitas-tecnicas"
+            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+            <Ruler size={16} /> Visita técnica
+          </Link>
           <Link to="/presupuestos/nuevo"
             className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
             <Plus size={16} /> Nuevo presupuesto

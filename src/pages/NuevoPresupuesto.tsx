@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
-import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
@@ -461,14 +461,17 @@ function EditItemModal({
 
 export function NuevoPresupuesto() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { id: editId } = useParams<{ id?: string }>();
   const isEdit = !!editId;
   const editLoadedRef = useRef(false);
+  const itemsPrecargadosRef = useRef(false);
 
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [editEstado, setEditEstado] = useState('');
+  const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
 
   const [clientes, setClientes]           = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -634,6 +637,31 @@ export function NuevoPresupuesto() {
     }).catch(() => { toast.error('No se pudo cargar el presupuesto'); navigate('/presupuestos'); });
   }, [isEdit, editId, navigate]);
 
+  // Precarga desde "Avanzar a presupuesto" en Visita Técnica
+  useEffect(() => {
+    if (isEdit || itemsPrecargadosRef.current) return;
+    const state = location.state as {
+      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string }>;
+      clienteId?: string;
+      visitaTecnicaId?: string;
+    } | null;
+    if (!state?.itemsPrecargados?.length) return;
+    itemsPrecargadosRef.current = true;
+    setEsAMedida(true);
+    setItems(state.itemsPrecargados.map(it => ({
+      ...emptyItem(),
+      tipo_item: 'a_medida',
+      descripcion: it.descripcion,
+      medida_ancho: it.medida_ancho,
+      medida_alto: it.medida_alto,
+    })));
+    if (state.clienteId) {
+      setClienteId(state.clienteId);
+      api.get<Cliente>(`/clientes/${state.clienteId}`).then(cl => setClientes([cl])).catch(() => {});
+    }
+    if (state.visitaTecnicaId) setVisitaTecnicaId(state.visitaTecnicaId);
+  }, [isEdit, location.state]);
+
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
 
   function updateItem(key: string, field: keyof ItemForm, value: unknown) {
@@ -754,6 +782,7 @@ export function NuevoPresupuesto() {
         fecha_validez:  fechaValidez || null,
         forma_envio:    formaEnvio,
         costo_envio:    costoEnvio,
+        visita_tecnica_id: !isEdit && visitaTecnicaId ? visitaTecnicaId : undefined,
         items: items.map((it, idx) => ({
           tipo_abertura_id:    it.tipo_abertura_id || null,
           sistema_id:          it.sistema_id || null,

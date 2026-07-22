@@ -59,6 +59,7 @@ interface ProductoStock {
   tipo: 'estandar' | 'a_medida' | 'fabricacion_propia';
   color: string | null;
   imagen_url: string | null;
+  en_salon: boolean;
   stock_minimo: number;
   stock_inicial: number;
   stock_actual: number;
@@ -186,13 +187,14 @@ function DonutChart({ segments, size = 80 }: { segments: { value: number; color:
 
 // ── ModalIngreso ──────────────────────────────────────────────
 function ModalIngreso({
-  productos, proveedores, onClose, onSaved, productoPreseleccionado
+  productos, proveedores, onClose, onSaved, productoPreseleccionado, onToggleSalon
 }: {
   productos: ProductoStock[];
   proveedores: Proveedor[];
   onClose: () => void;
   onSaved: () => void;
   productoPreseleccionado?: string;
+  onToggleSalon: (id: string) => Promise<void>;
 }) {
   const [productoId, setProductoId] = useState(productoPreseleccionado ?? '');
   const [cantidad, setCantidad] = useState('');
@@ -208,12 +210,19 @@ function ModalIngreso({
   const [lotes, setLotes] = useState<LoteSelect[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [marcarSalon, setMarcarSalon] = useState(false);
 
   useEffect(() => {
     if (loteMode === 'existente' && productoId) {
       api.get<LoteSelect[]>(`/stock/lotes/producto/${productoId}`).then(data => setLotes(data)).catch(() => setLotes([]));
     }
   }, [loteMode, productoId]);
+
+  // Al elegir/cambiar producto, reflejar su estado actual (no togglea hasta guardar)
+  useEffect(() => {
+    const prod = productos.find(p => p.id === productoId);
+    setMarcarSalon(prod?.en_salon ?? false);
+  }, [productoId, productos]);
 
   async function handleSave() {
     if (!productoId) { setError('Seleccioná un producto'); return; }
@@ -232,6 +241,11 @@ function ModalIngreso({
         notas:          notas         || null,
         lote_id:        loteMode === 'existente' ? loteId || null : null,
       });
+      // Recién acá, con el stock ya actualizado, se aplica el cambio de "Exhibido en salón"
+      const prod = productos.find(p => p.id === productoId);
+      if (marcarSalon !== (prod?.en_salon ?? false)) {
+        await onToggleSalon(productoId);
+      }
       toast.success('Ingreso de stock registrado');
       onSaved();
     } catch (e: unknown) {
@@ -271,6 +285,19 @@ function ModalIngreso({
                 </option>
               ))}
             </select>
+            {productoId && (() => {
+              const prod = productos.find(p => p.id === productoId);
+              if (!prod) return null;
+              return (
+                <label className="flex items-center gap-2.5 mt-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={marcarSalon}
+                    onChange={e => setMarcarSalon(e.target.checked)}
+                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                  <span className="text-sm text-gray-700">Exhibido en salón</span>
+                  <span className="text-xs text-gray-400">(se aplica al registrar el ingreso)</span>
+                </label>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1082,11 +1109,15 @@ export function Stock() {
   function abrirAjuste(id?: string)  { setAjusteProducto(id);  setModal('ajuste');  }
 
   async function toggleSalon(id: string) {
-    await api.patch(`/productos/${id}/toggle-salon`);
-    setTablero(prev => prev ? {
-      ...prev,
-      productos: prev.productos.map(p => p.id === id ? { ...p, en_salon: !p.en_salon } : p),
-    } : prev);
+    try {
+      await api.patch(`/productos/${id}/toggle-salon`);
+      setTablero(prev => prev ? {
+        ...prev,
+        productos: prev.productos.map(p => p.id === id ? { ...p, en_salon: !p.en_salon } : p),
+      } : prev);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo actualizar');
+    }
   }
 
   function onSaved() { setModal(null); cargar(); }
@@ -1521,6 +1552,7 @@ export function Stock() {
           onClose={() => setModal(null)}
           onSaved={onSaved}
           productoPreseleccionado={ingresoProducto}
+          onToggleSalon={toggleSalon}
         />
       )}
       {modal === 'egreso' && (

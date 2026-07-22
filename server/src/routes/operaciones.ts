@@ -4,9 +4,163 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
-import { OperacionSchema, EstadoOperacionSchema } from '../lib/schemas.js';
+import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema } from '../lib/schemas.js';
 
 const operaciones = new Hono();
+
+// MAX del sufijo numérico (no COUNT): un borrado previo deja huecos y COUNT(*) + 1
+// puede repetir un número ya usado, violando el UNIQUE de numero.
+async function nextNumeroRecibo(): Promise<string> {
+  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const { rows } = await db.query(
+    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
+    [`REC-${ym}-%`]
+  );
+  const n = Number((rows[0] as { n: number }).n) + 1;
+  return `REC-${ym}-${String(n).padStart(4, '0')}`;
+}
+
+async function nextNumeroRemito(): Promise<string> {
+  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const { rows } = await db.query(
+    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM remitos WHERE numero LIKE $1`,
+    [`R-${ym}-%`]
+  );
+  const n = Number((rows[0] as { n: number }).n) + 1;
+  return `R-${ym}-${String(n).padStart(4, '0')}`;
+}
+
+// ── Venta rápida de mostrador ────────────────────────────────────────────
+// Crea operación (ya aprobada) + recibo (emitido) + remito (emitido/entregado) + descuento
+// de stock, todo en una sola transacción. Debe ir ANTES de GET /:id.
+operaciones.post('/venta-rapida', async (c) => {
+  const user = c.get('user');
+  const b = await validateBody(c, VentaRapidaSchema);
+  if (b instanceof Response) return b;
+
+  // Validar stock suficiente por ítem antes de tocar nada
+  for (const item of b.items) {
+    const { rows: [prod] } = await db.query(`
+      SELECT cp.nombre,
+        (COALESCE(cp.stock_inicial, 0) + COALESCE((
+          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+        ), 0))::int AS stock_actual
+      FROM catalogo_productos cp WHERE cp.id = $1
+    `, [item.producto_id]);
+    if (!prod) return c.json({ error: `Producto no encontrado: ${item.descripcion}` }, 404);
+    if (prod.stock_actual < item.cantidad) {
+      return c.json({
+        error: `Stock insuficiente para "${prod.nombre}": disponible ${prod.stock_actual}, pedido ${item.cantidad}`
+      }, 422);
+    }
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Operación — venta directa, ya aprobada (sin negociación previa)
+    const { rows: [op] } = await client.query(`
+      INSERT INTO operaciones (tipo, estado, cliente_id, vendedor_id, created_by, forma_pago, forma_envio, notas, es_venta_rapida)
+      VALUES ('estandar','aprobado',$1,$2,$3,$4,'retiro_local','Venta rápida de mostrador',true)
+      RETURNING *
+    `, [b.cliente_id, user.id, user.id, b.forma_pago]);
+
+    // 2. Ítems de la operación
+    for (const [idx, item] of b.items.entries()) {
+      await client.query(`
+        INSERT INTO operacion_items (operacion_id, orden, producto_id, descripcion, cantidad, precio_unitario)
+        VALUES ($1,$2,$3,$4,$5,$6)
+      `, [op.id, idx, item.producto_id, item.descripcion, item.cantidad, item.precio_unitario]);
+    }
+
+    // El trigger recalcular_totales_operacion ya completó operaciones.precio_total
+    const { rows: [{ precio_total }] } = await client.query(
+      `SELECT precio_total FROM operaciones WHERE id=$1`, [op.id]
+    );
+    const montoProductos = Number(precio_total);
+
+    // 3. Bonificación — igual que NuevoRecibo.tsx: solo sobre el subtotal de productos
+    const montoDescuento = b.descuento_pct > 0
+      ? Math.round(montoProductos * (b.descuento_pct / 100) * 100) / 100
+      : Number(b.monto_descuento ?? 0);
+    const montoFinal = montoProductos - montoDescuento;
+
+    // 4. Recibo (emitido por default de columna)
+    const numeroRecibo = await nextNumeroRecibo();
+    const { rows: [recibo] } = await client.query(`
+      INSERT INTO recibos
+        (numero, cliente_id, operacion_id, monto_total, forma_pago, concepto,
+         descuento_pct, monto_lista, monto_descuento, created_by)
+      VALUES ($1,$2,$3,$4,$5,'Venta rápida de mostrador',$6,$7,$8,$9)
+      RETURNING *
+    `, [numeroRecibo, b.cliente_id, op.id, montoFinal, b.forma_pago, b.descuento_pct, montoProductos, montoDescuento, user.id]);
+
+    for (const [idx, item] of b.items.entries()) {
+      await client.query(`
+        INSERT INTO recibo_items (recibo_id, descripcion, producto_id, cantidad, monto, orden)
+        VALUES ($1,$2,$3,$4,$5,$6)
+      `, [recibo.id, item.descripcion, item.producto_id, item.cantidad, item.precio_unitario * item.cantidad, idx]);
+    }
+
+    // 5. Remito — nace 'borrador' por diseño de columna
+    const numeroRemito = await nextNumeroRemito();
+    const { rows: [remito] } = await client.query(`
+      INSERT INTO remitos (numero, cliente_id, operacion_id, medio_envio, notas, created_by)
+      VALUES ($1,$2,$3,'retiro_local','Venta rápida de mostrador',$4)
+      RETURNING *
+    `, [numeroRemito, b.cliente_id, op.id, user.id]);
+
+    for (const item of b.items) {
+      await client.query(`
+        INSERT INTO remito_items (remito_id, producto_id, descripcion, cantidad, precio_unitario, estado_producto)
+        VALUES ($1,$2,$3,$4,$5,'nuevo')
+      `, [remito.id, item.producto_id, item.descripcion, item.cantidad, item.precio_unitario]);
+    }
+
+    // 6. borrador → emitido: descuenta stock (mismo patrón que remitos.ts PATCH /:id/estado)
+    for (const item of b.items) {
+      await client.query(`
+        INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, operacion_id, referencia_nro, created_by)
+        VALUES ($1,'egreso_remito',$2,'Venta rápida de mostrador',$3,$4,$5)
+      `, [item.producto_id, -Math.abs(item.cantidad), op.id, numeroRemito, user.id]);
+    }
+    await client.query(`UPDATE remitos SET estado='emitido', stock_descontado=true WHERE id=$1`, [remito.id]);
+
+    // Si el stock de algún producto quedó en 0, ya no puede seguir "exhibido en salón"
+    await client.query(`
+      UPDATE catalogo_productos cp SET en_salon = false
+      WHERE cp.id = ANY($1::uuid[]) AND cp.en_salon = true
+        AND (COALESCE(cp.stock_inicial,0) + COALESCE((
+          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+        ), 0)) <= 0
+    `, [b.items.map(i => i.producto_id)]);
+
+    // 7. Si el cliente retira ahora: emitido → entregado, y la operación queda cerrada
+    let estadoRemitoFinal = 'emitido';
+    if (b.retira) {
+      await client.query(`
+        UPDATE remitos SET estado='entregado', fecha_entrega_real=CURRENT_DATE, recepcion_estado='conforme'
+        WHERE id=$1
+      `, [remito.id]);
+      await client.query(`UPDATE operaciones SET estado='entregado', updated_at=now() WHERE id=$1`, [op.id]);
+      estadoRemitoFinal = 'entregado';
+    }
+
+    await client.query('COMMIT');
+    return c.json({
+      operacion_id: op.id, numero_operacion: op.numero,
+      recibo_id: recibo.id, numero_recibo: recibo.numero,
+      remito_id: remito.id, numero_remito: remito.numero,
+      estado_remito: estadoRemitoFinal,
+    }, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
 
 // ── Upload del cálculo del software externo (por abertura a medida) ────
 // Debe ir ANTES de GET /:id — Hono matchea en orden de registro
@@ -719,6 +873,13 @@ operaciones.post('/', async (c) => {
           item.calculo_url || null,
         ]);
       }
+    }
+
+    if (b.visita_tecnica_id) {
+      await client.query(`
+        UPDATE visitas_tecnicas SET operacion_id=$1, estado='convertida', updated_at=now()
+        WHERE id=$2 AND estado != 'convertida'
+      `, [op.id, b.visita_tecnica_id]);
     }
 
     await client.query('COMMIT');

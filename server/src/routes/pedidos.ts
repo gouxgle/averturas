@@ -8,10 +8,10 @@ const pedidos = new Hono();
 async function nextNumero(): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
   const { rows } = await db.query(
-    `SELECT COUNT(*) AS n FROM pedidos WHERE numero LIKE $1`,
+    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM pedidos WHERE numero LIKE $1`,
     [`PED-${ym}-%`]
   );
-  const n = parseInt((rows[0] as { n: string }).n) + 1;
+  const n = Number((rows[0] as { n: number }).n) + 1;
   return `PED-${ym}-${String(n).padStart(4, '0')}`;
 }
 

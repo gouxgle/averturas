@@ -86,6 +86,7 @@ export const OperacionSchema = z.object({
   notas:            zText(2000).optional(),
   notas_internas:   zText(2000).optional(),
   items:            z.array(OperacionItemSchema).min(1, 'Se requiere al menos 1 ítem'),
+  visita_tecnica_id: zUUID.optional().nullable(),
 });
 
 export const EstadoOperacionSchema = z.object({
@@ -242,6 +243,23 @@ export const RemitoSchema = z.object({
 export const RemitoEstadoSchema = z.object({
   estado:             z.enum(['borrador','emitido','entregado','cancelado']),
   fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+// ── Venta rápida de mostrador ────────────────────────────────────
+const VentaRapidaItemSchema = z.object({
+  producto_id:     zUUID,
+  descripcion:     z.string().min(1).max(500),
+  cantidad:        z.number().int().positive('Cantidad debe ser > 0'),
+  precio_unitario: zPosNum,
+});
+
+export const VentaRapidaSchema = z.object({
+  cliente_id:      zUUID,
+  items:           z.array(VentaRapidaItemSchema).min(1, 'Se requiere al menos 1 ítem'),
+  forma_pago:      z.enum(['Contado','Tarjeta de débito/crédito en 1 pago','Transferencia','Tarjeta de crédito 3 cuotas sin interés']),
+  descuento_pct:   z.number().min(0).max(100).optional().default(0),
+  monto_descuento: zPosNum.optional().default(0),
+  retira:          z.boolean().optional().default(true),
 });
 
 // ── Stock ──────────────────────────────────────────────────────

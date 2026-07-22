@@ -8,10 +8,10 @@ const remitos = new Hono();
 async function nextNumero(): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
   const { rows } = await db.query(
-    `SELECT COUNT(*) AS n FROM remitos WHERE numero LIKE $1`,
+    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM remitos WHERE numero LIKE $1`,
     [`R-${ym}-%`]
   );
-  const n = parseInt((rows[0] as { n: string }).n) + 1;
+  const n = Number((rows[0] as { n: number }).n) + 1;
   return `R-${ym}-${String(n).padStart(4, '0')}`;
 }
 
@@ -558,6 +558,17 @@ remitos.patch('/:id/estado', async (c) => {
         `, [item.producto_id, -Math.abs(item.cantidad), remito.numero, user?.id || null]);
       }
       await client.query(`UPDATE remitos SET stock_descontado=true WHERE id=$1`, [id]);
+
+      // Si el stock de algún producto quedó en 0, ya no puede seguir "exhibido en salón"
+      if (items.length) {
+        await client.query(`
+          UPDATE catalogo_productos cp SET en_salon = false
+          WHERE cp.id = ANY($1::uuid[]) AND cp.en_salon = true
+            AND (COALESCE(cp.stock_inicial,0) + COALESCE((
+              SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+            ), 0)) <= 0
+        `, [items.map(i => i.producto_id)]);
+      }
     }
 
     // cancelado habiendo ya descontado: revertir stock

@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, Package, Truck,
   DollarSign, Users, BarChart3, ShoppingCart, Target,
   Calendar, FileText, Download, Edit2, Check, X,
-  ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle, Tag,
+  ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle, Tag, Zap, Receipt,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { SectionHero } from '@/components/SectionHero';
@@ -33,6 +33,8 @@ interface ResumenData {
     stock_critico: number;
     entregas_atrasadas: number;
     tasa_cierre: number;
+    ventas_rapidas_cant: number;
+    ventas_rapidas_monto: number;
   };
   evolucion: Array<{ fecha: string; actual: number; anterior: number }>;
   comercial: {
@@ -77,6 +79,13 @@ interface ResumenData {
     recibos_con_descuento: number;
     top_clientes: Array<{ id: string; nombre: string; total_descuento: number; cant_recibos: number }>;
   };
+  remitos_recientes: Array<{
+    id: string; numero: string; estado: string; fecha_emision: string;
+    fecha_entrega_real: string | null; monto: number; es_venta_rapida: boolean; cliente_nombre: string;
+  }>;
+  recibos_recientes: Array<{
+    id: string; numero: string; monto_total: number; forma_pago: string; fecha: string; cliente_nombre: string;
+  }>;
 }
 
 type FiltroTiempo = 'hoy' | 'semana' | 'mes' | 'personalizado';
@@ -429,13 +438,20 @@ export function Reportes() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
           <KpiCard
             icon={<DollarSign size={16} className="text-green-600" />}
             color="bg-green-100"
             label="Ventas del mes"
             value={fmtM(kpis?.ventas_periodo ?? 0)}
             sub={<VsAnterior pct={kpis?.ventas_vs_anterior ?? 0} />}
+          />
+          <KpiCard
+            icon={<Zap size={16} className="text-emerald-600" />}
+            color="bg-emerald-100"
+            label="Ventas rápidas"
+            value={fmtM(kpis?.ventas_rapidas_monto ?? 0)}
+            sub={<span className="text-gray-400">{kpis?.ventas_rapidas_cant ?? 0} de mostrador</span>}
           />
           <KpiCard
             icon={<Target size={16} className="text-violet-600" />}
@@ -722,6 +738,67 @@ export function Reportes() {
         </div>
       </div>
 
+      {/* ── Listados compactos: Remitos emitidos + Recibos ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Truck size={13} className="text-teal-600" /> Remitos emitidos
+            </h3>
+            <Link to="/remitos" className="text-[11px] text-teal-600 hover:underline flex items-center gap-0.5">
+              Ver todos <ChevronRight size={11} />
+            </Link>
+          </div>
+          {loading ? (
+            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-9 bg-gray-50 animate-pulse rounded-lg" />)}</div>
+          ) : !data?.remitos_recientes.length ? (
+            <p className="text-xs text-gray-400 text-center py-4">Sin remitos en el período</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {data.remitos_recientes.map(r => (
+                <Link key={r.id} to="/remitos" className="flex items-center gap-2 py-2 text-xs hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors">
+                  <span className="font-mono text-gray-400 w-24 shrink-0">{r.numero}</span>
+                  <span className="flex-1 min-w-0 truncate text-gray-700">{r.cliente_nombre}</span>
+                  {r.es_venta_rapida && (
+                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Rápida</span>
+                  )}
+                  <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    r.estado === 'entregado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  }`}>{r.estado === 'entregado' ? 'Entregado' : 'Emitido'}</span>
+                  <span className="shrink-0 font-semibold text-gray-800 w-20 text-right">{fmtM(r.monto)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Receipt size={13} className="text-emerald-600" /> Recibos
+            </h3>
+            <Link to="/recibos" className="text-[11px] text-emerald-600 hover:underline flex items-center gap-0.5">
+              Ver todos <ChevronRight size={11} />
+            </Link>
+          </div>
+          {loading ? (
+            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-9 bg-gray-50 animate-pulse rounded-lg" />)}</div>
+          ) : !data?.recibos_recientes.length ? (
+            <p className="text-xs text-gray-400 text-center py-4">Sin recibos en el período</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {data.recibos_recientes.map(r => (
+                <Link key={r.id} to="/recibos" className="flex items-center gap-2 py-2 text-xs hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors">
+                  <span className="font-mono text-gray-400 w-24 shrink-0">{r.numero}</span>
+                  <span className="flex-1 min-w-0 truncate text-gray-700">{r.cliente_nombre}</span>
+                  <span className="shrink-0 text-[10px] text-gray-400">{r.forma_pago}</span>
+                  <span className="shrink-0 font-semibold text-gray-800 w-20 text-right">{fmtM(r.monto_total)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── Bottom: Rankings + Métodos pago + Objetivos ── */}
       {loading ? (

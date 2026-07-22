@@ -27,6 +27,7 @@ import informesRoutes      from './routes/informes.js';
 import crmRoutes           from './routes/crm.js';
 import configuracionRoutes from './routes/configuracion.js';
 import localidadesRoutes   from './routes/localidades.js';
+import visitasTecnicasRoutes from './routes/visitasTecnicas.js';
 import * as Sentry from '@sentry/node';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimit }     from './middleware/rateLimit.js';
@@ -71,6 +72,7 @@ apiAuth.route('/informes',        informesRoutes);
 apiAuth.route('/crm',             crmRoutes);
 apiAuth.route('/configuracion',   configuracionRoutes);
 apiAuth.route('/localidades',     localidadesRoutes);
+apiAuth.route('/visitas-tecnicas', visitasTecnicasRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);

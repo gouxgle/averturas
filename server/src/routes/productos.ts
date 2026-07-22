@@ -8,6 +8,9 @@ const productos = new Hono();
 
 const withJoins = `
   SELECT cp.*,
+    (COALESCE(cp.stock_inicial, 0) + COALESCE((
+      SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+    ), 0))::int AS stock_actual,
     CASE WHEN ta.id IS NOT NULL
       THEN json_build_object('id', ta.id, 'nombre', ta.nombre)
       ELSE NULL END AS tipo_abertura,
@@ -106,6 +109,11 @@ function resolveImagenUrl(b: { imagen_url?: string | null; imagenes?: string[] }
 
 productos.post('/', async (c) => {
   const b = await c.req.json();
+
+  if (b.en_salon && (b.stock_inicial ?? 0) < 1) {
+    return c.json({ error: 'No se puede marcar "Exhibido en salón" sin al menos 1 unidad en stock' }, 422);
+  }
+
   const { rows: [row] } = await db.query(`
     INSERT INTO catalogo_productos
       (nombre, descripcion, tipo, tipo_abertura_id, sistema_id,
@@ -157,6 +165,18 @@ productos.post('/', async (c) => {
 
 productos.put('/:id', async (c) => {
   const b = await c.req.json();
+
+  if (b.en_salon) {
+    const { rows: [mov] } = await db.query(
+      `SELECT COALESCE(SUM(cantidad),0)::int AS suma FROM stock_movimientos WHERE producto_id = $1`,
+      [c.req.param('id')]
+    );
+    const stockActual = (b.stock_inicial ?? 0) + Number(mov?.suma ?? 0);
+    if (stockActual < 1) {
+      return c.json({ error: 'No se puede marcar "Exhibido en salón" sin al menos 1 unidad en stock' }, 422);
+    }
+  }
+
   const { rows: [row] } = await db.query(`
     UPDATE catalogo_productos SET
       nombre           = $1,
@@ -264,11 +284,25 @@ productos.patch('/:id/toggle', async (c) => {
 });
 
 productos.patch('/:id/toggle-salon', async (c) => {
+  const { id } = c.req.param();
+
+  const { rows: [actual] } = await db.query(`
+    SELECT cp.en_salon,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE((
+        SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+      ), 0))::int AS stock_actual
+    FROM catalogo_productos cp WHERE cp.id = $1
+  `, [id]);
+  if (!actual) return c.json({ error: 'Producto no encontrado' }, 404);
+
+  if (!actual.en_salon && actual.stock_actual < 1) {
+    return c.json({ error: 'No se puede marcar "Exhibido en salón" sin al menos 1 unidad en stock' }, 422);
+  }
+
   const { rows: [row] } = await db.query(`
     UPDATE catalogo_productos SET en_salon = NOT en_salon
     WHERE id = $1 RETURNING id, en_salon
-  `, [c.req.param('id')]);
-  if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
+  `, [id]);
   return c.json(row);
 });
 

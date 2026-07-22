@@ -29,10 +29,10 @@ async function nextLoteNumero(client: QueryRunner = db, productoId?: string): Pr
   }
 
   const { rows } = await client.query(
-    `SELECT COUNT(*) AS n FROM stock_lotes WHERE numero LIKE $1`,
+    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM stock_lotes WHERE numero LIKE $1`,
     [`LOT-${ym}-${tipoAbrev}-%`]
   );
-  const n = parseInt((rows[0] as { n: string }).n) + 1;
+  const n = Number((rows[0] as { n: number }).n) + 1;
   return `LOT-${ym}-${tipoAbrev}-${String(n).padStart(4, '0')}`;
 }
 

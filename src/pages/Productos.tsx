@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
   X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
-  Trash2, AlertTriangle, Star, Sparkles, Store, DollarSign,
+  Trash2, AlertTriangle, Star, Sparkles, Store, DollarSign, ShoppingCart,
   ThumbsUp, Shield, Truck, Headphones, Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -348,6 +348,7 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
   const descPct     = precioOrig ? Math.round((1 - precioFinal / precioOrig) * 100) : 0;
   const subtitle    = buildSubtitle(producto);
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
+  const navigate    = useNavigate();
 
   return (
     <div className={cn(
@@ -389,6 +390,14 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
           </a>
         )}
 
+        {/* Stock actual — referencia visual */}
+        <span className={cn(
+          'absolute bottom-2 left-2 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md leading-none',
+          (producto.stock_actual ?? 0) > 0 ? 'bg-white/90 text-gray-600' : 'bg-red-100 text-red-600'
+        )}>
+          stock {producto.stock_actual ?? 0}
+        </span>
+
         {/* Toggle activo — al hover */}
         <button onClick={e => { e.stopPropagation(); onToggle(producto); }}
           className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -425,6 +434,15 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
               </span>
             )}
           </div>
+
+          {producto.activo && (
+            <button
+              onClick={e => { e.stopPropagation(); navigate(`/ventas/rapida?producto_id=${producto.id}`); }}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-colors"
+            >
+              <ShoppingCart size={12}/> Vender ahora
+            </button>
+          )}
         </div>
       </div>
     </div>
