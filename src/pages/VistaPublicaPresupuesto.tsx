@@ -351,7 +351,7 @@ export function VistaPublicaPresupuesto() {
   // ── Confirmación de respuesta intermedia ─────────────────────────────────
   if (estado === 'respondido') {
     const msg = respTipo === 'llamada'
-      ? 'Recibimos tu pedido de llamado. Te contactamos en el horario que indicaste.'
+      ? 'Recibimos tu pedido de contacto. Te contactamos en el horario que indicaste.'
       : respTipo === 'consulta'
         ? 'Recibimos tu consulta. Un asesor te responde a la brevedad.'
         : respTipo === 'modificar'
@@ -388,7 +388,7 @@ export function VistaPublicaPresupuesto() {
       { key: 'form_mas_tiempo', Icon: Clock,        color: '#0284c7', titulo: 'Necesito más tiempo',       sub: 'Todavía lo estoy pensando' },
       { key: 'form_modificar',  Icon: Pencil,       color: '#7c3aed', titulo: 'Quiero modificar la propuesta', sub: 'Cambiar medidas, color, cantidad…' },
       { key: 'form_consulta',   Icon: MessageCircle,color: '#0891b2', titulo: 'Tengo una consulta',        sub: 'Escribinos tu duda' },
-      { key: 'form_llamada',    Icon: Phone,        color: '#16a34a', titulo: 'Quiero que me llamen',      sub: 'Elegí día y horario' },
+      { key: 'form_llamada',    Icon: Phone,        color: '#16a34a', titulo: 'Quiero que me contacten',   sub: 'Elegí día y horario' },
       { key: 'encuesta',        Icon: X,            color: '#e31e24', titulo: 'No voy a avanzar',          sub: 'Prefiero no continuar' },
     ] as const;
     return (
@@ -473,7 +473,7 @@ export function VistaPublicaPresupuesto() {
   if (estado === 'form_llamada' || (estado === 'respondiendo' && respTipo === 'llamada')) {
     const enviando = estado === 'respondiendo';
     return (
-      <FormWrap Icon={Phone} color="#16a34a" titulo="Quiero que me llamen"
+      <FormWrap Icon={Phone} color="#16a34a" titulo="Quiero que me contacten"
         sub="Elegí cuándo te viene bien y te contactamos" onBack={() => setEstado('menu')}>
         <label className="block text-xs font-semibold text-gray-500 mb-1">Día preferido</label>
         <input type="date" value={llamadaFecha} onChange={e => setLlamadaFecha(e.target.value)}
@@ -913,11 +913,11 @@ export function VistaPublicaPresupuesto() {
                 </span>
               </button>
 
-              {/* Nivel 2 — respuesta matizada, secundario */}
+              {/* Nivel 2 — respuesta matizada, secundario pero visible */}
               <button onClick={() => setEstado('menu')}
-                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all">
+                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border-2 border-amber-400 bg-amber-50 text-amber-800 hover:border-amber-500 hover:bg-amber-100 transition-all">
                 Todavía no / Tengo otra respuesta
-                <ChevronRight size={16} className="text-gray-400" />
+                <ChevronRight size={16} className="text-amber-500" />
               </button>
             </div>
           )}

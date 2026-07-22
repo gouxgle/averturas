@@ -472,6 +472,7 @@ export function NuevoPresupuesto() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [editEstado, setEditEstado] = useState('');
   const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
+  const [imagenesVisita, setImagenesVisita] = useState<string[]>([]);
 
   const [clientes, setClientes]           = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -644,6 +645,7 @@ export function NuevoPresupuesto() {
       itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string }>;
       clienteId?: string;
       visitaTecnicaId?: string;
+      imagenesVisita?: string[];
     } | null;
     if (!state?.itemsPrecargados?.length) return;
     itemsPrecargadosRef.current = true;
@@ -660,6 +662,7 @@ export function NuevoPresupuesto() {
       api.get<Cliente>(`/clientes/${state.clienteId}`).then(cl => setClientes([cl])).catch(() => {});
     }
     if (state.visitaTecnicaId) setVisitaTecnicaId(state.visitaTecnicaId);
+    if (state.imagenesVisita?.length) setImagenesVisita(state.imagenesVisita);
   }, [isEdit, location.state]);
 
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
@@ -1274,6 +1277,20 @@ export function NuevoPresupuesto() {
           })}
         </div>
       </div>
+
+      {imagenesVisita.length > 0 && (
+        <div className="mx-3 xl:mx-4 mt-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3 overflow-x-auto">
+          <span className="text-xs font-bold text-slate-600 uppercase tracking-wide shrink-0 flex items-center gap-1.5">
+            <Ruler size={13}/> Fotos de la visita técnica
+          </span>
+          {imagenesVisita.map(url => (
+            <a key={url} href={url} target="_blank" rel="noreferrer"
+              className="w-14 h-14 rounded-lg overflow-hidden border border-gray-200 shrink-0">
+              <img src={url} alt="" className="w-full h-full object-cover"/>
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* ── CUERPO 3 COLUMNAS ── */}
       <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_1fr_240px] xl:grid-cols-[420px_1fr_280px] gap-3 xl:gap-4 p-3 xl:p-4">

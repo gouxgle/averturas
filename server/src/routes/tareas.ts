@@ -73,6 +73,16 @@ tareas.patch('/:id/completar', async (c) => {
   `, [body.completada, id]);
 
   if (!row) return c.json({ error: 'Tarea no encontrada' }, 404);
+
+  // Completar la tarea de seguimiento cierra también el badge de "respuesta pendiente" de la operación
+  if (body.completada && row.operacion_id) {
+    db.query(
+      `UPDATE operaciones SET respuesta_cliente = NULL, respuesta_cliente_at = NULL
+       WHERE id = $1 AND respuesta_cliente IS NOT NULL`,
+      [row.operacion_id]
+    ).catch(err => console.error('[tareas] Error al limpiar respuesta_cliente:', err));
+  }
+
   return c.json(row);
 });
 

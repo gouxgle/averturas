@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { db } from '../db.js';
 
 const visitasTecnicas = new Hono();
@@ -39,6 +42,31 @@ visitasTecnicas.get('/', async (c) => {
     params
   );
   return c.json(rows);
+});
+
+// POST /upload-imagen — foto de referencia del relevamiento (registrar antes de /:id)
+visitasTecnicas.post('/upload-imagen', async (c) => {
+  const body = await c.req.formData();
+  const file = body.get('imagen') as File | null;
+  if (!file || !file.size) return c.json({ error: 'No se recibió imagen' }, 400);
+
+  const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+  const allowed = ['jpg', 'jpeg', 'png', 'webp'];
+  if (!allowed.includes(ext)) return c.json({ error: 'Formato no permitido' }, 400);
+
+  const filename = `${randomUUID()}.webp`;
+  const dir = './uploads/visitas-tecnicas';
+  await mkdir(dir, { recursive: true });
+
+  const optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
+    .rotate()
+    .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+
+  await writeFile(`${dir}/${filename}`, optimizado);
+
+  return c.json({ url: `/uploads/visitas-tecnicas/${filename}` });
 });
 
 // GET /:id — detalle + ítems
@@ -102,8 +130,9 @@ visitasTecnicas.put('/:id', async (c) => {
         abertura_especial = $6,
         observaciones     = $7,
         estado            = $8,
+        imagenes          = $9,
         updated_at        = now()
-      WHERE id = $9
+      WHERE id = $10
       RETURNING *
     `, [
       body.fecha_visita || null,
@@ -114,6 +143,7 @@ visitasTecnicas.put('/:id', async (c) => {
       body.abertura_especial ?? [],
       body.observaciones?.trim() || null,
       estadoNuevo,
+      Array.isArray(body.imagenes) ? body.imagenes : [],
       id,
     ]);
 

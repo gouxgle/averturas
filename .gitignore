@@ -21,6 +21,7 @@ data/
 
 # Backups de migración DB
 backups/
+backups_prod/
 
 # Logs
 logs/

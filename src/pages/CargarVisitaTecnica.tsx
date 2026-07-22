@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Ruler, Plus, Trash2, Save, Loader2, Printer,
-  ArrowRight, Users,
+  ArrowRight, Users, Camera, X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ interface VisitaTecnicaDetalle {
   fecha_visita: string | null; tecnico: string | null;
   color: string[]; vidrio: string[]; instalacion: string[]; abertura_especial: string[];
   observaciones: string | null;
+  imagenes: string[];
   cliente_id: string;
   cliente: Cliente;
   items: Array<{ ambiente: string | null; descripcion: string | null; ancho_mm: string | number | null; alto_mm: string | number | null }>;
@@ -84,6 +85,9 @@ export function CargarVisitaTecnica() {
   const [aberturaEspecial, setAberturaEspecial] = useState<string[]>([]);
   const [aberturaOtro, setAberturaOtro] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  const [imagenes, setImagenes] = useState<string[]>([]);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -108,6 +112,7 @@ export function CargarVisitaTecnica() {
         setAberturaEspecial(v.abertura_especial.filter(c => ABERTURA_FIJOS.includes(c)));
         setAberturaOtro(v.abertura_especial.find(c => !ABERTURA_FIJOS.includes(c)) ?? '');
         setObservaciones(v.observaciones ?? '');
+        setImagenes(v.imagenes ?? []);
       })
       .catch(() => toast.error('No se pudo cargar la visita técnica'))
       .finally(() => setLoading(false));
@@ -126,6 +131,39 @@ export function CargarVisitaTecnica() {
   function agregarFila() { setItems(prev => [...prev, emptyItem()]); }
   function quitarFila(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)); }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploadingImg(true);
+    try {
+      const token = sessionStorage.getItem('aberturas_token');
+      const newUrls: string[] = [];
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('imagen', file);
+        const res = await fetch('/api/visitas-tecnicas/upload-imagen', {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        });
+        if (!res.ok) throw new Error('Error al subir imagen');
+        const { url } = await res.json();
+        newUrls.push(url);
+      }
+      setImagenes(prev => [...prev, ...newUrls]);
+      toast.success(newUrls.length === 1 ? 'Foto cargada' : `${newUrls.length} fotos cargadas`);
+    } catch {
+      toast.error('No se pudo subir la foto');
+    } finally {
+      setUploadingImg(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  function quitarImagen(idx: number) {
+    setImagenes(prev => prev.filter((_, i) => i !== idx));
+  }
+
   function itemsValidos() {
     return items.filter(it => it.descripcion.trim() || it.ambiente.trim() || it.ancho_mm || it.alto_mm);
   }
@@ -141,6 +179,7 @@ export function CargarVisitaTecnica() {
         instalacion,
         abertura_especial: [...aberturaEspecial, ...(aberturaOtro.trim() ? [aberturaOtro.trim()] : [])],
         observaciones: observaciones.trim() || null,
+        imagenes,
         items: itemsValidos().map(it => ({
           ambiente: it.ambiente.trim() || null,
           descripcion: it.descripcion.trim() || null,
@@ -178,7 +217,7 @@ export function CargarVisitaTecnica() {
       medida_alto: it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
     }));
     navigate('/presupuestos/nuevo', {
-      state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id },
+      state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id, imagenesVisita: r.imagenes ?? [] },
     });
   }
 
@@ -277,6 +316,37 @@ export function CargarVisitaTecnica() {
             onToggle={v => !yaConvertida && toggle(aberturaEspecial, setAberturaEspecial, v)}
             otro={aberturaOtro} onOtroChange={yaConvertida ? undefined : setAberturaOtro}/>
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Fotos de la visita</p>
+        <div className="flex flex-wrap gap-3">
+          {imagenes.map((url, idx) => (
+            <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 group">
+              <a href={url} target="_blank" rel="noreferrer">
+                <img src={url} alt="" className="w-full h-full object-cover"/>
+              </a>
+              {!yaConvertida && (
+                <button onClick={() => quitarImagen(idx)}
+                  className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  <X size={12}/>
+                </button>
+              )}
+            </div>
+          ))}
+          {!yaConvertida && (
+            <button onClick={() => fileRef.current?.click()} disabled={uploadingImg}
+              className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 hover:border-slate-300 hover:bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 disabled:opacity-50">
+              {uploadingImg ? <Loader2 size={18} className="animate-spin"/> : <Camera size={18}/>}
+              <span className="text-[10px] font-semibold">Agregar</span>
+            </button>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
+          onChange={handleImageUpload} className="hidden"/>
+        {imagenes.length === 0 && yaConvertida && (
+          <p className="text-xs text-gray-400">Sin fotos cargadas</p>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">

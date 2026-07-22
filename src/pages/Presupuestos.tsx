@@ -87,6 +87,8 @@ interface OpDetalle {
   id: string; numero: string; tipo: string; estado: EstadoOperacion;
   enviado_wa_at: string | null;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
+  respuesta_cliente_at: string | null;
+  respuesta_cliente_detalle: string | null;
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
   tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
@@ -110,7 +112,7 @@ interface OpDetalle {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-type Tab = 'todos' | 'sin_respuesta' | 'por_vencer' | 'vencidos' | 'aprobados' | 'perdidos';
+type Tab = 'todos' | 'seguimiento' | 'sin_respuesta' | 'por_vencer' | 'vencidos' | 'aprobados' | 'perdidos';
 type Orden = 'prioridad' | 'monto' | 'vencimiento' | 'reciente';
 
 const PER_PAGE = 6;
@@ -274,6 +276,7 @@ function PresupuestoModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando]         = useState(false);
+  const [resolviendo, setResolviendo]     = useState(false);
   const [linkUrl, setLinkUrl]             = useState<string | null>(null);
   const [generandoLink, setGenerandoLink] = useState(false);
   const [enviandoWA, setEnviandoWA]       = useState(false);
@@ -342,6 +345,21 @@ function PresupuestoModal({
     onEstadoChange(id, nuevoEstado);
     onRefresh();
     setCambiando(false);
+  }
+
+  async function resolverRespuesta() {
+    if (!op) return;
+    setResolviendo(true);
+    try {
+      await api.patch(`/operaciones/${id}/resolver-respuesta`, {});
+      setOp(prev => prev ? { ...prev, respuesta_cliente: null, respuesta_cliente_at: null } : prev);
+      onRefresh();
+      toast.success('Seguimiento marcado como atendido');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo actualizar');
+    } finally {
+      setResolviendo(false);
+    }
   }
 
   const esAprobado  = op?.estado === 'aprobado';
@@ -438,6 +456,39 @@ function PresupuestoModal({
               {enviandoWA ? 'Enviando...' : 'Enviar por WhatsApp'}
             </button>
             <p className="text-[10px] text-emerald-700 text-center">El link regenerado invalida el anterior</p>
+          </div>
+        )}
+
+        {op && op.respuesta_cliente && RESPUESTA_CLIENTE[op.respuesta_cliente] && !['aprobado','rechazado'].includes(op.estado) && (
+          <div className="mx-5 mt-4 bg-sky-50 border border-sky-200 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs font-semibold text-sky-800">
+                {RESPUESTA_CLIENTE[op.respuesta_cliente].label} — {formatDate(op.respuesta_cliente_at ?? op.created_at)}
+              </p>
+            </div>
+            {op.respuesta_cliente_detalle && (
+              <p className="text-xs text-sky-700 bg-white border border-sky-100 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                {op.respuesta_cliente_detalle}
+              </p>
+            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {op.respuesta_cliente === 'llamada' && op.cliente.telefono && (
+                <a href={`tel:${op.cliente.telefono}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-sky-200 text-sky-700 text-xs font-semibold hover:bg-sky-100">
+                  <Phone size={12}/> Llamar
+                </a>
+              )}
+              {op.respuesta_cliente === 'modificar' && puedeEditar && (
+                <button onClick={() => { onClose(); navigate(`/presupuestos/${id}/editar`); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-sky-200 text-sky-700 text-xs font-semibold hover:bg-sky-100">
+                  <Pen size={12}/> Editar y reenviar
+                </button>
+              )}
+              <button onClick={resolverRespuesta} disabled={resolviendo}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white text-xs font-semibold">
+                <Check size={12}/> {resolviendo ? '...' : 'Marcar atendido'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -749,17 +800,19 @@ export function Presupuestos() {
   const cancelados    = useMemo(() => (data?.presupuestos ?? []).filter(p => p.estado === 'cancelado'), [data]);
 
   const conteos = useMemo(() => {
+    const seguimiento = presupuestos.filter(p => p.respuesta_cliente && !['aprobado','rechazado'].includes(p.estado)).length;
     const sinResp  = presupuestos.filter(p => p.estado === 'enviado' && p.dias_sin_respuesta > 3).length;
     const porVence = presupuestos.filter(p => ['presupuesto','enviado'].includes(p.estado) && p.dias_hasta_vencimiento !== null && (p.dias_hasta_vencimiento ?? -1) >= 0 && (p.dias_hasta_vencimiento ?? -1) <= 7).length;
     const vencidos = presupuestos.filter(p => ['presupuesto','enviado'].includes(p.estado) && (p.dias_vencido ?? 0) > 0).length;
     const aprobados = presupuestos.filter(p => p.estado === 'aprobado').length;
     const perdidos  = presupuestos.filter(p => p.estado === 'rechazado').length;
-    return { todos: presupuestos.length, sinResp, porVence, vencidos, aprobados, perdidos };
+    return { todos: presupuestos.length, seguimiento, sinResp, porVence, vencidos, aprobados, perdidos };
   }, [presupuestos]);
 
   const filtrado = useMemo(() => {
     let result = presupuestos;
-    if (tab === 'sin_respuesta') result = result.filter(p => p.estado === 'enviado' && p.dias_sin_respuesta > 3);
+    if (tab === 'seguimiento') result = result.filter(p => p.respuesta_cliente && !['aprobado','rechazado'].includes(p.estado));
+    else if (tab === 'sin_respuesta') result = result.filter(p => p.estado === 'enviado' && p.dias_sin_respuesta > 3);
     else if (tab === 'por_vencer') result = result.filter(p => ['presupuesto','enviado'].includes(p.estado) && p.dias_hasta_vencimiento !== null && (p.dias_hasta_vencimiento ?? -1) >= 0 && (p.dias_hasta_vencimiento ?? -1) <= 7);
     else if (tab === 'vencidos') result = result.filter(p => ['presupuesto','enviado'].includes(p.estado) && (p.dias_vencido ?? 0) > 0);
     else if (tab === 'aprobados') result = result.filter(p => p.estado === 'aprobado');
@@ -803,6 +856,7 @@ export function Presupuestos() {
 
   const TABS: { value: Tab; label: string; count: number; dot?: string }[] = [
     { value: 'todos',         label: 'Todos',         count: conteos.todos },
+    { value: 'seguimiento',   label: 'Seguimiento',    count: conteos.seguimiento, dot: 'bg-sky-400' },
     { value: 'sin_respuesta', label: 'Sin respuesta',  count: conteos.sinResp,  dot: 'bg-amber-400' },
     { value: 'por_vencer',    label: 'Por vencer',     count: conteos.porVence, dot: 'bg-amber-500' },
     { value: 'vencidos',      label: 'Vencidos',       count: conteos.vencidos, dot: 'bg-red-500' },

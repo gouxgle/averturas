@@ -544,8 +544,11 @@ operaciones.post('/:id/generar-link', async (c) => {
 
   // Si estaba rechazado, reabrirlo como "enviado" para que el cliente pueda volver a aprobar
   const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
+  // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
   await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2 WHERE id = $3`,
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
+       respuesta_cliente = NULL, respuesta_cliente_at = NULL
+     WHERE id = $3`,
     [token, estadoNuevo, id]
   );
 
@@ -602,8 +605,11 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
 
   // Si estaba rechazado, reabrirlo como "enviado" para que el cliente pueda volver a aprobar
   const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
+  // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
   await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2 WHERE id = $3`,
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
+       respuesta_cliente = NULL, respuesta_cliente_at = NULL
+     WHERE id = $3`,
     [token, estadoNuevo, id]
   );
 
@@ -744,6 +750,33 @@ operaciones.post('/:id/avisar-cliente', async (c) => {
   return c.json({ enviado: true, numero });
 });
 
+// PATCH /:id/resolver-respuesta — cierra manualmente una respuesta intermedia del cliente
+// (ej. ya lo llamaron, ya se respondió la consulta) sin necesidad de reenviar la proforma
+operaciones.patch('/:id/resolver-respuesta', async (c) => {
+  const user = c.get('user');
+  const { id } = c.req.param();
+
+  const { rows: [op] } = await db.query(
+    `SELECT id, cliente_id, numero, respuesta_cliente FROM operaciones WHERE id = $1`, [id]
+  );
+  if (!op) return c.json({ error: 'No encontrado' }, 404);
+  if (!op.respuesta_cliente) return c.json({ error: 'Esta operación no tiene una respuesta pendiente' }, 400);
+
+  await db.query(
+    `UPDATE operaciones SET respuesta_cliente = NULL, respuesta_cliente_at = NULL WHERE id = $1`,
+    [id]
+  );
+
+  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  db.query(
+    `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
+     VALUES ($1, $2, 'seguimiento_resuelto', $3, $4)`,
+    [op.cliente_id, op.id, `Seguimiento resuelto manualmente — Proforma ${proformaNumero}`, user?.id ?? null]
+  ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+
+  return c.json({ ok: true });
+});
+
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
@@ -758,6 +791,11 @@ operaciones.get('/:id', async (c) => {
           SELECT SUM(r.monto_descuento) FROM recibos r
           WHERE r.operacion_id = o.id AND r.estado = 'emitido'
         ), 0)::numeric AS total_descuentos,
+        (
+          SELECT i.descripcion FROM interacciones i
+          WHERE i.operacion_id = o.id AND i.tipo = 'respuesta_proforma'
+          ORDER BY i.created_at DESC LIMIT 1
+        ) AS respuesta_cliente_detalle,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
