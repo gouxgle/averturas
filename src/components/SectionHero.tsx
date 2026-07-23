@@ -30,32 +30,35 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
 
   return (
     <div className="section-hero">
-      <div className="flex items-center gap-4 flex-wrap">
-        {/* Icon mark */}
-        <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-md"
-          style={{ background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.6)' }}
-        >
-          <Icon size={26} style={{ color: colors.icon }} />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          {/* Icon mark */}
+          <div
+            className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-md"
+            style={{ background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.6)' }}
+          >
+            <Icon size={22} className="sm:hidden" style={{ color: colors.icon }} />
+            <Icon size={26} className="hidden sm:block" style={{ color: colors.icon }} />
+          </div>
+
+          {/* Text */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 truncate"
+              style={{ color: colors.icon }}>
+              César Brítez Aberturas
+              <span className="opacity-40 mx-1.5">/</span>
+              <span>{title}</span>
+            </p>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900 leading-tight break-words">
+              {title}
+            </h1>
+            {sub && <p className="text-sm text-gray-500 mt-0.5">{sub}</p>}
+          </div>
         </div>
 
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
-            style={{ color: colors.icon }}>
-            César Brítez Aberturas
-            <span className="opacity-40 mx-1.5">/</span>
-            <span>{title}</span>
-          </p>
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 leading-tight">
-            {title}
-          </h1>
-          {sub && <p className="text-sm text-gray-500 mt-0.5">{sub}</p>}
-        </div>
-
-        {/* Actions */}
+        {/* Actions — propia fila y envuelven en mobile, en línea con el título en desktop */}
         {actions && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
             {actions}
           </div>
         )}

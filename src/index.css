@@ -52,6 +52,10 @@
     --state-entregado:   #22c55e;  --state-cancelado:  #f87171;
   }
   * { @apply border-border; }
+  html, body {
+    /* Evita que un elemento puntual desborde y arrastre toda la página de costado en mobile */
+    overflow-x: hidden;
+  }
   body {
     background-color: var(--app-bg);
     @apply text-foreground font-sans antialiased;
