@@ -58,23 +58,31 @@ Aberturas/
 │   │   ├── NuevoRecibo.tsx           # Crear/editar recibo (vinculado a op. aprobada)
 │   │   ├── Pedidos.tsx               # Lista de pedidos al proveedor (orden: created_at DESC)
 │   │   ├── NuevoPedido.tsx           # Crear pedido al proveedor
-│   │   ├── VistaPublicaPresupuesto.tsx  # Página pública /p/:token (sin auth)
+│   │   ├── VentaRapida.tsx           # Venta rápida de mostrador (galería productos con stock)
+│   │   ├── VisitaTecnica.tsx         # Crear visita técnica (cliente + domicilio)
+│   │   ├── VisitasTecnicas.tsx       # Listado de visitas técnicas
+│   │   ├── CargarVisitaTecnica.tsx   # Cargar relevado (fotos, ítems, detalles) + avanzar a presupuesto
+│   │   ├── VistaPublicaPresupuesto.tsx  # Página pública /p/:token (sin auth) — aprobar o respuesta intermedia
 │   │   └── print/
 │   │       ├── ImprimirPresupuesto.tsx
-│   │       └── ImprimirRecibo.tsx
+│   │       ├── ImprimirRecibo.tsx
+│   │       └── ImprimirVisitaTecnica.tsx  # PDF A4 formulario visita técnica (?visita_id=)
 │   ├── components/
 │   │   ├── Layout/
 │   │   │   ├── AppLayout.tsx         # Layout principal con Toaster
 │   │   │   └── Sidebar.tsx           # Nav lateral con NotificationBell
-│   │   └── NotificationBell.tsx      # Campanita de notificaciones (polling 30s)
+│   │   ├── NotificationBell.tsx      # Campanita de notificaciones (polling 30s)
+│   │   ├── SectionHero.tsx           # Header de cada sección — responsive flex-col/row (ver Convenciones UI)
+│   │   └── CompactStatsBar.tsx       # Barra "Métricas" — scroll horizontal en mobile
 │   ├── lib/api.ts                    # Cliente HTTP
 │   ├── hooks/useAuth.ts
 │   └── App.tsx                       # Rutas React Router
 ├── server/src/
 │   ├── routes/
-│   │   ├── pub.ts                    # Rutas PÚBLICAS sin auth (/pub/presupuesto/:token)
-│   │   ├── notificaciones.ts         # GET/PATCH notificaciones de aprobación
-│   │   ├── operaciones.ts            # + POST /:id/generar-link; tablero incluye pedido_fecha_entrega_est
+│   │   ├── pub.ts                    # Rutas PÚBLICAS sin auth (/pub/presupuesto/:token, incl. /responder)
+│   │   ├── notificaciones.ts         # GET/PATCH notificaciones de aprobación + respuesta_cliente
+│   │   ├── operaciones.ts            # POST /venta-rapida, /:id/generar-link, /:id/resolver-respuesta; tablero incluye pedido_fecha_entrega_est
+│   │   ├── visitasTecnicas.ts        # CRUD visitas técnicas + upload-imagen
 │   │   ├── pedidos.ts                # GET /tablero, CRUD; lista ordenada por created_at DESC
 │   │   ├── recibos.ts
 │   │   ├── dashboard.ts              # GET /indicadores (5 KPIs accionables)
@@ -113,8 +121,10 @@ recibos             — cobros (vinculados a operacion_id, estado: emitido|anula
 recibo_items        — líneas de recibo
 compromisos_pago    — compromisos de saldo pendiente (fecha_vencimiento, estado: pendiente|cobrado|...)
 transportistas      — tabla maestra de empresas de transporte (nombre, activo); seeds: Andreani, OCA, Correo Argentino, transporte propio
-pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE; costo_envio NUMERIC; transportista_id UUID FK)
-pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden; operacion_item_id UUID nullable FK → vincula ítem con operación origen)
+pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE; costo_envio NUMERIC; transportista_id UUID FK; es_stock_propio BOOLEAN → pedido para stock/salón propio, sin cliente ni operación)
+pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden; operacion_item_id UUID nullable FK → vincula ítem con operación origen; es_reposicion BOOLEAN → ítem extra pedido igual habiendo stock)
+visitas_tecnicas    — relevamiento in situ (numero, cliente_id, estado: pendiente|relevada|convertida|cancelada, imagenes[], operacion_id nullable FK)
+visita_tecnica_items — ítems medidos in situ (ambiente, descripcion, ancho_mm, alto_mm — en MILÍMETROS, no metros)
 ```
 
 ### Campos clave en `operaciones`
@@ -127,7 +137,11 @@ token_acceso      -- UUID único para link público de aprobación (nullable)
 token_acceso_at   -- TIMESTAMPTZ cuando se generó el token
 aprobado_online_at -- TIMESTAMPTZ cuando el cliente aprobó desde el link
 notif_leida       -- BOOLEAN (false = notificación pendiente de leer en el sistema)
+respuesta_cliente     -- mas_tiempo|consulta|llamada|modificar|NULL — respuesta intermedia del link público (no cambia estado)
+respuesta_cliente_at  -- TIMESTAMPTZ de la respuesta intermedia
+es_venta_rapida       -- BOOLEAN — true si viene de POST /operaciones/venta-rapida (venta de mostrador)
 ```
+`respuesta_cliente_detalle` NO es columna — se calcula en `GET /operaciones/:id` como subquery a la última `interaccion` tipo `respuesta_proforma` de esa operación (tiene el comentario/motivo real que escribió el cliente).
 
 ### `operacion_items` — importante
 `precio_total` NO es columna directa. Calcularlo siempre:
@@ -153,6 +167,9 @@ stock_actual = catalogo_productos.stock_inicial + SUM(stock_movimientos.cantidad
 ```
 Tipos de movimiento: `ingreso | egreso_remito | egreso_retiro | devolucion | ajuste`
 
+`en_salon` (BOOLEAN en `catalogo_productos`) = exhibido físicamente en el local y con stock verificado a mano. Validación backend: no se puede marcar `en_salon=true` si `stock_actual < 1` (POST/PUT productos, PATCH toggle-salon). Se auto-limpia (`en_salon=false`) cuando el stock llega a 0 tras una venta rápida o un remito emitido.
+**Contexto de negocio (2026-07-22)**: en prod, el stock de catálogo venía de una carga inicial no verificada (default 100 en casi todos). Se hizo un ajuste masivo (movimientos `ajuste`, motivo "Ajuste masivo: stock no verificado") llevando a 0 todo producto `en_salon=false` — el criterio real hoy es: **solo lo marcado `en_salon` tiene stock confiable**, todo lo demás está en 0 hasta que se verifique y cargue de nuevo.
+
 ### Remitos — flujo de estados
 ```
 borrador → emitido   (descuenta stock: crea movimientos egreso_remito)
@@ -171,17 +188,18 @@ emitido  → entregado (registra fecha_entrega_real)
 
 | Ruta | Archivo | Notas |
 |------|---------|-------|
-| `/pub/presupuesto/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle + POST aprobar + POST rechazar |
+| `/pub/presupuesto/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle + POST aprobar + POST rechazar + `POST /responder` (respuesta intermedia) |
 | `/pub/remito/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle remito + POST confirmar recepción |
 | `/auth` | routes/auth.ts | Pública — login, me |
 | `/clientes` | routes/clientes.ts | `/validar-dni` ANTES de `/:id` |
 | `/productos` | routes/productos.ts | CRUD con upload de imagen |
-| `/operaciones` | routes/operaciones.ts | `POST /:id/generar-link` ANTES de `GET /:id` |
+| `/operaciones` | routes/operaciones.ts | `POST /venta-rapida` (venta mostrador); `POST /:id/generar-link`, `POST /:id/enviar-whatsapp`, `PATCH /:id/resolver-respuesta` — todas ANTES de `GET /:id` |
+| `/visitas-tecnicas` | routes/visitasTecnicas.ts | `POST /upload-imagen` ANTES de `GET /:id`; CRUD + fotos de relevamiento |
 | `/catalogo` | routes/catalogo.ts | tipos-abertura, sistemas, colores, categorias, proveedores |
 | `/dashboard` | routes/dashboard.ts | `GET /indicadores` devuelve 5 arrays accionables |
-| `/notificaciones` | routes/notificaciones.ts | `GET /` + `PATCH /marcar-leidas` |
+| `/notificaciones` | routes/notificaciones.ts | `GET /` + `PATCH /marcar-leidas` — incluye respuesta_cliente además de aprobado_online_at |
 | `/interacciones` | routes/interacciones.ts | |
-| `/tareas` | routes/tareas.ts | |
+| `/tareas` | routes/tareas.ts | `PATCH /:id/completar` — si tiene `operacion_id`, limpia `respuesta_cliente` de esa operación |
 | `/empresa` | routes/empresa.ts | |
 | `/usuarios` | routes/usuarios.ts | |
 | `/stock` | routes/stock.ts | `/alertas` y `/lotes` ANTES de `/:id` |
@@ -205,6 +223,10 @@ emitido  → entregado (registra fecha_entrega_real)
 /presupuestos                   — lista + modal detalle (click en fila)
 /presupuestos/nuevo
 /presupuestos/:id/editar
+/presupuestos/visita-tecnica          — crear visita técnica (elegir/crear cliente)
+/presupuestos/visitas-tecnicas        — listado de visitas técnicas
+/presupuestos/visitas-tecnicas/:id    — cargar relevado + avanzar a presupuesto
+/ventas/rapida                  — venta rápida de mostrador
 /operaciones, /operaciones/:id, /operaciones/nueva
 /pedidos, /pedidos/nuevo, /pedidos/:id/editar
 /remitos, /remitos/nuevo, /remitos/:id/editar
@@ -216,6 +238,7 @@ emitido  → entregado (registra fecha_entrega_real)
 /imprimir/presupuesto/:id       — sin AppLayout, dentro de ProtectedRoute
 /imprimir/remito/:id
 /imprimir/recibo/:id
+/imprimir/visita-tecnica?visita_id=X  — formulario A4 (en blanco si pendiente, con datos si ya relevada)
 ```
 
 ## Circuito comercial completo — Presupuesto → Cobro → Entrega
@@ -262,6 +285,18 @@ emitido  → entregado (registra fecha_entrega_real)
 
 ---
 
+## Visitas técnicas (relevamiento in situ → presupuesto)
+
+Entidad persistida con ciclo de vida propio, independiente de operaciones hasta que se convierte:
+
+1. **Crear** (`VisitaTecnica.tsx`, ruta `/presupuestos/visita-tecnica`): elegís/creás cliente (con domicilio) → `POST /visitas-tecnicas {cliente_id}` crea con `estado='pendiente'`, numeración `VT-YYYYMM-NNNN`.
+2. **Imprimir en blanco**: `/imprimir/visita-tecnica?visita_id=X` → PDF A4 con datos del cliente precargados y el resto en blanco para completar a mano en el sitio (planilla física: ambientes, medidas en mm, color/vidrio/instalación/abertura especial, croquis, observaciones).
+3. **Cargar relevado** (`CargarVisitaTecnica.tsx`, ruta `/presupuestos/visitas-tecnicas/:id`): `PUT /visitas-tecnicas/:id` guarda ítems medidos (mm), checkboxes de detalles, observaciones y **fotos de referencia** (subida vía `POST /visitas-tecnicas/upload-imagen`, mismo patrón que productos: sharp → webp 1920px). Al guardar con ≥1 ítem, pasa a `estado='relevada'`. Reimprimir ahora muestra los datos reales, no en blanco.
+4. **Avanzar a presupuesto**: botón en `CargarVisitaTecnica.tsx` arma `itemsPrecargados` (conversión **mm → m**, `÷1000`, único punto donde se convierte unidad) y navega a `/presupuestos/nuevo` con `navigate(path, { state: { itemsPrecargados, clienteId, visitaTecnicaId, imagenesVisita } })`. `NuevoPresupuesto.tsx` lee ese `location.state` (solo si `!isEdit`), activa modo "a medida", precarga cliente e ítems, y muestra las fotos de la visita en una barra de referencia arriba del formulario.
+5. Al guardar el presupuesto, si vino con `visita_tecnica_id`: `POST /operaciones` hace `UPDATE visitas_tecnicas SET operacion_id=$1, estado='convertida' WHERE estado != 'convertida'` — cierra el link. `DELETE /visitas-tecnicas/:id` y reediciones quedan bloqueadas una vez `convertida`.
+
+**Listado**: `VisitasTecnicas.tsx` (`/presupuestos/visitas-tecnicas`), filtro por estado, entrada propia en Sidebar (sección Comercial). El botón "Visita técnica" en Presupuestos.tsx apunta a este listado, no directo a crear.
+
 ## Flujo de aprobación pública (link WhatsApp)
 
 1. Admin abre modal presupuesto → "Compartir" → llama `POST /operaciones/:id/generar-link`
@@ -279,11 +314,21 @@ Si el cliente rechazó y el admin edita y reenvía:
 - `POST /pub/presupuesto/:token/aprobar` ya permite `estado='enviado'` → funciona sin cambios adicionales
 - `motivo_rechazo` y `comentario_rechazo` quedan en DB como historial (no se borran)
 
+### Respuesta intermedia del cliente (Fase 1 + Fase 2)
+El link público no es binario aceptar/rechazar. "Todavía no / Tengo otra respuesta" (botón amarillo, destacado) despliega 4 opciones: **Necesito más tiempo** / **Tengo una consulta** / **Quiero que me contacten** (antes "me llamen") / **Quiero modificar la propuesta**.
+
+- `POST /pub/presupuesto/:token/responder` — NO cambia `estado`, solo guarda `respuesta_cliente` + `respuesta_cliente_at`, crea una `interaccion` (tipo `respuesta_proforma`, con el motivo/comentario/cambios/horario real que escribió el cliente) y una `tarea` de seguimiento con fecha sugerida (`operacion_id` vinculado).
+- **Cierre del loop** (Fase 2) — `respuesta_cliente` se limpia solo (vuelve a NULL) por 3 caminos, cualquiera de los 3 sirve:
+  1. Admin reenvía la proforma: `POST /:id/generar-link` o `POST /:id/enviar-whatsapp` (reenviar = ya se hizo cargo del pedido de cambios).
+  2. Admin completa la tarea de seguimiento vinculada: `PATCH /tareas/:id/completar` con `operacion_id` seteado.
+  3. Admin marca manualmente "atendido": `PATCH /operaciones/:id/resolver-respuesta`.
+- Frontend: tab "Seguimiento" en Presupuestos.tsx (`respuesta_cliente IS NOT NULL AND estado NOT IN aprobado/rechazado`), banner celeste en el modal con el texto real del cliente (`respuesta_cliente_detalle`) + botones contextuales (Llamar si `tipo=llamada`, Editar y reenviar si `tipo=modificar`, Marcar atendido siempre).
+
 ## Notificaciones (NotificationBell)
 
 - Poll cada 30s a `GET /notificaciones`
-- Devuelve operaciones con `aprobado_online_at IS NOT NULL AND notif_leida = false`
-- Badge rojo en campanita sidebar (desktop) y top bar (mobile)
+- Devuelve operaciones con `(aprobado_online_at IS NOT NULL OR respuesta_cliente_at IS NOT NULL) AND notif_leida = false`, ordenadas por `GREATEST(aprobado_online_at, respuesta_cliente_at)`
+- Badge rojo en campanita sidebar (desktop) y top bar (mobile); ícono/color varía según `respuesta_cliente` (ver `RESP_NOTIF` en NotificationBell.tsx)
 - `PATCH /notificaciones/marcar-leidas` → setea `notif_leida = true` para todas
 - Presupuestos.tsx: filas con `aprobado_online_at` → fondo verde + borde izquierdo emerald + badge "Aprobado online"
 
@@ -325,6 +370,13 @@ Sistema:
 - **KPIs (NÚMEROS CLAVE)**: cada KPI en `bg-gray-50 border border-gray-200 rounded-xl p-3` — recuadro individual por métrica
 - **Regla general**: nunca usar `border-gray-100` ni `shadow-sm` solos — quedan invisibles contra `#f0f4fb`. Mínimo `border-gray-200 shadow-md`.
 
+### Responsive mobile — `SectionHero` y `CompactStatsBar`
+Estos 2 componentes compartidos se usan en casi todas las secciones (Dashboard, CRM, Presupuestos, Operaciones, Remitos, Pedidos, Recibos, Clientes, Estado de Cuenta, Productos, Stock, Proveedores, Reportes, Configuración). Si se tocan, verificar mobile (viewport ~390px) Y desktop (1366×768) antes de dar por cerrado — un bug ahí rompe visualmente toda la app.
+- **`SectionHero`**: estructura `flex flex-col sm:flex-row` — en mobile ícono+título ocupan su fila completa y las acciones (botones) bajan a una fila propia con `flex-wrap` debajo; en `sm:` (640px+) vuelven a la misma fila que el título, como el diseño original. **No** volver a poner icono+texto+acciones en un solo `flex-wrap` sin el `flex-col` — el título se aprieta y los botones se cortan/superponen (bug real detectado 2026-07-22).
+- **`CompactStatsBar`**: `overflow-x-auto` para scroll horizontal en mobile + fade a la derecha (`sm:hidden`) como pista visual de que hay más contenido. El div raíz **no** debe llevar `shrink-0` si su padre es un flex row (contradice el scroll).
+- **Safety-net global**: `html, body { overflow-x: hidden }` en `index.css` — evita que un overflow puntual futuro arrastre toda la página de costado.
+- Listas con tabla ancha (Presupuestos y similares) siguen con scroll horizontal propio en mobile (`overflow-x-auto` en el contenedor de la tabla) — funciona pero no es tarjetas apiladas; pendiente si se pide pulir más.
+
 ## Convenciones de UI — badges y labels
 
 | Badge / label | Contexto | Condición |
@@ -345,6 +397,13 @@ Todos los módulos: `ORDER BY created_at DESC` (más nuevos arriba). Excepción 
 Helper `fmtLlegada()` en Operaciones.tsx: diff ≤0 → "llega hoy", 1 → "llega mañana", N → "llega el DD/MM".
 
 ## Patrones de código establecidos
+
+### Generación de `numero` — MAX, nunca COUNT
+Todos los generadores de número correlativo (`OP-`, `REC-`, `REM-`, `PED-`, lotes de stock, `VT-`) usan:
+```sql
+SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\d+)$')::int), 0) AS n FROM <tabla> WHERE numero LIKE $1
+```
+luego `n + 1`. **Nunca** `SELECT COUNT(*)`: si se borra una fila, `COUNT` sub-cuenta y regenera un número ya usado → `duplicate key` en el constraint único, y la transacción entera hace rollback (bug real: causó que una venta rápida pareciera "no hacer nada" — en realidad fallaba silenciosamente por esto). Ya corregido en `operaciones.ts`, `recibos.ts`, `remitos.ts`, `pedidos.ts`, `stock.ts` (lotes) y `visitasTecnicas.ts`.
 
 ### API client (frontend)
 ```typescript
@@ -404,7 +463,11 @@ Los pedidos son contra-reembolso: el transportista cobra la parte de envío (~10
 
 **`WITH_PROVEEDOR` CTE** en `server/src/routes/pedidos.ts`: constante SQL reutilizada en todos los GET, incluye `LEFT JOIN transportistas t ON t.id = p.transportista_id` y campo `t.nombre AS transportista_nombre`.
 
-**Coverage de ítems** (GET /:id): el detalle incluye `items_total_op` y `items_cubiertos` — calculados con subquery contando `operacion_items` vinculados via `pedido_items.operacion_item_id`. Si `items_cubiertos < items_total_op` → modal muestra botón naranja "Completar pedido faltante" → navega a `/pedidos/nuevo?operacion_id=XXX`.
+**Coverage de ítems — stock-aware** (GET /:id y GET /tablero): `items_total_op` y `items_cubiertos`. Un `operacion_item` cuenta como **cubierto** si (a) tiene un `pedido_item` NO reposición en pedido no cancelado, **O** (b) su producto tiene `stock_actual >= cantidad` (regla del negocio: si hay stock, no se pide, se cumple desde stock vía remito). Si `items_cubiertos < items_total_op` → banner "Completar pedido faltante". La misma lógica stock-aware está en `GET /operaciones-disponibles` (no sugiere operaciones cuyos ítems ya están todos en stock o pedidos).
+
+**Ítems de reposición** (`pedido_items.es_reposicion`): al armar el pedido desde una operación, un ítem con `stock_actual >= cantidad` viene DESmarcado (se cumple de stock). El usuario puede togglear "Pedir igual para reponer" → el ítem se pide como EXTRA para no dejar el salón sin producto (`en_salon`) o reponer stock. Ítem de reposición: `operacion_item_id = NULL` + `producto_id` seteado + `es_reposicion = true`. NO cuenta en coverage ni en el guard anti-duplicado (ambos filtran `es_reposicion = false` y los de reposición ya tienen `operacion_item_id` null). Al recibir el pedido entra a stock (ingreso por `producto_id`, ya cubierto). `stock_actual` por ítem viene de `GET /operaciones/:id` (columna agregada al subquery de items). Frontend: `NuevoPedido.tsx` badges "En stock (N)" (sky) / "Reposición" (violeta) + toggle.
+
+**Pedido para stock propio** (`pedidos.es_stock_propio`): pedido al proveedor que NO viene de un presupuesto — destino es la propia empresa (generar stock o exhibir en salón), sin cliente ni operación. Entrada: botón "Para stock propio" en Pedidos.tsx → `/pedidos/nuevo?destino=stock`. En ese modo `NuevoPedido.tsx` oculta el selector de operación y muestra un buscador de productos del catálogo (`GET /productos?search=`) — cada producto elegido agrega un ítem con `producto_id` (indispensable: al recibir ingresa a stock). Backend fuerza `operacion_id=NULL` cuando `es_stock_propio=true` (POST y PUT). Excluido de `para_preparar` en el tablero (ya quedó en stock, no se entrega). Lista/detalle muestran badge "Stock propio" en lugar del cliente. `WITH_PROVEEDOR` expone la columna vía `p.*`.
 
 **`GET /pedidos/reporte-envios`**: agrupa pedidos `recibido` por mes y transportista, devuelve totales. Registrar ANTES de `GET /:id` en el router.
 

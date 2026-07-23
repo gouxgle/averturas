@@ -79,10 +79,17 @@ pedidos.get('/tablero', async (c) => {
         (CASE WHEN p.operacion_id IS NOT NULL
           THEN (SELECT COUNT(*)::int FROM operacion_items oi
                 WHERE oi.operacion_id = p.operacion_id
-                  AND EXISTS (
-                    SELECT 1 FROM pedido_items pi2
-                    JOIN pedidos p2 ON p2.id = pi2.pedido_id
-                    WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado'
+                  AND (
+                    EXISTS (
+                      SELECT 1 FROM pedido_items pi2
+                      JOIN pedidos p2 ON p2.id = pi2.pedido_id
+                      WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
+                    )
+                    -- o se cumple desde stock (regla: si hay stock suficiente no se pide al proveedor)
+                    OR (oi.producto_id IS NOT NULL AND
+                        (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
+                         + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
+                        ) >= oi.cantidad)
                   ))
           ELSE NULL END) AS items_cubiertos
       FROM pedidos p
@@ -132,6 +139,7 @@ pedidos.get('/tablero', async (c) => {
       LEFT JOIN operaciones o ON o.id = p.operacion_id
       LEFT JOIN clientes cl ON cl.id = o.cliente_id
       WHERE p.estado = 'recibido'
+        AND p.es_stock_propio = false   -- los de stock propio ya quedaron en stock, no se entregan
         AND (
           p.operacion_id IS NULL
           OR NOT EXISTS (
@@ -230,16 +238,21 @@ pedidos.post('/', async (c) => {
   try {
     await client.query('BEGIN');
 
+    // Pedido para stock propio: sin cliente ni operación (destino = la propia empresa)
+    const esStockPropio = !!b.es_stock_propio;
+    const operacionId   = esStockPropio ? null : (b.operacion_id || null);
+
     const { rows: [pedido] } = await client.query(`
       INSERT INTO pedidos
-        (numero, proveedor_id, operacion_id, estado, fecha_pedido,
+        (numero, proveedor_id, operacion_id, es_stock_propio, estado, fecha_pedido,
          fecha_entrega_est, monto_total, costo_envio, notas, created_by)
-      VALUES ($1,$2,$3,'pendiente',$4,$5,$6,$7,$8,$9)
+      VALUES ($1,$2,$3,$4,'pendiente',$5,$6,$7,$8,$9,$10)
       RETURNING *
     `, [
       numero,
       b.proveedor_id,
-      b.operacion_id        || null,
+      operacionId,
+      esStockPropio,
       b.fecha_pedido        || new Date().toISOString().split('T')[0],
       b.fecha_entrega_est   || null,
       montoTotal,
@@ -250,16 +263,19 @@ pedidos.post('/', async (c) => {
 
     for (const [idx, item] of (b.items as {
       operacion_item_id?: string; producto_id?: string;
-      descripcion: string; cantidad: number; costo_unitario: number;
+      descripcion: string; cantidad: number; costo_unitario: number; es_reposicion?: boolean;
     }[]).entries()) {
+      // Los ítems de reposición son EXTRA (no cumplen la operación): siempre sin operacion_item_id
+      const opItemId = item.es_reposicion ? null : (item.operacion_item_id || null);
+
       // Validar que el ítem de operación no esté ya cubierto por otro pedido activo
-      if (item.operacion_item_id) {
+      if (opItemId) {
         const { rows: dup } = await client.query(
           `SELECT p2.numero FROM pedido_items pi2
            JOIN pedidos p2 ON p2.id = pi2.pedido_id
-           WHERE pi2.operacion_item_id = $1 AND p2.estado != 'cancelado'
+           WHERE pi2.operacion_item_id = $1 AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
            LIMIT 1`,
-          [item.operacion_item_id]
+          [opItemId]
         );
         if (dup.length) {
           await client.query('ROLLBACK');
@@ -271,16 +287,17 @@ pedidos.post('/', async (c) => {
 
       await client.query(`
         INSERT INTO pedido_items
-          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
+          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       `, [
         pedido.id,
-        item.operacion_item_id || null,
+        opItemId,
         item.producto_id       || null,
         item.descripcion,
         item.cantidad          || 1,
         parseFloat(String(item.costo_unitario)) || 0,
         idx,
+        item.es_reposicion     || false,
       ]);
     }
 
@@ -319,8 +336,12 @@ pedidos.get('/operaciones-disponibles', async (c) => {
           AND NOT EXISTS (
             SELECT 1 FROM pedido_items pi
             JOIN pedidos p ON p.id = pi.pedido_id
-            WHERE pi.operacion_item_id = oi.id AND p.estado != 'cancelado'
+            WHERE pi.operacion_item_id = oi.id AND p.estado != 'cancelado' AND pi.es_reposicion = false
           )
+          AND NOT (oi.producto_id IS NOT NULL AND
+            (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
+             + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
+            ) >= oi.cantidad)
       ) AS items_pendientes
     FROM operaciones o
     LEFT JOIN clientes c ON c.id = o.cliente_id
@@ -335,8 +356,12 @@ pedidos.get('/operaciones-disponibles', async (c) => {
           AND NOT EXISTS (
             SELECT 1 FROM pedido_items pi2
             JOIN pedidos p2 ON p2.id = pi2.pedido_id
-            WHERE pi2.operacion_item_id = oi2.id AND p2.estado != 'cancelado'
+            WHERE pi2.operacion_item_id = oi2.id AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
           )
+          AND NOT (oi2.producto_id IS NOT NULL AND
+            (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi2.producto_id),0)
+             + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi2.producto_id),0)
+            ) >= oi2.cantidad)
       )
     ORDER BY o.created_at DESC
     LIMIT 50
@@ -552,10 +577,17 @@ pedidos.get('/:id', async (c) => {
         (CASE WHEN p.operacion_id IS NOT NULL
           THEN (SELECT COUNT(*)::int FROM operacion_items oi
                 WHERE oi.operacion_id = p.operacion_id
-                  AND EXISTS (
-                    SELECT 1 FROM pedido_items pi2
-                    JOIN pedidos p2 ON p2.id = pi2.pedido_id
-                    WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado'
+                  AND (
+                    EXISTS (
+                      SELECT 1 FROM pedido_items pi2
+                      JOIN pedidos p2 ON p2.id = pi2.pedido_id
+                      WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
+                    )
+                    -- o se cumple desde stock (regla: si hay stock suficiente no se pide al proveedor)
+                    OR (oi.producto_id IS NOT NULL AND
+                        (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
+                         + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
+                        ) >= oi.cantidad)
                   ))
           ELSE NULL END) AS items_cubiertos
       FROM pedidos p WHERE p.id = $1
@@ -583,38 +615,42 @@ pedidos.put('/:id', async (c) => {
   try {
     await client.query('BEGIN');
 
+    const esStockPropioEdit = !!b.es_stock_propio;
     await client.query(`
       UPDATE pedidos SET
         proveedor_id     = $1, operacion_id   = $2,
         fecha_pedido     = $3, fecha_entrega_est = $4,
         monto_total      = $5, costo_envio    = $6,
-        notas            = $7, updated_at     = now()
-      WHERE id = $8
+        notas            = $7, es_stock_propio = $8, updated_at = now()
+      WHERE id = $9
     `, [
       b.proveedor_id,
-      b.operacion_id      || null,
+      esStockPropioEdit ? null : (b.operacion_id || null),
       b.fecha_pedido      || new Date().toISOString().split('T')[0],
       b.fecha_entrega_est || null,
       montoTotalEdit,
       costoEnvioEdit,
       b.notas             || null,
+      esStockPropioEdit,
       id,
     ]);
 
     await client.query(`DELETE FROM pedido_items WHERE pedido_id=$1`, [id]);
     for (const [idx, item] of (b.items ?? []).entries()) {
+      const opItemId = item.es_reposicion ? null : (item.operacion_item_id || null);
       await client.query(`
         INSERT INTO pedido_items
-          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
+          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       `, [
         id,
-        item.operacion_item_id || null,
+        opItemId,
         item.producto_id       || null,
         item.descripcion,
         item.cantidad          || 1,
         parseFloat(String(item.costo_unitario)) || 0,
         idx,
+        item.es_reposicion     || false,
       ]);
     }
 

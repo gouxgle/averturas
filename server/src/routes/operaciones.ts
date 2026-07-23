@@ -826,7 +826,12 @@ operaciones.get('/:id', async (c) => {
           WHERE pi2.operacion_item_id = oi.id
             AND p2.estado != 'cancelado'
           LIMIT 1
-        ) AS covered_by
+        ) AS covered_by,
+        CASE WHEN cp.id IS NOT NULL THEN
+          (COALESCE(cp.stock_inicial,0) + COALESCE((
+            SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+          ),0))::int
+          ELSE NULL END AS stock_actual
       FROM operacion_items oi
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id

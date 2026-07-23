@@ -50,6 +50,7 @@ interface PedidoRow {
   transportista_nombre: string | null;
   notas: string | null;
   operacion_id: string | null;
+  es_stock_propio: boolean;
   proveedor: ProveedorMin;
   operacion: OperacionMin | null;
   items_resumen: { descripcion: string; cantidad: number }[] | null;
@@ -379,8 +380,19 @@ function PedidoModal({ id, onClose, onSaved }: {
             </div>
           </div>
 
-          {/* Operación vinculada */}
-          {pedido.operacion && (
+          {/* Operación vinculada / destino stock propio */}
+          {pedido.es_stock_propio ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Destino</p>
+              <div className="p-3 bg-sky-50 rounded-xl border border-sky-200 flex items-center gap-2">
+                <Package size={16} className="text-sky-600 shrink-0" />
+                <div>
+                  <p className="font-medium text-sky-900">Stock propio</p>
+                  <p className="text-xs text-sky-700">Sin cliente — para generar stock / exhibir en salón</p>
+                </div>
+              </div>
+            </div>
+          ) : pedido.operacion && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Operación vinculada</p>
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
@@ -730,12 +742,16 @@ export default function Pedidos() {
         icon={ShoppingCart}
         title="Pedidos al Proveedor"
         sub="Gestión de órdenes de compra"
-        actions={
+        actions={<>
+          <button onClick={() => navigate('/pedidos/nuevo?destino=stock')}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors">
+            <Package size={16} /> Para stock propio
+          </button>
           <button onClick={() => navigate('/pedidos/nuevo')}
             className="flex items-center gap-2 bg-lime-500 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-lime-600 transition-colors">
             <Plus size={16} /> Nuevo pedido
           </button>
-        }
+        </>}
       />
 
       <CompactStatsBar items={[
@@ -816,10 +832,13 @@ export default function Pedidos() {
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-bold text-gray-900 truncate">{p.proveedor.nombre}</span>
                               <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
-                              {p.operacion && (
+                              {p.es_stock_propio && (
+                                <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-1.5 py-0.5 shrink-0">Stock propio</span>
+                              )}
+                              {!p.es_stock_propio && p.operacion && (
                                 <span className="text-[10px] font-mono text-blue-600 shrink-0">{p.operacion.numero}</span>
                               )}
-                              {p.operacion && (
+                              {!p.es_stock_propio && p.operacion && (
                                 <span className="text-[10px] text-gray-400 shrink-0 truncate max-w-[100px]">{nombreCliente(p.operacion)}</span>
                               )}
                             </div>

@@ -49,6 +49,7 @@ interface OperacionItem {
   producto_costo_base?: number | null;
   producto_imagen_url?: string | null;
   covered_by?: { pedido_id: string; pedido_numero: string } | null;
+  stock_actual?: number | null;
 }
 
 interface OperacionDetalle {
@@ -79,11 +80,23 @@ interface PedidoItemForm {
   is_covered?: boolean;     // true = ya existe en otro pedido activo
   covered_by_numero?: string | null;
   imagen_url?: string | null;
+  stock_actual?: number | null;   // stock disponible del producto (informa el default)
+  en_stock?: boolean;             // true = stock_actual >= cantidad (se cumple de stock, no se pide)
+  es_reposicion?: boolean;        // true = se pide igual para reponer salón/stock (extra)
 }
 
 interface PreciosMapa {
   bySku: Record<string, number>;
   byProductoId: Record<string, number>;
+}
+
+interface CatalogoProducto {
+  id: string;
+  nombre: string;
+  costo_base?: number | null;
+  proveedor_sku?: string | null;
+  imagen_url?: string | null;
+  stock_actual?: number | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -115,6 +128,8 @@ function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm 
   const sku       = oi.producto_proveedor_sku ?? null;
   const precio    = resolverPrecio(precios, oi.producto_id, sku);
   const isCovered = !!oi.covered_by;
+  // Regla general: si hay stock suficiente, el ítem se cumple desde stock → no se pide
+  const enStock   = oi.stock_actual != null && oi.stock_actual >= oi.cantidad;
   // Prioridad: lista proveedor → costo_base del producto → 0
   const costo     = precio ?? (oi.producto_costo_base ? Number(oi.producto_costo_base) : 0);
   return {
@@ -125,10 +140,13 @@ function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm 
     costo_unitario:    isCovered ? 0 : costo,
     proveedor_sku:     sku,
     precio_de_lista:   precio != null && !isCovered,
-    selected:          !isCovered,
+    selected:          !isCovered && !enStock,   // en stock → viene DESmarcado
     is_covered:        isCovered,
     covered_by_numero: oi.covered_by?.pedido_numero ?? null,
     imagen_url:        oi.producto_imagen_url ?? null,
+    stock_actual:      oi.stock_actual ?? null,
+    en_stock:          enStock,
+    es_reposicion:     false,
   };
 }
 
@@ -249,6 +267,8 @@ export default function NuevoPedido() {
   const isEdit       = Boolean(id);
 
   const urlOperacionId = searchParams.get('operacion_id');
+  // Pedido para stock propio: sin cliente ni operación, destino = la propia empresa
+  const esStockPropio  = searchParams.get('destino') === 'stock';
 
   // Estado del formulario
   const [proveedorId,   setProveedorId]   = useState('');
@@ -285,6 +305,12 @@ export default function NuevoPedido() {
   const [ops,      setOps]      = useState<OperacionAprobada[]>([]);
   const [showOps,  setShowOps]  = useState(false);
   const opRef = useRef<HTMLDivElement>(null);
+
+  // Búsqueda de productos del catálogo (modo stock propio)
+  const [busqProd,  setBusqProd]  = useState('');
+  const [prods,     setProds]     = useState<CatalogoProducto[]>([]);
+  const [showProds, setShowProds] = useState(false);
+  const prodRef = useRef<HTMLDivElement>(null);
 
   const [loadingOp, setLoadingOp] = useState(false);
 
@@ -445,6 +471,43 @@ export default function NuevoPedido() {
     } catch { /* op sin items */ }
   }
 
+  // ── Búsqueda de productos del catálogo (modo stock propio) ────
+  useEffect(() => {
+    if (!esStockPropio) return;
+    const t = setTimeout(async () => {
+      if (!busqProd.trim()) { setProds([]); return; }
+      try {
+        const data = await api.get<CatalogoProducto[]>(`/productos?search=${encodeURIComponent(busqProd)}`);
+        setProds(data);
+      } catch { setProds([]); }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [busqProd, esStockPropio]);
+
+  // Agregar un producto del catálogo como ítem del pedido (lleva producto_id → ingresa a stock al recibir)
+  function agregarProducto(prod: CatalogoProducto) {
+    const precioLista = resolverPrecio(preciosProveedor, prod.id, prod.proveedor_sku);
+    const costo = precioLista ?? (prod.costo_base ? Number(prod.costo_base) : 0);
+    setItems(prev => {
+      // reemplaza el ítem inicial vacío si es el único
+      const base = (prev.length === 1 && !prev[0].descripcion.trim() && !prev[0].producto_id) ? [] : prev;
+      return [...base, {
+        producto_id:     prod.id,
+        descripcion:     prod.nombre,
+        cantidad:        1,
+        costo_unitario:  costo,
+        proveedor_sku:   prod.proveedor_sku ?? null,
+        precio_de_lista: precioLista != null,
+        imagen_url:      prod.imagen_url ?? null,
+        selected:        true,
+        stock_actual:    prod.stock_actual ?? null,
+      }];
+    });
+    setBusqProd('');
+    setProds([]);
+    setShowProds(false);
+  }
+
   // ── Items helpers ─────────────────────────────────────────────
   function updateItem(idx: number, field: keyof PedidoItemForm, value: string | number | boolean) {
     setItems(prev => prev.map((item, i) =>
@@ -461,9 +524,24 @@ export default function NuevoPedido() {
     setItems(prev => prev.filter((_, i) => i !== idx));
   }
 
+  // Pedir igual un ítem que tiene stock, para reponer salón/stock (extra, no cumple la operación)
+  function toggleReposicion(idx: number) {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      const activar = !item.es_reposicion;
+      return {
+        ...item,
+        es_reposicion: activar,
+        selected:      activar,
+        cantidad:      activar ? (item.cantidad || 1) : item.cantidad,
+      };
+    }));
+  }
+
   const itemsSeleccionados  = items.filter(i => !i.is_covered && i.selected !== false);
   const itemsCubiertos      = items.filter(i => i.is_covered);
-  const itemsDeselected     = items.filter(i => !i.is_covered && i.selected === false);
+  const itemsEnStock        = items.filter(i => !i.is_covered && i.en_stock && !i.es_reposicion && i.selected === false);
+  const itemsDeselected     = items.filter(i => !i.is_covered && !i.en_stock && i.selected === false);
   const montoItems          = itemsSeleccionados.reduce((acc, i) => acc + (i.costo_unitario || 0) * (i.cantidad || 1), 0);
   const costoEnvioSugerido  = montoItems > 0 ? Math.round(montoItems * 0.10) : 0;
   const costoEnvio          = costoEnvioManual !== null ? costoEnvioManual : costoEnvioSugerido;
@@ -481,17 +559,19 @@ export default function NuevoPedido() {
     try {
       const payload = {
         proveedor_id:    proveedorId,
-        operacion_id:    operacionId || null,
+        operacion_id:    esStockPropio ? null : (operacionId || null),
+        es_stock_propio: esStockPropio,
         fecha_pedido:    fechaPedido,
         fecha_entrega_est: fechaEst || null,
         notas:           notas || null,
         costo_envio:     costoEnvio,
         items:           itemsAEnviar.map(i => ({
-          operacion_item_id: i.operacion_item_id || null,
+          operacion_item_id: i.es_reposicion ? null : (i.operacion_item_id || null),
           producto_id:       i.producto_id || null,
           descripcion:       i.descripcion,
           cantidad:          i.cantidad,
           costo_unitario:    i.costo_unitario,
+          es_reposicion:     i.es_reposicion || false,
         })),
       };
 
@@ -640,9 +720,11 @@ export default function NuevoPedido() {
         </button>
         <div>
           <h1 className="text-lg font-bold text-gray-900">
-            {isEdit ? 'Editar pedido' : 'Nuevo pedido al proveedor'}
+            {isEdit ? 'Editar pedido' : esStockPropio ? 'Pedido para stock propio' : 'Nuevo pedido al proveedor'}
           </h1>
-          <p className="text-sm text-gray-500">Orden de compra</p>
+          <p className="text-sm text-gray-500">
+            {esStockPropio ? 'Orden de compra para stock / salón — sin cliente' : 'Orden de compra'}
+          </p>
         </div>
       </div>
 
@@ -673,7 +755,52 @@ export default function NuevoPedido() {
           )}
         </SectionCard>
 
-        {/* Operación vinculada */}
+        {/* Modo stock propio: banner + selector de productos del catálogo */}
+        {esStockPropio ? (
+          <SectionCard title="Destino: stock propio" icon={Package}>
+            <div className="flex items-start gap-2 p-2.5 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-800 mb-3">
+              <span className="mt-0.5">🏢</span>
+              Este pedido es para la propia empresa (generar stock o exhibir en salón). No tiene cliente ni operación. Los productos ingresan a stock al recibir el pedido.
+            </div>
+            <div className="relative" ref={prodRef}>
+              <input
+                value={busqProd}
+                onChange={e => { setBusqProd(e.target.value); setShowProds(true); }}
+                onFocus={() => setShowProds(true)}
+                onBlur={() => setTimeout(() => setShowProds(false), 150)}
+                placeholder="Buscar producto del catálogo por nombre o código..."
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+              />
+              {showProds && prods.length > 0 && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                  {prods.map(prod => (
+                    <button
+                      key={prod.id}
+                      onMouseDown={() => agregarProducto(prod)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-lime-50 border-b border-gray-50 last:border-0 flex items-center gap-2"
+                    >
+                      {prod.imagen_url ? (
+                        <img src={prod.imagen_url} alt="" className="w-9 h-9 rounded-lg object-cover border border-gray-200 shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
+                          <Package size={14} className="text-gray-300" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{prod.nombre}</p>
+                        <p className="text-[11px] text-gray-400">
+                          Stock: {prod.stock_actual ?? 0}{prod.costo_base ? ` · costo ${formatCurrency(Number(prod.costo_base))}` : ''}
+                        </p>
+                      </div>
+                      <span className="text-lime-600 text-lg shrink-0">＋</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        ) : (
+        /* Operación vinculada */
         <SectionCard title="Operación vinculada (opcional)" icon={Package}>
           {operacionSel ? (
             <div className="space-y-2">
@@ -800,6 +927,7 @@ export default function NuevoPedido() {
             </div>
           )}
         </SectionCard>
+        )}
 
         {/* Banner pedido complementario */}
         {itemsCubiertos.length > 0 && (
@@ -818,18 +946,24 @@ export default function NuevoPedido() {
           <div className="space-y-3">
             {items.map((item, idx) => {
               const isCovered    = !!item.is_covered;
-              const isDeselected = !isCovered && item.selected === false;
               const isActive     = !isCovered && item.selected !== false;
+              const isReposicion = !!item.es_reposicion;
+              // En stock y NO se está pidiendo para reponer → se cumple desde stock
+              const enStockPasivo = !isCovered && !!item.en_stock && !isReposicion;
+              // Deseleccionado manual (no por stock): pendiente para otro proveedor
+              const isDeselected = !isCovered && !isActive && !enStockPasivo;
 
               return (
               <div key={idx} className={cn(
                 'flex gap-2 items-start p-3 rounded-xl border transition-colors',
-                isCovered   ? 'bg-gray-100 border-gray-200 opacity-60' :
-                isDeselected ? 'bg-gray-50 border-dashed border-gray-300 opacity-70' :
-                               'bg-gray-50 border-gray-200'
+                isCovered      ? 'bg-gray-100 border-gray-200 opacity-60' :
+                isReposicion   ? 'bg-violet-50 border-violet-200' :
+                enStockPasivo  ? 'bg-sky-50 border-sky-200' :
+                isDeselected   ? 'bg-gray-50 border-dashed border-gray-300 opacity-70' :
+                                 'bg-gray-50 border-gray-200'
               )}>
-                {/* Checkbox — solo para ítems de operación no cubiertos */}
-                {item.operacion_item_id && !isCovered && (
+                {/* Checkbox — solo para ítems de operación no cubiertos y sin stock (los de stock se controlan con el toggle de reposición) */}
+                {item.operacion_item_id && !isCovered && !item.en_stock && (
                   <input
                     type="checkbox"
                     checked={isActive}
@@ -857,7 +991,17 @@ export default function NuevoPedido() {
                         Ya en {item.covered_by_numero ?? 'otro pedido'}
                       </p>
                     )}
-                    {!isCovered && isDeselected && (
+                    {enStockPasivo && (
+                      <p className="text-[10px] text-sky-700 bg-sky-50 border border-sky-200 rounded px-2 py-0.5 font-semibold">
+                        En stock ({item.stock_actual}) — se cumple sin pedir
+                      </p>
+                    )}
+                    {isReposicion && (
+                      <p className="text-[10px] text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 py-0.5 font-semibold">
+                        Reposición {item.stock_actual != null ? `· stock ${item.stock_actual}` : ''}
+                      </p>
+                    )}
+                    {isDeselected && (
                       <p className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded px-2 py-0.5 font-semibold">
                         Pendiente para otro proveedor
                       </p>
@@ -878,14 +1022,29 @@ export default function NuevoPedido() {
                       </p>
                     )}
                   </div>
+                  {/* Toggle reposición — solo para ítems con stock (se pueden pedir igual para reponer) */}
+                  {item.en_stock && !isCovered && (
+                    <button
+                      type="button"
+                      onClick={() => toggleReposicion(idx)}
+                      className={cn(
+                        'text-[11px] font-semibold rounded-lg px-2.5 py-1 border transition-colors',
+                        isReposicion
+                          ? 'bg-violet-100 border-violet-300 text-violet-700 hover:bg-violet-200'
+                          : 'bg-white border-sky-300 text-sky-700 hover:bg-sky-100'
+                      )}
+                    >
+                      {isReposicion ? '✕ Quitar reposición' : '＋ Pedir igual para reponer'}
+                    </button>
+                  )}
                   <input
                     value={item.descripcion}
                     onChange={e => updateItem(idx, 'descripcion', e.target.value)}
                     placeholder="Descripción del producto"
-                    disabled={isCovered || isDeselected}
+                    disabled={!isActive}
                     className={cn(
                       'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200',
-                      (isCovered || isDeselected) ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-default' : 'border-gray-200'
+                      !isActive ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-default' : 'border-gray-200'
                     )}
                   />
                   {!isCovered && isActive && (
@@ -1047,6 +1206,11 @@ export default function NuevoPedido() {
                 {itemsDeselected.length > 0 && (
                   <p className="text-[10px] text-orange-600 mt-1">
                     + {itemsDeselected.length} ítem{itemsDeselected.length > 1 ? 's' : ''} pendiente{itemsDeselected.length > 1 ? 's' : ''} para otro proveedor
+                  </p>
+                )}
+                {itemsEnStock.length > 0 && (
+                  <p className="text-[10px] text-sky-600 mt-1">
+                    + {itemsEnStock.length} ítem{itemsEnStock.length > 1 ? 's' : ''} en stock (se cumple{itemsEnStock.length > 1 ? 'n' : ''} sin pedir)
                   </p>
                 )}
               </div>

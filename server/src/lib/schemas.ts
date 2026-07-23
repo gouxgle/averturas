@@ -135,11 +135,13 @@ const PedidoItemSchema = z.object({
   cantidad:          z.number().int().positive(),
   costo_unitario:    zPosNum,
   orden:             z.number().int().optional(),
+  es_reposicion:     z.boolean().optional().default(false),
 });
 
 export const PedidoSchema = z.object({
   proveedor_id:      zUUID,
   operacion_id:      zUUID.optional().nullable(),
+  es_stock_propio:   z.boolean().optional().default(false),
   fecha_pedido:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   fecha_entrega_est: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   costo_envio:       zPosNum.optional(),
