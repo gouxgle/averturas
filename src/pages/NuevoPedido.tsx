@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, ShoppingCart, Truck, Package,
-  RefreshCw, Plus, Trash2, MessageCircle,
+  RefreshCw, Plus, Trash2, MessageCircle, LayoutGrid, X, Search,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -97,7 +97,10 @@ interface CatalogoProducto {
   proveedor_sku?: string | null;
   imagen_url?: string | null;
   stock_actual?: number | null;
+  tipo_abertura_id?: string | null;
 }
+
+interface TipoAbertura { id: string; nombre: string }
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -312,6 +315,14 @@ export default function NuevoPedido() {
   const [showProds, setShowProds] = useState(false);
   const prodRef = useRef<HTMLDivElement>(null);
 
+  // Galería de productos (modal, modo stock propio)
+  const [galeriaOpen,   setGaleriaOpen]   = useState(false);
+  const [galeriaProds,  setGaleriaProds]  = useState<CatalogoProducto[]>([]);
+  const [galeriaTipos,  setGaleriaTipos]  = useState<TipoAbertura[]>([]);
+  const [galeriaCat,    setGaleriaCat]    = useState('');
+  const [galeriaSearch, setGaleriaSearch] = useState('');
+  const [galeriaLoading, setGaleriaLoading] = useState(false);
+
   const [loadingOp, setLoadingOp] = useState(false);
 
   // Lista de operaciones disponibles (aprobadas con pago, sin pedido)
@@ -484,6 +495,28 @@ export default function NuevoPedido() {
     return () => clearTimeout(t);
   }, [busqProd, esStockPropio]);
 
+  // ── Galería de productos (modal) ──────────────────────────────
+  function abrirGaleria() {
+    setGaleriaOpen(true);
+    if (galeriaProds.length > 0) return;
+    setGaleriaLoading(true);
+    Promise.all([
+      api.get<CatalogoProducto[]>('/catalogo/productos'),
+      api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
+    ]).then(([ps, ts]) => {
+      setGaleriaProds(ps);
+      setGaleriaTipos(ts);
+    }).catch(() => toast.error('No se pudo cargar el catálogo'))
+      .finally(() => setGaleriaLoading(false));
+  }
+
+  const galeriaFiltrada = galeriaProds.filter(p => {
+    const okCat = !galeriaCat || p.tipo_abertura_id === galeriaCat;
+    const q = galeriaSearch.trim().toLowerCase();
+    const okSearch = !q || p.nombre.toLowerCase().includes(q);
+    return okCat && okSearch;
+  });
+
   // Agregar un producto del catálogo como ítem del pedido (lleva producto_id → ingresa a stock al recibir)
   function agregarProducto(prod: CatalogoProducto) {
     const precioLista = resolverPrecio(preciosProveedor, prod.id, prod.proveedor_sku);
@@ -506,6 +539,7 @@ export default function NuevoPedido() {
     setBusqProd('');
     setProds([]);
     setShowProds(false);
+    toast.success(`${prod.nombre} agregado`);
   }
 
   // ── Items helpers ─────────────────────────────────────────────
@@ -762,15 +796,16 @@ export default function NuevoPedido() {
               <span className="mt-0.5">🏢</span>
               Este pedido es para la propia empresa (generar stock o exhibir en salón). No tiene cliente ni operación. Los productos ingresan a stock al recibir el pedido.
             </div>
-            <div className="relative" ref={prodRef}>
-              <input
-                value={busqProd}
-                onChange={e => { setBusqProd(e.target.value); setShowProds(true); }}
-                onFocus={() => setShowProds(true)}
-                onBlur={() => setTimeout(() => setShowProds(false), 150)}
-                placeholder="Buscar producto del catálogo por nombre o código..."
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
-              />
+            <div className="flex gap-2 mb-2">
+              <div className="relative flex-1" ref={prodRef}>
+                <input
+                  value={busqProd}
+                  onChange={e => { setBusqProd(e.target.value); setShowProds(true); }}
+                  onFocus={() => setShowProds(true)}
+                  onBlur={() => setTimeout(() => setShowProds(false), 150)}
+                  placeholder="Buscar producto del catálogo por nombre o código..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+                />
               {showProds && prods.length > 0 && (
                 <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
                   {prods.map(prod => (
@@ -797,6 +832,14 @@ export default function NuevoPedido() {
                   ))}
                 </div>
               )}
+              </div>
+              <button
+                type="button"
+                onClick={abrirGaleria}
+                className="flex items-center gap-1.5 bg-lime-500 hover:bg-lime-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shrink-0"
+              >
+                <LayoutGrid size={16} /> Ver galería
+              </button>
             </div>
           </SectionCard>
         ) : (
@@ -1258,6 +1301,98 @@ export default function NuevoPedido() {
         </div>
 
       </div>
+
+      {/* ── Modal galería de productos (stock propio) ── */}
+      {galeriaOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setGaleriaOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <LayoutGrid size={18} className="text-lime-600" />
+                <h2 className="text-sm font-bold text-gray-900">Galería de productos</h2>
+              </div>
+              <button onClick={() => setGaleriaOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Buscador + filtro por tipo */}
+            <div className="px-5 py-3 border-b border-gray-100 space-y-2.5">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={galeriaSearch}
+                  onChange={e => setGaleriaSearch(e.target.value)}
+                  placeholder="Buscar por nombre..."
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
+                />
+              </div>
+              {galeriaTipos.length > 0 && (
+                <div className="flex gap-1.5 flex-wrap">
+                  <button onClick={() => setGaleriaCat('')}
+                    className={cn('text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors',
+                      !galeriaCat ? 'bg-lime-500 text-white border-lime-500' : 'border-gray-200 text-gray-500 hover:border-lime-300')}>
+                    Todos
+                  </button>
+                  {galeriaTipos.map(t => (
+                    <button key={t.id} onClick={() => setGaleriaCat(t.id === galeriaCat ? '' : t.id)}
+                      className={cn('text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors',
+                        galeriaCat === t.id ? 'bg-lime-500 text-white border-lime-500' : 'border-gray-200 text-gray-500 hover:border-lime-300')}>
+                      {t.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Grid de productos */}
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {galeriaLoading ? (
+                <p className="text-sm text-gray-400 text-center py-8">Cargando catálogo...</p>
+              ) : galeriaFiltrada.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Sin productos que coincidan</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {galeriaFiltrada.map(prod => (
+                    <button key={prod.id} onClick={() => agregarProducto(prod)}
+                      className="text-left border border-gray-200 rounded-xl overflow-hidden hover:border-lime-400 hover:shadow-md transition-all group">
+                      <div className="aspect-square bg-gray-50 relative">
+                        {prod.imagen_url ? (
+                          <img src={prod.imagen_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package size={28} className="text-gray-200" />
+                          </div>
+                        )}
+                        <span className="absolute top-1.5 left-1.5 text-[10px] font-semibold bg-white/90 border border-gray-200 rounded px-1.5 py-0.5 text-gray-600">
+                          stock {prod.stock_actual ?? 0}
+                        </span>
+                        <span className="absolute inset-0 bg-lime-500/0 group-hover:bg-lime-500/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                          <span className="bg-lime-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Plus size={13} /> Agregar</span>
+                        </span>
+                      </div>
+                      <div className="p-2">
+                        <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{prod.nombre}</p>
+                        {prod.costo_base ? (
+                          <p className="text-[11px] text-gray-400 mt-0.5">costo {formatCurrency(Number(prod.costo_base))}</p>
+                        ) : null}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center">
+              <p className="text-xs text-gray-400">{items.filter(i => i.producto_id).length} producto(s) en el pedido</p>
+              <button onClick={() => setGaleriaOpen(false)}
+                className="bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-xl">
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

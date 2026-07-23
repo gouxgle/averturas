@@ -89,6 +89,7 @@ interface OpDetalle {
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
   respuesta_cliente_at: string | null;
   respuesta_cliente_detalle: string | null;
+  stock_cubre_todo: boolean;
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
   tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
@@ -633,7 +634,30 @@ function PresupuestoModal({
                       <Receipt size={13} /> Registrar cobro
                     </button>
                   )}
-                  {cobrado > 0.01 && !todosItemsEnviados && (
+                  {/* Todo en stock: no hace falta pedido, se puede entregar directo */}
+                  {op.stock_cubre_todo && pedidos.filter(p => p.estado !== 'cancelado').length === 0 && (
+                    <div className="mt-1 p-3 rounded-xl bg-sky-50 border border-sky-200">
+                      <p className="text-xs font-semibold text-sky-800 flex items-center gap-1.5">
+                        <Package size={13} className="text-sky-600" /> Todo en stock — lista para entregar
+                      </p>
+                      <p className="text-[11px] text-sky-700 mt-0.5">
+                        No necesitás pedido al proveedor. Hacé un pedido solo si querés reponer stock.
+                      </p>
+                      <button
+                        onClick={() => { onClose(); navigate(`/remitos/nuevo?operacion_id=${op.id}&cliente_id=${op.cliente_id}`); }}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition-colors mt-2"
+                      >
+                        <Truck size={13} /> Registrar entrega (remito)
+                      </button>
+                      <button
+                        onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                        className="w-full text-[11px] text-sky-600 hover:underline font-semibold mt-1.5"
+                      >
+                        Reponer stock igual →
+                      </button>
+                    </div>
+                  )}
+                  {cobrado > 0.01 && !todosItemsEnviados && !op.stock_cubre_todo && (
                     <button
                       onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
                       className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"

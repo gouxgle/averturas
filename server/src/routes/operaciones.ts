@@ -246,6 +246,21 @@ operaciones.get('/', async (c) => {
   return c.json(rows);
 });
 
+// Predicado SQL: la operación `o` tiene TODOS sus ítems cubiertos por stock propio
+// (cada ítem con producto_id y stock_actual >= cantidad, y al menos 1 ítem).
+// Una op así no necesita pedido al proveedor: se cumple directo desde stock.
+const STOCK_CUBRE_TODO = `(
+  EXISTS (SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id)
+  AND NOT EXISTS (
+    SELECT 1 FROM operacion_items oi
+    WHERE oi.operacion_id = o.id
+      AND NOT (oi.producto_id IS NOT NULL AND
+        (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
+         + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
+        ) >= oi.cantidad)
+  )
+)`;
+
 operaciones.get('/tablero', async (c) => {
   const lunes = new Date();
   const dow = lunes.getDay() === 0 ? 6 : lunes.getDay() - 1;
@@ -269,7 +284,8 @@ operaciones.get('/tablero', async (c) => {
        WHERE oi.operacion_id = o.id ORDER BY oi.orden LIMIT 1) AS primer_item,
       (SELECT p.fecha_entrega_est FROM pedidos p
        WHERE p.operacion_id = o.id AND p.estado NOT IN ('cancelado', 'recibido')
-       ORDER BY p.created_at DESC LIMIT 1) AS pedido_fecha_entrega_est
+       ORDER BY p.created_at DESC LIMIT 1) AS pedido_fecha_entrega_est,
+      ${STOCK_CUBRE_TODO} AS stock_cubre_todo
     FROM operaciones o
     JOIN clientes c ON c.id = o.cliente_id
   `;
@@ -294,12 +310,14 @@ operaciones.get('/tablero', async (c) => {
       WHERE o.estado IN ('presupuesto', 'enviado')
       ORDER BY o.created_at DESC LIMIT 50`),
 
-    // 2. Confirmadas: aprobadas sin pedido activo al proveedor
+    // 2. Confirmadas: aprobadas sin pedido activo al proveedor.
+    //    Excluye las que ya están 100% cubiertas por stock (esas van a "lista p/ entregar").
     db.query(`${baseSelect}
       WHERE o.estado = 'aprobado'
         AND NOT EXISTS (
           SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
         )
+        AND NOT ${STOCK_CUBRE_TODO}
       ORDER BY o.created_at DESC LIMIT 50`),
 
     // 3. Con pedido al proveedor: tiene al menos un pedido activo no recibido
@@ -311,17 +329,19 @@ operaciones.get('/tablero', async (c) => {
         )
       ORDER BY o.created_at DESC LIMIT 50`),
 
-    // 4. Lista p/ entregar: todos los pedidos activos fueron recibidos, sin remito activo
+    // 4. Lista p/ entregar: sin remito activo, sin pedido pendiente, Y
+    //    (todos los pedidos fueron recibidos) O (aprobada + todo cubierto por stock, sin necesidad de pedido)
     db.query(`${baseSelect}
       WHERE o.estado NOT IN ('cancelado', 'rechazado', 'entregado')
-        AND EXISTS (
-          SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado = 'recibido'
-        )
         AND NOT EXISTS (
           SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado NOT IN ('cancelado', 'recibido')
         )
         AND NOT EXISTS (
           SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado != 'cancelado'
+        )
+        AND (
+          EXISTS (SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado = 'recibido')
+          OR (o.estado = 'aprobado' AND ${STOCK_CUBRE_TODO})
         )
       ORDER BY o.created_at DESC LIMIT 50`),
 
@@ -796,6 +816,7 @@ operaciones.get('/:id', async (c) => {
           WHERE i.operacion_id = o.id AND i.tipo = 'respuesta_proforma'
           ORDER BY i.created_at DESC LIMIT 1
         ) AS respuesta_cliente_detalle,
+        ${STOCK_CUBRE_TODO} AS stock_cubre_todo,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
