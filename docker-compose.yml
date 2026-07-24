@@ -47,6 +47,10 @@ services:
       EVOLUTION_INSTANCE:    ${EVOLUTION_INSTANCE:-}
     volumes:
       - ./uploads:/app/uploads
+      # Backups (solo existen en prod — cron + rclone corren en el host, fuera de Docker).
+      # Montados solo lectura para que la sección Configuración > Backups pueda mostrar su estado.
+      - /var/lib/docker-data/backups:/app/backup-data:ro
+      - /var/log/backup-aberturas.log:/app/backup-log/backup-aberturas.log:ro
     depends_on:
       db:
         condition: service_healthy

@@ -1477,8 +1477,7 @@ export function NuevoProducto() {
     set('promo_precio', String(rounded));
   }, [form.precio_base, form.margen_tipo, form.promo_activa]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
+  async function uploadFiles(files: File[]) {
     if (!files.length) return;
     setUploadingImg(true);
     try {
@@ -1502,8 +1501,40 @@ export function NuevoProducto() {
       toast.error('No se pudo subir la imagen');
     } finally {
       setUploadingImg(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    await uploadFiles(files);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  // Pegar imagen desde el portapapeles (Ctrl+V) en cualquier parte del formulario
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const files = items
+        .filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+        .map(it => it.getAsFile())
+        .filter((f): f is File => !!f);
+      if (files.length) {
+        e.preventDefault();
+        uploadFiles(files);
+      }
+    }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
+  const [draggingImg, setDraggingImg] = useState(false);
+  function handleImgDragOver(e: React.DragEvent) { e.preventDefault(); setDraggingImg(true); }
+  function handleImgDragLeave(e: React.DragEvent) { e.preventDefault(); setDraggingImg(false); }
+  function handleImgDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDraggingImg(false);
+    const files = Array.from(e.dataTransfer.files ?? []).filter(f => f.type.startsWith('image/'));
+    if (files.length) uploadFiles(files);
   }
 
   function removeImagen(idx: number) {
@@ -2179,8 +2210,18 @@ export function NuevoProducto() {
         <div className="p-4 space-y-4">
 
           {/* Galería */}
-          <div>
-            <p className="text-[11px] text-gray-400 mb-2">La primera imagen es la principal mostrada en catálogo y tienda.</p>
+          <div
+            onDragOver={handleImgDragOver}
+            onDragLeave={handleImgDragLeave}
+            onDrop={handleImgDrop}
+            className={cn(
+              'rounded-xl transition-colors',
+              draggingImg && 'ring-2 ring-sky-400 ring-offset-2 bg-sky-50/50'
+            )}
+          >
+            <p className="text-[11px] text-gray-400 mb-2">
+              La primera imagen es la principal mostrada en catálogo y tienda. Podés arrastrar imágenes acá o pegarlas con Ctrl+V.
+            </p>
             <div className="flex flex-wrap gap-2">
               {form.imagenes.map((url, idx) => (
                 <div key={url + idx} className="relative group w-20 h-20 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 shrink-0">

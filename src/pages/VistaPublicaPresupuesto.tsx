@@ -22,6 +22,7 @@ interface Item {
   medida_ancho: number | null; medida_alto: number | null; color: string | null;
   tipo_abertura_nombre: string | null; sistema_nombre: string | null;
   producto_imagen_url: string | null;
+  calculo_url: string | null;
 }
 interface Presupuesto {
   id: string; numero: string; estado: string; forma_pago: string | null;
@@ -734,8 +735,9 @@ export function VistaPublicaPresupuesto() {
             const pUnit = Number(item.precio_unitario) +
               (item.incluye_instalacion ? Number(item.precio_instalacion) : 0);
 
-            const thumbnail = item.producto_imagen_url ? (
-              <img src={item.producto_imagen_url} alt=""
+            const imgSrc = item.producto_imagen_url || item.calculo_url;
+            const thumbnail = imgSrc ? (
+              <img src={imgSrc} alt=""
                 className="w-11 h-11 object-cover rounded-md border border-gray-200"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : (

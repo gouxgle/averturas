@@ -69,6 +69,7 @@ interface Item {
   producto_atributos: Record<string, unknown> | null;
   producto_nombre: string | null;
   producto_imagen_url: string | null;
+  calculo_url: string | null;
 }
 interface Operacion {
   id: string; numero: string; tipo: string; estado: string;
@@ -383,9 +384,9 @@ export function ImprimirPresupuesto() {
                       <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>{i + 1}</span>
                     </td>
                     <td style={{ ...tdStyle('center', false), padding: '6px 8px' }}>
-                      {item.producto_imagen_url ? (
+                      {(item.producto_imagen_url || item.calculo_url) ? (
                         <img
-                          src={item.producto_imagen_url}
+                          src={item.producto_imagen_url || item.calculo_url || ''}
                           alt=""
                           style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb', display: 'block' }}
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}

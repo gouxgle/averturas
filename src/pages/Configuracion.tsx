@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -879,9 +879,145 @@ function PanelLocalidades() {
   );
 }
 
+// ── Panel Backups ───────────────────────────────────────────────────────────────
+
+interface BackupCorrida { fecha: string; exitoso: boolean; archivo: string | null; error: string | null; }
+interface BackupArchivo { nombre: string; tamano_bytes: number; fecha: string; }
+interface BackupResumen {
+  ultimo_exitoso_at: string | null;
+  dias_desde_ultimo_exitoso: number | null;
+  fallos_ultimos_7_dias: number;
+  corridas_ultimos_7_dias: number;
+  espacio_local_bytes: number;
+  cantidad_archivos_locales: number;
+}
+interface BackupData {
+  disponible: boolean;
+  corridas: BackupCorrida[];
+  archivos_locales: BackupArchivo[];
+  resumen: BackupResumen;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return '0 KB';
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+function formatFechaHora(iso: string) {
+  return new Date(iso).toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function PanelBackups() {
+  const [data, setData]       = useState<BackupData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get<BackupData>('/backups')
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-sm text-gray-400 text-center py-4">Cargando...</p>;
+
+  if (!data || !data.disponible) {
+    return (
+      <p className="text-sm text-gray-400 text-center py-4">
+        Sin datos de backup en este ambiente (el backup automático corre solo en producción).
+      </p>
+    );
+  }
+
+  const { resumen, corridas, archivos_locales } = data;
+  const dias = resumen.dias_desde_ultimo_exitoso;
+  const alerta = dias === null || dias > 1;
+
+  return (
+    <div className="space-y-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className={cn('rounded-xl p-3 border', alerta ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200')}>
+          <p className={cn('text-[10px] font-bold uppercase tracking-wide', alerta ? 'text-red-500' : 'text-emerald-600')}>Último éxito</p>
+          <p className={cn('text-lg font-extrabold', alerta ? 'text-red-700' : 'text-emerald-700')}>
+            {dias === null ? '—' : dias === 0 ? 'Hoy' : `Hace ${dias}d`}
+          </p>
+        </div>
+        <div className="rounded-xl p-3 border border-gray-200 bg-gray-50">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Fallos (7d)</p>
+          <p className={cn('text-lg font-extrabold', resumen.fallos_ultimos_7_dias > 0 ? 'text-amber-600' : 'text-gray-800')}>
+            {resumen.fallos_ultimos_7_dias} / {resumen.corridas_ultimos_7_dias}
+          </p>
+        </div>
+        <div className="rounded-xl p-3 border border-gray-200 bg-gray-50">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Backups locales</p>
+          <p className="text-lg font-extrabold text-gray-800">{resumen.cantidad_archivos_locales}</p>
+        </div>
+        <div className="rounded-xl p-3 border border-gray-200 bg-gray-50">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Espacio en disco</p>
+          <p className="text-lg font-extrabold text-gray-800">{formatBytes(resumen.espacio_local_bytes)}</p>
+        </div>
+      </div>
+
+      {alerta && (
+        <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+          <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+          {dias === null
+            ? 'No se registra ningún backup exitoso todavía.'
+            : `El último backup exitoso fue hace ${dias} día${dias === 1 ? '' : 's'}. Revisá la conexión a Google Drive.`}
+        </div>
+      )}
+
+      {/* Historial de corridas */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Historial (últimas {corridas.length} corridas)</p>
+        <div className="border border-gray-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-gray-100">
+          {corridas.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Sin corridas registradas</p>
+          ) : corridas.map((r, i) => (
+            <div key={i} className="flex items-center gap-2.5 px-3 py-2 bg-white">
+              {r.exitoso
+                ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                : <XCircle size={16} className="text-red-500 shrink-0" />}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-gray-700">{formatFechaHora(r.fecha)}</p>
+                {r.exitoso
+                  ? <p className="text-[11px] text-gray-400 truncate">{r.archivo}</p>
+                  : <p className="text-[11px] text-red-500 truncate">{r.error ?? 'Falló sin detalle'}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Archivos locales (últimos, respaldo aunque no haya subido a Drive) */}
+      {archivos_locales.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <HardDrive size={12} /> Archivos en el servidor
+          </p>
+          <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 max-h-52 overflow-y-auto">
+            {archivos_locales.slice(0, 10).map(a => (
+              <div key={a.nombre} className="flex items-center justify-between px-3 py-2 bg-white text-xs">
+                <span className="text-gray-600 truncate">{a.nombre}</span>
+                <div className="flex items-center gap-3 shrink-0 text-gray-400">
+                  <span className="flex items-center gap-1"><Clock size={11} />{formatFechaHora(a.fecha)}</span>
+                  <span>{formatBytes(a.tamano_bytes)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'mensajes' | null;
+type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'mensajes' | 'backups' | null;
 
 const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
@@ -986,6 +1122,18 @@ export function Configuracion() {
             desc="Texto de pedidos, presupuestos y remitos enviados por WhatsApp"
             open={openPanel === 'mensajes'} onToggle={() => togglePanel('mensajes')}>
             <PanelMensajes />
+          </AccordionItem>
+        </div>
+      </div>
+
+      {/* Sistema */}
+      <div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Sistema</h2>
+        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+          <AccordionItem id="backups" label="Backups" icon={DatabaseBackup}
+            desc="Estado del backup automático a Google Drive"
+            open={openPanel === 'backups'} onToggle={() => togglePanel('backups')}>
+            <PanelBackups />
           </AccordionItem>
         </div>
       </div>

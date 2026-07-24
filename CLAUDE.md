@@ -537,6 +537,22 @@ Componente `WeatherWidget` en `Dashboard.tsx`:
 - Posición: columna central del header (`flex-1 flex justify-center`), entre el bloque saludo/fecha y los botones de la derecha — NO debajo del saludo
 - Diseño: `border-2 border-sky-300 bg-gradient-to-r from-sky-50 to-blue-50 shadow-md`, emoji `text-3xl`, temp `text-xl font-black text-sky-700`
 
+## Backups (solo prod)
+
+Backup diario automático de `aberturas-db`, corre **en el host de prod** (179.43.120.103, cesarbritez), fuera de Docker — no en la app:
+- Cron `0 3 * * *` → `/usr/local/bin/backup-dbs.sh` (root, no versionado en el repo)
+- `pg_dump` (via `docker exec aberturas-db`) → gzip → `/var/lib/docker-data/backups/*.sql.gz` (retención 7 días)
+- `rclone copy` a Google Drive (`gdrive:backups-sistemas/aberturas/`)
+- Log en texto plano: `/var/log/backup-aberturas.log`
+- El script usa `set -e`: si `rclone` falla (ej. token OAuth vencido), aborta antes de loguear "Backup completado" y antes de limpiar retención — el `.sql.gz` local igual queda creado (pg_dump ya corrió bien), solo no sube a Drive.
+- **Gotcha real (2026-07-23)**: token OAuth de rclone expiró (`invalid_grant`) y falló 13 días en silencio (cron seguía "corriendo" pero sin subir nada). Se resuelve con `rclone config reconnect gdrive:` (requiere `rclone authorize` en una máquina con navegador, pegar el resultado). Si el proyecto OAuth de Google Cloud sigue en estado "Testing", el token vuelve a vencer a los 7 días — hay que publicarlo ("In production") en Google Cloud Console > OAuth consent screen para que no expire por tiempo.
+
+**Monitoreo — Configuración → Backups** (`src/pages/Configuracion.tsx` `PanelBackups` + `server/src/routes/backups.ts`, endpoint `GET /backups`, solo admin):
+- Parsea el log existente por bloques (`Iniciando backup` → éxito si aparece `Backup completado:`, si no busca línea de error de `pg_dump` o de rclone) — **no requiere tocar el script** del host.
+- `docker-compose.yml` monta 2 paths del host **solo lectura** en el contenedor `app`: `/var/lib/docker-data/backups:/app/backup-data:ro` y `/var/log/backup-aberturas.log:/app/backup-log/backup-aberturas.log:ro`. Esos paths solo existen en prod — en local/test el mount queda vacío (Docker crea un directorio vacío si el archivo/carpeta no existe en el host) y el endpoint devuelve `disponible:false` sin romper.
+- Muestra: días desde el último éxito, fallos en los últimos 7 días, historial de corridas (con el error puntual si falló), y archivos `.sql.gz` disponibles localmente (fallback aunque no hayan subido a Drive).
+- No hay botón de "ejecutar ahora": la app no tiene acceso al socket de Docker ni al script del host, es solo lectura/visualización.
+
 ## Problemas conocidos y soluciones
 
 ### crypto.randomUUID() falla en HTTP
@@ -567,6 +583,8 @@ En queries SQL de rutas públicas o nuevas: calcular/JOIN explícitamente.
 LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
 -- luego: cp.atributos AS producto_atributos
 ```
+
+**Miniatura de ítem — `producto_imagen_url` vs `calculo_url`**: en las 3 vistas de proforma (`ImprimirPresupuesto.tsx`, `VistaPublicaPresupuesto.tsx`, y el editor `NuevoPresupuesto.tsx`), la miniatura del ítem debe hacer fallback `producto_imagen_url || calculo_url` — los ítems "a medida" no tienen `producto_id` (por eso `producto_imagen_url` es null) pero sí pueden tener una imagen ilustrativa subida a `calculo_url` (pegar/arrastrar en el modal de ítem, endpoint `POST /operaciones/upload-calculo`). Bug real (2026-07-23): el endpoint público `GET /pub/presupuesto/:token` no incluía `oi.calculo_url` en el SELECT y ninguna de las 2 vistas de proforma tenía el fallback — la imagen se guardaba bien pero nunca se veía en la proforma (ni la pública ni el PDF).
 
 ### Google Translate crash en Android — `lang` y `translate`
 `index.html` tiene `lang="es" translate="no"`. Crítico: si se cambia a `lang="en"`, Chrome Android ofrece traducir → Google Translate muta text nodes del DOM → React 19 no puede hacer `insertBefore` → ErrorBoundary "Algo salió mal". No revertir este atributo.
