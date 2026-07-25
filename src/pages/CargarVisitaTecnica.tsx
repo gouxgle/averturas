@@ -169,8 +169,7 @@ export function CargarVisitaTecnica() {
   function agregarFila() { setItems(prev => [...prev, emptyItem()]); }
   function quitarFila(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)); }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
+  async function uploadFiles(files: File[]) {
     if (!files.length) return;
     setUploadingImg(true);
     try {
@@ -194,8 +193,41 @@ export function CargarVisitaTecnica() {
       toast.error('No se pudo subir la foto');
     } finally {
       setUploadingImg(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    await uploadFiles(files);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  // Pegar imagen desde el portapapeles (Ctrl+V) en cualquier parte del formulario
+  useEffect(() => {
+    if (visita?.estado === 'convertida') return;
+    function onPaste(e: ClipboardEvent) {
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const files = items
+        .filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+        .map(it => it.getAsFile())
+        .filter((f): f is File => !!f);
+      if (files.length) {
+        e.preventDefault();
+        uploadFiles(files);
+      }
+    }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [visita?.estado]);
+
+  const [draggingImg, setDraggingImg] = useState(false);
+  function handleImgDragOver(e: React.DragEvent) { e.preventDefault(); setDraggingImg(true); }
+  function handleImgDragLeave(e: React.DragEvent) { e.preventDefault(); setDraggingImg(false); }
+  function handleImgDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDraggingImg(false);
+    const files = Array.from(e.dataTransfer.files ?? []).filter(f => f.type.startsWith('image/'));
+    if (files.length) uploadFiles(files);
   }
 
   function quitarImagen(idx: number) {
@@ -344,7 +376,7 @@ export function CargarVisitaTecnica() {
               </div>
 
               {esEstandar ? (
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr] gap-2 items-center">
+                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 items-center">
                   <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
                     className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <div className="relative">
@@ -383,18 +415,18 @@ export function CargarVisitaTecnica() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_80px_80px] gap-2 items-center">
+                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_64px_64px] gap-2 items-center">
                   <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
-                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
                     placeholder={esServicio ? 'Ej: Ajuste de bisagra, cambio de burlete...' : 'Descripción'} disabled={yaConvertida}
-                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   {!esServicio && (
                     <>
                       <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
-                        className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                        className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                       <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
-                        className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                        className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                     </>
                   )}
                 </div>
@@ -435,8 +467,16 @@ export function CargarVisitaTecnica() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Fotos de la visita</p>
-        <div className="flex flex-wrap gap-3">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fotos de la visita</p>
+        {!yaConvertida && (
+          <p className="text-[11px] text-gray-400 mb-2">Podés arrastrar imágenes acá o pegarlas con Ctrl+V.</p>
+        )}
+        <div
+          onDragOver={!yaConvertida ? handleImgDragOver : undefined}
+          onDragLeave={!yaConvertida ? handleImgDragLeave : undefined}
+          onDrop={!yaConvertida ? handleImgDrop : undefined}
+          className={`flex flex-wrap gap-3 rounded-xl p-1 -m-1 transition-colors ${draggingImg ? 'ring-2 ring-sky-400 ring-offset-2 bg-sky-50/50' : ''}`}
+        >
           {imagenes.map((url, idx) => (
             <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 group">
               <a href={url} target="_blank" rel="noreferrer">
