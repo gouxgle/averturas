@@ -115,6 +115,23 @@ export interface Sistema {
   activo: boolean;
 }
 
+export interface Categoria {
+  id: string;
+  nombre: string;
+  parent_id: string | null;
+  orden: number;
+  activo: boolean;
+}
+
+export interface CatalogoModelo {
+  id: string;
+  nombre: string;
+  categoria_id: string | null;
+  descripcion: string | null;
+  variantes_count: number;
+  activo: boolean;
+}
+
 export interface Proveedor {
   id: string;
   nombre: string;
@@ -220,6 +237,10 @@ export interface Producto {
   video_url: string | null;
   etiqueta: 'mas_vendido' | 'recomendado' | 'nuevo' | null;
   margen_tipo: 'bajo' | 'medio' | 'alto' | null;
+  categoria_id: string | null;
+  nivel_comercial: 'economica' | 'estandar' | 'premium' | 'alta_seguridad' | null;
+  modelo_id: string | null;
+  modelo?: { id: string; nombre: string } | null;
   promocion: {
     activo: boolean;
     fecha_inicio: string | null;

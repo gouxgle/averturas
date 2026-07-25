@@ -90,6 +90,8 @@ pedidos.get('/tablero', async (c) => {
                         (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
                          + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
                         ) >= oi.cantidad)
+                    -- o es un servicio: nunca se pide al proveedor, se resuelve con mano de obra
+                    OR oi.tipo_item = 'servicio'
                   ))
           ELSE NULL END) AS items_cubiertos
       FROM pedidos p
@@ -333,6 +335,7 @@ pedidos.get('/operaciones-disponibles', async (c) => {
       (
         SELECT COUNT(*)::int FROM operacion_items oi
         WHERE oi.operacion_id = o.id
+          AND oi.tipo_item != 'servicio'
           AND NOT EXISTS (
             SELECT 1 FROM pedido_items pi
             JOIN pedidos p ON p.id = pi.pedido_id
@@ -353,6 +356,7 @@ pedidos.get('/operaciones-disponibles', async (c) => {
       AND EXISTS (
         SELECT 1 FROM operacion_items oi2
         WHERE oi2.operacion_id = o.id
+          AND oi2.tipo_item != 'servicio'
           AND NOT EXISTS (
             SELECT 1 FROM pedido_items pi2
             JOIN pedidos p2 ON p2.id = pi2.pedido_id
@@ -588,6 +592,8 @@ pedidos.get('/:id', async (c) => {
                         (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
                          + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
                         ) >= oi.cantidad)
+                    -- o es un servicio: nunca se pide al proveedor, se resuelve con mano de obra
+                    OR oi.tipo_item = 'servicio'
                   ))
           ELSE NULL END) AS items_cubiertos
       FROM pedidos p WHERE p.id = $1

@@ -2,14 +2,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Ruler, Plus, Trash2, Save, Loader2, Printer,
-  ArrowRight, Users, Camera, X,
+  ArrowRight, Users, Camera, X, Wrench,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { Cliente } from '@/types';
 
+type TipoItemVisita = 'a_medida' | 'servicio';
+
 interface VisitaTecnicaItem {
   ambiente: string; descripcion: string; ancho_mm: string; alto_mm: string;
+  tipo_item: TipoItemVisita;
 }
 
 interface VisitaTecnicaDetalle {
@@ -20,7 +23,7 @@ interface VisitaTecnicaDetalle {
   imagenes: string[];
   cliente_id: string;
   cliente: Cliente;
-  items: Array<{ ambiente: string | null; descripcion: string | null; ancho_mm: string | number | null; alto_mm: string | number | null }>;
+  items: Array<{ ambiente: string | null; descripcion: string | null; ancho_mm: string | number | null; alto_mm: string | number | null; tipo_item?: TipoItemVisita }>;
 }
 
 const COLOR_FIJOS = ['Blanco', 'Negro', 'Natural'];
@@ -29,7 +32,7 @@ const INSTALACION_FIJOS = ['Con colocación', 'Sin colocación', 'Retira en loca
 const ABERTURA_FIJOS = ['Reja', 'Celosía', 'Persiana', 'Mosquitero'];
 
 function emptyItem(): VisitaTecnicaItem {
-  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '' };
+  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '', tipo_item: 'a_medida' };
 }
 
 function nombreCliente(c: Cliente) {
@@ -102,6 +105,7 @@ export function CargarVisitaTecnica() {
               ambiente: it.ambiente ?? '', descripcion: it.descripcion ?? '',
               ancho_mm: it.ancho_mm != null ? String(it.ancho_mm) : '',
               alto_mm: it.alto_mm != null ? String(it.alto_mm) : '',
+              tipo_item: it.tipo_item === 'servicio' ? 'servicio' : 'a_medida',
             }))
           : [emptyItem()]);
         setColor(v.color.filter(c => COLOR_FIJOS.includes(c)));
@@ -126,6 +130,10 @@ export function CargarVisitaTecnica() {
 
   function updateItem(idx: number, field: keyof VisitaTecnicaItem, value: string) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
+  }
+
+  function toggleTipoItem(idx: number, tipo: TipoItemVisita) {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, tipo_item: tipo } : it));
   }
 
   function agregarFila() { setItems(prev => [...prev, emptyItem()]); }
@@ -185,6 +193,7 @@ export function CargarVisitaTecnica() {
           descripcion: it.descripcion.trim() || null,
           ancho_mm: it.ancho_mm ? parseFloat(it.ancho_mm) : null,
           alto_mm: it.alto_mm ? parseFloat(it.alto_mm) : null,
+          tipo_item: it.tipo_item,
         })),
       };
       const full = await api.put<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}`, body);
@@ -213,8 +222,9 @@ export function CargarVisitaTecnica() {
     if (!r) return;
     const itemsPrecargados = validos.map(it => ({
       descripcion: [it.ambiente, it.descripcion].filter(Boolean).join(' — '),
-      medida_ancho: it.ancho_mm ? String(parseFloat(it.ancho_mm) / 1000) : '',
-      medida_alto: it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
+      medida_ancho: it.tipo_item === 'a_medida' && it.ancho_mm ? String(parseFloat(it.ancho_mm) / 1000) : '',
+      medida_alto: it.tipo_item === 'a_medida' && it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
+      tipo_item: it.tipo_item,
     }));
     navigate('/presupuestos/nuevo', {
       state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id, imagenesVisita: r.imagenes ?? [] },
@@ -273,26 +283,50 @@ export function CargarVisitaTecnica() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Aberturas medidas</p>
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Ítems relevados</p>
+        <p className="text-[11px] text-gray-400 mb-3">Marcá cada uno como abertura a medir (obra nueva) o servicio (reparación, mantenimiento, cambio de piezas)</p>
         <div className="space-y-2">
-          {items.map((it, idx) => (
-            <div key={idx} className="grid grid-cols-[1fr_1.4fr_80px_80px_auto] gap-2 items-center">
-              <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
-                className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-              <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)} placeholder="Descripción" disabled={yaConvertida}
-                className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-              <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
-                className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-              <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
-                className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+          {items.map((it, idx) => {
+            const esServicio = it.tipo_item === 'servicio';
+            return (
+            <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center p-2 rounded-lg border border-gray-100">
+              {/* Toggle tipo de ítem */}
+              <div className="flex shrink-0 rounded-lg border border-gray-200 overflow-hidden w-fit">
+                <button type="button" onClick={() => toggleTipoItem(idx, 'a_medida')} disabled={yaConvertida}
+                  title="Abertura a medir"
+                  className={`p-2 ${!esServicio ? 'bg-slate-700 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  <Ruler size={14}/>
+                </button>
+                <button type="button" onClick={() => toggleTipoItem(idx, 'servicio')} disabled={yaConvertida}
+                  title="Servicio (reparación/mantenimiento)"
+                  className={`p-2 border-l border-gray-200 ${esServicio ? 'bg-amber-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  <Wrench size={14}/>
+                </button>
+              </div>
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_80px_80px] gap-2 items-center">
+                <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
+                  className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
+                  placeholder={esServicio ? 'Ej: Ajuste de bisagra, cambio de burlete...' : 'Descripción'} disabled={yaConvertida}
+                  className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                {!esServicio && (
+                  <>
+                    <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
+                      className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
+                      className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                  </>
+                )}
+              </div>
               {!yaConvertida && (
                 <button onClick={() => quitarFila(idx)} disabled={items.length === 1}
-                  className="p-2 text-gray-300 hover:text-red-500 disabled:opacity-30">
+                  className="p-2 text-gray-300 hover:text-red-500 disabled:opacity-30 shrink-0">
                   <Trash2 size={15}/>
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
         {!yaConvertida && (
           <button onClick={agregarFila} className="mt-3 text-xs font-semibold text-slate-600 hover:underline flex items-center gap-1">

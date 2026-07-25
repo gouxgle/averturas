@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import {
-  TipoAberturaSchema, SistemaSchema, ColorSchema,
+  TipoAberturaSchema, SistemaSchema, ColorSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema,
 } from '../lib/schemas.js';
 
@@ -49,6 +49,109 @@ catalogo.delete('/tipos-abertura/:id', async (c) => {
   if (rows.length) return c.json({ error: 'Tipo de abertura en uso por productos' }, 409);
 
   const { rowCount } = await db.query(`DELETE FROM tipos_abertura WHERE id=$1`, [id]);
+  if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
+  return c.json({ ok: true });
+});
+
+// ── Categorías (árbol de navegación: Familia → Uso → Material → Línea…) ────────
+// Eje de NAVEGACIÓN del catálogo — independiente de tipos_abertura/sistemas, que
+// siguen definiendo material/sistema para atributos y márgenes (ver Fase 1: facetas).
+
+catalogo.get('/categorias', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM categorias ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/categorias', async (c) => {
+  const b = await validateBody(c, CategoriaSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `INSERT INTO categorias (nombre, parent_id, orden) VALUES ($1, $2, $3) RETURNING *`,
+    [b.nombre.trim(), b.parent_id || null, b.orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/categorias/:id', async (c) => {
+  const b = await validateBody(c, CategoriaSchema);
+  if (b instanceof Response) return b;
+  const { id } = c.req.param();
+  if (b.parent_id === id) return c.json({ error: 'Una categoría no puede ser padre de sí misma' }, 400);
+  const { rows } = await db.query(
+    `UPDATE categorias SET nombre=$1, parent_id=$2, orden=$3, activo=$4 WHERE id=$5 RETURNING *`,
+    [b.nombre.trim(), b.parent_id || null, b.orden ?? 0, b.activo ?? true, id]
+  );
+  if (!rows[0]) return c.json({ error: 'No encontrada' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /categorias/:id — solo si no tiene subcategorías ni productos
+catalogo.delete('/categorias/:id', async (c) => {
+  const { id } = c.req.param();
+  const hijos = await db.query(`SELECT id FROM categorias WHERE parent_id=$1 LIMIT 1`, [id]);
+  if (hijos.rows.length) return c.json({ error: 'Tiene subcategorías — eliminalas primero' }, 409);
+  const prods = await db.query(`SELECT id FROM catalogo_productos WHERE categoria_id=$1 LIMIT 1`, [id]);
+  if (prods.rows.length) return c.json({ error: 'Categoría en uso por productos' }, 409);
+
+  const { rowCount } = await db.query(`DELETE FROM categorias WHERE id=$1`, [id]);
+  if (!rowCount) return c.json({ error: 'No encontrada' }, 404);
+  return c.json({ ok: true });
+});
+
+// ── Modelos (producto padre — catalogo_productos con modelo_id son sus variantes) ──
+
+catalogo.get('/modelos', async (c) => {
+  const search = c.req.query('search') ?? '';
+  const params: unknown[] = [];
+  let where = 'WHERE mo.activo = true';
+  if (search.trim()) {
+    params.push(`%${search.trim()}%`);
+    where += ` AND mo.nombre ILIKE $${params.length}`;
+  }
+  const { rows } = await db.query(`
+    SELECT mo.*,
+      COUNT(cp.id)::int AS variantes_count,
+      COALESCE(array_agg(cp.imagenes->0) FILTER (WHERE cp.imagenes->0 IS NOT NULL), '{}') AS variantes_imagenes
+    FROM catalogo_modelos mo
+    LEFT JOIN catalogo_productos cp ON cp.modelo_id = mo.id AND cp.activo = true
+    ${where}
+    GROUP BY mo.id
+    ORDER BY mo.nombre
+  `, params);
+  return c.json(rows);
+});
+
+catalogo.post('/modelos', async (c) => {
+  const b = await validateBody(c, ModeloSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `INSERT INTO catalogo_modelos (nombre, categoria_id, descripcion, imagenes) VALUES ($1,$2,$3,$4) RETURNING *`,
+    [b.nombre.trim(), b.categoria_id || null, b.descripcion || null, JSON.stringify(b.imagenes ?? [])]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/modelos/:id', async (c) => {
+  const b = await validateBody(c, ModeloSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `UPDATE catalogo_modelos SET nombre=$1, categoria_id=$2, descripcion=$3, imagenes=$4, activo=$5 WHERE id=$6 RETURNING *`,
+    [b.nombre.trim(), b.categoria_id || null, b.descripcion || null, JSON.stringify(b.imagenes ?? []), b.activo ?? true, c.req.param('id')]
+  );
+  if (!rows[0]) return c.json({ error: 'No encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /modelos/:id — solo si no tiene variantes cargadas
+catalogo.delete('/modelos/:id', async (c) => {
+  const { id } = c.req.param();
+  const { rows } = await db.query(`SELECT id FROM catalogo_productos WHERE modelo_id=$1 LIMIT 1`, [id]);
+  if (rows.length) return c.json({ error: 'Modelo en uso — tiene variantes cargadas' }, 409);
+
+  const { rowCount } = await db.query(`DELETE FROM catalogo_modelos WHERE id=$1`, [id]);
   if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
   return c.json({ ok: true });
 });
@@ -122,6 +225,50 @@ catalogo.put('/colores/:id', async (c) => {
 
 catalogo.delete('/colores/:id', async (c) => {
   await db.query(`UPDATE colores SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+// ── Servicios (reparación, mantenimiento, cambio de piezas) ────────────────────
+
+catalogo.get('/servicios', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM catalogo_servicios ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/servicios', async (c) => {
+  const b = await validateBody(c, ServicioSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `INSERT INTO catalogo_servicios (nombre, descripcion, precio_base, orden)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [b.nombre.trim(), b.descripcion || null, b.precio_base ?? null, b.orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/servicios/:id', async (c) => {
+  const b = await validateBody(c, ServicioSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `UPDATE catalogo_servicios SET nombre=$1, descripcion=$2, precio_base=$3, orden=$4, activo=$5
+     WHERE id=$6 RETURNING *`,
+    [b.nombre.trim(), b.descripcion || null, b.precio_base ?? null, b.orden ?? 0, b.activo ?? true, c.req.param('id')]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /servicios/:id — elimina definitivamente (solo si ningún ítem de presupuesto lo usa)
+catalogo.delete('/servicios/:id', async (c) => {
+  const { id } = c.req.param();
+  const { rows } = await db.query(`SELECT id FROM operacion_items WHERE servicio_id=$1 LIMIT 1`, [id]);
+  if (rows.length) return c.json({ error: 'Servicio en uso por presupuestos' }, 409);
+
+  const { rowCount } = await db.query(`DELETE FROM catalogo_servicios WHERE id=$1`, [id]);
+  if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
   return c.json({ ok: true });
 });
 
@@ -533,10 +680,12 @@ catalogo.get('/productos', async (c) => {
     SELECT cp.*,
       json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
       json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
+      mo.nombre AS modelo_nombre,
       (COALESCE(cp.stock_inicial, 0) + COALESCE(st.mov_total, 0))::int AS stock_actual
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     LEFT JOIN sistemas s        ON s.id  = cp.sistema_id
+    LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
     LEFT JOIN LATERAL (
       SELECT SUM(cantidad)::int AS mov_total
       FROM stock_movimientos WHERE producto_id = cp.id

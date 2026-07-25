@@ -19,11 +19,15 @@ const withJoins = `
       ELSE NULL END AS sistema,
     CASE WHEN p.id IS NOT NULL
       THEN json_build_object('id', p.id, 'nombre', p.nombre)
-      ELSE NULL END AS proveedor
+      ELSE NULL END AS proveedor,
+    CASE WHEN mo.id IS NOT NULL
+      THEN json_build_object('id', mo.id, 'nombre', mo.nombre)
+      ELSE NULL END AS modelo
   FROM catalogo_productos cp
   LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
   LEFT JOIN sistemas s ON s.id = cp.sistema_id
   LEFT JOIN proveedores p ON p.id = cp.proveedor_id
+  LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
 `;
 
 productos.get('/', async (c) => {
@@ -52,14 +56,18 @@ productos.get('/', async (c) => {
         ELSE NULL END AS sistema,
       CASE WHEN p.id IS NOT NULL
         THEN json_build_object('id', p.id, 'nombre', p.nombre)
-        ELSE NULL END AS proveedor
+        ELSE NULL END AS proveedor,
+      CASE WHEN mo.id IS NOT NULL
+        THEN json_build_object('id', mo.id, 'nombre', mo.nombre)
+        ELSE NULL END AS modelo
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     LEFT JOIN sistemas s ON s.id = cp.sistema_id
     LEFT JOIN proveedores p ON p.id = cp.proveedor_id
+    LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
     LEFT JOIN stock_movimientos m ON m.producto_id = cp.id
     ${where}
-    GROUP BY cp.id, ta.id, s.id, p.id
+    GROUP BY cp.id, ta.id, s.id, p.id, mo.id
     ORDER BY cp.tipo, cp.nombre
   `, params);
   return c.json(rows);
@@ -121,8 +129,8 @@ productos.post('/', async (c) => {
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
        imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4,
        vidrio, premarco, accesorios, atributos, margen_tipo, promocion, imagenes, video_url, etiqueta,
-       proveedor_sku, margen_venta, precio_manual, en_salon)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
+       proveedor_sku, margen_venta, precio_manual, en_salon, categoria_id, nivel_comercial, modelo_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
     RETURNING *
   `, [
     b.nombre?.trim(),
@@ -159,6 +167,9 @@ productos.post('/', async (c) => {
     b.margen_venta != null ? parseFloat(b.margen_venta) : null,
     b.precio_manual ?? false,
     b.en_salon ?? false,
+    b.categoria_id || null,
+    b.nivel_comercial || null,
+    b.modelo_id || null,
   ]);
   return c.json(row, 201);
 });
@@ -212,8 +223,11 @@ productos.put('/:id', async (c) => {
       proveedor_sku    = $31,
       margen_venta     = $32,
       precio_manual    = $33,
-      en_salon         = $34
-    WHERE id = $35 RETURNING *
+      en_salon         = $34,
+      categoria_id     = $35,
+      nivel_comercial  = $36,
+      modelo_id        = $37
+    WHERE id = $38 RETURNING *
   `, [
     b.nombre?.trim(),
     b.descripcion?.trim() || null,
@@ -249,6 +263,9 @@ productos.put('/:id', async (c) => {
     b.margen_venta != null ? parseFloat(b.margen_venta) : null,
     b.precio_manual ?? false,
     b.en_salon ?? false,
+    b.categoria_id || null,
+    b.nivel_comercial || null,
+    b.modelo_id || null,
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);

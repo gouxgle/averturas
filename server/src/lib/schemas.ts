@@ -69,6 +69,8 @@ const OperacionItemSchema = z.object({
   accesorios:          z.array(z.string()).optional().default([]),
   notas:               zText(500).optional(),
   calculo_url:         zText(300).optional().nullable(),
+  tipo_item:           z.enum(['estandar', 'a_medida', 'servicio']).optional().default('estandar'),
+  servicio_id:         zUUID.optional().nullable(),
 });
 
 export const OperacionSchema = z.object({
@@ -178,6 +180,29 @@ export const ColorSchema = z.object({
   nombre: z.string().min(1).max(100),
   hex:    z.string().regex(/^#[0-9a-fA-F]{3,6}$/, 'Formato hex inválido (ej: #FF0000)').optional().nullable(),
   activo: z.boolean().optional(),
+});
+
+export const ServicioSchema = z.object({
+  nombre:      z.string().min(1).max(200),
+  descripcion: zText(500).optional(),
+  precio_base: zPosNum.optional().nullable(),
+  orden:       z.number().int().nonnegative().optional(),
+  activo:      z.boolean().optional(),
+});
+
+export const CategoriaSchema = z.object({
+  nombre:    z.string().min(1).max(120),
+  parent_id: zUUID.optional().nullable(),
+  orden:     z.number().int().nonnegative().optional(),
+  activo:    z.boolean().optional(),
+});
+
+export const ModeloSchema = z.object({
+  nombre:       z.string().min(1).max(200),
+  categoria_id: zUUID.optional().nullable(),
+  descripcion:  zText(1000).optional(),
+  imagenes:     z.array(z.string()).optional(),
+  activo:       z.boolean().optional(),
 });
 
 export const ProveedorSchema = z.object({

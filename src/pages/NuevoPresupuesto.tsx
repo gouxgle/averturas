@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
   Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users, Eye,
-  ImagePlus, Ruler,
+  ImagePlus, Ruler, Wrench,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -57,6 +57,13 @@ const LABEL_APERTURA: Record<string, string> = {
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
+interface ServicioCatalogo {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  precio_base: number | null;
+}
+
 interface CatalogProduct {
   id: string;
   nombre: string;
@@ -80,6 +87,8 @@ interface CatalogProduct {
   imagenes: string[];
   caracteristica_1: string | null;
   caracteristica_2: string | null;
+  modelo_id: string | null;
+  modelo_nombre: string | null;
 }
 
 // ── Tipo para carga de edición ────────────────────────────────────────────────
@@ -98,6 +107,8 @@ interface FullOperacion {
     vidrio: string | null; premarco: boolean; origen: string | null;
     color: string | null; accesorios: string[]; producto_id: string | null;
     calculo_url: string | null;
+    tipo_item?: 'estandar' | 'a_medida' | 'servicio';
+    servicio_id?: string | null;
     tipo_abertura_nombre: string | null; sistema_nombre: string | null;
   }>;
 }
@@ -107,7 +118,8 @@ interface FullOperacion {
 interface ItemForm {
   _key: string;
   producto_id: string;
-  tipo_item: 'estandar' | 'a_medida';
+  tipo_item: 'estandar' | 'a_medida' | 'servicio';
+  servicio_id: string;
   tipo_abertura_id: string;
   sistema_id: string;
   descripcion: string;
@@ -145,6 +157,7 @@ function emptyItem(): ItemForm {
     _key: uuid(),
     producto_id: '',
     tipo_item: 'estandar',
+    servicio_id: '',
     tipo_abertura_id: '', sistema_id: '', descripcion: '',
     medida_ancho: '', medida_alto: '',
     cantidad: 1,
@@ -176,7 +189,6 @@ function EditItemModal({
   tiposAbertura,
   sistemas,
   coloresDB,
-  esAMedida,
   onChange,
   onClose,
 }: {
@@ -184,7 +196,6 @@ function EditItemModal({
   tiposAbertura: TipoAbertura[];
   sistemas: Sistema[];
   coloresDB: { id: string; nombre: string }[];
-  esAMedida: boolean;
   onChange: (key: string, field: keyof ItemForm, value: unknown) => void;
   onClose: () => void;
 }) {
@@ -258,7 +269,7 @@ function EditItemModal({
           {/* Precio costo + Precio de venta (ambos los da el software externo) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>{esAMedida ? 'Precio costo (software)' : 'Precio costo'}</label>
+              <label className={lbl}>{item.tipo_item === 'a_medida' ? 'Precio costo (software)' : 'Precio costo'}</label>
               <MontoInput
                 value={item.costo_unitario ? String(item.costo_unitario) : ''}
                 onChange={v => up('costo_unitario', parseFloat(v) || 0)}
@@ -267,7 +278,7 @@ function EditItemModal({
               />
             </div>
             <div>
-              <label className={lbl}>{esAMedida ? 'Precio venta (software)' : 'Precio unitario'}</label>
+              <label className={lbl}>{item.tipo_item === 'a_medida' ? 'Precio venta (software)' : 'Precio unitario'}</label>
               <MontoInput
                 value={item.precio_unitario ? String(item.precio_unitario) : ''}
                 onChange={v => up('precio_unitario', parseFloat(v) || 0)}
@@ -278,6 +289,7 @@ function EditItemModal({
           </div>
 
           {/* Instalación */}
+          {item.tipo_item !== 'servicio' && (
           <div>
             <label className={lbl}>Instalación</label>
             <select
@@ -289,8 +301,9 @@ function EditItemModal({
               <option value="si">Incluye instalación</option>
             </select>
           </div>
+          )}
 
-          {item.incluye_instalacion && (
+          {item.tipo_item !== 'servicio' && item.incluye_instalacion && (
             <div>
               <label className={lbl}>Precio instalación</label>
               <MontoInput
@@ -302,6 +315,8 @@ function EditItemModal({
             </div>
           )}
 
+          {item.tipo_item !== 'servicio' && (
+          <>
           {/* Color + Vidrio */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -391,10 +406,14 @@ function EditItemModal({
               ))}
             </div>
           </div>
+          </>
+          )}
 
           {/* Cálculo del software externo (adjunto) */}
           <div>
-            <label className={lbl}>Cálculo del software {esAMedida ? '(respaldo)' : '(opcional)'}</label>
+            <label className={lbl}>
+              {item.tipo_item === 'servicio' ? 'Foto de referencia (opcional)' : item.tipo_item === 'a_medida' ? 'Cálculo del software (respaldo)' : 'Cálculo del software (opcional)'}
+            </label>
             {item.calculo_url ? (
               <div className="flex items-center gap-3 border border-gray-200 rounded-lg p-2">
                 <a href={item.calculo_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
@@ -507,13 +526,16 @@ export function NuevoPresupuesto() {
   const [items, setItems] = useState<ItemForm[]>([]);
 
   // Estado nuevo UI
-  // Modo de carga: estándar (galería de catálogo) vs a medida (aberturas descritas a mano,
-  // con precio costo/venta que da el software externo de cálculo)
-  const [esAMedida, setEsAMedida] = useState(false);
+  // Modo de carga: estándar (galería de catálogo), a medida (aberturas descritas a mano,
+  // con precio costo/venta que da el software externo de cálculo), o servicio (reparación,
+  // mantenimiento, cambio de piezas — desde catalogo_servicios o personalizado)
+  const [modo, setModo] = useState<'estandar' | 'a_medida' | 'servicio'>('estandar');
+  const esAMedida = modo === 'a_medida';
   const [tab, setTab] = useState<'galeria' | 'buscar' | 'frecuentes' | 'scanner'>('galeria');
   const [categoriaSel, setCategoriaSel] = useState('');
   const [galSearch, setGalSearch] = useState('');
   const [productos, setProductos] = useState<CatalogProduct[]>([]);
+  const [servicios, setServicios] = useState<ServicioCatalogo[]>([]);
   const [productosLoading, setProductosLoading] = useState(false);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
   const [showNotas, setShowNotas] = useState(false);
@@ -549,10 +571,12 @@ export function NuevoPresupuesto() {
       api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
       api.get<Sistema[]>('/catalogo/sistemas'),
       api.get<{ id: string; nombre: string }[]>('/catalogo/colores'),
-    ]).then(([ta, s, col]) => {
+      api.get<ServicioCatalogo[]>('/catalogo/servicios'),
+    ]).then(([ta, s, col, serv]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setColoresDB(col);
+      setServicios(serv);
     });
     // Si viene ?cliente_id en URL, cargar ese cliente directamente
     const urlClienteId = searchParams.get('cliente_id');
@@ -607,12 +631,16 @@ export function NuevoPresupuesto() {
       setFormaEnvio(op.forma_envio ?? 'retiro_local');
       setUserSetFormaEnvio(true);
       setCostoEnvio(Number(op.costo_envio) || 0);
-      // Reabrir en el mismo camino: si ningún ítem vino del catálogo, es a medida
-      setEsAMedida(op.items.length > 0 && op.items.every(it => !it.producto_id));
+      // Reabrir en el mismo camino: si todos los ítems son del mismo modo, precargar esa pestaña
+      {
+        const tipos = new Set(op.items.map(it => it.tipo_item ?? (it.producto_id ? 'estandar' : (it.medida_ancho || it.medida_alto) ? 'a_medida' : 'estandar')));
+        setModo(tipos.size === 1 ? [...tipos][0] as 'estandar' | 'a_medida' | 'servicio' : 'estandar');
+      }
       setItems(op.items.map(it => ({
         _key: uuid(),
         producto_id:         it.producto_id ?? '',
-        tipo_item:           (it.medida_ancho || it.medida_alto) ? 'a_medida' : 'estandar',
+        tipo_item:           it.tipo_item ?? ((it.medida_ancho || it.medida_alto) ? 'a_medida' : 'estandar'),
+        servicio_id:         it.servicio_id ?? '',
         tipo_abertura_id:    it.tipo_abertura_id ?? '',
         sistema_id:          it.sistema_id ?? '',
         descripcion:         it.descripcion,
@@ -642,17 +670,19 @@ export function NuevoPresupuesto() {
   useEffect(() => {
     if (isEdit || itemsPrecargadosRef.current) return;
     const state = location.state as {
-      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string }>;
+      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string; tipo_item?: 'a_medida' | 'servicio' }>;
       clienteId?: string;
       visitaTecnicaId?: string;
       imagenesVisita?: string[];
     } | null;
     if (!state?.itemsPrecargados?.length) return;
     itemsPrecargadosRef.current = true;
-    setEsAMedida(true);
+    // Si todos los ítems relevados son del mismo tipo, arrancar en esa pestaña
+    const tiposPrecarga = new Set(state.itemsPrecargados.map(it => it.tipo_item ?? 'a_medida'));
+    setModo(tiposPrecarga.size === 1 ? [...tiposPrecarga][0] : 'a_medida');
     setItems(state.itemsPrecargados.map(it => ({
       ...emptyItem(),
-      tipo_item: 'a_medida',
+      tipo_item: it.tipo_item ?? 'a_medida',
       descripcion: it.descripcion,
       medida_ancho: it.medida_ancho,
       medida_alto: it.medida_alto,
@@ -680,7 +710,23 @@ export function NuevoPresupuesto() {
   }
 
   // Agrega ítem desde catálogo — si ya existe incrementa cantidad
+  const [variantePicker, setVariantePicker] = useState<{ nombre: string; opciones: CatalogProduct[] } | null>(null);
+
+  // Si el producto pertenece a un modelo con más de una variante cargada, no se agrega
+  // directo — se pide elegir medida/color primero (regla del negocio: nunca agregar sin
+  // variante elegida cuando hay ambigüedad real).
   function agregarProducto(p: CatalogProduct) {
+    if (p.modelo_id) {
+      const hermanas = productos.filter(x => x.modelo_id === p.modelo_id);
+      if (hermanas.length > 1) {
+        setVariantePicker({ nombre: p.modelo_nombre ?? p.nombre, opciones: hermanas });
+        return;
+      }
+    }
+    agregarProductoDirecto(p);
+  }
+
+  function agregarProductoDirecto(p: CatalogProduct) {
     setItems(prev => {
       const existente = prev.find(it => it.producto_id === p.id);
       if (existente) {
@@ -692,6 +738,7 @@ export function NuevoPresupuesto() {
         _key:                uuid(),
         producto_id:         p.id,
         tipo_item:           'estandar',
+        servicio_id:         '',
         tipo_abertura_id:    p.tipo_abertura_id   ?? '',
         sistema_id:          p.sistema_id         ?? '',
         descripcion:         p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre,
@@ -806,6 +853,8 @@ export function NuevoPresupuesto() {
           orden:               idx,
           producto_id:         it.producto_id || null,
           calculo_url:         it.calculo_url || null,
+          tipo_item:           it.tipo_item || 'estandar',
+          servicio_id:         it.servicio_id || null,
         })),
       };
       const op = isEdit
@@ -1303,24 +1352,25 @@ export function NuevoPresupuesto() {
               <span className="text-white text-[10px] font-bold">1</span>
             </div>
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wider">
-              {esAMedida ? 'Cargar aberturas a medida' : 'Agregar productos'}
+              {modo === 'a_medida' ? 'Cargar aberturas a medida' : modo === 'servicio' ? 'Agregar servicios' : 'Agregar productos'}
             </span>
           </div>
 
-          {/* Switch estándar / a medida */}
+          {/* Switch estándar / a medida / servicio */}
           <div className="flex gap-1 p-1.5 border-b border-gray-200 bg-gray-50">
             {([
-              { key: false, icon: LayoutGrid, label: 'Estándar', hint: 'Del catálogo' },
-              { key: true,  icon: Ruler,      label: 'A medida', hint: 'Cálculo externo' },
+              { key: 'estandar',  icon: LayoutGrid, label: 'Estándar',  hint: 'Del catálogo' },
+              { key: 'a_medida',  icon: Ruler,      label: 'A medida',  hint: 'Cálculo externo' },
+              { key: 'servicio',  icon: Wrench,     label: 'Servicio',  hint: 'Reparación, mantenimiento' },
             ] as const).map(({ key, icon: Icon, label, hint }) => (
               <button
-                key={String(key)}
+                key={key}
                 type="button"
-                onClick={() => setEsAMedida(key)}
+                onClick={() => setModo(key)}
                 title={hint}
                 className={cn(
                   'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-colors',
-                  esAMedida === key
+                  modo === key
                     ? 'bg-violet-600 text-white shadow-sm'
                     : 'text-gray-500 hover:bg-white hover:text-gray-700'
                 )}
@@ -1332,7 +1382,7 @@ export function NuevoPresupuesto() {
           </div>
 
           {/* ── MODO A MEDIDA — carga manual con precio del software externo ── */}
-          {esAMedida && (
+          {modo === 'a_medida' && (
             <div className="flex-1 flex flex-col overflow-y-auto p-4 gap-3">
               <button
                 type="button"
@@ -1366,8 +1416,63 @@ export function NuevoPresupuesto() {
             </div>
           )}
 
+          {/* ── MODO SERVICIO — reparación, mantenimiento, cambio de piezas ── */}
+          {modo === 'servicio' && (
+            <div className="flex-1 flex flex-col overflow-y-auto p-4 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const nuevo = { ...emptyItem(), tipo_item: 'servicio' as const };
+                  setItems(prev => [...prev, nuevo]);
+                  setEditItemKey(nuevo._key);
+                }}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400 transition-colors mb-1"
+              >
+                <Plus size={16} />
+                <span className="text-sm font-bold">Servicio personalizado</span>
+              </button>
+
+              {servicios.length > 0 && (
+                <>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Servicios frecuentes</p>
+                  {servicios.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        const nuevo: ItemForm = {
+                          ...emptyItem(),
+                          tipo_item: 'servicio',
+                          servicio_id: s.id,
+                          descripcion: s.nombre,
+                          precio_unitario: s.precio_base ? Number(s.precio_base) : 0,
+                        };
+                        setItems(prev => [...prev, nuevo]);
+                      }}
+                      className="flex items-center justify-between gap-2 w-full px-3 py-2.5 rounded-xl border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors text-left"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{s.nombre}</p>
+                        {s.descripcion && <p className="text-[11px] text-gray-400 truncate">{s.descripcion}</p>}
+                      </div>
+                      {s.precio_base != null && (
+                        <span className="text-xs font-bold text-amber-700 shrink-0">{formatCurrency(Number(s.precio_base))}</span>
+                      )}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {items.length > 0 && (
+                <p className="text-[11px] text-gray-400 text-center mt-2">
+                  {items.length} ítem{items.length !== 1 ? 's' : ''} cargado{items.length !== 1 ? 's' : ''} — editalos en la columna del medio
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Tabs — solo en modo estándar */}
-          {!esAMedida && (
+          {modo === 'estandar' && (
           <div className="flex border-b border-gray-200">
             {([
               { key: 'galeria',   icon: LayoutGrid, label: 'Galería' },
@@ -1393,7 +1498,7 @@ export function NuevoPresupuesto() {
           )}
 
           {/* Contenido del tab — solo en modo estándar */}
-          <div className={cn('flex-1 flex-col overflow-hidden', esAMedida ? 'hidden' : 'flex')}>
+          <div className={cn('flex-1 flex-col overflow-hidden', modo === 'estandar' ? 'flex' : 'hidden')}>
 
             {/* TAB: Galería / Frecuentes */}
             {(tab === 'galeria' || tab === 'frecuentes') && (
@@ -1704,7 +1809,14 @@ export function NuevoPresupuesto() {
                       }
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 leading-tight truncate">{item.descripcion || 'Sin descripción'}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-semibold text-gray-800 leading-tight truncate">{item.descripcion || 'Sin descripción'}</p>
+                        {item.tipo_item === 'servicio' && (
+                          <span className="shrink-0 flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                            <Wrench size={8}/> Servicio
+                          </span>
+                        )}
+                      </div>
                       {(item._prod_tipo_nombre || item._prod_sistema_nombre) && (
                         <p className="text-[9px] text-gray-400">
                           {[item._prod_tipo_nombre, item._prod_sistema_nombre].filter(Boolean).join(' · ')}
@@ -1956,7 +2068,6 @@ export function NuevoPresupuesto() {
           tiposAbertura={tiposAbertura}
           sistemas={sistemas}
           coloresDB={coloresDB}
-          esAMedida={esAMedida}
           onChange={updateItem}
           onClose={() => setEditItemKey(null)}
         />
@@ -1984,6 +2095,42 @@ export function NuevoPresupuesto() {
           onClose={() => { setDetalleProducto(null); setDetalleOriginal(null); }}
           onAgregar={() => detalleOriginal && agregarProducto(detalleOriginal)}
         />
+      )}
+
+      {/* ── Modal elegir variante (producto con modelo y 2+ variantes) ── */}
+      {variantePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setVariantePicker(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between z-10">
+              <div>
+                <p className="text-base font-bold text-gray-900">{variantePicker.nombre}</p>
+                <p className="text-xs text-gray-400">{variantePicker.opciones.length} variantes — elegí una</p>
+              </div>
+              <button onClick={() => setVariantePicker(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 shrink-0"><X size={16}/></button>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {variantePicker.opciones.map(v => {
+                const img = v.imagenes?.[0] || v.imagen_url;
+                const medida = v.ancho && v.alto ? `${v.ancho} × ${v.alto} cm` : null;
+                return (
+                  <button key={v.id} type="button"
+                    onClick={() => { setVariantePicker(null); agregarProductoDirecto(v); }}
+                    className="w-full flex items-center gap-3 px-5 py-3 hover:bg-violet-50 text-left">
+                    <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-100">
+                      {img ? <img src={img} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-200"/></div>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{[medida, v.color].filter(Boolean).join(' · ') || v.nombre}</p>
+                      {v.codigo && <p className="font-mono text-[10px] text-gray-400">{v.codigo}</p>}
+                    </div>
+                    <span className="text-sm font-bold text-violet-700 shrink-0">{formatCurrency(Number(v.precio_base))}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* suppress unused-var lint only */}

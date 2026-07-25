@@ -19,6 +19,8 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 - Test (149.50.150.131): HTTP sin HTTPS → `crypto.randomUUID()` necesita fallback
 - Compose en test: nombre `aberturas`, contenedor DB `aberturas-db`
 - Compose en prod: nombre `cesarbritez`, contenedor DB `aberturas-db`, proyecto en `/opt/docker/cesarbritez/aberturas/`, uploads montados en `/var/lib/docker-data/aberturas/uploads/` → `/app/uploads`
+- **`docker-compose.yml` de prod vive en `/opt/docker/cesarbritez/docker-compose.yml` (nivel arriba del repo, `COMPOSE_DIR` en `deploy.sh`) — comparte stack con `web`, `portainer`, Evolution API/Redis. NO es el `docker-compose.yml` del repo y `git pull` NO lo toca.** Cualquier env var nueva para `aberturas-app`/`aberturas-db` (ej. `TZ`) hay que agregarla ahí a mano por SSH — el archivo del repo solo sirve para local/test. Bug real (2026-07-25): se agregó `TZ` al compose del repo pensando que cubría prod; prod siguió en UTC hasta editar el compose real en el host.
+- **Timezone**: DB y app deben correr en `America/Argentina/Buenos_Aires` (Formosa, UTC-3, sin DST) — sin esto `CURRENT_DATE`/`DATE(created_at)` y fechas server-side (PDFs, WhatsApp) usan UTC, y algo creado entre ~21:00-23:59 hora local cae en el día UTC siguiente (aparece "de hoy" cuando fue "ayer"). Fijado vía `ALTER DATABASE postgres SET timezone TO '...'` (migración `20260725000003_timezone_argentina.sql`, DB) + env `TZ` (contenedor app, para Node/Puppeteer). En prod, `TZ` va en el compose del host (ver punto anterior), no alcanza con el del repo.
 
 ## Stack técnico
 
@@ -124,7 +126,8 @@ transportistas      — tabla maestra de empresas de transporte (nombre, activo)
 pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE; costo_envio NUMERIC; transportista_id UUID FK; es_stock_propio BOOLEAN → pedido para stock/salón propio, sin cliente ni operación)
 pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden; operacion_item_id UUID nullable FK → vincula ítem con operación origen; es_reposicion BOOLEAN → ítem extra pedido igual habiendo stock)
 visitas_tecnicas    — relevamiento in situ (numero, cliente_id, estado: pendiente|relevada|convertida|cancelada, imagenes[], operacion_id nullable FK)
-visita_tecnica_items — ítems medidos in situ (ambiente, descripcion, ancho_mm, alto_mm — en MILÍMETROS, no metros)
+visita_tecnica_items — ítems medidos in situ (ambiente, descripcion, ancho_mm, alto_mm — en MILÍMETROS, no metros; tipo_item: a_medida|servicio)
+catalogo_servicios  — servicios frecuentes (reparación, mantenimiento, cambio de piezas): nombre, descripcion, precio_base nullable, orden, activo
 ```
 
 ### Campos clave en `operaciones`
@@ -153,6 +156,12 @@ precio_unitario * cantidad + CASE WHEN incluye_instalacion THEN precio_instalaci
 LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
 LEFT JOIN sistemas        si ON si.id = oi.sistema_id
 ```
+
+**Tres tipos de ítem** (`operacion_items.tipo_item`, columna real, ya no se infiere): `estandar` (del catálogo, `producto_id` seteado) | `a_medida` (fabricado/proveedor, medidas cargadas a mano, `calculo_url` de respaldo) | `servicio` (reparación/mantenimiento/cambio de piezas, opcionalmente `servicio_id` → `catalogo_servicios`). Un servicio no tiene `producto_id` ni medidas — antes de la columna explícita esto era indistinguible de un "a medida" sin completar (bug que motivó la migración).
+
+**Los ítems de servicio NUNCA requieren pedido al proveedor** — se excluyen explícitamente (`tipo_item != 'servicio'` o `OR tipo_item = 'servicio'` según el sentido de la condición) de: `STOCK_CUBRE_TODO` en `operaciones.ts`, `items_cubiertos`/`items_pendientes` en `pedidos.ts` (coverage y `/operaciones-disponibles`). Sin este filtro, una operación con un servicio nunca podría marcarse "lista para entregar" ni salir de la lista de "pendientes de pedido" — quedaría eternamente esperando un pedido que no tiene sentido.
+
+**Origen en visita técnica**: `visita_tecnica_items.tipo_item` (`a_medida|servicio`) se carga por ítem en `CargarVisitaTecnica.tsx` (toggle regla/llave) y se propaga tal cual al convertir a presupuesto — ver sección Visitas técnicas.
 
 ### Tipos/enums PostgreSQL
 ```sql
@@ -195,7 +204,7 @@ emitido  → entregado (registra fecha_entrega_real)
 | `/productos` | routes/productos.ts | CRUD con upload de imagen |
 | `/operaciones` | routes/operaciones.ts | `POST /venta-rapida` (venta mostrador); `POST /:id/generar-link`, `POST /:id/enviar-whatsapp`, `PATCH /:id/resolver-respuesta` — todas ANTES de `GET /:id` |
 | `/visitas-tecnicas` | routes/visitasTecnicas.ts | `POST /upload-imagen` ANTES de `GET /:id`; CRUD + fotos de relevamiento |
-| `/catalogo` | routes/catalogo.ts | tipos-abertura, sistemas, colores, categorias, proveedores |
+| `/catalogo` | routes/catalogo.ts | tipos-abertura, sistemas, colores, servicios, categorias, proveedores |
 | `/dashboard` | routes/dashboard.ts | `GET /indicadores` devuelve 5 arrays accionables |
 | `/notificaciones` | routes/notificaciones.ts | `GET /` + `PATCH /marcar-leidas` — incluye respuesta_cliente además de aprobado_online_at |
 | `/interacciones` | routes/interacciones.ts | |

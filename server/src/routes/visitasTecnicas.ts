@@ -150,14 +150,15 @@ visitasTecnicas.put('/:id', async (c) => {
     await client.query(`DELETE FROM visita_tecnica_items WHERE visita_tecnica_id = $1`, [id]);
     for (const [idx, item] of items.entries()) {
       await client.query(`
-        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
       `, [
         id, idx,
         item.ambiente?.trim() || null,
         item.descripcion?.trim() || null,
         item.ancho_mm || null,
         item.alto_mm || null,
+        item.tipo_item === 'servicio' ? 'servicio' : 'a_medida',
       ]);
     }
 

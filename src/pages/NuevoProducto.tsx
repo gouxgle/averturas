@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
-  Percent, CalendarDays, ToggleLeft, ToggleRight, Star
+  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { TipoOperacion, TipoAbertura, Sistema, Proveedor } from '@/types';
+import type { TipoOperacion, TipoAbertura, Sistema, Proveedor, Categoria, CatalogoModelo } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -1335,6 +1335,12 @@ export function NuevoProducto() {
   const [sistemas, setSistemas]       = useState<Sistema[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [colores, setColores]         = useState<{ id: string; nombre: string; hex: string | null }[]>([]);
+  const [categorias, setCategorias]   = useState<Categoria[]>([]);
+  const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
+  const [modelos, setModelos]         = useState<CatalogoModelo[]>([]);
+  const [modeloSearch, setModeloSearch] = useState('');
+  const [creandoModelo, setCreandoModelo] = useState(false);
+  const [nuevoModeloNombre, setNuevoModeloNombre] = useState('');
 
   const [form, setForm] = useState({
     nombre:           '',
@@ -1375,6 +1381,9 @@ export function NuevoProducto() {
     margen_venta:        '' as string,  // null en DB = heredado del tipo_abertura o proveedor
     precio_manual:       false,
     en_salon:            false,
+    categoria_id:        '',
+    nivel_comercial:     '' as '' | 'economica' | 'estandar' | 'premium' | 'alta_seguridad',
+    modelo_id:           '',
   });
   const [atributos, setAtributos] = useState<Atributos>({});
 
@@ -1392,17 +1401,66 @@ export function NuevoProducto() {
   const esVentana        = _nombreTipo.includes('ventana');
   const esMosquitera     = _nombreTipo.includes('mosquer') || _nombreTipo.includes('mosquit');
 
+  // Árbol de categorías (navegación en Productos) — un <select> por nivel, se extiende
+  // solo mientras el nodo elegido tenga hijos cargados en Configuración.
+  const hijosDeCategoria = useMemo(() => {
+    const m: Record<string, Categoria[]> = {};
+    categorias.forEach(c => { const k = c.parent_id ?? '__root__'; (m[k] ??= []).push(c); });
+    Object.values(m).forEach(arr => arr.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre)));
+    return m;
+  }, [categorias]);
+
+  useEffect(() => {
+    if (!form.categoria_id || categorias.length === 0) return;
+    const byId = Object.fromEntries(categorias.map(c => [c.id, c]));
+    const chain: string[] = [];
+    let cur: Categoria | undefined = byId[form.categoria_id];
+    while (cur) { chain.unshift(cur.id); cur = cur.parent_id ? byId[cur.parent_id] : undefined; }
+    setCategoriaPath(chain);
+  }, [categorias, form.categoria_id]);
+
+  function setCategoriaNivel(nivel: number, value: string) {
+    const nuevoPath = categoriaPath.slice(0, nivel);
+    if (value) nuevoPath.push(value);
+    setCategoriaPath(nuevoPath);
+    set('categoria_id', nuevoPath.length ? nuevoPath[nuevoPath.length - 1] : '');
+  }
+
+  const modelosFiltrados = modelos.filter(m => m.nombre.toLowerCase().includes(modeloSearch.toLowerCase()));
+  const modeloSeleccionado = modelos.find(m => m.id === form.modelo_id);
+
+  async function crearModeloInline() {
+    if (!nuevoModeloNombre.trim()) return;
+    try {
+      const nuevo = await api.post<CatalogoModelo>('/catalogo/modelos', {
+        nombre: nuevoModeloNombre.trim(),
+        categoria_id: form.categoria_id || null,
+      });
+      setModelos(prev => [...prev, { ...nuevo, variantes_count: 0 }]);
+      set('modelo_id', nuevo.id);
+      setCreandoModelo(false);
+      setNuevoModeloNombre('');
+      toast.success(`Modelo "${nuevo.nombre}" creado`);
+    } catch (e) {
+      toast.error((e as Error).message || 'No se pudo crear el modelo');
+    }
+  }
+
   useEffect(() => {
     Promise.all([
       api.get<TipoAbertura[]>('/catalogo/tipos-abertura'),
       api.get<Sistema[]>('/catalogo/sistemas'),
       api.get<Proveedor[]>('/catalogo/proveedores'),
       api.get<{ id: string; nombre: string; hex: string | null }[]>('/catalogo/colores'),
-    ]).then(([ta, s, prov, col]) => {
+      api.get<Categoria[]>('/catalogo/categorias'),
+      api.get<CatalogoModelo[]>('/catalogo/modelos'),
+    ]).then(([ta, s, prov, col, cat, mod]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setProveedores(prov);
       setColores(col);
+      setCategorias(cat);
+      setModelos(mod);
     });
 
     if (isEdit && id) {
@@ -1449,6 +1507,9 @@ export function NuevoProducto() {
           margen_venta:        data.margen_venta != null ? String(data.margen_venta) : '',
           precio_manual:       data.precio_manual ?? false,
           en_salon:            data.en_salon ?? false,
+          categoria_id:        data.categoria_id ?? '',
+          nivel_comercial:     data.nivel_comercial ?? '',
+          modelo_id:           data.modelo_id ?? '',
         });
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
@@ -1604,6 +1665,9 @@ export function NuevoProducto() {
         imagenes:         form.imagenes,
         imagen_url:       form.imagenes[0] || null,
         video_url:        form.video_url || null,
+        categoria_id:     form.categoria_id || null,
+        nivel_comercial:  form.nivel_comercial || null,
+        modelo_id:        form.modelo_id || null,
       };
 
       if (isEdit && id) {
@@ -1676,6 +1740,93 @@ export function NuevoProducto() {
               <p className="text-xs text-gray-500 mt-0.5 leading-tight">{t.desc}</p>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Navegación en catálogo (árbol de categorías) + nivel comercial + modelo */}
+      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <SectionHeader icon={FolderTree} label="Navegación en catálogo (opcional)" />
+        <div className="p-4 space-y-3">
+          <div>
+            <label className={labelCls}>Categoría (Familia → Uso → Material → Línea)</label>
+            {categorias.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Sin categorías cargadas — configurables en Configuración → Categorías.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const niveles: React.ReactNode[] = [];
+                  let parentKey = '__root__';
+                  for (let i = 0; ; i++) {
+                    const opts = hijosDeCategoria[parentKey] ?? [];
+                    if (opts.length === 0) break;
+                    const val = categoriaPath[i] ?? '';
+                    niveles.push(
+                      <select key={i} value={val} onChange={e => setCategoriaNivel(i, e.target.value)}
+                        className={cn(inputCls, 'flex-1 min-w-[140px]')}>
+                        <option value="">{i === 0 ? 'Familia...' : 'Sub-categoría...'}</option>
+                        {opts.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+                      </select>
+                    );
+                    if (!val) break;
+                    parentKey = val;
+                  }
+                  return niveles;
+                })()}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Nivel comercial</label>
+            <select value={form.nivel_comercial} onChange={e => set('nivel_comercial', e.target.value)} className={inputCls}>
+              <option value="">Sin definir</option>
+              <option value="economica">Económica</option>
+              <option value="estandar">Estándar</option>
+              <option value="premium">Premium</option>
+              <option value="alta_seguridad">Alta seguridad</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Modelo (agrupa esta variante con otras medidas/colores del mismo diseño)</label>
+            {creandoModelo ? (
+              <div className="flex gap-2">
+                <input value={nuevoModeloNombre} onChange={e => setNuevoModeloNombre(e.target.value)} autoFocus
+                  placeholder="Ej: Modelo 3015" className={cn(inputCls, 'flex-1')}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearModeloInline(); } if (e.key === 'Escape') setCreandoModelo(false); }} />
+                <button type="button" onClick={crearModeloInline} className="px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">Crear</button>
+                <button type="button" onClick={() => setCreandoModelo(false)} className="px-3 rounded-lg border border-gray-200 text-gray-500 text-sm">Cancelar</button>
+              </div>
+            ) : form.modelo_id ? (
+              <div className="flex items-center gap-2 px-3 py-2 border border-sky-200 bg-sky-50 rounded-lg">
+                <Boxes size={14} className="text-sky-500 shrink-0" />
+                <span className="text-sm font-medium text-sky-800 flex-1">{modeloSeleccionado?.nombre ?? '—'}</span>
+                <button type="button" onClick={() => set('modelo_id', '')} className="text-sky-400 hover:text-sky-700"><X size={14} /></button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input value={modeloSearch} onChange={e => setModeloSearch(e.target.value)}
+                  placeholder="Buscar modelo existente..." className={inputCls} />
+                {modeloSearch && (
+                  <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto divide-y divide-gray-50">
+                    {modelosFiltrados.length === 0 ? (
+                      <p className="text-xs text-gray-400 p-2">Sin resultados</p>
+                    ) : modelosFiltrados.map(m => (
+                      <button key={m.id} type="button" onClick={() => { set('modelo_id', m.id); setModeloSearch(''); }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-sky-50 flex items-center justify-between">
+                        <span>{m.nombre}</span>
+                        <span className="text-xs text-gray-400">{m.variantes_count} variante{m.variantes_count !== 1 ? 's' : ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={() => { setCreandoModelo(true); setNuevoModeloNombre(modeloSearch); }}
+                  className="flex items-center gap-1.5 text-xs text-sky-600 hover:underline font-medium">
+                  <Plus size={12} /> Crear modelo nuevo
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

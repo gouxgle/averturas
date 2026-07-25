@@ -68,7 +68,7 @@ pub.get('/presupuesto/:token', async (c) => {
     SELECT
       oi.descripcion, oi.cantidad, oi.precio_unitario,
       oi.precio_instalacion, oi.incluye_instalacion, oi.color,
-      oi.medida_ancho, oi.medida_alto, oi.calculo_url,
+      oi.medida_ancho, oi.medida_alto, oi.calculo_url, oi.tipo_item,
       ta.nombre AS tipo_abertura_nombre,
       si.nombre AS sistema_nombre,
       cp.imagen_url AS producto_imagen_url,

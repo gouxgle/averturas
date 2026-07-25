@@ -4,7 +4,7 @@ import {
   Plus, Pencil, ToggleLeft, ToggleRight, Search, Layers, Package,
   X, AppWindow, DoorOpen, Tag, Percent, CalendarDays, RefreshCw, Play,
   Trash2, AlertTriangle, Star, Sparkles, Store, DollarSign, ShoppingCart,
-  ThumbsUp, Shield, Truck, Headphones, Award,
+  ThumbsUp, Shield, Truck, Headphones, Award, SlidersHorizontal, ArrowUpDown, ChevronRight, Boxes,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -70,6 +70,18 @@ const FILTRO_BTN: Record<string, { active: string; inactive: string }> = {
 const SIN_TIPO_KEY = '__sin_tipo__';
 const EN_SALON_KEY = '__en_salon__';
 
+interface Categoria { id: string; nombre: string; parent_id: string | null; orden: number; activo: boolean; }
+
+const NIVEL_COMERCIAL_LABEL: Record<string, string> = {
+  economica: 'Económica', estandar: 'Estándar', premium: 'Premium', alta_seguridad: 'Alta seguridad',
+};
+const NIVEL_COMERCIAL_COLOR: Record<string, string> = {
+  economica: 'bg-slate-50 text-slate-600 border-slate-200',
+  estandar: 'bg-sky-50 text-sky-700 border-sky-200',
+  premium: 'bg-violet-50 text-violet-700 border-violet-200',
+  alta_seguridad: 'bg-red-50 text-red-700 border-red-200',
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const L_TIPO_VENTANA: Record<string, string> = {
@@ -107,6 +119,140 @@ function isPromoActiva(p: Producto): boolean {
   if (p.promocion.fecha_inicio && hoy < p.promocion.fecha_inicio) return false;
   if (p.promocion.auto_renovar) return true;
   if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
+  return true;
+}
+
+// ── Ordenamiento ──────────────────────────────────────────────────────────────
+
+type SortKey = 'relevancia' | 'precio_asc' | 'precio_desc' | 'stock_desc' | 'nombre';
+
+const SORT_LABEL: Record<SortKey, string> = {
+  relevancia:  'Más relevantes',
+  precio_asc:  'Precio: menor a mayor',
+  precio_desc: 'Precio: mayor a menor',
+  stock_desc:  'Más stock disponible',
+  nombre:      'Nombre A-Z',
+};
+const ETIQ_RANK: Record<string, number> = { mas_vendido: 0, recomendado: 1, nuevo: 2 };
+
+function precioEfectivo(p: Producto): number {
+  return isPromoActiva(p) && p.promocion?.precio_oferta ? p.promocion.precio_oferta : p.precio_base;
+}
+function sortProductos(lista: Producto[], sortBy: SortKey): Producto[] {
+  const arr = [...lista];
+  switch (sortBy) {
+    case 'precio_asc':  return arr.sort((a, b) => precioEfectivo(a) - precioEfectivo(b));
+    case 'precio_desc': return arr.sort((a, b) => precioEfectivo(b) - precioEfectivo(a));
+    case 'stock_desc':  return arr.sort((a, b) => (b.stock_actual ?? 0) - (a.stock_actual ?? 0));
+    case 'nombre':      return arr.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    default:
+      return arr.sort((a, b) => {
+        const ra = a.etiqueta ? ETIQ_RANK[a.etiqueta] ?? 3 : 3;
+        const rb = b.etiqueta ? ETIQ_RANK[b.etiqueta] ?? 3 : 3;
+        if (ra !== rb) return ra - rb;
+        if (a.en_salon !== b.en_salon) return a.en_salon ? -1 : 1;
+        return a.nombre.localeCompare(b.nombre);
+      });
+  }
+}
+
+// ── Filtros por atributo (facetas) ─────────────────────────────────────────────
+// Se calculan dinámicamente desde los productos de la categoría activa — no hardcodean
+// el schema por tipo_abertura (ver 20260424000002_catalogo_atributos_schema.sql), así
+// se adaptan solos si se agregan nuevos atributos desde NuevoProducto.tsx.
+
+interface FacetOption { value: string; label: string; count: number }
+interface FacetDef { key: string; label: string; options: FacetOption[] }
+
+const ATTR_FACET_LABEL: Record<string, string> = {
+  tipo_puerta: 'Tipo', uso: 'Uso', config_hojas: 'Config. de hojas', apertura: 'Apertura',
+  cerradura: 'Cerradura', vidrio_incluye: 'Vidrio', instalacion: 'Instalación',
+  estructura: 'Estructura', hoja_principal: 'Hoja principal', tipo_ventana: 'Tipo',
+  hojas: 'Cantidad de hojas', marco_tipo: 'Marco', tipo_provision: 'Provisión',
+};
+const ATTR_VALUE_MAPS: Record<string, Record<string, string>> = {
+  tipo_ventana: L_TIPO_VENTANA, hojas: L_HOJAS_VNT, config_hojas: L_CONFIG_HOJAS,
+  marco_tipo: L_MARCO, uso: L_USO,
+};
+function attrValueLabel(key: string, v: string): string {
+  if (v === '__true__') return 'Sí';
+  if (v === '__false__') return 'No';
+  return ATTR_VALUE_MAPS[key]?.[v] ?? v.replace(/_/g, ' ');
+}
+function buildFacets(items: Producto[]): FacetDef[] {
+  const facets: FacetDef[] = [];
+
+  const nivelCounts = new Map<string, number>();
+  items.forEach(p => { if (p.nivel_comercial) nivelCounts.set(p.nivel_comercial, (nivelCounts.get(p.nivel_comercial) ?? 0) + 1); });
+  if (nivelCounts.size >= 2) {
+    facets.push({
+      key: 'nivel_comercial', label: 'Nivel',
+      options: [...nivelCounts.entries()].map(([value, count]) => ({ value, label: NIVEL_COMERCIAL_LABEL[value] ?? value, count })),
+    });
+  }
+
+  const colorCounts = new Map<string, number>();
+  items.forEach(p => { if (p.color) colorCounts.set(p.color, (colorCounts.get(p.color) ?? 0) + 1); });
+  if (colorCounts.size >= 2) {
+    facets.push({
+      key: 'color', label: 'Color',
+      options: [...colorCounts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([value, count]) => ({ value, label: value, count })),
+    });
+  }
+
+  const medidaCounts = new Map<string, number>();
+  items.forEach(p => {
+    if (p.ancho && p.alto) {
+      const k = `${p.ancho}x${p.alto}`;
+      medidaCounts.set(k, (medidaCounts.get(k) ?? 0) + 1);
+    }
+  });
+  if (medidaCounts.size >= 2) {
+    facets.push({
+      key: '__medida', label: 'Medida (cm)',
+      options: [...medidaCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+        .map(([value, count]) => ({ value, label: value.replace('x', ' × '), count })),
+    });
+  }
+
+  const attrCounts = new Map<string, Map<string, number>>();
+  items.forEach(p => {
+    Object.entries(p.atributos ?? {}).forEach(([k, v]) => {
+      if (v === null || v === undefined || v === '' || Array.isArray(v) || typeof v === 'object') return;
+      const sv = typeof v === 'boolean' ? (v ? '__true__' : '__false__') : String(v);
+      if (!attrCounts.has(k)) attrCounts.set(k, new Map());
+      const m = attrCounts.get(k)!;
+      m.set(sv, (m.get(sv) ?? 0) + 1);
+    });
+  });
+  attrCounts.forEach((m, key) => {
+    if (m.size < 2 || m.size > 8) return;
+    facets.push({
+      key: `attr:${key}`,
+      label: ATTR_FACET_LABEL[key] ?? key.replace(/_/g, ' '),
+      options: [...m.entries()].map(([value, count]) => ({ value, label: attrValueLabel(key, value), count })),
+    });
+  });
+
+  return facets;
+}
+function productoPasaFacets(p: Producto, activos: Record<string, string[]>): boolean {
+  for (const [key, values] of Object.entries(activos)) {
+    if (!values.length) continue;
+    if (key === 'color') {
+      if (!p.color || !values.includes(p.color)) return false;
+    } else if (key === 'nivel_comercial') {
+      if (!p.nivel_comercial || !values.includes(p.nivel_comercial)) return false;
+    } else if (key === '__medida') {
+      const k = p.ancho && p.alto ? `${p.ancho}x${p.alto}` : '';
+      if (!values.includes(k)) return false;
+    } else if (key.startsWith('attr:')) {
+      const raw = p.atributos?.[key.slice(5)];
+      const sv = typeof raw === 'boolean' ? (raw ? '__true__' : '__false__') : raw == null ? '' : String(raw);
+      if (!values.includes(sv)) return false;
+    }
+  }
   return true;
 }
 // ── Modal de detalle ──────────────────────────────────────────────────────────
@@ -428,6 +574,11 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
             <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
               {TIPO_LABEL[producto.tipo]}
             </span>
+            {producto.nivel_comercial && (
+              <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', NIVEL_COMERCIAL_COLOR[producto.nivel_comercial])}>
+                {NIVEL_COMERCIAL_LABEL[producto.nivel_comercial]}
+              </span>
+            )}
             {producto.margen_tipo && (
               <span className={cn('text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-0.5 font-medium', MARGEN_COLOR[producto.margen_tipo])}>
                 <Percent size={7}/>{MARGEN_LABEL[producto.margen_tipo]}
@@ -451,15 +602,144 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
 
 // ── Grid mosaico (reutilizado por Columna y por las vistas planas) ─────────────
 
+// Agrupa por modelo_id preservando el orden de la lista (que ya viene ordenada por
+// sortBy) — un modelo con 2+ variantes visibles se muestra como UNA ficha; con 0 o 1
+// variante en el listado actual (ej. filtrado por facetas) se muestra suelto, como antes.
+type ItemGrilla =
+  | { tipo: 'modelo'; modeloId: string; nombre: string; variantes: Producto[] }
+  | { tipo: 'suelto'; producto: Producto };
+
+function agruparPorModelo(productos: Producto[]): ItemGrilla[] {
+  const countByModelo = new Map<string, number>();
+  productos.forEach(p => { if (p.modelo_id) countByModelo.set(p.modelo_id, (countByModelo.get(p.modelo_id) ?? 0) + 1); });
+  const vistos = new Set<string>();
+  const items: ItemGrilla[] = [];
+  productos.forEach(p => {
+    if (p.modelo_id && (countByModelo.get(p.modelo_id) ?? 0) > 1) {
+      if (vistos.has(p.modelo_id)) return;
+      vistos.add(p.modelo_id);
+      items.push({ tipo: 'modelo', modeloId: p.modelo_id, nombre: p.modelo?.nombre ?? 'Modelo', variantes: productos.filter(x => x.modelo_id === p.modelo_id) });
+    } else {
+      items.push({ tipo: 'suelto', producto: p });
+    }
+  });
+  return items;
+}
+
+function variantResumen(p: Producto): string {
+  const partes: string[] = [];
+  if (p.ancho && p.alto) partes.push(`${p.ancho} × ${p.alto} cm`);
+  if (p.color) partes.push(p.color);
+  return partes.join(' · ') || '—';
+}
+
+function ModeloVariantesModal({ nombre, variantes, priceColor, onClose, onSelect }: {
+  nombre: string; variantes: Producto[]; priceColor: string; onClose: () => void; onSelect: (p: Producto) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between z-10">
+          <div>
+            <p className="text-base font-bold text-gray-900">{nombre}</p>
+            <p className="text-xs text-gray-400">{variantes.length} variantes — elegí una</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 shrink-0"><X size={16}/></button>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {variantes.map(v => {
+            const img = v.imagenes?.[0] || v.imagen_url;
+            return (
+              <button key={v.id} onClick={() => onSelect(v)}
+                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 text-left">
+                <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-100">
+                  {img ? <img src={img} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-200"/></div>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{variantResumen(v)}</p>
+                  {v.codigo && <p className="font-mono text-[10px] text-gray-400">{v.codigo}</p>}
+                </div>
+                <span className={cn('text-sm font-bold shrink-0', priceColor)}>{formatCurrency(Number(v.precio_base))}</span>
+                {(v.stock_actual ?? 0) <= 0 && <span className="text-[9px] font-bold text-red-500 shrink-0">Sin stock</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TarjetaModeloMosaico({ nombre, variantes, priceColor, onSelectVariante }: {
+  nombre: string; variantes: Producto[]; priceColor: string; onSelectVariante: (p: Producto) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const conImagen = variantes.find(v => (v.imagenes?.length ?? 0) > 0 || v.imagen_url);
+  const img = conImagen?.imagenes?.[0] || conImagen?.imagen_url;
+  const precios = variantes.map(v => Number(v.precio_base)).filter(n => !Number.isNaN(n));
+  const min = Math.min(...precios), max = Math.max(...precios);
+  const colores = [...new Set(variantes.map(v => v.color).filter(Boolean))] as string[];
+  const anyEnSalon = variantes.some(v => v.en_salon);
+
+  return (
+    <>
+      <div className="group relative flex flex-col bg-white rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow overflow-hidden cursor-pointer"
+        onClick={() => setAbierto(true)}>
+        <div className="relative w-full aspect-square bg-gray-50 overflow-hidden">
+          {img ? <img src={img} alt={nombre} loading="lazy" className="w-full h-full object-contain p-3"/>
+            : <div className="w-full h-full flex items-center justify-center"><Package size={40} className="text-gray-200"/></div>}
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-600 text-white leading-none shadow-md flex items-center gap-1">
+              <Boxes size={8}/>{variantes.length} variantes
+            </span>
+            {anyEnSalon && (
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white leading-none shadow-md flex items-center gap-1">
+                <Store size={8}/>En salón
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col p-3">
+          <p className="text-[13px] font-bold text-gray-900 leading-snug line-clamp-2">{nombre}</p>
+          {colores.length > 0 && (
+            <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-1">
+              {colores.slice(0, 3).join(', ')}{colores.length > 3 ? ` +${colores.length - 3}` : ''}
+            </p>
+          )}
+          <div className="mt-auto pt-2">
+            <span className={cn('text-[15px] font-black leading-none', priceColor)}>
+              {min === max ? formatCurrency(min) : `${formatCurrency(min)} – ${formatCurrency(max)}`}
+            </span>
+            <button
+              onClick={e => { e.stopPropagation(); setAbierto(true); }}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold transition-colors"
+            >
+              <Boxes size={12}/> Ver variantes
+            </button>
+          </div>
+        </div>
+      </div>
+      {abierto && (
+        <ModeloVariantesModal nombre={nombre} variantes={variantes} priceColor={priceColor}
+          onClose={() => setAbierto(false)}
+          onSelect={v => { setAbierto(false); onSelectVariante(v); }}/>
+      )}
+    </>
+  );
+}
+
 function GridMosaico({ productos, priceColor, onSelect, onToggle }: {
   productos: Producto[]; priceColor: string;
   onSelect: (p: Producto) => void; onToggle: (p: Producto) => void;
 }) {
+  const items = agruparPorModelo(productos);
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {productos.map(p => (
-        <TarjetaProductoMosaico key={p.id} producto={p} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
-      ))}
+      {items.map(it => it.tipo === 'modelo'
+        ? <TarjetaModeloMosaico key={`modelo-${it.modeloId}`} nombre={it.nombre} variantes={it.variantes} priceColor={priceColor} onSelectVariante={onSelect}/>
+        : <TarjetaProductoMosaico key={it.producto.id} producto={it.producto} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
+      )}
     </div>
   );
 }
@@ -526,6 +806,47 @@ const MARKETING = [
   { Icon: Award,      title: 'Mejores materiales',   desc: 'Fabricamos con aluminio de primera calidad',bg: 'bg-amber-50',  icon: 'text-amber-500'  },
 ];
 
+// ── Panel de facetas (filtros por atributo) ────────────────────────────────────
+
+function FacetsPanel({ facets, activos, onToggle, onLimpiar, activeCount }: {
+  facets: FacetDef[]; activos: Record<string, string[]>;
+  onToggle: (key: string, value: string) => void; onLimpiar: () => void; activeCount: number;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+          <SlidersHorizontal size={13}/> Filtrar productos
+        </p>
+        {activeCount > 0 && (
+          <button onClick={onLimpiar} className="text-[11px] text-sky-600 hover:underline font-medium">Limpiar</button>
+        )}
+      </div>
+      {facets.map(f => (
+        <div key={f.key} className="space-y-1.5 pt-3 border-t border-gray-100 first:border-0 first:pt-0">
+          <p className="text-[11px] font-semibold text-gray-500">{f.label}</p>
+          <div className="space-y-1">
+            {f.options.map(opt => {
+              const checked = (activos[f.key] ?? []).includes(opt.value);
+              return (
+                <label key={opt.value} className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer hover:text-gray-900">
+                  <input
+                    type="checkbox" checked={checked}
+                    onChange={() => onToggle(f.key, opt.value)}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="capitalize flex-1">{opt.label}</span>
+                  <span className="text-[10px] text-gray-400">({opt.count})</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export function Productos() {
@@ -533,8 +854,25 @@ export function Productos() {
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
   const [selected, setSelected]   = useState<Producto | null>(null);
-  const [tipoFiltro, setTipoFiltro] = useState<string | null>(null);
-  const [tiposAbertura, setTiposAbertura] = useState<{ id: string; nombre: string; orden: number }[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortKey>('relevancia');
+  const [facetFilters, setFacetFilters] = useState<Record<string, string[]>>({});
+  const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
+
+  const nodoActivoId = categoriaPath.length ? categoriaPath[categoriaPath.length - 1] : null;
+  useEffect(() => { setFacetFilters({}); }, [nodoActivoId]);
+
+  function toggleFacetValue(key: string, value: string) {
+    setFacetFilters(prev => {
+      const cur = prev[key] ?? [];
+      const next = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
+      const copy = { ...prev };
+      if (next.length) copy[key] = next; else delete copy[key];
+      return copy;
+    });
+  }
+  const activeFacetCount = Object.values(facetFilters).reduce((s, v) => s + v.length, 0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -545,13 +883,10 @@ export function Productos() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Catálogo real de tipos de abertura — define las categorías del filtro (ya viene ordenado por `orden`)
+  // Árbol de navegación (Familia → Uso → Material → Línea) — se arranca en la raíz ("Todos")
   useEffect(() => {
-    api.get<{ id: string; nombre: string; orden: number }[]>('/catalogo/tipos-abertura')
-      .then(rows => {
-        setTiposAbertura(rows);
-        if (rows[0]?.id) setTipoFiltro(rows[0].id);
-      })
+    api.get<Categoria[]>('/catalogo/categorias')
+      .then(setCategorias)
       .catch(() => {});
   }, []);
 
@@ -572,29 +907,66 @@ export function Productos() {
     );
   }, [productos, search]);
 
-  // Agrupa por tipo_abertura_id real (no por matching de texto) — cualquier tipo nuevo
-  // cargado en Configuración aparece con su propia categoría automáticamente.
-  function categorizar(lista: Producto[]) {
+  // ── Árbol de categorías: hijos por padre, raíces, y set de descendientes por nodo
+  // (navegar por categoría = filtrar por el nodo elegido O cualquiera de sus descendientes,
+  // así un producto asignado a una Familia sin sub-niveles cargados todavía sigue visible).
+  const hijosDe = useMemo(() => {
+    const m: Record<string, Categoria[]> = {};
+    categorias.forEach(c => { const k = c.parent_id ?? '__root__'; (m[k] ??= []).push(c); });
+    Object.values(m).forEach(arr => arr.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre)));
+    return m;
+  }, [categorias]);
+  const raices = hijosDe['__root__'] ?? [];
+  const nodeById = useMemo(() => Object.fromEntries(categorias.map(c => [c.id, c])), [categorias]);
+  const descendientesDe = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    function collect(id: string): Set<string> {
+      if (map[id]) return map[id];
+      const s = new Set<string>([id]);
+      (hijosDe[id] ?? []).forEach(h => { collect(h.id).forEach(x => s.add(x)); });
+      map[id] = s;
+      return s;
+    }
+    categorias.forEach(c => collect(c.id));
+    return map;
+  }, [categorias, hijosDe]);
+  function rootIdDe(id: string | null): string | null {
+    if (!id) return null;
+    let cur = nodeById[id];
+    if (!cur) return null;
+    while (cur.parent_id && nodeById[cur.parent_id]) cur = nodeById[cur.parent_id];
+    return cur.id;
+  }
+  function paletaDeNodo(id: string): { color: string; priceColor: string } {
+    if (id === EN_SALON_KEY) return { color: 'emerald', priceColor: 'text-emerald-700' };
+    const rid = rootIdDe(id) ?? id;
+    const idx = raices.findIndex(r => r.id === rid);
+    return idx >= 0 ? PALETA_CATEGORIAS[idx % PALETA_CATEGORIAS.length] : CATEGORIA_SIN_TIPO;
+  }
+
+  // Agrupa por Familia (raíz del árbol) — vista "Todos" apilada. Cualquier categoría
+  // nueva cargada en Configuración aparece sola al agregarle productos.
+  function categorizarPorRaiz(lista: Producto[]) {
     const grupos: Record<string, Producto[]> = { [SIN_TIPO_KEY]: [] };
-    tiposAbertura.forEach(t => { grupos[t.id] = []; });
+    raices.forEach(r => { grupos[r.id] = []; });
     lista.forEach(p => {
-      const key = p.tipo_abertura_id && grupos[p.tipo_abertura_id] ? p.tipo_abertura_id : SIN_TIPO_KEY;
+      const rid = rootIdDe(p.categoria_id);
+      const key = rid && grupos[rid] ? rid : SIN_TIPO_KEY;
       grupos[key].push(p);
     });
-    const byName = (a: Producto, b: Producto) => a.nombre.localeCompare(b.nombre);
-    Object.values(grupos).forEach(g => g.sort(byName));
+    Object.keys(grupos).forEach(k => { grupos[k] = sortProductos(grupos[k], sortBy); });
     return grupos;
   }
 
-  const gruposFiltrados = useMemo(() => categorizar(filtered), [filtered, tiposAbertura]);
+  const gruposFiltrados = useMemo(() => categorizarPorRaiz(filtered), [filtered, raices, sortBy]);
   // Existencia por categoría en TODO el catálogo (para que los botones no aparezcan/desaparezcan al buscar)
   const existeCategoria = useMemo(() => {
-    const c = categorizar(productos);
+    const c = categorizarPorRaiz(productos);
     return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v.length > 0]));
-  }, [productos, tiposAbertura]);
+  }, [productos, raices]);
 
   const columnas = [
-    ...tiposAbertura.map((t, i) => {
+    ...raices.map((t, i) => {
       const pal = PALETA_CATEGORIAS[i % PALETA_CATEGORIAS.length];
       const n = t.nombre.toLowerCase();
       const icono = n.includes('puerta') && !n.includes('balc') ? DoorOpen
@@ -606,26 +978,38 @@ export function Productos() {
       };
     }),
     ...(existeCategoria[SIN_TIPO_KEY] ? [{
-      key: SIN_TIPO_KEY, titulo: 'Sin tipo', items: gruposFiltrados[SIN_TIPO_KEY] ?? [], icono: Package, color: CATEGORIA_SIN_TIPO.color,
+      key: SIN_TIPO_KEY, titulo: 'Sin categoría', items: gruposFiltrados[SIN_TIPO_KEY] ?? [], icono: Package, color: CATEGORIA_SIN_TIPO.color,
       headerBg: CATEGORIA_SIN_TIPO.headerBg, headerText: CATEGORIA_SIN_TIPO.headerText, badgeBg: 'bg-white', badgeText: CATEGORIA_SIN_TIPO.badgeText,
       borderCol: CATEGORIA_SIN_TIPO.borderCol, priceColor: CATEGORIA_SIN_TIPO.priceColor,
     }] : []),
   ];
 
-  // "En salón" es un subgrupo transversal (cruza tipos) — es un filtro más, pero no se
-  // duplica dentro de la vista "Todos" apilada por tipo (columnas), solo vive como botón.
+  // "En salón" es un subgrupo transversal (cruza categorías) — vive como pill aparte,
+  // solo visible en la raíz del árbol (no dentro de una Familia ya elegida).
   const existeEnSalon = productos.some(p => p.en_salon);
-  const columnaEnSalon = {
-    key: EN_SALON_KEY, titulo: 'En salón', items: filtered.filter(p => p.en_salon), icono: Store, color: 'emerald',
-    headerBg: 'bg-emerald-50', headerText: 'text-emerald-700', badgeBg: 'bg-white', badgeText: 'text-emerald-600 border-emerald-200',
-    borderCol: 'border-emerald-100', priceColor: 'text-emerald-700',
-  };
-  const columnasFiltro = [...columnas, ...(existeEnSalon ? [columnaEnSalon] : [])];
 
-  const categoriaActiva = columnasFiltro.find(c => c.key === tipoFiltro) ?? null;
+  // Nodo activo (última migaja del breadcrumb) → productos = él mismo + todos sus
+  // descendientes (así una Familia sin sub-niveles cargados sigue mostrando productos).
+  const categoriaActiva = nodoActivoId ? {
+    key: nodoActivoId,
+    titulo: nodoActivoId === EN_SALON_KEY ? 'En salón' : (nodeById[nodoActivoId]?.nombre ?? ''),
+    items: nodoActivoId === EN_SALON_KEY
+      ? filtered.filter(p => p.en_salon)
+      : filtered.filter(p => p.categoria_id && descendientesDe[nodoActivoId]?.has(p.categoria_id)),
+    priceColor: paletaDeNodo(nodoActivoId).priceColor,
+  } : null;
+
+  // Facetas dinámicas — solo dentro de una categoría real (no en "Todos", búsqueda o "En salón",
+  // que mezclan material y por lo tanto schemas de atributos distintos)
+  const facetsCategoria = categoriaActiva && categoriaActiva.key !== EN_SALON_KEY
+    ? buildFacets(categoriaActiva.items) : [];
+  const itemsCategoriaFacetados = categoriaActiva
+    ? categoriaActiva.items.filter(p => productoPasaFacets(p, facetFilters))
+    : [];
+  const filteredSorted = useMemo(() => sortProductos(filtered, sortBy), [filtered, sortBy]);
 
   // Productos visibles según el filtro/búsqueda activos — la barra de valor de stock se recalcula sobre esto
-  const productosVisibles = categoriaActiva ? categoriaActiva.items : filtered;
+  const productosVisibles = categoriaActiva ? itemsCategoriaFacetados : filteredSorted;
   const valorCostoStock = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0) * Number(p.costo_base ?? 0), 0);
   const valorVentaStock = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0) * Number(p.precio_base ?? 0), 0);
   const unidadesStock   = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0), 0);
@@ -645,54 +1029,117 @@ export function Productos() {
         }
       />
 
-      {/* Buscador */}
-      <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-        <input
-          type="text" placeholder="Buscar por nombre, código o tipo..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-md"
-        />
-        {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-            <X size={14}/>
+      {/* Buscador + orden */}
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <input
+            type="text" placeholder="Buscar por nombre, código o tipo..."
+            value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-md"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X size={14}/>
+            </button>
+          )}
+        </div>
+        <div className="relative shrink-0">
+          <ArrowUpDown size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as SortKey)}
+            className="appearance-none pl-8 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 bg-white shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer"
+          >
+            {(Object.keys(SORT_LABEL) as SortKey[]).map(k => (
+              <option key={k} value={k}>{SORT_LABEL[k]}</option>
+            ))}
+          </select>
+        </div>
+        {categoriaActiva && facetsCategoria.length > 0 && (
+          <button
+            onClick={() => setMobileFiltrosOpen(true)}
+            className="lg:hidden flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 bg-white shadow-md text-gray-600 shrink-0"
+          >
+            <SlidersHorizontal size={14}/> Filtros
+            {activeFacetCount > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-600 text-white">{activeFacetCount}</span>
+            )}
           </button>
         )}
       </div>
 
-      {/* Filtro por tipo de abertura */}
+      {/* Navegación por árbol de categorías — breadcrumb + nivel actual */}
       {!loading && productos.length > 0 && (
-        <div className="flex flex-wrap gap-2.5">
-          <button
-            onClick={() => setTipoFiltro(null)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all',
-              tipoFiltro === null
-                ? 'bg-gray-800 text-white shadow-md shadow-gray-300'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            )}
-          >
-            <Layers size={16}/> Todos
-            <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full', tipoFiltro === null ? 'bg-white/20' : 'bg-gray-100')}>
-              {filtered.length}
-            </span>
-          </button>
-          {columnasFiltro.map(col => (
+        <div className="space-y-2">
+          {categoriaPath.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap text-xs font-semibold text-gray-500">
+              <button onClick={() => setCategoriaPath([])} className="hover:text-sky-600 hover:underline">Todos</button>
+              {categoriaPath.map((id, i) => (
+                <span key={id} className="flex items-center gap-1">
+                  <ChevronRight size={12} className="text-gray-300"/>
+                  {i === categoriaPath.length - 1 ? (
+                    <span className="text-gray-800">{id === EN_SALON_KEY ? 'En salón' : nodeById[id]?.nombre}</span>
+                  ) : (
+                    <button onClick={() => setCategoriaPath(categoriaPath.slice(0, i + 1))} className="hover:text-sky-600 hover:underline">
+                      {nodeById[id]?.nombre}
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2.5">
             <button
-              key={col.key}
-              onClick={() => setTipoFiltro(prev => prev === col.key ? null : col.key)}
+              onClick={() => setCategoriaPath([])}
               className={cn(
                 'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all',
-                col.key === EN_SALON_KEY && 'ml-1.5 border-l-2 border-gray-200 pl-3.5',
-                FILTRO_BTN[col.color][tipoFiltro === col.key ? 'active' : 'inactive']
+                categoriaPath.length === 0
+                  ? 'bg-gray-800 text-white shadow-md shadow-gray-300'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               )}
             >
-              <col.icono size={16}/> {col.titulo}
-              <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full', tipoFiltro === col.key ? 'bg-white/20' : 'bg-white')}>
-                {col.items.length}
+              <Layers size={16}/> Todos
+              <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full', categoriaPath.length === 0 ? 'bg-white/20' : 'bg-gray-100')}>
+                {filtered.length}
               </span>
             </button>
-          ))}
+
+            {categoriaPath.length === 0 && columnas.map(col => (
+              <button
+                key={col.key}
+                onClick={() => setCategoriaPath([col.key])}
+                className={cn('flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all', FILTRO_BTN[col.color].inactive)}
+              >
+                <col.icono size={16}/> {col.titulo}
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-white">{col.items.length}</span>
+              </button>
+            ))}
+            {categoriaPath.length === 0 && existeEnSalon && (
+              <button
+                onClick={() => setCategoriaPath([EN_SALON_KEY])}
+                className={cn('flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ml-1.5 border-l-2 border-gray-200 pl-3.5', FILTRO_BTN.emerald.inactive)}
+              >
+                <Store size={16}/> En salón
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-white">{filtered.filter(p => p.en_salon).length}</span>
+              </button>
+            )}
+
+            {nodoActivoId && nodoActivoId !== EN_SALON_KEY && (hijosDe[nodoActivoId] ?? []).map(hijo => {
+              const count = filtered.filter(p => p.categoria_id && descendientesDe[hijo.id]?.has(p.categoria_id)).length;
+              return (
+                <button
+                  key={hijo.id}
+                  onClick={() => setCategoriaPath([...categoriaPath, hijo.id])}
+                  className={cn('flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all', FILTRO_BTN[paletaDeNodo(nodoActivoId).color ?? 'sky'].inactive)}
+                >
+                  {hijo.nombre}
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-white">{count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -755,25 +1202,40 @@ export function Productos() {
           <Link to="/productos/nuevo" className="text-sm text-sky-600 hover:underline font-medium">Agregar el primero →</Link>
         </div>
       ) : categoriaActiva ? (
-        /* Filtro por tipo activo: lista plana de esa categoría */
-        <div className="space-y-2">
-          <p className="text-sm text-gray-500">
-            {categoriaActiva.items.length} producto{categoriaActiva.items.length !== 1 ? 's' : ''} en {categoriaActiva.titulo}
-          </p>
-          {categoriaActiva.items.length === 0 ? (
-            <div className="py-16 text-center">
-              <Package size={36} className="text-gray-200 mx-auto mb-3"/>
-              <p className="text-sm text-gray-400">Sin productos en esta categoría{search ? ' para tu búsqueda' : ''}</p>
-            </div>
-          ) : (
-            <GridMosaico productos={categoriaActiva.items} priceColor={categoriaActiva.priceColor} onSelect={setSelected} onToggle={toggleActivo}/>
+        /* Filtro por tipo activo: sidebar de facetas + mosaico de esa categoría */
+        <div className="flex gap-4 items-start">
+          {facetsCategoria.length > 0 && (
+            <aside className="hidden lg:block w-52 shrink-0 sticky top-4 space-y-4">
+              <FacetsPanel facets={facetsCategoria} activos={facetFilters} onToggle={toggleFacetValue}
+                onLimpiar={() => setFacetFilters({})} activeCount={activeFacetCount}/>
+            </aside>
           )}
+          <div className="flex-1 min-w-0 space-y-2">
+            <p className="text-sm text-gray-500">
+              {itemsCategoriaFacetados.length} producto{itemsCategoriaFacetados.length !== 1 ? 's' : ''} en {categoriaActiva.titulo}
+            </p>
+            {itemsCategoriaFacetados.length === 0 ? (
+              <div className="py-16 text-center">
+                <Package size={36} className="text-gray-200 mx-auto mb-3"/>
+                <p className="text-sm text-gray-400">
+                  {categoriaActiva.items.length === 0
+                    ? `Sin productos en esta categoría${search ? ' para tu búsqueda' : ''}`
+                    : 'Ningún producto coincide con los filtros elegidos'}
+                </p>
+                {activeFacetCount > 0 && (
+                  <button onClick={() => setFacetFilters({})} className="text-sm text-sky-600 hover:underline font-medium mt-2">Limpiar filtros</button>
+                )}
+              </div>
+            ) : (
+              <GridMosaico productos={itemsCategoriaFacetados} priceColor={categoriaActiva.priceColor} onSelect={setSelected} onToggle={toggleActivo}/>
+            )}
+          </div>
         </div>
       ) : search ? (
         /* Búsqueda: mosaico plano */
         <div className="space-y-2">
-          <p className="text-sm text-gray-500">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{search}"</p>
-          <GridMosaico productos={filtered} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
+          <p className="text-sm text-gray-500">{filteredSorted.length} resultado{filteredSorted.length !== 1 ? 's' : ''} para "{search}"</p>
+          <GridMosaico productos={filteredSorted} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
         </div>
       ) : (
         /* Vista normal: secciones apiladas por categoría, cada una en mosaico */
@@ -809,6 +1271,26 @@ export function Productos() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {mobileFiltrosOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileFiltrosOpen(false)}/>
+          <div className="relative ml-auto w-[85%] max-w-xs h-full bg-gray-50 overflow-y-auto p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-bold text-gray-800">Filtros</p>
+              <button onClick={() => setMobileFiltrosOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500"><X size={16}/></button>
+            </div>
+            <FacetsPanel facets={facetsCategoria} activos={facetFilters} onToggle={toggleFacetValue}
+              onLimpiar={() => setFacetFilters({})} activeCount={activeFacetCount}/>
+            <button
+              onClick={() => setMobileFiltrosOpen(false)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold"
+            >
+              Ver {itemsCategoriaFacetados.length} producto{itemsCategoriaFacetados.length !== 1 ? 's' : ''}
+            </button>
+          </div>
         </div>
       )}
 

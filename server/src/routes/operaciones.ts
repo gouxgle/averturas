@@ -249,11 +249,14 @@ operaciones.get('/', async (c) => {
 // Predicado SQL: la operación `o` tiene TODOS sus ítems cubiertos por stock propio
 // (cada ítem con producto_id y stock_actual >= cantidad, y al menos 1 ítem).
 // Una op así no necesita pedido al proveedor: se cumple directo desde stock.
+// Los ítems de servicio nunca se piden al proveedor (se resuelven con mano de obra) —
+// no cuentan como "pendientes", siempre se consideran resueltos a este efecto.
 const STOCK_CUBRE_TODO = `(
   EXISTS (SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id)
   AND NOT EXISTS (
     SELECT 1 FROM operacion_items oi
     WHERE oi.operacion_id = o.id
+      AND oi.tipo_item != 'servicio'
       AND NOT (oi.producto_id IS NOT NULL AND
         (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
          + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
@@ -912,8 +915,9 @@ operaciones.post('/', async (c) => {
             (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
-             vidrio, premarco, origen, color, accesorios, producto_id, calculo_url)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+             vidrio, premarco, origen, color, accesorios, producto_id, calculo_url,
+             tipo_item, servicio_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
         `, [
           op.id,
           idx,
@@ -935,6 +939,8 @@ operaciones.post('/', async (c) => {
           item.accesorios ?? [],
           item.producto_id || null,
           item.calculo_url || null,
+          item.tipo_item || 'estandar',
+          item.servicio_id || null,
         ]);
       }
     }
@@ -1011,8 +1017,9 @@ operaciones.put('/:id', async (c) => {
             (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
-             vidrio, premarco, origen, color, accesorios, producto_id, calculo_url)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+             vidrio, premarco, origen, color, accesorios, producto_id, calculo_url,
+             tipo_item, servicio_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
         `, [
           id, idx,
           item.tipo_abertura_id || null,
@@ -1033,6 +1040,8 @@ operaciones.put('/:id', async (c) => {
           item.accesorios ?? [],
           item.producto_id || null,
           item.calculo_url || null,
+          item.tipo_item || 'estandar',
+          item.servicio_id || null,
         ]);
       }
     }

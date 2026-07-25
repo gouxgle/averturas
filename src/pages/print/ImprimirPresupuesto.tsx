@@ -70,6 +70,7 @@ interface Item {
   producto_nombre: string | null;
   producto_imagen_url: string | null;
   calculo_url: string | null;
+  tipo_item?: 'estandar' | 'a_medida' | 'servicio';
 }
 interface Operacion {
   id: string; numero: string; tipo: string; estado: string;
@@ -356,7 +357,9 @@ export function ImprimirPresupuesto() {
                 const attr      = item.producto_atributos ?? {};
                 const nombre    = item.producto_nombre ?? item.descripcion;
                 const pUnit     = Number(item.precio_unitario);
-                const esAMedida = !item.producto_nombre;
+                const tipoItem  = item.tipo_item ?? (item.producto_nombre ? 'estandar' : 'a_medida');
+                const esAMedida = tipoItem === 'a_medida';
+                const esServicio = tipoItem === 'servicio';
 
                 const hojasNum    = attr.hojas ? `${attr.hojas} hojas` : null;
                 const hojasConfig = attr.config_hojas
@@ -406,6 +409,14 @@ export function ImprimirPresupuesto() {
                             borderRadius: 3, padding: '1.5px 5px', letterSpacing: 0.3, whiteSpace: 'nowrap' as const,
                           }}>
                             A MEDIDA
+                          </span>
+                        )}
+                        {esServicio && (
+                          <span style={{
+                            fontSize: 8, fontWeight: 800, color: '#fff', background: '#b45309',
+                            borderRadius: 3, padding: '1.5px 5px', letterSpacing: 0.3, whiteSpace: 'nowrap' as const,
+                          }}>
+                            SERVICIO
                           </span>
                         )}
                       </div>

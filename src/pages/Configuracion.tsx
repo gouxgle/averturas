@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -12,6 +12,9 @@ interface TipoAbertura { id: string; nombre: string; descripcion: string | null;
 interface Sistema { id: string; nombre: string; material: string | null; descripcion: string | null; activo: boolean; }
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
 interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; instagram: string | null; terminos_url: string | null; }
+interface Servicio { id: string; nombre: string; descripcion: string | null; precio_base: number | null; orden: number; activo: boolean; }
+interface Categoria { id: string; nombre: string; parent_id: string | null; orden: number; activo: boolean; }
+interface Modelo { id: string; nombre: string; categoria_id: string | null; descripcion: string | null; variantes_count: number; activo: boolean; }
 interface Usuario { id: string; nombre: string; email: string; rol: 'admin' | 'vendedor' | 'consulta'; activo: boolean; created_at: string; }
 
 // ── Small inline form ─────────────────────────────────────────────────────────
@@ -371,6 +374,345 @@ function PanelColores() {
           </div>
         ))}
         {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin colores cargados</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Panel: Servicios ────────────────────────────────────────────────────────────
+
+function PanelServicios() {
+  const [items, setItems] = useState<Servicio[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function load() {
+    const data = await api.get<Servicio[]>('/catalogo/servicios?all=1');
+    setItems(data);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(vals: Record<string, string>) {
+    await api.post('/catalogo/servicios', {
+      nombre: vals.nombre,
+      descripcion: vals.descripcion || null,
+      precio_base: vals.precio_base ? parseFloat(vals.precio_base) : null,
+    });
+    toast.success('Servicio agregado');
+    setAdding(false);
+    load();
+  }
+
+  async function handleEdit(id: string, vals: Record<string, string>) {
+    const item = items.find(i => i.id === id)!;
+    await api.put(`/catalogo/servicios/${id}`, {
+      ...item,
+      nombre: vals.nombre,
+      descripcion: vals.descripcion || null,
+      precio_base: vals.precio_base ? parseFloat(vals.precio_base) : null,
+    });
+    toast.success('Actualizado');
+    setEditId(null);
+    load();
+  }
+
+  async function toggleActivo(item: Servicio) {
+    await api.put(`/catalogo/servicios/${item.id}`, { ...item, activo: !item.activo });
+    load();
+  }
+
+  async function eliminar(item: Servicio) {
+    try {
+      await api.delete(`/catalogo/servicios/${item.id}`);
+      toast.success('Servicio eliminado');
+      load();
+    } catch {
+      toast.error('No se puede eliminar: en uso por presupuestos. Desactivalo en su lugar.');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        Servicios frecuentes (reparación, mantenimiento, cambio de piezas) para cargar rápido en presupuestos. El precio es sugerido y se puede editar por presupuesto.
+      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activos</p>
+        <button onClick={() => { setAdding(true); setEditId(null); }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
+          <Plus size={13} /> Agregar
+        </button>
+      </div>
+
+      {adding && (
+        <InlineForm
+          fields={[
+            { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Cambio de vidrio' },
+            { key: 'descripcion', label: 'Descripción', value: '', placeholder: 'Opcional' },
+            { key: 'precio_base', label: 'Precio sugerido', value: '', placeholder: 'Ej: 15000' },
+          ]}
+          onSave={handleAdd}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      <div className="divide-y divide-gray-100">
+        {items.map(item => (
+          <div key={item.id} className={cn('py-2.5 flex items-center gap-3', !item.activo && 'opacity-50')}>
+            <div className="flex-1 min-w-0">
+              {editId === item.id ? (
+                <InlineForm
+                  fields={[
+                    { key: 'nombre', label: 'Nombre *', value: item.nombre },
+                    { key: 'descripcion', label: 'Descripción', value: item.descripcion ?? '' },
+                    { key: 'precio_base', label: 'Precio sugerido', value: item.precio_base != null ? String(item.precio_base) : '' },
+                  ]}
+                  onSave={vals => handleEdit(item.id, vals)}
+                  onCancel={() => setEditId(null)}
+                />
+              ) : (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                    {item.precio_base != null && (
+                      <p className="text-xs text-gray-400 font-mono">${Number(item.precio_base).toLocaleString('es-AR')}</p>
+                    )}
+                  </div>
+                  {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+                </div>
+              )}
+            </div>
+            {editId !== item.id && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => { setEditId(item.id); setAdding(false); }}
+                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  <Pencil size={13} />
+                </button>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                  {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+                </button>
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin servicios cargados</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Panel: Categorías (árbol de navegación) ────────────────────────────────────
+// Eje de NAVEGACIÓN del catálogo (Familia → Uso → Material → Línea…), independiente
+// de Tipos de abertura/Sistemas (que siguen definiendo atributos/márgenes). Profundidad
+// libre: cada nodo puede tener hijos con el botón "+" — no hay límite de niveles.
+
+function CategoriaNode({ nodo, hijosDe, depth, addingUnder, setAddingUnder, editId, setEditId, onAdd, onEdit, onToggle, onDelete }: {
+  nodo: Categoria; hijosDe: Record<string, Categoria[]>; depth: number;
+  addingUnder: string | null; setAddingUnder: (v: string | null) => void;
+  editId: string | null; setEditId: (v: string | null) => void;
+  onAdd: (parentId: string, vals: Record<string, string>) => Promise<void>;
+  onEdit: (id: string, vals: Record<string, string>) => Promise<void>;
+  onToggle: (n: Categoria) => void;
+  onDelete: (n: Categoria) => void;
+}) {
+  const hijos = hijosDe[nodo.id] ?? [];
+  return (
+    <div>
+      <div className={cn('flex items-center gap-2 py-2 group', !nodo.activo && 'opacity-50')} style={{ paddingLeft: depth * 20 }}>
+        {depth > 0 && <ChevronRight size={12} className="text-gray-300 shrink-0" />}
+        {editId === nodo.id ? (
+          <div className="flex-1">
+            <InlineForm
+              fields={[{ key: 'nombre', label: 'Nombre *', value: nodo.nombre }]}
+              onSave={vals => onEdit(nodo.id, vals)}
+              onCancel={() => setEditId(null)}
+            />
+          </div>
+        ) : (
+          <>
+            <span className="text-sm font-medium text-gray-800 flex-1 min-w-0">{nodo.nombre}</span>
+            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => { setAddingUnder(nodo.id); setEditId(null); }} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title="Agregar subcategoría">
+                <Plus size={13} />
+              </button>
+              <button onClick={() => { setEditId(nodo.id); setAddingUnder(null); }} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title="Renombrar">
+                <Pencil size={13} />
+              </button>
+              <button onClick={() => onToggle(nodo)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={nodo.activo ? 'Desactivar' : 'Activar'}>
+                {nodo.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+              </button>
+              <button onClick={() => onDelete(nodo)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+      {addingUnder === nodo.id && (
+        <div style={{ paddingLeft: (depth + 1) * 20 }} className="pb-2">
+          <InlineForm
+            fields={[{ key: 'nombre', label: 'Nombre subcategoría *', value: '', placeholder: 'Ej: Frente' }]}
+            onSave={vals => onAdd(nodo.id, vals)}
+            onCancel={() => setAddingUnder(null)}
+          />
+        </div>
+      )}
+      {hijos.map(h => (
+        <CategoriaNode key={h.id} nodo={h} hijosDe={hijosDe} depth={depth + 1}
+          addingUnder={addingUnder} setAddingUnder={setAddingUnder}
+          editId={editId} setEditId={setEditId}
+          onAdd={onAdd} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} />
+      ))}
+    </div>
+  );
+}
+
+function PanelCategorias() {
+  const [items, setItems] = useState<Categoria[]>([]);
+  const [addingUnder, setAddingUnder] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function load() {
+    const data = await api.get<Categoria[]>('/catalogo/categorias?all=1');
+    setItems(data);
+  }
+  useEffect(() => { load(); }, []);
+
+  const hijosDe: Record<string, Categoria[]> = {};
+  items.forEach(c => {
+    const key = c.parent_id ?? '__root__';
+    (hijosDe[key] ??= []).push(c);
+  });
+  const raices = hijosDe['__root__'] ?? [];
+
+  async function handleAdd(parentId: string, vals: Record<string, string>) {
+    await api.post('/catalogo/categorias', { nombre: vals.nombre, parent_id: parentId === '__root__' ? null : parentId });
+    toast.success('Categoría agregada');
+    setAddingUnder(null);
+    load();
+  }
+  async function handleEdit(id: string, vals: Record<string, string>) {
+    const item = items.find(i => i.id === id)!;
+    await api.put(`/catalogo/categorias/${id}`, { ...item, nombre: vals.nombre });
+    toast.success('Actualizada');
+    setEditId(null);
+    load();
+  }
+  async function toggleActivo(item: Categoria) {
+    await api.put(`/catalogo/categorias/${item.id}`, { ...item, activo: !item.activo });
+    load();
+  }
+  async function eliminar(item: Categoria) {
+    try {
+      await api.delete(`/catalogo/categorias/${item.id}`);
+      toast.success('Categoría eliminada');
+      load();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'No se pudo eliminar');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">Navegación del catálogo — Familia → Uso → Material → Línea (profundidad libre)</p>
+        <button onClick={() => { setAddingUnder('__root__'); setEditId(null); }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium shrink-0">
+          <Plus size={13} /> Familia
+        </button>
+      </div>
+
+      {addingUnder === '__root__' && (
+        <InlineForm
+          fields={[{ key: 'nombre', label: 'Nombre de familia *', value: '', placeholder: 'Ej: Puertas' }]}
+          onSave={vals => handleAdd('__root__', vals)}
+          onCancel={() => setAddingUnder(null)}
+        />
+      )}
+
+      <div className="divide-y divide-gray-50">
+        {raices.map(r => (
+          <CategoriaNode key={r.id} nodo={r} hijosDe={hijosDe} depth={0}
+            addingUnder={addingUnder} setAddingUnder={setAddingUnder}
+            editId={editId} setEditId={setEditId}
+            onAdd={handleAdd} onEdit={handleEdit} onToggle={toggleActivo} onDelete={eliminar} />
+        ))}
+        {raices.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin categorías cargadas</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Panel: Modelos (producto padre de variantes) ───────────────────────────────
+
+function PanelModelos() {
+  const [items, setItems] = useState<Modelo[]>([]);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function load() {
+    const data = await api.get<Modelo[]>('/catalogo/modelos?search=');
+    setItems(data);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleEdit(id: string, vals: Record<string, string>) {
+    const item = items.find(i => i.id === id)!;
+    await api.put(`/catalogo/modelos/${id}`, { ...item, nombre: vals.nombre, descripcion: vals.descripcion });
+    toast.success('Actualizado');
+    setEditId(null);
+    load();
+  }
+  async function eliminar(item: Modelo) {
+    try {
+      await api.delete(`/catalogo/modelos/${item.id}`);
+      toast.success('Modelo eliminado');
+      load();
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'No se pudo eliminar');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        Los modelos se crean al cargar un producto (Nuevo producto → "Modelo"). Acá solo se administran los ya existentes.
+      </p>
+      <div className="divide-y divide-gray-100">
+        {items.map(item => (
+          <div key={item.id} className="py-2.5 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              {editId === item.id ? (
+                <InlineForm
+                  fields={[
+                    { key: 'nombre', label: 'Nombre *', value: item.nombre },
+                    { key: 'descripcion', label: 'Descripción', value: item.descripcion ?? '' },
+                  ]}
+                  onSave={vals => handleEdit(item.id, vals)}
+                  onCancel={() => setEditId(null)}
+                />
+              ) : (
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                  <p className="text-xs text-gray-400">{item.variantes_count} variante{item.variantes_count !== 1 ? 's' : ''}</p>
+                </div>
+              )}
+            </div>
+            {editId !== item.id && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => setEditId(item.id)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  <Pencil size={13} />
+                </button>
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar (solo sin variantes)">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin modelos cargados</p>}
       </div>
     </div>
   );
@@ -1017,12 +1359,15 @@ function PanelBackups() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'mensajes' | 'backups' | null;
+type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'servicios' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | null;
 
 const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | null>; label: string; icon: typeof Layers; desc: string }[] = [
+  { id: 'categorias',     label: 'Categorías',          icon: FolderTree, desc: 'Árbol de navegación: Familia → Uso → Material → Línea' },
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
+  { id: 'servicios',      label: 'Servicios',           icon: Wrench,    desc: 'Reparación, mantenimiento, cambio de piezas' },
+  { id: 'modelos',        label: 'Modelos',             icon: Boxes,     desc: 'Producto padre — agrupa variantes (medida/color)' },
 ];
 
 function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }: {
@@ -1105,9 +1450,12 @@ export function Configuracion() {
               {idx > 0 && <div className="border-t border-gray-200" />}
               <AccordionItem id={id} label={label} icon={icon} desc={desc}
                 open={openPanel === id} onToggle={() => togglePanel(id)}>
+                {id === 'categorias'     && <PanelCategorias />}
                 {id === 'tipos_abertura' && <PanelTiposAbertura />}
                 {id === 'sistemas'       && <PanelSistemas />}
                 {id === 'colores'        && <PanelColores />}
+                {id === 'servicios'      && <PanelServicios />}
+                {id === 'modelos'        && <PanelModelos />}
               </AccordionItem>
             </div>
           ))}
