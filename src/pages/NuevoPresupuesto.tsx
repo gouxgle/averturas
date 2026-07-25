@@ -670,23 +670,34 @@ export function NuevoPresupuesto() {
   useEffect(() => {
     if (isEdit || itemsPrecargadosRef.current) return;
     const state = location.state as {
-      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string; tipo_item?: 'a_medida' | 'servicio' }>;
+      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string; tipo_item?: 'a_medida' | 'servicio' | 'estandar'; producto_id?: string }>;
       clienteId?: string;
       visitaTecnicaId?: string;
       imagenesVisita?: string[];
     } | null;
     if (!state?.itemsPrecargados?.length) return;
     itemsPrecargadosRef.current = true;
+    const precargados = state.itemsPrecargados;
     // Si todos los ítems relevados son del mismo tipo, arrancar en esa pestaña
-    const tiposPrecarga = new Set(state.itemsPrecargados.map(it => it.tipo_item ?? 'a_medida'));
+    const tiposPrecarga = new Set(precargados.map(it => it.tipo_item ?? 'a_medida'));
     setModo(tiposPrecarga.size === 1 ? [...tiposPrecarga][0] : 'a_medida');
-    setItems(state.itemsPrecargados.map(it => ({
-      ...emptyItem(),
-      tipo_item: it.tipo_item ?? 'a_medida',
-      descripcion: it.descripcion,
-      medida_ancho: it.medida_ancho,
-      medida_alto: it.medida_alto,
-    })));
+
+    const noEstandar = precargados
+      .filter(it => it.tipo_item !== 'estandar')
+      .map(it => ({ ...emptyItem(), tipo_item: it.tipo_item ?? 'a_medida', descripcion: it.descripcion, medida_ancho: it.medida_ancho, medida_alto: it.medida_alto }));
+    const estandarIds = precargados.filter(it => it.tipo_item === 'estandar' && it.producto_id).map(it => it.producto_id!);
+
+    if (estandarIds.length === 0) {
+      setItems(noEstandar);
+    } else {
+      setItems(noEstandar); // muestra ya los que no son de catálogo mientras resuelve los productos
+      api.get<CatalogProduct[]>('/catalogo/productos').then(catalogo => {
+        const porId = new Map(catalogo.map(p => [p.id, p]));
+        const itemsEstandar = estandarIds.map(id => porId.get(id)).filter((p): p is CatalogProduct => !!p).map(itemFromCatalogProduct);
+        setItems(prev => [...prev, ...itemsEstandar]);
+      }).catch(() => toast.error('No se pudieron cargar los productos relevados en la visita'));
+    }
+
     if (state.clienteId) {
       setClienteId(state.clienteId);
       api.get<Cliente>(`/clientes/${state.clienteId}`).then(cl => setClientes([cl])).catch(() => {});
@@ -726,6 +737,39 @@ export function NuevoPresupuesto() {
     agregarProductoDirecto(p);
   }
 
+  function itemFromCatalogProduct(p: CatalogProduct): ItemForm {
+    return {
+      _key:                uuid(),
+      producto_id:         p.id,
+      tipo_item:           'estandar',
+      servicio_id:         '',
+      tipo_abertura_id:    p.tipo_abertura_id   ?? '',
+      sistema_id:          p.sistema_id         ?? '',
+      descripcion:         p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre,
+      medida_ancho:        '',
+      medida_alto:         '',
+      cantidad:            1,
+      costo_unitario:      Number(p.costo_base)  || 0,
+      precio_unitario:     Number(p.precio_base) || 0,
+      incluye_instalacion: false,
+      costo_instalacion:   0,
+      precio_instalacion:  0,
+      vidrio:              p.vidrio             ?? '',
+      premarco:            p.premarco           ?? false,
+      origen:              'proveedor',
+      color:               p.color              ?? '',
+      accesorios:          p.accesorios         ?? [],
+      calculo_url:         '',
+      _prod_ancho:         p.ancho              ?? null,
+      _prod_alto:          p.alto               ?? null,
+      _prod_atributos:     p.atributos          ?? {},
+      _prod_stock:         p.stock_actual        ?? 0,
+      _prod_tipo_nombre:   p.tipo_abertura?.nombre ?? '',
+      _prod_sistema_nombre: p.sistema?.nombre    ?? '',
+      _prod_imagen_url:    p.imagenes?.[0] ?? p.imagen_url ?? null,
+    };
+  }
+
   function agregarProductoDirecto(p: CatalogProduct) {
     setItems(prev => {
       const existente = prev.find(it => it.producto_id === p.id);
@@ -734,36 +778,7 @@ export function NuevoPresupuesto() {
           it.producto_id === p.id ? { ...it, cantidad: it.cantidad + 1 } : it
         );
       }
-      return [...prev, {
-        _key:                uuid(),
-        producto_id:         p.id,
-        tipo_item:           'estandar',
-        servicio_id:         '',
-        tipo_abertura_id:    p.tipo_abertura_id   ?? '',
-        sistema_id:          p.sistema_id         ?? '',
-        descripcion:         p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre,
-        medida_ancho:        '',
-        medida_alto:         '',
-        cantidad:            1,
-        costo_unitario:      Number(p.costo_base)  || 0,
-        precio_unitario:     Number(p.precio_base) || 0,
-        incluye_instalacion: false,
-        costo_instalacion:   0,
-        precio_instalacion:  0,
-        vidrio:              p.vidrio             ?? '',
-        premarco:            p.premarco           ?? false,
-        origen:              'proveedor',
-        color:               p.color              ?? '',
-        accesorios:          p.accesorios         ?? [],
-        calculo_url:         '',
-        _prod_ancho:         p.ancho              ?? null,
-        _prod_alto:          p.alto               ?? null,
-        _prod_atributos:     p.atributos          ?? {},
-        _prod_stock:         p.stock_actual        ?? 0,
-        _prod_tipo_nombre:   p.tipo_abertura?.nombre ?? '',
-        _prod_sistema_nombre: p.sistema?.nombre    ?? '',
-        _prod_imagen_url:    p.imagenes?.[0] ?? p.imagen_url ?? null,
-      }];
+      return [...prev, itemFromCatalogProduct(p)];
     });
     setCodigoSearch('');
     setCodigoResults([]);

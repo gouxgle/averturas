@@ -2,17 +2,23 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Ruler, Plus, Trash2, Save, Loader2, Printer,
-  ArrowRight, Users, Camera, X, Wrench,
+  ArrowRight, Users, Camera, X, Wrench, Package, Search,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { Cliente } from '@/types';
 
-type TipoItemVisita = 'a_medida' | 'servicio';
+type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
+
+interface CatalogoProductoLite {
+  id: string; nombre: string; codigo: string | null; precio_base: number;
+  imagenes: string[]; imagen_url: string | null;
+}
 
 interface VisitaTecnicaItem {
   ambiente: string; descripcion: string; ancho_mm: string; alto_mm: string;
   tipo_item: TipoItemVisita;
+  producto_id: string; producto_nombre: string;
 }
 
 interface VisitaTecnicaDetalle {
@@ -23,7 +29,11 @@ interface VisitaTecnicaDetalle {
   imagenes: string[];
   cliente_id: string;
   cliente: Cliente;
-  items: Array<{ ambiente: string | null; descripcion: string | null; ancho_mm: string | number | null; alto_mm: string | number | null; tipo_item?: TipoItemVisita }>;
+  items: Array<{
+    ambiente: string | null; descripcion: string | null;
+    ancho_mm: string | number | null; alto_mm: string | number | null;
+    tipo_item?: TipoItemVisita; producto_id?: string | null; producto_nombre?: string | null;
+  }>;
 }
 
 const COLOR_FIJOS = ['Blanco', 'Negro', 'Natural'];
@@ -32,7 +42,7 @@ const INSTALACION_FIJOS = ['Con colocación', 'Sin colocación', 'Retira en loca
 const ABERTURA_FIJOS = ['Reja', 'Celosía', 'Persiana', 'Mosquitero'];
 
 function emptyItem(): VisitaTecnicaItem {
-  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '', tipo_item: 'a_medida' };
+  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '', tipo_item: 'a_medida', producto_id: '', producto_nombre: '' };
 }
 
 function nombreCliente(c: Cliente) {
@@ -91,6 +101,13 @@ export function CargarVisitaTecnica() {
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [uploadingImg, setUploadingImg] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [productos, setProductos] = useState<CatalogoProductoLite[]>([]);
+  const [buscarProductoIdx, setBuscarProductoIdx] = useState<number | null>(null);
+  const [buscarProductoQ, setBuscarProductoQ] = useState('');
+
+  useEffect(() => {
+    api.get<CatalogoProductoLite[]>('/catalogo/productos').then(setProductos).catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -105,7 +122,8 @@ export function CargarVisitaTecnica() {
               ambiente: it.ambiente ?? '', descripcion: it.descripcion ?? '',
               ancho_mm: it.ancho_mm != null ? String(it.ancho_mm) : '',
               alto_mm: it.alto_mm != null ? String(it.alto_mm) : '',
-              tipo_item: it.tipo_item === 'servicio' ? 'servicio' : 'a_medida',
+              tipo_item: it.tipo_item === 'servicio' ? 'servicio' : it.tipo_item === 'estandar' ? 'estandar' : 'a_medida',
+              producto_id: it.producto_id ?? '', producto_nombre: it.producto_nombre ?? '',
             }))
           : [emptyItem()]);
         setColor(v.color.filter(c => COLOR_FIJOS.includes(c)));
@@ -135,6 +153,18 @@ export function CargarVisitaTecnica() {
   function toggleTipoItem(idx: number, tipo: TipoItemVisita) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, tipo_item: tipo } : it));
   }
+
+  function seleccionarProducto(idx: number, p: CatalogoProductoLite) {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, producto_id: p.id, producto_nombre: p.nombre } : it));
+    setBuscarProductoIdx(null);
+    setBuscarProductoQ('');
+  }
+
+  const productosFiltrados = buscarProductoQ.trim()
+    ? productos.filter(p =>
+        p.nombre.toLowerCase().includes(buscarProductoQ.toLowerCase()) ||
+        (p.codigo ?? '').toLowerCase().includes(buscarProductoQ.toLowerCase()))
+    : productos;
 
   function agregarFila() { setItems(prev => [...prev, emptyItem()]); }
   function quitarFila(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)); }
@@ -173,7 +203,7 @@ export function CargarVisitaTecnica() {
   }
 
   function itemsValidos() {
-    return items.filter(it => it.descripcion.trim() || it.ambiente.trim() || it.ancho_mm || it.alto_mm);
+    return items.filter(it => it.descripcion.trim() || it.ambiente.trim() || it.ancho_mm || it.alto_mm || it.producto_id);
   }
 
   async function guardar(): Promise<VisitaTecnicaDetalle | null> {
@@ -194,6 +224,7 @@ export function CargarVisitaTecnica() {
           ancho_mm: it.ancho_mm ? parseFloat(it.ancho_mm) : null,
           alto_mm: it.alto_mm ? parseFloat(it.alto_mm) : null,
           tipo_item: it.tipo_item,
+          producto_id: it.tipo_item === 'estandar' ? (it.producto_id || null) : null,
         })),
       };
       const full = await api.put<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}`, body);
@@ -225,6 +256,7 @@ export function CargarVisitaTecnica() {
       medida_ancho: it.tipo_item === 'a_medida' && it.ancho_mm ? String(parseFloat(it.ancho_mm) / 1000) : '',
       medida_alto: it.tipo_item === 'a_medida' && it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
       tipo_item: it.tipo_item,
+      producto_id: it.tipo_item === 'estandar' ? it.producto_id : '',
     }));
     navigate('/presupuestos/nuevo', {
       state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id, imagenesVisita: r.imagenes ?? [] },
@@ -284,18 +316,25 @@ export function CargarVisitaTecnica() {
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Ítems relevados</p>
-        <p className="text-[11px] text-gray-400 mb-3">Marcá cada uno como abertura a medir (obra nueva) o servicio (reparación, mantenimiento, cambio de piezas)</p>
+        <p className="text-[11px] text-gray-400 mb-3">Marcá cada uno como abertura a medir (obra nueva), producto de catálogo (estándar) o servicio (reparación, mantenimiento, cambio de piezas)</p>
         <div className="space-y-2">
           {items.map((it, idx) => {
             const esServicio = it.tipo_item === 'servicio';
+            const esEstandar = it.tipo_item === 'estandar';
+            const esAMedida = it.tipo_item === 'a_medida';
             return (
-            <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center p-2 rounded-lg border border-gray-100">
+            <div key={idx} className="relative flex flex-col sm:flex-row gap-2 sm:items-center p-2 rounded-lg border border-gray-100">
               {/* Toggle tipo de ítem */}
               <div className="flex shrink-0 rounded-lg border border-gray-200 overflow-hidden w-fit">
                 <button type="button" onClick={() => toggleTipoItem(idx, 'a_medida')} disabled={yaConvertida}
                   title="Abertura a medir"
-                  className={`p-2 ${!esServicio ? 'bg-slate-700 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  className={`p-2 ${esAMedida ? 'bg-slate-700 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
                   <Ruler size={14}/>
+                </button>
+                <button type="button" onClick={() => toggleTipoItem(idx, 'estandar')} disabled={yaConvertida}
+                  title="Producto de catálogo (estándar)"
+                  className={`p-2 border-l border-gray-200 ${esEstandar ? 'bg-sky-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  <Package size={14}/>
                 </button>
                 <button type="button" onClick={() => toggleTipoItem(idx, 'servicio')} disabled={yaConvertida}
                   title="Servicio (reparación/mantenimiento)"
@@ -303,21 +342,64 @@ export function CargarVisitaTecnica() {
                   <Wrench size={14}/>
                 </button>
               </div>
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_80px_80px] gap-2 items-center">
-                <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
-                  className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
-                  placeholder={esServicio ? 'Ej: Ajuste de bisagra, cambio de burlete...' : 'Descripción'} disabled={yaConvertida}
-                  className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                {!esServicio && (
-                  <>
-                    <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
-                      className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                    <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
-                      className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                  </>
-                )}
-              </div>
+
+              {esEstandar ? (
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr] gap-2 items-center">
+                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                  <div className="relative">
+                    <button type="button" disabled={yaConvertida}
+                      onClick={() => { setBuscarProductoIdx(idx); setBuscarProductoQ(''); }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 border border-gray-200 rounded-lg text-sm text-left disabled:bg-gray-50 hover:border-sky-300">
+                      <Search size={13} className="text-gray-300 shrink-0"/>
+                      <span className={it.producto_nombre ? 'text-gray-800' : 'text-gray-300'}>
+                        {it.producto_nombre || 'Buscar producto del catálogo...'}
+                      </span>
+                    </button>
+                    {buscarProductoIdx === idx && (
+                      <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                        <div className="p-2 border-b border-gray-100">
+                          <input autoFocus value={buscarProductoQ} onChange={e => setBuscarProductoQ(e.target.value)}
+                            onBlur={() => setTimeout(() => setBuscarProductoIdx(null), 150)}
+                            placeholder="Nombre o código..."
+                            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {productosFiltrados.length === 0 ? (
+                            <p className="text-xs text-gray-400 p-3 text-center">Sin resultados</p>
+                          ) : productosFiltrados.slice(0, 30).map(p => (
+                            <button key={p.id} type="button" onMouseDown={() => seleccionarProducto(idx, p)}
+                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-sky-50 text-left border-b border-gray-50 last:border-0">
+                              <div className="w-7 h-7 rounded bg-gray-50 overflow-hidden shrink-0">
+                                {(p.imagenes?.[0] || p.imagen_url) && <img src={p.imagenes?.[0] || p.imagen_url!} alt="" className="w-full h-full object-cover"/>}
+                              </div>
+                              <span className="text-xs text-gray-700 flex-1 truncate">{p.nombre}</span>
+                              {p.codigo && <span className="font-mono text-[9px] text-gray-400">{p.codigo}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_80px_80px] gap-2 items-center">
+                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                  <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
+                    placeholder={esServicio ? 'Ej: Ajuste de bisagra, cambio de burlete...' : 'Descripción'} disabled={yaConvertida}
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                  {!esServicio && (
+                    <>
+                      <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
+                        className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                      <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
+                        className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    </>
+                  )}
+                </div>
+              )}
+
               {!yaConvertida && (
                 <button onClick={() => quitarFila(idx)} disabled={items.length === 1}
                   className="p-2 text-gray-300 hover:text-red-500 disabled:opacity-30 shrink-0">

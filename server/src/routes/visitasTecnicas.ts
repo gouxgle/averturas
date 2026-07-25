@@ -75,7 +75,10 @@ visitasTecnicas.get('/:id', async (c) => {
   const [{ rows: [visita] }, { rows: items }] = await Promise.all([
     db.query(`${WITH_CLIENTE} WHERE vt.id = $1`, [id]),
     db.query(
-      `SELECT * FROM visita_tecnica_items WHERE visita_tecnica_id = $1 ORDER BY orden`,
+      `SELECT vti.*, cp.nombre AS producto_nombre, cp.imagenes AS producto_imagenes
+       FROM visita_tecnica_items vti
+       LEFT JOIN catalogo_productos cp ON cp.id = vti.producto_id
+       WHERE vti.visita_tecnica_id = $1 ORDER BY vti.orden`,
       [id]
     ),
   ]);
@@ -150,15 +153,16 @@ visitasTecnicas.put('/:id', async (c) => {
     await client.query(`DELETE FROM visita_tecnica_items WHERE visita_tecnica_id = $1`, [id]);
     for (const [idx, item] of items.entries()) {
       await client.query(`
-        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item, producto_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
         id, idx,
         item.ambiente?.trim() || null,
         item.descripcion?.trim() || null,
         item.ancho_mm || null,
         item.alto_mm || null,
-        item.tipo_item === 'servicio' ? 'servicio' : 'a_medida',
+        item.tipo_item === 'servicio' ? 'servicio' : item.tipo_item === 'estandar' ? 'estandar' : 'a_medida',
+        item.tipo_item === 'estandar' ? (item.producto_id || null) : null,
       ]);
     }
 
