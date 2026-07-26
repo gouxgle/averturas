@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema } from '../lib/schemas.js';
+import { sendProformaCompartida } from '../email.js';
 
 const operaciones = new Hono();
 
@@ -699,6 +700,76 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
   await db.query(`UPDATE operaciones SET enviado_wa_at = now() WHERE id = $1`, [id]);
 
   return c.json({ enviado: true, numero, url });
+});
+
+// POST /:id/enviar-email — genera token y envía la proforma por email (Resend)
+operaciones.post('/:id/enviar-email', async (c) => {
+  const user = c.get('user');
+  const { id } = c.req.param();
+
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return c.json({ error: 'Envío de email no configurado en el servidor (falta SMTP_USER/SMTP_PASS)' }, 500);
+  }
+
+  const { rows: [op] } = await db.query(
+    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.precio_total,
+       cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona, cl.email
+     FROM operaciones o
+     JOIN clientes cl ON cl.id = o.cliente_id
+     WHERE o.id = $1`,
+    [id]
+  );
+  if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  const emailCliente: string | null = op.email;
+  if (!emailCliente) return c.json({ error: 'El cliente no tiene email registrado' }, 422);
+
+  // Generar/regenerar token (mismo criterio que generar-link/enviar-whatsapp)
+  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+
+  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
+  await db.query(
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
+       respuesta_cliente = NULL, respuesta_cliente_at = NULL
+     WHERE id = $3`,
+    [token, estadoNuevo, id]
+  );
+
+  const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const url = `${appUrl}/p/${token}`;
+
+  const nombre = op.tipo_persona === 'juridica'
+    ? (op.razon_social ?? 'estimado/a')
+    : `${op.nombre ?? ''} ${op.apellido ?? ''}`.trim() || 'estimado/a';
+
+  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+
+  const { rows: [empresa] } = await db.query(`SELECT nombre, telefono FROM empresa ORDER BY updated_at DESC LIMIT 1`);
+
+  try {
+    await sendProformaCompartida({
+      to: emailCliente,
+      clienteNombre: nombre,
+      proformaNumero,
+      total: Number(op.precio_total),
+      url,
+      empresaNombre: empresa?.nombre ?? 'Aberturas',
+      empresaTelefono: empresa?.telefono ?? null,
+    });
+  } catch (err) {
+    console.error('[email] Error al enviar proforma:', err);
+    return c.json({ error: 'No se pudo enviar el email' }, 502);
+  }
+
+  db.query(
+    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
+     VALUES ($1, 'proforma_enviada', $2, $3)`,
+    [op.cliente_id, `Proforma ${proformaNumero} enviada por email (${emailCliente})`, user?.id ?? null]
+  ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+
+  return c.json({ enviado: true, email: emailCliente, url });
 });
 
 // POST /:id/avisar-cliente — avisa al cliente que su operación está lista para entrega

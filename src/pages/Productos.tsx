@@ -263,12 +263,17 @@ export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar
   const [activeImg, setActiveImg]     = useState(0);
   const [confirmando, setConfirmando] = useState(false);
   const [eliminando, setEliminando]   = useState(false);
+  const [dolarCompra, setDolarCompra] = useState<number | null>(null);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
+
+  useEffect(() => {
+    api.get<{ compra: number }>('/catalogo/cotizacion-dolar').then(d => setDolarCompra(d.compra)).catch(() => {});
+  }, []);
   const costo  = producto.costo_base;
   const precio = producto.precio_base;
   const margen = precio > 0 ? Math.round((precio - costo) / precio * 100) : 0;
@@ -371,6 +376,14 @@ export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar
               <span className="text-xs text-gray-500">Precio de venta</span>
               <span className="text-base font-bold text-gray-900">{formatCurrency(precio)}{producto.precio_por_m2 && <span className="text-xs font-normal text-gray-400">/m²</span>}</span>
             </div>
+            {dolarCompra && precio > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Valor U$S</span>
+                <span className="text-sm font-semibold text-sky-700">
+                  U$S {(precio / dolarCompra).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Costo</span>
               <span className="text-sm text-gray-600">{formatCurrency(costo)}</span>

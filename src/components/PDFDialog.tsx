@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileDown, ExternalLink, Share2, X, Send, CheckCircle2 } from 'lucide-react';
+import { FileDown, ExternalLink, Share2, X, Send, CheckCircle2, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -16,6 +16,8 @@ interface PDFDialogProps {
   entityEndpoint?: string;
   clienteNombre?: string;
   clienteTelefono?: string;
+  /** Si se provee (y el cliente tiene email), muestra botón "Enviar por email" */
+  clienteEmail?: string;
   /** Si se provee, muestra botón "Generar pedido al proveedor" en el dialog */
   pedidoProveedorUrl?: string;
 }
@@ -29,13 +31,15 @@ const WA_ICON = (
 export function PDFDialog({
   title, subtitle, pdfUrl, onClose, onNavigate,
   navigateLabel = 'Ver detalle', operacionId, entityEndpoint,
-  clienteNombre, clienteTelefono, pedidoProveedorUrl,
+  clienteNombre, clienteTelefono, clienteEmail, pedidoProveedorUrl,
 }: PDFDialogProps) {
   const navigate = useNavigate();
   const [linkUrl,    setLinkUrl]    = useState('');
   const [preview,    setPreview]    = useState(false);
   const [enviando,   setEnviando]   = useState(false);
   const [enviado,    setEnviado]    = useState(false);
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [emailEnviado,  setEmailEnviado]  = useState(false);
 
   // Endpoint base: entityEndpoint tiene prioridad sobre operacionId legacy
   const baseEndpoint = entityEndpoint ?? (operacionId ? `/operaciones/${operacionId}` : null);
@@ -78,6 +82,22 @@ export function PDFDialog({
       toast.error(e?.message ?? 'Error al enviar por WhatsApp');
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function handleEnviarEmail() {
+    if (!baseEndpoint) return;
+    setEnviandoEmail(true);
+    try {
+      const res = await api.post<{ enviado: boolean; email: string; url: string }>(
+        `${baseEndpoint}/enviar-email`, {}
+      );
+      setEmailEnviado(true);
+      toast.success(`Presupuesto enviado a ${res.email}`);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al enviar por email');
+    } finally {
+      setEnviandoEmail(false);
     }
   }
 
@@ -199,6 +219,18 @@ export function PDFDialog({
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] text-white rounded-lg text-sm font-semibold transition-colors">
                   {WA_ICON} Enviar por WhatsApp
                 </button>
+
+                {/* Enviar por email — directo, sin vista previa */}
+                {clienteEmail && (
+                  <button onClick={handleEnviarEmail} disabled={enviandoEmail || emailEnviado}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors">
+                    {emailEnviado
+                      ? <><CheckCircle2 size={14} /> Enviado por email</>
+                      : enviandoEmail
+                        ? 'Enviando...'
+                        : <><Mail size={14} /> Enviar por email</>}
+                  </button>
+                )}
 
               </div>
             </div>

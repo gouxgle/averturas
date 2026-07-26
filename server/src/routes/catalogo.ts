@@ -2,12 +2,21 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
+import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
 import {
   TipoAberturaSchema, SistemaSchema, ColorSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema,
 } from '../lib/schemas.js';
 
 const catalogo = new Hono();
+
+// ── Cotización del dólar (para "Valor U$S" en productos) ───────────────────────
+
+catalogo.get('/cotizacion-dolar', async (c) => {
+  const cotizacion = await getCotizacionDolar();
+  if (!cotizacion) return c.json({ error: 'No se pudo obtener la cotización del dólar' }, 502);
+  return c.json(cotizacion);
+});
 
 // ── Tipos de abertura ─────────────────────────────────────────────────────────
 

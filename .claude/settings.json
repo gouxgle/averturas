@@ -19,7 +19,17 @@
       "Bash(docker compose build:*)",
       "Bash(docker compose up:*)",
       "Bash(docker compose exec:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(journalctl *)",
+      "Bash(systemctl status *)",
+      "Bash(systemctl list-units *)",
+      "Bash(systemctl is-enabled *)",
+      "Bash(lspci *)",
+      "Bash(modinfo *)",
+      "Bash(hostnamectl)",
+      "Bash(dpkg -l*)",
+      "Bash(lsblk*)",
+      "Bash(last*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",

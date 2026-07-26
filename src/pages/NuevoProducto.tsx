@@ -1339,6 +1339,7 @@ export function NuevoProducto() {
   const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
   const [modelos, setModelos]         = useState<CatalogoModelo[]>([]);
   const [modeloSearch, setModeloSearch] = useState('');
+  const [dolarCompra, setDolarCompra] = useState<number | null>(null);
   const [creandoModelo, setCreandoModelo] = useState(false);
   const [nuevoModeloNombre, setNuevoModeloNombre] = useState('');
 
@@ -1424,7 +1425,19 @@ export function NuevoProducto() {
     if (value) nuevoPath.push(value);
     setCategoriaPath(nuevoPath);
     set('categoria_id', nuevoPath.length ? nuevoPath[nuevoPath.length - 1] : '');
+
+    // Auto-derivar tipo de abertura desde la Familia (raíz del árbol) — evita preguntarlo 2 veces
+    const raiz = nuevoPath[0] ? categorias.find(c => c.id === nuevoPath[0]) : undefined;
+    const match = raiz && tiposAbertura.find(t => t.nombre.toLowerCase() === raiz.nombre.toLowerCase());
+    if (match && match.id !== form.tipo_abertura_id) {
+      set('tipo_abertura_id', match.id);
+      setAtributos({});
+    }
   }
+
+  const raizCategoriaElegida = categoriaPath[0] ? categorias.find(c => c.id === categoriaPath[0]) : undefined;
+  const tipoDerivadoDeCategoria = raizCategoriaElegida
+    && tiposAbertura.find(t => t.nombre.toLowerCase() === raizCategoriaElegida.nombre.toLowerCase());
 
   const modelosFiltrados = modelos.filter(m => m.nombre.toLowerCase().includes(modeloSearch.toLowerCase()));
   const modeloSeleccionado = modelos.find(m => m.id === form.modelo_id);
@@ -1445,6 +1458,10 @@ export function NuevoProducto() {
       toast.error((e as Error).message || 'No se pudo crear el modelo');
     }
   }
+
+  useEffect(() => {
+    api.get<{ compra: number }>('/catalogo/cotizacion-dolar').then(d => setDolarCompra(d.compra)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -1835,14 +1852,22 @@ export function NuevoProducto() {
         <SectionHeader icon={Package} label="Datos del producto" primary />
         <div className="p-4 space-y-3">
           <div>
-            <label className={labelCls}>Tipo de abertura *</label>
-            <select value={form.tipo_abertura_id} onChange={e => {
+            <label className={labelCls}>
+              Tipo de abertura *
+              {tipoDerivadoDeCategoria && <span className="ml-1.5 text-xs font-normal text-sky-600">(según categoría elegida)</span>}
+            </label>
+            <select value={form.tipo_abertura_id} disabled={!!tipoDerivadoDeCategoria} onChange={e => {
               set('tipo_abertura_id', e.target.value);
               setAtributos({});
-            }} className={inputCls}>
+            }} className={cn(inputCls, tipoDerivadoDeCategoria && 'bg-gray-50 text-gray-500 cursor-not-allowed')}>
               <option value="">Seleccionar tipo...</option>
               {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
+            {tipoDerivadoDeCategoria && (
+              <p className="text-xs text-gray-400 mt-1">
+                Derivado de la categoría "{raizCategoriaElegida!.nombre}" — para cambiarlo, modificá la Familia arriba.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2192,6 +2217,15 @@ export function NuevoProducto() {
                 {margen}%
               </span>
               <span className="text-gray-400 text-xs">({formatCurrency(precio - costo)} por unidad)</span>
+            </div>
+          )}
+          {precio > 0 && dolarCompra && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Valor U$S:</span>
+              <span className="font-semibold text-sky-700">
+                U$S {(precio / dolarCompra).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-gray-400 text-xs">(dólar blue: {formatCurrency(dolarCompra)})</span>
             </div>
           )}
           {/* Margen override + precio_manual */}

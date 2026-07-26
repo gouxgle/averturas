@@ -14,6 +14,7 @@ import type { Cliente, TipoAbertura, Sistema, Producto } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ProductoModal } from './Productos';
+import { ATRIBUTOS_ABREVIADOS, ACCESORIOS_POR_TIPO, detectarCategoriaTipoAbertura, aplicarResumenAtributos } from '@/lib/atributosPorTipo';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -137,6 +138,7 @@ interface ItemForm {
   color: string;
   accesorios: string[];
   calculo_url: string;   // adjunto del cálculo del software externo (a medida)
+  _atribAbrev: Record<string, string>; // selección de atributos abreviados (a_medida) — se resume en descripcion, no se persiste aparte
   // datos del producto vinculado (solo lectura en UI)
   _prod_ancho: number | null;
   _prod_alto: number | null;
@@ -164,7 +166,7 @@ function emptyItem(): ItemForm {
     costo_unitario: 0, precio_unitario: 0,
     incluye_instalacion: false, costo_instalacion: 0, precio_instalacion: 0,
     vidrio: '', premarco: false, origen: 'proveedor', color: '', accesorios: [],
-    calculo_url: '',
+    calculo_url: '', _atribAbrev: {},
     _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
     _prod_tipo_nombre: '', _prod_sistema_nombre: '',
     _prod_imagen_url: null,
@@ -202,6 +204,14 @@ function EditItemModal({
   const up = (f: keyof ItemForm, v: unknown) => onChange(item._key, f, v);
   const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
   const lbl = 'block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1';
+
+  // Categoría real (ventana/puerta/puerta_balcon/mosquitera) según el tipo de abertura elegido —
+  // se usa para mostrar atributos y accesorios correctos, no genéricos, evitando cargar
+  // datos que no corresponden a ese tipo (ej. "Manijón" en una ventana).
+  const tipoAberturaNombreItem = tiposAbertura.find(t => t.id === item.tipo_abertura_id)?.nombre ?? '';
+  const categoriaItem = item.tipo_item === 'a_medida' && tipoAberturaNombreItem
+    ? detectarCategoriaTipoAbertura(tipoAberturaNombreItem)
+    : null;
 
   const [subiendoCalculo, setSubiendoCalculo] = useState(false);
   const calculoInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +264,26 @@ function EditItemModal({
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Tipo de abertura + Sistema — primero: define qué atributos/accesorios corresponden */}
+          {item.tipo_item !== 'servicio' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={lbl}>Tipo de abertura</label>
+                <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={inp}>
+                  <option value="">—</option>
+                  {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={lbl}>Sistema</label>
+                <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={inp}>
+                  <option value="">—</option>
+                  {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Descripción */}
           <div>
             <label className={lbl}>Descripción</label>
@@ -338,32 +368,47 @@ function EditItemModal({
             </div>
           </div>
 
-          {/* Premarco */}
-          <div>
-            <label className={lbl}>Premarco</label>
-            <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={inp}>
-              <option value="no">No</option>
-              <option value="si">Sí</option>
-            </select>
-          </div>
+          {/* Premarco — solo para tipos sin ficha propia (ni ventana/puerta/puerta-balcón/mosquitera),
+              misma regla que en Nuevo Producto: esos 4 tipos no preguntan premarco */}
+          {!categoriaItem && (
+            <div>
+              <label className={lbl}>Premarco</label>
+              <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={inp}>
+                <option value="no">No</option>
+                <option value="si">Sí</option>
+              </select>
+            </div>
+          )}
 
-          {/* Tipo abertura + Sistema */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Tipo de abertura</label>
-              <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={inp}>
-                <option value="">—</option>
-                {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Sistema</label>
-              <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={inp}>
-                <option value="">—</option>
-                {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
-            </div>
-          </div>
+          {/* Atributos abreviados según tipo de abertura (solo a medida) */}
+          {categoriaItem && (() => {
+            const campos = ATRIBUTOS_ABREVIADOS[categoriaItem];
+            function toggleAtrib(key: string, valor: string) {
+              const actual = item._atribAbrev[key] === valor ? '' : valor;
+              const nuevaSeleccion = { ...item._atribAbrev, [key]: actual };
+              up('_atribAbrev', nuevaSeleccion);
+              up('descripcion', aplicarResumenAtributos(item.descripcion, nuevaSeleccion, campos));
+            }
+            return (
+              <div className="space-y-2">
+                <label className={lbl}>Atributos de {tipoAberturaNombreItem.toLowerCase()}</label>
+                {campos.map(c => (
+                  <div key={c.key} className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-400 w-14 shrink-0">{c.label}</span>
+                    {c.opciones.map(o => (
+                      <button key={o.v} type="button" onClick={() => toggleAtrib(c.key, o.v)}
+                        className={cn('px-2 py-1 rounded-full text-[11px] font-medium border',
+                          item._atribAbrev[c.key] === o.v
+                            ? 'bg-violet-600 text-white border-violet-600'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300')}>
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Medidas */}
           <div className="grid grid-cols-2 gap-3">
@@ -385,11 +430,11 @@ function EditItemModal({
             </div>
           </div>
 
-          {/* Accesorios */}
+          {/* Accesorios — reales para el tipo elegido, o lista genérica si no se identificó el tipo */}
           <div>
             <label className={lbl}>Accesorios</label>
             <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
-              {ACCESORIO_OPTS.map(a => (
+              {(categoriaItem ? ACCESORIOS_POR_TIPO[categoriaItem] : ACCESORIO_OPTS).map(a => (
                 <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -530,6 +575,7 @@ export function NuevoPresupuesto() {
   // con precio costo/venta que da el software externo de cálculo), o servicio (reparación,
   // mantenimiento, cambio de piezas — desde catalogo_servicios o personalizado)
   const [modo, setModo] = useState<'estandar' | 'a_medida' | 'servicio'>('estandar');
+  const [servicioSeleccionadoId, setServicioSeleccionadoId] = useState('');
   const esAMedida = modo === 'a_medida';
   const [tab, setTab] = useState<'galeria' | 'buscar' | 'frecuentes' | 'scanner'>('galeria');
   const [categoriaSel, setCategoriaSel] = useState('');
@@ -588,14 +634,16 @@ export function NuevoPresupuesto() {
   // Búsqueda de clientes por API con debounce
   useEffect(() => {
     const q = clienteSearch.trim();
-    if (!q) { setClientes([]); return; }
+    // Al limpiar el texto tras elegir un cliente, no pisar el que ya quedó seleccionado
+    // (setClientes([c]) en el onMouseDown de abajo) — solo vaciar si no hay nada elegido.
+    if (!q) { if (!clienteId) setClientes([]); return; }
     const t = setTimeout(() => {
       api.get<Cliente[]>(`/clientes?search=${encodeURIComponent(q)}`)
         .then(setClientes)
         .catch(() => setClientes([]));
     }, 250);
     return () => clearTimeout(t);
-  }, [clienteSearch]);
+  }, [clienteSearch, clienteId]);
 
   // Carga galería de productos
   useEffect(() => {
@@ -658,6 +706,7 @@ export function NuevoPresupuesto() {
         color:               it.color ?? '',
         accesorios:          it.accesorios ?? [],
         calculo_url:         it.calculo_url ?? '',
+        _atribAbrev: {},
         _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
         _prod_tipo_nombre:    it.tipo_abertura_nombre ?? '',
         _prod_sistema_nombre: it.sistema_nombre ?? '',
@@ -670,7 +719,7 @@ export function NuevoPresupuesto() {
   useEffect(() => {
     if (isEdit || itemsPrecargadosRef.current) return;
     const state = location.state as {
-      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string; tipo_item?: 'a_medida' | 'servicio' | 'estandar'; producto_id?: string }>;
+      itemsPrecargados?: Array<{ descripcion: string; medida_ancho: string; medida_alto: string; tipo_item?: 'a_medida' | 'servicio' | 'estandar'; producto_id?: string; servicio_id?: string }>;
       clienteId?: string;
       visitaTecnicaId?: string;
       imagenesVisita?: string[];
@@ -684,7 +733,7 @@ export function NuevoPresupuesto() {
 
     const noEstandar = precargados
       .filter(it => it.tipo_item !== 'estandar')
-      .map(it => ({ ...emptyItem(), tipo_item: it.tipo_item ?? 'a_medida', descripcion: it.descripcion, medida_ancho: it.medida_ancho, medida_alto: it.medida_alto }));
+      .map(it => ({ ...emptyItem(), tipo_item: it.tipo_item ?? 'a_medida', descripcion: it.descripcion, medida_ancho: it.medida_ancho, medida_alto: it.medida_alto, servicio_id: it.servicio_id ?? '' }));
     const estandarIds = precargados.filter(it => it.tipo_item === 'estandar' && it.producto_id).map(it => it.producto_id!);
 
     if (estandarIds.length === 0) {
@@ -760,6 +809,7 @@ export function NuevoPresupuesto() {
       color:               p.color              ?? '',
       accesorios:          p.accesorios         ?? [],
       calculo_url:         '',
+      _atribAbrev:         {},
       _prod_ancho:         p.ancho              ?? null,
       _prod_alto:          p.alto               ?? null,
       _prod_atributos:     p.atributos          ?? {},
@@ -1208,7 +1258,7 @@ export function NuevoPresupuesto() {
                               </div>
                             ) : clientes.slice(0, 8).map(c => (
                               <button key={c.id}
-                                onMouseDown={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
+                                onMouseDown={() => { setClienteId(c.id); setClientes([c]); setClienteSearch(''); setShowClienteList(false); }}
                                 className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0">
                                 <span className="text-sm text-gray-800">
                                   {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
@@ -1449,12 +1499,26 @@ export function NuevoPresupuesto() {
 
               {servicios.length > 0 && (
                 <>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Servicios frecuentes</p>
-                  {servicios.map(s => (
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Servicios del catálogo</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={servicioSeleccionadoId}
+                      onChange={e => setServicioSeleccionadoId(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="">Elegir servicio...</option>
+                      {servicios.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre}{s.precio_base != null ? ` — ${formatCurrency(Number(s.precio_base))}` : ''}
+                        </option>
+                      ))}
+                    </select>
                     <button
-                      key={s.id}
                       type="button"
+                      disabled={!servicioSeleccionadoId}
                       onClick={() => {
+                        const s = servicios.find(sv => sv.id === servicioSeleccionadoId);
+                        if (!s) return;
                         const nuevo: ItemForm = {
                           ...emptyItem(),
                           tipo_item: 'servicio',
@@ -1463,18 +1527,17 @@ export function NuevoPresupuesto() {
                           precio_unitario: s.precio_base ? Number(s.precio_base) : 0,
                         };
                         setItems(prev => [...prev, nuevo]);
+                        setServicioSeleccionadoId('');
                       }}
-                      className="flex items-center justify-between gap-2 w-full px-3 py-2.5 rounded-xl border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors text-left"
+                      className="px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{s.nombre}</p>
-                        {s.descripcion && <p className="text-[11px] text-gray-400 truncate">{s.descripcion}</p>}
-                      </div>
-                      {s.precio_base != null && (
-                        <span className="text-xs font-bold text-amber-700 shrink-0">{formatCurrency(Number(s.precio_base))}</span>
-                      )}
+                      Agregar
                     </button>
-                  ))}
+                  </div>
+                  {(() => {
+                    const s = servicios.find(sv => sv.id === servicioSeleccionadoId);
+                    return s?.descripcion ? <p className="text-[11px] text-gray-400 -mt-1">{s.descripcion}</p> : null;
+                  })()}
                 </>
               )}
 
@@ -1799,7 +1862,7 @@ export function NuevoPresupuesto() {
                 <p className="text-xs text-gray-300 mt-1">Usá la galería de la izquierda para agregar</p>
               </div>
             ) : items.map((item, idx) => {
-              const img = item._prod_imagen_url;
+              const img = item._prod_imagen_url || item.calculo_url || null;
               const medida = item.medida_ancho && item.medida_alto
                 ? `${item.medida_ancho}×${item.medida_alto}`
                 : item._prod_ancho && item._prod_alto
@@ -2100,6 +2163,7 @@ export function NuevoPresupuesto() {
           operacionId={savedId}
           clienteNombre={clienteNombre}
           clienteTelefono={clienteSeleccionado?.telefono ?? undefined}
+          clienteEmail={clienteSeleccionado?.email ?? undefined}
         />
       )}
 

@@ -23,9 +23,11 @@ const WITH_CLIENTE = `
       'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
       'telefono', c.telefono, 'direccion', c.direccion, 'localidad', c.localidad
     ) AS cliente,
-    (SELECT COUNT(*)::int FROM visita_tecnica_items vti WHERE vti.visita_tecnica_id = vt.id) AS items_total
+    (SELECT COUNT(*)::int FROM visita_tecnica_items vti WHERE vti.visita_tecnica_id = vt.id) AS items_total,
+    o.numero AS operacion_numero
   FROM visitas_tecnicas vt
   JOIN clientes c ON c.id = vt.cliente_id
+  LEFT JOIN operaciones o ON o.id = vt.operacion_id
 `;
 
 // GET / — listado, filtro opcional por estado
@@ -153,8 +155,8 @@ visitasTecnicas.put('/:id', async (c) => {
     await client.query(`DELETE FROM visita_tecnica_items WHERE visita_tecnica_id = $1`, [id]);
     for (const [idx, item] of items.entries()) {
       await client.query(`
-        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item, producto_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item, producto_id, servicio_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       `, [
         id, idx,
         item.ambiente?.trim() || null,
@@ -163,6 +165,7 @@ visitasTecnicas.put('/:id', async (c) => {
         item.alto_mm || null,
         item.tipo_item === 'servicio' ? 'servicio' : item.tipo_item === 'estandar' ? 'estandar' : 'a_medida',
         item.tipo_item === 'estandar' ? (item.producto_id || null) : null,
+        item.tipo_item === 'servicio' ? (item.servicio_id || null) : null,
       ]);
     }
 

@@ -1,10 +1,38 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-let _resend: Resend | null = null;
-function getResend(): Resend | null {
-  if (!process.env.RESEND_API_KEY) return null;
-  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
-  return _resend;
+// Envío de mails vía SMTP (Gmail) — requiere una "Contraseña de aplicación" de Google,
+// la contraseña normal de la cuenta no funciona por SMTP desde 2022.
+// Sin SMTP_USER/SMTP_PASS configuradas: los emails se omiten silenciosamente (no rompe nada).
+let _transporter: nodemailer.Transporter | null = null;
+function getTransporter(): nodemailer.Transporter | null {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
+  if (!_transporter) {
+    _transporter = nodemailer.createTransport({
+      host:   process.env.SMTP_HOST || 'smtp.gmail.com',
+      port:   Number(process.env.SMTP_PORT) || 587,
+      secure: false, // STARTTLS en el puerto 587
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+  return _transporter;
+}
+
+async function sendMail(p: { to: string; subject: string; html: string; fromNombre: string; replyTo?: string }) {
+  const transporter = getTransporter();
+  if (!transporter) return;
+  const info = await transporter.sendMail({
+    from:    `"${p.fromNombre}" <${process.env.SMTP_USER}>`,
+    to:      p.to,
+    replyTo: process.env.SMTP_REPLY_TO || p.replyTo || undefined,
+    subject: p.subject,
+    html:    p.html,
+  });
+  console.log('[email] Enviado:', JSON.stringify({
+    to: p.to, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected, response: info.response,
+  }));
 }
 
 const NAVY  = '#031d49';
@@ -83,9 +111,6 @@ function baseLayout(empresaNombre: string, content: string): string {
 }
 
 export async function sendProformaAceptada(p: EmailProformaAceptadaParams) {
-  const resend = getResend();
-  if (!resend) return;
-
   const content = `
     <tr>
       <td style="padding:36px 32px;">
@@ -129,18 +154,15 @@ export async function sendProformaAceptada(p: EmailProformaAceptadaParams) {
       </td>
     </tr>`;
 
-  await resend.emails.send({
-    from: process.env.RESEND_FROM ?? `${p.empresaNombre} <onboarding@resend.dev>`,
-    to:   p.to,
+  await sendMail({
+    to:      p.to,
     subject: `✅ Confirmaste tu pedido ${p.proformaNumero} — ${p.empresaNombre}`,
     html:    baseLayout(p.empresaNombre, content),
+    fromNombre: p.empresaNombre,
   });
 }
 
 export async function sendProformaRechazada(p: EmailProformaRechazadaParams) {
-  const resend = getResend();
-  if (!resend) return;
-
   const content = `
     <tr>
       <td style="padding:36px 32px;">
@@ -175,11 +197,67 @@ export async function sendProformaRechazada(p: EmailProformaRechazadaParams) {
       </td>
     </tr>`;
 
-  await resend.emails.send({
-    from: process.env.RESEND_FROM ?? `${p.empresaNombre} <onboarding@resend.dev>`,
-    to:   p.to,
+  await sendMail({
+    to:      p.to,
     subject: `Recibimos tu respuesta — ${p.proformaNumero}`,
     html:    baseLayout(p.empresaNombre, content),
+    fromNombre: p.empresaNombre,
+  });
+}
+
+interface EmailProformaCompartidaParams {
+  to: string;
+  clienteNombre: string;
+  proformaNumero: string;
+  total: number;
+  url: string;
+  empresaNombre: string;
+  empresaTelefono: string | null;
+}
+
+export async function sendProformaCompartida(p: EmailProformaCompartidaParams) {
+  const content = `
+    <tr>
+      <td style="padding:36px 32px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Hola, <strong>${p.clienteNombre}</strong></p>
+        <h1 style="margin:0 0 24px;font-size:24px;font-weight:900;color:${NAVY};">Te enviamos tu presupuesto</h1>
+
+        <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin-bottom:28px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <div style="font-size:13px;color:#64748b;font-weight:700;">Presupuesto</div>
+                <div style="font-size:22px;font-weight:900;color:${NAVY};">${p.proformaNumero}</div>
+              </td>
+              <td align="right">
+                <div style="font-size:11px;color:#6b7280;">Total</div>
+                <div style="font-size:20px;font-weight:900;color:${NAVY};">${fmtM(p.total)}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6;">
+          Podés revisar el detalle completo y aprobarlo online desde el siguiente enlace:
+        </p>
+
+        <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+          <tr>
+            <td style="border-radius:8px;background:${NAVY};">
+              <a href="${p.url}" style="display:inline-block;padding:14px 28px;color:white;font-size:14px;font-weight:700;text-decoration:none;">Ver presupuesto →</a>
+            </td>
+          </tr>
+        </table>
+
+        ${p.empresaTelefono ? `<p style="margin:0;font-size:13px;color:#9ca3af;">¿Consultas? Escribinos por WhatsApp al <strong>${p.empresaTelefono}</strong></p>` : ''}
+      </td>
+    </tr>`;
+
+  await sendMail({
+    to:      p.to,
+    subject: `Tu presupuesto ${p.proformaNumero} — ${p.empresaNombre}`,
+    html:    baseLayout(p.empresaNombre, content),
+    fromNombre: p.empresaNombre,
   });
 }
 
@@ -203,9 +281,6 @@ interface EmailEmpresaRechazoParams {
 }
 
 export async function sendEmpresaAceptacion(p: EmailEmpresaAceptacionParams) {
-  const resend = getResend();
-  if (!resend) return;
-
   const content = `
     <tr>
       <td style="padding:32px;">
@@ -221,18 +296,15 @@ export async function sendEmpresaAceptacion(p: EmailEmpresaAceptacionParams) {
       </td>
     </tr>`;
 
-  await resend.emails.send({
-    from:    process.env.RESEND_FROM ?? `${p.empresaNombre} <onboarding@resend.dev>`,
+  await sendMail({
     to:      p.to,
     subject: `✅ ${p.clienteNombre} aceptó la proforma ${p.proformaNumero}`,
     html:    baseLayout(p.empresaNombre, content),
+    fromNombre: p.empresaNombre,
   });
 }
 
 export async function sendEmpresaRechazo(p: EmailEmpresaRechazoParams) {
-  const resend = getResend();
-  if (!resend) return;
-
   const content = `
     <tr>
       <td style="padding:32px;">
@@ -249,10 +321,10 @@ export async function sendEmpresaRechazo(p: EmailEmpresaRechazoParams) {
       </td>
     </tr>`;
 
-  await resend.emails.send({
-    from:    process.env.RESEND_FROM ?? `${p.empresaNombre} <onboarding@resend.dev>`,
+  await sendMail({
     to:      p.to,
     subject: `❌ ${p.clienteNombre} rechazó la proforma ${p.proformaNumero}`,
     html:    baseLayout(p.empresaNombre, content),
+    fromNombre: p.empresaNombre,
   });
 }

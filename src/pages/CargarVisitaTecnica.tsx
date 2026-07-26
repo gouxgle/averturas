@@ -15,14 +15,20 @@ interface CatalogoProductoLite {
   imagenes: string[]; imagen_url: string | null;
 }
 
+interface ServicioCatalogo {
+  id: string; nombre: string; descripcion: string | null; precio_base: number | null;
+}
+
 interface VisitaTecnicaItem {
   ambiente: string; descripcion: string; ancho_mm: string; alto_mm: string;
   tipo_item: TipoItemVisita;
   producto_id: string; producto_nombre: string;
+  servicio_id: string;
 }
 
 interface VisitaTecnicaDetalle {
   id: string; numero: string; estado: string;
+  operacion_id: string | null; operacion_numero: string | null;
   fecha_visita: string | null; tecnico: string | null;
   color: string[]; vidrio: string[]; instalacion: string[]; abertura_especial: string[];
   observaciones: string | null;
@@ -33,6 +39,7 @@ interface VisitaTecnicaDetalle {
     ambiente: string | null; descripcion: string | null;
     ancho_mm: string | number | null; alto_mm: string | number | null;
     tipo_item?: TipoItemVisita; producto_id?: string | null; producto_nombre?: string | null;
+    servicio_id?: string | null;
   }>;
 }
 
@@ -42,7 +49,7 @@ const INSTALACION_FIJOS = ['Con colocación', 'Sin colocación', 'Retira en loca
 const ABERTURA_FIJOS = ['Reja', 'Celosía', 'Persiana', 'Mosquitero'];
 
 function emptyItem(): VisitaTecnicaItem {
-  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '', tipo_item: 'a_medida', producto_id: '', producto_nombre: '' };
+  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '', tipo_item: 'a_medida', producto_id: '', producto_nombre: '', servicio_id: '' };
 }
 
 function nombreCliente(c: Cliente) {
@@ -104,9 +111,12 @@ export function CargarVisitaTecnica() {
   const [productos, setProductos] = useState<CatalogoProductoLite[]>([]);
   const [buscarProductoIdx, setBuscarProductoIdx] = useState<number | null>(null);
   const [buscarProductoQ, setBuscarProductoQ] = useState('');
+  const [buscarServicioIdx, setBuscarServicioIdx] = useState<number | null>(null);
+  const [servicios, setServicios] = useState<ServicioCatalogo[]>([]);
 
   useEffect(() => {
     api.get<CatalogoProductoLite[]>('/catalogo/productos').then(setProductos).catch(() => {});
+    api.get<ServicioCatalogo[]>('/catalogo/servicios').then(setServicios).catch(() => {});
   }, []);
 
   const load = useCallback(() => {
@@ -124,6 +134,7 @@ export function CargarVisitaTecnica() {
               alto_mm: it.alto_mm != null ? String(it.alto_mm) : '',
               tipo_item: it.tipo_item === 'servicio' ? 'servicio' : it.tipo_item === 'estandar' ? 'estandar' : 'a_medida',
               producto_id: it.producto_id ?? '', producto_nombre: it.producto_nombre ?? '',
+              servicio_id: it.servicio_id ?? '',
             }))
           : [emptyItem()]);
         setColor(v.color.filter(c => COLOR_FIJOS.includes(c)));
@@ -158,6 +169,10 @@ export function CargarVisitaTecnica() {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, producto_id: p.id, producto_nombre: p.nombre } : it));
     setBuscarProductoIdx(null);
     setBuscarProductoQ('');
+  }
+
+  function seleccionarServicio(idx: number, s: ServicioCatalogo) {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, servicio_id: s.id, descripcion: s.nombre } : it));
   }
 
   const productosFiltrados = buscarProductoQ.trim()
@@ -257,6 +272,7 @@ export function CargarVisitaTecnica() {
           alto_mm: it.alto_mm ? parseFloat(it.alto_mm) : null,
           tipo_item: it.tipo_item,
           producto_id: it.tipo_item === 'estandar' ? (it.producto_id || null) : null,
+          servicio_id: it.tipo_item === 'servicio' ? (it.servicio_id || null) : null,
         })),
       };
       const full = await api.put<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}`, body);
@@ -289,6 +305,7 @@ export function CargarVisitaTecnica() {
       medida_alto: it.tipo_item === 'a_medida' && it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
       tipo_item: it.tipo_item,
       producto_id: it.tipo_item === 'estandar' ? it.producto_id : '',
+      servicio_id: it.tipo_item === 'servicio' ? it.servicio_id : '',
     }));
     navigate('/presupuestos/nuevo', {
       state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id, imagenesVisita: r.imagenes ?? [] },
@@ -326,8 +343,15 @@ export function CargarVisitaTecnica() {
       </div>
 
       {yaConvertida && (
-        <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
-          Esta visita ya generó un presupuesto. Los datos quedan solo como historial.
+        <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 flex items-center justify-between gap-2 flex-wrap">
+          <span>
+            Esta visita ya generó el presupuesto{visita.operacion_numero ? ` ${visita.operacion_numero}` : ''}. Los datos quedan solo como historial.
+          </span>
+          {visita.operacion_id && (
+            <Link to={`/operaciones/${visita.operacion_id}`} className="font-semibold underline hover:text-emerald-800 shrink-0">
+              Ver presupuesto →
+            </Link>
+          )}
         </div>
       )}
 
@@ -414,21 +438,46 @@ export function CargarVisitaTecnica() {
                     )}
                   </div>
                 </div>
+              ) : esServicio ? (
+                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 items-center">
+                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                  <div className="relative">
+                    <input value={it.descripcion} disabled={yaConvertida}
+                      onChange={e => updateItem(idx, 'descripcion', e.target.value)}
+                      onFocus={() => setBuscarServicioIdx(idx)}
+                      onBlur={() => setTimeout(() => setBuscarServicioIdx(null), 150)}
+                      placeholder="Buscar servicio o escribir uno nuevo..."
+                      className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    {buscarServicioIdx === idx && servicios.length > 0 && (() => {
+                      const q = it.descripcion.trim().toLowerCase();
+                      const filtrados = q ? servicios.filter(s => s.nombre.toLowerCase().includes(q)) : servicios;
+                      return (
+                        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                          {filtrados.length === 0 ? (
+                            <p className="text-xs text-gray-400 p-3 text-center">Sin resultados — se guarda como texto libre</p>
+                          ) : filtrados.map(s => (
+                            <button key={s.id} type="button" onMouseDown={() => seleccionarServicio(idx, s)}
+                              className="w-full text-left px-3 py-2 hover:bg-amber-50 text-xs text-gray-700 border-b border-gray-50 last:border-0">
+                              {s.nombre}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
               ) : (
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_64px_64px] gap-2 items-center">
                   <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
                     className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
-                    placeholder={esServicio ? 'Ej: Ajuste de bisagra, cambio de burlete...' : 'Descripción'} disabled={yaConvertida}
+                    placeholder="Descripción" disabled={yaConvertida}
                     className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                  {!esServicio && (
-                    <>
-                      <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
-                        className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                      <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
-                        className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                    </>
-                  )}
+                  <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
+                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
+                  <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
+                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
                 </div>
               )}
 

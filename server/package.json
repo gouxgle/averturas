@@ -15,15 +15,16 @@
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "@sentry/node": "^10.56.0",
+    "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^2.4.3",
     "dotenv": "^17.4.2",
     "hono": "^4.7.4",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^9.0.3",
     "pdfkit": "^0.19.0",
     "pg": "^8.13.3",
     "puppeteer-core": "^24.43.1",
-    "resend": "^4.5.1",
     "sharp": "^0.35.3",
     "zod": "^4.4.3"
   },

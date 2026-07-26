@@ -47,6 +47,11 @@ services:
       EVOLUTION_API_URL:     ${EVOLUTION_API_URL:-}
       EVOLUTION_API_KEY:     ${EVOLUTION_API_KEY:-}
       EVOLUTION_INSTANCE:    ${EVOLUTION_INSTANCE:-}
+      SMTP_HOST:             ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT:             ${SMTP_PORT:-587}
+      SMTP_USER:             ${SMTP_USER:-}
+      SMTP_PASS:             ${SMTP_PASS:-}
+      SMTP_REPLY_TO:         ${SMTP_REPLY_TO:-}
     volumes:
       - ./uploads:/app/uploads
       # Backups (solo existen en prod — cron + rclone corren en el host, fuera de Docker).

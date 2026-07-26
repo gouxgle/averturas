@@ -12,6 +12,7 @@ interface VisitaTecnicaRow {
   id: string; numero: string; estado: 'pendiente' | 'relevada' | 'convertida' | 'cancelada';
   fecha_visita: string | null; created_at: string; items_total: number;
   cliente: VTCliente;
+  operacion_numero: string | null;
 }
 
 const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
@@ -102,6 +103,9 @@ export function VisitasTecnicas() {
                     <td className="px-4 py-3 text-gray-500">{v.items_total}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.cls}`}>{badge.label}</span>
+                      {v.estado === 'convertida' && v.operacion_numero && (
+                        <span className="ml-1.5 text-xs font-semibold text-gray-400">{v.operacion_numero}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <ChevronRight size={16} className="text-gray-300 inline-block" />
