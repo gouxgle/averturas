@@ -33,16 +33,16 @@ const css = `
   @page { size: A4 portrait; margin: 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  @media screen { body { background: #e5e7eb; } .page { margin: 20px auto; } }
-  .page { width: 210mm; min-height: 297mm; background: white; }
+  @media screen { body { background: #e5e7eb; } .page { margin: 20px auto; min-height: 297mm; } }
+  .page { width: 210mm; background: white; }
 `;
 
 function SecHeader({ label, color = NAVY }: { label: string; color?: string }) {
   return (
     <div style={{
       display: 'inline-block', background: color, color: 'white',
-      fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
-      padding: '4px 14px', borderRadius: 6, marginBottom: 8,
+      fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+      padding: '3px 12px', borderRadius: 6, marginBottom: 5,
     }}>
       {label}
     </div>
@@ -51,13 +51,13 @@ function SecHeader({ label, color = NAVY }: { label: string; color?: string }) {
 
 function Check({ label, checked = false }: { label: string; checked?: boolean }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: '#333', marginBottom: 6 }}>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#333', marginBottom: 3 }}>
       <span style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 12, height: 12, border: '1.3px solid #999', borderRadius: 2, flexShrink: 0,
+        width: 11, height: 11, border: '1.3px solid #999', borderRadius: 2, flexShrink: 0,
         background: checked ? NAVY : 'transparent', borderColor: checked ? NAVY : '#999',
       }}>
-        {checked && <span style={{ color: 'white', fontSize: 9, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+        {checked && <span style={{ color: 'white', fontSize: 8, lineHeight: 1, fontWeight: 900 }}>✓</span>}
       </span>
       {label}
     </label>
@@ -119,9 +119,9 @@ export function ImprimirVisitaTecnica() {
 
       <style>{`@media print { .no-print { display: none !important; } }`}</style>
 
-      <div className="page" style={{ padding: '10mm 8mm' }}>
+      <div className="page" style={{ padding: '6mm 8mm' }}>
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, marginTop: 30 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg width="34" height="34" viewBox="0 0 200 200" fill="none">
               <rect x="8"   y="8"   width="84" height="84" rx="12" fill={NAVY} />
@@ -146,9 +146,9 @@ export function ImprimirVisitaTecnica() {
         </div>
 
         {/* ── Datos del cliente ── */}
-        <div style={{ border: '1.5px solid #d1d5db', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+        <div style={{ border: '1.5px solid #d1d5db', borderRadius: 10, padding: '8px 14px', marginBottom: 10 }}>
           <SecHeader label="Datos del cliente" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 24, rowGap: 12, fontSize: 12, color: '#333' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 24, rowGap: 8, fontSize: 11.5, color: '#333' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
               <strong>Cliente:</strong>
               <span style={{ flex: 1, borderBottom: '1px solid #999', paddingBottom: 2 }}>{cliente ? nombreCliente(cliente) : ''}</span>
@@ -174,31 +174,31 @@ export function ImprimirVisitaTecnica() {
 
         {/* ── Aberturas a medir ── */}
         <SecHeader label="Aberturas a medir" />
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16, border: '1.5px solid #d1d5db' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10, border: '1.5px solid #d1d5db' }}>
           <thead>
             <tr style={{ background: NAVY, color: 'white' }}>
-              <th style={{ padding: '6px 4px', fontSize: 9, fontWeight: 700, width: 30, textAlign: 'center' }}>N°</th>
-              <th style={{ padding: '6px 4px', fontSize: 9, fontWeight: 700, textAlign: 'left' }}>AMBIENTE</th>
-              <th style={{ padding: '6px 4px', fontSize: 9, fontWeight: 700, textAlign: 'left' }}>DESCRIPCIÓN</th>
-              <th style={{ padding: '6px 4px', fontSize: 9, fontWeight: 700, width: 80, textAlign: 'center' }}>ANCHO (mm)</th>
-              <th style={{ padding: '6px 4px', fontSize: 9, fontWeight: 700, width: 80, textAlign: 'center' }}>ALTO (mm)</th>
+              <th style={{ padding: '4px 4px', fontSize: 9, fontWeight: 700, width: 30, textAlign: 'center' }}>N°</th>
+              <th style={{ padding: '4px 4px', fontSize: 9, fontWeight: 700, textAlign: 'left' }}>AMBIENTE</th>
+              <th style={{ padding: '4px 4px', fontSize: 9, fontWeight: 700, textAlign: 'left' }}>DESCRIPCIÓN</th>
+              <th style={{ padding: '4px 4px', fontSize: 9, fontWeight: 700, width: 80, textAlign: 'center' }}>ANCHO (mm)</th>
+              <th style={{ padding: '4px 4px', fontSize: 9, fontWeight: 700, width: 80, textAlign: 'center' }}>ALTO (mm)</th>
             </tr>
           </thead>
           <tbody>
             {filas.map((it, i) => (
               <tr key={i} style={{ borderTop: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '7px 4px', fontSize: 10.5, textAlign: 'center', color: '#666' }}>{i + 1}</td>
-                <td style={{ padding: '7px 4px', fontSize: 10.5 }}>{it?.ambiente || ' '}</td>
-                <td style={{ padding: '7px 4px', fontSize: 10.5 }}>{it?.descripcion || ' '}</td>
-                <td style={{ padding: '7px 4px', fontSize: 10.5, textAlign: 'center' }}>{it?.ancho_mm ?? ' '}</td>
-                <td style={{ padding: '7px 4px', fontSize: 10.5, textAlign: 'center' }}>{it?.alto_mm ?? ' '}</td>
+                <td style={{ padding: '4.5px 4px', fontSize: 10, textAlign: 'center', color: '#666' }}>{i + 1}</td>
+                <td style={{ padding: '4.5px 4px', fontSize: 10 }}>{it?.ambiente || ' '}</td>
+                <td style={{ padding: '4.5px 4px', fontSize: 10 }}>{it?.descripcion || ' '}</td>
+                <td style={{ padding: '4.5px 4px', fontSize: 10, textAlign: 'center' }}>{it?.ancho_mm ?? ' '}</td>
+                <td style={{ padding: '4.5px 4px', fontSize: 10, textAlign: 'center' }}>{it?.alto_mm ?? ' '}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
         {/* ── Detalles importantes ── */}
-        <div style={{ border: '1.5px solid #d1d5db', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+        <div style={{ border: '1.5px solid #d1d5db', borderRadius: 10, padding: '8px 12px', marginBottom: 10 }}>
           <SecHeader label="Detalles importantes (marcar)" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', columnGap: 16 }}>
             <div>
@@ -237,7 +237,7 @@ export function ImprimirVisitaTecnica() {
         <SecHeader label="Croquis general" />
         <p style={{ fontSize: 9.5, color: '#6b7280', marginTop: -6, marginBottom: 6 }}>Dibujar ubicación de las aberturas y numerarlas</p>
         <div style={{
-          border: '1.5px solid #d1d5db', borderRadius: 10, height: 190, marginBottom: 16,
+          border: '1.5px solid #d1d5db', borderRadius: 10, height: 120, marginBottom: 10,
           backgroundImage: 'linear-gradient(to right, #eee 1px, transparent 1px), linear-gradient(to bottom, #eee 1px, transparent 1px)',
           backgroundSize: '10mm 10mm',
         }} />
@@ -249,7 +249,7 @@ export function ImprimirVisitaTecnica() {
         ) : (
           <div>
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} style={{ borderBottom: '1px solid #ccc', height: 22 }} />
+              <div key={i} style={{ borderBottom: '1px solid #ccc', height: 18 }} />
             ))}
           </div>
         )}
