@@ -9,6 +9,29 @@ import { sendProformaCompartida } from '../email.js';
 
 const operaciones = new Hono();
 
+// Token de acceso público (link de aprobación) — se reutiliza mientras siga vigente,
+// para que compartir por varios canales (WhatsApp, email, "Compartir" del listado) no
+// invalide el link recién mandado por otro canal. Solo se genera uno nuevo si todavía
+// no había, o si el presupuesto estaba rechazado (reabrir = arranque limpio).
+async function obtenerOCrearToken(id: string, op: { estado: string; token_acceso: string | null }): Promise<string> {
+  const necesitaNuevo = !op.token_acceso || op.estado === 'rechazado';
+  const token = necesitaNuevo
+    ? ((typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`)
+    : op.token_acceso;
+
+  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
+  // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
+  await db.query(
+    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
+       respuesta_cliente = NULL, respuesta_cliente_at = NULL
+     WHERE id = $3`,
+    [token, estadoNuevo, id]
+  );
+  return token as string;
+}
+
 // MAX del sufijo numérico (no COUNT): un borrado previo deja huecos y COUNT(*) + 1
 // puede repetir un número ya usado, violando el UNIQUE de numero.
 async function nextNumeroRecibo(): Promise<string> {
@@ -557,24 +580,11 @@ operaciones.post('/:id/generar-link', async (c) => {
   const user = c.get('user');
   const { id } = c.req.param();
   const { rows: [op] } = await db.query(
-    `SELECT id, numero, cliente_id, estado FROM operaciones WHERE id = $1`, [id]
+    `SELECT id, numero, cliente_id, estado, token_acceso FROM operaciones WHERE id = $1`, [id]
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
 
-  // Generar token UUID (crypto.randomUUID disponible en Node 19+, fallback manual)
-  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-
-  // Si estaba rechazado, reabrirlo como "enviado" para que el cliente pueda volver a aprobar
-  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
-  // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
-  await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
-       respuesta_cliente = NULL, respuesta_cliente_at = NULL
-     WHERE id = $3`,
-    [token, estadoNuevo, id]
-  );
+  const token = await obtenerOCrearToken(id, op);
 
   // Interacción CRM automática
   const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
@@ -597,7 +607,7 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
   const { id } = c.req.param();
 
   const { rows: [op] } = await db.query(
-    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.fecha_validez,
+    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.fecha_validez, o.token_acceso,
        cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona, cl.telefono
      FROM operaciones o
      JOIN clientes cl ON cl.id = o.cliente_id
@@ -622,20 +632,7 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     numero = `549${digits}`;
   }
 
-  // Generar/regenerar token
-  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-
-  // Si estaba rechazado, reabrirlo como "enviado" para que el cliente pueda volver a aprobar
-  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
-  // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
-  await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
-       respuesta_cliente = NULL, respuesta_cliente_at = NULL
-     WHERE id = $3`,
-    [token, estadoNuevo, id]
-  );
+  const token = await obtenerOCrearToken(id, op);
 
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const url = `${appUrl}/p/${token}`;
@@ -712,7 +709,7 @@ operaciones.post('/:id/enviar-email', async (c) => {
   }
 
   const { rows: [op] } = await db.query(
-    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.precio_total,
+    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.precio_total, o.token_acceso,
        cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona, cl.email
      FROM operaciones o
      JOIN clientes cl ON cl.id = o.cliente_id
@@ -724,18 +721,7 @@ operaciones.post('/:id/enviar-email', async (c) => {
   const emailCliente: string | null = op.email;
   if (!emailCliente) return c.json({ error: 'El cliente no tiene email registrado' }, 422);
 
-  // Generar/regenerar token (mismo criterio que generar-link/enviar-whatsapp)
-  const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-
-  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
-  await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
-       respuesta_cliente = NULL, respuesta_cliente_at = NULL
-     WHERE id = $3`,
-    [token, estadoNuevo, id]
-  );
+  const token = await obtenerOCrearToken(id, op);
 
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const url = `${appUrl}/p/${token}`;
