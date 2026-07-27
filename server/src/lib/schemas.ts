@@ -159,6 +159,40 @@ export const PedidoEstadoSchema = z.object({
   costo_envio_real: z.number().min(0).optional().nullable(),
 });
 
+// ── Visitas técnicas ──────────────────────────────────────────
+export const VisitaTecnicaCrearSchema = z.object({
+  cliente_id: zUUID,
+});
+
+const VisitaTecnicaItemSchema = z.object({
+  ambiente:         zText(200).optional(),
+  descripcion:      zText(500).optional(),
+  ancho_mm:         z.number().positive().optional().nullable(),
+  alto_mm:          z.number().positive().optional().nullable(),
+  tipo_item:        z.enum(['a_medida', 'servicio', 'estandar']).optional().default('a_medida'),
+  producto_id:      zUUID.optional().nullable(),
+  servicio_id:      zUUID.optional().nullable(),
+  tipo_abertura_id: zUUID.optional().nullable(),
+  sistema_id:       zUUID.optional().nullable(),
+  vidrio:           zText(100).optional(),
+  premarco:         z.boolean().optional().default(false),
+  accesorios:       z.array(z.string()).optional().default([]),
+  color:            zText(100).optional(),
+  calculo_url:      zText(300).optional().nullable(),
+});
+
+export const VisitaTecnicaSchema = z.object({
+  fecha_visita:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)').optional().nullable(),
+  tecnico:           zText(200).optional(),
+  color:             z.array(z.string()).optional().default([]),
+  vidrio:            z.array(z.string()).optional().default([]),
+  instalacion:       z.array(z.string()).optional().default([]),
+  abertura_especial: z.array(z.string()).optional().default([]),
+  observaciones:     zText(2000).optional(),
+  imagenes:          z.array(z.string()).optional().default([]),
+  items:             z.array(VisitaTecnicaItemSchema).optional().default([]),
+});
+
 // ── Catálogo ───────────────────────────────────────────────────
 export const TipoAberturaSchema = z.object({
   nombre:       z.string().min(1).max(120),

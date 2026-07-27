@@ -270,11 +270,13 @@ catalogo.put('/servicios/:id', async (c) => {
   return c.json(rows[0]);
 });
 
-// DELETE /servicios/:id — elimina definitivamente (solo si ningún ítem de presupuesto lo usa)
+// DELETE /servicios/:id — elimina definitivamente (solo si ningún ítem de presupuesto o visita técnica lo usa)
 catalogo.delete('/servicios/:id', async (c) => {
   const { id } = c.req.param();
-  const { rows } = await db.query(`SELECT id FROM operacion_items WHERE servicio_id=$1 LIMIT 1`, [id]);
-  if (rows.length) return c.json({ error: 'Servicio en uso por presupuestos' }, 409);
+  const { rows: enOp } = await db.query(`SELECT id FROM operacion_items WHERE servicio_id=$1 LIMIT 1`, [id]);
+  if (enOp.length) return c.json({ error: 'Servicio en uso por presupuestos' }, 409);
+  const { rows: enVisita } = await db.query(`SELECT id FROM visita_tecnica_items WHERE servicio_id=$1 LIMIT 1`, [id]);
+  if (enVisita.length) return c.json({ error: 'Servicio en uso por visitas técnicas' }, 409);
 
   const { rowCount } = await db.query(`DELETE FROM catalogo_servicios WHERE id=$1`, [id]);
   if (!rowCount) return c.json({ error: 'No encontrado' }, 404);

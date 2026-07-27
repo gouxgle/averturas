@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { VisitaTecnicaCrearSchema, VisitaTecnicaSchema } from '../lib/schemas.js';
 
 const visitasTecnicas = new Hono();
 
@@ -77,9 +79,13 @@ visitasTecnicas.get('/:id', async (c) => {
   const [{ rows: [visita] }, { rows: items }] = await Promise.all([
     db.query(`${WITH_CLIENTE} WHERE vt.id = $1`, [id]),
     db.query(
-      `SELECT vti.*, cp.nombre AS producto_nombre, cp.imagenes AS producto_imagenes
+      `SELECT vti.*, cp.nombre AS producto_nombre, cp.imagenes AS producto_imagenes, cs.nombre AS servicio_nombre,
+        ta.nombre AS tipo_abertura_nombre, si.nombre AS sistema_nombre
        FROM visita_tecnica_items vti
        LEFT JOIN catalogo_productos cp ON cp.id = vti.producto_id
+       LEFT JOIN catalogo_servicios cs ON cs.id = vti.servicio_id
+       LEFT JOIN tipos_abertura ta ON ta.id = vti.tipo_abertura_id
+       LEFT JOIN sistemas si ON si.id = vti.sistema_id
        WHERE vti.visita_tecnica_id = $1 ORDER BY vti.orden`,
       [id]
     ),
@@ -91,18 +97,15 @@ visitasTecnicas.get('/:id', async (c) => {
 // POST / — crea la visita (solo cliente_id, se completa después con lo relevado)
 visitasTecnicas.post('/', async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
-
-  if (!body.cliente_id) {
-    return c.json({ error: 'cliente_id es requerido' }, 400);
-  }
+  const b = await validateBody(c, VisitaTecnicaCrearSchema);
+  if (b instanceof Response) return b;
 
   const numero = await nextNumero();
   const { rows: [row] } = await db.query(`
     INSERT INTO visitas_tecnicas (numero, cliente_id, created_by)
     VALUES ($1, $2, $3)
     RETURNING *
-  `, [numero, body.cliente_id, user?.id || null]);
+  `, [numero, b.cliente_id, user?.id || null]);
 
   return c.json(row, 201);
 });
@@ -110,15 +113,19 @@ visitasTecnicas.post('/', async (c) => {
 // PUT /:id — carga de datos relevados en el sitio (fecha, técnico, detalles, ítems)
 visitasTecnicas.put('/:id', async (c) => {
   const { id } = c.req.param();
-  const body = await c.req.json();
+  const b = await validateBody(c, VisitaTecnicaSchema);
+  if (b instanceof Response) return b;
 
   const { rows: [actual] } = await db.query(`SELECT estado FROM visitas_tecnicas WHERE id=$1`, [id]);
   if (!actual) return c.json({ error: 'Visita técnica no encontrada' }, 404);
   if (actual.estado === 'convertida') {
     return c.json({ error: 'Ya se generó un presupuesto a partir de esta visita' }, 409);
   }
+  if (actual.estado === 'cancelada') {
+    return c.json({ error: 'La visita está cancelada' }, 409);
+  }
 
-  const items = Array.isArray(body.items) ? body.items : [];
+  const items = b.items;
   const estadoNuevo = items.length > 0 ? 'relevada' : actual.estado;
 
   const client = await db.connect();
@@ -140,23 +147,27 @@ visitasTecnicas.put('/:id', async (c) => {
       WHERE id = $10
       RETURNING *
     `, [
-      body.fecha_visita || null,
-      body.tecnico?.trim() || null,
-      body.color ?? [],
-      body.vidrio ?? [],
-      body.instalacion ?? [],
-      body.abertura_especial ?? [],
-      body.observaciones?.trim() || null,
+      b.fecha_visita || null,
+      b.tecnico?.trim() || null,
+      b.color,
+      b.vidrio,
+      b.instalacion,
+      b.abertura_especial,
+      b.observaciones?.trim() || null,
       estadoNuevo,
-      Array.isArray(body.imagenes) ? body.imagenes : [],
+      b.imagenes,
       id,
     ]);
 
     await client.query(`DELETE FROM visita_tecnica_items WHERE visita_tecnica_id = $1`, [id]);
     for (const [idx, item] of items.entries()) {
+      const esAMedida = (item.tipo_item ?? 'a_medida') === 'a_medida';
       await client.query(`
-        INSERT INTO visita_tecnica_items (visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item, producto_id, servicio_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO visita_tecnica_items (
+          visita_tecnica_id, orden, ambiente, descripcion, ancho_mm, alto_mm, tipo_item, producto_id, servicio_id,
+          tipo_abertura_id, sistema_id, vidrio, premarco, accesorios, color, calculo_url
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       `, [
         id, idx,
         item.ambiente?.trim() || null,
@@ -166,6 +177,13 @@ visitasTecnicas.put('/:id', async (c) => {
         item.tipo_item === 'servicio' ? 'servicio' : item.tipo_item === 'estandar' ? 'estandar' : 'a_medida',
         item.tipo_item === 'estandar' ? (item.producto_id || null) : null,
         item.tipo_item === 'servicio' ? (item.servicio_id || null) : null,
+        esAMedida ? (item.tipo_abertura_id || null) : null,
+        esAMedida ? (item.sistema_id || null) : null,
+        esAMedida ? (item.vidrio?.trim() || null) : null,
+        esAMedida ? (item.premarco ?? false) : false,
+        esAMedida ? item.accesorios : [],
+        esAMedida ? (item.color?.trim() || null) : null,
+        esAMedida ? (item.calculo_url || null) : null,
       ]);
     }
 
@@ -178,6 +196,21 @@ visitasTecnicas.put('/:id', async (c) => {
   } finally {
     client.release();
   }
+});
+
+// PATCH /:id/cancelar — cancela la visita (no aplica si ya generó presupuesto)
+visitasTecnicas.patch('/:id/cancelar', async (c) => {
+  const { id } = c.req.param();
+  const { rows: [visita] } = await db.query(`SELECT estado FROM visitas_tecnicas WHERE id=$1`, [id]);
+  if (!visita) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (visita.estado === 'convertida') {
+    return c.json({ error: 'No se puede cancelar: ya generó un presupuesto' }, 409);
+  }
+  const { rows: [row] } = await db.query(
+    `UPDATE visitas_tecnicas SET estado='cancelada', updated_at=now() WHERE id=$1 RETURNING *`,
+    [id]
+  );
+  return c.json(row);
 });
 
 // DELETE /:id — solo si no derivó ya en un presupuesto

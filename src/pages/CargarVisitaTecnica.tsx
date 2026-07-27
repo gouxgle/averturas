@@ -2,13 +2,19 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Ruler, Plus, Trash2, Save, Loader2, Printer,
-  ArrowRight, Users, Camera, X, Wrench, Package, Search,
+  ArrowRight, Users, Camera, X, Wrench, Package, Search, AlertTriangle, Ban, Pencil,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import type { Cliente } from '@/types';
+import type { Cliente, TipoAbertura, Sistema } from '@/types';
+import { EditItemModal, type EditableItemSpec } from '@/components/EditItemModal';
 
 type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
+
+function uuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
 interface CatalogoProductoLite {
   id: string; nombre: string; codigo: string | null; precio_base: number;
@@ -19,9 +25,11 @@ interface ServicioCatalogo {
   id: string; nombre: string; descripcion: string | null; precio_base: number | null;
 }
 
-interface VisitaTecnicaItem {
-  ambiente: string; descripcion: string; ancho_mm: string; alto_mm: string;
-  tipo_item: TipoItemVisita;
+// Extiende EditableItemSpec (specs que edita el modal compartido con el presupuesto:
+// tipo de abertura, sistema, color, vidrio, premarco, accesorios, foto de referencia)
+// con lo propio del relevamiento (ambiente, medidas en mm, tipo/producto/servicio).
+interface VisitaTecnicaItem extends EditableItemSpec {
+  ambiente: string; ancho_mm: string; alto_mm: string;
   producto_id: string; producto_nombre: string;
   servicio_id: string;
 }
@@ -40,6 +48,9 @@ interface VisitaTecnicaDetalle {
     ancho_mm: string | number | null; alto_mm: string | number | null;
     tipo_item?: TipoItemVisita; producto_id?: string | null; producto_nombre?: string | null;
     servicio_id?: string | null;
+    tipo_abertura_id?: string | null; sistema_id?: string | null;
+    vidrio?: string | null; premarco?: boolean | null; accesorios?: string[] | null;
+    color?: string | null; calculo_url?: string | null;
   }>;
 }
 
@@ -49,7 +60,12 @@ const INSTALACION_FIJOS = ['Con colocación', 'Sin colocación', 'Retira en loca
 const ABERTURA_FIJOS = ['Reja', 'Celosía', 'Persiana', 'Mosquitero'];
 
 function emptyItem(): VisitaTecnicaItem {
-  return { ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '', tipo_item: 'a_medida', producto_id: '', producto_nombre: '', servicio_id: '' };
+  return {
+    _key: uuid(), ambiente: '', descripcion: '', ancho_mm: '', alto_mm: '',
+    tipo_item: 'a_medida', producto_id: '', producto_nombre: '', servicio_id: '',
+    tipo_abertura_id: '', sistema_id: '', vidrio: '', premarco: false, accesorios: [],
+    color: '', calculo_url: '', _atribAbrev: {},
+  };
 }
 
 function nombreCliente(c: Cliente) {
@@ -93,6 +109,8 @@ export function CargarVisitaTecnica() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [visita, setVisita] = useState<VisitaTecnicaDetalle | null>(null);
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
 
   const [fechaVisita, setFechaVisita] = useState('');
   const [tecnico, setTecnico] = useState('');
@@ -113,10 +131,17 @@ export function CargarVisitaTecnica() {
   const [buscarProductoQ, setBuscarProductoQ] = useState('');
   const [buscarServicioIdx, setBuscarServicioIdx] = useState<number | null>(null);
   const [servicios, setServicios] = useState<ServicioCatalogo[]>([]);
+  const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
+  const [sistemas, setSistemas] = useState<Sistema[]>([]);
+  const [coloresDB, setColoresDB] = useState<{ id: string; nombre: string }[]>([]);
+  const [editItemKey, setEditItemKey] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<CatalogoProductoLite[]>('/catalogo/productos').then(setProductos).catch(() => {});
     api.get<ServicioCatalogo[]>('/catalogo/servicios').then(setServicios).catch(() => {});
+    api.get<TipoAbertura[]>('/catalogo/tipos-abertura').then(setTiposAbertura).catch(() => {});
+    api.get<Sistema[]>('/catalogo/sistemas').then(setSistemas).catch(() => {});
+    api.get<{ id: string; nombre: string }[]>('/catalogo/colores').then(setColoresDB).catch(() => {});
   }, []);
 
   const load = useCallback(() => {
@@ -129,12 +154,17 @@ export function CargarVisitaTecnica() {
         setTecnico(v.tecnico ?? '');
         setItems(v.items.length
           ? v.items.map(it => ({
+              _key: uuid(),
               ambiente: it.ambiente ?? '', descripcion: it.descripcion ?? '',
               ancho_mm: it.ancho_mm != null ? String(it.ancho_mm) : '',
               alto_mm: it.alto_mm != null ? String(it.alto_mm) : '',
               tipo_item: it.tipo_item === 'servicio' ? 'servicio' : it.tipo_item === 'estandar' ? 'estandar' : 'a_medida',
               producto_id: it.producto_id ?? '', producto_nombre: it.producto_nombre ?? '',
               servicio_id: it.servicio_id ?? '',
+              tipo_abertura_id: it.tipo_abertura_id ?? '', sistema_id: it.sistema_id ?? '',
+              vidrio: it.vidrio ?? '', premarco: it.premarco ?? false,
+              accesorios: it.accesorios ?? [], color: it.color ?? '',
+              calculo_url: it.calculo_url ?? '', _atribAbrev: {},
             }))
           : [emptyItem()]);
         setColor(v.color.filter(c => COLOR_FIJOS.includes(c)));
@@ -161,8 +191,16 @@ export function CargarVisitaTecnica() {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
   }
 
+  function updateItemSpec(key: string, field: keyof EditableItemSpec, value: unknown) {
+    setItems(prev => prev.map(it => it._key === key ? { ...it, [field]: value } : it));
+  }
+
   function toggleTipoItem(idx: number, tipo: TipoItemVisita) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, tipo_item: tipo } : it));
+    if (tipo === 'a_medida') {
+      const key = items[idx]?._key;
+      if (key) setEditItemKey(key);
+    }
   }
 
   function seleccionarProducto(idx: number, p: CatalogoProductoLite) {
@@ -273,6 +311,13 @@ export function CargarVisitaTecnica() {
           tipo_item: it.tipo_item,
           producto_id: it.tipo_item === 'estandar' ? (it.producto_id || null) : null,
           servicio_id: it.tipo_item === 'servicio' ? (it.servicio_id || null) : null,
+          tipo_abertura_id: it.tipo_item === 'a_medida' ? (it.tipo_abertura_id || null) : null,
+          sistema_id: it.tipo_item === 'a_medida' ? (it.sistema_id || null) : null,
+          vidrio: it.tipo_item === 'a_medida' ? (it.vidrio.trim() || null) : null,
+          premarco: it.tipo_item === 'a_medida' ? !!it.premarco : false,
+          accesorios: it.tipo_item === 'a_medida' ? it.accesorios : [],
+          color: it.tipo_item === 'a_medida' ? (it.color.trim() || null) : null,
+          calculo_url: it.tipo_item === 'a_medida' ? (it.calculo_url || null) : null,
         })),
       };
       const full = await api.put<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}`, body);
@@ -291,6 +336,20 @@ export function CargarVisitaTecnica() {
     if (r) toast.success('Visita técnica actualizada');
   }
 
+  async function handleCancelar() {
+    setCancelando(true);
+    try {
+      const v = await api.patch<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}/cancelar`);
+      setVisita(v);
+      setConfirmarCancelar(false);
+      toast.success('Visita técnica cancelada');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo cancelar');
+    } finally {
+      setCancelando(false);
+    }
+  }
+
   async function handleAvanzar() {
     const validos = itemsValidos();
     if (validos.length === 0) {
@@ -306,6 +365,13 @@ export function CargarVisitaTecnica() {
       tipo_item: it.tipo_item,
       producto_id: it.tipo_item === 'estandar' ? it.producto_id : '',
       servicio_id: it.tipo_item === 'servicio' ? it.servicio_id : '',
+      tipo_abertura_id: it.tipo_item === 'a_medida' ? it.tipo_abertura_id : '',
+      sistema_id: it.tipo_item === 'a_medida' ? it.sistema_id : '',
+      vidrio: it.tipo_item === 'a_medida' ? it.vidrio : '',
+      premarco: it.tipo_item === 'a_medida' ? !!it.premarco : false,
+      accesorios: it.tipo_item === 'a_medida' ? it.accesorios : [],
+      color: it.tipo_item === 'a_medida' ? it.color : '',
+      calculo_url: it.tipo_item === 'a_medida' ? it.calculo_url : '',
     }));
     navigate('/presupuestos/nuevo', {
       state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id, imagenesVisita: r.imagenes ?? [] },
@@ -320,6 +386,9 @@ export function CargarVisitaTecnica() {
   }
 
   const yaConvertida = visita.estado === 'convertida';
+  const estaCancelada = visita.estado === 'cancelada';
+  const soloLectura = yaConvertida || estaCancelada;
+  const editItemData = editItemKey ? items.find(it => it._key === editItemKey) : null;
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
@@ -355,16 +424,23 @@ export function CargarVisitaTecnica() {
         </div>
       )}
 
+      {estaCancelada && (
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600 flex items-center gap-2">
+          <Ban size={15} className="shrink-0"/>
+          <span>Esta visita técnica fue cancelada.</span>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Fecha de visita</label>
-            <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)} disabled={yaConvertida}
+            <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)} disabled={soloLectura}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Técnico</label>
-            <input value={tecnico} onChange={e => setTecnico(e.target.value)} disabled={yaConvertida}
+            <input value={tecnico} onChange={e => setTecnico(e.target.value)} disabled={soloLectura}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
         </div>
@@ -382,17 +458,17 @@ export function CargarVisitaTecnica() {
             <div key={idx} className="relative flex flex-col sm:flex-row gap-2 sm:items-center p-2 rounded-lg border border-gray-100">
               {/* Toggle tipo de ítem */}
               <div className="flex shrink-0 rounded-lg border border-gray-200 overflow-hidden w-fit">
-                <button type="button" onClick={() => toggleTipoItem(idx, 'a_medida')} disabled={yaConvertida}
+                <button type="button" onClick={() => toggleTipoItem(idx, 'a_medida')} disabled={soloLectura}
                   title="Abertura a medir"
                   className={`p-2 ${esAMedida ? 'bg-slate-700 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
                   <Ruler size={14}/>
                 </button>
-                <button type="button" onClick={() => toggleTipoItem(idx, 'estandar')} disabled={yaConvertida}
+                <button type="button" onClick={() => toggleTipoItem(idx, 'estandar')} disabled={soloLectura}
                   title="Producto de catálogo (estándar)"
                   className={`p-2 border-l border-gray-200 ${esEstandar ? 'bg-sky-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
                   <Package size={14}/>
                 </button>
-                <button type="button" onClick={() => toggleTipoItem(idx, 'servicio')} disabled={yaConvertida}
+                <button type="button" onClick={() => toggleTipoItem(idx, 'servicio')} disabled={soloLectura}
                   title="Servicio (reparación/mantenimiento)"
                   className={`p-2 border-l border-gray-200 ${esServicio ? 'bg-amber-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
                   <Wrench size={14}/>
@@ -401,10 +477,10 @@ export function CargarVisitaTecnica() {
 
               {esEstandar ? (
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 items-center">
-                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
+                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={soloLectura}
                     className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <div className="relative">
-                    <button type="button" disabled={yaConvertida}
+                    <button type="button" disabled={soloLectura}
                       onClick={() => { setBuscarProductoIdx(idx); setBuscarProductoQ(''); }}
                       className="w-full flex items-center gap-2 px-2.5 py-2 border border-gray-200 rounded-lg text-sm text-left disabled:bg-gray-50 hover:border-sky-300">
                       <Search size={13} className="text-gray-300 shrink-0"/>
@@ -440,10 +516,10 @@ export function CargarVisitaTecnica() {
                 </div>
               ) : esServicio ? (
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 items-center">
-                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
+                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={soloLectura}
                     className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <div className="relative">
-                    <input value={it.descripcion} disabled={yaConvertida}
+                    <input value={it.descripcion} disabled={soloLectura}
                       onChange={e => updateItem(idx, 'descripcion', e.target.value)}
                       onFocus={() => setBuscarServicioIdx(idx)}
                       onBlur={() => setTimeout(() => setBuscarServicioIdx(null), 150)}
@@ -468,20 +544,40 @@ export function CargarVisitaTecnica() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_64px_64px] gap-2 items-center">
-                  <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={yaConvertida}
-                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                  <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
-                    placeholder="Descripción" disabled={yaConvertida}
-                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
-                  <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={yaConvertida}
-                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
-                  <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={yaConvertida}
-                    className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_64px_64px_36px] gap-2 items-center">
+                    <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={soloLectura}
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
+                      placeholder="Descripción" disabled={soloLectura}
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={soloLectura}
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
+                    <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={soloLectura}
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
+                    {!soloLectura && (
+                      <button type="button" onClick={() => setEditItemKey(it._key)}
+                        title="Editar detalle (tipo, sistema, color, vidrio...)"
+                        className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:text-slate-700 hover:border-slate-300 shrink-0">
+                        <Pencil size={14}/>
+                      </button>
+                    )}
+                  </div>
+                  {(it.tipo_abertura_id || it.color || it.vidrio) && (
+                    <div className="flex flex-wrap gap-1">
+                      {tiposAbertura.find(t => t.id === it.tipo_abertura_id) && (
+                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                          {tiposAbertura.find(t => t.id === it.tipo_abertura_id)!.nombre}
+                        </span>
+                      )}
+                      {it.color && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{it.color}</span>}
+                      {it.vidrio && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{it.vidrio}</span>}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {!yaConvertida && (
+              {!soloLectura && (
                 <button onClick={() => quitarFila(idx)} disabled={items.length === 1}
                   className="p-2 text-gray-300 hover:text-red-500 disabled:opacity-30 shrink-0">
                   <Trash2 size={15}/>
@@ -491,7 +587,7 @@ export function CargarVisitaTecnica() {
             );
           })}
         </div>
-        {!yaConvertida && (
+        {!soloLectura && (
           <button onClick={agregarFila} className="mt-3 text-xs font-semibold text-slate-600 hover:underline flex items-center gap-1">
             <Plus size={13}/> Agregar fila
           </button>
@@ -502,28 +598,28 @@ export function CargarVisitaTecnica() {
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Detalles importantes</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <CheckGroup title="Color" fijos={COLOR_FIJOS} valores={color}
-            onToggle={v => !yaConvertida && toggle(color, setColor, v)}
-            otro={colorOtro} onOtroChange={yaConvertida ? undefined : setColorOtro}/>
+            onToggle={v => !soloLectura && toggle(color, setColor, v)}
+            otro={colorOtro} onOtroChange={soloLectura ? undefined : setColorOtro}/>
           <CheckGroup title="Vidrio" fijos={VIDRIO_FIJOS} valores={vidrio}
-            onToggle={v => !yaConvertida && toggle(vidrio, setVidrio, v)}
-            otro={vidrioOtro} onOtroChange={yaConvertida ? undefined : setVidrioOtro}/>
+            onToggle={v => !soloLectura && toggle(vidrio, setVidrio, v)}
+            otro={vidrioOtro} onOtroChange={soloLectura ? undefined : setVidrioOtro}/>
           <CheckGroup title="Instalación" fijos={INSTALACION_FIJOS} valores={instalacion}
-            onToggle={v => !yaConvertida && toggle(instalacion, setInstalacion, v)}/>
+            onToggle={v => !soloLectura && toggle(instalacion, setInstalacion, v)}/>
           <CheckGroup title="Abertura especial" fijos={ABERTURA_FIJOS} valores={aberturaEspecial}
-            onToggle={v => !yaConvertida && toggle(aberturaEspecial, setAberturaEspecial, v)}
-            otro={aberturaOtro} onOtroChange={yaConvertida ? undefined : setAberturaOtro}/>
+            onToggle={v => !soloLectura && toggle(aberturaEspecial, setAberturaEspecial, v)}
+            otro={aberturaOtro} onOtroChange={soloLectura ? undefined : setAberturaOtro}/>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fotos de la visita</p>
-        {!yaConvertida && (
+        {!soloLectura && (
           <p className="text-[11px] text-gray-400 mb-2">Podés arrastrar imágenes acá o pegarlas con Ctrl+V.</p>
         )}
         <div
-          onDragOver={!yaConvertida ? handleImgDragOver : undefined}
-          onDragLeave={!yaConvertida ? handleImgDragLeave : undefined}
-          onDrop={!yaConvertida ? handleImgDrop : undefined}
+          onDragOver={!soloLectura ? handleImgDragOver : undefined}
+          onDragLeave={!soloLectura ? handleImgDragLeave : undefined}
+          onDrop={!soloLectura ? handleImgDrop : undefined}
           className={`flex flex-wrap gap-3 rounded-xl p-1 -m-1 transition-colors ${draggingImg ? 'ring-2 ring-sky-400 ring-offset-2 bg-sky-50/50' : ''}`}
         >
           {imagenes.map((url, idx) => (
@@ -531,7 +627,7 @@ export function CargarVisitaTecnica() {
               <a href={url} target="_blank" rel="noreferrer">
                 <img src={url} alt="" className="w-full h-full object-cover"/>
               </a>
-              {!yaConvertida && (
+              {!soloLectura && (
                 <button onClick={() => quitarImagen(idx)}
                   className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
                   <X size={12}/>
@@ -539,7 +635,7 @@ export function CargarVisitaTecnica() {
               )}
             </div>
           ))}
-          {!yaConvertida && (
+          {!soloLectura && (
             <button onClick={() => fileRef.current?.click()} disabled={uploadingImg}
               className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 hover:border-slate-300 hover:bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 disabled:opacity-50">
               {uploadingImg ? <Loader2 size={18} className="animate-spin"/> : <Camera size={18}/>}
@@ -549,18 +645,38 @@ export function CargarVisitaTecnica() {
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
           onChange={handleImageUpload} className="hidden"/>
-        {imagenes.length === 0 && yaConvertida && (
+        {imagenes.length === 0 && soloLectura && (
           <p className="text-xs text-gray-400">Sin fotos cargadas</p>
         )}
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
         <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">Observaciones</label>
-        <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} disabled={yaConvertida}
+        <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} disabled={soloLectura}
           className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
       </div>
 
-      {!yaConvertida && (
+      {!soloLectura && confirmarCancelar && (
+        <div className="p-4 bg-red-50 rounded-xl border border-red-200 space-y-3">
+          <div className="flex items-center gap-2 text-red-700">
+            <AlertTriangle size={16} />
+            <p className="text-sm font-semibold">¿Cancelar esta visita técnica?</p>
+          </div>
+          <p className="text-xs text-red-600">Esta acción no se puede deshacer.</p>
+          <div className="flex gap-2">
+            <button onClick={handleCancelar} disabled={cancelando}
+              className="flex-1 bg-red-500 text-white text-sm font-semibold py-2 rounded-lg hover:bg-red-600 disabled:opacity-50">
+              {cancelando ? <Loader2 size={14} className="animate-spin mx-auto"/> : 'Sí, cancelar'}
+            </button>
+            <button onClick={() => setConfirmarCancelar(false)}
+              className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2 rounded-lg hover:bg-gray-50">
+              No, volver
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!soloLectura && !confirmarCancelar && (
         <div className="flex gap-2">
           <button onClick={handleGuardar} disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold disabled:opacity-50">
@@ -573,11 +689,32 @@ export function CargarVisitaTecnica() {
         </div>
       )}
 
-      {yaConvertida && (
+      {!soloLectura && !confirmarCancelar && (
+        <button onClick={() => setConfirmarCancelar(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-red-400 hover:text-red-600">
+          <Ban size={13}/> Cancelar visita técnica
+        </button>
+      )}
+
+      {soloLectura && (
         <Link to="/presupuestos/visitas-tecnicas"
           className="block text-center py-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold">
           Volver al listado
         </Link>
+      )}
+
+      {editItemKey && editItemData && (
+        <EditItemModal
+          item={editItemData}
+          tiposAbertura={tiposAbertura}
+          sistemas={sistemas}
+          coloresDB={coloresDB}
+          onChange={updateItemSpec}
+          onClose={() => setEditItemKey(null)}
+          mode="visita"
+          uploadUrl="/api/visitas-tecnicas/upload-imagen"
+          uploadField="imagen"
+        />
       )}
     </div>
   );
