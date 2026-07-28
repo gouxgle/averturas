@@ -179,27 +179,28 @@ function WeatherWidget() {
       </button>
 
       {showWeek && (
-        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl border-2 border-sky-200 shadow-2xl p-4 min-w-[320px]">
-          <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3">
+        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl border-2 border-sky-200 shadow-2xl p-6 w-[620px] max-w-[95vw]">
+          <p className="text-sm font-bold text-sky-500 uppercase tracking-widest mb-4">
             📍 Pronóstico 7 días — Formosa, Argentina
           </p>
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-3 sm:grid-cols-7 gap-3">
             {weather.daily.time.map((date, i) => {
-              const dayName = i === 0 ? 'Hoy' : i === 1 ? 'Mañ' : DIAS_CORTOS[new Date(date + 'T12:00:00').getDay()];
+              const dayName = i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : DIAS_CORTOS[new Date(date + 'T12:00:00').getDay()];
               const dCode = weather.daily.weather_code[i];
               return (
                 <div
                   key={date}
-                  className={`flex flex-col items-center gap-0.5 p-2 rounded-xl ${
+                  className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl ${
                     i === 0
                       ? 'bg-sky-100 border-2 border-sky-300'
                       : 'bg-gray-50 border border-gray-200'
                   }`}
                 >
-                  <span className={`text-[10px] font-bold ${i === 0 ? 'text-sky-600' : 'text-gray-500'}`}>{dayName}</span>
-                  <span className="text-xl leading-none my-0.5">{wmoEmoji(dCode)}</span>
-                  <span className="text-[11px] font-black text-orange-500">{Math.round(weather.daily.temperature_2m_max[i])}°</span>
-                  <span className="text-[10px] font-semibold text-sky-500">{Math.round(weather.daily.temperature_2m_min[i])}°</span>
+                  <span className={`text-sm font-bold ${i === 0 ? 'text-sky-600' : 'text-gray-600'}`}>{dayName}</span>
+                  <span className="text-4xl leading-none my-1.5">{wmoEmoji(dCode)}</span>
+                  <span className="text-xs text-gray-500 text-center leading-tight min-h-[2.2em]">{wmoDesc(dCode)}</span>
+                  <span className="text-xl font-black text-orange-500 mt-1">{Math.round(weather.daily.temperature_2m_max[i])}°</span>
+                  <span className="text-base font-semibold text-sky-500">{Math.round(weather.daily.temperature_2m_min[i])}°</span>
                 </div>
               );
             })}
