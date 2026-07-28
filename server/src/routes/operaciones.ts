@@ -32,6 +32,20 @@ async function obtenerOCrearToken(id: string, op: { estado: string; token_acceso
   return token as string;
 }
 
+// Mensaje de presupuesto/aprobación — misma plantilla (editable en Configuración)
+// para WhatsApp y email, así el cliente recibe el mismo texto por los dos canales.
+async function renderMensajePresupuesto(nombre: string, numero: string, url: string): Promise<string> {
+  const { rows: [tpl] } = await db.query(
+    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'presupuesto_aprobacion'`
+  );
+  return tpl?.contenido
+    ? tpl.contenido
+        .replace(/\{\{nombre\}\}/g, nombre)
+        .replace(/\{\{numero\}\}/g, numero)
+        .replace(/\{\{url\}\}/g, url)
+    : `Hola ${nombre}, te enviamos el presupuesto *${numero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
+}
+
 // MAX del sufijo numérico (no COUNT): un borrado previo deja huecos y COUNT(*) + 1
 // puede repetir un número ya usado, violando el UNIQUE de numero.
 async function nextNumeroRecibo(): Promise<string> {
@@ -642,17 +656,7 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     : `${op.nombre ?? ''} ${op.apellido ?? ''}`.trim() || 'estimado/a';
 
   const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
-
-  // Leer plantilla de DB
-  const { rows: [tpl] } = await db.query(
-    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'presupuesto_aprobacion'`
-  );
-  const mensaje = tpl?.contenido
-    ? tpl.contenido
-        .replace(/\{\{nombre\}\}/g, nombre)
-        .replace(/\{\{numero\}\}/g, proformaNumero)
-        .replace(/\{\{url\}\}/g, url)
-    : `Hola ${nombre}, te enviamos el presupuesto *${proformaNumero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
+  const mensaje = await renderMensajePresupuesto(nombre, proformaNumero, url);
 
   // Enviar via Evolution API
   const evoUrl = process.env.EVOLUTION_API_URL;
@@ -731,6 +735,7 @@ operaciones.post('/:id/enviar-email', async (c) => {
     : `${op.nombre ?? ''} ${op.apellido ?? ''}`.trim() || 'estimado/a';
 
   const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  const mensaje = await renderMensajePresupuesto(nombre, proformaNumero, url);
 
   const { rows: [empresa] } = await db.query(`SELECT nombre, telefono FROM empresa ORDER BY updated_at DESC LIMIT 1`);
 
@@ -738,6 +743,7 @@ operaciones.post('/:id/enviar-email', async (c) => {
     await sendProformaCompartida({
       to: emailCliente,
       clienteNombre: nombre,
+      mensaje,
       proformaNumero,
       total: Number(op.precio_total),
       url,

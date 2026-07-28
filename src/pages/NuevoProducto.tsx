@@ -40,10 +40,10 @@ const CONFIG_HOJAS = [
 ];
 
 const ANCHOS_HOJA: Record<string, number[]> = {
-  hoja_simple:      [70, 80, 85, 90],
-  hoja_y_media:     [70, 80, 85, 90],
-  dos_hojas:        [70, 80, 90],
-  puerta_pano_fijo: [70, 80, 85, 90],
+  hoja_simple:      [60, 70, 80, 85, 90, 100],
+  hoja_y_media:     [60, 70, 80, 85, 90, 100],
+  dos_hojas:        [60, 70, 80, 85, 90, 100],
+  puerta_pano_fijo: [60, 70, 80, 85, 90, 100],
 };
 
 const TIPO_PROVISION = [
@@ -211,7 +211,7 @@ function BtnGroup({ options, value, onChange, cols = 3, small = false }: {
             small ? 'text-xs' : 'text-sm',
             value === o.v
               ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-              : 'border-gray-200 text-gray-600 hover:border-sky-300 hover:bg-sky-50/50'
+              : 'border-gray-200 text-black hover:border-sky-300 hover:bg-sky-50/50'
           )}>
           <span className="block leading-tight">{o.l}</span>
           {o.sub && <span className="block text-[10px] opacity-60 mt-0.5">{o.sub}</span>}
@@ -237,7 +237,7 @@ function BtnCheck({ options, values, onChange }: {
             'px-2.5 py-1.5 rounded-lg border text-xs transition-all',
             values.includes(o.v)
               ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
-              : 'border-gray-200 text-gray-600 hover:border-sky-300'
+              : 'border-gray-200 text-black hover:border-sky-300'
           )}>
           {o.l}
         </button>
@@ -264,7 +264,7 @@ function FieldCard({ title, complete, optional = false, children }: {
       )}>
         <span className={cn(
           'text-[10px] font-semibold uppercase tracking-wider',
-          complete ? 'text-emerald-700' : 'text-gray-600'
+          complete ? 'text-emerald-700' : 'text-black'
         )}>
           {title}
           {optional && <span className="normal-case font-normal ml-1 opacity-60">(opc.)</span>}
@@ -281,7 +281,7 @@ function FieldCard({ title, complete, optional = false, children }: {
 function SectionDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 pt-1">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 shrink-0">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-black shrink-0">{label}</span>
       <div className="flex-1 h-px bg-gray-100" />
     </div>
   );
@@ -347,7 +347,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
 
   const btn = (active: boolean) => cn(
     'px-2 py-2 rounded-lg border text-xs text-left leading-tight transition-all',
-    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300'
   );
 
   return (
@@ -356,11 +356,11 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
       {/* Barra de progreso — sticky */}
       <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-300 shadow-lg px-4 py-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-black flex items-center gap-1.5">
             <DoorOpen size={13} className="text-sky-500" />
             Atributos de puerta
           </span>
-          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-gray-600')}>
+          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-black')}>
             {completed}/{total}
             {pct === 100 && <Check size={11} className="text-emerald-500" />}
           </span>
@@ -426,17 +426,17 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                       <button key={a} type="button" onClick={() => handleAnchoHoja(a)}
                         className={cn(
                           'px-3 py-2 rounded-lg border text-sm font-mono text-center transition-all',
-                          anchHoja === a ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+                          anchHoja === a ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300'
                         )}>
                         {a} cm
                       </button>
                     ))}
                   </div>
-                  {cfg === 'puerta_pano_fijo' && <p className="text-[10px] text-gray-600 mt-2">+ paño fijo: <strong>30 cm</strong></p>}
+                  {cfg === 'puerta_pano_fijo' && <p className="text-[10px] text-black mt-2">+ paño fijo: <strong>30 cm</strong></p>}
                   {anchHoja > 0 && <p className="text-[10px] text-sky-600 font-semibold mt-1.5">Total: {calcAncho(cfg, anchHoja)} cm</p>}
                 </>
               ) : (
-                <p className="text-xs text-gray-600 italic">Seleccioná configuración primero</p>
+                <p className="text-xs text-black italic">Seleccioná configuración primero</p>
               )}
             </FieldCard>
 
@@ -476,7 +476,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                   {LINEA_ALUM.map(o => (
                     <button key={o.v} type="button" onClick={() => { setAttr('linea', o.v); setAttr('espesor', ''); }}
                       className={cn('flex-1 px-2 py-2 rounded-lg border text-xs text-center transition-all',
-                        linea === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                        linea === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
                       {o.l}
                     </button>
                   ))}
@@ -488,7 +488,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                     {ESPESOR.map(e => (
                       <button key={e} type="button" onClick={() => setAttr('espesor', e)}
                         className={cn('flex-1 py-2 rounded-lg border text-sm font-medium transition-all',
-                          atributos.espesor === e ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                          atributos.espesor === e ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-black hover:border-sky-300')}>
                         {e}
                       </button>
                     ))}
@@ -511,7 +511,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                   {(MODELO[tp] ?? []).map(m => (
                     <button key={m} type="button" onClick={() => setAttr('modelo', m)}
                       className={cn('px-3 py-1.5 rounded-lg border text-xs transition-all',
-                        atributos.modelo === m ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                        atributos.modelo === m ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
                       {m}
                     </button>
                   ))}
@@ -524,7 +524,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                   {MODELO_COMERCIAL.map(m => (
                     <button key={m} type="button" onClick={() => setAttr('modelo_comercial', m)}
                       className={cn('px-2.5 py-1.5 rounded-lg border text-xs transition-all',
-                        atributos.modelo_comercial === m ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                        atributos.modelo_comercial === m ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
                       {m}
                     </button>
                   ))}
@@ -537,7 +537,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                   {[{ v: 'mdf', l: 'MDF' }, { v: 'aluminio', l: 'Aluminio' }].map(o => (
                     <button key={o.v} type="button" onClick={() => setAttr('subtipo_granero', o.v)}
                       className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
-                        atributos.subtipo_granero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                        atributos.subtipo_granero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-black hover:border-sky-300')}>
                       {o.l}
                     </button>
                   ))}
@@ -549,7 +549,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                 {DISEÑO_HOJA.map(d => (
                   <button key={d} type="button" onClick={() => setAttr('diseno_hoja', d)}
                     className={cn('flex-1 py-2 rounded-lg border text-xs font-medium transition-all',
-                      atributos.diseno_hoja === d ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      atributos.diseno_hoja === d ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-black hover:border-sky-300')}>
                     {d}
                   </button>
                 ))}
@@ -560,7 +560,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                 {CFG_ESTRUC.map(c => (
                   <button key={c} type="button" onClick={() => setAttr('config_estructural', c)}
                     className={cn('py-2 rounded-lg border text-xs font-medium transition-all',
-                      atributos.config_estructural === c ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      atributos.config_estructural === c ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-black hover:border-sky-300')}>
                     {c}
                   </button>
                 ))}
@@ -598,7 +598,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                 {[{ v: true, l: 'Con vidrio' }, { v: false, l: 'Sin vidrio' }].map(o => (
                   <button key={String(o.v)} type="button" onClick={() => setAttr('vidrio_incluye', o.v)}
                     className={cn('flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all',
-                      vidIncluye === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      vidIncluye === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-black hover:border-sky-300')}>
                     {o.l}
                   </button>
                 ))}
@@ -649,7 +649,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
                 {[{ v: true, l: 'Con cerradura' }, { v: false, l: 'Sin cerradura' }].map(o => (
                   <button key={String(o.v)} type="button" onClick={() => setAttr('cerradura', o.v)}
                     className={cn('flex-1 py-2 rounded-lg border text-xs font-medium transition-all',
-                      atributos.cerradura === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      atributos.cerradura === o.v ? 'border-sky-500 bg-sky-50 text-sky-800' : 'border-gray-200 text-black hover:border-sky-300')}>
                     {o.l}
                   </button>
                 ))}
@@ -671,7 +671,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               {coloresDsp.map(c => (
                 <button key={c} type="button" onClick={() => onColorChange(c)}
                   className={cn('px-3 py-1.5 rounded-lg border text-sm transition-all',
-                    colorActual === c ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    colorActual === c ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
                   {c}
                 </button>
               ))}
@@ -749,7 +749,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
 
   const btn = (active: boolean) => cn(
     'px-2 py-2 rounded-lg border text-xs text-left leading-tight transition-all',
-    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300'
   );
 
   return (
@@ -758,11 +758,11 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
       {/* Barra de progreso — sticky */}
       <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-300 shadow-lg px-4 py-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-black flex items-center gap-1.5">
             <AppWindow size={13} className="text-sky-500" />
             Atributos de ventana
           </span>
-          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-gray-600')}>
+          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-black')}>
             {completed}/{total}
             {pct === 100 && <Check size={11} className="text-emerald-500" />}
           </span>
@@ -797,7 +797,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
               {HOJAS_VENTANA.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('config_hojas', o.v)}
                   className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
-                    atributos.config_hojas === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    atributos.config_hojas === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                   {o.l}
                 </button>
               ))}
@@ -815,7 +815,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
               {CELOSIA_APERTURA.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('celosia_tipo', o.v)}
                   className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
-                    atributos.celosia_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    atributos.celosia_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                   {o.l}
                 </button>
               ))}
@@ -907,7 +907,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
                 {[{ v: 'si', l: 'Sí' }, { v: 'no', l: 'No' }].map(o => (
                   <button key={o.v} type="button" onClick={() => setAttr('reja', o.v)}
                     className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
-                      atributos.reja === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      atributos.reja === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                     {o.l}
                   </button>
                 ))}
@@ -918,7 +918,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
                 {[{ v: 'si', l: 'Sí' }, { v: 'no', l: 'No' }].map(o => (
                   <button key={o.v} type="button" onClick={() => setAttr('mosquitero', o.v)}
                     className={cn('flex-1 py-2 rounded-lg border text-xs font-medium text-center transition-all',
-                      atributos.mosquitero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                      atributos.mosquitero === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                     {o.l}
                   </button>
                 ))}
@@ -1008,7 +1008,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
 
   const btn = (active: boolean) => cn(
     'px-2 py-2 rounded-lg border text-xs text-left leading-tight transition-all',
-    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300'
+    active ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300'
   );
 
   return (
@@ -1017,11 +1017,11 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
       {/* Barra de progreso */}
       <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-300 shadow-lg px-4 py-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-black flex items-center gap-1.5">
             <AppWindow size={13} className="text-sky-500" />
             Atributos de puerta-balcón
           </span>
-          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-gray-600')}>
+          <span className={cn('text-xs font-bold tabular-nums flex items-center gap-1', pct === 100 ? 'text-emerald-600' : 'text-black')}>
             {completed}/{total}
             {pct === 100 && <Check size={11} className="text-emerald-500" />}
           </span>
@@ -1053,7 +1053,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
               {HOJAS_VENTANA.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('config_hojas', o.v)}
                   className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
-                    atributos.config_hojas === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    atributos.config_hojas === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                   {o.l}
                 </button>
               ))}
@@ -1071,7 +1071,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
               {CELOSIA_APERTURA.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('celosia_tipo', o.v)}
                   className={cn('flex-1 py-2 rounded-lg border text-sm font-medium text-center transition-all',
-                    atributos.celosia_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    atributos.celosia_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                   {o.l}
                 </button>
               ))}
@@ -1159,7 +1159,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
               {MARCO_PBALCON.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('marco_tipo', o.v)}
                   className={cn('flex-1 py-2.5 rounded-lg border text-sm font-medium text-center transition-all',
-                    atributos.marco_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                    atributos.marco_tipo === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-bold' : 'border-gray-200 text-black hover:border-sky-300')}>
                   {o.l}
                 </button>
               ))}
@@ -1255,19 +1255,19 @@ function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }:
       'py-2 rounded-lg border text-xs font-medium transition-all',
       active
         ? 'border-sky-500 bg-sky-50 text-sky-800'
-        : 'border-gray-200 text-gray-600 hover:border-sky-300'
+        : 'border-gray-200 text-black hover:border-sky-300'
     );
   }
 
   return (
     <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-700">Atributos de mosquera</span>
+        <span className="text-sm font-semibold text-black">Atributos de mosquera</span>
         <div className="flex items-center gap-2">
           <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
           </div>
-          <span className={cn('text-[10px] font-semibold', pct === 100 ? 'text-emerald-700' : 'text-gray-600')}>
+          <span className={cn('text-[10px] font-semibold', pct === 100 ? 'text-emerald-700' : 'text-black')}>
             {pct}%
           </span>
         </div>
@@ -1311,7 +1311,7 @@ function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }:
             {COLORES_MOSQUITERA.map(c => (
               <button key={c} type="button" onClick={() => onColorChange(c)}
                 className={cn('px-3 py-1.5 rounded-lg border text-sm transition-all',
-                  colorActual === c ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-gray-600 hover:border-sky-300')}>
+                  colorActual === c ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
                 {c}
               </button>
             ))}
@@ -1703,12 +1703,12 @@ export function NuevoProducto() {
   }
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white';
-  const labelCls = 'block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5';
+  const labelCls = 'block text-[11px] font-semibold text-black uppercase tracking-wider mb-1.5';
 
   const SectionHeader = ({ icon: Icon, label, primary = false }: { icon: React.ElementType; label: string; primary?: boolean }) => (
     <div className={cn('flex items-center gap-2 px-4 py-2.5 border-b', primary ? 'bg-sky-50 border-sky-100' : 'bg-gray-50 border-gray-200')}>
-      <Icon size={13} className={primary ? 'text-sky-500' : 'text-gray-600'} />
-      <span className={cn('text-[11px] font-semibold uppercase tracking-wider', primary ? 'text-sky-600' : 'text-gray-700')}>{label}</span>
+      <Icon size={13} className={primary ? 'text-sky-500' : 'text-black'} />
+      <span className={cn('text-[11px] font-semibold uppercase tracking-wider', primary ? 'text-sky-600' : 'text-black')}>{label}</span>
     </div>
   );
 
@@ -1719,7 +1719,7 @@ export function NuevoProducto() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-3 flex-1">
           <button onClick={() => navigate('/productos')} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
-            <ArrowLeft size={17} className="text-gray-600" />
+            <ArrowLeft size={17} className="text-black" />
           </button>
           <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
             <Package size={16} className="text-sky-600" />
@@ -1728,7 +1728,7 @@ export function NuevoProducto() {
         </div>
         <div className="flex items-center gap-2 sm:ml-auto">
           <button onClick={() => navigate('/productos')}
-            className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+            className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-black hover:bg-gray-50">
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
@@ -1753,8 +1753,8 @@ export function NuevoProducto() {
               className={cn('text-left p-3.5 rounded-lg border-2 transition-all',
                 form.tipo === t.value ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
               )}>
-              <p className={cn('text-sm font-semibold', form.tipo === t.value ? 'text-sky-700' : 'text-gray-700')}>{t.label}</p>
-              <p className="text-xs text-gray-600 mt-0.5 leading-tight">{t.desc}</p>
+              <p className={cn('text-sm font-semibold', form.tipo === t.value ? 'text-sky-700' : 'text-black')}>{t.label}</p>
+              <p className="text-xs text-black mt-0.5 leading-tight">{t.desc}</p>
             </button>
           ))}
         </div>
@@ -1767,7 +1767,7 @@ export function NuevoProducto() {
           <div>
             <label className={labelCls}>Categoría (Familia → Uso → Material → Línea)</label>
             {categorias.length === 0 ? (
-              <p className="text-xs text-gray-600 italic">Sin categorías cargadas — configurables en Configuración → Categorías.</p>
+              <p className="text-xs text-black italic">Sin categorías cargadas — configurables en Configuración → Categorías.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {(() => {
@@ -1812,7 +1812,7 @@ export function NuevoProducto() {
                   placeholder="Ej: Modelo 3015" className={cn(inputCls, 'flex-1')}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearModeloInline(); } if (e.key === 'Escape') setCreandoModelo(false); }} />
                 <button type="button" onClick={crearModeloInline} className="px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">Crear</button>
-                <button type="button" onClick={() => setCreandoModelo(false)} className="px-3 rounded-lg border border-gray-200 text-gray-600 text-sm">Cancelar</button>
+                <button type="button" onClick={() => setCreandoModelo(false)} className="px-3 rounded-lg border border-gray-200 text-black text-sm">Cancelar</button>
               </div>
             ) : form.modelo_id ? (
               <div className="flex items-center gap-2 px-3 py-2 border border-sky-200 bg-sky-50 rounded-lg">
@@ -1827,12 +1827,12 @@ export function NuevoProducto() {
                 {modeloSearch && (
                   <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto divide-y divide-gray-50">
                     {modelosFiltrados.length === 0 ? (
-                      <p className="text-xs text-gray-600 p-2">Sin resultados</p>
+                      <p className="text-xs text-black p-2">Sin resultados</p>
                     ) : modelosFiltrados.map(m => (
                       <button key={m.id} type="button" onClick={() => { set('modelo_id', m.id); setModeloSearch(''); }}
                         className="w-full text-left px-3 py-1.5 text-sm hover:bg-sky-50 flex items-center justify-between">
                         <span>{m.nombre}</span>
-                        <span className="text-xs text-gray-600">{m.variantes_count} variante{m.variantes_count !== 1 ? 's' : ''}</span>
+                        <span className="text-xs text-black">{m.variantes_count} variante{m.variantes_count !== 1 ? 's' : ''}</span>
                       </button>
                     ))}
                   </div>
@@ -1859,12 +1859,12 @@ export function NuevoProducto() {
             <select value={form.tipo_abertura_id} disabled={!!tipoDerivadoDeCategoria} onChange={e => {
               set('tipo_abertura_id', e.target.value);
               setAtributos({});
-            }} className={cn(inputCls, tipoDerivadoDeCategoria && 'bg-gray-50 text-gray-600 cursor-not-allowed')}>
+            }} className={cn(inputCls, tipoDerivadoDeCategoria && 'bg-gray-50 text-black cursor-not-allowed')}>
               <option value="">Seleccionar tipo...</option>
               {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
             {tipoDerivadoDeCategoria && (
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-black mt-1">
                 Derivado de la categoría "{raizCategoriaElegida!.nombre}" — para cambiarlo, modificá la Familia arriba.
               </p>
             )}
@@ -1885,7 +1885,7 @@ export function NuevoProducto() {
 
           {/* Aviso hasta que seleccione tipo */}
           {!form.tipo_abertura_id && (
-            <p className="text-xs text-gray-600 italic">
+            <p className="text-xs text-black italic">
               Seleccioná el tipo de abertura para ver las opciones correspondientes.
             </p>
           )}
@@ -1911,16 +1911,16 @@ export function NuevoProducto() {
             <div>
               <label className={labelCls}>Ancho total</label>
               <div className={cn(
-                'w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-600 flex items-center justify-between',
+                'w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 text-black flex items-center justify-between',
                 form.ancho ? 'border-emerald-300' : 'border-gray-200'
               )}>
                 {form.ancho
-                  ? <span className="font-mono font-semibold text-gray-800">{form.ancho} cm</span>
-                  : <span className="italic text-gray-600 text-xs">Elegir config. de hojas →</span>
+                  ? <span className="font-mono font-semibold text-black">{form.ancho} cm</span>
+                  : <span className="italic text-black text-xs">Elegir config. de hojas →</span>
                 }
                 {form.ancho && <Check size={12} className="text-emerald-500 shrink-0" />}
               </div>
-              <p className="text-[10px] text-gray-600 mt-1">Calculado · medida exterior de marco</p>
+              <p className="text-[10px] text-black mt-1">Calculado · medida exterior de marco</p>
             </div>
             <div>
               <label className={labelCls}>Alto *</label>
@@ -1929,9 +1929,9 @@ export function NuevoProducto() {
                   onChange={e => set('alto', e.target.value)}
                   placeholder="200"
                   className={inputCls + ' pr-8'} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">cm</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black pointer-events-none">cm</span>
               </div>
-              <p className="text-[10px] text-gray-600 mt-1">Medida exterior de marco · estándar 200 cm</p>
+              <p className="text-[10px] text-black mt-1">Medida exterior de marco · estándar 200 cm</p>
             </div>
           </div>
         </div>
@@ -1970,7 +1970,7 @@ export function NuevoProducto() {
                   placeholder="120"
                   className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
                     form.ancho ? 'border-emerald-300' : 'border-gray-200')} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">cm</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black pointer-events-none">cm</span>
               </div>
             </div>
             <div>
@@ -1981,11 +1981,11 @@ export function NuevoProducto() {
                   placeholder="100"
                   className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
                     form.alto ? 'border-emerald-300' : 'border-gray-200')} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">cm</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black pointer-events-none">cm</span>
               </div>
             </div>
           </div>
-          <p className="text-[10px] text-gray-600 px-4 pb-3">Medidas exteriores de marco</p>
+          <p className="text-[10px] text-black px-4 pb-3">Medidas exteriores de marco</p>
         </div>
       )}
 
@@ -2012,7 +2012,7 @@ export function NuevoProducto() {
                   placeholder="100"
                   className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
                     form.ancho ? 'border-emerald-300' : 'border-gray-200')} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">cm</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black pointer-events-none">cm</span>
               </div>
             </div>
             <div>
@@ -2023,7 +2023,7 @@ export function NuevoProducto() {
                   placeholder="100"
                   className={cn('w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white pr-8',
                     form.alto ? 'border-emerald-300' : 'border-gray-200')} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">cm</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black pointer-events-none">cm</span>
               </div>
             </div>
           </div>
@@ -2070,8 +2070,8 @@ export function NuevoProducto() {
                 <input type="checkbox" checked={form.precio_por_m2}
                   onChange={e => set('precio_por_m2', e.target.checked)}
                   className="rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
-                <span className="text-sm text-gray-700">Precio base por m²</span>
-                <span className="text-xs text-gray-600">(se multiplica por medidas del presupuesto)</span>
+                <span className="text-sm text-black">Precio base por m²</span>
+                <span className="text-xs text-black">(se multiplica por medidas del presupuesto)</span>
               </label>
             )}
           </div>
@@ -2093,7 +2093,7 @@ export function NuevoProducto() {
                   )}>
                     <input type="radio" name="origen" value={op} checked={form.origen === op}
                       onChange={() => set('origen', op)} className="accent-sky-600" />
-                    <span className={cn('text-sm font-semibold', form.origen === op ? 'text-sky-700' : 'text-gray-700')}>
+                    <span className={cn('text-sm font-semibold', form.origen === op ? 'text-sky-700' : 'text-black')}>
                       {op === 'proveedor' ? 'Proveedor' : 'Fabricación propia'}
                     </span>
                   </label>
@@ -2136,7 +2136,7 @@ export function NuevoProducto() {
                     <option key={a} value={a}>{a}</option>
                   )}
                 </select>
-                <p className="text-[10px] text-gray-600 mt-1">Ctrl+clic para varios</p>
+                <p className="text-[10px] text-black mt-1">Ctrl+clic para varios</p>
               </div>
             </div>
           </div>
@@ -2157,14 +2157,14 @@ export function NuevoProducto() {
               <label className={labelCls}>Stock mínimo</label>
               <input type="number" min={0} value={form.stock_minimo}
                 onChange={e => set('stock_minimo', e.target.value)} placeholder="0" className={inputCls} />
-              <p className="text-[10px] text-gray-600 mt-1">Alerta de reposición</p>
+              <p className="text-[10px] text-black mt-1">Alerta de reposición</p>
             </div>
             <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none pt-1 border-t border-gray-100 mt-1">
               <input type="checkbox" checked={form.en_salon}
                 onChange={e => set('en_salon', e.target.checked)}
                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-              <span className="text-sm text-gray-700">Exhibido en salón</span>
-              <span className="text-xs text-gray-600">(muestra físicamente en el local, más allá del stock)</span>
+              <span className="text-sm text-black">Exhibido en salón</span>
+              <span className="text-xs text-black">(muestra físicamente en el local, más allá del stock)</span>
             </label>
           </div>
         </div>
@@ -2186,7 +2186,7 @@ export function NuevoProducto() {
                 placeholder="Ej: VEN-1200-PVC-BL"
                 className={inputCls}
               />
-              <p className="text-[10px] text-gray-600 mt-1">
+              <p className="text-[10px] text-black mt-1">
                 Se muestra en los pedidos al proveedor para identificar el producto
               </p>
             </div>
@@ -2212,20 +2212,20 @@ export function NuevoProducto() {
           </div>
           {precio > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-600">Margen efectivo:</span>
+              <span className="text-black">Margen efectivo:</span>
               <span className={cn('font-semibold', margen >= 30 ? 'text-green-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>
                 {margen}%
               </span>
-              <span className="text-gray-600 text-xs">({formatCurrency(precio - costo)} por unidad)</span>
+              <span className="text-black text-xs">({formatCurrency(precio - costo)} por unidad)</span>
             </div>
           )}
           {precio > 0 && dolarCompra && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-600">Valor U$S:</span>
+              <span className="text-black">Valor U$S:</span>
               <span className="font-semibold text-sky-700">
                 U$S {(precio / dolarCompra).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-gray-600 text-xs">(dólar blue: {formatCurrency(dolarCompra)})</span>
+              <span className="text-black text-xs">(dólar blue: {formatCurrency(dolarCompra)})</span>
             </div>
           )}
           {/* Margen override + precio_manual */}
@@ -2241,7 +2241,7 @@ export function NuevoProducto() {
                 placeholder="Heredado de tipo de abertura"
                 className={inputCls}
               />
-              <p className="text-[10px] text-gray-600 mt-0.5">Vacío = usa margen del tipo o proveedor</p>
+              <p className="text-[10px] text-black mt-0.5">Vacío = usa margen del tipo o proveedor</p>
             </div>
             <div>
               <label className="flex items-center gap-2 cursor-pointer w-fit">
@@ -2251,9 +2251,9 @@ export function NuevoProducto() {
                   <div className={cn('absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
                     form.precio_manual ? 'translate-x-4' : 'translate-x-0.5')} />
                 </div>
-                <span className="text-xs font-medium text-gray-700">Precio manual</span>
+                <span className="text-xs font-medium text-black">Precio manual</span>
               </label>
-              <p className="text-[10px] text-gray-600 mt-0.5 ml-11">No se sobreescribe al actualizar lista</p>
+              <p className="text-[10px] text-black mt-0.5 ml-11">No se sobreescribe al actualizar lista</p>
             </div>
           </div>
           {/* Etiqueta de venta */}
@@ -2263,7 +2263,7 @@ export function NuevoProducto() {
             </label>
             <div className="grid grid-cols-4 gap-2 mt-1">
               {([
-                ['', 'Ninguna', 'border-gray-200 text-gray-600'],
+                ['', 'Ninguna', 'border-gray-200 text-black'],
                 ['mas_vendido', 'Más vendido', 'border-amber-400 bg-amber-50 text-amber-800'],
                 ['recomendado', 'Recomendado', 'border-orange-400 bg-orange-50 text-orange-800'],
                 ['nuevo', 'Nuevo', 'border-emerald-400 bg-emerald-50 text-emerald-800'],
@@ -2272,7 +2272,7 @@ export function NuevoProducto() {
                   onClick={() => set('etiqueta', v)}
                   className={cn(
                     'px-2 py-2 rounded-lg border text-[11px] text-center font-medium transition-all',
-                    (form.etiqueta ?? '') === v ? activeCls : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    (form.etiqueta ?? '') === v ? activeCls : 'border-gray-200 text-black hover:border-gray-300'
                   )}>
                   {l}
                 </button>
@@ -2294,7 +2294,7 @@ export function NuevoProducto() {
                       ? v === 'bajo'  ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
                       : v === 'medio' ? 'border-amber-500 bg-amber-50 text-amber-800 font-semibold'
                                       : 'border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      : 'border-gray-200 text-black hover:border-gray-300'
                   )}>
                   <div className="font-semibold">{l}</div>
                   <div className="text-[10px] opacity-70">dto. {pct}</div>
@@ -2308,14 +2308,14 @@ export function NuevoProducto() {
       {/* Promociones */}
       <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <span className="flex items-center gap-2 text-sm font-semibold text-black">
             <Tag size={14} className="text-pink-500" />
             Promoción / Oferta
           </span>
           <button type="button"
             onClick={() => set('promo_activa', !form.promo_activa)}
             className={cn('flex items-center gap-1.5 text-xs font-medium transition-colors px-2 py-1 rounded-lg',
-              form.promo_activa ? 'text-pink-700 bg-pink-50' : 'text-gray-600 hover:text-gray-600'
+              form.promo_activa ? 'text-pink-700 bg-pink-50' : 'text-black hover:text-black'
             )}>
             {form.promo_activa
               ? <><ToggleRight size={16} className="text-pink-500" /> Activa</>
@@ -2332,7 +2332,7 @@ export function NuevoProducto() {
                 'w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs text-left transition-all',
                 form.promo_auto_renovar
                   ? 'border-violet-300 bg-violet-50 text-violet-700'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  : 'border-gray-200 text-black hover:border-gray-300'
               )}>
               {form.promo_auto_renovar ? <ToggleRight size={15} className="text-violet-500 shrink-0" /> : <ToggleLeft size={15} className="shrink-0" />}
               <div>
@@ -2365,7 +2365,7 @@ export function NuevoProducto() {
               <label className={labelCls}>
                 Precio de oferta
                 {form.margen_tipo && precio > 0 && (
-                  <span className="ml-2 text-[10px] text-gray-600 font-normal">
+                  <span className="ml-2 text-[10px] text-black font-normal">
                     (auto: {form.margen_tipo} → {Math.round((DESCUENTOS_MARGEN[form.margen_tipo as keyof typeof DESCUENTOS_MARGEN] ?? 0) * 100)}% dto.)
                   </span>
                 )}
@@ -2383,7 +2383,7 @@ export function NuevoProducto() {
           </div>
         )}
         {!form.promo_activa && (
-          <p className="px-4 py-3 text-xs text-gray-600">
+          <p className="px-4 py-3 text-xs text-black">
             Activar para configurar precio de oferta por tiempo limitado.
           </p>
         )}
@@ -2404,7 +2404,7 @@ export function NuevoProducto() {
               draggingImg && 'ring-2 ring-sky-400 ring-offset-2 bg-sky-50/50'
             )}
           >
-            <p className="text-[11px] text-gray-600 mb-2">
+            <p className="text-[11px] text-black mb-2">
               La primera imagen es la principal mostrada en catálogo y tienda. Podés arrastrar imágenes acá o pegarlas con Ctrl+V.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -2419,7 +2419,7 @@ export function NuevoProducto() {
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                     {idx > 0 && (
                       <button type="button" onClick={() => makeMainImagen(idx)}
-                        className="text-[9px] px-1.5 py-0.5 bg-white/90 text-gray-800 rounded font-medium hover:bg-white">
+                        className="text-[9px] px-1.5 py-0.5 bg-white/90 text-black rounded font-medium hover:bg-white">
                         Principal
                       </button>
                     )}
@@ -2434,14 +2434,14 @@ export function NuevoProducto() {
               <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingImg}
                 className="w-20 h-20 shrink-0 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-sky-400 hover:bg-sky-50 transition-colors disabled:opacity-50">
                 {uploadingImg
-                  ? <><div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /><span className="text-[10px] text-gray-600">Subiendo</span></>
-                  : <><Upload size={16} className="text-gray-300" /><span className="text-[10px] text-gray-600">Agregar</span></>
+                  ? <><div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /><span className="text-[10px] text-black">Subiendo</span></>
+                  : <><Upload size={16} className="text-gray-300" /><span className="text-[10px] text-black">Agregar</span></>
                 }
               </button>
             </div>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
               onChange={handleImageUpload} className="hidden" />
-            <p className="text-[10px] text-gray-600 mt-1.5">JPG, PNG o WebP · podés seleccionar varias a la vez</p>
+            <p className="text-[10px] text-black mt-1.5">JPG, PNG o WebP · podés seleccionar varias a la vez</p>
           </div>
 
           {/* Video */}
@@ -2453,7 +2453,7 @@ export function NuevoProducto() {
               onChange={e => set('video_url', e.target.value)}
               placeholder="https://youtube.com/... o enlace directo al video"
               className={inputCls} />
-            <p className="text-[10px] text-gray-600 mt-1">YouTube, Vimeo o URL directa de video. Se muestra en la galería de la tienda.</p>
+            <p className="text-[10px] text-black mt-1">YouTube, Vimeo o URL directa de video. Se muestra en la galería de la tienda.</p>
           </div>
 
         </div>
@@ -2486,7 +2486,7 @@ export function NuevoProducto() {
       {/* Botón guardar al final */}
       <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
         <button onClick={() => navigate('/productos')}
-          className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+          className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-black hover:bg-gray-50">
           Cancelar
         </button>
         <button onClick={handleSave} disabled={saving}

@@ -199,6 +199,7 @@ productos.put('/:id', async (c) => {
       alto             = $7,
       costo_base       = $8,
       precio_base      = $9,
+      precio_actualizado_at = CASE WHEN precio_base IS DISTINCT FROM $9 THEN now() ELSE precio_actualizado_at END,
       precio_por_m2    = $10,
       activo           = $11,
       codigo           = $12,

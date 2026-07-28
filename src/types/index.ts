@@ -249,6 +249,7 @@ export interface Producto {
     auto_renovar?: boolean;
   } | null;
   created_at: string;
+  precio_actualizado_at: string;
 }
 
 export interface DashboardStats {

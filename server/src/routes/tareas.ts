@@ -35,6 +35,33 @@ tareas.get('/', async (c) => {
   return c.json(rows);
 });
 
+// GET /agenda — atrasadas / hoy / próximos 3 días, agrupado (registrar ANTES de /:id-like)
+tareas.get('/agenda', async (c) => {
+  const CAMPOS = `
+    t.id, t.descripcion, t.tipo_accion, t.hora::text, t.prioridad,
+    t.vencimiento, t.operacion_id, t.cliente_id,
+    c.nombre, c.apellido, c.razon_social, c.tipo_persona, c.telefono
+  `;
+  const [{ rows: vencidas }, { rows: hoy }, { rows: proximos }] = await Promise.all([
+    db.query(`
+      SELECT ${CAMPOS} FROM tareas t JOIN clientes c ON c.id = t.cliente_id
+      WHERE t.completada = false AND t.vencimiento < CURRENT_DATE
+      ORDER BY t.vencimiento ASC LIMIT 50
+    `),
+    db.query(`
+      SELECT ${CAMPOS} FROM tareas t JOIN clientes c ON c.id = t.cliente_id
+      WHERE t.completada = false AND t.vencimiento = CURRENT_DATE
+      ORDER BY t.hora ASC NULLS LAST, t.prioridad = 'alta' DESC LIMIT 50
+    `),
+    db.query(`
+      SELECT ${CAMPOS} FROM tareas t JOIN clientes c ON c.id = t.cliente_id
+      WHERE t.completada = false AND t.vencimiento > CURRENT_DATE AND t.vencimiento <= CURRENT_DATE + 3
+      ORDER BY t.vencimiento ASC, t.hora ASC NULLS LAST LIMIT 50
+    `),
+  ]);
+  return c.json({ vencidas, hoy, proximos });
+});
+
 tareas.post('/', async (c) => {
   const user = c.get('user');
   const body = await c.req.json();

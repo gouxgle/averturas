@@ -16,6 +16,7 @@ const ClienteDetalle           = lazy(() => import('@/pages/ClienteDetalle').the
 const EstadoCuenta             = lazy(() => import('@/pages/EstadoCuenta').then(m => ({ default: m.EstadoCuenta })));
 const Stock                    = lazy(() => import('@/pages/Stock').then(m => ({ default: m.Stock })));
 const Reportes                 = lazy(() => import('@/pages/Reportes').then(m => ({ default: m.Reportes })));
+const Changelog                = lazy(() => import('@/pages/Changelog').then(m => ({ default: m.Changelog })));
 const Configuracion            = lazy(() => import('@/pages/Configuracion').then(m => ({ default: m.Configuracion })));
 const Productos                = lazy(() => import('@/pages/Productos').then(m => ({ default: m.Productos })));
 const NuevoProducto            = lazy(() => import('@/pages/NuevoProducto').then(m => ({ default: m.NuevoProducto })));
@@ -111,6 +112,7 @@ export default function App() {
                   <Route path="/recibos/:id/editar" element={<NuevoRecibo />} />
                   <Route path="/estado-cuenta" element={<EstadoCuentaGlobal />} />
                   <Route path="/reportes" element={<Reportes />} />
+                  <Route path="/novedades" element={<Changelog />} />
                   <Route path="/configuracion" element={<Configuracion />} />
                 </Route>
               </Route>

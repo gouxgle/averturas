@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Toaster } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
+import { BuzonComentarios } from '@/components/BuzonComentarios';
 
 /** Marca de agua: el isologotipo 2×2 a muy baja opacidad */
 function Watermark() {
@@ -167,6 +168,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      <BuzonComentarios />
 
       <Toaster
         position="top-right"

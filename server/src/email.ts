@@ -208,6 +208,7 @@ export async function sendProformaRechazada(p: EmailProformaRechazadaParams) {
 interface EmailProformaCompartidaParams {
   to: string;
   clienteNombre: string;
+  mensaje: string;
   proformaNumero: string;
   total: number;
   url: string;
@@ -215,12 +216,25 @@ interface EmailProformaCompartidaParams {
   empresaTelefono: string | null;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Mismo texto que WhatsApp (plantilla de mensajes_plantilla, con *negrita* estilo WA) —
+// se quita la línea que es solo la URL porque el email ya tiene el botón CTA con el link.
+function mensajeToHtml(texto: string, url: string): string {
+  const lineas = texto.split('\n').filter(l => l.trim() !== url.trim());
+  const escapado = escapeHtml(lineas.join('\n'));
+  return escapado
+    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+    .split('\n').join('<br/>');
+}
+
 export async function sendProformaCompartida(p: EmailProformaCompartidaParams) {
   const content = `
     <tr>
       <td style="padding:36px 32px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Hola, <strong>${p.clienteNombre}</strong></p>
-        <h1 style="margin:0 0 24px;font-size:24px;font-weight:900;color:${NAVY};">Te enviamos tu presupuesto</h1>
+        <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.7;">${mensajeToHtml(p.mensaje, p.url)}</p>
 
         <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin-bottom:28px;">
           <table width="100%" cellpadding="0" cellspacing="0">

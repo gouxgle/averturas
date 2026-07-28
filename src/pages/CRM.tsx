@@ -34,6 +34,15 @@ interface TareaHoy {
   cliente_id: string; telefono: string | null;
 }
 
+interface TareaAgendaItem extends TareaHoy {
+  vencimiento: string | null;
+}
+interface Agenda {
+  vencidas: TareaAgendaItem[];
+  hoy: TareaAgendaItem[];
+  proximos: TareaAgendaItem[];
+}
+
 interface Cumpleanos {
   id: string; nombre: string | null; apellido: string | null;
   razon_social: string | null; tipo_persona: string; telefono: string | null;
@@ -308,6 +317,42 @@ export function CRM() {
     } catch {}
   };
 
+  // ── Agenda de contactos: atrasadas / hoy / próximos 3 días ──────────
+  const [agenda, setAgenda] = useState<Agenda>({ vencidas: [], hoy: [], proximos: [] });
+  const [tabAgenda, setTabAgenda] = useState<'vencidas' | 'hoy' | 'proximos'>('hoy');
+
+  const fetchAgenda = useCallback(async () => {
+    try {
+      const a = await api.get<Agenda>('/tareas/agenda');
+      setAgenda(a);
+      if (a.vencidas.length > 0) setTabAgenda('vencidas');
+    } catch { /* silencioso */ }
+  }, []);
+
+  useEffect(() => { fetchAgenda(); }, [fetchAgenda]);
+
+  const completarAgendaItem = async (id: string) => {
+    try {
+      await api.patch(`/crm/tareas/${id}/completar`, {});
+      setAgenda(a => ({
+        vencidas: a.vencidas.filter(t => t.id !== id),
+        hoy:      a.hoy.filter(t => t.id !== id),
+        proximos: a.proximos.filter(t => t.id !== id),
+      }));
+    } catch {}
+  };
+
+  function diasAtraso(vencimiento: string | null): number {
+    if (!vencimiento) return 0;
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const v = new Date(vencimiento.slice(0, 10) + 'T00:00:00');
+    return Math.max(0, Math.round((hoy.getTime() - v.getTime()) / 86400000));
+  }
+  function fmtVenc(vencimiento: string | null): string {
+    if (!vencimiento) return '';
+    return new Date(vencimiento.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+  }
+
   const k = data?.kpis;
   const totalOrigen = data?.origen_leads.reduce((s, o) => s + o.cant, 0) ?? 0;
 
@@ -476,16 +521,35 @@ export function CRM() {
       {/* ── Fila: Agenda / Cumpleaños / Alertas / Postventa / VIP ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
 
-        {/* Agenda de hoy */}
+        {/* Agenda de contactos: atrasadas / hoy / próximos 3 días */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
             <Calendar size={14} className="text-sky-500" />
-            <span className="text-xs font-bold text-gray-700">Agenda de hoy</span>
+            <span className="text-xs font-bold text-gray-700">Agenda de contactos</span>
+          </div>
+          <div className="flex items-center border-b border-gray-100 text-[10px] font-bold">
+            {([
+              ['vencidas', `Atrasadas${agenda.vencidas.length ? ` (${agenda.vencidas.length})` : ''}`],
+              ['hoy',      `Hoy${agenda.hoy.length ? ` (${agenda.hoy.length})` : ''}`],
+              ['proximos', `Próx. 3d${agenda.proximos.length ? ` (${agenda.proximos.length})` : ''}`],
+            ] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setTabAgenda(key)}
+                className={cn(
+                  'flex-1 py-2 border-b-2 transition-colors',
+                  tabAgenda === key
+                    ? (key === 'vencidas' ? 'border-red-500 text-red-600' : 'border-sky-500 text-sky-600')
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                )}>
+                {label}
+              </button>
+            ))}
           </div>
           <div className="p-3 space-y-2.5">
-            {(data?.seguimientos_hoy ?? []).slice(0, 5).map(t => (
+            {agenda[tabAgenda].slice(0, 6).map(t => (
               <div key={t.id} className="flex items-start gap-2.5">
-                <span className="text-[10px] font-bold text-sky-600 w-10 shrink-0 pt-0.5">{t.hora?.slice(0,5) ?? '—'}</span>
+                <span className={cn('text-[10px] font-bold w-11 shrink-0 pt-0.5', tabAgenda === 'vencidas' ? 'text-red-500' : 'text-sky-600')}>
+                  {tabAgenda === 'vencidas' ? `${diasAtraso(t.vencimiento)}d` : tabAgenda === 'proximos' ? fmtVenc(t.vencimiento) : (t.hora?.slice(0, 5) ?? '—')}
+                </span>
                 <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                   {t.tipo_accion ? (ACCION_ICON[t.tipo_accion] ?? <Clock size={11} className="text-gray-300" />) : <Clock size={11} className="text-gray-300" />}
                 </div>
@@ -493,12 +557,20 @@ export function CRM() {
                   <p className="text-[11px] font-bold text-gray-700 truncate">{t.descripcion}</p>
                   <p className="text-[9px] text-gray-400 truncate">{cliNombre(t)}</p>
                 </div>
+                <button onClick={() => completarAgendaItem(t.id)} title="Marcar como contactado"
+                  className="shrink-0 p-1 text-gray-300 hover:text-emerald-600 rounded hover:bg-emerald-50">
+                  <Check size={13} />
+                </button>
               </div>
             ))}
-            {(data?.seguimientos_hoy ?? []).length === 0 && <p className="text-[10px] text-gray-300 text-center py-5">Sin eventos hoy</p>}
+            {agenda[tabAgenda].length === 0 && (
+              <p className="text-[10px] text-gray-300 text-center py-5">
+                {tabAgenda === 'vencidas' ? 'Sin contactos atrasados' : tabAgenda === 'hoy' ? 'Sin eventos hoy' : 'Nada para los próximos 3 días'}
+              </p>
+            )}
             <button onClick={() => navigate('/clientes')}
               className="w-full text-[10px] text-sky-600 font-semibold hover:bg-sky-50 py-1.5 rounded-lg border border-sky-100 mt-1">
-              Ver agenda completa
+              Ver todos los clientes
             </button>
           </div>
         </div>

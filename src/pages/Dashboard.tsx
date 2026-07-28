@@ -210,6 +210,33 @@ function WeatherWidget() {
   );
 }
 
+// ── Cotización del dólar (misma fuente/campo que "Valor U$S" en Productos) ──
+
+function DolarWidget() {
+  const [compra, setCompra] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.get<{ compra: number }>('/catalogo/cotizacion-dolar')
+      .then(d => setCompra(d.compra))
+      .catch(() => {});
+  }, []);
+
+  if (compra == null) return null;
+
+  return (
+    <div
+      className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-md my-2"
+      title="Dólar blue — usado para el indicador de precio en U$S de Productos"
+    >
+      <DollarSign size={22} className="text-emerald-600" />
+      <div className="flex flex-col items-start leading-tight">
+        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wide">Valor Dólar</span>
+        <span className="text-xl font-black text-emerald-700 tabular-nums">{formatCurrency(compra)}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ────────────────────────────────────────────────────────
 
 export function Dashboard() {
@@ -263,8 +290,9 @@ export function Dashboard() {
             {fechaHoy} · Acá tenés todo lo importante de tu negocio
           </p>
         </div>
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1 flex justify-center items-center gap-3 flex-wrap">
           <WeatherWidget />
+          <DolarWidget />
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-600 shadow-lg">

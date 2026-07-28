@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
   FileText, Hammer, Layers, Boxes, TrendingUp,
-  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, BookOpen, GitBranch, ShoppingCart, Factory, Zap, Ruler
+  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, BookOpen, GitBranch, ShoppingCart, Factory, Zap, Ruler, History
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -49,6 +49,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: 'Sistema',
     items: [
       { to: '/reportes',      label: 'Reportes',         icon: TrendingUp,      activeColor: 'text-purple-400',  activeBg: 'bg-purple-500/10' },
+      { to: '/novedades',     label: 'Novedades',        icon: History,         activeColor: 'text-pink-400',    activeBg: 'bg-pink-500/10' },
       { to: '/configuracion', label: 'Configuración',    icon: SlidersHorizontal, activeColor: 'text-slate-300', activeBg: 'bg-slate-500/10' },
     ],
   },

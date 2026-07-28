@@ -122,6 +122,15 @@ function isPromoActiva(p: Producto): boolean {
   return true;
 }
 
+// Antigüedad del precio: verde <=7 días, amarillo 8-10, rojo >10 — para detectar
+// a simple vista precios que no se están actualizando (manual o por lista de proveedor).
+function colorPorAntiguedadPrecio(fechaIso: string): string {
+  const dias = Math.floor((Date.now() - new Date(fechaIso).getTime()) / 86400000);
+  if (dias <= 7) return 'text-emerald-600';
+  if (dias <= 10) return 'text-amber-600';
+  return 'text-red-600';
+}
+
 // ── Ordenamiento ──────────────────────────────────────────────────────────────
 
 type SortKey = 'relevancia' | 'precio_asc' | 'precio_desc' | 'stock_desc' | 'nombre';
@@ -506,6 +515,7 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
   const precioOrig  = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
   const descPct     = precioOrig ? Math.round((1 - precioFinal / precioOrig) * 100) : 0;
   const subtitle    = buildSubtitle(producto);
+  const precioColorEdad = producto.precio_actualizado_at ? colorPorAntiguedadPrecio(producto.precio_actualizado_at) : priceColor;
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
   const navigate    = useNavigate();
 
@@ -575,11 +585,14 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
         <div className="mt-auto pt-2">
           {precioOrig ? (
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className={cn('text-[15px] font-black leading-none', priceColor)}>{formatCurrency(precioFinal)}</span>
+              <span className={cn('text-[15px] font-black leading-none', precioColorEdad)}>{formatCurrency(precioFinal)}</span>
               <span className="text-[10px] text-gray-400 line-through leading-none">{formatCurrency(precioOrig)}</span>
             </div>
           ) : (
-            <span className={cn('text-[15px] font-black leading-none', priceColor)}>{formatCurrency(precioFinal)}</span>
+            <span className={cn('text-[15px] font-black leading-none', precioColorEdad)}
+              title={producto.precio_actualizado_at ? `Precio actualizado: ${new Date(producto.precio_actualizado_at).toLocaleDateString('es-AR')}` : undefined}>
+              {formatCurrency(precioFinal)}
+            </span>
           )}
           {producto.precio_por_m2 && <span className="text-[10px] text-gray-400 ml-0.5">/m²</span>}
 
