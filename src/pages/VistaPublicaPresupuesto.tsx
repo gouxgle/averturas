@@ -36,6 +36,7 @@ interface Presupuesto {
   };
   empresa: Empresa;
   items: Item[];
+  formas_pago_alternativas?: { nombre: string; descuento_pct: number }[];
 }
 type Estado =
   | 'loading' | 'not_found' | 'error' | 'data'
@@ -73,6 +74,12 @@ const CAMBIOS = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtM = (n: number) =>
   `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+
+// Detecta "N cuota(s)" en el nombre de una alternativa de pago (ej. "3 cuotas sin interés")
+function cuotasDeNombre(nombre: string): number | null {
+  const m = nombre.match(/(\d+)\s*cuotas?/i);
+  return m ? parseInt(m[1], 10) : null;
+}
 
 function fmtFecha(iso: string) {
   return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', {
@@ -586,6 +593,9 @@ export function VistaPublicaPresupuesto() {
   const costoEnvio    = pres.forma_envio === 'envio_empresa' ? Number(pres.costo_envio ?? 0) : 0;
   const total         = Number(pres.precio_total);
   const esCuotas      = pres.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
+  const alternativas  = pres.forma_pago === 'Varias formas de pago' ? (pres.formas_pago_alternativas ?? []) : [];
+  const montoProductos = pres.items.reduce((s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0);
+  const montoInstalacionExtra = pres.items.reduce((s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0);
   const vencido       = pres.fecha_validez
     ? new Date(pres.fecha_validez.slice(0, 10) + 'T23:59:59') < new Date()
     : false;
@@ -806,7 +816,7 @@ export function VistaPublicaPresupuesto() {
                 </span>
               )}
             </div>
-            {pres.forma_pago && (
+            {pres.forma_pago && alternativas.length === 0 && (
               <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-gray-100 pt-2 sm:pt-0 sm:pl-4 w-full sm:w-auto">
                 <div className="text-xs uppercase tracking-wider text-gray-400">Forma de pago</div>
                 <div className="font-bold text-sm mt-0.5 break-words" style={{ color: NAVY }}>{pres.forma_pago}</div>
@@ -814,6 +824,48 @@ export function VistaPublicaPresupuesto() {
             )}
           </div>
         </div>
+
+        {/* ── FORMAS DE PAGO DISPONIBLES ────────────────────────────────── */}
+        {alternativas.length > 0 && (
+          <div className="bg-white px-4 py-4 mt-px">
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Formas de pago disponibles</span>
+              </div>
+              {alternativas.map((alt, i) => {
+                const pct = Number(alt.descuento_pct);
+                const descuentoMonto = Math.round(montoProductos * (pct / 100) * 100) / 100;
+                const totalAlt = montoProductos - descuentoMonto + montoInstalacionExtra + costoEnvio;
+                const nCuotas = cuotasDeNombre(alt.nombre);
+                return (
+                  <div key={i} className="px-4 py-3 flex items-center justify-between gap-3" style={{ borderTop: i > 0 ? '1px solid #f3f4f6' : undefined }}>
+                    <span className="font-semibold text-sm text-gray-800">{alt.nombre}</span>
+                    <div className="text-right shrink-0">
+                      {pct > 0 ? (
+                        <>
+                          <div className="text-xs text-gray-400 line-through">{fmtM(total)}</div>
+                          <div className="font-bold text-sm" style={{ color: NAVY }}>{fmtM(totalAlt)}</div>
+                          <span className="inline-block mt-0.5 bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                            Ahorrás {fmtM(descuentoMonto)} ({pct}%)
+                          </span>
+                        </>
+                      ) : nCuotas ? (
+                        <>
+                          <div className="font-bold text-sm" style={{ color: NAVY }}>{fmtM(totalAlt)}</div>
+                          <span className="inline-block mt-0.5 bg-violet-100 text-violet-700 text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                            {nCuotas} cuotas de {fmtM(totalAlt / nCuotas)}
+                          </span>
+                        </>
+                      ) : (
+                        <div className="font-bold text-sm" style={{ color: NAVY }}>{fmtM(totalAlt)}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Notas */}
         {pres.notas && (

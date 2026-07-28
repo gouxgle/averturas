@@ -28,7 +28,15 @@ const FORMA_PAGO = [
   'Contado',
   'Tarjeta de débito/crédito en 1 pago',
   'Transferencia',
+  'Varias formas de pago',
 ];
+
+interface FormaPagoCatalogo {
+  id: string; nombre: string; descuento_pct: number;
+}
+interface FormaPagoAlternativa {
+  forma_pago_id: string; nombre: string; descuento_pct: number;
+}
 
 const FORMAS_ENVIO = [
   { value: 'retiro_local',     label: 'Retiro en local',                icon: MapPin,    color: 'text-gray-600' },
@@ -108,6 +116,7 @@ interface FullOperacion {
     servicio_id?: string | null;
     tipo_abertura_nombre: string | null; sistema_nombre: string | null;
   }>;
+  formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
 }
 
 // ── Ítem del formulario ────────────────────────────────────────────────────────
@@ -208,6 +217,8 @@ export function NuevoPresupuesto() {
   const [showClienteList, setShowClienteList] = useState(false);
   const [tipoProyecto, setTipoProyecto]     = useState('');
   const [formaPago, setFormaPago]           = useState('Precio de lista');
+  const [catalogoFormasPago, setCatalogoFormasPago] = useState<FormaPagoCatalogo[]>([]);
+  const [formasPagoAlternativas, setFormasPagoAlternativas] = useState<FormaPagoAlternativa[]>([]);
   const [tiempoEntrega, setTiempoEntrega]   = useState('');
   const [fechaValidez, setFechaValidez]     = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
@@ -277,11 +288,13 @@ export function NuevoPresupuesto() {
       api.get<Sistema[]>('/catalogo/sistemas'),
       api.get<{ id: string; nombre: string }[]>('/catalogo/colores'),
       api.get<ServicioCatalogo[]>('/catalogo/servicios'),
-    ]).then(([ta, s, col, serv]) => {
+      api.get<FormaPagoCatalogo[]>('/catalogo/formas-pago'),
+    ]).then(([ta, s, col, serv, fp]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setColoresDB(col);
       setServicios(serv);
+      setCatalogoFormasPago(fp);
     });
     // Si viene ?cliente_id en URL, cargar ese cliente directamente
     const urlClienteId = searchParams.get('cliente_id');
@@ -329,6 +342,9 @@ export function NuevoPresupuesto() {
       setTipoProyecto(op.tipo_proyecto ?? '');
       setFormaPago(op.forma_pago ?? 'Precio de lista');
       setUserSetFormaPago(true);
+      setFormasPagoAlternativas((op.formas_pago_alternativas ?? []).map(a => ({
+        forma_pago_id: a.forma_pago_id ?? '', nombre: a.nombre, descuento_pct: Number(a.descuento_pct),
+      })));
       setTiempoEntrega(op.tiempo_entrega ? String(op.tiempo_entrega) : '');
       setFechaValidez(op.fecha_validez ? op.fecha_validez.split('T')[0] : '');
       setUserSetFechaValidez(true);
@@ -568,6 +584,10 @@ export function NuevoPresupuesto() {
   async function handleSave(abrirPdf = false) {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
     if (items.length === 0) { toast.error('Agregá al menos un ítem'); return; }
+    if (formaPago === 'Varias formas de pago' && formasPagoAlternativas.length === 0) {
+      toast.error('Elegí al menos una alternativa de pago para ofrecer');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -584,6 +604,7 @@ export function NuevoPresupuesto() {
         forma_envio:    formaEnvio,
         costo_envio:    costoEnvio,
         visita_tecnica_id: !isEdit && visitaTecnicaId ? visitaTecnicaId : undefined,
+        formas_pago_alternativas: formaPago === 'Varias formas de pago' ? formasPagoAlternativas : [],
         items: items.map((it, idx) => ({
           tipo_abertura_id:    it.tipo_abertura_id || null,
           sistema_id:          it.sistema_id || null,
@@ -622,6 +643,17 @@ export function NuevoPresupuesto() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function toggleFormaPagoAlt(fp: FormaPagoCatalogo) {
+    setFormasPagoAlternativas(prev => {
+      const existe = prev.find(a => a.forma_pago_id === fp.id);
+      if (existe) return prev.filter(a => a.forma_pago_id !== fp.id);
+      return [...prev, { forma_pago_id: fp.id, nombre: fp.nombre, descuento_pct: Number(fp.descuento_pct) }];
+    });
+  }
+  function updateAlternativaPct(forma_pago_id: string, pct: number) {
+    setFormasPagoAlternativas(prev => prev.map(a => a.forma_pago_id === forma_pago_id ? { ...a, descuento_pct: pct } : a));
   }
 
   // ── Filtrado galería ──────────────────────────────────────────────────────────
@@ -1716,6 +1748,42 @@ export function NuevoPresupuesto() {
                   <p className="text-[10px] text-violet-600 text-right">3 cuotas de {formatCurrency(totalConEnvio / 3)}</p>
                 )}
               </div>
+
+              {/* Alternativas de pago a ofrecer */}
+              {formaPago === 'Varias formas de pago' && (
+                <div>
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Alternativas de pago a ofrecer</p>
+                  {catalogoFormasPago.length === 0 ? (
+                    <p className="text-[10px] text-amber-600">No hay formas de pago cargadas — agregalas en Configuración → Formas de pago.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {catalogoFormasPago.map(fp => {
+                        const alt = formasPagoAlternativas.find(a => a.forma_pago_id === fp.id);
+                        const marcada = !!alt;
+                        return (
+                          <div key={fp.id} className={cn(
+                            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border',
+                            marcada ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'
+                          )}>
+                            <input type="checkbox" checked={marcada} onChange={() => toggleFormaPagoAlt(fp)}
+                              className="rounded border-gray-300 text-violet-600 focus:ring-violet-400 shrink-0" />
+                            <span className="text-xs text-gray-700 flex-1 truncate">{fp.nombre}</span>
+                            {marcada && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <input type="number" min={0} max={100} step="0.5"
+                                  value={alt.descuento_pct}
+                                  onChange={e => updateAlternativaPct(fp.id, parseFloat(e.target.value) || 0)}
+                                  className="w-14 px-1.5 py-1 border border-gray-200 rounded text-xs text-right focus:outline-none focus:ring-2 focus:ring-violet-400"/>
+                                <span className="text-[10px] text-gray-400">%</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Forma de envío */}
               <div>

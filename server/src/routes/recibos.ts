@@ -424,8 +424,9 @@ recibos.post('/', async (c) => {
       INSERT INTO recibos
         (numero, fecha, cliente_id, operacion_id, remito_id, monto_total,
          forma_pago, referencia_pago, concepto, notas, created_by,
-         descuento_pct, monto_lista, monto_descuento, comprobante_url)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         descuento_pct, monto_lista, monto_descuento, comprobante_url,
+         forma_pago_alternativa_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
       RETURNING *
     `, [
       numero,
@@ -443,6 +444,7 @@ recibos.post('/', async (c) => {
       montoLista,
       montoDescuento,
       b.comprobante_url || null,
+      b.forma_pago_alternativa_id || null,
     ]);
 
     for (let i = 0; i < items.length; i++) {
@@ -518,9 +520,9 @@ recibos.put('/:id', async (c) => {
         monto_total = $4, forma_pago = $5, referencia_pago = $6,
         concepto = $7, notas = $8,
         descuento_pct = $9, monto_lista = $10, monto_descuento = $11,
-        comprobante_url = $12,
+        comprobante_url = $12, forma_pago_alternativa_id = $13,
         updated_at = now()
-      WHERE id = $13 RETURNING *
+      WHERE id = $14 RETURNING *
     `, [
       b.fecha,
       b.operacion_id    || null,
@@ -534,6 +536,7 @@ recibos.put('/:id', async (c) => {
       updMontoLista,
       updMontoDescuento,
       b.comprobante_url || null,
+      b.forma_pago_alternativa_id || null,
       id,
     ]);
 

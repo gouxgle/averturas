@@ -5,7 +5,7 @@ import { validateBody } from '../lib/validate.js';
 import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
 import {
   TipoAberturaSchema, SistemaSchema, ColorSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
-  ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema,
+  ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema, FormaPagoCatalogoSchema,
 } from '../lib/schemas.js';
 
 const catalogo = new Hono();
@@ -279,6 +279,50 @@ catalogo.delete('/servicios/:id', async (c) => {
   if (enVisita.length) return c.json({ error: 'Servicio en uso por visitas técnicas' }, 409);
 
   const { rowCount } = await db.query(`DELETE FROM catalogo_servicios WHERE id=$1`, [id]);
+  if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
+  return c.json({ ok: true });
+});
+
+// ── Formas de pago (alternativas ofrecibles en el presupuesto) ─────────────────
+
+catalogo.get('/formas-pago', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM catalogo_formas_pago ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/formas-pago', async (c) => {
+  const b = await validateBody(c, FormaPagoCatalogoSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `INSERT INTO catalogo_formas_pago (nombre, descuento_pct, orden)
+     VALUES ($1, $2, $3) RETURNING *`,
+    [b.nombre.trim(), b.descuento_pct ?? 0, b.orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/formas-pago/:id', async (c) => {
+  const b = await validateBody(c, FormaPagoCatalogoSchema);
+  if (b instanceof Response) return b;
+  const { rows } = await db.query(
+    `UPDATE catalogo_formas_pago SET nombre=$1, descuento_pct=$2, orden=$3, activo=$4
+     WHERE id=$5 RETURNING *`,
+    [b.nombre.trim(), b.descuento_pct ?? 0, b.orden ?? 0, b.activo ?? true, c.req.param('id')]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /formas-pago/:id — elimina definitivamente (solo si ningún presupuesto la ofrece)
+catalogo.delete('/formas-pago/:id', async (c) => {
+  const { id } = c.req.param();
+  const { rows } = await db.query(`SELECT id FROM operacion_formas_pago WHERE forma_pago_id=$1 LIMIT 1`, [id]);
+  if (rows.length) return c.json({ error: 'Forma de pago en uso por presupuestos' }, 409);
+
+  const { rowCount } = await db.query(`DELETE FROM catalogo_formas_pago WHERE id=$1`, [id]);
   if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
   return c.json({ ok: true });
 });

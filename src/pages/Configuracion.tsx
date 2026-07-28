@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes, CreditCard } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ interface Sistema { id: string; nombre: string; material: string | null; descrip
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
 interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; instagram: string | null; terminos_url: string | null; }
 interface Servicio { id: string; nombre: string; descripcion: string | null; precio_base: number | null; orden: number; activo: boolean; }
+interface FormaPago { id: string; nombre: string; descuento_pct: number; orden: number; activo: boolean; }
 interface Categoria { id: string; nombre: string; parent_id: string | null; orden: number; activo: boolean; }
 interface Modelo { id: string; nombre: string; categoria_id: string | null; descripcion: string | null; variantes_count: number; activo: boolean; }
 interface Usuario { id: string; nombre: string; email: string; rol: 'admin' | 'vendedor' | 'consulta'; activo: boolean; created_at: string; }
@@ -499,6 +500,124 @@ function PanelServicios() {
           </div>
         ))}
         {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin servicios cargados</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Panel: Formas de pago (alternativas ofrecibles en el presupuesto) ─────────
+
+function PanelFormasPago() {
+  const [items, setItems] = useState<FormaPago[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function load() {
+    const data = await api.get<FormaPago[]>('/catalogo/formas-pago?all=1');
+    setItems(data);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(vals: Record<string, string>) {
+    await api.post('/catalogo/formas-pago', {
+      nombre: vals.nombre,
+      descuento_pct: vals.descuento_pct ? parseFloat(vals.descuento_pct) : 0,
+    });
+    toast.success('Forma de pago agregada');
+    setAdding(false);
+    load();
+  }
+
+  async function handleEdit(id: string, vals: Record<string, string>) {
+    const item = items.find(i => i.id === id)!;
+    await api.put(`/catalogo/formas-pago/${id}`, {
+      ...item,
+      nombre: vals.nombre,
+      descuento_pct: vals.descuento_pct ? parseFloat(vals.descuento_pct) : 0,
+    });
+    toast.success('Actualizado');
+    setEditId(null);
+    load();
+  }
+
+  async function toggleActivo(item: FormaPago) {
+    await api.put(`/catalogo/formas-pago/${item.id}`, { ...item, activo: !item.activo });
+    load();
+  }
+
+  async function eliminar(item: FormaPago) {
+    try {
+      await api.delete(`/catalogo/formas-pago/${item.id}`);
+      toast.success('Forma de pago eliminada');
+      load();
+    } catch {
+      toast.error('No se puede eliminar: en uso por presupuestos. Desactivala en su lugar.');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        Alternativas de pago que se pueden ofrecer en un presupuesto (ej. "Contado 7% descuento", "3 cuotas sin interés"). El % es sugerido y se puede editar por presupuesto.
+      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activas</p>
+        <button onClick={() => { setAdding(true); setEditId(null); }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
+          <Plus size={13} /> Agregar
+        </button>
+      </div>
+
+      {adding && (
+        <InlineForm
+          fields={[
+            { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Contado 7% descuento' },
+            { key: 'descuento_pct', label: '% descuento', value: '', placeholder: 'Ej: 7' },
+          ]}
+          onSave={handleAdd}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      <div className="divide-y divide-gray-100">
+        {items.map(item => (
+          <div key={item.id} className={cn('py-2.5 flex items-center gap-3', !item.activo && 'opacity-50')}>
+            <div className="flex-1 min-w-0">
+              {editId === item.id ? (
+                <InlineForm
+                  fields={[
+                    { key: 'nombre', label: 'Nombre *', value: item.nombre },
+                    { key: 'descuento_pct', label: '% descuento', value: String(item.descuento_pct ?? 0) },
+                  ]}
+                  onSave={vals => handleEdit(item.id, vals)}
+                  onCancel={() => setEditId(null)}
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+                  {Number(item.descuento_pct) > 0 && (
+                    <p className="text-xs text-gray-400 font-mono">{item.descuento_pct}%</p>
+                  )}
+                </div>
+              )}
+            </div>
+            {editId !== item.id && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => { setEditId(item.id); setAdding(false); }}
+                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  <Pencil size={13} />
+                </button>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                  {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+                </button>
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin formas de pago cargadas</p>}
       </div>
     </div>
   );
@@ -1359,7 +1478,7 @@ function PanelBackups() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'servicios' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | null;
+type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'colores' | 'servicios' | 'formas_pago' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | null;
 
 const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'categorias',     label: 'Categorías',          icon: FolderTree, desc: 'Árbol de navegación: Familia → Uso → Material → Línea' },
@@ -1367,6 +1486,7 @@ const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' 
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
   { id: 'servicios',      label: 'Servicios',           icon: Wrench,    desc: 'Reparación, mantenimiento, cambio de piezas' },
+  { id: 'formas_pago',    label: 'Formas de pago',      icon: CreditCard, desc: 'Alternativas ofrecibles en el presupuesto (contado, cuotas...)' },
   { id: 'modelos',        label: 'Modelos',             icon: Boxes,     desc: 'Producto padre — agrupa variantes (medida/color)' },
 ];
 
@@ -1455,6 +1575,7 @@ export function Configuracion() {
                 {id === 'sistemas'       && <PanelSistemas />}
                 {id === 'colores'        && <PanelColores />}
                 {id === 'servicios'      && <PanelServicios />}
+                {id === 'formas_pago'    && <PanelFormasPago />}
                 {id === 'modelos'        && <PanelModelos />}
               </AccordionItem>
             </div>

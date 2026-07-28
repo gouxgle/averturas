@@ -73,6 +73,13 @@ const OperacionItemSchema = z.object({
   servicio_id:         zUUID.optional().nullable(),
 });
 
+const OperacionFormaPagoSchema = z.object({
+  forma_pago_id: zUUID.optional().nullable(),
+  nombre:        z.string().min(1, 'Nombre requerido').max(150),
+  descuento_pct: z.number().min(0).max(100).optional().default(0),
+  orden:         z.number().int().nonnegative().optional().default(0),
+});
+
 export const OperacionSchema = z.object({
   tipo:             z.enum(['estandar', 'a_medida_proveedor', 'fabricacion_propia']).optional().default('a_medida_proveedor'),
   estado:           z.string().optional(),
@@ -89,6 +96,7 @@ export const OperacionSchema = z.object({
   notas_internas:   zText(2000).optional(),
   items:            z.array(OperacionItemSchema).min(1, 'Se requiere al menos 1 ítem'),
   visita_tecnica_id: zUUID.optional().nullable(),
+  formas_pago_alternativas: z.array(OperacionFormaPagoSchema).optional().default([]),
 });
 
 export const EstadoOperacionSchema = z.object({
@@ -116,7 +124,8 @@ export const ReciboSchema = z.object({
   operacion_id:    zUUID.optional().nullable(),
   remito_id:       zUUID.optional().nullable(),
   monto_total:     z.number().positive('Monto debe ser > 0'),
-  forma_pago:      z.enum(['Contado','Tarjeta de débito/crédito en 1 pago','Transferencia','Tarjeta de crédito 3 cuotas sin interés']),
+  forma_pago:      z.string().min(1, 'Forma de pago requerida').max(150),
+  forma_pago_alternativa_id: zUUID.optional().nullable(),
   fecha:           z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   referencia_pago: zText(200).optional(),
   concepto:        zText(500).optional(),
@@ -222,6 +231,13 @@ export const ServicioSchema = z.object({
   precio_base: zPosNum.optional().nullable(),
   orden:       z.number().int().nonnegative().optional(),
   activo:      z.boolean().optional(),
+});
+
+export const FormaPagoCatalogoSchema = z.object({
+  nombre:        z.string().min(1).max(150),
+  descuento_pct: z.number().min(0).max(100).optional().default(0),
+  orden:         z.number().int().nonnegative().optional(),
+  activo:        z.boolean().optional(),
 });
 
 export const CategoriaSchema = z.object({

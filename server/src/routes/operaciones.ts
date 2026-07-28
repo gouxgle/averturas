@@ -860,7 +860,7 @@ operaciones.patch('/:id/resolver-respuesta', async (c) => {
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
-  const [{ rows: [op] }, { rows: items }, { rows: historial }] = await Promise.all([
+  const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }] = await Promise.all([
     db.query(`
       SELECT o.*,
         COALESCE((
@@ -927,10 +927,15 @@ operaciones.get('/:id', async (c) => {
       WHERE operacion_id = $1
       ORDER BY created_at DESC
     `, [id]),
+    db.query(`
+      SELECT * FROM operacion_formas_pago
+      WHERE operacion_id = $1
+      ORDER BY orden
+    `, [id]),
   ]);
 
   if (!op) return c.json({ error: 'Operación no encontrada' }, 404);
-  return c.json({ ...op, items, historial });
+  return c.json({ ...op, items, historial, formas_pago_alternativas });
 });
 
 operaciones.post('/', async (c) => {
@@ -1001,6 +1006,15 @@ operaciones.post('/', async (c) => {
           item.tipo_item || 'estandar',
           item.servicio_id || null,
         ]);
+      }
+    }
+
+    if (b.formas_pago_alternativas?.length) {
+      for (const [idx, alt] of b.formas_pago_alternativas.entries()) {
+        await client.query(`
+          INSERT INTO operacion_formas_pago (operacion_id, forma_pago_id, nombre, descuento_pct, orden)
+          VALUES ($1,$2,$3,$4,$5)
+        `, [op.id, alt.forma_pago_id || null, alt.nombre, alt.descuento_pct ?? 0, alt.orden ?? idx]);
       }
     }
 
@@ -1102,6 +1116,16 @@ operaciones.put('/:id', async (c) => {
           item.tipo_item || 'estandar',
           item.servicio_id || null,
         ]);
+      }
+    }
+
+    await client.query('DELETE FROM operacion_formas_pago WHERE operacion_id=$1', [id]);
+    if (b.formas_pago_alternativas?.length) {
+      for (const [idx, alt] of b.formas_pago_alternativas.entries()) {
+        await client.query(`
+          INSERT INTO operacion_formas_pago (operacion_id, forma_pago_id, nombre, descuento_pct, orden)
+          VALUES ($1,$2,$3,$4,$5)
+        `, [id, alt.forma_pago_id || null, alt.nombre, alt.descuento_pct ?? 0, alt.orden ?? idx]);
       }
     }
 

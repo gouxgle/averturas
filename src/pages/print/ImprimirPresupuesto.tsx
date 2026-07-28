@@ -14,6 +14,12 @@ const fmtFecha = (iso: string) =>
     day: '2-digit', month: '2-digit', year: 'numeric',
   });
 
+// Detecta "N cuota(s)" en el nombre de una alternativa de pago (ej. "3 cuotas sin interés")
+function cuotasDeNombre(nombre: string): number | null {
+  const m = nombre.match(/(\d+)\s*cuotas?/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
 function numToWords(amount: number): string {
   const n = Math.round(amount);
   if (n === 0) return 'Cero pesos';
@@ -84,6 +90,7 @@ interface Operacion {
     direccion: string | null; localidad: string | null; documento_nro: string | null;
   };
   items: Item[];
+  formas_pago_alternativas?: { nombre: string; descuento_pct: number }[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -162,6 +169,8 @@ export function ImprimirPresupuesto() {
   );
   const itemsConInstalacion = op.items.filter(it => it.incluye_instalacion).length;
   const instalacionMixta = itemsConInstalacion > 0 && itemsConInstalacion < op.items.length;
+  const alternativas = op.forma_pago === 'Varias formas de pago' ? (op.formas_pago_alternativas ?? []) : [];
+  const montoProductos = subtotal - totalInstalacion;
   const instagram   = empresa?.instagram   ?? null;
   const terminosUrl = empresa?.terminos_url ?? null;
 
@@ -507,7 +516,7 @@ export function ImprimirPresupuesto() {
                 </div>
               )}
             </div>
-            {op.forma_pago && (
+            {op.forma_pago && alternativas.length === 0 && (
               <div style={{
                 textAlign: 'right', padding: '8px 14px', borderRadius: 8,
                 background: esCuotas ? '#ede9fe' : '#f3f4f6',
@@ -523,6 +532,51 @@ export function ImprimirPresupuesto() {
             )}
           </div>
         </div>
+
+        {/* ── FORMAS DE PAGO DISPONIBLES ────────────────────────────────── */}
+        {alternativas.length > 0 && (
+          <div style={{ margin: '14px 16px 0', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ padding: '8px 14px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+              <span style={{ color: '#6b7280', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 2, fontWeight: 700 }}>
+                Formas de pago disponibles
+              </span>
+            </div>
+            {alternativas.map((alt, i) => {
+              const pct = Number(alt.descuento_pct);
+              const descuentoMonto = Math.round(montoProductos * (pct / 100) * 100) / 100;
+              const totalAlt = montoProductos - descuentoMonto + totalInstalacion + costoEnvio;
+              const nCuotas = cuotasDeNombre(alt.nombre);
+              return (
+                <div key={i} style={{
+                  padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  borderTop: i > 0 ? '1px solid #f3f4f6' : undefined,
+                }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: '#1f2937' }}>{alt.nombre}</span>
+                  <div style={{ textAlign: 'right' }}>
+                    {pct > 0 ? (
+                      <>
+                        <div style={{ color: '#9ca3af', fontSize: 10, textDecoration: 'line-through' }}>{fmtM(total)}</div>
+                        <div style={{ color: NAVY, fontWeight: 800, fontSize: 14 }}>{fmtM(totalAlt)}</div>
+                        <span style={{ display: 'inline-block', marginTop: 2, background: '#d1fae5', color: '#047857', fontSize: 9, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                          Ahorra {fmtM(descuentoMonto)} ({pct}%)
+                        </span>
+                      </>
+                    ) : nCuotas ? (
+                      <>
+                        <div style={{ color: NAVY, fontWeight: 800, fontSize: 14 }}>{fmtM(totalAlt)}</div>
+                        <span style={{ display: 'inline-block', marginTop: 2, background: '#ede9fe', color: '#7c3aed', fontSize: 9, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                          {nCuotas} cuotas de {fmtM(totalAlt / nCuotas)}
+                        </span>
+                      </>
+                    ) : (
+                      <div style={{ color: NAVY, fontWeight: 800, fontSize: 14 }}>{fmtM(totalAlt)}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── CONDICIONES (3 columnas con borde) ────────────────────────── */}
         <div style={{

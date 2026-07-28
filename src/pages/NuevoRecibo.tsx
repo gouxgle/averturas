@@ -75,6 +75,7 @@ interface PresupuestoDetalle {
     incluye_instalacion: boolean;
     cantidad: number;
   }>;
+  formas_pago_alternativas?: Array<{ id: string; nombre: string; descuento_pct: number }>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -121,6 +122,7 @@ export function NuevoRecibo() {
   const [operacionId, setOperacionId] = useState(searchParams.get('operacion_id') ?? '');
   const [fecha,       setFecha]       = useState(new Date().toISOString().split('T')[0]);
   const [formaPago,   setFormaPago]   = useState('Contado');
+  const [formaPagoAlternativaId, setFormaPagoAlternativaId] = useState('');
   const [referencia,  setReferencia]  = useState('');
   const [concepto,    setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
   const [notas,       setNotas]       = useState('');
@@ -253,6 +255,11 @@ export function NuevoRecibo() {
   // Descuentos disponibles en cualquier forma de pago (típicamente Contado, excepcionalmente otros)
   const aplicaBonificacion = !isEdit && !!presupuestoDetalle;
 
+  // Presupuesto con "Varias formas de pago" → obliga a elegir cuál de las ofrecidas se usó
+  const alternativasOfrecidas = presupuestoDetalle?.forma_pago === 'Varias formas de pago'
+    ? (presupuestoDetalle.formas_pago_alternativas ?? [])
+    : [];
+
   const montoProductos = presupuestoDetalle
     ? presupuestoDetalle.items.reduce(
         (s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0)
@@ -300,6 +307,22 @@ export function NuevoRecibo() {
       ? Number(presupuestoDetalle.costo_envio ?? 0) : 0;
     const desc  = Math.round(prod * pct * 100) / 100;
     return Math.max(0, (prod - desc + inst + envio) - cobradoOp);
+  }
+
+  // Al llegar el detalle de una operación con varias alternativas ofrecidas, no
+  // preseleccionar ninguna — obliga a elegir antes de poder calcular/guardar.
+  useEffect(() => {
+    if (presupuestoDetalle?.forma_pago === 'Varias formas de pago' && (presupuestoDetalle.formas_pago_alternativas?.length ?? 0) > 0) {
+      setFormaPago('');
+      setFormaPagoAlternativaId('');
+      resetBonificacion();
+    }
+  }, [presupuestoDetalle]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function elegirAlternativa(alt: { id: string; nombre: string; descuento_pct: number }) {
+    setFormaPago(alt.nombre);
+    setFormaPagoAlternativaId(alt.id);
+    aplicarPreset(Number(alt.descuento_pct) / 100);
   }
 
   function aplicarPreset(pct: number) {
@@ -362,6 +385,10 @@ export function NuevoRecibo() {
     if (!clienteId)                { toast.error('Seleccioná un cliente'); return; }
     if (!operacionId)              { toast.error('Seleccioná el presupuesto'); return; }
     if (!formaPago)                { toast.error('Seleccioná forma de pago'); return; }
+    if (alternativasOfrecidas.length > 0 && !formaPagoAlternativaId) {
+      toast.error('Elegí cuál de las formas de pago ofrecidas usó el cliente');
+      return;
+    }
     if (montoFinal <= 0)           { toast.error('El monto debe ser mayor a 0'); return; }
     if (esParcial && crearCompromiso && !compromisoFecha) {
       toast.error('Ingresá la fecha estimada de cancelación del saldo');
@@ -388,6 +415,7 @@ export function NuevoRecibo() {
       monto_lista:     listaTotal,
       monto_descuento: descMonto,
       comprobante_url: comprobanteUrl || null,
+      forma_pago_alternativa_id: formaPagoAlternativaId || null,
     };
 
     if (!isEdit && esParcial && crearCompromiso && compromisoFecha) {
@@ -554,13 +582,37 @@ export function NuevoRecibo() {
               <label className={labelCls}>Fecha *</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} />
             </div>
-            <div>
-              <label className={labelCls}>Forma de pago *</label>
-              <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
-                {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-            </div>
+            {alternativasOfrecidas.length === 0 && (
+              <div>
+                <label className={labelCls}>Forma de pago *</label>
+                <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
+                  {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+            )}
           </div>
+
+          {alternativasOfrecidas.length > 0 && (
+            <div className="mt-3">
+              <label className={labelCls}>Forma de pago * — elegí la que usó el cliente</label>
+              <div className="space-y-1.5 mt-1">
+                {alternativasOfrecidas.map(alt => (
+                  <label key={alt.id} className={cn(
+                    'flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer',
+                    formaPagoAlternativaId === alt.id ? 'border-violet-400 bg-violet-50' : 'border-gray-200 hover:border-gray-300'
+                  )}>
+                    <input type="radio" name="forma_pago_alternativa" checked={formaPagoAlternativaId === alt.id}
+                      onChange={() => elegirAlternativa(alt)}
+                      className="text-violet-600 focus:ring-violet-400" />
+                    <span className="text-sm text-gray-700 flex-1">{alt.nombre}</span>
+                    {Number(alt.descuento_pct) > 0 && (
+                      <span className="text-xs font-semibold text-emerald-600">{alt.descuento_pct}% desc.</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           {formaPago === 'Transferencia' && (
             <div className="mt-3">
               <label className={labelCls}>N° de transferencia / CBU</label>
@@ -625,7 +677,9 @@ export function NuevoRecibo() {
         >
           <div className="space-y-3">
             <p className="text-xs text-gray-500">
-              {formaPago === 'Contado'
+              {alternativasOfrecidas.length > 0
+                ? 'Descuento de la alternativa elegida — se puede ajustar puntualmente si hace falta.'
+                : formaPago === 'Contado'
                 ? 'Descuento sobre precio de productos. No aplica sobre instalación ni envío.'
                 : <span className="text-amber-600">Descuento habitual es solo contado. Confirmar si aplica en esta forma de pago.</span>
               }
@@ -633,7 +687,7 @@ export function NuevoRecibo() {
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-400 font-semibold">Descuento:</span>
-              {[5, 7, 10, 15].map(pct => (
+              {alternativasOfrecidas.length === 0 && [5, 7, 10, 15].map(pct => (
                 <button key={pct}
                   onClick={() => aplicarPreset(pct / 100)}
                   className={cn(

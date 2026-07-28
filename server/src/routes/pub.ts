@@ -85,7 +85,13 @@ pub.get('/presupuesto/:token', async (c) => {
     ORDER BY oi.orden, oi.id
   `, [op.id]);
 
-  return c.json({ ...op, items });
+  const { rows: formas_pago_alternativas } = await db.query(`
+    SELECT nombre, descuento_pct FROM operacion_formas_pago
+    WHERE operacion_id = $1
+    ORDER BY orden
+  `, [op.id]);
+
+  return c.json({ ...op, items, formas_pago_alternativas });
 });
 
 // POST /pub/presupuesto/:token/aprobar — aprobación por el cliente
