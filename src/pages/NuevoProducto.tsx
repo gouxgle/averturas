@@ -6,7 +6,7 @@ import {
   Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, disponibilidadVigente, DISPONIBILIDAD_VIGENCIA_DIAS } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TipoOperacion, TipoAbertura, Sistema, Proveedor, Categoria, CatalogoModelo } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
@@ -1340,6 +1340,8 @@ export function NuevoProducto() {
   const [modelos, setModelos]         = useState<CatalogoModelo[]>([]);
   const [modeloSearch, setModeloSearch] = useState('');
   const [dolarCompra, setDolarCompra] = useState<number | null>(null);
+  const [dispConfirmadaAt, setDispConfirmadaAt] = useState<string | null>(null);
+  const [confirmandoDisp, setConfirmandoDisp] = useState(false);
   const [creandoModelo, setCreandoModelo] = useState(false);
   const [nuevoModeloNombre, setNuevoModeloNombre] = useState('');
 
@@ -1531,6 +1533,7 @@ export function NuevoProducto() {
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
         }
+        setDispConfirmadaAt(data.disponibilidad_confirmada_at ?? null);
       }).catch(() => {
         toast.error('No se pudo cargar el producto a editar');
         navigate('/productos');
@@ -1630,6 +1633,20 @@ export function NuevoProducto() {
   const costo  = parseFloat(form.costo_base) || 0;
   const precio = parseFloat(form.precio_base) || 0;
   const margen = precio > 0 ? Math.round((precio - costo) / precio * 100) : 0;
+
+  async function toggleDisponibilidad(confirmado: boolean) {
+    if (!isEdit || !id) return;
+    setConfirmandoDisp(true);
+    try {
+      const data = await api.patch<{ disponibilidad_confirmada_at: string | null }>(`/productos/${id}/disponibilidad`, { confirmado });
+      setDispConfirmadaAt(data.disponibilidad_confirmada_at);
+      toast.success(confirmado ? 'Disponibilidad confirmada' : 'Confirmación quitada');
+    } catch {
+      toast.error('No se pudo actualizar la disponibilidad');
+    } finally {
+      setConfirmandoDisp(false);
+    }
+  }
 
   async function handleSave() {
     if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return; }
@@ -2190,6 +2207,35 @@ export function NuevoProducto() {
                 Se muestra en los pedidos al proveedor para identificar el producto
               </p>
             </div>
+            {isEdit && (
+              <div className={cn(
+                'rounded-lg border p-3',
+                disponibilidadVigente(dispConfirmadaAt) ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'
+              )}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <p className={cn('text-xs font-bold', disponibilidadVigente(dispConfirmadaAt) ? 'text-emerald-700' : 'text-amber-700')}>
+                      {disponibilidadVigente(dispConfirmadaAt) ? '✓ Disponibilidad confirmada con proveedor' : '⚠ Disponibilidad sin confirmar'}
+                    </p>
+                    <p className="text-[10px] text-black mt-0.5">
+                      {dispConfirmadaAt
+                        ? `Confirmado el ${new Date(dispConfirmadaAt).toLocaleDateString('es-AR')} — vence a los ${DISPONIBILIDAD_VIGENCIA_DIAS} días`
+                        : 'Chequeá stock/plazo por WhatsApp con el proveedor antes de comprometer fecha de entrega'}
+                    </p>
+                  </div>
+                  <button type="button" disabled={confirmandoDisp}
+                    onClick={() => toggleDisponibilidad(!disponibilidadVigente(dispConfirmadaAt))}
+                    className={cn(
+                      'shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50',
+                      disponibilidadVigente(dispConfirmadaAt)
+                        ? 'border border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                        : 'bg-amber-500 hover:bg-amber-600 text-white'
+                    )}>
+                    {disponibilidadVigente(dispConfirmadaAt) ? 'Quitar confirmación' : 'Confirmar ahora'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

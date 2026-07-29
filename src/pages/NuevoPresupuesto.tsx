@@ -4,10 +4,10 @@ import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
   Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users, Eye,
-  Ruler, Wrench,
+  Ruler, Wrench, AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
 import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema, Producto } from '@/types';
@@ -94,6 +94,7 @@ interface CatalogProduct {
   caracteristica_2: string | null;
   modelo_id: string | null;
   modelo_nombre: string | null;
+  disponibilidad_confirmada_at: string | null;
 }
 
 // ── Tipo para carga de edición ────────────────────────────────────────────────
@@ -115,6 +116,7 @@ interface FullOperacion {
     tipo_item?: 'estandar' | 'a_medida' | 'servicio';
     servicio_id?: string | null;
     tipo_abertura_nombre: string | null; sistema_nombre: string | null;
+    producto_disponibilidad_confirmada_at?: string | null;
   }>;
   formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
 }
@@ -152,6 +154,7 @@ interface ItemForm {
   _prod_tipo_nombre: string;
   _prod_sistema_nombre: string;
   _prod_imagen_url: string | null;
+  _prod_disponibilidad_confirmada_at: string | null;
 }
 
 function uuid() {
@@ -175,6 +178,7 @@ function emptyItem(): ItemForm {
     _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
     _prod_tipo_nombre: '', _prod_sistema_nombre: '',
     _prod_imagen_url: null,
+    _prod_disponibilidad_confirmada_at: null,
   };
 }
 
@@ -386,6 +390,7 @@ export function NuevoPresupuesto() {
         _prod_tipo_nombre:    it.tipo_abertura_nombre ?? '',
         _prod_sistema_nombre: it.sistema_nombre ?? '',
         _prod_imagen_url:     null,
+        _prod_disponibilidad_confirmada_at: it.producto_disponibilidad_confirmada_at ?? null,
       })));
     }).catch(() => { toast.error('No se pudo cargar el presupuesto'); navigate('/presupuestos'); });
   }, [isEdit, editId, navigate]);
@@ -465,6 +470,11 @@ export function NuevoPresupuesto() {
 
   const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
   const totalConEnvio = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
+  // Ítems de catálogo cuyo stock/plazo no está confirmado (o venció) con el proveedor —
+  // la fecha de entrega no se puede comprometer en firme hasta chequear por WhatsApp.
+  const itemsSinConfirmar = items.filter(it =>
+    it.tipo_item === 'estandar' && it.producto_id && !disponibilidadVigente(it._prod_disponibilidad_confirmada_at)
+  );
 
   function derivarTipo() {
     const tieneFab = items.some(i => i.origen === 'fabricacion');
@@ -519,6 +529,7 @@ export function NuevoPresupuesto() {
       _prod_tipo_nombre:   p.tipo_abertura?.nombre ?? '',
       _prod_sistema_nombre: p.sistema?.nombre    ?? '',
       _prod_imagen_url:    p.imagenes?.[0] ?? p.imagen_url ?? null,
+      _prod_disponibilidad_confirmada_at: p.disponibilidad_confirmada_at ?? null,
     };
   }
 
@@ -1728,6 +1739,22 @@ export function NuevoPresupuesto() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Aviso: fecha de entrega estimativa por disponibilidad sin confirmar */}
+              {itemsSinConfirmar.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                  <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-amber-700">Fecha de entrega estimativa</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      {itemsSinConfirmar.length === 1
+                        ? '1 producto no tiene la disponibilidad confirmada con el proveedor.'
+                        : `${itemsSinConfirmar.length} productos no tienen la disponibilidad confirmada con el proveedor.`}
+                      {' '}Chequeá stock/plazo por WhatsApp antes de comprometer una fecha en firme con el cliente.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Breakdown de precios */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">

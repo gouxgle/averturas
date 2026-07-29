@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import type { Producto, TipoOperacion } from '@/types';
 
@@ -538,6 +538,12 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
           {etiquetaCfg && (
             <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md leading-none', etiquetaCfg.cls)}>
               <etiquetaCfg.Icon size={8}/>{etiquetaCfg.label}
+            </span>
+          )}
+          {!disponibilidadVigente(producto.disponibilidad_confirmada_at) && (
+            <span title="Confirmá stock/plazo con el proveedor antes de comprometer fecha de entrega"
+              className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white leading-none shadow-md flex items-center gap-1">
+              <AlertTriangle size={8}/>Sin confirmar
             </span>
           )}
           {promoOk && (

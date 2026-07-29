@@ -250,6 +250,7 @@ export interface Producto {
   } | null;
   created_at: string;
   precio_actualizado_at: string;
+  disponibilidad_confirmada_at: string | null;
 }
 
 export interface DashboardStats {

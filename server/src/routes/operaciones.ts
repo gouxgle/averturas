@@ -907,6 +907,7 @@ operaciones.get('/:id', async (c) => {
         cp.imagen_url   AS producto_imagen_url,
         cp.proveedor_sku AS producto_proveedor_sku,
         cp.costo_base   AS producto_costo_base,
+        cp.disponibilidad_confirmada_at AS producto_disponibilidad_confirmada_at,
         (
           SELECT json_build_object('pedido_id', p2.id, 'pedido_numero', p2.numero)
           FROM pedido_items pi2

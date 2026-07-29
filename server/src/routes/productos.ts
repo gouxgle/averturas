@@ -324,4 +324,22 @@ productos.patch('/:id/toggle-salon', async (c) => {
   return c.json(row);
 });
 
+// Disponibilidad confirmada con el proveedor (hoy se chequea por WhatsApp) — mientras
+// no esté confirmada (o esté vencida), la fecha de entrega debe mostrarse como estimativa.
+productos.patch('/:id/disponibilidad', async (c) => {
+  const user = c.get('user');
+  const { id } = c.req.param();
+  const body = await c.req.json<{ confirmado: boolean }>();
+
+  const { rows: [row] } = await db.query(`
+    UPDATE catalogo_productos SET
+      disponibilidad_confirmada_at = CASE WHEN $1 THEN now() ELSE NULL END,
+      disponibilidad_confirmada_by = CASE WHEN $1 THEN $2::uuid ELSE NULL END
+    WHERE id = $3 RETURNING *
+  `, [body.confirmado, user?.id ?? null, id]);
+
+  if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
+  return c.json(row);
+});
+
 export default productos;
