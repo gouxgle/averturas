@@ -1342,6 +1342,7 @@ export function NuevoProducto() {
   const [dolarCompra, setDolarCompra] = useState<number | null>(null);
   const [dispConfirmadaAt, setDispConfirmadaAt] = useState<string | null>(null);
   const [confirmandoDisp, setConfirmandoDisp] = useState(false);
+  const [stockActualEdit, setStockActualEdit] = useState(0);
   const [creandoModelo, setCreandoModelo] = useState(false);
   const [nuevoModeloNombre, setNuevoModeloNombre] = useState('');
 
@@ -1534,6 +1535,7 @@ export function NuevoProducto() {
           setAtributos(data.atributos);
         }
         setDispConfirmadaAt(data.disponibilidad_confirmada_at ?? null);
+        setStockActualEdit(Number(data.stock_actual ?? 0));
       }).catch(() => {
         toast.error('No se pudo cargar el producto a editar');
         navigate('/productos');
@@ -2207,7 +2209,13 @@ export function NuevoProducto() {
                 Se muestra en los pedidos al proveedor para identificar el producto
               </p>
             </div>
-            {isEdit && (
+            {isEdit && stockActualEdit > 0 && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-xs font-bold text-emerald-700">✓ Con stock ({stockActualEdit}) — no necesita confirmación</p>
+                <p className="text-[10px] text-black mt-0.5">El stock ya es prueba suficiente de disponibilidad</p>
+              </div>
+            )}
+            {isEdit && stockActualEdit <= 0 && (
               <div className={cn(
                 'rounded-lg border p-3',
                 disponibilidadVigente(dispConfirmadaAt) ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'

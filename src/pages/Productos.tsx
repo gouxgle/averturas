@@ -540,8 +540,8 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
               <etiquetaCfg.Icon size={8}/>{etiquetaCfg.label}
             </span>
           )}
-          {!disponibilidadVigente(producto.disponibilidad_confirmada_at) && (
-            <span title="Confirmá stock/plazo con el proveedor antes de comprometer fecha de entrega"
+          {(producto.stock_actual ?? 0) <= 0 && !disponibilidadVigente(producto.disponibilidad_confirmada_at) && (
+            <span title="Sin stock — confirmá plazo con el proveedor antes de comprometer fecha de entrega"
               className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white leading-none shadow-md flex items-center gap-1">
               <AlertTriangle size={8}/>Sin confirmar
             </span>

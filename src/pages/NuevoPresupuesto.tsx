@@ -117,6 +117,7 @@ interface FullOperacion {
     servicio_id?: string | null;
     tipo_abertura_nombre: string | null; sistema_nombre: string | null;
     producto_disponibilidad_confirmada_at?: string | null;
+    stock_actual?: number | null;
   }>;
   formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
 }
@@ -386,7 +387,8 @@ export function NuevoPresupuesto() {
         accesorios:          it.accesorios ?? [],
         calculo_url:         it.calculo_url ?? '',
         _atribAbrev: {},
-        _prod_ancho: null, _prod_alto: null, _prod_atributos: {}, _prod_stock: 0,
+        _prod_ancho: null, _prod_alto: null, _prod_atributos: {},
+        _prod_stock:          it.stock_actual ?? 0,
         _prod_tipo_nombre:    it.tipo_abertura_nombre ?? '',
         _prod_sistema_nombre: it.sistema_nombre ?? '',
         _prod_imagen_url:     null,
@@ -470,10 +472,12 @@ export function NuevoPresupuesto() {
 
   const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
   const totalConEnvio = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
-  // Ítems de catálogo cuyo stock/plazo no está confirmado (o venció) con el proveedor —
-  // la fecha de entrega no se puede comprometer en firme hasta chequear por WhatsApp.
+  // Ítems de catálogo SIN stock (el stock ya es prueba suficiente de disponibilidad)
+  // cuyo plazo con el proveedor no está confirmado (o venció) — la fecha de entrega
+  // no se puede comprometer en firme hasta chequear por WhatsApp.
   const itemsSinConfirmar = items.filter(it =>
-    it.tipo_item === 'estandar' && it.producto_id && !disponibilidadVigente(it._prod_disponibilidad_confirmada_at)
+    it.tipo_item === 'estandar' && it.producto_id && it._prod_stock <= 0
+    && !disponibilidadVigente(it._prod_disponibilidad_confirmada_at)
   );
 
   function derivarTipo() {
