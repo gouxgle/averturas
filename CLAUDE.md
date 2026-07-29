@@ -503,6 +503,18 @@ npm run migrate:dry    # preview sin ejecutar
 - Aplica solo las pendientes, dentro de transacción por migración
 - Si una falla → rollback de esa sola, las anteriores ya aplicadas quedan
 
+### Changelog visible en /novedades — OBLIGATORIO tras cada feature/fix
+Tabla `changelog_cambios`, listado en `/novedades` (Sidebar → Sistema), leída en vivo desde la DB — sin paso de deploy aparte, viaja con el `npm run migrate` normal.
+
+**Tras terminar cualquier feature o fix visible para el usuario, generar la entrada ANTES de commitear:**
+```bash
+cd server && npm run changelog:add -- "Título corto" "Descripción opcional" [feature|fix|mejora]
+npm run migrate   # la aplica local
+```
+Esto crea `supabase/migrations/YYYYMMDDNNNNNN_changelog_<slug>.sql` (solo un INSERT, sin tocar schema) — se commitea junto con el resto de los archivos de la feature. Al hacer `git pull` + `npm run migrate` en test/prod, la entrada aparece sola en `/novedades`, no hace falta nada manual ahí.
+
+No generar entrada para: refactors internos sin efecto visible, fixes de typecheck/build, cambios de este mismo archivo (CLAUDE.md) o de memoria.
+
 ### PDF generado en servidor (WhatsApp) vs PDF del navegador (print)
 Hay DOS rutas de generación de PDF para recibos:
 1. **Navegador**: `/imprimir/recibo/:id` → `ImprimirRecibo.tsx` → `window.print()` (browser CSS)
