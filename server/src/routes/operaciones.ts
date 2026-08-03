@@ -498,6 +498,7 @@ operaciones.get('/ventas-panel', async (c) => {
           ELSE 'baja'
         END AS prioridad,
         cob.cobrado_total,
+        cob.credito_visita,
         CASE
           WHEN o.estado NOT IN ('aprobado','en_produccion','listo','instalado','entregado') THEN NULL
           WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
@@ -519,7 +520,11 @@ operaciones.get('/ventas-panel', async (c) => {
       LEFT JOIN LATERAL (
         SELECT
           COALESCE(SUM(r.monto_total),    0)::numeric AS cobrado_total,
-          COALESCE(SUM(r.monto_descuento),0)::numeric AS descuentos_total
+          COALESCE(SUM(r.monto_descuento),0)::numeric AS descuentos_total,
+          -- Parte del cobrado que viene de acreditar una visita técnica (no es seña del cliente)
+          COALESCE(SUM(r.monto_total) FILTER (
+            WHERE EXISTS (SELECT 1 FROM visitas_tecnicas vt WHERE vt.recibo_id = r.id)
+          ), 0)::numeric AS credito_visita
         FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'
       ) cob ON true
       LEFT JOIN LATERAL (
@@ -883,6 +888,20 @@ operaciones.get('/:id', async (c) => {
           ORDER BY i.created_at DESC LIMIT 1
         ) AS respuesta_cliente_detalle,
         ${STOCK_CUBRE_TODO} AS stock_cubre_todo,
+        (
+          SELECT json_build_object(
+            'id', vt.id, 'numero', vt.numero, 'cobro_estado', vt.cobro_estado,
+            'costo_cobrado', vt.costo_cobrado, 'recibo_id', vt.recibo_id,
+            'recibo_numero', rv.numero)
+          FROM visitas_tecnicas vt
+          LEFT JOIN recibos rv ON rv.id = vt.recibo_id
+          WHERE vt.operacion_id = o.id LIMIT 1
+        ) AS visita_tecnica,
+        COALESCE((
+          SELECT SUM(r.monto_total) FROM recibos r
+          JOIN visitas_tecnicas vt2 ON vt2.recibo_id = r.id
+          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
+        ), 0)::numeric AS credito_visita,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,

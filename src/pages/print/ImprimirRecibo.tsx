@@ -9,8 +9,10 @@ const RED  = '#e31e24';
 const fmt = (n: number) =>
   `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
 
+// Timezone-safe: las columnas DATE llegan como ISO y sin el T12:00:00 se corren un día.
 const fmtFecha = (iso: string) =>
-  new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  new Date(String(iso).slice(0, 10) + 'T12:00:00')
+    .toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 interface Empresa {
   nombre: string; cuit: string | null; telefono: string | null;
@@ -28,6 +30,7 @@ interface ReciboData {
   };
   operacion: { id: string; numero: string; precio_total: number } | null;
   remito: { id: string; numero: string } | null;
+  visita_tecnica: { id: string; numero: string; fecha_visita: string | null; cobro_estado: string } | null;
   items: {
     id: string; descripcion: string; cantidad: number; monto: number;
     producto_nombre: string | null;
@@ -242,6 +245,29 @@ export function ImprimirRecibo() {
               Concepto
             </div>
             <div style={{ fontSize: 13, color: '#333' }}>{recibo.concepto}</div>
+          </div>
+        )}
+
+        {/* Visita técnica — detalle del relevamiento que se está cobrando */}
+        {recibo.visita_tecnica && (
+          <div style={{ marginBottom: 18, padding: '10px 12px', border: '1px solid #d9d9d9', borderRadius: 6, backgroundColor: '#fafafa' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 5 }}>
+              Visita técnica
+            </div>
+            <div style={{ fontSize: 12, color: '#333' }}>
+              <strong>{recibo.visita_tecnica.numero}</strong>
+              {recibo.visita_tecnica.fecha_visita && (
+                <> · Fecha prevista: {fmtFecha(recibo.visita_tecnica.fecha_visita)}</>
+              )}
+            </div>
+            {recibo.cliente.direccion && (
+              <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                Domicilio: {[recibo.cliente.direccion, recibo.cliente.localidad].filter(Boolean).join(', ')}
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: '#888', marginTop: 5 }}>
+              Este importe se acredita al presupuesto que se genere a partir de este relevamiento.
+            </div>
           </div>
         )}
 

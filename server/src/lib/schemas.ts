@@ -170,7 +170,26 @@ export const PedidoEstadoSchema = z.object({
 
 // ── Visitas técnicas ──────────────────────────────────────────
 export const VisitaTecnicaCrearSchema = z.object({
-  cliente_id: zUUID,
+  cliente_id:      zUUID,
+  cobrar:          z.boolean().optional().default(false),
+  forma_pago:      z.string().min(1).max(150).optional(),
+  referencia_pago: zText(200).optional(),
+}).refine(b => !b.cobrar || !!b.forma_pago?.trim(), {
+  message: 'Elegí la forma de pago de la visita',
+  path: ['forma_pago'],
+});
+
+export const VisitaTecnicaCobrarSchema = z.object({
+  forma_pago:      z.string().min(1).max(150),
+  referencia_pago: zText(200).optional(),
+});
+
+export const VisitaTecnicaBonificarSchema = z.object({
+  operacion_id: zUUID,
+});
+
+export const VisitaTecnicaCostoExternoSchema = z.object({
+  costo_externo: z.number().min(0).nullable(),
 });
 
 const VisitaTecnicaItemSchema = z.object({

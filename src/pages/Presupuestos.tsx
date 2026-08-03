@@ -48,6 +48,7 @@ interface PresupuestoPanel {
   ultimo_contacto_canal: string | null;
   prioridad: 'alta' | 'media' | 'baja';
   cobrado_total: number;
+  credito_visita: number;
   estado_cobro: 'sin_cobrar' | 'seña' | 'cobrado' | null;
   tiene_pedido: boolean;
   pedido_estado: 'pendiente' | 'enviado' | 'recibido' | 'cancelado' | null;
@@ -91,6 +92,11 @@ interface OpDetalle {
   respuesta_cliente_detalle: string | null;
   stock_cubre_todo: boolean;
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
+  credito_visita: number;
+  visita_tecnica: {
+    id: string; numero: string; cobro_estado: 'pendiente' | 'cobrada' | 'sin_cargo' | 'bonificada';
+    costo_cobrado: number | null; recibo_id: string | null; recibo_numero: string | null;
+  } | null;
   tipo_proyecto: string | null; forma_pago: string | null;
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; created_at: string; updated_at: string;
@@ -283,6 +289,8 @@ function PresupuestoModal({
   const [enviandoWA, setEnviandoWA]       = useState(false);
   const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [pedidos, setPedidos]             = useState<PedidoResumen[]>([]);
+  const [confirmAcreditar, setConfirmAcreditar] = useState(false);
+  const [acreditando, setAcreditando]     = useState(false);
 
   // ESC cierra el modal
   useEffect(() => {
@@ -293,9 +301,8 @@ function PresupuestoModal({
 
   const todosItemsEnviados = (itemsTotal ?? 0) > 0 && (itemsEnPedido ?? 0) >= (itemsTotal ?? 1);
 
-  useEffect(() => {
-    setLoading(true); setError(null);
-    api.get<OpDetalle>(`/operaciones/${id}`)
+  function cargarDetalle() {
+    return api.get<OpDetalle>(`/operaciones/${id}`)
       .then(d => {
         setOp(d);
         setLoading(false);
@@ -304,9 +311,34 @@ function PresupuestoModal({
             .then(setPedidos)
             .catch(() => {});
         }
-      })
+      });
+  }
+
+  useEffect(() => {
+    setLoading(true); setError(null);
+    cargarDetalle()
       .catch(err => { setError(err.message ?? 'Error al cargar'); setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Acredita el recibo de la visita técnica como pago a cuenta de este presupuesto
+  async function acreditarVisita(acreditar: boolean) {
+    if (!op?.visita_tecnica) return;
+    setAcreditando(true);
+    try {
+      const ruta = acreditar ? 'bonificar' : 'desbonificar';
+      await api.post(`/visitas-tecnicas/${op.visita_tecnica.id}/${ruta}`,
+        acreditar ? { operacion_id: op.id } : {});
+      toast.success(acreditar ? 'Visita acreditada al presupuesto' : 'Acreditación revertida');
+      setConfirmAcreditar(false);
+      await cargarDetalle();
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo acreditar la visita');
+    } finally {
+      setAcreditando(false);
+    }
+  }
 
   async function generarLink() {
     if (esVencido) {
@@ -431,7 +463,8 @@ function PresupuestoModal({
                     <Pen size={13} /> Editar
                   </button>
                 )}
-                {esAprobado && Number(op.cobrado_total) > 0.01 && (
+                {/* El crédito de la visita técnica no es seña del cliente: no habilita comprarle al proveedor */}
+                {esAprobado && Number(op.cobrado_total) - Number(op.credito_visita ?? 0) > 0.01 && (
                   <button onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-lime-50 hover:bg-lime-100 text-lime-700 border border-lime-200 rounded-lg font-medium transition-colors">
                     <ShoppingCart size={13} />
@@ -611,8 +644,10 @@ function PresupuestoModal({
             </div>
 
             {op.estado === 'aprobado' && (() => {
-              const cobrado    = Number(op.cobrado_total    ?? 0);
-              const descuentos = Number(op.total_descuentos ?? 0);
+              const cobrado       = Number(op.cobrado_total    ?? 0);
+              const descuentos    = Number(op.total_descuentos ?? 0);
+              const creditoVisita = Number(op.credito_visita   ?? 0);
+              const vt            = op.visita_tecnica;
               const saldo      = Math.max(0, total - cobrado - descuentos);
               const pct        = total > 0 ? Math.min(100, Math.round((cobrado + descuentos) / total * 100)) : 0;
               const ecLabel    = cobrado < 0.01 ? 'Sin cobrar' : saldo < 0.01 ? 'Cobrado' : 'Pago parcial (seña)';
@@ -637,6 +672,9 @@ function PresupuestoModal({
                       {descuentos > 0.01 && (
                         <p className="text-[9px] text-violet-500 mt-0.5">+{formatCurrency(descuentos)} bonif.</p>
                       )}
+                      {creditoVisita > 0.01 && (
+                        <p className="text-[9px] text-violet-500 mt-0.5">incl. {formatCurrency(creditoVisita)} visita</p>
+                      )}
                     </div>
                     <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-200')}>
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Saldo</p>
@@ -651,6 +689,66 @@ function PresupuestoModal({
                       <p className="text-[10px] text-gray-400 mt-1 text-right">{pct}% cobrado</p>
                     </div>
                   )}
+                  {/* Visita técnica cobrada: se puede acreditar como pago a cuenta */}
+                  {vt && vt.cobro_estado === 'cobrada' && (
+                    <div className="mb-2 p-3 rounded-xl bg-violet-50 border border-violet-200">
+                      {!confirmAcreditar ? (
+                        <>
+                          <p className="text-xs font-semibold text-violet-800 flex items-center gap-1.5">
+                            <Ruler size={13} className="text-violet-600" />
+                            Visita técnica {vt.numero} — cobrada {formatCurrency(Number(vt.costo_cobrado ?? 0))}
+                          </p>
+                          <p className="text-[11px] text-violet-700 mt-0.5">
+                            Podés acreditar ese importe como pago a cuenta de este presupuesto.
+                          </p>
+                          <button onClick={() => setConfirmAcreditar(true)}
+                            className="mt-2 w-full py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                            Acreditar al presupuesto
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs font-semibold text-violet-800">¿Acreditar la visita?</p>
+                          <p className="text-[11px] text-violet-700 mt-1">
+                            Se acreditan {formatCurrency(Number(vt.costo_cobrado ?? 0))} como pago a cuenta.
+                            El recibo {vt.recibo_numero ?? ''} queda vinculado a este presupuesto.
+                          </p>
+                          {Number(vt.costo_cobrado ?? 0) > saldo + 0.01 && (
+                            <p className="text-[11px] text-amber-700 mt-1 font-medium">
+                              El crédito supera el saldo pendiente — quedará un excedente de{' '}
+                              {formatCurrency(Number(vt.costo_cobrado ?? 0) - saldo)} sin aplicar.
+                            </p>
+                          )}
+                          <div className="flex gap-2 mt-2">
+                            <button onClick={() => acreditarVisita(true)} disabled={acreditando}
+                              className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold">
+                              {acreditando ? 'Acreditando...' : 'Confirmar'}
+                            </button>
+                            <button onClick={() => setConfirmAcreditar(false)}
+                              className="px-3 py-2 border border-violet-200 text-violet-700 rounded-lg text-xs font-semibold hover:bg-white">
+                              Cancelar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Ya acreditada */}
+                  {vt && vt.cobro_estado === 'bonificada' && (
+                    <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-violet-50 border border-violet-200">
+                      <span className="text-[11px] text-violet-700">
+                        Visita {vt.numero} acreditada
+                        {vt.recibo_numero && <> · {vt.recibo_numero}</>}
+                        {' '}({formatCurrency(Number(vt.costo_cobrado ?? 0))})
+                      </span>
+                      <button onClick={() => acreditarVisita(false)} disabled={acreditando}
+                        className="text-[11px] font-bold text-violet-600 hover:underline disabled:opacity-60 shrink-0">
+                        Revertir
+                      </button>
+                    </div>
+                  )}
+
                   {saldo > 0.01 && (
                     <button
                       onClick={() => { onClose(); navigate(`/recibos/nuevo?operacion_id=${op.id}&cliente_id=${op.cliente_id}&monto=${Math.round(saldo)}&concepto=${encodeURIComponent(cobrado > 0.01 ? 'Cancelación de saldo' : 'Pago total')}`); }}
@@ -682,7 +780,7 @@ function PresupuestoModal({
                       </button>
                     </div>
                   )}
-                  {cobrado > 0.01 && !todosItemsEnviados && !op.stock_cubre_todo && (
+                  {cobrado - creditoVisita > 0.01 && !todosItemsEnviados && !op.stock_cubre_todo && (
                     <button
                       onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
                       className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"

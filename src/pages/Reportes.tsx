@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, Package, Truck,
   DollarSign, Users, BarChart3, ShoppingCart, Target,
   Calendar, FileText, Download, Edit2, Check, X,
-  ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle, Tag, Zap, Receipt,
+  ArrowRight, ChevronRight, Clock, CheckCircle2, AlertCircle, Tag, Zap, Receipt, Ruler,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { SectionHero } from '@/components/SectionHero';
@@ -62,6 +62,11 @@ interface ResumenData {
     dias_promedio_entrega: number;
   };
   compras: { compras_periodo: number; deuda_proveedores: number };
+  visitas_tecnicas: {
+    generadas: number; cobradas: number; sin_cargo: number; bonificadas: number;
+    monto_cobrado: number; monto_sin_cargo: number; monto_bonificado: number;
+    costo_externo: number; retenido: number;
+  };
   top_clientes: Array<{
     id: string;
     nombre: string;
@@ -685,6 +690,71 @@ export function Reportes() {
             </div>
           </div>
         )}
+
+        {/* Visitas técnicas — cuánto entró, cuánto se regaló y cuánto costó hacerlas */}
+        {!loading && (() => {
+          const vt = data?.visitas_tecnicas;
+          if (!vt) return null;
+          return (
+            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Ruler size={12} className="text-slate-500" />
+                  Visitas técnicas
+                </h3>
+                <Link to="/presupuestos/visitas-tecnicas" className="text-xs text-slate-600 hover:underline">Ver visitas →</Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Generadas</div>
+                  <div className="text-lg font-bold text-gray-900">{vt.generadas}</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Cobradas</div>
+                  <div className="text-lg font-bold text-emerald-700">{fmtM(vt.monto_cobrado)}</div>
+                  <div className="text-[10px] text-gray-400">{vt.cobradas} visita{vt.cobradas !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Bonificadas</div>
+                  <div className="text-lg font-bold text-violet-700">{fmtM(vt.monto_bonificado)}</div>
+                  <div className="text-[10px] text-gray-400">{vt.bonificadas} acreditada{vt.bonificadas !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Sin cargo</div>
+                  <div className="text-lg font-bold text-gray-500">{fmtM(vt.monto_sin_cargo)}</div>
+                  <div className="text-[10px] text-gray-400">{vt.sin_cargo} visita{vt.sin_cargo !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Costo externo</div>
+                  <div className="text-lg font-bold text-orange-600">{fmtM(vt.costo_externo)}</div>
+                  <div className="text-[10px] text-gray-400">técnicos tercerizados</div>
+                </div>
+              </div>
+
+              <div className={`rounded-xl border p-3 ${vt.retenido < 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-700">Retenido del servicio de visitas</div>
+                    <div className="text-[11px] text-gray-500">cobrado − bonificado − costo externo</div>
+                  </div>
+                  <div className={`text-xl font-bold ${vt.retenido < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                    {fmtM(vt.retenido)}
+                  </div>
+                </div>
+                {vt.retenido < 0 && (
+                  <p className="text-[11px] text-red-600 mt-1.5">
+                    El servicio de visitas no está cubriendo su costo en este período.
+                  </p>
+                )}
+              </div>
+
+              <p className="text-[10px] text-gray-400 mt-2">
+                Las visitas se cuentan por fecha de generación; lo bonificado, por la fecha en que se acreditó.
+              </p>
+            </div>
+          );
+        })()}
         </div>{/* fin columna izquierda */}
 
         {/* Alertas + Acciones */}

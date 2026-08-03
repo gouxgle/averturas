@@ -10,14 +10,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
-
-// ── Formas de pago (igual que en presupuesto) ─────────────────
-const FORMAS_PAGO = [
-  'Contado',
-  'Tarjeta de débito/crédito en 1 pago',
-  'Transferencia',
-  'Tarjeta de crédito 3 cuotas sin interés',
-];
+import { FORMAS_PAGO } from '@/lib/formasPago';
 
 // ── Conceptos predefinidos ────────────────────────────────────
 const CONCEPTOS_PREDEFINIDOS = [

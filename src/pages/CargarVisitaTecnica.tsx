@@ -5,11 +5,19 @@ import {
   ArrowRight, Users, Camera, X, Wrench, Package, Search, AlertTriangle, Ban, Pencil,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema } from '@/types';
 import { EditItemModal, type EditableItemSpec } from '@/components/EditItemModal';
 
 type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
+
+const COBRO_BADGE: Record<string, { label: (m: number) => string; cls: string }> = {
+  pendiente:  { label: () => 'Sin cobrar',                       cls: 'bg-amber-100 text-amber-700' },
+  cobrada:    { label: m => `Cobrada ${formatCurrency(m)}`,      cls: 'bg-emerald-100 text-emerald-700' },
+  sin_cargo:  { label: () => 'Sin cargo',                        cls: 'bg-gray-100 text-gray-500' },
+  bonificada: { label: () => 'Acreditada',                       cls: 'bg-violet-100 text-violet-700' },
+};
 
 function uuid() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -43,6 +51,10 @@ interface VisitaTecnicaDetalle {
   imagenes: string[];
   cliente_id: string;
   cliente: Cliente;
+  cobro_estado: 'pendiente' | 'cobrada' | 'sin_cargo' | 'bonificada';
+  costo_cobrado: number | null;
+  costo_externo: number | null;
+  recibo_numero: string | null;
   items: Array<{
     ambiente: string | null; descripcion: string | null;
     ancho_mm: string | number | null; alto_mm: string | number | null;
@@ -114,6 +126,7 @@ export function CargarVisitaTecnica() {
 
   const [fechaVisita, setFechaVisita] = useState('');
   const [tecnico, setTecnico] = useState('');
+  const [costoExterno, setCostoExterno] = useState('');
   const [items, setItems] = useState<VisitaTecnicaItem[]>([emptyItem()]);
   const [color, setColor] = useState<string[]>([]);
   const [colorOtro, setColorOtro] = useState('');
@@ -152,6 +165,7 @@ export function CargarVisitaTecnica() {
         setVisita(v);
         setFechaVisita(v.fecha_visita ? v.fecha_visita.slice(0, 10) : '');
         setTecnico(v.tecnico ?? '');
+        setCostoExterno(v.costo_externo != null ? String(v.costo_externo) : '');
         setItems(v.items.length
           ? v.items.map(it => ({
               _key: uuid(),
@@ -291,6 +305,22 @@ export function CargarVisitaTecnica() {
     return items.filter(it => it.descripcion.trim() || it.ambiente.trim() || it.ancho_mm || it.alto_mm || it.producto_id);
   }
 
+  // El costo externo va por su propio endpoint: no forma parte del relevado y
+  // debe poder cargarse aunque la visita ya esté convertida (se paga después).
+  async function guardarCostoExterno() {
+    if (!id) return;
+    const raw = costoExterno.trim();
+    const valor = raw === '' ? null : parseFloat(raw);
+    if (valor != null && (isNaN(valor) || valor < 0)) { toast.error('Costo externo inválido'); return; }
+    if ((visita?.costo_externo ?? null) === valor) return;
+    try {
+      await api.patch(`/visitas-tecnicas/${id}/costo-externo`, { costo_externo: valor });
+      setVisita(prev => prev ? { ...prev, costo_externo: valor } : prev);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo guardar el costo externo');
+    }
+  }
+
   async function guardar(): Promise<VisitaTecnicaDetalle | null> {
     setSaving(true);
     try {
@@ -374,7 +404,13 @@ export function CargarVisitaTecnica() {
       calculo_url: it.tipo_item === 'a_medida' ? it.calculo_url : '',
     }));
     navigate('/presupuestos/nuevo', {
-      state: { itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id, imagenesVisita: r.imagenes ?? [] },
+      state: {
+        itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id,
+        imagenesVisita: r.imagenes ?? [],
+        visitaNumero: r.numero,
+        visitaCobroEstado: r.cobro_estado,
+        visitaCostoCobrado: r.costo_cobrado,
+      },
     });
   }
 
@@ -401,7 +437,12 @@ export function CargarVisitaTecnica() {
             <Ruler size={18} className="text-slate-600"/>
           </div>
           <div>
-            <h1 className="text-base font-bold text-gray-900">Visita técnica {visita.numero}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base font-bold text-gray-900">Visita técnica {visita.numero}</h1>
+              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold', COBRO_BADGE[visita.cobro_estado]?.cls)}>
+                {COBRO_BADGE[visita.cobro_estado]?.label(Number(visita.costo_cobrado ?? 0))}
+              </span>
+            </div>
             <p className="text-xs text-gray-400 flex items-center gap-1"><Users size={11}/> {nombreCliente(visita.cliente)}</p>
           </div>
         </div>
@@ -443,6 +484,20 @@ export function CargarVisitaTecnica() {
             <input value={tecnico} onChange={e => setTecnico(e.target.value)} disabled={soloLectura}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Costo externo</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+            <input type="number" min="0" step="100" value={costoExterno}
+              onChange={e => setCostoExterno(e.target.value)}
+              onBlur={guardarCostoExterno}
+              placeholder="0"
+              className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Lo que se le pagó al técnico o servicio tercerizado. Se usa para medir el margen en Reportes.
+          </p>
         </div>
       </div>
 

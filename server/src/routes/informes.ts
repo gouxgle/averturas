@@ -35,6 +35,7 @@ informes.get('/resumen', async (c) => {
     topClientesDescuentoResult,
     remitosRecientesResult,
     recibosRecientesResult,
+    visitasTecnicasResult,
   ] = await Promise.all([
 
     // 1. KPIs principales (período actual) — "ventas" = remitos entregados en el período
@@ -290,6 +291,28 @@ informes.get('/resumen', async (c) => {
       ORDER BY rec.fecha DESC, rec.created_at DESC
       LIMIT 10
     `, [desde, hasta]),
+
+    // 18. Visitas técnicas del período.
+    // Las visitas se cuentan por created_at, pero lo BONIFICADO por bonificada_at:
+    // acreditar en agosto una visita de julio impacta en agosto, que es cuando se decidió.
+    db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE vt.created_at::date BETWEEN $1::date AND $2::date)::int AS generadas,
+        COUNT(*) FILTER (WHERE vt.cobro_estado = 'cobrada'
+                           AND vt.created_at::date BETWEEN $1::date AND $2::date)::int AS cobradas,
+        COUNT(*) FILTER (WHERE vt.cobro_estado = 'sin_cargo'
+                           AND vt.created_at::date BETWEEN $1::date AND $2::date)::int AS sin_cargo,
+        COALESCE(SUM(vt.costo_cobrado) FILTER (WHERE vt.cobro_estado = 'cobrada'
+                           AND vt.created_at::date BETWEEN $1::date AND $2::date), 0)::numeric AS monto_cobrado,
+        COALESCE(SUM(vt.costo_cobrado) FILTER (WHERE vt.cobro_estado = 'sin_cargo'
+                           AND vt.created_at::date BETWEEN $1::date AND $2::date), 0)::numeric AS monto_sin_cargo,
+        COUNT(*) FILTER (WHERE vt.bonificada_at::date BETWEEN $1::date AND $2::date)::int AS bonificadas,
+        COALESCE(SUM(vt.costo_cobrado) FILTER (
+                         WHERE vt.bonificada_at::date BETWEEN $1::date AND $2::date), 0)::numeric AS monto_bonificado,
+        COALESCE(SUM(vt.costo_externo) FILTER (
+                         WHERE vt.created_at::date BETWEEN $1::date AND $2::date), 0)::numeric AS costo_externo
+      FROM visitas_tecnicas vt
+    `, [desde, hasta]),
   ]);
 
   const pct = (cur: number, prev: number) =>
@@ -401,6 +424,24 @@ informes.get('/resumen', async (c) => {
       compras_periodo:    Number(compras?.compras_periodo ?? 0),
       deuda_proveedores:  Number(compras?.deuda_proveedores ?? 0),
     },
+    visitas_tecnicas: (() => {
+      const v = visitasTecnicasResult.rows[0] as any;
+      const monto_cobrado    = Number(v?.monto_cobrado    ?? 0);
+      const monto_bonificado = Number(v?.monto_bonificado ?? 0);
+      const costo_externo    = Number(v?.costo_externo    ?? 0);
+      return {
+        generadas:        Number(v?.generadas   ?? 0),
+        cobradas:         Number(v?.cobradas    ?? 0),
+        sin_cargo:        Number(v?.sin_cargo   ?? 0),
+        bonificadas:      Number(v?.bonificadas ?? 0),
+        monto_cobrado,
+        monto_sin_cargo:  Number(v?.monto_sin_cargo ?? 0),
+        monto_bonificado,
+        costo_externo,
+        // Lo que efectivamente quedó del servicio de visitas
+        retenido: monto_cobrado - monto_bonificado - costo_externo,
+      };
+    })(),
     top_clientes: topClientesResult.rows.map((r: any) => ({
       id:           r.id,
       nombre:       r.nombre,

@@ -210,6 +210,7 @@ export function NuevoPresupuesto() {
   const [editEstado, setEditEstado] = useState('');
   const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
   const [imagenesVisita, setImagenesVisita] = useState<string[]>([]);
+  const [visitaCredito, setVisitaCredito] = useState<{ numero: string; monto: number } | null>(null);
 
   const [clientes, setClientes]           = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -410,6 +411,9 @@ export function NuevoPresupuesto() {
       clienteId?: string;
       visitaTecnicaId?: string;
       imagenesVisita?: string[];
+      visitaNumero?: string;
+      visitaCobroEstado?: string;
+      visitaCostoCobrado?: number | null;
     } | null;
     if (!state?.itemsPrecargados?.length) return;
     itemsPrecargadosRef.current = true;
@@ -462,6 +466,9 @@ export function NuevoPresupuesto() {
     }
     if (state.visitaTecnicaId) setVisitaTecnicaId(state.visitaTecnicaId);
     if (state.imagenesVisita?.length) setImagenesVisita(state.imagenesVisita);
+    if (state.visitaCobroEstado === 'cobrada' && state.visitaNumero) {
+      setVisitaCredito({ numero: state.visitaNumero, monto: Number(state.visitaCostoCobrado ?? 0) });
+    }
   }, [isEdit, location.state]);
 
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
@@ -836,6 +843,16 @@ export function NuevoPresupuesto() {
         {/* Derecha: acciones */}
         <div className="flex items-center gap-2">
           <HelpButton topic="presupuestos" />
+          {!isEdit && (
+            <button
+              onClick={() => navigate('/presupuestos/visita-tecnica', { state: clienteId ? { clienteId } : undefined })}
+              title="El cliente no sabe qué necesita — generá un relevamiento en el sitio"
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+            >
+              <Ruler size={14} />
+              Visita técnica
+            </button>
+          )}
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
@@ -1743,6 +1760,21 @@ export function NuevoPresupuesto() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Visita técnica ya cobrada: se podrá acreditar una vez aprobado el presupuesto */}
+              {visitaCredito && (
+                <div className="rounded-lg border border-violet-300 bg-violet-50 p-3 flex items-start gap-2">
+                  <Ruler size={15} className="text-violet-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-violet-700">
+                      Visita {visitaCredito.numero} cobrada {formatCurrency(visitaCredito.monto)}
+                    </p>
+                    <p className="text-[11px] text-violet-700 mt-0.5">
+                      Vas a poder acreditarla al presupuesto una vez aprobado.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Aviso: fecha de entrega estimativa por disponibilidad sin confirmar */}
               {itemsSinConfirmar.length > 0 && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
