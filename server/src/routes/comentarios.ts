@@ -12,10 +12,13 @@ const WITH_AUTOR = `
   LEFT JOIN usuarios resolutor ON resolutor.id = cb.resuelto_by
 `;
 
-// GET / — todos, pendientes primero (por fecha desc), resueltos al final
+// GET / — no archivados, pendientes primero (por fecha desc), resueltos al final
+// GET /?archivados=1 — solo archivados
 comentarios.get('/', async (c) => {
+  const soloArchivados = c.req.query('archivados') === '1';
   const { rows } = await db.query(
-    `${WITH_AUTOR} ORDER BY cb.resuelto ASC, cb.created_at DESC LIMIT 200`
+    `${WITH_AUTOR} WHERE cb.archivado = $1 ORDER BY cb.resuelto ASC, cb.created_at DESC LIMIT 200`,
+    [soloArchivados]
   );
   return c.json(rows);
 });
@@ -44,6 +47,21 @@ comentarios.patch('/:id/resolver', async (c) => {
       resuelto_by = CASE WHEN $1 THEN $2::uuid ELSE NULL END
     WHERE id = $3 RETURNING *
   `, [body.resuelto, user?.id ?? null, id]);
+
+  if (!row) return c.json({ error: 'No encontrado' }, 404);
+  return c.json(row);
+});
+
+comentarios.patch('/:id/archivar', async (c) => {
+  const { id } = c.req.param();
+  const body = await c.req.json<{ archivado: boolean }>();
+
+  const { rows: [row] } = await db.query(`
+    UPDATE comentarios_buzon SET
+      archivado    = $1,
+      archivado_at = CASE WHEN $1 THEN now() ELSE NULL END
+    WHERE id = $2 RETURNING *
+  `, [body.archivado, id]);
 
   if (!row) return c.json({ error: 'No encontrado' }, 404);
   return c.json(row);

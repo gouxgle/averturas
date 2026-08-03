@@ -22,6 +22,10 @@ data/
 # Backups de migración DB
 backups/
 backups_prod/
+aberturas-db.sql.gz
+aberturas-uploads.tar.gz
+aberturas-env-backup
+*.sql.gz
 
 # Logs
 logs/

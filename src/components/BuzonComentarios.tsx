@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { StickyNote, X, Check, Trash2, RotateCcw, Send } from 'lucide-react';
+import { StickyNote, X, Check, Trash2, RotateCcw, Send, Archive, ArchiveRestore } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -9,6 +9,8 @@ interface Comentario {
   texto: string;
   resuelto: boolean;
   resuelto_at: string | null;
+  archivado: boolean;
+  archivado_at: string | null;
   created_at: string;
   created_by_nombre: string | null;
   resuelto_by_nombre: string | null;
@@ -24,14 +26,21 @@ export function BuzonComentarios() {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [verResueltos, setVerResueltos] = useState(false);
+  const [archivados, setArchivados] = useState<Comentario[]>([]);
+  const [verArchivados, setVerArchivados] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const load = () => {
     api.get<Comentario[]>('/comentarios').then(setItems).catch(() => {});
   };
 
+  const loadArchivados = () => {
+    api.get<Comentario[]>('/comentarios?archivados=1').then(setArchivados).catch(() => {});
+  };
+
   useEffect(() => { load(); }, []);
   useEffect(() => { if (open) load(); }, [open]);
+  useEffect(() => { if (verArchivados) loadArchivados(); }, [verArchivados]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -73,6 +82,21 @@ export function BuzonComentarios() {
       setItems(prev => prev.filter(i => i.id !== id));
     } catch {
       toast.error('No se pudo eliminar');
+    }
+  }
+
+  async function archivar(item: Comentario, archivado: boolean) {
+    try {
+      const actualizado = await api.patch<Comentario>(`/comentarios/${item.id}/archivar`, { archivado });
+      if (archivado) {
+        setItems(prev => prev.filter(i => i.id !== item.id));
+        setArchivados(prev => [actualizado, ...prev]);
+      } else {
+        setArchivados(prev => prev.filter(i => i.id !== item.id));
+        setItems(prev => [actualizado, ...prev]);
+      }
+    } catch {
+      toast.error('No se pudo archivar');
     }
   }
 
@@ -121,6 +145,10 @@ export function BuzonComentarios() {
                     className="p-1 text-gray-300 hover:text-emerald-600 rounded hover:bg-emerald-50">
                     <Check size={13} />
                   </button>
+                  <button onClick={() => archivar(item, true)} title="Archivar"
+                    className="p-1 text-gray-300 hover:text-slate-600 rounded hover:bg-slate-100">
+                    <Archive size={12} />
+                  </button>
                   <button onClick={() => eliminar(item.id)} title="Eliminar"
                     className="p-1 text-gray-300 hover:text-red-500 rounded hover:bg-red-50">
                     <Trash2 size={12} />
@@ -143,14 +171,45 @@ export function BuzonComentarios() {
                         Resuelto por {item.resuelto_by_nombre ?? '—'} · {item.resuelto_at ? fmtFecha(item.resuelto_at) : ''}
                       </p>
                     </div>
-                    <button onClick={() => toggleResuelto(item)} title="Reabrir"
-                      className="shrink-0 p-1 text-gray-300 hover:text-amber-600 rounded hover:bg-amber-50">
-                      <RotateCcw size={12} />
-                    </button>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <button onClick={() => toggleResuelto(item)} title="Reabrir"
+                        className="p-1 text-gray-300 hover:text-amber-600 rounded hover:bg-amber-50">
+                        <RotateCcw size={12} />
+                      </button>
+                      <button onClick={() => archivar(item, true)} title="Archivar"
+                        className="p-1 text-gray-300 hover:text-slate-600 rounded hover:bg-slate-100">
+                        <Archive size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
+
+            <div>
+              <button onClick={() => setVerArchivados(v => !v)}
+                className="w-full text-left px-3 py-2 text-[10px] font-semibold text-gray-400 hover:bg-gray-50 border-t border-gray-50">
+                {verArchivados ? '▲' : '▼'} Archivados
+              </button>
+              {verArchivados && (
+                archivados.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Sin comentarios archivados</p>
+                ) : archivados.map(item => (
+                  <div key={item.id} className="px-3 py-2 border-t border-gray-50 flex items-start gap-2 opacity-60">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 whitespace-pre-wrap break-words">{item.texto}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        Archivado {item.archivado_at ? fmtFecha(item.archivado_at) : ''}
+                      </p>
+                    </div>
+                    <button onClick={() => archivar(item, false)} title="Desarchivar"
+                      className="shrink-0 p-1 text-gray-300 hover:text-amber-600 rounded hover:bg-amber-50">
+                      <ArchiveRestore size={12} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
