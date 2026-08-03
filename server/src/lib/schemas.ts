@@ -69,7 +69,7 @@ const OperacionItemSchema = z.object({
   accesorios:          z.array(z.string()).optional().default([]),
   notas:               zText(500).optional(),
   calculo_url:         zText(300).optional().nullable(),
-  tipo_item:           z.enum(['estandar', 'a_medida', 'servicio']).optional().default('estandar'),
+  tipo_item:           z.enum(['estandar', 'a_medida', 'servicio', 'a_relevar']).optional().default('estandar'),
   servicio_id:         zUUID.optional().nullable(),
 });
 

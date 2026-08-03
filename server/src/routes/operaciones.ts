@@ -13,11 +13,20 @@ const operaciones = new Hono();
 // que falta: no se comparte ni se aprueba hasta completarlo, porque el precio todavía
 // puede cambiar. Devuelve el número de la visita pendiente, o null si no hay ninguna.
 async function visitaPendiente(operacionId: string): Promise<string | null> {
+  // Chequeo primario: ¿quedan renglones "a relevar" sin resolver? Esto cubre tanto
+  // el caso con visita ya generada como el de un ítem agregado que todavía no tiene
+  // ninguna visita vinculada (recién creado, antes de generarla).
+  const { rows: [item] } = await db.query(
+    `SELECT 1 FROM operacion_items WHERE operacion_id = $1 AND tipo_item = 'a_relevar' LIMIT 1`,
+    [operacionId]
+  );
+  if (!item) return null;
+
   const { rows: [vt] } = await db.query(
     `SELECT numero FROM visitas_tecnicas WHERE operacion_id = $1 AND estado NOT IN ('convertida', 'cancelada')`,
     [operacionId]
   );
-  return vt?.numero ?? null;
+  return vt?.numero ?? 'sin generar';
 }
 
 // Token de acceso público (link de aprobación) — se reutiliza mientras siga vigente,
@@ -511,6 +520,9 @@ operaciones.get('/ventas-panel', async (c) => {
         cob.cobrado_total,
         cob.credito_visita,
         vtp.numero AS visita_pendiente_numero,
+        EXISTS (
+          SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id AND oi.tipo_item = 'a_relevar'
+        ) AS tiene_items_a_relevar,
         CASE
           WHEN o.estado NOT IN ('aprobado','en_produccion','listo','instalado','entregado') THEN NULL
           WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
@@ -900,10 +912,10 @@ operaciones.patch('/:id/resolver-respuesta', async (c) => {
   return c.json({ ok: true });
 });
 
-// POST /:id/completar-relevamiento — agrega a un presupuesto YA EXISTENTE los ítems
-// que faltaban medir, relevados en una visita técnica vinculada desde el arranque
-// (ver POST /visitas-tecnicas con operacion_id). A diferencia de PUT /:id, NO borra
-// los ítems que ya estaban — solo suma los nuevos; el trigger recalcula el total.
+// POST /:id/completar-relevamiento — resuelve los renglones "a relevar" de un
+// presupuesto YA EXISTENTE con lo medido en la visita técnica vinculada. Cada
+// ítem relevado ACTUALIZA EN EL LUGAR el placeholder correspondiente (matcheado
+// por orden) — no se agregan ítems nuevos, se completan los que ya estaban.
 operaciones.post('/:id/completar-relevamiento', async (c) => {
   const { id } = c.req.param();
   const b = await validateBody(c, CompletarRelevamientoSchema);
@@ -940,12 +952,26 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
       return c.json({ error: 'Esta visita está cancelada' }, 409);
     }
 
-    const { rows: maxOrdenRows } = await client.query(
-      `SELECT COALESCE(MAX(orden), -1) AS max FROM operacion_items WHERE operacion_id=$1`, [id]
+    // Placeholders pendientes de este presupuesto, en el mismo orden en que se cargaron
+    const { rows: pendientes } = await client.query(
+      `SELECT id FROM operacion_items WHERE operacion_id=$1 AND tipo_item='a_relevar' ORDER BY orden, id FOR UPDATE`,
+      [id]
     );
-    let orden = Number(maxOrdenRows[0].max) + 1;
+    if (pendientes.length === 0) {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'Este presupuesto no tiene ítems pendientes de relevar' }, 409);
+    }
+    if (b.items.length !== pendientes.length) {
+      await client.query('ROLLBACK');
+      return c.json({
+        error: `Relevaste ${b.items.length} ítem(s) pero el presupuesto tiene ${pendientes.length} pendiente(s) de relevar`,
+      }, 409);
+    }
 
-    for (const item of b.items) {
+    for (let i = 0; i < b.items.length; i++) {
+      const item = b.items[i];
+      const placeholderId = pendientes[i].id;
+
       // Precio/costo por tipo — mismo criterio que agregar un ítem nuevo en Nuevo Presupuesto:
       // estándar y servicio toman el precio del catálogo; a medida arranca en 0 (se carga a mano).
       let costoUnitario = 0, precioUnitario = 0;
@@ -973,23 +999,20 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
       }
 
       await client.query(`
-        INSERT INTO operacion_items
-          (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
-           medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
-           incluye_instalacion, costo_instalacion, precio_instalacion,
-           vidrio, premarco, origen, color, accesorios, producto_id, calculo_url,
-           tipo_item, servicio_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+        UPDATE operacion_items SET
+          tipo_abertura_id = $1, sistema_id = $2, descripcion = $3,
+          medida_ancho = $4, medida_alto = $5,
+          costo_unitario = $6, precio_unitario = $7,
+          vidrio = $8, premarco = $9, origen = $10, color = $11, accesorios = $12,
+          producto_id = $13, calculo_url = $14, tipo_item = $15, servicio_id = $16
+        WHERE id = $17
       `, [
-        id, orden++,
         item.tipo_abertura_id || null,
         item.sistema_id || null,
         item.descripcion || '',
         item.medida_ancho || null,
         item.medida_alto || null,
-        1,
         costoUnitario, precioUnitario,
-        false, 0, 0,
         vidrio, premarco,
         item.tipo_item === 'servicio' ? null : 'proveedor',
         color, accesorios,
@@ -997,6 +1020,7 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
         item.calculo_url || null,
         item.tipo_item || 'a_medida',
         item.servicio_id || null,
+        placeholderId,
       ]);
     }
 
@@ -1047,6 +1071,9 @@ operaciones.get('/:id', async (c) => {
           WHERE vt.operacion_id = o.id
           ORDER BY vt.created_at DESC LIMIT 1
         ) AS visita_tecnica,
+        EXISTS (
+          SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id AND oi.tipo_item = 'a_relevar'
+        ) AS tiene_items_a_relevar,
         COALESCE((
           SELECT SUM(r.monto_total) FROM recibos r
           JOIN visitas_tecnicas vt2 ON vt2.recibo_id = r.id
