@@ -4,10 +4,21 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
-import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema } from '../lib/schemas.js';
+import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
 import { sendProformaCompartida } from '../email.js';
 
 const operaciones = new Hono();
+
+// Presupuesto con ítems identificados + una visita técnica vinculada para relevar lo
+// que falta: no se comparte ni se aprueba hasta completarlo, porque el precio todavía
+// puede cambiar. Devuelve el número de la visita pendiente, o null si no hay ninguna.
+async function visitaPendiente(operacionId: string): Promise<string | null> {
+  const { rows: [vt] } = await db.query(
+    `SELECT numero FROM visitas_tecnicas WHERE operacion_id = $1 AND estado NOT IN ('convertida', 'cancelada')`,
+    [operacionId]
+  );
+  return vt?.numero ?? null;
+}
 
 // Token de acceso público (link de aprobación) — se reutiliza mientras siga vigente,
 // para que compartir por varios canales (WhatsApp, email, "Compartir" del listado) no
@@ -499,6 +510,7 @@ operaciones.get('/ventas-panel', async (c) => {
         END AS prioridad,
         cob.cobrado_total,
         cob.credito_visita,
+        vtp.numero AS visita_pendiente_numero,
         CASE
           WHEN o.estado NOT IN ('aprobado','en_produccion','listo','instalado','entregado') THEN NULL
           WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
@@ -533,6 +545,11 @@ operaciones.get('/ventas-panel', async (c) => {
           (SELECT p2.estado FROM pedidos p2 WHERE p2.operacion_id = o.id AND p2.estado != 'cancelado' ORDER BY p2.created_at DESC LIMIT 1) AS pedido_estado
         FROM pedidos p WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
       ) ped ON true
+      LEFT JOIN LATERAL (
+        SELECT numero FROM visitas_tecnicas vt
+        WHERE vt.operacion_id = o.id AND vt.estado NOT IN ('convertida', 'cancelada')
+        LIMIT 1
+      ) vtp ON true
       WHERE o.estado IN ('presupuesto','enviado','aprobado','cancelado','rechazado')
       ORDER BY
         CASE WHEN o.estado IN ('presupuesto','enviado') THEN 0 ELSE 1 END,
@@ -603,6 +620,11 @@ operaciones.post('/:id/generar-link', async (c) => {
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
 
+  const vtPendiente = await visitaPendiente(id);
+  if (vtPendiente) {
+    return c.json({ error: `Falta relevar la visita técnica ${vtPendiente} antes de compartir este presupuesto` }, 409);
+  }
+
   const token = await obtenerOCrearToken(id, op);
 
   // Interacción CRM automática
@@ -634,6 +656,11 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     [id]
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  const vtPendienteWa = await visitaPendiente(id);
+  if (vtPendienteWa) {
+    return c.json({ error: `Falta relevar la visita técnica ${vtPendienteWa} antes de compartir este presupuesto` }, 409);
+  }
 
   const telefono: string | null = op.telefono;
   if (!telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
@@ -726,6 +753,11 @@ operaciones.post('/:id/enviar-email', async (c) => {
     [id]
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  const vtPendienteEmail = await visitaPendiente(id);
+  if (vtPendienteEmail) {
+    return c.json({ error: `Falta relevar la visita técnica ${vtPendienteEmail} antes de compartir este presupuesto` }, 409);
+  }
 
   const emailCliente: string | null = op.email;
   if (!emailCliente) return c.json({ error: 'El cliente no tiene email registrado' }, 422);
@@ -868,6 +900,123 @@ operaciones.patch('/:id/resolver-respuesta', async (c) => {
   return c.json({ ok: true });
 });
 
+// POST /:id/completar-relevamiento — agrega a un presupuesto YA EXISTENTE los ítems
+// que faltaban medir, relevados en una visita técnica vinculada desde el arranque
+// (ver POST /visitas-tecnicas con operacion_id). A diferencia de PUT /:id, NO borra
+// los ítems que ya estaban — solo suma los nuevos; el trigger recalcula el total.
+operaciones.post('/:id/completar-relevamiento', async (c) => {
+  const { id } = c.req.param();
+  const b = await validateBody(c, CompletarRelevamientoSchema);
+  if (b instanceof Response) return b;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [op] } = await client.query(
+      `SELECT id, estado FROM operaciones WHERE id=$1 FOR UPDATE`, [id]
+    );
+    if (!op) { await client.query('ROLLBACK'); return c.json({ error: 'Presupuesto no encontrado' }, 404); }
+    if (['aprobado', 'cancelado', 'rechazado'].includes(op.estado)) {
+      await client.query('ROLLBACK');
+      return c.json({ error: `No se puede completar un presupuesto ${op.estado}` }, 409);
+    }
+
+    const { rows: [vt] } = await client.query(
+      `SELECT id, operacion_id, estado FROM visitas_tecnicas WHERE id=$1 FOR UPDATE`,
+      [b.visita_tecnica_id]
+    );
+    if (!vt) { await client.query('ROLLBACK'); return c.json({ error: 'Visita técnica no encontrada' }, 404); }
+    if (vt.operacion_id !== id) {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'Esta visita no está vinculada a este presupuesto' }, 409);
+    }
+    if (vt.estado === 'convertida') {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'Esta visita ya fue aplicada a este presupuesto' }, 409);
+    }
+    if (vt.estado === 'cancelada') {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'Esta visita está cancelada' }, 409);
+    }
+
+    const { rows: maxOrdenRows } = await client.query(
+      `SELECT COALESCE(MAX(orden), -1) AS max FROM operacion_items WHERE operacion_id=$1`, [id]
+    );
+    let orden = Number(maxOrdenRows[0].max) + 1;
+
+    for (const item of b.items) {
+      // Precio/costo por tipo — mismo criterio que agregar un ítem nuevo en Nuevo Presupuesto:
+      // estándar y servicio toman el precio del catálogo; a medida arranca en 0 (se carga a mano).
+      let costoUnitario = 0, precioUnitario = 0;
+      let vidrio = item.vidrio || null, premarco = item.premarco ?? false;
+      let color = item.color || null, accesorios = item.accesorios ?? [];
+
+      if (item.tipo_item === 'estandar' && item.producto_id) {
+        const { rows: [prod] } = await client.query(
+          `SELECT costo_base, precio_base, vidrio, premarco, color, accesorios FROM catalogo_productos WHERE id=$1`,
+          [item.producto_id]
+        );
+        if (prod) {
+          costoUnitario = Number(prod.costo_base) || 0;
+          precioUnitario = Number(prod.precio_base) || 0;
+          vidrio = prod.vidrio ?? vidrio;
+          premarco = prod.premarco ?? premarco;
+          color = prod.color ?? color;
+          accesorios = prod.accesorios ?? accesorios;
+        }
+      } else if (item.tipo_item === 'servicio' && item.servicio_id) {
+        const { rows: [serv] } = await client.query(
+          `SELECT precio_base FROM catalogo_servicios WHERE id=$1`, [item.servicio_id]
+        );
+        if (serv) precioUnitario = Number(serv.precio_base) || 0;
+      }
+
+      await client.query(`
+        INSERT INTO operacion_items
+          (operacion_id, orden, tipo_abertura_id, sistema_id, descripcion,
+           medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
+           incluye_instalacion, costo_instalacion, precio_instalacion,
+           vidrio, premarco, origen, color, accesorios, producto_id, calculo_url,
+           tipo_item, servicio_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+      `, [
+        id, orden++,
+        item.tipo_abertura_id || null,
+        item.sistema_id || null,
+        item.descripcion || '',
+        item.medida_ancho || null,
+        item.medida_alto || null,
+        1,
+        costoUnitario, precioUnitario,
+        false, 0, 0,
+        vidrio, premarco,
+        item.tipo_item === 'servicio' ? null : 'proveedor',
+        color, accesorios,
+        item.producto_id || null,
+        item.calculo_url || null,
+        item.tipo_item || 'a_medida',
+        item.servicio_id || null,
+      ]);
+    }
+
+    await client.query(
+      `UPDATE visitas_tecnicas SET estado='convertida', updated_at=now() WHERE id=$1`,
+      [b.visita_tecnica_id]
+    );
+
+    await client.query('COMMIT');
+
+    const { rows: [updated] } = await db.query(`SELECT * FROM operaciones WHERE id=$1`, [id]);
+    return c.json(updated);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
@@ -890,12 +1039,13 @@ operaciones.get('/:id', async (c) => {
         ${STOCK_CUBRE_TODO} AS stock_cubre_todo,
         (
           SELECT json_build_object(
-            'id', vt.id, 'numero', vt.numero, 'cobro_estado', vt.cobro_estado,
+            'id', vt.id, 'numero', vt.numero, 'estado', vt.estado, 'cobro_estado', vt.cobro_estado,
             'costo_cobrado', vt.costo_cobrado, 'recibo_id', vt.recibo_id,
             'recibo_numero', rv.numero)
           FROM visitas_tecnicas vt
           LEFT JOIN recibos rv ON rv.id = vt.recibo_id
-          WHERE vt.operacion_id = o.id LIMIT 1
+          WHERE vt.operacion_id = o.id
+          ORDER BY vt.created_at DESC LIMIT 1
         ) AS visita_tecnica,
         COALESCE((
           SELECT SUM(r.monto_total) FROM recibos r
@@ -1174,6 +1324,13 @@ operaciones.patch('/:id/estado', async (c) => {
   const estadosValidos = ['presupuesto', 'enviado', 'aprobado', 'en_produccion', 'listo', 'instalado', 'entregado', 'cancelado', 'rechazado'];
   if (!estadosValidos.includes(estado)) {
     return c.json({ error: 'Estado inválido' }, 400);
+  }
+
+  if (estado === 'aprobado') {
+    const vtPendiente = await visitaPendiente(id);
+    if (vtPendiente) {
+      return c.json({ error: `Falta relevar la visita técnica ${vtPendiente} antes de aprobar este presupuesto` }, 409);
+    }
   }
 
   const { rows: [row] } = await db.query(`

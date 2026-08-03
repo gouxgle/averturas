@@ -49,6 +49,7 @@ interface PresupuestoPanel {
   prioridad: 'alta' | 'media' | 'baja';
   cobrado_total: number;
   credito_visita: number;
+  visita_pendiente_numero: string | null;
   estado_cobro: 'sin_cobrar' | 'seña' | 'cobrado' | null;
   tiene_pedido: boolean;
   pedido_estado: 'pendiente' | 'enviado' | 'recibido' | 'cancelado' | null;
@@ -94,7 +95,8 @@ interface OpDetalle {
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
   credito_visita: number;
   visita_tecnica: {
-    id: string; numero: string; cobro_estado: 'pendiente' | 'cobrada' | 'sin_cargo' | 'bonificada';
+    id: string; numero: string; estado: string;
+    cobro_estado: 'pendiente' | 'cobrada' | 'sin_cargo' | 'bonificada';
     costo_cobrado: number | null; recibo_id: string | null; recibo_numero: string | null;
   } | null;
   tipo_proyecto: string | null; forma_pago: string | null;
@@ -415,6 +417,8 @@ function PresupuestoModal({
 
   const esAprobado  = op?.estado === 'aprobado';
   const puedeEditar = op && !esAprobado;
+  const vtPendiente = op?.visita_tecnica && !['convertida', 'cancelada'].includes(op.visita_tecnica.estado)
+    ? op.visita_tecnica : null;
   const esVencido   = op?.fecha_validez
     ? new Date(op.fecha_validez.slice(0, 10) + 'T23:59:59') < new Date()
     : false;
@@ -450,6 +454,11 @@ function PresupuestoModal({
                     {RESPUESTA_CLIENTE[op.respuesta_cliente].label}
                   </span>
                 )}
+                {vtPendiente && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                    Esperando relevamiento — {vtPendiente.numero}
+                  </span>
+                )}
               </div>
               {op && <p className="text-xs text-gray-400 mt-0.5">{formatDate(op.created_at)}</p>}
             </div>
@@ -475,10 +484,14 @@ function PresupuestoModal({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg font-medium transition-colors">
                   <Printer size={13} /> PDF
                 </button>
-                <button onClick={generarLink} disabled={generandoLink || esVencido}
-                  title={esVencido ? 'Presupuesto vencido — actualizá la fecha de validez antes de compartir' : undefined}
+                <button onClick={generarLink} disabled={generandoLink || esVencido || !!vtPendiente}
+                  title={
+                    vtPendiente ? `Falta relevar la visita técnica ${vtPendiente.numero} antes de compartir`
+                    : esVencido ? 'Presupuesto vencido — actualizá la fecha de validez antes de compartir'
+                    : undefined
+                  }
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    esVencido
+                    esVencido || vtPendiente
                       ? 'bg-gray-50 text-gray-400 border-gray-200'
                       : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
                   }`}>
@@ -847,8 +860,9 @@ function PresupuestoModal({
               <div className="px-5 py-3 flex items-center gap-2 bg-gray-50 rounded-b-2xl">
                 <span className="text-xs text-gray-400 mr-1">Cambiar estado:</span>
                 {op.estado !== 'aprobado' && (
-                  <button onClick={() => cambiarEstado('aprobado')} disabled={cambiando}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium disabled:opacity-50">
+                  <button onClick={() => cambiarEstado('aprobado')} disabled={cambiando || !!vtPendiente}
+                    title={vtPendiente ? `Falta relevar la visita técnica ${vtPendiente.numero} antes de aprobar` : undefined}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                     <CheckCircle size={11} /> Aceptar
                   </button>
                 )}
@@ -1188,6 +1202,13 @@ export function Presupuestos() {
                     </span>
                   ) : null;
 
+                  const vtBadge = p.visita_pendiente_numero ? (
+                    <span title={`Falta relevar la visita técnica ${p.visita_pendiente_numero}`}
+                      className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      📐 Esperando relevamiento
+                    </span>
+                  ) : null;
+
                   const pedidoBadge = p.tiene_pedido && p.pedido_estado !== 'cancelado' ? (() => {
                     const parcial  = (p.items_en_pedido ?? 0) > 0 && (p.items_en_pedido ?? 0) < (p.items_total ?? 1);
                     const completo = (p.items_total ?? 0) > 0 && (p.items_en_pedido ?? 0) >= (p.items_total ?? 1);
@@ -1260,6 +1281,7 @@ export function Presupuestos() {
                             </div>
                           )}
                           {cobroBadge && <div>{cobroBadge}</div>}
+                          {vtBadge && <div>{vtBadge}</div>}
                           {['presupuesto','enviado'].includes(p.estado) && (
                             <div className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', prio.bg, prio.text)}>
                               {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}

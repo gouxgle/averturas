@@ -146,6 +146,9 @@ visitasTecnicas.get('/:id', async (c) => {
 
 // POST / — crea la visita (se completa después con lo relevado).
 // Si cobrar=true emite además el recibo de la visita, en la misma transacción.
+// Si viene operacion_id: la visita cubre ítems FALTANTES de un presupuesto ya
+// guardado (el vendedor identificó algunos ítems, pero otros necesitan medirse
+// en el sitio) — queda vinculada desde el arranque, no recién al convertirla.
 visitasTecnicas.post('/', async (c) => {
   const user = c.get('user');
   const b = await validateBody(c, VisitaTecnicaCrearSchema);
@@ -156,16 +159,35 @@ visitasTecnicas.post('/', async (c) => {
     return c.json({ error: 'No hay costo de visita configurado. Cargalo en Configuración → Empresa.' }, 400);
   }
 
+  if (b.operacion_id) {
+    const { rows: [op] } = await db.query(
+      `SELECT id, cliente_id, estado FROM operaciones WHERE id=$1`, [b.operacion_id]
+    );
+    if (!op) return c.json({ error: 'Presupuesto no encontrado' }, 404);
+    if (op.cliente_id !== b.cliente_id) return c.json({ error: 'El presupuesto es de otro cliente' }, 409);
+    if (['aprobado', 'cancelado', 'rechazado'].includes(op.estado)) {
+      return c.json({ error: `No se puede relevar ítems faltantes de un presupuesto ${op.estado}` }, 409);
+    }
+    // Una sola visita pendiente por presupuesto — evita mezclar dos relevamientos activos
+    const { rows: [existente] } = await db.query(
+      `SELECT numero FROM visitas_tecnicas WHERE operacion_id=$1 AND estado NOT IN ('convertida','cancelada')`,
+      [b.operacion_id]
+    );
+    if (existente) {
+      return c.json({ error: `Este presupuesto ya tiene una visita pendiente (${existente.numero})` }, 409);
+    }
+  }
+
   const client = await db.connect();
   try {
     await client.query('BEGIN');
 
     const numero = await nextNumero();
     const { rows: [row] } = await client.query(`
-      INSERT INTO visitas_tecnicas (numero, cliente_id, created_by, cobro_estado, costo_cobrado)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO visitas_tecnicas (numero, cliente_id, created_by, cobro_estado, costo_cobrado, operacion_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [numero, b.cliente_id, user?.id || null, b.cobrar ? 'cobrada' : 'sin_cargo', costo]);
+    `, [numero, b.cliente_id, user?.id || null, b.cobrar ? 'cobrada' : 'sin_cargo', costo, b.operacion_id || null]);
 
     let recibo = null;
     if (b.cobrar) {

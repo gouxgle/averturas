@@ -120,6 +120,7 @@ interface FullOperacion {
     stock_actual?: number | null;
   }>;
   formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
+  visita_tecnica: { id: string; numero: string; estado: string } | null;
 }
 
 // ── Ítem del formulario ────────────────────────────────────────────────────────
@@ -211,6 +212,8 @@ export function NuevoPresupuesto() {
   const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
   const [imagenesVisita, setImagenesVisita] = useState<string[]>([]);
   const [visitaCredito, setVisitaCredito] = useState<{ numero: string; monto: number } | null>(null);
+  const [numeroActual, setNumeroActual] = useState('');
+  const [visitaPendiente, setVisitaPendiente] = useState<{ id: string; numero: string } | null>(null);
 
   const [clientes, setClientes]           = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -342,7 +345,11 @@ export function NuevoPresupuesto() {
         return;
       }
       setEditEstado(op.estado);
+      setNumeroActual(op.numero);
       setClienteId(op.cliente_id);
+      if (op.visita_tecnica && !['convertida', 'cancelada'].includes(op.visita_tecnica.estado)) {
+        setVisitaPendiente({ id: op.visita_tecnica.id, numero: op.visita_tecnica.numero });
+      }
       // Cargar cliente para mostrar nombre/teléfono en el header
       api.get<Cliente>(`/clientes/${op.cliente_id}`).then(cl => setClientes([cl])).catch(() => {});
       setTipoProyecto(op.tipo_proyecto ?? '');
@@ -603,7 +610,7 @@ export function NuevoPresupuesto() {
     return () => clearTimeout(t);
   }, [buscarSearch]);
 
-  async function handleSave(abrirPdf = false) {
+  async function handleSave(abrirPdf = false, luegoIrAVisita = false) {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
     if (items.length === 0) { toast.error('Agregá al menos un ítem'); return; }
     if (formaPago === 'Varias formas de pago' && formasPagoAlternativas.length === 0) {
@@ -655,7 +662,11 @@ export function NuevoPresupuesto() {
         ? await api.put<{ id: string; numero: string }>(`/operaciones/${editId}`, payload)
         : await api.post<{ id: string; numero: string }>('/operaciones', payload);
       toast.success(isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`);
-      if (abrirPdf) {
+      if (luegoIrAVisita) {
+        navigate('/presupuestos/visita-tecnica', {
+          state: { clienteId, operacionId: op.id, operacionNumero: op.numero },
+        });
+      } else if (abrirPdf) {
         setSavedId(op.id);
       } else {
         navigate('/presupuestos');
@@ -843,14 +854,29 @@ export function NuevoPresupuesto() {
         {/* Derecha: acciones */}
         <div className="flex items-center gap-2">
           <HelpButton topic="presupuestos" />
-          {!isEdit && (
+          {!visitaPendiente && (
             <button
-              onClick={() => navigate('/presupuestos/visita-tecnica', { state: clienteId ? { clienteId } : undefined })}
-              title="El cliente no sabe qué necesita — generá un relevamiento en el sitio"
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+              onClick={() => {
+                if (isEdit) {
+                  navigate('/presupuestos/visita-tecnica', {
+                    state: { clienteId, operacionId: editId, operacionNumero: numeroActual },
+                  });
+                } else if (items.length > 0) {
+                  handleSave(false, true);
+                } else {
+                  navigate('/presupuestos/visita-tecnica', { state: clienteId ? { clienteId } : undefined });
+                }
+              }}
+              disabled={saving}
+              title={
+                isEdit || items.length > 0
+                  ? 'Guarda lo cargado y generá una visita técnica para relevar lo que falta'
+                  : 'El cliente no sabe qué necesita — generá un relevamiento en el sitio'
+              }
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
             >
               <Ruler size={14} />
-              Visita técnica
+              {isEdit || items.length > 0 ? 'Relevar ítems faltantes' : 'Visita técnica'}
             </button>
           )}
           <button
@@ -1760,6 +1786,29 @@ export function NuevoPresupuesto() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Visita técnica pendiente: hay ítems que faltan relevar antes de poder
+                  aprobar o compartir este presupuesto */}
+              {visitaPendiente && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                  <Ruler size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-amber-700">
+                      Esperando relevamiento — {visitaPendiente.numero}
+                    </p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Hay ítems sin identificar. No se puede aprobar ni compartir este
+                      presupuesto hasta completar la visita técnica.
+                    </p>
+                    <button
+                      onClick={() => navigate(`/presupuestos/visitas-tecnicas/${visitaPendiente.id}`)}
+                      className="mt-1.5 text-[11px] font-bold text-amber-700 hover:underline"
+                    >
+                      Continuar relevamiento →
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Visita técnica ya cobrada: se podrá acreditar una vez aprobado el presupuesto */}
               {visitaCredito && (
                 <div className="rounded-lg border border-violet-300 bg-violet-50 p-3 flex items-start gap-2">

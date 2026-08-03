@@ -388,7 +388,7 @@ export function CargarVisitaTecnica() {
     }
     const r = await guardar();
     if (!r) return;
-    const itemsPrecargados = validos.map(it => ({
+    const itemsRelevados = validos.map(it => ({
       descripcion: [it.ambiente, it.descripcion].filter(Boolean).join(' — '),
       medida_ancho: it.tipo_item === 'a_medida' && it.ancho_mm ? String(parseFloat(it.ancho_mm) / 1000) : '',
       medida_alto: it.tipo_item === 'a_medida' && it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
@@ -403,9 +403,27 @@ export function CargarVisitaTecnica() {
       color: it.tipo_item === 'a_medida' ? it.color : '',
       calculo_url: it.tipo_item === 'a_medida' ? it.calculo_url : '',
     }));
+
+    // Visita ligada desde el arranque a un presupuesto que ya existía (tenía ítems
+    // identificados, faltaba relevar el resto): se completan esos ítems en la misma
+    // operación, no se crea un presupuesto nuevo.
+    if (r.operacion_id && r.estado !== 'convertida') {
+      try {
+        await api.post(`/operaciones/${r.operacion_id}/completar-relevamiento`, {
+          visita_tecnica_id: r.id,
+          items: itemsRelevados,
+        });
+        toast.success(`Presupuesto ${r.operacion_numero ?? ''} completado`.trim());
+        navigate(`/presupuestos/${r.operacion_id}/editar`);
+      } catch (e: any) {
+        toast.error(e?.message ?? 'No se pudo completar el presupuesto');
+      }
+      return;
+    }
+
     navigate('/presupuestos/nuevo', {
       state: {
-        itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id,
+        itemsPrecargados: itemsRelevados, clienteId: r.cliente_id, visitaTecnicaId: r.id,
         imagenesVisita: r.imagenes ?? [],
         visitaNumero: r.numero,
         visitaCobroEstado: r.cobro_estado,
@@ -739,7 +757,10 @@ export function CargarVisitaTecnica() {
           </button>
           <button onClick={handleAvanzar} disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold disabled:opacity-50">
-            {saving ? <Loader2 size={15} className="animate-spin"/> : <ArrowRight size={15}/>} Avanzar a presupuesto
+            {saving ? <Loader2 size={15} className="animate-spin"/> : <ArrowRight size={15}/>}
+            {visita.operacion_id
+              ? `Completar presupuesto ${visita.operacion_numero ?? ''}`.trim()
+              : 'Avanzar a presupuesto'}
           </button>
         </div>
       )}

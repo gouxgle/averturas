@@ -174,9 +174,39 @@ export const VisitaTecnicaCrearSchema = z.object({
   cobrar:          z.boolean().optional().default(false),
   forma_pago:      z.string().min(1).max(150).optional(),
   referencia_pago: zText(200).optional(),
+  // Presupuesto ya guardado, con ítems identificados, al que le falta relevar
+  // uno o más ítems en el sitio. Si viene, la visita queda ligada desde el
+  // arranque (no recién al convertirla) y "completar" agrega ítems a esa
+  // operación en vez de crear una nueva.
+  operacion_id:    zUUID.optional().nullable(),
 }).refine(b => !b.cobrar || !!b.forma_pago?.trim(), {
   message: 'Elegí la forma de pago de la visita',
   path: ['forma_pago'],
+});
+
+// Ítems relevados que se agregan a un presupuesto YA EXISTENTE (visita
+// vinculada desde el arranque) — mismo shape que arma CargarVisitaTecnica.tsx
+// al "avanzar", pero en vez de precargar un presupuesto nuevo, se insertan
+// directo como operacion_items.
+const ItemRelevadoSchema = z.object({
+  descripcion:      zText(500),
+  medida_ancho:     z.string().optional(),
+  medida_alto:      z.string().optional(),
+  tipo_item:        z.enum(['a_medida', 'servicio', 'estandar']).optional().default('a_medida'),
+  producto_id:      zUUID.optional().nullable(),
+  servicio_id:      zUUID.optional().nullable(),
+  tipo_abertura_id: zUUID.optional().nullable(),
+  sistema_id:       zUUID.optional().nullable(),
+  vidrio:           zText(100).optional(),
+  premarco:         z.boolean().optional().default(false),
+  accesorios:       z.array(z.string()).optional().default([]),
+  color:            zText(100).optional(),
+  calculo_url:      zText(300).optional().nullable(),
+});
+
+export const CompletarRelevamientoSchema = z.object({
+  visita_tecnica_id: zUUID,
+  items: z.array(ItemRelevadoSchema).min(1),
 });
 
 export const VisitaTecnicaCobrarSchema = z.object({
