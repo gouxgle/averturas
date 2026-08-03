@@ -388,7 +388,43 @@ export function CargarVisitaTecnica() {
     }
     const r = await guardar();
     if (!r) return;
-    const itemsRelevados = validos.map(it => ({
+
+    // Visita ligada desde el arranque a un presupuesto que ya existía (tenía ítems
+    // identificados, faltaba relevar el resto): se completan esos ítems en la misma
+    // operación, no se crea un presupuesto nuevo. El endpoint valida producto_id/
+    // servicio_id/tipo_abertura_id/sistema_id como UUID — hay que mandar null (no
+    // string vacío) cuando no aplican, a diferencia del state de React Router de
+    // abajo que tolera cualquier cosa porque no pasa por Zod.
+    if (r.operacion_id && r.estado !== 'convertida') {
+      const itemsCompletar = validos.map(it => ({
+        descripcion: [it.ambiente, it.descripcion].filter(Boolean).join(' — '),
+        medida_ancho: it.tipo_item === 'a_medida' && it.ancho_mm ? String(parseFloat(it.ancho_mm) / 1000) : undefined,
+        medida_alto: it.tipo_item === 'a_medida' && it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : undefined,
+        tipo_item: it.tipo_item,
+        producto_id: it.tipo_item === 'estandar' ? (it.producto_id || null) : null,
+        servicio_id: it.tipo_item === 'servicio' ? (it.servicio_id || null) : null,
+        tipo_abertura_id: it.tipo_item === 'a_medida' ? (it.tipo_abertura_id || null) : null,
+        sistema_id: it.tipo_item === 'a_medida' ? (it.sistema_id || null) : null,
+        vidrio: it.tipo_item === 'a_medida' ? (it.vidrio || undefined) : undefined,
+        premarco: it.tipo_item === 'a_medida' ? !!it.premarco : false,
+        accesorios: it.tipo_item === 'a_medida' ? it.accesorios : [],
+        color: it.tipo_item === 'a_medida' ? (it.color || undefined) : undefined,
+        calculo_url: it.tipo_item === 'a_medida' ? (it.calculo_url || null) : null,
+      }));
+      try {
+        await api.post(`/operaciones/${r.operacion_id}/completar-relevamiento`, {
+          visita_tecnica_id: r.id,
+          items: itemsCompletar,
+        });
+        toast.success(`Presupuesto ${r.operacion_numero ?? ''} completado`.trim());
+        navigate(`/presupuestos/${r.operacion_id}/editar`);
+      } catch (e: any) {
+        toast.error(e?.message ?? 'No se pudo completar el presupuesto');
+      }
+      return;
+    }
+
+    const itemsPrecargados = validos.map(it => ({
       descripcion: [it.ambiente, it.descripcion].filter(Boolean).join(' — '),
       medida_ancho: it.tipo_item === 'a_medida' && it.ancho_mm ? String(parseFloat(it.ancho_mm) / 1000) : '',
       medida_alto: it.tipo_item === 'a_medida' && it.alto_mm ? String(parseFloat(it.alto_mm) / 1000) : '',
@@ -403,27 +439,9 @@ export function CargarVisitaTecnica() {
       color: it.tipo_item === 'a_medida' ? it.color : '',
       calculo_url: it.tipo_item === 'a_medida' ? it.calculo_url : '',
     }));
-
-    // Visita ligada desde el arranque a un presupuesto que ya existía (tenía ítems
-    // identificados, faltaba relevar el resto): se completan esos ítems en la misma
-    // operación, no se crea un presupuesto nuevo.
-    if (r.operacion_id && r.estado !== 'convertida') {
-      try {
-        await api.post(`/operaciones/${r.operacion_id}/completar-relevamiento`, {
-          visita_tecnica_id: r.id,
-          items: itemsRelevados,
-        });
-        toast.success(`Presupuesto ${r.operacion_numero ?? ''} completado`.trim());
-        navigate(`/presupuestos/${r.operacion_id}/editar`);
-      } catch (e: any) {
-        toast.error(e?.message ?? 'No se pudo completar el presupuesto');
-      }
-      return;
-    }
-
     navigate('/presupuestos/nuevo', {
       state: {
-        itemsPrecargados: itemsRelevados, clienteId: r.cliente_id, visitaTecnicaId: r.id,
+        itemsPrecargados, clienteId: r.cliente_id, visitaTecnicaId: r.id,
         imagenesVisita: r.imagenes ?? [],
         visitaNumero: r.numero,
         visitaCobroEstado: r.cobro_estado,
