@@ -7,6 +7,16 @@ import {
 
 const pub = new Hono();
 
+// GET /pub/entorno — para el banner visual test/producción. Se deriva de APP_URL
+// (ya es distinto por ambiente en cada .env) para que cambie solo al deployar,
+// sin tocar nada a mano. Ver tabla de Ambientes en CLAUDE.md.
+pub.get('/entorno', (c) => {
+  const url = (process.env.APP_URL || '').toLowerCase();
+  if (url.includes('solucionesgps.com.ar')) return c.json({ entorno: 'test' });
+  if (url.includes('cesarbritez.com.ar'))   return c.json({ entorno: 'produccion' });
+  return c.json({ entorno: 'local' });
+});
+
 // Trae datos completos para emails (cliente + empresa)
 async function fetchCtxEmail(operacionId: string) {
   const { rows: [row] } = await db.query(`

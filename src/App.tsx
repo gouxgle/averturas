@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppLayout } from '@/components/Layout/AppLayout';
+import { EntornoBanner } from '@/components/EntornoBanner';
 
 const Login                    = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login })));
 const Dashboard                = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -62,6 +63,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <EntornoBanner />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />
