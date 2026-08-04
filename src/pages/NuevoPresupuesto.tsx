@@ -120,6 +120,7 @@ interface FullOperacion {
     stock_actual?: number | null;
   }>;
   formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
+  visita_tecnica: { id: string; numero: string; estado: string } | null;
 }
 
 // ── Ítem del formulario ────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ interface FullOperacion {
 interface ItemForm {
   _key: string;
   producto_id: string;
-  tipo_item: 'estandar' | 'a_medida' | 'servicio';
+  tipo_item: 'estandar' | 'a_medida' | 'servicio' | 'a_relevar';
   servicio_id: string;
   tipo_abertura_id: string;
   sistema_id: string;
@@ -210,6 +211,9 @@ export function NuevoPresupuesto() {
   const [editEstado, setEditEstado] = useState('');
   const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
   const [imagenesVisita, setImagenesVisita] = useState<string[]>([]);
+  const [visitaCredito, setVisitaCredito] = useState<{ numero: string; monto: number } | null>(null);
+  const [numeroActual, setNumeroActual] = useState('');
+  const [visitaPendiente, setVisitaPendiente] = useState<{ id: string; numero: string } | null>(null);
 
   const [clientes, setClientes]           = useState<Cliente[]>([]);
   const [tiposAbertura, setTiposAbertura] = useState<TipoAbertura[]>([]);
@@ -249,7 +253,8 @@ export function NuevoPresupuesto() {
   // Modo de carga: estándar (galería de catálogo), a medida (aberturas descritas a mano,
   // con precio costo/venta que da el software externo de cálculo), o servicio (reparación,
   // mantenimiento, cambio de piezas — desde catalogo_servicios o personalizado)
-  const [modo, setModo] = useState<'estandar' | 'a_medida' | 'servicio'>('estandar');
+  const [modo, setModo] = useState<'estandar' | 'a_medida' | 'servicio' | 'a_relevar'>('estandar');
+  const [descripcionARelevar, setDescripcionARelevar] = useState('');
   const [servicioSeleccionadoId, setServicioSeleccionadoId] = useState('');
   const esAMedida = modo === 'a_medida';
   const [tab, setTab] = useState<'galeria' | 'buscar' | 'frecuentes' | 'scanner'>('galeria');
@@ -341,7 +346,11 @@ export function NuevoPresupuesto() {
         return;
       }
       setEditEstado(op.estado);
+      setNumeroActual(op.numero);
       setClienteId(op.cliente_id);
+      if (op.visita_tecnica && !['convertida', 'cancelada'].includes(op.visita_tecnica.estado)) {
+        setVisitaPendiente({ id: op.visita_tecnica.id, numero: op.visita_tecnica.numero });
+      }
       // Cargar cliente para mostrar nombre/teléfono en el header
       api.get<Cliente>(`/clientes/${op.cliente_id}`).then(cl => setClientes([cl])).catch(() => {});
       setTipoProyecto(op.tipo_proyecto ?? '');
@@ -410,6 +419,9 @@ export function NuevoPresupuesto() {
       clienteId?: string;
       visitaTecnicaId?: string;
       imagenesVisita?: string[];
+      visitaNumero?: string;
+      visitaCobroEstado?: string;
+      visitaCostoCobrado?: number | null;
     } | null;
     if (!state?.itemsPrecargados?.length) return;
     itemsPrecargadosRef.current = true;
@@ -462,6 +474,9 @@ export function NuevoPresupuesto() {
     }
     if (state.visitaTecnicaId) setVisitaTecnicaId(state.visitaTecnicaId);
     if (state.imagenesVisita?.length) setImagenesVisita(state.imagenesVisita);
+    if (state.visitaCobroEstado === 'cobrada' && state.visitaNumero) {
+      setVisitaCredito({ numero: state.visitaNumero, monto: Number(state.visitaCostoCobrado ?? 0) });
+    }
   }, [isEdit, location.state]);
 
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
@@ -472,6 +487,7 @@ export function NuevoPresupuesto() {
 
   const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
   const totalConEnvio = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
+  const pendientesARelevar = items.filter(it => it.tipo_item === 'a_relevar').length;
   // Ítems de catálogo SIN stock (el stock ya es prueba suficiente de disponibilidad)
   // cuyo plazo con el proveedor no está confirmado (o venció) — la fecha de entrega
   // no se puede comprometer en firme hasta chequear por WhatsApp.
@@ -596,7 +612,7 @@ export function NuevoPresupuesto() {
     return () => clearTimeout(t);
   }, [buscarSearch]);
 
-  async function handleSave(abrirPdf = false) {
+  async function handleSave(abrirPdf = false, luegoIrAVisita = false) {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
     if (items.length === 0) { toast.error('Agregá al menos un ítem'); return; }
     if (formaPago === 'Varias formas de pago' && formasPagoAlternativas.length === 0) {
@@ -648,7 +664,11 @@ export function NuevoPresupuesto() {
         ? await api.put<{ id: string; numero: string }>(`/operaciones/${editId}`, payload)
         : await api.post<{ id: string; numero: string }>('/operaciones', payload);
       toast.success(isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`);
-      if (abrirPdf) {
+      if (luegoIrAVisita) {
+        navigate('/presupuestos/visita-tecnica', {
+          state: { clienteId, operacionId: op.id, operacionNumero: op.numero },
+        });
+      } else if (abrirPdf) {
         setSavedId(op.id);
       } else {
         navigate('/presupuestos');
@@ -836,6 +856,33 @@ export function NuevoPresupuesto() {
         {/* Derecha: acciones */}
         <div className="flex items-center gap-2">
           <HelpButton topic="presupuestos" />
+          {!visitaPendiente && (items.length === 0 || pendientesARelevar > 0) && (
+            <button
+              onClick={() => {
+                if (isEdit) {
+                  navigate('/presupuestos/visita-tecnica', {
+                    state: { clienteId, operacionId: editId, operacionNumero: numeroActual },
+                  });
+                } else if (items.length > 0) {
+                  handleSave(false, true);
+                } else {
+                  navigate('/presupuestos/visita-tecnica', { state: clienteId ? { clienteId } : undefined });
+                }
+              }}
+              disabled={saving}
+              title={
+                pendientesARelevar > 0
+                  ? 'Guarda lo cargado y generá la visita técnica para relevar los ítems pendientes'
+                  : 'El cliente no sabe qué necesita — generá un relevamiento en el sitio'
+              }
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <Ruler size={14} />
+              {pendientesARelevar > 0
+                ? `Generar visita técnica (${pendientesARelevar})`
+                : 'Visita técnica'}
+            </button>
+          )}
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
@@ -1150,16 +1197,20 @@ export function NuevoPresupuesto() {
               <span className="text-white text-[10px] font-bold">1</span>
             </div>
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wider">
-              {modo === 'a_medida' ? 'Cargar aberturas a medida' : modo === 'servicio' ? 'Agregar servicios' : 'Agregar productos'}
+              {modo === 'a_medida' ? 'Cargar aberturas a medida'
+                : modo === 'servicio' ? 'Agregar servicios'
+                : modo === 'a_relevar' ? 'Ítem a relevar'
+                : 'Agregar productos'}
             </span>
           </div>
 
-          {/* Switch estándar / a medida / servicio */}
+          {/* Switch estándar / a medida / servicio / a relevar */}
           <div className="flex gap-1 p-1.5 border-b border-gray-200 bg-gray-50">
             {([
-              { key: 'estandar',  icon: LayoutGrid, label: 'Estándar',  hint: 'Del catálogo' },
-              { key: 'a_medida',  icon: Ruler,      label: 'A medida',  hint: 'Cálculo externo' },
-              { key: 'servicio',  icon: Wrench,     label: 'Servicio',  hint: 'Reparación, mantenimiento' },
+              { key: 'estandar',  icon: LayoutGrid, label: 'Estándar',   hint: 'Del catálogo' },
+              { key: 'a_medida',  icon: Ruler,      label: 'A medida',   hint: 'Cálculo externo' },
+              { key: 'servicio',  icon: Wrench,     label: 'Servicio',   hint: 'Reparación, mantenimiento' },
+              { key: 'a_relevar', icon: MapPin,     label: 'A relevar',  hint: 'No se sabe la medida — necesita visita técnica' },
             ] as const).map(({ key, icon: Icon, label, hint }) => (
               <button
                 key={key}
@@ -1277,6 +1328,55 @@ export function NuevoPresupuesto() {
               {items.length > 0 && (
                 <p className="text-[11px] text-gray-400 text-center mt-2">
                   {items.length} ítem{items.length !== 1 ? 's' : ''} cargado{items.length !== 1 ? 's' : ''} — editalos en la columna del medio
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── MODO A RELEVAR — placeholder sin precio, se completa con una visita técnica ── */}
+          {modo === 'a_relevar' && (
+            <div className="flex-1 flex flex-col overflow-y-auto p-4 gap-3">
+              <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-3">
+                <p className="text-[11px] font-bold text-amber-700 mb-1">¿Cuándo usar esto?</p>
+                <p className="text-[11px] text-gray-600 leading-snug">
+                  Cuando el cliente pide algo que no sabés medir todavía. Se agrega
+                  como un ítem más, sin precio, y queda marcado "pendiente de relevar".
+                  Después generás una visita técnica para completarlo — el presupuesto
+                  no se puede aprobar ni compartir hasta resolverlo.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={descripcionARelevar}
+                  onChange={e => setDescripcionARelevar(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key !== 'Enter' || !descripcionARelevar.trim()) return;
+                    setItems(prev => [...prev, {
+                      ...emptyItem(), tipo_item: 'a_relevar', descripcion: descripcionARelevar.trim(),
+                    }]);
+                    setDescripcionARelevar('');
+                  }}
+                  placeholder="¿Qué hay que relevar? (ej. Ventana cocina)"
+                  className="flex-1 min-w-0 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+                <button
+                  type="button"
+                  disabled={!descripcionARelevar.trim()}
+                  onClick={() => {
+                    setItems(prev => [...prev, {
+                      ...emptyItem(), tipo_item: 'a_relevar', descripcion: descripcionARelevar.trim(),
+                    }]);
+                    setDescripcionARelevar('');
+                  }}
+                  className="px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                >
+                  Agregar
+                </button>
+              </div>
+
+              {items.some(it => it.tipo_item === 'a_relevar') && (
+                <p className="text-[11px] text-amber-700 text-center">
+                  {items.filter(it => it.tipo_item === 'a_relevar').length} ítem(s) pendiente(s) de relevar
                 </p>
               )}
             </div>
@@ -1627,6 +1727,11 @@ export function NuevoPresupuesto() {
                             <Wrench size={8}/> Servicio
                           </span>
                         )}
+                        {item.tipo_item === 'a_relevar' && (
+                          <span className="shrink-0 flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                            <MapPin size={8}/> Pendiente de relevar
+                          </span>
+                        )}
                       </div>
                       {(item._prod_tipo_nombre || item._prod_sistema_nombre) && (
                         <p className="text-[9px] text-gray-400">
@@ -1661,25 +1766,37 @@ export function NuevoPresupuesto() {
 
                   {/* Precio unit */}
                   <div className="text-right">
-                    <span className="text-xs text-gray-700">{formatCurrency(item.precio_unitario)}</span>
-                    {item.incluye_instalacion && (
-                      <p className="text-[8px] text-violet-500">+inst. {formatCurrency(item.precio_instalacion)}</p>
+                    {item.tipo_item === 'a_relevar' ? (
+                      <span className="text-[10px] font-semibold text-amber-600">Pendiente</span>
+                    ) : (
+                      <>
+                        <span className="text-xs text-gray-700">{formatCurrency(item.precio_unitario)}</span>
+                        {item.incluye_instalacion && (
+                          <p className="text-[8px] text-violet-500">+inst. {formatCurrency(item.precio_instalacion)}</p>
+                        )}
+                      </>
                     )}
                   </div>
 
                   {/* Subtotal */}
                   <div className="text-right">
-                    <span className="text-xs font-bold text-gray-800">{formatCurrency(subtotal)}</span>
+                    {item.tipo_item === 'a_relevar' ? (
+                      <span className="text-[10px] font-semibold text-amber-600">—</span>
+                    ) : (
+                      <span className="text-xs font-bold text-gray-800">{formatCurrency(subtotal)}</span>
+                    )}
                   </div>
 
                   {/* Acciones */}
                   <div className="flex items-center justify-end gap-0.5">
-                    <button
-                      onClick={() => setEditItemKey(item._key)}
-                      className="p-1 hover:bg-violet-50 rounded text-gray-300 hover:text-violet-600 transition-colors"
-                    >
-                      <Edit2 size={11} />
-                    </button>
+                    {item.tipo_item !== 'a_relevar' && (
+                      <button
+                        onClick={() => setEditItemKey(item._key)}
+                        className="p-1 hover:bg-violet-50 rounded text-gray-300 hover:text-violet-600 transition-colors"
+                      >
+                        <Edit2 size={11} />
+                      </button>
+                    )}
                     <button
                       onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
                       className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 transition-colors"
@@ -1743,6 +1860,59 @@ export function NuevoPresupuesto() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Hay ítems "a relevar" cargados pero todavía no se generó la visita técnica */}
+              {!visitaPendiente && pendientesARelevar > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                  <MapPin size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-amber-700">
+                      {pendientesARelevar} ítem{pendientesARelevar !== 1 ? 's' : ''} pendiente{pendientesARelevar !== 1 ? 's' : ''} de relevar
+                    </p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Guardá y generá la visita técnica para completarlo{pendientesARelevar !== 1 ? 's' : ''}.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Visita técnica pendiente: hay ítems que faltan relevar antes de poder
+                  aprobar o compartir este presupuesto */}
+              {visitaPendiente && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                  <Ruler size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-amber-700">
+                      Esperando relevamiento — {visitaPendiente.numero}
+                    </p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Hay ítems sin identificar. No se puede aprobar ni compartir este
+                      presupuesto hasta completar la visita técnica.
+                    </p>
+                    <button
+                      onClick={() => navigate(`/presupuestos/visitas-tecnicas/${visitaPendiente.id}`)}
+                      className="mt-1.5 text-[11px] font-bold text-amber-700 hover:underline"
+                    >
+                      Continuar relevamiento →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Visita técnica ya cobrada: se podrá acreditar una vez aprobado el presupuesto */}
+              {visitaCredito && (
+                <div className="rounded-lg border border-violet-300 bg-violet-50 p-3 flex items-start gap-2">
+                  <Ruler size={15} className="text-violet-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold text-violet-700">
+                      Visita {visitaCredito.numero} cobrada {formatCurrency(visitaCredito.monto)}
+                    </p>
+                    <p className="text-[11px] text-violet-700 mt-0.5">
+                      Vas a poder acreditarla al presupuesto una vez aprobado.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Aviso: fecha de entrega estimativa por disponibilidad sin confirmar */}
               {itemsSinConfirmar.length > 0 && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">

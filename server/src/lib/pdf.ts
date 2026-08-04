@@ -57,6 +57,7 @@ export interface ReciboPDF {
   cliente: ClientePDF;
   operacion: { id?: string; numero: string; precio_total: number } | null;
   remito: { id?: string; numero: string } | null;
+  visita_tecnica?: { id: string; numero: string; fecha_visita: string | Date | null; cobro_estado: string } | null;
   items: ItemPDF[];
   created_by_nombre: string | null;
   cobrado_operacion: number;
@@ -105,6 +106,21 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
         `).join('')}
       </tbody>
     </table>
+  ` : '';
+
+  // Detalle del relevamiento que se esta cobrando (sin acentos, igual que el resto del PDF server-side)
+  const vt = recibo.visita_tecnica;
+  const visitaHTML = vt ? `
+    <div style="border:1px solid #d9d9d9;border-radius:6px;background:#fafafa;padding:10px 12px;margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Visita tecnica</div>
+      <div style="font-size:12px;color:#333;">
+        <strong>${vt.numero}</strong>${vt.fecha_visita ? ` &middot; Fecha prevista: ${fmtFecha(vt.fecha_visita)}` : ''}
+      </div>
+      ${cl.direccion ? `<div style="font-size:11px;color:#666;margin-top:2px;">Domicilio: ${[cl.direccion, cl.localidad].filter(Boolean).join(', ')}</div>` : ''}
+      <div style="font-size:10px;color:#888;margin-top:4px;">
+        Este importe se acredita al presupuesto que se genere a partir de este relevamiento.
+      </div>
+    </div>
   ` : '';
 
   const descuentoHTML = montoDescuento > 0 ? `
@@ -246,6 +262,9 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
       <div style="font-size:12px;color:#333;">${recibo.concepto}</div>
     </div>
   ` : ''}
+
+  <!-- Visita tecnica -->
+  ${visitaHTML}
 
   <!-- Items -->
   ${itemsHTML}

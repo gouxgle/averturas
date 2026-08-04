@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Ruler, Plus, ChevronRight, Filter } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatCurrency } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 
 interface VTCliente {
@@ -13,6 +14,9 @@ interface VisitaTecnicaRow {
   fecha_visita: string | null; created_at: string; items_total: number;
   cliente: VTCliente;
   operacion_numero: string | null;
+  cobro_estado: 'pendiente' | 'cobrada' | 'sin_cargo' | 'bonificada';
+  costo_cobrado: number | null;
+  recibo_numero: string | null;
 }
 
 const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
@@ -20,6 +24,13 @@ const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
   relevada:   { label: 'Relevada',             cls: 'bg-sky-100 text-sky-700' },
   convertida: { label: 'Convertida a presupuesto', cls: 'bg-emerald-100 text-emerald-700' },
   cancelada:  { label: 'Cancelada',            cls: 'bg-red-100 text-red-500' },
+};
+
+const COBRO_BADGE: Record<string, { label: string; cls: string }> = {
+  pendiente:  { label: 'Sin cobrar',  cls: 'bg-amber-100 text-amber-700' },
+  cobrada:    { label: 'Cobrada',     cls: 'bg-emerald-100 text-emerald-700' },
+  sin_cargo:  { label: 'Sin cargo',   cls: 'bg-gray-100 text-gray-500' },
+  bonificada: { label: 'Acreditada',  cls: 'bg-violet-100 text-violet-700' },
 };
 
 function ncl(c: VTCliente) {
@@ -36,16 +47,20 @@ export function VisitasTecnicas() {
   const navigate = useNavigate();
   const [visitas, setVisitas] = useState<VisitaTecnicaRow[]>([]);
   const [estado, setEstado] = useState('');
+  const [cobroEstado, setCobroEstado] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
-    const qs = estado ? `?estado=${estado}` : '';
-    api.get<VisitaTecnicaRow[]>(`/visitas-tecnicas${qs}`)
+    const params = new URLSearchParams();
+    if (estado) params.set('estado', estado);
+    if (cobroEstado) params.set('cobro_estado', cobroEstado);
+    const qs = params.toString();
+    api.get<VisitaTecnicaRow[]>(`/visitas-tecnicas${qs ? `?${qs}` : ''}`)
       .then(setVisitas)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [estado]);
+  }, [estado, cobroEstado]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -64,12 +79,22 @@ export function VisitasTecnicas() {
         }
       />
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Filter size={14} className="text-gray-400" />
         {['', 'pendiente', 'relevada', 'convertida', 'cancelada'].map(e => (
           <button key={e} onClick={() => setEstado(e)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${estado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
             {e === '' ? 'Todas' : ESTADO_BADGE[e].label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cobro</span>
+        {['', 'pendiente', 'cobrada', 'bonificada', 'sin_cargo'].map(e => (
+          <button key={e} onClick={() => setCobroEstado(e)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${cobroEstado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+            {e === '' ? 'Todos' : COBRO_BADGE[e].label}
           </button>
         ))}
       </div>
@@ -88,12 +113,14 @@ export function VisitasTecnicas() {
                 <th className="px-4 py-3">Fecha visita</th>
                 <th className="px-4 py-3">Ítems</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Cobro</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {visitas.map(v => {
                 const badge = ESTADO_BADGE[v.estado];
+                const cobro = COBRO_BADGE[v.cobro_estado] ?? COBRO_BADGE.pendiente;
                 return (
                   <tr key={v.id} onClick={() => navigate(`/presupuestos/visitas-tecnicas/${v.id}`)}
                     className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
@@ -106,6 +133,14 @@ export function VisitasTecnicas() {
                       {v.estado === 'convertida' && v.operacion_numero && (
                         <span className="ml-1.5 text-xs font-semibold text-gray-400">{v.operacion_numero}</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${cobro.cls}`}>
+                        {cobro.label}
+                        {['cobrada', 'bonificada'].includes(v.cobro_estado) && v.costo_cobrado != null && (
+                          <> {formatCurrency(Number(v.costo_cobrado))}</>
+                        )}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <ChevronRight size={16} className="text-gray-300 inline-block" />

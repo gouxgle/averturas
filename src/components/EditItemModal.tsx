@@ -16,7 +16,7 @@ const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
 // decidido en el sitio, y ancho/alto ya se cargan en mm en la fila de afuera).
 export interface EditableItemSpec {
   _key: string;
-  tipo_item: 'estandar' | 'a_medida' | 'servicio';
+  tipo_item: 'estandar' | 'a_medida' | 'servicio' | 'a_relevar';
   tipo_abertura_id: string;
   sistema_id: string;
   descripcion: string;

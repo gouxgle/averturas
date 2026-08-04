@@ -35,14 +35,33 @@ recibos.post('/upload-comprobante', async (c) => {
   return c.json({ url: `/uploads/comprobantes/${filename}` });
 });
 
-async function nextNumero(): Promise<string> {
+// Correlativo mensual por MAX (nunca COUNT: si se borra una fila, COUNT sub-cuenta y
+// regenera un número ya usado → duplicate key y rollback silencioso).
+// Acepta un client para poder correr dentro de una transacción ajena (ej. cobro de visita técnica).
+export async function nextNumeroRecibo(q: { query: typeof db.query } = db): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
-  const { rows } = await db.query(
+  const { rows } = await q.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
     [`REC-${ym}-%`]
   );
   const n = Number((rows[0] as { n: number }).n) + 1;
   return `REC-${ym}-${String(n).padStart(4, '0')}`;
+}
+
+const nextNumero = nextNumeroRecibo;
+
+// Cierra los compromisos de pago de una operación si ya quedó saldada.
+// Se llama tras crear un recibo y tras acreditar una visita técnica.
+export async function cerrarCompromisosSiSaldado(operacionId: string): Promise<void> {
+  await db.query(`
+    UPDATE compromisos_pago SET estado = 'cobrado', updated_at = now()
+    WHERE operacion_id = $1 AND estado = 'pendiente'
+      AND (
+        (SELECT COALESCE(SUM(r.monto_total), 0) + COALESCE(SUM(r.monto_descuento), 0)
+           FROM recibos r WHERE r.operacion_id = $1 AND r.estado = 'emitido')
+        >= (SELECT COALESCE(precio_total, 0) FROM operaciones WHERE id = $1) - 0.01
+      )
+  `, [operacionId]);
 }
 
 // GET /tablero — panel de cobranza completo (ANTES de /:id)
@@ -84,6 +103,9 @@ recibos.get('/tablero', async (c) => {
       FROM recibos r
       JOIN operaciones o ON o.id = r.operacion_id
       WHERE r.estado = 'emitido' AND r.fecha >= NOW() - INTERVAL '3 months'
+        -- El recibo de una visita técnica acreditada es ANTERIOR a la operación:
+        -- sin este filtro entra con días negativos y distorsiona el promedio.
+        AND r.fecha >= o.created_at::date
     `, []),
 
     db.query(`
@@ -342,26 +364,34 @@ recibos.get('/', async (c) => {
   return c.json(rows);
 });
 
+// Detalle de un recibo. Compartido por GET /:id y POST /:id/enviar-whatsapp —
+// si se cambia acá, ambas rutas (navegador y PDF de WhatsApp) quedan sincronizadas.
+const RECIBO_DETALLE_SQL = `
+  SELECT r.*,
+    json_build_object('id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
+      'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
+      'telefono', cl.telefono, 'email', cl.email,
+      'direccion', cl.direccion, 'localidad', cl.localidad,
+      'documento_nro', cl.documento_nro) AS cliente,
+    json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado) AS operacion,
+    json_build_object('id', rm.id, 'numero', rm.numero, 'estado', rm.estado) AS remito,
+    CASE WHEN vt.id IS NULL THEN NULL ELSE json_build_object(
+      'id', vt.id, 'numero', vt.numero, 'fecha_visita', vt.fecha_visita,
+      'cobro_estado', vt.cobro_estado) END AS visita_tecnica,
+    u.nombre AS created_by_nombre
+  FROM recibos r
+  JOIN  clientes   cl ON cl.id = r.cliente_id
+  LEFT JOIN operaciones op ON op.id = r.operacion_id
+  LEFT JOIN remitos      rm ON rm.id = r.remito_id
+  LEFT JOIN visitas_tecnicas vt ON vt.recibo_id = r.id
+  LEFT JOIN usuarios     u  ON u.id  = r.created_by
+  WHERE r.id = $1
+`;
+
 // GET /:id — detalle con items
 recibos.get('/:id', async (c) => {
   const { id } = c.req.param();
-  const { rows: [r] } = await db.query(`
-    SELECT r.*,
-      json_build_object('id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
-        'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
-        'telefono', cl.telefono, 'email', cl.email,
-        'direccion', cl.direccion, 'localidad', cl.localidad,
-        'documento_nro', cl.documento_nro) AS cliente,
-      json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado) AS operacion,
-      json_build_object('id', rm.id, 'numero', rm.numero, 'estado', rm.estado) AS remito,
-      u.nombre AS created_by_nombre
-    FROM recibos r
-    JOIN  clientes   cl ON cl.id = r.cliente_id
-    LEFT JOIN operaciones op ON op.id = r.operacion_id
-    LEFT JOIN remitos      rm ON rm.id = r.remito_id
-    LEFT JOIN usuarios     u  ON u.id  = r.created_by
-    WHERE r.id = $1
-  `, [id]);
+  const { rows: [r] } = await db.query(RECIBO_DETALLE_SQL, [id]);
 
   if (!r) return c.json({ error: 'No encontrado' }, 404);
 
@@ -476,18 +506,7 @@ recibos.post('/', async (c) => {
     await client.query('COMMIT');
 
     // Cerrar compromisos pendientes si la operación quedó completamente pagada
-    if (b.operacion_id) {
-      await db.query(`
-        UPDATE compromisos_pago SET estado = 'cobrado'
-        WHERE operacion_id = $1
-          AND estado = 'pendiente'
-          AND (
-            SELECT COALESCE(SUM(r.monto_total), 0)
-            FROM recibos r
-            WHERE r.operacion_id = $1 AND r.estado = 'emitido'
-          ) >= (SELECT COALESCE(precio_total, 0) FROM operaciones WHERE id = $1) - 0.01
-      `, [b.operacion_id]);
-    }
+    if (b.operacion_id) await cerrarCompromisosSiSaldado(b.operacion_id);
 
     return c.json(rec, 201);
   } catch (err) {
@@ -563,12 +582,34 @@ recibos.put('/:id', async (c) => {
 // PATCH /:id/anular
 recibos.patch('/:id/anular', async (c) => {
   const { id } = c.req.param();
-  const { rows: [rec] } = await db.query(
-    `UPDATE recibos SET estado='anulado', updated_at=now() WHERE id=$1 AND estado='emitido' RETURNING *`,
-    [id]
-  );
-  if (!rec) return c.json({ error: 'Recibo no encontrado o ya anulado' }, 400);
-  return c.json(rec);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [rec] } = await client.query(
+      `UPDATE recibos SET estado='anulado', updated_at=now() WHERE id=$1 AND estado='emitido' RETURNING *`,
+      [id]
+    );
+    if (!rec) {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'Recibo no encontrado o ya anulado' }, 400);
+    }
+
+    // Si el recibo era de una visita técnica, la visita no puede seguir diciendo "cobrada"
+    // sin plata detrás. Se libera recibo_id para poder re-emitir (el índice único lo exige).
+    await client.query(`
+      UPDATE visitas_tecnicas
+      SET cobro_estado='pendiente', recibo_id=NULL, bonificada_at=NULL, bonificada_por=NULL, updated_at=now()
+      WHERE recibo_id=$1
+    `, [id]);
+
+    await client.query('COMMIT');
+    return c.json(rec);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // POST /:id/generar-link — no-op para satisfacer el flujo de PDFDialog (recibos no tienen link público)
@@ -581,25 +622,10 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
   const { id } = c.req.param();
   const user = c.get('user');
 
-  // Mismo query que GET /:id — incluye remito y todos los campos del PDF
+  // Mismo query que GET /:id (constante compartida) — incluye remito, visita técnica
+  // y todos los campos del PDF
   const [{ rows: [r] }, { rows: items }, { rows: [emp] }] = await Promise.all([
-    db.query(`
-      SELECT r.*,
-        json_build_object('id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
-          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
-          'telefono', cl.telefono, 'email', cl.email,
-          'direccion', cl.direccion, 'localidad', cl.localidad,
-          'documento_nro', cl.documento_nro) AS cliente,
-        json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total) AS operacion,
-        json_build_object('id', rm.id, 'numero', rm.numero) AS remito,
-        u.nombre AS created_by_nombre
-      FROM recibos r
-      JOIN clientes cl ON cl.id = r.cliente_id
-      LEFT JOIN operaciones op ON op.id = r.operacion_id
-      LEFT JOIN remitos rm ON rm.id = r.remito_id
-      LEFT JOIN usuarios u ON u.id = r.created_by
-      WHERE r.id = $1
-    `, [id]),
+    db.query(RECIBO_DETALLE_SQL, [id]),
     db.query(`
       SELECT ri.*, p.nombre AS producto_nombre
       FROM recibo_items ri LEFT JOIN catalogo_productos p ON p.id = ri.producto_id
