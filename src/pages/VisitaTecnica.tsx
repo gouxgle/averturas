@@ -32,6 +32,13 @@ export function VisitaTecnica() {
   const [visitaNumero, setVisitaNumero]     = useState('');
   const [creandoVisita, setCreandoVisita]   = useState(false);
 
+  // Presupuesto ya guardado (con ítems identificados) al que le falta relevar
+  // uno o más ítems "a relevar" — viene desde NuevoPresupuesto.tsx. Si está
+  // presente, la visita queda ligada desde el arranque y el cliente no se
+  // puede cambiar (ya es el del presupuesto).
+  const [operacionId, setOperacionId]       = useState('');
+  const [operacionNumero, setOperacionNumero] = useState('');
+
   // Cobro de la visita
   const [costoVisita, setCostoVisita] = useState(0);
   const [cobrar, setCobrar]           = useState(true);
@@ -45,9 +52,14 @@ export function VisitaTecnica() {
       .catch(() => {});
   }, []);
 
-  // Cliente precargado al venir desde Nuevo Presupuesto
+  // Cliente (y presupuesto, si corresponde) precargados al venir desde Nuevo Presupuesto
   useEffect(() => {
-    const preId = (location.state as { clienteId?: string } | null)?.clienteId;
+    const state = location.state as { clienteId?: string; operacionId?: string; operacionNumero?: string } | null;
+    const preId = state?.clienteId;
+    if (state?.operacionId) {
+      setOperacionId(state.operacionId);
+      setOperacionNumero(state.operacionNumero ?? '');
+    }
     if (!preId) return;
     api.get<Cliente>(`/clientes/${preId}`)
       .then(c => seleccionarCliente(c))
@@ -131,6 +143,7 @@ export function VisitaTecnica() {
           cliente_id: clienteId,
           cobrar: vaACobrar,
           ...(vaACobrar ? { forma_pago: formaPago, referencia_pago: referencia.trim() || undefined } : {}),
+          ...(operacionId ? { operacion_id: operacionId } : {}),
         }
       );
       setVisitaId(v.id);
@@ -165,6 +178,13 @@ export function VisitaTecnica() {
         </Link>
       </div>
 
+      {operacionId && (
+        <div className="px-4 py-2.5 rounded-xl bg-violet-50 border border-violet-200 text-xs text-violet-700">
+          Esta visita releva ítems pendientes del presupuesto <strong>{operacionNumero || operacionId}</strong> — al
+          cargar lo relevado, se completa ese mismo presupuesto (no se crea uno nuevo).
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
           <Users size={13}/> Cliente
@@ -172,8 +192,10 @@ export function VisitaTecnica() {
         {clienteId ? (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
             <span className="text-sm font-semibold text-gray-800 flex-1 truncate">{clienteNombre}</span>
-            <button onClick={() => { setClienteId(''); setClienteNombre(''); }}
-              className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-400"/></button>
+            {!operacionId && (
+              <button onClick={() => { setClienteId(''); setClienteNombre(''); }}
+                className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-400"/></button>
+            )}
           </div>
         ) : (
           <div className="relative">
