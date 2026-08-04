@@ -12,6 +12,31 @@ const RAW_LETRA  = (alias: string) =>
 const LETRA_EXPR = (alias: string) =>
   `CASE WHEN ${RAW_LETRA(alias)} ~ '^[A-Z]$' THEN ${RAW_LETRA(alias)} ELSE '#' END`;
 
+// Búsqueda por nombre/apellido: una palabra por vez, todas deben aparecer en algún
+// campo (no necesariamente el mismo) — así "Hugo Lescano" encuentra a "Hugo Alberto
+// Lescano" sin que el segundo nombre rompa el match (antes exigía la frase completa
+// como substring literal, vía ILIKE '%Hugo Lescano%', que no matchea si hay algo en medio).
+function clienteSearchSql(alias: string, search: string, params: unknown[]): string {
+  const palabras = search.trim().split(/\s+/).filter(Boolean);
+  if (!palabras.length) return '';
+  const clausulas = palabras.map(palabra => {
+    params.push(`%${palabra}%`);
+    const n = params.length;
+    return `(
+      ${alias}.nombre           ILIKE $${n}
+      OR ${alias}.apellido      ILIKE $${n}
+      OR ${alias}.razon_social  ILIKE $${n}
+      OR ${alias}.telefono      ILIKE $${n}
+      OR ${alias}.documento_nro ILIKE $${n}
+      OR ${alias}.email         ILIKE $${n}
+      OR ${alias}.localidad     ILIKE $${n}
+      OR ${alias}.direccion     ILIKE $${n}
+      OR ${alias}.notas         ILIKE $${n}
+    )`;
+  });
+  return `AND (${clausulas.join(' AND ')})`;
+}
+
 // GET /letras — índice de letras con conteo (carga inicial liviana). ANTES de /:id
 clientes.get('/letras', async (c) => {
   const raw = `TRANSLATE(UPPER(LEFT(COALESCE(apellido, razon_social, nombre, '#'), 1)), 'ÁÉÍÓÚÑ', 'AEIOÚN')`;
@@ -39,23 +64,7 @@ clientes.get('/', async (c) => {
     where += ` AND ${LETRA_EXPR('c')} = $${params.length}`;
   }
 
-  if (search.trim()) {
-    params.push(`%${search.trim()}%`);
-    const n = params.length;
-    where += ` AND (
-      c.nombre          ILIKE $${n}
-      OR c.apellido     ILIKE $${n}
-      OR c.razon_social ILIKE $${n}
-      OR c.telefono     ILIKE $${n}
-      OR c.documento_nro ILIKE $${n}
-      OR c.email        ILIKE $${n}
-      OR c.localidad    ILIKE $${n}
-      OR c.direccion    ILIKE $${n}
-      OR c.notas        ILIKE $${n}
-      OR CONCAT(COALESCE(c.nombre,''), ' ', COALESCE(c.apellido,'')) ILIKE $${n}
-      OR CONCAT(COALESCE(c.apellido,''), ' ', COALESCE(c.nombre,'')) ILIKE $${n}
-    )`;
-  }
+  where += ` ${clienteSearchSql('c', search, params)}`;
 
   if (estado.trim()) {
     params.push(estado.trim());
@@ -155,24 +164,8 @@ clientes.get('/panel', async (c) => {
   const search = c.req.query('search') ?? '';
 
   // Mismo criterio de búsqueda que GET /clientes (incluye teléfono)
-  let searchWhere = '';
   const searchParams: unknown[] = [];
-  if (search.trim()) {
-    searchParams.push(`%${search.trim()}%`);
-    searchWhere = ` AND (
-      c.nombre           ILIKE $1
-      OR c.apellido      ILIKE $1
-      OR c.razon_social  ILIKE $1
-      OR c.telefono      ILIKE $1
-      OR c.documento_nro ILIKE $1
-      OR c.email         ILIKE $1
-      OR c.localidad     ILIKE $1
-      OR c.direccion     ILIKE $1
-      OR c.notas         ILIKE $1
-      OR CONCAT(COALESCE(c.nombre,''), ' ', COALESCE(c.apellido,'')) ILIKE $1
-      OR CONCAT(COALESCE(c.apellido,''), ' ', COALESCE(c.nombre,'')) ILIKE $1
-    )`;
-  }
+  const searchWhere = clienteSearchSql('c', search, searchParams);
   // Con búsqueda: cap a 200 — evita transferir cientos de filas (ej. prefijos
   // de área como "3704" matchean casi todo el padrón) cuando el frontend solo
   // pagina de a 10. Sin búsqueda: 500 (listado general reciente).

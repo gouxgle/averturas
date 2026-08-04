@@ -1183,8 +1183,8 @@ operaciones.post('/', async (c) => {
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
              vidrio, premarco, origen, color, accesorios, producto_id, calculo_url,
-             tipo_item, servicio_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+             tipo_item, servicio_id, precio_lista)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
         `, [
           op.id,
           idx,
@@ -1208,6 +1208,7 @@ operaciones.post('/', async (c) => {
           item.calculo_url || null,
           item.tipo_item || 'estandar',
           item.servicio_id || null,
+          item.precio_lista ?? null,
         ]);
       }
     }
@@ -1294,8 +1295,8 @@ operaciones.put('/:id', async (c) => {
              medida_ancho, medida_alto, cantidad, costo_unitario, precio_unitario,
              incluye_instalacion, costo_instalacion, precio_instalacion,
              vidrio, premarco, origen, color, accesorios, producto_id, calculo_url,
-             tipo_item, servicio_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+             tipo_item, servicio_id, precio_lista)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
         `, [
           id, idx,
           item.tipo_abertura_id || null,
@@ -1318,6 +1319,7 @@ operaciones.put('/:id', async (c) => {
           item.calculo_url || null,
           item.tipo_item || 'estandar',
           item.servicio_id || null,
+          item.precio_lista ?? null,
         ]);
       }
     }

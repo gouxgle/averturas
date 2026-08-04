@@ -57,6 +57,7 @@ const OperacionItemSchema = z.object({
   cantidad:            z.number().int().positive('Cantidad debe ser > 0'),
   costo_unitario:      zPosNum.optional().default(0),
   precio_unitario:     zPosNum,
+  precio_lista:        zPosNum.optional().nullable(),
   costo_instalacion:   zPosNum.optional().default(0),
   precio_instalacion:  zPosNum.optional().default(0),
   incluye_instalacion: z.boolean().optional().default(false),

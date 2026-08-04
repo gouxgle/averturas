@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
   Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users, Eye,
-  Ruler, Wrench, AlertTriangle,
+  Ruler, Wrench, AlertTriangle, Tag,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
@@ -95,6 +95,23 @@ interface CatalogProduct {
   modelo_id: string | null;
   modelo_nombre: string | null;
   disponibilidad_confirmada_at: string | null;
+  promocion: {
+    activo: boolean;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    precio_oferta: number | null;
+    auto_renovar?: boolean;
+  } | null;
+}
+
+// Misma regla que Productos.tsx: activo, dentro de vigencia (o auto-renovar mensual)
+function isPromoActiva(p: CatalogProduct): boolean {
+  if (!p.promocion?.activo) return false;
+  const hoy = new Date().toISOString().slice(0, 10);
+  if (p.promocion.fecha_inicio && hoy < p.promocion.fecha_inicio) return false;
+  if (p.promocion.auto_renovar) return true;
+  if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
+  return true;
 }
 
 // ── Tipo para carga de edición ────────────────────────────────────────────────
@@ -109,6 +126,7 @@ interface FullOperacion {
     tipo_abertura_id: string | null; sistema_id: string | null;
     descripcion: string; medida_ancho: number | null; medida_alto: number | null;
     cantidad: number; costo_unitario: number; precio_unitario: number;
+    precio_lista?: number | null;
     incluye_instalacion: boolean; costo_instalacion: number; precio_instalacion: number;
     vidrio: string | null; premarco: boolean; origen: string | null;
     color: string | null; accesorios: string[]; producto_id: string | null;
@@ -138,6 +156,7 @@ interface ItemForm {
   cantidad: number;
   costo_unitario: number;
   precio_unitario: number;
+  precio_lista: number | null;  // seteado solo si vino de un producto con promoción activa
   incluye_instalacion: boolean;
   costo_instalacion: number;
   precio_instalacion: number;
@@ -173,7 +192,7 @@ function emptyItem(): ItemForm {
     tipo_abertura_id: '', sistema_id: '', descripcion: '',
     medida_ancho: '', medida_alto: '',
     cantidad: 1,
-    costo_unitario: 0, precio_unitario: 0,
+    costo_unitario: 0, precio_unitario: 0, precio_lista: null,
     incluye_instalacion: false, costo_instalacion: 0, precio_instalacion: 0,
     vidrio: '', premarco: false, origen: 'proveedor', color: '', accesorios: [],
     calculo_url: '', _atribAbrev: {},
@@ -205,6 +224,7 @@ export function NuevoPresupuesto() {
   const isEdit = !!editId;
   const editLoadedRef = useRef(false);
   const itemsPrecargadosRef = useRef(false);
+  const clienteInputRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -311,6 +331,13 @@ export function NuevoPresupuesto() {
     if (urlClienteId) {
       api.get<Cliente>(`/clientes/${urlClienteId}`).then(cl => setClientes([cl])).catch(() => {});
     }
+    // Presupuesto nuevo sin cliente precargado (ni por URL ni por visita técnica):
+    // foco directo en el buscador para poder escribir el nombre sin clickear primero
+    const preId = (location.state as { clienteId?: string } | null)?.clienteId;
+    if (!isEdit && !urlClienteId && !preId) {
+      clienteInputRef.current?.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Búsqueda de clientes por API con debounce
@@ -386,6 +413,7 @@ export function NuevoPresupuesto() {
         cantidad:            it.cantidad,
         costo_unitario:      Number(it.costo_unitario),
         precio_unitario:     Number(it.precio_unitario),
+        precio_lista:        it.precio_lista != null ? Number(it.precio_lista) : null,
         incluye_instalacion: it.incluye_instalacion,
         costo_instalacion:   Number(it.costo_instalacion),
         precio_instalacion:  Number(it.precio_instalacion),
@@ -487,6 +515,10 @@ export function NuevoPresupuesto() {
 
   const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
   const totalConEnvio = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
+  const ahorroPromociones = items.reduce((s, it) =>
+    s + (it.precio_lista != null && it.precio_lista > it.precio_unitario
+      ? (it.precio_lista - it.precio_unitario) * it.cantidad
+      : 0), 0);
   const pendientesARelevar = items.filter(it => it.tipo_item === 'a_relevar').length;
   // Ítems de catálogo SIN stock (el stock ya es prueba suficiente de disponibilidad)
   // cuyo plazo con el proveedor no está confirmado (o venció) — la fecha de entrega
@@ -519,6 +551,7 @@ export function NuevoPresupuesto() {
   }
 
   function itemFromCatalogProduct(p: CatalogProduct): ItemForm {
+    const enPromo = isPromoActiva(p) && p.promocion?.precio_oferta != null;
     return {
       _key:                uuid(),
       producto_id:         p.id,
@@ -531,7 +564,8 @@ export function NuevoPresupuesto() {
       medida_alto:         '',
       cantidad:            1,
       costo_unitario:      Number(p.costo_base)  || 0,
-      precio_unitario:     Number(p.precio_base) || 0,
+      precio_unitario:     enPromo ? Number(p.promocion!.precio_oferta) : (Number(p.precio_base) || 0),
+      precio_lista:        enPromo ? (Number(p.precio_base) || 0) : null,
       incluye_instalacion: false,
       costo_instalacion:   0,
       precio_instalacion:  0,
@@ -645,6 +679,7 @@ export function NuevoPresupuesto() {
           cantidad:            it.cantidad,
           costo_unitario:      it.costo_unitario,
           precio_unitario:     it.precio_unitario,
+          precio_lista:        it.precio_lista ?? null,
           incluye_instalacion: it.incluye_instalacion,
           costo_instalacion:   it.costo_instalacion,
           precio_instalacion:  it.precio_instalacion,
@@ -1014,6 +1049,7 @@ export function NuevoPresupuesto() {
                         )}>
                           <Users size={12} className={esActivo ? 'text-violet-500 shrink-0' : 'text-gray-400 shrink-0'} />
                           <input
+                            ref={clienteInputRef}
                             type="text"
                             placeholder="Nombre, tel. o DNI..."
                             value={clienteSearch}
@@ -1468,6 +1504,10 @@ export function NuevoPresupuesto() {
                       {productosOrdenados.map(p => {
                         const img = p.imagenes?.[0] || p.imagen_url;
                         const enCarrito = items.some(it => it.producto_id === p.id);
+                        const enPromo = isPromoActiva(p) && p.promocion?.precio_oferta != null;
+                        const descPct = enPromo
+                          ? Math.round((1 - Number(p.promocion!.precio_oferta) / Number(p.precio_base)) * 100)
+                          : 0;
                         return (
                           <div
                             key={p.id}
@@ -1484,6 +1524,12 @@ export function NuevoPresupuesto() {
                                 : <div className="w-full h-full flex items-center justify-center"><Package size={24} className="text-gray-200" /></div>
                               }
                             </div>
+                            {/* Promo badge */}
+                            {enPromo && (
+                              <span className="absolute top-1.5 left-1.5 flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-pink-600 text-white shadow-md leading-none">
+                                <Tag size={8}/>-{descPct}%
+                              </span>
+                            )}
                             {/* En carrito badge */}
                             {enCarrito && (
                               <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-violet-600 rounded-full flex items-center justify-center">
@@ -1495,7 +1541,10 @@ export function NuevoPresupuesto() {
                               type="button"
                               onClick={e => verDetalle(e, p)}
                               title="Ver detalle"
-                              className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className={cn(
+                                'absolute w-5 h-5 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity',
+                                enPromo ? 'bottom-2 left-1.5' : 'top-1.5 left-1.5'
+                              )}
                             >
                               <Eye size={11} className="text-gray-600" />
                             </button>
@@ -1510,7 +1559,14 @@ export function NuevoPresupuesto() {
                                   {[p.ancho && `${p.ancho}cm`, p.alto && `${p.alto}cm`].filter(Boolean).join(' × ')}
                                 </p>
                               )}
-                              <p className="text-xs font-bold text-[#7c3aed] mt-1">{formatCurrency(Number(p.precio_base))}</p>
+                              {enPromo ? (
+                                <div className="flex items-baseline gap-1 mt-1 flex-wrap">
+                                  <p className="text-xs font-bold text-pink-600">{formatCurrency(Number(p.promocion!.precio_oferta))}</p>
+                                  <p className="text-[9px] text-gray-400 line-through">{formatCurrency(Number(p.precio_base))}</p>
+                                </div>
+                              ) : (
+                                <p className="text-xs font-bold text-[#7c3aed] mt-1">{formatCurrency(Number(p.precio_base))}</p>
+                              )}
                             </div>
                             {/* Botón + */}
                             <button
@@ -1768,6 +1824,17 @@ export function NuevoPresupuesto() {
                   <div className="text-right">
                     {item.tipo_item === 'a_relevar' ? (
                       <span className="text-[10px] font-semibold text-amber-600">Pendiente</span>
+                    ) : item.precio_lista != null && item.precio_lista > item.precio_unitario ? (
+                      <>
+                        <p className="text-[9px] text-gray-400 line-through leading-none">{formatCurrency(item.precio_lista)}</p>
+                        <span className="text-xs font-bold text-pink-600">{formatCurrency(item.precio_unitario)}</span>
+                        <p className="text-[8px] text-pink-500 font-semibold flex items-center justify-end gap-0.5">
+                          <Tag size={7}/> ahorrás {formatCurrency(item.precio_lista - item.precio_unitario)}
+                        </p>
+                        {item.incluye_instalacion && (
+                          <p className="text-[8px] text-violet-500">+inst. {formatCurrency(item.precio_instalacion)}</p>
+                        )}
+                      </>
                     ) : (
                       <>
                         <span className="text-xs text-gray-700">{formatCurrency(item.precio_unitario)}</span>
@@ -1939,6 +2006,14 @@ export function NuevoPresupuesto() {
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">Envío</span>
                     <span className="text-xs font-semibold text-gray-700">{formatCurrency(costoEnvio)}</span>
+                  </div>
+                )}
+                {ahorroPromociones > 0.01 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-pink-600 font-semibold flex items-center gap-1">
+                      <Tag size={11}/> Ahorro por promoción
+                    </span>
+                    <span className="text-xs font-bold text-pink-600">-{formatCurrency(ahorroPromociones)}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
