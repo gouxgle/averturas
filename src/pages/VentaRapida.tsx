@@ -291,7 +291,7 @@ export function VentaRapida() {
 
   // ── Formulario ───────────────────────────────────────────────
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-4">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4" data-section="venta-rapida">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
           <ArrowLeft size={18} className="text-gray-500"/>

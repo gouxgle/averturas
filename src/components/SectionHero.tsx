@@ -1,4 +1,5 @@
 import { type LucideIcon } from 'lucide-react';
+import { ClimaDolarStrip } from './ClimaDolarStrip';
 
 interface SectionHeroProps {
   section: string;
@@ -30,7 +31,7 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
 
   return (
     <div className="section-hero">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           {/* Icon mark */}
           <div
@@ -54,6 +55,12 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
             </h1>
             {sub && <p className="text-sm text-gray-500 mt-0.5">{sub}</p>}
           </div>
+        </div>
+
+        {/* Dólar + Clima — mismo formato en todas las secciones (como en el Dashboard).
+            Solo desktop: en mobile no entra sin romper el layout de icono+título+acciones. */}
+        <div className="hidden lg:flex lg:justify-center lg:shrink-0">
+          <ClimaDolarStrip />
         </div>
 
         {/* Actions — propia fila y envuelven en mobile, en línea con el título en desktop */}
