@@ -3,13 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
-  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus,
+  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente, DISPONIBILIDAD_VIGENCIA_DIAS } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TipoOperacion, TipoAbertura, Sistema, Proveedor, Categoria, CatalogoModelo } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
+import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 
 // ── Tipos ─────────────────────────────────────────────────────
 type Atributos = Record<string, unknown>;
@@ -1343,6 +1344,11 @@ export function NuevoProducto() {
   const [dispConfirmadaAt, setDispConfirmadaAt] = useState<string | null>(null);
   const [confirmandoDisp, setConfirmandoDisp] = useState(false);
   const [stockActualEdit, setStockActualEdit] = useState(0);
+  const [showAjusteStock, setShowAjusteStock] = useState(false);
+  const [ajusteValorSugerido, setAjusteValorSugerido] = useState<string | undefined>();
+  // Si se abrió el ajuste porque se intentó tildar "en salón" sin stock, al guardar
+  // el ajuste activamos el checkbox directo — no hace falta un segundo paso.
+  const [enSalonPendientePostAjuste, setEnSalonPendientePostAjuste] = useState(false);
   const [creandoModelo, setCreandoModelo] = useState(false);
   const [nuevoModeloNombre, setNuevoModeloNombre] = useState('');
 
@@ -1647,6 +1653,28 @@ export function NuevoProducto() {
       toast.error('No se pudo actualizar la disponibilidad');
     } finally {
       setConfirmandoDisp(false);
+    }
+  }
+
+  // Intercepta el checkbox "Exhibido en salón": si no hay stock, en vez de dejar que
+  // el guardado final lo rechace (backend), sugerimos cargar stock ahí mismo.
+  function handleToggleEnSalon(checked: boolean) {
+    if (checked && isEdit && stockActualEdit <= 0) {
+      toast.info('Sin stock — cargá al menos 1 unidad para exhibirlo en salón');
+      setAjusteValorSugerido('1');
+      setEnSalonPendientePostAjuste(true);
+      setShowAjusteStock(true);
+      return;
+    }
+    set('en_salon', checked);
+  }
+
+  function handleAjusteGuardado(nuevoStock: number) {
+    setShowAjusteStock(false);
+    setStockActualEdit(nuevoStock);
+    if (enSalonPendientePostAjuste) {
+      setEnSalonPendientePostAjuste(false);
+      if (nuevoStock > 0) set('en_salon', true);
     }
   }
 
@@ -2167,12 +2195,28 @@ export function NuevoProducto() {
         <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
           <SectionHeader icon={Boxes} label="Stock" />
           <div className="p-4 grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Stock inicial</label>
-              <input type="number" min={0} value={form.stock_inicial}
-                onChange={e => set('stock_inicial', e.target.value)} placeholder="0" className={inputCls} />
-            </div>
-            <div>
+            {isEdit ? (
+              <div className="col-span-2 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div>
+                  <p className="text-[10px] font-bold text-black uppercase tracking-wide">Stock actual</p>
+                  <p className={cn('text-lg font-black', stockActualEdit > 0 ? 'text-emerald-700' : 'text-red-600')}>
+                    {stockActualEdit}
+                  </p>
+                </div>
+                <button type="button"
+                  onClick={() => { setAjusteValorSugerido(undefined); setEnSalonPendientePostAjuste(false); setShowAjusteStock(true); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-300 hover:border-gray-400 text-xs font-semibold text-black shrink-0">
+                  <Wrench size={13}/> Corregir stock
+                </button>
+              </div>
+            ) : (
+              <div>
+                <label className={labelCls}>Stock inicial</label>
+                <input type="number" min={0} value={form.stock_inicial}
+                  onChange={e => set('stock_inicial', e.target.value)} placeholder="0" className={inputCls} />
+              </div>
+            )}
+            <div className={isEdit ? 'col-span-2' : ''}>
               <label className={labelCls}>Stock mínimo</label>
               <input type="number" min={0} value={form.stock_minimo}
                 onChange={e => set('stock_minimo', e.target.value)} placeholder="0" className={inputCls} />
@@ -2180,11 +2224,16 @@ export function NuevoProducto() {
             </div>
             <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none pt-1 border-t border-gray-100 mt-1">
               <input type="checkbox" checked={form.en_salon}
-                onChange={e => set('en_salon', e.target.checked)}
+                onChange={e => handleToggleEnSalon(e.target.checked)}
                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
               <span className="text-sm text-black">Exhibido en salón</span>
               <span className="text-xs text-black">(muestra físicamente en el local, más allá del stock)</span>
             </label>
+            {!isEdit && !form.en_salon && (!form.stock_inicial || form.stock_inicial === '0') && (
+              <p className="col-span-2 text-[10px] text-black -mt-1.5">
+                Con stock inicial en 0 no vas a poder marcarlo "en salón" hasta cargar stock.
+              </p>
+            )}
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
@@ -2550,6 +2599,16 @@ export function NuevoProducto() {
         </button>
       </div>
 
+      {showAjusteStock && isEdit && id && (
+        <ModalAjusteStock
+          productos={[{ id, nombre: form.nombre || 'Producto', codigo: form.codigo || null, stock_actual: stockActualEdit }]}
+          productoPreseleccionado={id}
+          bloquearProducto
+          valorInicial={ajusteValorSugerido}
+          onClose={() => { setShowAjusteStock(false); setEnSalonPendientePostAjuste(false); }}
+          onSaved={handleAjusteGuardado}
+        />
+      )}
     </div>
   );
 }
