@@ -76,7 +76,7 @@ pub.get('/presupuesto/:token', async (c) => {
 
   const { rows: items } = await db.query(`
     SELECT
-      oi.descripcion, oi.cantidad, oi.precio_unitario,
+      oi.descripcion, oi.cantidad, oi.precio_unitario, oi.precio_lista,
       oi.precio_instalacion, oi.incluye_instalacion, oi.color,
       oi.medida_ancho, oi.medida_alto, oi.calculo_url, oi.tipo_item,
       ta.nombre AS tipo_abertura_nombre,

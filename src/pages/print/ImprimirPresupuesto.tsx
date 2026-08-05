@@ -65,7 +65,7 @@ interface Empresa {
 }
 interface Item {
   id: string; descripcion: string; cantidad: number;
-  precio_unitario: number; precio_instalacion: number;
+  precio_unitario: number; precio_lista: number | null; precio_instalacion: number;
   incluye_instalacion: boolean; precio_total: number;
   medida_ancho: number | null; medida_alto: number | null;
   color: string | null; vidrio: string | null; premarco: boolean;
@@ -163,6 +163,12 @@ export function ImprimirPresupuesto() {
   const subtotal   = op.items.reduce((s, it) => s + Number(it.precio_total), 0);
   const costoEnvio = op.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
   const total      = subtotal + costoEnvio;
+  const ahorroPromociones = op.items.reduce((s, it) => {
+    const pLista = it.precio_lista != null ? Number(it.precio_lista) : null;
+    return s + (pLista != null && pLista > Number(it.precio_unitario)
+      ? (pLista - Number(it.precio_unitario)) * it.cantidad
+      : 0);
+  }, 0);
   const esCuotas   = op.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
   const totalInstalacion = op.items.reduce(
     (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * it.cantidad : 0), 0
@@ -366,6 +372,8 @@ export function ImprimirPresupuesto() {
                 const attr      = item.producto_atributos ?? {};
                 const nombre    = item.producto_nombre ?? item.descripcion;
                 const pUnit     = Number(item.precio_unitario);
+                const pLista    = item.precio_lista != null ? Number(item.precio_lista) : null;
+                const enPromo   = pLista != null && pLista > pUnit;
                 const tipoItem  = item.tipo_item ?? (item.producto_nombre ? 'estandar' : 'a_medida');
                 const esAMedida = tipoItem === 'a_medida';
                 const esServicio = tipoItem === 'servicio';
@@ -428,6 +436,14 @@ export function ImprimirPresupuesto() {
                             SERVICIO
                           </span>
                         )}
+                        {enPromo && (
+                          <span style={{
+                            fontSize: 8, fontWeight: 800, color: '#fff', background: '#db2777',
+                            borderRadius: 3, padding: '1.5px 5px', letterSpacing: 0.3, whiteSpace: 'nowrap' as const,
+                          }}>
+                            PROMOCIÓN
+                          </span>
+                        )}
                       </div>
                       {specs.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '2px 10px' }}>
@@ -460,10 +476,22 @@ export function ImprimirPresupuesto() {
                       <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{item.cantidad}</span>
                     </td>
                     <td style={tdStyle('right', false)}>
-                      <span style={{ fontSize: 10, color: '#6b7280' }}>{fmtM(pUnit)}</span>
+                      {enPromo ? (
+                        <>
+                          <div style={{ fontSize: 9, color: '#9ca3af', textDecoration: 'line-through' }}>{fmtM(pLista!)}</div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: '#db2777' }}>{fmtM(pUnit)}</div>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 10, color: '#6b7280' }}>{fmtM(pUnit)}</span>
+                      )}
                     </td>
                     <td style={tdStyle('right', false)}>
                       <span style={{ fontSize: 11, fontWeight: 800, color: NAVY }}>{fmtM(Number(item.precio_total))}</span>
+                      {enPromo && (
+                        <div style={{ fontSize: 8.5, fontWeight: 700, color: '#db2777', marginTop: 1 }}>
+                          Ahorrás {fmtM((pLista! - pUnit) * item.cantidad)}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -495,6 +523,11 @@ export function ImprimirPresupuesto() {
               {costoEnvio > 0 && (
                 <div style={{ color: '#6b7280', fontSize: 10, marginTop: 3 }}>
                   (productos {fmtM(subtotal)} + envío {fmtM(costoEnvio)})
+                </div>
+              )}
+              {ahorroPromociones > 0.01 && (
+                <div style={{ color: '#db2777', fontSize: 11, fontWeight: 800, marginTop: 4 }}>
+                  🏷️ Ahorro por promoción: {fmtM(ahorroPromociones)}
                 </div>
               )}
               <div style={{ color: '#6b7280', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>

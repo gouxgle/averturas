@@ -17,7 +17,7 @@ interface Empresa {
   instagram: string | null; terminos_url: string | null;
 }
 interface Item {
-  descripcion: string; cantidad: number; precio_unitario: number;
+  descripcion: string; cantidad: number; precio_unitario: number; precio_lista: number | null;
   precio_instalacion: number; incluye_instalacion: boolean; precio_total: number;
   medida_ancho: number | null; medida_alto: number | null; color: string | null;
   tipo_abertura_nombre: string | null; sistema_nombre: string | null;
@@ -596,6 +596,12 @@ export function VistaPublicaPresupuesto() {
   const alternativas  = pres.forma_pago === 'Varias formas de pago' ? (pres.formas_pago_alternativas ?? []) : [];
   const montoProductos = pres.items.reduce((s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0);
   const montoInstalacionExtra = pres.items.reduce((s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0);
+  const ahorroPromociones = pres.items.reduce((s, it) => {
+    const pLista = it.precio_lista != null ? Number(it.precio_lista) : null;
+    return s + (pLista != null && pLista > Number(it.precio_unitario)
+      ? (pLista - Number(it.precio_unitario)) * Number(it.cantidad)
+      : 0);
+  }, 0);
   const vencido       = pres.fecha_validez
     ? new Date(pres.fecha_validez.slice(0, 10) + 'T23:59:59') < new Date()
     : false;
@@ -744,6 +750,9 @@ export function VistaPublicaPresupuesto() {
 
             const pUnit = Number(item.precio_unitario) +
               (item.incluye_instalacion ? Number(item.precio_instalacion) : 0);
+            const pLista  = item.precio_lista != null ? Number(item.precio_lista) : null;
+            const enPromo = pLista != null && pLista > Number(item.precio_unitario);
+            const ahorroItem = enPromo ? (pLista! - Number(item.precio_unitario)) * Number(item.cantidad) : 0;
 
             const imgSrc = item.producto_imagen_url || item.calculo_url;
             const thumbnail = imgSrc ? (
@@ -763,7 +772,14 @@ export function VistaPublicaPresupuesto() {
                     <span className="text-gray-300 font-bold text-xs w-4 shrink-0 mt-1">{i + 1}</span>
                     <div className="shrink-0">{thumbnail}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
+                        {enPromo && (
+                          <span className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full shrink-0" style={{ background: '#db2777' }}>
+                            PROMOCIÓN
+                          </span>
+                        )}
+                      </div>
                       {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
                       {item.incluye_instalacion && (
                         <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
@@ -773,7 +789,11 @@ export function VistaPublicaPresupuesto() {
                   <div className="flex items-center justify-between mt-2 pt-2 ml-7 pl-3"
                     style={{ borderTop: '1px solid #f9fafb' }}>
                     <span className="text-xs text-gray-500">Cantidad: <strong className="text-gray-700">{item.cantidad}</strong></span>
-                    <span className="font-bold text-gray-900 text-sm">{fmtM(Number(item.precio_total))}</span>
+                    <div className="text-right">
+                      {enPromo && <div className="text-[11px] text-gray-400 line-through">{fmtM(pLista!)}</div>}
+                      <span className="font-bold text-sm" style={{ color: enPromo ? '#db2777' : '#111827' }}>{fmtM(Number(item.precio_total))}</span>
+                      {enPromo && <div className="text-[10px] font-bold" style={{ color: '#db2777' }}>Ahorrás {fmtM(ahorroItem)}</div>}
+                    </div>
                   </div>
                 </div>
 
@@ -783,15 +803,28 @@ export function VistaPublicaPresupuesto() {
                   <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
                   <div className="pr-2">{thumbnail}</div>
                   <div className="pr-2">
-                    <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="font-semibold text-gray-900 text-sm leading-snug">{item.descripcion}</div>
+                      {enPromo && (
+                        <span className="text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full shrink-0" style={{ background: '#db2777' }}>
+                          PROMOCIÓN
+                        </span>
+                      )}
+                    </div>
                     {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
                     {item.incluye_instalacion && (
                       <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
                     )}
                   </div>
                   <span className="text-center text-gray-700 text-xs font-medium">{item.cantidad}</span>
-                  <span className="text-right text-gray-500 text-xs">{fmtM(pUnit)}</span>
-                  <span className="text-right font-bold text-gray-900 text-xs">{fmtM(Number(item.precio_total))}</span>
+                  <span className="text-right text-xs">
+                    {enPromo && <div className="text-gray-400 line-through">{fmtM(pLista!)}</div>}
+                    <span style={{ color: enPromo ? '#db2777' : '#6b7280', fontWeight: enPromo ? 700 : 400 }}>{fmtM(pUnit)}</span>
+                  </span>
+                  <span className="text-right text-xs">
+                    <span className="font-bold" style={{ color: enPromo ? '#db2777' : '#111827' }}>{fmtM(Number(item.precio_total))}</span>
+                    {enPromo && <div className="text-[10px] font-bold" style={{ color: '#db2777' }}>-{fmtM(ahorroItem)}</div>}
+                  </span>
                 </div>
               </div>
             );
@@ -807,6 +840,11 @@ export function VistaPublicaPresupuesto() {
               {costoEnvio > 0 && (
                 <div className="text-gray-500 text-xs mt-0.5">
                   (productos {fmtM(total - costoEnvio)} + envío {fmtM(costoEnvio)})
+                </div>
+              )}
+              {ahorroPromociones > 0.01 && (
+                <div className="text-sm font-bold mt-1" style={{ color: '#db2777' }}>
+                  🏷️ Ahorro por promoción: {fmtM(ahorroPromociones)}
                 </div>
               )}
               <div className="text-gray-400 text-xs mt-1 italic">Son: {numToWords(total)}</div>
