@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Package, ToggleLeft, ToggleRight, AlertTriangle, Tag, Store, Play,
@@ -87,12 +87,13 @@ function colorPorAntiguedadPrecio(fechaIso: string): string {
 // ── Tarjeta mosaico — el mismo recuadro se usa en Catálogo (Productos.tsx) y en
 // Venta rápida de mostrador, para que un producto se vea igual en los dos lugares.
 export function TarjetaProductoMosaico({
-  producto, priceColor, onSelect, onToggle, mostrarVenderAhora = true, cantidadEnCarrito = 0,
+  producto, priceColor, onSelect, onToggle, onToggleSalon, mostrarVenderAhora = true, cantidadEnCarrito = 0,
 }: {
   producto: Producto;
   priceColor: string;
   onSelect: (p: Producto) => void;
   onToggle?: (p: Producto) => void;
+  onToggleSalon?: (p: Producto) => void | Promise<void>;
   mostrarVenderAhora?: boolean;
   cantidadEnCarrito?: number;
 }) {
@@ -100,6 +101,7 @@ export function TarjetaProductoMosaico({
     () => producto.imagenes?.length ? producto.imagenes : producto.imagen_url ? [producto.imagen_url] : [],
     [producto],
   );
+  const [togglingSalon, setTogglingSalon] = useState(false);
   const promoOk     = isPromoActiva(producto);
   const precioFinal = promoOk && producto.promocion?.precio_oferta ? producto.promocion.precio_oferta : producto.precio_base;
   const precioOrig  = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
@@ -108,6 +110,17 @@ export function TarjetaProductoMosaico({
   const precioColorEdad = producto.precio_actualizado_at ? colorPorAntiguedadPrecio(producto.precio_actualizado_at) : priceColor;
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
   const navigate    = useNavigate();
+
+  async function handleToggleSalon(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!onToggleSalon || togglingSalon) return;
+    setTogglingSalon(true);
+    try {
+      await onToggleSalon(producto);
+    } finally {
+      setTogglingSalon(false);
+    }
+  }
 
   return (
     <div className={cn(
@@ -141,7 +154,16 @@ export function TarjetaProductoMosaico({
               <Tag size={8}/>-{descPct}%
             </span>
           )}
-          {producto.en_salon && (
+          {onToggleSalon ? (
+            <button type="button" onClick={handleToggleSalon} disabled={togglingSalon}
+              title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
+              className={cn(
+                'text-[9px] font-bold px-2 py-0.5 rounded-full leading-none shadow-md flex items-center gap-1 transition-colors disabled:opacity-60',
+                producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-500 hover:bg-white'
+              )}>
+              <Store size={8}/>{togglingSalon ? '...' : producto.en_salon ? 'En salón' : 'Marcar en salón'}
+            </button>
+          ) : producto.en_salon && (
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white leading-none shadow-md flex items-center gap-1">
               <Store size={8}/>En salón
             </span>

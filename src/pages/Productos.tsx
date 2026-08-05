@@ -614,16 +614,17 @@ function TarjetaModeloMosaico({ nombre, variantes, priceColor, onSelectVariante 
   );
 }
 
-function GridMosaico({ productos, priceColor, onSelect, onToggle }: {
+function GridMosaico({ productos, priceColor, onSelect, onToggle, onToggleSalon }: {
   productos: Producto[]; priceColor: string;
   onSelect: (p: Producto) => void; onToggle: (p: Producto) => void;
+  onToggleSalon?: (p: Producto) => void | Promise<void>;
 }) {
   const items = agruparPorModelo(productos);
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.map(it => it.tipo === 'modelo'
         ? <TarjetaModeloMosaico key={`modelo-${it.modeloId}`} nombre={it.nombre} variantes={it.variantes} priceColor={priceColor} onSelectVariante={onSelect}/>
-        : <TarjetaProductoMosaico key={it.producto.id} producto={it.producto} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
+        : <TarjetaProductoMosaico key={it.producto.id} producto={it.producto} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle} onToggleSalon={onToggleSalon}/>
       )}
     </div>
   );
@@ -633,11 +634,12 @@ function GridMosaico({ productos, priceColor, onSelect, onToggle }: {
 
 const COL_INIT = 6;
 
-function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeBg, badgeText, borderCol, priceColor, onSelect, onToggle }: {
+function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeBg, badgeText, borderCol, priceColor, onSelect, onToggle, onToggleSalon }: {
   titulo: string; productos: Producto[]; icono: React.ElementType;
   headerBg: string; headerText: string; badgeBg: string; badgeText: string;
   borderCol: string; priceColor: string;
   onSelect: (p: Producto) => void; onToggle: (p: Producto) => void;
+  onToggleSalon?: (p: Producto) => void | Promise<void>;
 }) {
   const [expandida, setExpandida] = useState(false);
   const visibles = expandida ? productos : productos.slice(0, COL_INIT);
@@ -660,7 +662,7 @@ function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeB
       ) : (
         <>
           <div className="p-4">
-            <GridMosaico productos={visibles} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle}/>
+            <GridMosaico productos={visibles} priceColor={priceColor} onSelect={onSelect} onToggle={onToggle} onToggleSalon={onToggleSalon}/>
           </div>
 
           {/* Ver todos / menos */}
@@ -1159,7 +1161,7 @@ export function Productos() {
                 )}
               </div>
             ) : (
-              <GridMosaico productos={itemsCategoriaFacetados} priceColor={categoriaActiva.priceColor} onSelect={setSelected} onToggle={toggleActivo}/>
+              <GridMosaico productos={itemsCategoriaFacetados} priceColor={categoriaActiva.priceColor} onSelect={setSelected} onToggle={toggleActivo} onToggleSalon={toggleSalonRapido}/>
             )}
           </div>
         </div>
@@ -1167,7 +1169,7 @@ export function Productos() {
         /* Búsqueda: mosaico plano */
         <div className="space-y-2">
           <p className="text-sm text-gray-500">{filteredSorted.length} resultado{filteredSorted.length !== 1 ? 's' : ''} para "{search}"</p>
-          <GridMosaico productos={filteredSorted} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo}/>
+          <GridMosaico productos={filteredSorted} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo} onToggleSalon={toggleSalonRapido}/>
         </div>
       ) : (
         /* Vista normal: secciones apiladas por categoría, cada una en mosaico */
@@ -1186,6 +1188,7 @@ export function Productos() {
               priceColor={col.priceColor}
               onSelect={setSelected}
               onToggle={toggleActivo}
+              onToggleSalon={toggleSalonRapido}
             />
           ))}
         </div>
