@@ -1,8 +1,8 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Package, ToggleLeft, ToggleRight, AlertTriangle, Tag, Store, Play,
-  Percent, ShoppingCart, Star, ThumbsUp, Sparkles,
+  Percent, ShoppingCart, Star, ThumbsUp, Sparkles, Loader2,
 } from 'lucide-react';
 import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
 import type { Producto, TipoOperacion } from '@/types';
@@ -103,8 +103,6 @@ export function TarjetaProductoMosaico({
   );
   const [togglingSalon, setTogglingSalon] = useState(false);
   const [confirmandoSalon, setConfirmandoSalon] = useState(false);
-  const confirmarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (confirmarTimeoutRef.current) clearTimeout(confirmarTimeoutRef.current); }, []);
   const promoOk     = isPromoActiva(producto);
   const precioFinal = promoOk && producto.promocion?.precio_oferta ? producto.promocion.precio_oferta : producto.precio_base;
   const precioOrig  = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
@@ -115,25 +113,21 @@ export function TarjetaProductoMosaico({
   const navigate    = useNavigate();
 
   // Un solo click en la grilla es fácil de errar (tarjetas chicas, una al lado de la
-  // otra) — se pide un segundo click para confirmar. Si no se confirma en 2.5s, se
-  // desarma solo.
-  async function handleToggleSalon(e: React.MouseEvent) {
+  // otra) — se pide confirmar en un mini modal antes de aplicar el cambio.
+  function handleAbrirConfirmacion(e: React.MouseEvent) {
     e.stopPropagation();
     if (!onToggleSalon || togglingSalon) return;
+    setConfirmandoSalon(true);
+  }
 
-    if (!confirmandoSalon) {
-      setConfirmandoSalon(true);
-      confirmarTimeoutRef.current = setTimeout(() => setConfirmandoSalon(false), 2500);
-      return;
-    }
-
-    if (confirmarTimeoutRef.current) clearTimeout(confirmarTimeoutRef.current);
-    setConfirmandoSalon(false);
+  async function handleConfirmarSalon() {
+    if (!onToggleSalon) return;
     setTogglingSalon(true);
     try {
       await onToggleSalon(producto);
     } finally {
       setTogglingSalon(false);
+      setConfirmandoSalon(false);
     }
   }
 
@@ -170,20 +164,13 @@ export function TarjetaProductoMosaico({
             </span>
           )}
           {onToggleSalon ? (
-            <button type="button" onClick={handleToggleSalon} disabled={togglingSalon}
-              title={
-                confirmandoSalon
-                  ? 'Tocá de nuevo para confirmar'
-                  : producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'
-              }
+            <button type="button" onClick={handleAbrirConfirmacion} disabled={togglingSalon}
+              title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
               className={cn(
                 'text-[9px] font-bold px-2 py-0.5 rounded-full leading-none shadow-md flex items-center gap-1 transition-colors disabled:opacity-60',
-                confirmandoSalon
-                  ? 'bg-amber-500 text-white animate-pulse'
-                  : producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-500 hover:bg-white'
+                producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-500 hover:bg-white'
               )}>
-              <Store size={8}/>
-              {togglingSalon ? '...' : confirmandoSalon ? '¿Confirmar?' : producto.en_salon ? 'En salón' : 'Marcar en salón'}
+              <Store size={8}/>{producto.en_salon ? 'En salón' : 'Marcar en salón'}
             </button>
           ) : producto.en_salon && (
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white leading-none shadow-md flex items-center gap-1">
@@ -276,6 +263,43 @@ export function TarjetaProductoMosaico({
           )}
         </div>
       </div>
+
+      {confirmandoSalon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget && !togglingSalon) setConfirmandoSalon(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-1">
+              <div className={cn(
+                'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                producto.en_salon ? 'bg-gray-100' : 'bg-emerald-100'
+              )}>
+                <Store size={18} className={producto.en_salon ? 'text-gray-500' : 'text-emerald-600'}/>
+              </div>
+              <h3 className="text-sm font-bold text-gray-900">
+                {producto.en_salon ? '¿Quitar de exhibición en salón?' : '¿Marcar en salón?'}
+              </h3>
+            </div>
+            <p className="text-xs text-gray-500 mb-4 pl-[52px]">
+              {producto.nombre}
+              {!producto.en_salon && ' — se va a mostrar como exhibido físicamente en el local.'}
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setConfirmandoSalon(false)} disabled={togglingSalon}
+                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleConfirmarSalon} disabled={togglingSalon}
+                className={cn(
+                  'flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-2',
+                  producto.en_salon ? 'bg-gray-700 hover:bg-gray-800' : 'bg-emerald-600 hover:bg-emerald-700'
+                )}>
+                {togglingSalon ? <Loader2 size={14} className="animate-spin"/> : <Store size={14}/>}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
