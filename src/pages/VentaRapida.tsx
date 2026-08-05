@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Zap, Users, Search, X, Plus, Minus, Trash2,
-  ShoppingCart, Check, Loader2, Printer, RefreshCw, Package,
+  ShoppingCart, Check, Loader2, Printer, RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
+import { TarjetaProductoMosaico } from '@/components/TarjetaProductoMosaico';
 import type { Cliente, Producto } from '@/types';
 
 const FORMAS_PAGO = [
@@ -413,35 +414,17 @@ export function VentaRapida() {
             {q ? 'Sin resultados para tu búsqueda' : 'No hay productos con stock disponible'}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-96 overflow-y-auto pr-1">
-            {galeria.map(p => {
-              const enCarrito = items.find(i => i.producto_id === p.id);
-              return (
-                <button key={p.id} onClick={() => agregarItem(p)}
-                  className={cn(
-                    'relative text-left rounded-xl border overflow-hidden transition-all hover:shadow-md hover:border-emerald-300',
-                    enCarrito ? 'border-emerald-400 ring-1 ring-emerald-300' : 'border-gray-200'
-                  )}>
-                  <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
-                    {p.imagen_url
-                      ? <img src={p.imagen_url} alt={p.nombre} loading="lazy" className="w-full h-full object-contain p-2"/>
-                      : <Package size={26} className="text-gray-200"/>}
-                  </div>
-                  <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/90 text-gray-600 shadow">
-                    stock {p.stock_actual}
-                  </span>
-                  {enCarrito && (
-                    <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shadow">
-                      {enCarrito.cantidad}
-                    </span>
-                  )}
-                  <div className="p-2">
-                    <p className="text-[11px] font-semibold text-gray-800 leading-snug line-clamp-2">{p.nombre}</p>
-                    <p className="text-[11px] font-bold text-emerald-700 mt-0.5">{formatCurrency(Number(p.precio_base))}</p>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-h-[36rem] overflow-y-auto pr-1">
+            {galeria.map(p => (
+              <TarjetaProductoMosaico
+                key={p.id}
+                producto={p}
+                priceColor="text-emerald-700"
+                onSelect={agregarItem}
+                mostrarVenderAhora={false}
+                cantidadEnCarrito={items.find(i => i.producto_id === p.id)?.cantidad ?? 0}
+              />
+            ))}
           </div>
         )}
 
