@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Package, ToggleLeft, ToggleRight, AlertTriangle, Tag, Store, Play,
@@ -102,6 +102,9 @@ export function TarjetaProductoMosaico({
     [producto],
   );
   const [togglingSalon, setTogglingSalon] = useState(false);
+  const [confirmandoSalon, setConfirmandoSalon] = useState(false);
+  const confirmarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (confirmarTimeoutRef.current) clearTimeout(confirmarTimeoutRef.current); }, []);
   const promoOk     = isPromoActiva(producto);
   const precioFinal = promoOk && producto.promocion?.precio_oferta ? producto.promocion.precio_oferta : producto.precio_base;
   const precioOrig  = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
@@ -111,9 +114,21 @@ export function TarjetaProductoMosaico({
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
   const navigate    = useNavigate();
 
+  // Un solo click en la grilla es fácil de errar (tarjetas chicas, una al lado de la
+  // otra) — se pide un segundo click para confirmar. Si no se confirma en 2.5s, se
+  // desarma solo.
   async function handleToggleSalon(e: React.MouseEvent) {
     e.stopPropagation();
     if (!onToggleSalon || togglingSalon) return;
+
+    if (!confirmandoSalon) {
+      setConfirmandoSalon(true);
+      confirmarTimeoutRef.current = setTimeout(() => setConfirmandoSalon(false), 2500);
+      return;
+    }
+
+    if (confirmarTimeoutRef.current) clearTimeout(confirmarTimeoutRef.current);
+    setConfirmandoSalon(false);
     setTogglingSalon(true);
     try {
       await onToggleSalon(producto);
@@ -156,12 +171,19 @@ export function TarjetaProductoMosaico({
           )}
           {onToggleSalon ? (
             <button type="button" onClick={handleToggleSalon} disabled={togglingSalon}
-              title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
+              title={
+                confirmandoSalon
+                  ? 'Tocá de nuevo para confirmar'
+                  : producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'
+              }
               className={cn(
                 'text-[9px] font-bold px-2 py-0.5 rounded-full leading-none shadow-md flex items-center gap-1 transition-colors disabled:opacity-60',
-                producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-500 hover:bg-white'
+                confirmandoSalon
+                  ? 'bg-amber-500 text-white animate-pulse'
+                  : producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-500 hover:bg-white'
               )}>
-              <Store size={8}/>{togglingSalon ? '...' : producto.en_salon ? 'En salón' : 'Marcar en salón'}
+              <Store size={8}/>
+              {togglingSalon ? '...' : confirmandoSalon ? '¿Confirmar?' : producto.en_salon ? 'En salón' : 'Marcar en salón'}
             </button>
           ) : producto.en_salon && (
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white leading-none shadow-md flex items-center gap-1">
