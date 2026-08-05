@@ -328,7 +328,7 @@ export function VistaPublicaRemito() {
 
                 const estadoProd = item.estado_producto ?? 'nuevo';
                 const estadoBadge = estadoProd === 'nuevo'
-                  ? { label: 'Conforme', bg: '#dcfce7', color: GREEN }
+                  ? { label: 'Nuevo', bg: '#dcfce7', color: GREEN }
                   : estadoProd === 'bueno'
                     ? { label: 'Bueno', bg: '#dbeafe', color: '#2563eb' }
                     : { label: 'C/detalles', bg: '#fef3c7', color: '#d97706' };
