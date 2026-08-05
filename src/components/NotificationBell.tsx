@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, X } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Notif {
-  id: string; numero: string; precio_total: number;
+  tipo: 'presupuesto' | 'remito';
+  id: string; numero: string; precio_total: number | null;
   aprobado_online_at: string | null;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
-  respuesta_cliente_at: string | null;
+  recepcion_estado: 'con_observaciones' | 'no_conforme' | null;
+  recepcion_obs: string | null;
   evento_at: string;
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
@@ -18,6 +21,11 @@ const RESP_NOTIF: Record<string, { texto: string; color: string; bg: string }> =
   consulta:   { texto: 'hizo una consulta',       color: '#67e8f9', bg: 'rgba(34,211,238,0.15)' },
   llamada:    { texto: 'pidió que lo llamen',     color: '#86efac', bg: 'rgba(34,197,94,0.15)' },
   modificar:  { texto: 'pidió modificar la propuesta', color: '#c4b5fd', bg: 'rgba(139,92,246,0.15)' },
+};
+
+const REMITO_NOTIF: Record<string, { texto: string; color: string; bg: string }> = {
+  con_observaciones: { texto: 'recibió el remito con observaciones', color: '#fcd34d', bg: 'rgba(251,191,36,0.15)' },
+  no_conforme:        { texto: 'rechazó la recepción del remito',     color: '#fca5a5', bg: 'rgba(248,113,113,0.15)' },
 };
 
 function nombreCliente(c: Notif['cliente']) {
@@ -49,19 +57,29 @@ export function NotificationBell() {
     try {
       const data = await api.get<Notif[]>('/notificaciones');
       setNotifs(data);
+      const claveDe = (n: Notif) => `${n.tipo}-${n.id}`;
       if (!inicializado.current) {
-        // Primera carga: solo registrar IDs actuales sin disparar evento
-        prevIdsRef.current = new Set(data.map(n => n.id));
+        // Primera carga: solo registrar claves actuales sin disparar evento
+        prevIdsRef.current = new Set(data.map(claveDe));
         inicializado.current = true;
       } else {
-        // Cargas siguientes: detectar IDs genuinamente nuevas
-        const nuevas = data.filter(n => !prevIdsRef.current.has(n.id));
-        if (nuevas.length > 0) {
+        // Cargas siguientes: detectar claves genuinamente nuevas
+        const nuevas = data.filter(n => !prevIdsRef.current.has(claveDe(n)));
+        const nuevosPresupuestos = nuevas.filter(n => n.tipo === 'presupuesto');
+        const nuevosRemitos = nuevas.filter(n => n.tipo === 'remito');
+        if (nuevosPresupuestos.length > 0) {
           window.dispatchEvent(new CustomEvent('presupuesto:aprobado-online', {
-            detail: { nuevas }
+            detail: { nuevas: nuevosPresupuestos }
           }));
         }
-        prevIdsRef.current = new Set(data.map(n => n.id));
+        nuevosRemitos.forEach(n => {
+          const rm = n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
+          toast.warning(`Remito ${n.numero}${rm ? ` — ${rm.texto}` : ' con novedades en la recepción'}`, {
+            description: 'Revisalo en Remitos',
+            duration: 6000,
+          });
+        });
+        prevIdsRef.current = new Set(data.map(claveDe));
       }
     } catch {
       // silencioso
@@ -104,9 +122,9 @@ export function NotificationBell() {
     }
   }
 
-  function irAPresupuesto(id: string) {
+  function irANotif(n: Notif) {
     setOpen(false);
-    navigate(`/presupuestos?id=${id}`);
+    navigate(n.tipo === 'remito' ? '/remitos' : `/presupuestos?id=${n.id}`);
   }
 
   const count = notifs.length;
@@ -171,19 +189,24 @@ export function NotificationBell() {
               </div>
             ) : (
               notifs.map(n => {
-                const esRespuesta = !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
+                const esRemito = n.tipo === 'remito';
+                const rm = esRemito && n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
+                const esRespuesta = !esRemito && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
                 const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
+                const acento = rm ?? rc;
                 return (
                 <button
-                  key={n.id}
-                  onClick={() => irAPresupuesto(n.id)}
+                  key={`${n.tipo}-${n.id}`}
+                  onClick={() => irANotif(n)}
                   className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5"
                   style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                 >
                   {/* Icono */}
                   <div className="mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: rc ? rc.bg : 'rgba(34,197,94,0.15)' }}>
-                    <CheckCircle2 size={16} style={{ color: rc ? rc.color : '#34d399' }} />
+                    style={{ backgroundColor: acento ? acento.bg : 'rgba(34,197,94,0.15)' }}>
+                    {rm
+                      ? <AlertTriangle size={16} style={{ color: rm.color }} />
+                      : <CheckCircle2 size={16} style={{ color: acento ? acento.color : '#34d399' }} />}
                   </div>
                   {/* Texto */}
                   <div className="flex-1 min-w-0">
@@ -191,11 +214,17 @@ export function NotificationBell() {
                       {nombreCliente(n.cliente)}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }}>
-                      {rc ? <>{rc.texto} — <span className="font-mono" style={{ color: rc.color }}>{n.numero}</span></>
+                      {rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>
+                       : rc ? <>{rc.texto} — <span className="font-mono" style={{ color: rc.color }}>{n.numero}</span></>
                           : <>Aprobó el presupuesto <span className="font-mono text-emerald-400">{n.numero}</span></>}
                     </p>
+                    {rm && n.recepcion_obs && (
+                      <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                        "{n.recepcion_obs}"
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mt-1">
-                      {!rc && (
+                      {!acento && (
                         <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
                           {formatCurrency(Number(n.precio_total))}
                         </span>
