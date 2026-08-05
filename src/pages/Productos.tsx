@@ -14,6 +14,7 @@ import {
   TarjetaProductoMosaico, isPromoActiva,
   TIPO_LABEL, TIPO_COLOR, MARGEN_LABEL, MARGEN_COLOR, ETIQUETA_CONFIG,
 } from '@/components/TarjetaProductoMosaico';
+import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 import type { Producto, TipoOperacion } from '@/types';
 
 // Paleta de categorías — cada tipo de abertura (real, de la DB) toma un color en orden,
@@ -228,19 +229,31 @@ function productoPasaFacets(p: Producto, activos: Record<string, string[]>): boo
 }
 // ── Modal de detalle ──────────────────────────────────────────────────────────
 
-export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar }: {
-  producto: Producto; onClose: () => void; onToggle?: () => void; onDelete?: (id: string) => void; onAgregar?: () => void;
+export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDelete, onAgregar }: {
+  producto: Producto; onClose: () => void; onToggle?: () => void; onToggleSalon?: () => Promise<void>;
+  onDelete?: (id: string) => void; onAgregar?: () => void;
 }) {
   const [activeImg, setActiveImg]     = useState(0);
   const [confirmando, setConfirmando] = useState(false);
   const [eliminando, setEliminando]   = useState(false);
   const [dolarCompra, setDolarCompra] = useState<number | null>(null);
+  const [togglingSalon, setTogglingSalon] = useState(false);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
+
+  async function handleToggleSalon() {
+    if (!onToggleSalon || togglingSalon) return;
+    setTogglingSalon(true);
+    try {
+      await onToggleSalon();
+    } finally {
+      setTogglingSalon(false);
+    }
+  }
 
   useEffect(() => {
     api.get<{ compra: number }>('/catalogo/cotizacion-dolar').then(d => setDolarCompra(d.compra)).catch(() => {});
@@ -305,7 +318,18 @@ export function ProductoModal({ producto, onClose, onToggle, onDelete, onAgregar
                 return <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', cfg.cls)}><cfg.Icon size={9}/>{cfg.label}</span>;
               })()}
               {producto.codigo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono">{producto.codigo}</span>}
-              {producto.en_salon && (
+              {onToggleSalon ? (
+                <button type="button" onClick={handleToggleSalon} disabled={togglingSalon}
+                  title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
+                  className={cn(
+                    'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors disabled:opacity-60',
+                    producto.en_salon
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  )}>
+                  <Store size={9}/>{togglingSalon ? 'Guardando...' : producto.en_salon ? 'En salón' : 'Marcar en salón'}
+                </button>
+              ) : producto.en_salon && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 bg-emerald-100 text-emerald-700">
                   <Store size={9}/>En salón
                 </span>
@@ -720,6 +744,11 @@ export function Productos() {
   const [sortBy, setSortBy] = useState<SortKey>('relevancia');
   const [facetFilters, setFacetFilters] = useState<Record<string, string[]>>({});
   const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
+  const [showAjusteStock, setShowAjusteStock] = useState(false);
+  const [ajusteProductoId, setAjusteProductoId] = useState<string | null>(null);
+  // Si se abrió el ajuste porque se intentó marcar "en salón" sin stock, al guardar
+  // el ajuste activamos "en salón" directo — no hace falta un segundo click.
+  const [salonPendientePostAjuste, setSalonPendientePostAjuste] = useState<string | null>(null);
 
   const nodoActivoId = categoriaPath.length ? categoriaPath[categoriaPath.length - 1] : null;
   useEffect(() => { setFacetFilters({}); }, [nodoActivoId]);
@@ -757,6 +786,48 @@ export function Productos() {
     if (selected?.id === producto.id) setSelected(prev => prev ? { ...prev, activo } : null);
   }
   function eliminarProducto(id: string) { setProductos(prev => prev.filter(p => p.id !== id)); }
+
+  function actualizarEnSalonLocal(id: string, en_salon: boolean) {
+    setProductos(prev => prev.map(p => p.id === id ? { ...p, en_salon } : p));
+    if (selected?.id === id) setSelected(prev => prev ? { ...prev, en_salon } : null);
+  }
+  function actualizarStockLocal(id: string, stock_actual: number) {
+    setProductos(prev => prev.map(p => p.id === id ? { ...p, stock_actual } : p));
+    if (selected?.id === id) setSelected(prev => prev ? { ...prev, stock_actual } : null);
+  }
+
+  async function aplicarToggleSalon(id: string) {
+    try {
+      const { en_salon } = await api.patch<{ id: string; en_salon: boolean }>(`/productos/${id}/toggle-salon`);
+      actualizarEnSalonLocal(id, en_salon);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo actualizar');
+    }
+  }
+
+  // Botón rápido "En salón" desde el detalle del producto — sin tener que entrar a
+  // editar. Si no hay stock, sugiere cargarlo ahí mismo (mínimo 1) en vez de dejar
+  // que el backend lo rechace.
+  async function toggleSalonRapido(producto: Producto) {
+    if (!producto.en_salon && (producto.stock_actual ?? 0) <= 0) {
+      toast.info('Sin stock — cargá al menos 1 unidad para exhibirlo en salón');
+      setAjusteProductoId(producto.id);
+      setSalonPendientePostAjuste(producto.id);
+      setShowAjusteStock(true);
+      return;
+    }
+    await aplicarToggleSalon(producto.id);
+  }
+
+  async function handleAjusteGuardado(nuevoStock: number) {
+    setShowAjusteStock(false);
+    if (ajusteProductoId) actualizarStockLocal(ajusteProductoId, nuevoStock);
+    if (salonPendientePostAjuste) {
+      const id = salonPendientePostAjuste;
+      setSalonPendientePostAjuste(null);
+      if (nuevoStock > 0) await aplicarToggleSalon(id);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -1160,7 +1231,21 @@ export function Productos() {
           producto={selected}
           onClose={() => setSelected(null)}
           onToggle={() => toggleActivo(selected)}
+          onToggleSalon={() => toggleSalonRapido(selected)}
           onDelete={eliminarProducto}
+        />
+      )}
+      {showAjusteStock && ajusteProductoId && (
+        <ModalAjusteStock
+          productos={[(() => {
+            const p = productos.find(x => x.id === ajusteProductoId) ?? selected;
+            return { id: ajusteProductoId, nombre: p?.nombre ?? 'Producto', codigo: p?.codigo ?? null, stock_actual: p?.stock_actual ?? 0 };
+          })()]}
+          productoPreseleccionado={ajusteProductoId}
+          bloquearProducto
+          valorInicial={salonPendientePostAjuste ? '1' : undefined}
+          onClose={() => { setShowAjusteStock(false); setSalonPendientePostAjuste(null); }}
+          onSaved={handleAjusteGuardado}
         />
       )}
     </div>
