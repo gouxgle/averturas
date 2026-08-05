@@ -7,7 +7,7 @@ import {
   Receipt, FileText, X, Download, Filter,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, diasCalendarioAR, TZ_AR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
@@ -110,20 +110,18 @@ function actividadInfo(dias: number): { label: string; dotColor: string } {
 
 function fmtFechaCorta(iso: string | null) {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: TZ_AR });
 }
 
 function fmtRelativa(iso: string) {
   const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffH   = Math.floor(diffMs / 3600000);
-  const diffD   = Math.floor(diffMs / 86400000);
-  if (diffMin < 60)  return `Hace ${diffMin} min`;
-  if (diffH < 24)    return `Hoy, ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
-  if (diffD === 1)   return `Ayer, ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
-  return `Hace ${diffD} días`;
+  const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const dias = diasCalendarioAR(d);
+  const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: TZ_AR });
+  if (dias === 0) return `Hoy, ${hora}`;
+  if (dias === 1) return `Ayer, ${hora}`;
+  return `Hace ${dias} días`;
 }
 
 const SEG_CFG: Record<Segmento | 'top', { label: string; bg: string; text: string }> = {

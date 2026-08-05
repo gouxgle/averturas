@@ -331,7 +331,7 @@ operaciones.get('/tablero', async (c) => {
   const baseSelect = `
     SELECT o.id, o.numero, o.estado, o.tipo, o.precio_total::numeric,
       o.created_at, o.fecha_entrega_estimada, o.fecha_validez, o.updated_at,
-      EXTRACT(DAY FROM now() - o.updated_at)::int AS dias_en_estado,
+      (CURRENT_DATE - o.updated_at::date) AS dias_en_estado,
       COALESCE((
         SELECT SUM(r2.monto_total) FROM recibos r2
         WHERE r2.operacion_id = o.id AND r2.estado = 'emitido'
@@ -471,11 +471,11 @@ operaciones.get('/ventas-panel', async (c) => {
         COALESCE(SUM(o.precio_total) FILTER (WHERE o.estado IN ('presupuesto','enviado')), 0)::numeric AS importe_total,
         COUNT(*) FILTER (
           WHERE o.estado = 'enviado'
-            AND COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3
+            AND COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) > 3
         )::int AS sin_respuesta_count,
         COALESCE(SUM(o.precio_total) FILTER (
           WHERE o.estado = 'enviado'
-            AND COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3
+            AND COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) > 3
         ), 0)::numeric AS sin_respuesta_monto,
         COUNT(*) FILTER (
           WHERE o.estado IN ('presupuesto','enviado') AND o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE
@@ -499,9 +499,9 @@ operaciones.get('/ventas-panel', async (c) => {
         o.enviado_wa_at,
         o.respuesta_cliente, o.respuesta_cliente_at,
         (o.enviado_wa_at IS NULL AND o.estado IN ('presupuesto','enviado')) AS pendiente_envio,
-        EXTRACT(DAY FROM now() - o.fecha_validez)::int                         AS dias_vencido,
-        EXTRACT(DAY FROM o.fecha_validez - now())::int                         AS dias_hasta_vencimiento,
-        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int     AS dias_sin_respuesta,
+        (CURRENT_DATE - o.fecha_validez)                                       AS dias_vencido,
+        (o.fecha_validez - CURRENT_DATE)                                       AS dias_hasta_vencimiento,
+        COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999)               AS dias_sin_respuesta,
         (SELECT i.tipo FROM interacciones i WHERE i.cliente_id = c.id ORDER BY i.created_at DESC LIMIT 1) AS ultimo_contacto_canal,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
@@ -512,9 +512,9 @@ operaciones.get('/ventas-panel', async (c) => {
           WHEN o.estado IN ('aprobado','cancelado','rechazado') THEN 'baja'
           WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE THEN 'alta'
           WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez <= CURRENT_DATE + 3 THEN 'alta'
-          WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 7 THEN 'alta'
+          WHEN COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) > 7 THEN 'alta'
           WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez <= CURRENT_DATE + 7 THEN 'media'
-          WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 3 THEN 'media'
+          WHEN COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) > 3 THEN 'media'
           ELSE 'baja'
         END AS prioridad,
         cob.cobrado_total,
@@ -567,7 +567,7 @@ operaciones.get('/ventas-panel', async (c) => {
         CASE WHEN o.estado IN ('presupuesto','enviado') THEN 0 ELSE 1 END,
         CASE
           WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE THEN 0
-          WHEN COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 7 THEN 1
+          WHEN COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) > 7 THEN 1
           ELSE 2
         END,
         o.precio_total DESC
@@ -577,7 +577,7 @@ operaciones.get('/ventas-panel', async (c) => {
     db.query(`
       SELECT
         o.id, o.numero, o.precio_total::numeric, o.estado, o.fecha_validez,
-        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999)::int AS dias_sin_respuesta,
+        COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999)::int AS dias_sin_respuesta,
         (SELECT i.tipo FROM interacciones i WHERE i.cliente_id = c.id ORDER BY i.created_at DESC LIMIT 1) AS ultimo_contacto_canal,
         json_build_object(
           'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
@@ -587,10 +587,10 @@ operaciones.get('/ventas-panel', async (c) => {
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
       WHERE o.estado IN ('presupuesto','enviado')
-        AND COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) > 2
+        AND COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) > 2
       ORDER BY
         CASE WHEN o.fecha_validez IS NOT NULL AND o.fecha_validez < CURRENT_DATE THEN 0 ELSE 1 END,
-        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) DESC,
+        COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) DESC,
         o.precio_total DESC
       LIMIT 5
     `),

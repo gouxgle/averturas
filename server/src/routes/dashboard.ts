@@ -187,7 +187,7 @@ dashboard.get('/sin-contacto', async (c) => {
   const { rows } = await db.query(`
     SELECT c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
       c.telefono, c.estado,
-      EXTRACT(DAY FROM now() - c.ultima_interaccion)::int AS dias_sin_contacto,
+      (CURRENT_DATE - c.ultima_interaccion::date) AS dias_sin_contacto,
       CASE WHEN cat.id IS NOT NULL
         THEN json_build_object('nombre', cat.nombre, 'color', cat.color)
         ELSE NULL END AS categoria
@@ -306,7 +306,7 @@ dashboard.get('/resumen', async (c) => {
     db.query(`
       SELECT c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
         c.telefono, c.estado, c.preferencia_contacto, c.ultima_interaccion,
-        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion)::int, 999) AS dias_sin_contacto
+        COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) AS dias_sin_contacto
       FROM clientes c
       WHERE c.activo = true
         AND c.estado IN ('activo','recurrente')

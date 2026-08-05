@@ -110,7 +110,7 @@ stock.get('/tablero', async (c) => {
           COALESCE(SUM(-m.cantidad) FILTER (WHERE m.tipo LIKE 'egreso%' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS ventas_30d,
           COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'ingreso' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS entradas_30d,
           MAX(m.created_at) FILTER (WHERE m.tipo LIKE 'egreso%') AS ultima_venta_fecha,
-          COALESCE(EXTRACT(DAY FROM now() - MAX(m.created_at))::int, 999) AS dias_sin_movimiento
+          COALESCE(CURRENT_DATE - MAX(m.created_at)::date, 999) AS dias_sin_movimiento
         FROM catalogo_productos p
         LEFT JOIN tipos_abertura ta ON ta.id = p.tipo_abertura_id
         LEFT JOIN sistemas s        ON s.id  = p.sistema_id

@@ -73,7 +73,7 @@ clientes.get('/', async (c) => {
 
   const { rows } = await db.query(`
     SELECT c.*,
-      EXTRACT(DAY FROM now() - c.ultima_interaccion)::int AS dias_sin_contacto,
+      (CURRENT_DATE - c.ultima_interaccion::date) AS dias_sin_contacto,
       CASE WHEN cat.id IS NOT NULL
         THEN json_build_object('id', cat.id, 'nombre', cat.nombre, 'color', cat.color)
         ELSE NULL END AS categoria,
@@ -187,7 +187,7 @@ clientes.get('/panel', async (c) => {
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE estado IN ('activo','recurrente'))::int AS activos,
-        COUNT(*) FILTER (WHERE ultima_interaccion IS NULL OR EXTRACT(DAY FROM now() - ultima_interaccion) >= 60)::int AS sin_actividad,
+        COUNT(*) FILTER (WHERE ultima_interaccion IS NULL OR (CURRENT_DATE - ultima_interaccion::date) >= 60)::int AS sin_actividad,
         COUNT(*) FILTER (WHERE created_at >= $1::timestamp)::int AS nuevos_mes,
         (SELECT COUNT(*)::int FROM (
           SELECT cl2.id FROM clientes cl2
@@ -207,7 +207,7 @@ clientes.get('/panel', async (c) => {
         c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
         c.telefono, c.email, c.documento_nro, c.localidad, c.estado,
         c.created_at, c.ultima_interaccion,
-        COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion)::int, 999) AS dias_sin_contacto,
+        COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) AS dias_sin_contacto,
         cat.nombre AS categoria_nombre, cat.color AS categoria_color,
         ops.operaciones_count,
         ops.valor_total_historico,
@@ -220,7 +220,7 @@ clientes.get('/panel', async (c) => {
         CASE
           WHEN c.created_at >= NOW() - INTERVAL '30 days' THEN 'nuevo'
           WHEN c.estado IN ('inactivo','perdido')
-            OR COALESCE(EXTRACT(DAY FROM now() - c.ultima_interaccion), 999) >= 60 THEN 'inactivo'
+            OR COALESCE(CURRENT_DATE - c.ultima_interaccion::date, 999) >= 60 THEN 'inactivo'
           WHEN c.estado = 'prospecto' THEN 'seguimiento'
           WHEN ops.operaciones_count >= 3 THEN 'frecuente'
           ELSE 'activo'
@@ -247,7 +247,7 @@ clientes.get('/panel', async (c) => {
     db.query(`
       SELECT
         (SELECT COUNT(*)::int FROM clientes
-          WHERE activo = true AND (ultima_interaccion IS NULL OR EXTRACT(DAY FROM now() - ultima_interaccion) >= 30)
+          WHERE activo = true AND (ultima_interaccion IS NULL OR (CURRENT_DATE - ultima_interaccion::date) >= 30)
         ) AS sin_contacto_30d,
         (SELECT COUNT(*)::int FROM operaciones WHERE estado = 'enviado' AND updated_at < NOW() - INTERVAL '3 days') AS presupuestos_sin_respuesta,
         (SELECT COUNT(*)::int FROM compromisos_pago WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE) AS pagos_vencidos,
@@ -818,7 +818,7 @@ clientes.get('/:id', async (c) => {
   ] = await Promise.all([
     db.query(`
       SELECT c.*,
-        EXTRACT(DAY FROM now() - c.ultima_interaccion)::int AS dias_sin_contacto,
+        (CURRENT_DATE - c.ultima_interaccion::date) AS dias_sin_contacto,
         CASE WHEN cat.id IS NOT NULL
           THEN json_build_object('id', cat.id, 'nombre', cat.nombre, 'color', cat.color)
           ELSE NULL END AS categoria,

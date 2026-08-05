@@ -50,8 +50,8 @@ estadoCuenta.get('/', async (c) => {
         comp.dias_vencido_oldest,
         GREATEST(ops.ultima, COALESCE(rec.ultima, ops.ultima)) AS ultima_actividad,
         ops.ultima                                           AS ultima_compra_fecha,
-        EXTRACT(DAY FROM now() - ops.primera)::int           AS dias_desde_primera_op,
-        EXTRACT(DAY FROM now() - ops.ultima)::int            AS dias_desde_ultima_compra,
+        (CURRENT_DATE - ops.primera::date)                   AS dias_desde_primera_op,
+        (CURRENT_DATE - ops.ultima::date)                    AS dias_desde_ultima_compra,
         COALESCE(ROUND(100.0 * (COALESCE(rec.total,0) + COALESCE(rec.descuentos,0)) / NULLIF(ops.total,0), 0), 0)::int AS pct_cobrado,
         CASE
           WHEN (ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0)) <= 0.01 THEN 'saldado'
@@ -89,8 +89,8 @@ estadoCuenta.get('/', async (c) => {
           COALESCE(SUM(monto) FILTER (WHERE estado = 'pendiente'), 0) AS total,
           MIN(fecha_vencimiento) FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento >= CURRENT_DATE) AS proximo_vencimiento,
           COUNT(*) FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE)::int AS compromisos_vencidos,
-          COALESCE(EXTRACT(DAY FROM now() - MIN(fecha_vencimiento)
-            FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE)), 0)::int AS dias_vencido_oldest
+          COALESCE(CURRENT_DATE - MIN(fecha_vencimiento)
+            FILTER (WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE), 0) AS dias_vencido_oldest
         FROM compromisos_pago
         WHERE cliente_id = c.id
       ) comp ON true
@@ -100,7 +100,7 @@ estadoCuenta.get('/', async (c) => {
     `, params),
 
     db.query(`
-      SELECT COALESCE(ROUND(AVG(EXTRACT(DAY FROM now() - fecha_vencimiento)))::int, 0) AS dias_promedio
+      SELECT COALESCE(ROUND(AVG(CURRENT_DATE - fecha_vencimiento))::int, 0) AS dias_promedio
       FROM compromisos_pago
       WHERE estado = 'pendiente' AND fecha_vencimiento < CURRENT_DATE
     `),

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, diasCalendarioAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DolarWidget, WeatherWidget } from '@/components/ClimaDolarStrip';
 
@@ -82,7 +82,7 @@ function nombreCliente(c: OpItem['cliente']) {
 }
 
 function diasDesde(iso: string) {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  return diasCalendarioAR(iso);
 }
 
 function fmtFecha(iso: string) {
