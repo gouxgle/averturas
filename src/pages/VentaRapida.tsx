@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, Zap, Users, Search, X, Plus, Minus, Trash2,
+  Zap, Users, Search, X, Plus, Minus, Trash2,
   ShoppingCart, Check, Loader2, Printer, RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -9,6 +9,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 import { TarjetaProductoMosaico } from '@/components/TarjetaProductoMosaico';
+import { SectionHero } from '@/components/SectionHero';
 import type { Cliente, Producto } from '@/types';
 
 const FORMAS_PAGO = [
@@ -293,18 +294,12 @@ export function VentaRapida() {
   // ── Formulario ───────────────────────────────────────────────
   return (
     <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4" data-section="venta-rapida">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft size={18} className="text-gray-500"/>
-        </button>
-        <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-          <Zap size={18} className="text-emerald-600"/>
-        </div>
-        <div>
-          <h1 className="text-base font-bold text-gray-900">Venta rápida de mostrador</h1>
-          <p className="text-xs text-gray-400">Cobra, entrega y descuenta stock en un solo paso</p>
-        </div>
-      </div>
+      <SectionHero
+        section="venta-rapida"
+        icon={Zap}
+        title="Venta rápida de mostrador"
+        sub="Cobra, entrega y descuenta stock en un solo paso"
+      />
 
       {/* Cliente */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
