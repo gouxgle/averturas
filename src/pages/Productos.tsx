@@ -601,6 +601,11 @@ function TarjetaProductoMosaico({ producto, priceColor, onSelect, onToggle }: {
             </span>
           )}
           {producto.precio_por_m2 && <span className="text-[10px] text-gray-400 ml-0.5">/m²</span>}
+          {producto.costo_base > 0 && (
+            <p className="text-[10px] text-gray-400 leading-none mt-1">
+              Costo: {formatCurrency(Number(producto.costo_base))}
+            </p>
+          )}
 
           <div className="flex items-center gap-1 mt-1.5 flex-wrap">
             <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
