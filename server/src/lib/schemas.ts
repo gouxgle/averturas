@@ -223,6 +223,36 @@ export const VisitaTecnicaCostoExternoSchema = z.object({
   costo_externo: z.number().min(0).nullable(),
 });
 
+// ── Oportunidades futuras ────────────────────────────────────
+export const OportunidadSchema = z.object({
+  cliente_id:          zUUID,
+  operacion_id_origen: zUUID.optional().nullable(),
+  motivo:              z.string().min(3, 'Contá de qué se trata').max(500),
+  fecha_recontacto:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+  interes:             z.enum(['alto', 'medio', 'bajo']).optional().default('medio'),
+  probabilidad:        z.number().int().min(0).max(100).optional().default(50),
+  observaciones:       zText(2000).optional(),
+  origen:              z.enum(['cliente', 'presupuesto', 'crm', 'publico']).optional().default('crm'),
+});
+
+export const OportunidadUpdateSchema = OportunidadSchema.partial().omit({ cliente_id: true });
+
+export const OportunidadPosponerSchema = z.object({
+  fecha_recontacto: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+  observaciones:     zText(2000).optional(),
+});
+
+export const OportunidadEstadoSchema = z.object({
+  estado:              z.enum(['pendiente', 'contactada', 'convertida', 'descartada']),
+  motivo_cierre:       zText(500).optional(),
+  operacion_id_ganada: zUUID.optional().nullable(),
+});
+
+export const OportunidadContactoSchema = z.object({
+  canal:   z.enum(['whatsapp', 'llamada', 'email']),
+  mensaje: zText(2000).optional(),
+});
+
 const VisitaTecnicaItemSchema = z.object({
   ambiente:         zText(200).optional(),
   descripcion:      zText(500).optional(),

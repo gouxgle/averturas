@@ -3,6 +3,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ClienteSchema } from '../lib/schemas.js';
 import { generarPDFEstadoCuenta, type EstadoCuentaPDF, type EmpresaPDF } from '../lib/pdf.js';
+import { enviarWhatsapp } from '../lib/whatsapp.js';
 
 const clientes = new Hono();
 
@@ -458,43 +459,15 @@ clientes.post('/:id/enviar-mensaje-whatsapp', async (c) => {
   if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
   if (!cliente.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
 
-  const digits = cliente.telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
-
-  const evoUrl  = process.env.EVOLUTION_API_URL;
-  const evoKey  = process.env.EVOLUTION_API_KEY;
-  const evoInst = process.env.EVOLUTION_INSTANCE;
-  if (!evoUrl || !evoKey || !evoInst)
-    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
-
-  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
-    body: JSON.stringify({ number: numero, text: mensaje }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    console.error('[whatsapp-mensaje] Evolution API error:', resp.status, errText);
-    try {
-      const errJson = JSON.parse(errText);
-      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
-      const noExiste = msgs.find(m => m.exists === false);
-      if (noExiste) return c.json({ error: `El número ${noExiste.number ?? numero} no está en WhatsApp.` }, 422);
-    } catch { /* no JSON */ }
-    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
-  }
+  const resultado = await enviarWhatsapp(cliente.telefono, mensaje);
+  if (!resultado.ok) return c.json({ error: resultado.error }, resultado.status as 422 | 500 | 502);
 
   db.query(
     `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,
     [id, `Mensaje enviado: ${mensaje.slice(0, 100)}`, user?.id ?? null]
   );
 
-  return c.json({ enviado: true, numero });
+  return c.json({ enviado: true, numero: resultado.numero });
 });
 
 // POST /:id/enviar-estado-cuenta-whatsapp — genera PDF y lo envía por WhatsApp

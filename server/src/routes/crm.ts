@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { sincronizarDesdeTarea } from '../lib/oportunidades.js';
 
 const crm = new Hono();
 
@@ -440,6 +441,12 @@ crm.patch('/tareas/:id/completar', async (c) => {
     WHERE id = $1 RETURNING *
   `, [c.req.param('id')]);
   if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+
+  if (rows[0].tipo_accion === 'oportunidad') {
+    sincronizarDesdeTarea(db, rows[0].id, true)
+      .catch(err => console.error('[oportunidades] sync desde tarea:', err));
+  }
+
   return c.json(rows[0]);
 });
 

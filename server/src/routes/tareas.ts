@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { sincronizarDesdeTarea } from '../lib/oportunidades.js';
 
 const tareas = new Hono();
 
@@ -108,6 +109,11 @@ tareas.patch('/:id/completar', async (c) => {
        WHERE id = $1 AND respuesta_cliente IS NOT NULL`,
       [row.operacion_id]
     ).catch(err => console.error('[tareas] Error al limpiar respuesta_cliente:', err));
+  }
+
+  if (row.tipo_accion === 'oportunidad') {
+    sincronizarDesdeTarea(db, row.id, body.completada)
+      .catch(err => console.error('[oportunidades] sync desde tarea:', err));
   }
 
   return c.json(row);
