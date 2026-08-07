@@ -61,6 +61,12 @@ interface PedidoAtrasado {
   operacion: { id: string; numero: string; cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string } } | null;
 }
 
+interface OportunidadPendiente {
+  id: string; motivo: string; fecha_recontacto: string;
+  interes: 'alto' | 'medio' | 'bajo'; probabilidad: number; dias_atraso: number;
+  cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
+}
+
 interface DashboardResumen {
   stats: Stats;
   sin_confirmar: OpItem[];
@@ -72,6 +78,7 @@ interface DashboardResumen {
   sin_contacto: ContactoCliente[];
   recientes: OpItem[];
   pedidos_atrasados: PedidoAtrasado[];
+  oportunidades_pendientes: OportunidadPendiente[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -200,7 +207,7 @@ export function Dashboard() {
                   Ver agenda completa <ChevronRight size={12} />
                 </Link>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
                 {[
                   {
                     icon: Truck, color: 'text-amber-600', bg: 'bg-amber-100',
@@ -231,6 +238,12 @@ export function Dashboard() {
                     title: `${data.pedidos_atrasados.length} pedido${data.pedidos_atrasados.length !== 1 ? 's' : ''} atrasado${data.pedidos_atrasados.length !== 1 ? 's' : ''}`,
                     sub: 'Superaron la fecha de entrega estimada',
                     count: data.pedidos_atrasados.length, href: '/proveedores',
+                  },
+                  {
+                    icon: Target, color: 'text-fuchsia-600', bg: 'bg-fuchsia-100',
+                    title: `${data.oportunidades_pendientes.length} oportunidad${data.oportunidades_pendientes.length !== 1 ? 'es' : ''} futura${data.oportunidades_pendientes.length !== 1 ? 's' : ''}`,
+                    sub: 'Llegó la fecha de recontacto',
+                    count: data.oportunidades_pendientes.length, href: '/crm?foco=oportunidades',
                   },
                 ].map(({ icon: Icon, color, bg, title, sub, count, href }) => (
                   <Link

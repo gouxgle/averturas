@@ -302,29 +302,46 @@ pub.post('/presupuesto/:token/responder', async (c) => {
     [op.cliente_id, op.id, descripcion]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
 
-  // Tarea de seguimiento con fecha sugerida
+  // Tarea de seguimiento con fecha sugerida. Fecha calculada en SQL (CURRENT_DATE
+  // del server, ya en horario Argentina) — nunca con Date+toISOString(), que corre
+  // un día entre las 21:00 y las 23:59 locales (bug UTC documentado en CLAUDE.md).
   let vencimiento: string;   // 'YYYY-MM-DD'
   if (tipo === 'llamada' && llamadaFecha) {
     vencimiento = llamadaFecha;
   } else {
     const dias = tipo === 'mas_tiempo' ? diasSeguimiento(motivo) : 2;
-    const d = new Date();
-    d.setDate(d.getDate() + dias);
-    vencimiento = d.toISOString().slice(0, 10);
+    const { rows: [{ vencimiento: v }] } = await db.query(
+      `SELECT (CURRENT_DATE + $1::int)::text AS vencimiento`, [dias]
+    );
+    vencimiento = v;
   }
-  const tipoAccion = tipo === 'llamada' ? 'llamada' : 'seguimiento';
+
+  // "Necesito más tiempo" es, en esencia, una oportunidad futura: la tarea que se
+  // genera es directamente la tarea espejo de esa oportunidad (tipo_accion='oportunidad'),
+  // no una tarea de seguimiento aparte — evita duplicar el aviso en la agenda.
+  const esOportunidad = tipo === 'mas_tiempo';
+  const tipoAccion = esOportunidad ? 'oportunidad' : tipo === 'llamada' ? 'llamada' : 'seguimiento';
   const tareaDesc =
     tipo === 'llamada'   ? `Llamar al cliente — Proforma ${proformaNumero}${llamadaHorario ? ` (horario: ${llamadaHorario})` : ''}` :
     tipo === 'consulta'  ? `Responder consulta del cliente — Proforma ${proformaNumero}` :
     tipo === 'modificar' ? `Ajustar y reenviar proforma — Proforma ${proformaNumero}` :
                            `Seguimiento de proforma — Proforma ${proformaNumero}`;
 
-  db.query(
+  const { rows: [tarea] } = await db.query(
     `INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, hora)
-     VALUES ($1, $2, $3, $4, 'alta', $5, $6)`,
+     VALUES ($1, $2, $3, $4, 'alta', $5, $6) RETURNING id`,
     [op.cliente_id, op.id, `${tareaDesc}${comentario ? ` — "${comentario}"` : ''}`, vencimiento, tipoAccion,
      tipo === 'llamada' && llamadaHorario && /^\d{2}:\d{2}/.test(llamadaHorario) ? llamadaHorario : null]
-  ).catch(err => console.error('[crm] Error al registrar tarea:', err));
+  ).catch(err => { console.error('[crm] Error al registrar tarea:', err); return { rows: [] as { id: string }[] }; });
+
+  if (esOportunidad && tarea?.id) {
+    const motivoOportunidad = motivo || `Respuesta desde la proforma ${proformaNumero}: necesita más tiempo`;
+    db.query(
+      `INSERT INTO oportunidades (cliente_id, operacion_id_origen, tarea_id, motivo, fecha_recontacto, observaciones, origen)
+       VALUES ($1, $2, $3, $4, $5, $6, 'publico')`,
+      [op.cliente_id, op.id, tarea.id, motivoOportunidad, vencimiento, comentario]
+    ).catch(err => console.error('[oportunidades] Error al registrar oportunidad pública:', err));
+  }
 
   return c.json({ ok: true, tipo, seguimiento: vencimiento });
 });

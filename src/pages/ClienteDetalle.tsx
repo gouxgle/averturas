@@ -11,6 +11,9 @@ import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Cliente, Operacion, Interaccion, Tarea, TipoInteraccion, EstadoCliente } from '@/types';
+import { OportunidadCard } from '@/components/oportunidades/OportunidadCard';
+import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
+import type { Oportunidad } from '@/components/oportunidades/types';
 
 // ── Helpers ─────────────────────────────────────────────────
 const ESTADO_CLIENTE: Record<EstadoCliente, { label: string; color: string; bg: string; border: string }> = {
@@ -130,6 +133,11 @@ export function ClienteDetalle() {
   // Historial: colapsar tareas completadas
   const [showCompletadas, setShowCompletadas] = useState(false);
 
+  // Oportunidades futuras abiertas
+  const [oportunidades, setOportunidades] = useState<Oportunidad[]>([]);
+  const [showNuevaOportunidad, setShowNuevaOportunidad] = useState(false);
+  const [editandoOportunidad, setEditandoOportunidad] = useState<Oportunidad | null>(null);
+
   async function load() {
     if (!id) return;
     try {
@@ -142,7 +150,32 @@ export function ClienteDetalle() {
     }
   }
 
-  useEffect(() => { load(); }, [id]);
+  async function cargarOportunidades() {
+    if (!id) return;
+    try {
+      setOportunidades(await api.get<Oportunidad[]>(`/oportunidades?vista=abiertas&cliente_id=${id}`));
+    } catch { /* silencioso */ }
+  }
+
+  useEffect(() => { load(); cargarOportunidades(); }, [id]);
+
+  function onUpdateOportunidad(actualizada: Oportunidad) {
+    setOportunidades(prev =>
+      actualizada.estado === 'pendiente' || actualizada.estado === 'contactada'
+        ? prev.map(o => o.id === actualizada.id ? actualizada : o)
+        : prev.filter(o => o.id !== actualizada.id)
+    );
+  }
+
+  function onAltaOportunidad(nueva: Oportunidad) {
+    void nueva;
+    cargarOportunidades();
+  }
+
+  function onEdicionOportunidad(actualizada: Oportunidad) {
+    onUpdateOportunidad(actualizada);
+    setEditandoOportunidad(null);
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -338,6 +371,11 @@ export function ClienteDetalle() {
                     onClick={() => setShowMore(false)}>
                     <FileText size={14} className="text-gray-400" /> Nuevo presupuesto
                   </Link>
+                  <button
+                    onClick={() => { setShowMore(false); setShowNuevaOportunidad(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Target size={14} className="text-gray-400" /> Oportunidad futura
+                  </button>
                   <div className="border-t border-gray-200" />
                   <button
                     onClick={() => { setShowMore(false); setShowDeleteConfirm(true); }}
@@ -580,6 +618,25 @@ export function ClienteDetalle() {
               <span className="text-base font-bold text-gray-800">{formatCurrency(cliente.valor_total_historico ?? 0)}</span>
             </div>
           </div>
+
+          {/* Oportunidades futuras */}
+          {oportunidades.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target size={14} className="text-fuchsia-500" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Oportunidades futuras</span>
+                </div>
+                <button onClick={() => setShowNuevaOportunidad(true)}
+                  className="text-xs text-fuchsia-600 hover:underline font-semibold">+ Nueva</button>
+              </div>
+              <div className="p-3 space-y-2">
+                {oportunidades.map(o => (
+                  <OportunidadCard key={o.id} oportunidad={o} onUpdate={onUpdateOportunidad} onEdit={setEditandoOportunidad} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Columna der: Tabs */}
@@ -987,6 +1044,23 @@ export function ClienteDetalle() {
           </div>
         </div>
       </div>
+
+      {showNuevaOportunidad && (
+        <ModalOportunidad
+          clienteId={cliente.id}
+          clienteNombre={nombre}
+          origen="cliente"
+          onClose={() => setShowNuevaOportunidad(false)}
+          onSuccess={onAltaOportunidad}
+        />
+      )}
+      {editandoOportunidad && (
+        <ModalOportunidad
+          oportunidad={editandoOportunidad}
+          onClose={() => setEditandoOportunidad(null)}
+          onSuccess={onEdicionOportunidad}
+        />
+      )}
     </div>
   );
 }

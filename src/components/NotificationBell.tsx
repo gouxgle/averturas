@@ -1,20 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Target, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface Notif {
-  tipo: 'presupuesto' | 'remito';
-  id: string; numero: string; precio_total: number | null;
+  tipo: 'presupuesto' | 'remito' | 'oportunidad';
+  id: string; numero: string | null; precio_total: number | null;
   aprobado_online_at: string | null;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
   recepcion_estado: 'con_observaciones' | 'no_conforme' | null;
   recepcion_obs: string | null;
+  detalle: string | null;
   evento_at: string;
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
+
+const OPORTUNIDAD_NOTIF = { texto: 'volvió la fecha de recontacto', color: '#f0abfc', bg: 'rgba(217,70,239,0.15)' };
+
+const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
+  remito:       () => '/remitos',
+  oportunidad:  () => '/crm?foco=oportunidades',
+  presupuesto:  n  => `/presupuestos?id=${n.id}`,
+};
 
 const RESP_NOTIF: Record<string, { texto: string; color: string; bg: string }> = {
   mas_tiempo: { texto: 'pidió más tiempo',        color: '#7dd3fc', bg: 'rgba(56,189,248,0.15)' },
@@ -67,6 +76,7 @@ export function NotificationBell() {
         const nuevas = data.filter(n => !prevIdsRef.current.has(claveDe(n)));
         const nuevosPresupuestos = nuevas.filter(n => n.tipo === 'presupuesto');
         const nuevosRemitos = nuevas.filter(n => n.tipo === 'remito');
+        const nuevasOportunidades = nuevas.filter(n => n.tipo === 'oportunidad');
         if (nuevosPresupuestos.length > 0) {
           window.dispatchEvent(new CustomEvent('presupuesto:aprobado-online', {
             detail: { nuevas: nuevosPresupuestos }
@@ -76,6 +86,12 @@ export function NotificationBell() {
           const rm = n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
           toast.warning(`Remito ${n.numero}${rm ? ` — ${rm.texto}` : ' con novedades en la recepción'}`, {
             description: 'Revisalo en Remitos',
+            duration: 6000,
+          });
+        });
+        nuevasOportunidades.forEach(n => {
+          toast.info(`Oportunidad futura: ${nombreCliente(n.cliente)}`, {
+            description: n.detalle ?? 'Llegó la fecha de recontacto',
             duration: 6000,
           });
         });
@@ -124,7 +140,7 @@ export function NotificationBell() {
 
   function irANotif(n: Notif) {
     setOpen(false);
-    navigate(n.tipo === 'remito' ? '/remitos' : `/presupuestos?id=${n.id}`);
+    navigate(IR_A_NOTIF[n.tipo](n));
   }
 
   const count = notifs.length;
@@ -190,10 +206,11 @@ export function NotificationBell() {
             ) : (
               notifs.map(n => {
                 const esRemito = n.tipo === 'remito';
+                const esOportunidad = n.tipo === 'oportunidad';
                 const rm = esRemito && n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
-                const esRespuesta = !esRemito && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
+                const esRespuesta = !esRemito && !esOportunidad && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
                 const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
-                const acento = rm ?? rc;
+                const acento = rm ?? rc ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null);
                 return (
                 <button
                   key={`${n.tipo}-${n.id}`}
@@ -206,6 +223,8 @@ export function NotificationBell() {
                     style={{ backgroundColor: acento ? acento.bg : 'rgba(34,197,94,0.15)' }}>
                     {rm
                       ? <AlertTriangle size={16} style={{ color: rm.color }} />
+                      : esOportunidad
+                      ? <Target size={16} style={{ color: OPORTUNIDAD_NOTIF.color }} />
                       : <CheckCircle2 size={16} style={{ color: acento ? acento.color : '#34d399' }} />}
                   </div>
                   {/* Texto */}
@@ -215,12 +234,18 @@ export function NotificationBell() {
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }}>
                       {rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>
+                       : esOportunidad ? <>{OPORTUNIDAD_NOTIF.texto}</>
                        : rc ? <>{rc.texto} — <span className="font-mono" style={{ color: rc.color }}>{n.numero}</span></>
                           : <>Aprobó el presupuesto <span className="font-mono text-emerald-400">{n.numero}</span></>}
                     </p>
                     {rm && n.recepcion_obs && (
                       <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
                         "{n.recepcion_obs}"
+                      </p>
+                    )}
+                    {esOportunidad && n.detalle && (
+                      <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                        "{n.detalle}"
                       </p>
                     )}
                     <div className="flex items-center gap-2 mt-1">

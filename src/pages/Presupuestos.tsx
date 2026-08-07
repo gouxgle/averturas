@@ -8,12 +8,13 @@ import {
   X, Pen, Printer, Share2, Check, Phone, Mail, User,
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
-  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler,
+  Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler, Target,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { EstadoOperacion } from '@/types';
 import { toast } from 'sonner';
+import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ interface OpDetalle {
   respuesta_cliente_detalle: string | null;
   stock_cubre_todo: boolean;
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
+  motivo_rechazo: string | null;
   credito_visita: number;
   tiene_items_a_relevar: boolean;
   visita_tecnica: {
@@ -295,6 +297,7 @@ function PresupuestoModal({
   const [pedidos, setPedidos]             = useState<PedidoResumen[]>([]);
   const [confirmAcreditar, setConfirmAcreditar] = useState(false);
   const [acreditando, setAcreditando]     = useState(false);
+  const [mostrarOportunidad, setMostrarOportunidad] = useState(false);
 
   // ESC cierra el modal
   useEffect(() => {
@@ -889,10 +892,34 @@ function PresupuestoModal({
                 )}
               </div>
             )}
+
+            {/* ¿Lo va a retomar más adelante? — rechazado, o vencido sin confirmar */}
+            {(op.estado === 'rechazado' || (esVencido && ['presupuesto', 'enviado'].includes(op.estado))) && (
+              <div className="mx-5 mb-4 flex items-center gap-3 px-4 py-3 bg-fuchsia-50 border border-fuchsia-200 rounded-xl">
+                <Target size={16} className="text-fuchsia-500 shrink-0" />
+                <p className="flex-1 text-xs text-fuchsia-700">¿El cliente lo va a retomar más adelante? Guardalo como oportunidad futura para no perderlo de vista.</p>
+                <button onClick={() => setMostrarOportunidad(true)}
+                  className="shrink-0 px-3 py-1.5 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold rounded-lg">
+                  Registrar
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
       </div>
+
+      {mostrarOportunidad && op && (
+        <ModalOportunidad
+          clienteId={op.cliente_id}
+          clienteNombre={nombreCliente({ id: op.cliente_id, nombre: op.cliente.nombre, apellido: op.cliente.apellido, razon_social: op.cliente.razon_social, tipo_persona: op.cliente.tipo_persona, telefono: op.cliente.telefono })}
+          operacionId={op.id}
+          motivoInicial={op.motivo_rechazo ?? ''}
+          origen="presupuesto"
+          onClose={() => setMostrarOportunidad(false)}
+          onSuccess={() => setMostrarOportunidad(false)}
+        />
+      )}
     </div>
   );
 }

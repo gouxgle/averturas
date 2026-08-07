@@ -218,6 +218,7 @@ dashboard.get('/resumen', async (c) => {
     sinContacto,
     recientes,
     pedidosAtrasados,
+    oportunidadesPendientes,
   ] = await Promise.all([
 
     db.query(`
@@ -343,6 +344,19 @@ dashboard.get('/resumen', async (c) => {
       ORDER BY p.fecha_entrega_est ASC
       LIMIT 20
     `),
+
+    db.query(`
+      SELECT o.id, o.motivo, o.fecha_recontacto, o.interes, o.probabilidad,
+        (CURRENT_DATE - o.fecha_recontacto)::int AS dias_atraso,
+        json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona) AS cliente
+      FROM oportunidades o
+      JOIN clientes cl ON cl.id = o.cliente_id
+      WHERE o.estado = 'pendiente'
+        AND o.fecha_recontacto <= CURRENT_DATE
+      ORDER BY o.fecha_recontacto ASC
+      LIMIT 20
+    `),
   ]);
 
   const s = statsRow.rows[0];
@@ -366,6 +380,7 @@ dashboard.get('/resumen', async (c) => {
     sin_contacto:          sinContacto.rows,
     recientes:             recientes.rows,
     pedidos_atrasados:     pedidosAtrasados.rows,
+    oportunidades_pendientes: oportunidadesPendientes.rows,
   });
 });
 

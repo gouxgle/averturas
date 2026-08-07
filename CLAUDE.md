@@ -88,6 +88,7 @@ Aberturas/
 │   │   ├── pedidos.ts                # GET /tablero, CRUD; lista ordenada por created_at DESC
 │   │   ├── recibos.ts
 │   │   ├── dashboard.ts              # GET /indicadores (5 KPIs accionables)
+│   │   ├── oportunidades.ts          # Oportunidades futuras — CRUD + /resumen, /plantilla/:id, /:id/posponer, /:id/estado, /:id/contactar
 │   │   └── ...resto de rutas
 │   ├── middleware/auth.ts
 │   ├── db.ts
@@ -128,6 +129,7 @@ pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitari
 visitas_tecnicas    — relevamiento in situ (numero, cliente_id, estado: pendiente|relevada|convertida|cancelada, imagenes[], operacion_id nullable FK)
 visita_tecnica_items — ítems medidos in situ (ambiente, descripcion, ancho_mm, alto_mm — en MILÍMETROS, no metros; tipo_item: a_medida|servicio)
 catalogo_servicios  — servicios frecuentes (reparación, mantenimiento, cambio de piezas): nombre, descripcion, precio_base nullable, orden, activo
+oportunidades       — intención de compra postergada ("el año que viene cambio las ventanas"): cliente_id, motivo, fecha_recontacto, interes (alto|medio|bajo), probabilidad, estado (pendiente|contactada|convertida|descartada), origen (cliente|presupuesto|crm|publico), tarea_id (espejo en agenda)
 ```
 
 ### Campos clave en `operaciones`
@@ -206,9 +208,10 @@ emitido  → entregado (registra fecha_entrega_real)
 | `/visitas-tecnicas` | routes/visitasTecnicas.ts | `POST /upload-imagen` ANTES de `GET /:id`; CRUD + fotos de relevamiento |
 | `/catalogo` | routes/catalogo.ts | tipos-abertura, sistemas, colores, servicios, categorias, proveedores |
 | `/dashboard` | routes/dashboard.ts | `GET /indicadores` devuelve 5 arrays accionables |
-| `/notificaciones` | routes/notificaciones.ts | `GET /` + `PATCH /marcar-leidas` — incluye respuesta_cliente además de aprobado_online_at |
+| `/notificaciones` | routes/notificaciones.ts | `GET /` + `PATCH /marcar-leidas` — incluye respuesta_cliente, remitos con observaciones y oportunidades futuras vencidas |
 | `/interacciones` | routes/interacciones.ts | |
-| `/tareas` | routes/tareas.ts | `PATCH /:id/completar` — si tiene `operacion_id`, limpia `respuesta_cliente` de esa operación |
+| `/tareas` | routes/tareas.ts | `PATCH /:id/completar` — si tiene `operacion_id`, limpia `respuesta_cliente` de esa operación; si `tipo_accion='oportunidad'`, sincroniza el estado de la oportunidad vinculada |
+| `/oportunidades` | routes/oportunidades.ts | `/resumen`, `/plantilla/:id` ANTES de `/:id`; `PATCH /:id/posponer`, `PATCH /:id/estado`, `POST /:id/contactar` |
 | `/empresa` | routes/empresa.ts | |
 | `/usuarios` | routes/usuarios.ts | |
 | `/stock` | routes/stock.ts | `/alertas` y `/lotes` ANTES de `/:id` |
@@ -335,10 +338,11 @@ El link público no es binario aceptar/rechazar. "Todavía no / Tengo otra respu
 
 ## Notificaciones (NotificationBell)
 
-- Poll cada 30s a `GET /notificaciones`
-- Devuelve operaciones con `(aprobado_online_at IS NOT NULL OR respuesta_cliente_at IS NOT NULL) AND notif_leida = false`, ordenadas por `GREATEST(aprobado_online_at, respuesta_cliente_at)`
-- Badge rojo en campanita sidebar (desktop) y top bar (mobile); ícono/color varía según `respuesta_cliente` (ver `RESP_NOTIF` en NotificationBell.tsx)
-- `PATCH /notificaciones/marcar-leidas` → setea `notif_leida = true` para todas
+- Poll cada 10s a `GET /notificaciones` (+ al volver al tab)
+- Un UNION de 3 ramas, todas no leídas: `presupuesto` (`aprobado_online_at`/`respuesta_cliente_at`), `remito` (`recepcion_estado IN ('con_observaciones','no_conforme')`) y `oportunidad` (oportunidad futura `pendiente` con `fecha_recontacto <= CURRENT_DATE`), ordenadas por `evento_at` DESC
+- `irANotif` es un mapa por `tipo` (`IR_A_NOTIF`), no un ternario — al agregar un 4º tipo, sumarlo ahí
+- Badge rojo en campanita sidebar (desktop) y top bar (mobile); ícono/color varía según `tipo`/`respuesta_cliente` (ver `RESP_NOTIF`/`OPORTUNIDAD_NOTIF` en NotificationBell.tsx)
+- `PATCH /notificaciones/marcar-leidas` → setea `notif_leida = true` para las 3 tablas
 - Presupuestos.tsx: filas con `aprobado_online_at` → fondo verde + borde izquierdo emerald + badge "Aprobado online"
 
 ## Dashboard — indicadores accionables (`GET /dashboard/indicadores`)
@@ -349,6 +353,18 @@ Devuelve 5 arrays:
 - `pagados_no_entregados` — cobro total >= precio_total pero sin remito `entregado`
 - `compromisos_semana` — `compromisos_pago` pendientes en próximos 7 días
 - `stock_bajo` — `stock_actual <= stock_minimo` (solo productos con stock_minimo > 0)
+
+`GET /dashboard/resumen` (el que realmente consume `Dashboard.tsx`) trae, además de `stats` y los arrays de seguimiento comercial, `pedidos_atrasados` y `oportunidades_pendientes` (oportunidades futuras `pendiente` con `fecha_recontacto <= CURRENT_DATE`) — ambos alimentan tarjetas de "PRIORIDADES DE HOY" (grid `xl:grid-cols-6`).
+
+## Oportunidades futuras (`oportunidades` + CRM → sección "Oportunidades futuras")
+
+Registra clientes que manifestaron intención de compra pero la postergaron ("el año que viene cambio las ventanas"). 5 campos: `motivo`, `fecha_recontacto`, `interes` (alto/medio/bajo), `probabilidad`, `observaciones`. Estados: `pendiente → contactada → convertida|descartada` (posponer NO es un estado, es cambiar `fecha_recontacto` + `veces_pospuesta+1`).
+
+- **No hay cron**: el aviso "llega solo" porque cada oportunidad `pendiente` tiene una tarea espejo real (`tareas.tipo_accion='oportunidad'`, `oportunidades.tarea_id`) que las queries existentes de agenda/tablero ya filtran por `vencimiento`.
+- **Sincronización bidireccional** en `server/src/lib/oportunidades.ts`: `sincronizarTarea` (oportunidad → tarea, idempotente, regenera la tarea si se borró), `sincronizarDesdeTarea` (tarea completada/reabierta → oportunidad `contactada`/`pendiente`), `completarTareaDeOportunidad` (al cerrar la oportunidad). Enganchado en `PATCH /tareas/:id/completar` (`routes/tareas.ts` y `routes/crm.ts`) — si `tipo_accion==='oportunidad'`, sincroniza en fire-and-forget.
+- **4 puntos de entrada**: ficha del cliente (`ClienteDetalle.tsx`, menú "Más acciones" + card de oportunidades abiertas), presupuesto rechazado o vencido (`Presupuestos.tsx`, banner inline en el modal de detalle), listado del CRM (`PanelOportunidades.tsx` en `CRM.tsx`), y respuesta pública "necesito más tiempo" (`pub.ts` `/responder`) — en este último caso la tarea de seguimiento generada ES DIRECTAMENTE la tarea espejo (`tipo_accion='oportunidad'`, `tarea_id` seteado en el INSERT) para no duplicar el aviso.
+- **Contacto rápido** (`AccionesContacto.tsx`): WhatsApp vía Evolution API con mensaje sugerido editable (plantilla `oportunidad_recontacto` en `mensajes_plantilla`, editable desde Configuración); Llamar/Email son links `tel:`/`mailto:` que además registran el contacto en background. Los 3 pasan la oportunidad a `contactada` vía `POST /oportunidades/:id/contactar`.
+- Fecha `DATE` de Postgres — igual que el resto del proyecto, usar `.slice(0,10)+'T12:00:00'` al formatear en el frontend.
 
 ## Sidebar — secciones y rutas
 

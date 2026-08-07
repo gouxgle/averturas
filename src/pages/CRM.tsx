@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Phone, MessageCircle, Calendar, AlertTriangle, Star,
   TrendingUp, Users, CheckSquare, Clock, ChevronRight,
   Gift, Package, X, Check,
   ArrowRight, RefreshCw, Cake, FileText, ShoppingBag,
-  Activity, Zap,
+  Activity, Zap, Target,
 } from 'lucide-react';
+import { PanelOportunidades } from '@/components/oportunidades/PanelOportunidades';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -135,13 +136,15 @@ const ACCION_ICON: Record<string, React.ReactNode> = {
   cumpleanos:  <Cake size={12} className="text-pink-500" />,
   seguimiento: <RefreshCw size={12} className="text-gray-500" />,
   visita:      <Users size={12} className="text-indigo-500" />,
+  oportunidad: <Target size={12} className="text-fuchsia-500" />,
 };
 
 const SPECIAL_BADGE: Record<string, { label: string; cls: string }> = {
-  cumpleanos: { label: 'Cumpleaños', cls: 'bg-pink-100 text-pink-600 border-pink-200' },
-  entrega:    { label: 'Entrega',    cls: 'bg-violet-100 text-violet-600 border-violet-200' },
-  instalacion:{ label: 'Instalación',cls: 'bg-amber-100 text-amber-600 border-amber-200' },
-  cobranza:   { label: 'Cobranza',   cls: 'bg-rose-100 text-rose-600 border-rose-200' },
+  cumpleanos:  { label: 'Cumpleaños',   cls: 'bg-pink-100 text-pink-600 border-pink-200' },
+  entrega:     { label: 'Entrega',      cls: 'bg-violet-100 text-violet-600 border-violet-200' },
+  instalacion: { label: 'Instalación',  cls: 'bg-amber-100 text-amber-600 border-amber-200' },
+  cobranza:    { label: 'Cobranza',     cls: 'bg-rose-100 text-rose-600 border-rose-200' },
+  oportunidad: { label: 'Oportunidad',  cls: 'bg-fuchsia-100 text-fuchsia-600 border-fuchsia-200' },
 };
 
 const COLORES_PIE = ['#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#64748b'];
@@ -297,10 +300,27 @@ function PipelineCard({ c, onMover }: { c: ClientePipeline; onMover: (x: Cliente
 
 export function CRM() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<TableroData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLead, setShowLead] = useState(false);
   const [clienteMover, setClienteMover] = useState<ClientePipeline | null>(null);
+
+  // Deep-link ?foco=oportunidades — llega desde el Dashboard y la campanita.
+  const panelOportunidadesRef = useRef<HTMLDivElement>(null);
+  const [resaltarOportunidades, setResaltarOportunidades] = useState(false);
+  useEffect(() => {
+    if (searchParams.get('foco') !== 'oportunidades') return;
+    panelOportunidadesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setResaltarOportunidades(true);
+    const t = setTimeout(() => setResaltarOportunidades(false), 2500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  function irAOportunidades() {
+    panelOportunidadesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   const fetchData = useCallback(async () => {
     try { setData(await api.get<TableroData>('/crm/tablero')); }
@@ -458,7 +478,7 @@ export function CRM() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">hoy</span>
-              <button onClick={() => navigate('/clientes')} className="text-[10px] text-violet-500 font-semibold hover:underline">Ver agenda</button>
+              <button onClick={irAOportunidades} className="text-[10px] text-violet-500 font-semibold hover:underline">Ver agenda</button>
             </div>
           </div>
           <div className="overflow-y-auto flex-1">
@@ -517,6 +537,8 @@ export function CRM() {
           )}
         </div>
       </div>
+
+      <PanelOportunidades ref={panelOportunidadesRef} resaltado={resaltarOportunidades} />
 
       {/* ── Fila: Agenda / Cumpleaños / Alertas / Postventa / VIP ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
