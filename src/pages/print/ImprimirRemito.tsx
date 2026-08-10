@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Printer, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { formatCurrency } from '@/lib/utils';
 
 const NAVY  = '#031d49';
 const RED   = '#e31e24';
@@ -64,6 +65,7 @@ interface Remito {
   id: string; numero: string; estado: string;
   medio_envio: string; transportista: string | null;
   nro_seguimiento: string | null; direccion_entrega: string | null;
+  costo_envio: number;
   fecha_emision: string; fecha_entrega_est: string | null;
   notas: string | null;
   token_acceso?: string | null;
@@ -86,6 +88,7 @@ export function ImprimirRemito() {
   const [empresa, setEmpresa]   = useState<Empresa | null>(null);
   const [remito,  setRemito]    = useState<Remito | null>(null);
   const [opItems, setOpItems]   = useState<OpItem[]>([]);
+  const [linkUrl, setLinkUrl]   = useState<string | null>(null);
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
@@ -99,6 +102,17 @@ export function ImprimirRemito() {
       if (r.operacion?.id) {
         const op = await api.get<OperacionData>(`/operaciones/${r.operacion.id}`);
         setOpItems(op.items ?? []);
+      }
+      // El QR necesita un link de confirmación digital. Si todavía no se generó
+      // (nunca se compartió el remito), lo generamos acá mismo para que el
+      // espacio del QR nunca quede vacío al imprimir.
+      if (r.token_acceso) {
+        setLinkUrl(`${window.location.origin}/r/${r.token_acceso}`);
+      } else {
+        try {
+          const { url } = await api.post<{ url: string }>(`/remitos/${id}/generar-link`, {});
+          setLinkUrl(url);
+        } catch { /* silencioso: el QR queda sin link si falla */ }
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -125,8 +139,6 @@ export function ImprimirRemito() {
     : null;
   const recBadge = remito.recepcion_estado ? RECEPCION_BADGE[remito.recepcion_estado] : null;
   const proformaNumero = remito.operacion?.numero?.replace(/^OP-/, 'PRO-') ?? null;
-  const appUrl = window.location.origin;
-  const linkRemito = remito.token_acceso ? `${appUrl}/r/${remito.token_acceso}` : null;
 
   return (
     <>
@@ -135,7 +147,7 @@ export function ImprimirRemito() {
           @page { size: A4 portrait; margin: 8mm 12mm; }
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .doc { margin: 0 !important; min-height: auto !important; box-shadow: none !important; }
+          .doc { margin: 0 !important; min-height: 279mm !important; box-shadow: none !important; }
         }
         * { box-sizing: border-box; }
         body { font-family: Arial, 'Helvetica Neue', sans-serif; margin: 0; background: #d1d9e6; }
@@ -222,21 +234,13 @@ export function ImprimirRemito() {
                   🔗 <span>Proforma: <strong style={{ color: NAVY }}>{proformaNumero}</strong></span>
                 </div>
               )}
-              {recBadge ? (
+              {recBadge && (
                 <div style={{
                   display: 'inline-block', marginTop: 8, padding: '3px 12px',
                   background: recBadge.bg, color: recBadge.color,
                   fontSize: 10, fontWeight: 800, borderRadius: 4, border: `1px solid ${recBadge.color}33`,
                 }}>
                   {recBadge.label}
-                </div>
-              ) : (
-                <div style={{
-                  display: 'inline-block', marginTop: 8, padding: '3px 12px',
-                  background: '#fef3c7', color: '#d97706',
-                  fontSize: 10, fontWeight: 800, borderRadius: 4, border: '1px solid #fbbf2433',
-                }}>
-                  PENDIENTE DE CONFIRMACIÓN
                 </div>
               )}
             </div>
@@ -315,11 +319,25 @@ export function ImprimirRemito() {
           </div>
         </div>
 
+        {/* Leyenda costo de envío */}
+        {remito.costo_envio > 0 && (
+          <div style={{
+            margin: '10px 16px 0', padding: '8px 14px',
+            background: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 8,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: 14 }}>🚚</span>
+            <span style={{ fontSize: 11, color: '#92400e' }}>
+              Incluye costo de envío — valor: <strong style={{ fontSize: 12 }}>{formatCurrency(remito.costo_envio)}</strong>
+            </span>
+          </div>
+        )}
+
         {/* TABLA ITEMS */}
         <div style={{ padding: '0 16px', marginTop: 14 }}>
           <table>
             <thead>
-              <tr style={{ background: NAVY }}>
+              <tr style={{ background: 'white', borderTop: `2px solid ${NAVY}`, borderBottom: `2px solid ${NAVY}` }}>
                 {[
                   { l: 'Ítem',     w: 36,  a: 'left'   },
                   { l: '',         w: 56,  a: 'left'   },
@@ -331,7 +349,7 @@ export function ImprimirRemito() {
                   { l: 'Estado',   w: 80,  a: 'center' },
                 ].map(({ l, w, a }) => (
                   <th key={l} style={{
-                    padding: '8px 8px', color: 'white', fontSize: 9, fontWeight: 700,
+                    padding: '8px 8px', color: NAVY, fontSize: 9, fontWeight: 700,
                     textTransform: 'uppercase' as const, letterSpacing: 1, textAlign: a as 'left'|'center'|'right',
                     width: w, whiteSpace: 'nowrap' as const,
                   }}>{l}</th>
@@ -473,12 +491,12 @@ export function ImprimirRemito() {
               'Hora:',
             ].map(lbl => (
               <div key={lbl} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10 }}>
-                <span style={{ fontSize: 9.5, color: '#6b7280', whiteSpace: 'nowrap' as const }}>{lbl}</span>
-                <div style={{ flex: 1, borderBottom: '1px solid #d1d5db' }} />
+                <span style={{ fontSize: 9.5, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' as const }}>{lbl}</span>
+                <div style={{ flex: 1, borderBottom: '1px solid #9ca3af' }} />
               </div>
             ))}
             {/* Firma receptor */}
-            <div style={{ marginTop: 8, paddingTop: 36, borderTop: '1px solid #d1d5db', textAlign: 'center', fontSize: 9, color: '#9ca3af' }}>
+            <div style={{ marginTop: 8, paddingTop: 52, borderTop: '1px solid #9ca3af', textAlign: 'center', fontSize: 9, color: '#4b5563', fontWeight: 600 }}>
               Recibió conforme — Firma y aclaración
             </div>
           </div>
@@ -502,10 +520,10 @@ export function ImprimirRemito() {
             <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 8 }}>
               Escaneá y confirmá desde tu celular
             </div>
-            {linkRemito ? (
+            {linkUrl ? (
               <>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(linkRemito)}&size=90x90&margin=2`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(linkUrl)}&size=90x90&margin=2`}
                   alt="QR"
                   style={{ width: 90, height: 90, margin: '0 auto 6px', display: 'block' }}
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -513,7 +531,7 @@ export function ImprimirRemito() {
                 <div style={{ fontSize: 8.5, color: '#6b7280', marginBottom: 4 }}>
                   Escaneá el código QR o ingresá el enlace a continuación para confirmar la recepción de tu pedido.
                 </div>
-                <div style={{ fontSize: 8, color: '#2563eb', fontWeight: 600, wordBreak: 'break-all' as const }}>{linkRemito}</div>
+                <div style={{ fontSize: 8, color: '#2563eb', fontWeight: 600, wordBreak: 'break-all' as const }}>{linkUrl}</div>
               </>
             ) : (
               <div style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginTop: 12 }}>
@@ -523,13 +541,28 @@ export function ImprimirRemito() {
           </div>
         </div>
 
+        {/* TÉRMINOS Y CONDICIONES */}
+        <div style={{
+          margin: '14px 16px 0', padding: '10px 14px',
+          border: '1px solid #e5e7eb', borderRadius: 8,
+        }}>
+          <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 4 }}>
+            Términos y Condiciones
+          </div>
+          <div style={{ fontSize: 8.5, color: '#6b7280', lineHeight: 1.5 }}>
+            La firma de este remito certifica la recepción conforme de la mercadería detallada. Reclamos por
+            faltantes o daños dentro de las 48 hs. Mercadería viaja por cuenta y riesgo del destinatario desde
+            su recepción. No válido como factura.
+          </div>
+        </div>
+
         {/* FOOTER unificado */}
         <div style={{
-          marginTop: 'auto', background: NAVY,
+          marginTop: 'auto', background: 'white', borderTop: `2px solid ${NAVY}`,
           padding: '10px 24px',
           display: 'flex', justifyContent: 'center',
           flexWrap: 'wrap' as const, gap: '0 28px',
-          fontSize: 10, color: '#bfdbfe',
+          fontSize: 10, color: NAVY, fontWeight: 600,
         }}>
           {empresa?.telefono  && <span>📞 {empresa.telefono}</span>}
           {empresa?.email     && <span>✉ {empresa.email}</span>}
