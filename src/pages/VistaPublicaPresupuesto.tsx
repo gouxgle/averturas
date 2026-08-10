@@ -592,7 +592,6 @@ export function VistaPublicaPresupuesto() {
   // ── Vista principal ────────────────────────────────────────────────────────
   const costoEnvio    = pres.forma_envio === 'envio_empresa' ? Number(pres.costo_envio ?? 0) : 0;
   const total         = Number(pres.precio_total);
-  const esCuotas      = pres.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
   const alternativas  = pres.forma_pago === 'Varias formas de pago' ? (pres.formas_pago_alternativas ?? []) : [];
   const montoProductos = pres.items.reduce((s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0);
   const montoInstalacionExtra = pres.items.reduce((s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0);
@@ -848,16 +847,15 @@ export function VistaPublicaPresupuesto() {
                 </div>
               )}
               <div className="text-gray-400 text-xs mt-1 italic">Son: {numToWords(total)}</div>
-              {esCuotas && (
-                <span className="inline-block mt-1.5 bg-violet-100 text-violet-700 text-xs px-2.5 py-1 rounded-lg font-semibold">
-                  3 cuotas de {fmtM(total / 3)}
-                </span>
-              )}
             </div>
-            {pres.forma_pago && alternativas.length === 0 && (
-              <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-gray-100 pt-2 sm:pt-0 sm:pl-4 w-full sm:w-auto">
-                <div className="text-xs uppercase tracking-wider text-gray-400">Forma de pago</div>
-                <div className="font-bold text-sm mt-0.5 break-words" style={{ color: NAVY }}>{pres.forma_pago}</div>
+            {/* Opción de pago siempre visible — se ofrece de entrada, sin depender de una
+                forma de pago elegida (la proforma ya no pregunta eso al cargarla). */}
+            {alternativas.length === 0 && (
+              <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-gray-100 pt-2 sm:pt-0 sm:pl-4 w-full sm:w-auto rounded-lg px-3 py-2" style={{ background: '#ede9fe' }}>
+                <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: '#7c3aed' }}>💳 Con tarjeta de crédito</div>
+                <div className="font-black text-sm mt-0.5 leading-snug" style={{ color: '#7c3aed' }}>
+                  Podés pagarlo en 3 cuotas<br className="hidden sm:block"/> sin interés de {fmtM(total / 3)}
+                </div>
               </div>
             )}
           </div>

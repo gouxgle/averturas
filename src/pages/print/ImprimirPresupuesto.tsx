@@ -169,7 +169,6 @@ export function ImprimirPresupuesto() {
       ? (pLista - Number(it.precio_unitario)) * it.cantidad
       : 0);
   }, 0);
-  const esCuotas   = op.forma_pago === 'Tarjeta de crédito 3 cuotas sin interés';
   const totalInstalacion = op.items.reduce(
     (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * it.cantidad : 0), 0
   );
@@ -539,27 +538,19 @@ export function ImprimirPresupuesto() {
                   {instalacionMixta && ` (${itemsConInstalacion} de ${op.items.length} ítems)`}: {fmtM(totalInstalacion)}
                 </div>
               )}
-              {esCuotas && (
-                <div style={{
-                  display: 'inline-block', marginTop: 8, padding: '5px 14px',
-                  background: '#7c3aed', color: 'white',
-                  fontSize: 13, fontWeight: 800, borderRadius: 6,
-                }}>
-                  3 cuotas de {fmtM(total / 3)}
-                </div>
-              )}
             </div>
-            {op.forma_pago && alternativas.length === 0 && (
+            {/* Opción de pago siempre visible — se ofrece de entrada, sin depender de una
+                forma de pago elegida (la proforma ya no pregunta eso al cargarla). */}
+            {alternativas.length === 0 && (
               <div style={{
-                textAlign: 'right', padding: '8px 14px', borderRadius: 8,
-                background: esCuotas ? '#ede9fe' : '#f3f4f6',
-                border: `1.5px solid ${esCuotas ? '#7c3aed' : '#d1d5db'}`,
+                textAlign: 'right', padding: '10px 16px', borderRadius: 8,
+                background: '#ede9fe', border: '1.5px solid #7c3aed',
               }}>
-                <div style={{ color: '#9ca3af', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 1 }}>
-                  Forma de pago
+                <div style={{ color: '#7c3aed', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 1, fontWeight: 700 }}>
+                  💳 Con tarjeta de crédito
                 </div>
-                <div style={{ color: esCuotas ? '#7c3aed' : NAVY, fontSize: 16, fontWeight: 800, marginTop: 2 }}>
-                  {op.forma_pago}
+                <div style={{ color: '#7c3aed', fontSize: 15, fontWeight: 900, marginTop: 3, lineHeight: 1.25 }}>
+                  Podés pagarlo en 3 cuotas<br/>sin interés de {fmtM(total / 3)}
                 </div>
               </div>
             )}
