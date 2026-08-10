@@ -197,6 +197,10 @@ export interface Operacion {
   notas: string | null;
   notas_internas: string | null;
   aprobado_online_at: string | null;
+  respuesta_cliente?: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
+  respuesta_cliente_at?: string | null;
+  motivo_rechazo?: string | null;
+  comentario_rechazo?: string | null;
   created_at: string;
   updated_at: string;
 }

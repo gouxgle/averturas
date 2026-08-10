@@ -40,13 +40,37 @@ const ESTADO_OP_COLOR: Record<string, string> = {
   listo:         'bg-teal-100 text-teal-700',
   instalado:     'bg-purple-100 text-purple-700',
   entregado:     'bg-indigo-100 text-indigo-700',
-  cancelado:     'bg-red-100 text-red-700',
+  rechazado:     'bg-red-100 text-red-700',
+  cancelado:     'bg-gray-200 text-gray-600',
 };
 const ESTADO_OP_LABEL: Record<string, string> = {
   presupuesto: 'Presupuesto', enviado: 'Enviado', aprobado: 'Aprobado',
   en_produccion: 'En producción', listo: 'Listo', instalado: 'Instalado',
-  entregado: 'Entregado', cancelado: 'Cancelado',
+  entregado: 'Entregado', rechazado: 'Rechazado', cancelado: 'Cancelado',
 };
+
+const RESPUESTA_CLIENTE_LABEL: Record<string, string> = {
+  mas_tiempo: 'pidió más tiempo', consulta: 'consultó algo',
+  llamada: 'pidió que lo llamen', modificar: 'pidió cambios',
+};
+
+// Estado "de decisión" de la proforma para el perfil del cliente: a diferencia
+// de ESTADO_OP_LABEL (que solo describe el estado interno de la operación),
+// distingue explícitamente "sin respuesta" — clave para detectar clientes que
+// piden presupuesto seguido pero nunca deciden.
+function estadoProformaBadge(op: { estado: string; respuesta_cliente?: string | null }): { label: string; cls: string } {
+  if (op.estado === 'rechazado') return { label: 'Rechazado', cls: 'bg-red-100 text-red-700' };
+  if (['presupuesto', 'enviado'].includes(op.estado)) {
+    if (op.respuesta_cliente) {
+      return {
+        label: `Sin decidir · ${RESPUESTA_CLIENTE_LABEL[op.respuesta_cliente] ?? op.respuesta_cliente}`,
+        cls: 'bg-amber-100 text-amber-700',
+      };
+    }
+    return { label: 'Sin respuesta', cls: 'bg-gray-100 text-gray-600' };
+  }
+  return { label: ESTADO_OP_LABEL[op.estado] ?? op.estado, cls: ESTADO_OP_COLOR[op.estado] ?? 'bg-gray-100 text-gray-600' };
+}
 
 const TIPO_INTERACCION: Record<TipoInteraccion, { label: string; icon: React.ElementType; color: string; bg: string }> = {
   nota:                 { label: 'Nota',               icon: MessageSquare, color: 'text-gray-600',    bg: 'bg-gray-100' },
@@ -273,6 +297,16 @@ export function ClienteDetalle() {
   const operacionesActivas = operaciones.filter(o => !['presupuesto', 'enviado', 'cancelado'].includes(o.estado));
   const cobrosTotal = recibos.reduce((s, r) => s + Number(r.monto_total), 0);
 
+  // Perfil de conversión: cuántas de las proformas históricas terminaron en
+  // venta vs. rechazadas/sin respuesta — para detectar de un vistazo clientes
+  // que piden precio seguido pero nunca compran.
+  const proformasTotal = operaciones.length;
+  const proformasAprobadas = operaciones.filter(o =>
+    ['aprobado', 'en_produccion', 'listo', 'instalado', 'entregado'].includes(o.estado)).length;
+  const proformasRechazadas = operaciones.filter(o => o.estado === 'rechazado').length;
+  const proformasSinRespuesta = operaciones.filter(o =>
+    ['presupuesto', 'enviado'].includes(o.estado) && !o.respuesta_cliente).length;
+
   // Timeline (historial)
   const timeline = [
     ...interacciones.map(i => ({ ...i, _type: 'interaccion' as const })),
@@ -282,6 +316,10 @@ export function ClienteDetalle() {
       descripcion: `${ESTADO_OP_LABEL[o.estado] ?? o.estado} — ${o.numero}`,
       precio_total: o.precio_total,
       created_at: o.created_at,
+      estado: o.estado,
+      respuesta_cliente: o.respuesta_cliente ?? null,
+      motivo_rechazo: o.motivo_rechazo ?? null,
+      comentario_rechazo: o.comentario_rechazo ?? null,
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -423,6 +461,19 @@ export function ClienteDetalle() {
           </div>
           <p className="text-2xl font-bold text-gray-800">{presupuestosLista.length}</p>
           <p className="text-[10px] text-gray-400 mt-0.5">activos</p>
+          {proformasTotal > 0 && (
+            <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-gray-100" title="Historial de decisión sobre presupuestos pedidos">
+              {proformasAprobadas > 0 && (
+                <span className="text-[10px] font-bold text-emerald-600">✓ {proformasAprobadas}</span>
+              )}
+              {proformasRechazadas > 0 && (
+                <span className="text-[10px] font-bold text-red-500">✕ {proformasRechazadas}</span>
+              )}
+              {proformasSinRespuesta > 0 && (
+                <span className="text-[10px] font-bold text-gray-400">? {proformasSinRespuesta}</span>
+              )}
+            </div>
+          )}
         </button>
 
         <button onClick={() => setActiveTab('operaciones')}
@@ -865,7 +916,7 @@ export function ClienteDetalle() {
                           );
                         } else {
                           const op = evento as any;
-                          const colorClass = ESTADO_OP_COLOR[op.tipo] ?? 'bg-gray-100 text-gray-600';
+                          const badge = estadoProformaBadge(op);
                           return (
                             <Link key={`op-${op.id}`} to={`/operaciones/${op.id}`}
                               className="flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
@@ -875,8 +926,8 @@ export function ClienteDetalle() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-[11px] font-semibold text-emerald-600">Operación</span>
-                                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', colorClass)}>
-                                    {ESTADO_OP_LABEL[op.tipo]}
+                                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', badge.cls)}>
+                                    {badge.label}
                                   </span>
                                   <span className="text-[11px] text-gray-400">{formatDate(op.created_at)}</span>
                                 </div>
@@ -886,6 +937,13 @@ export function ClienteDetalle() {
                                     <p className="text-xs text-gray-500">{formatCurrency(op.precio_total)}</p>
                                   )}
                                 </div>
+                                {op.estado === 'rechazado' && (op.motivo_rechazo || op.comentario_rechazo) && (
+                                  <p className="text-xs text-red-600 mt-1 leading-snug">
+                                    {op.motivo_rechazo && <span className="font-semibold">{op.motivo_rechazo}</span>}
+                                    {op.motivo_rechazo && op.comentario_rechazo && ' — '}
+                                    {op.comentario_rechazo}
+                                  </p>
+                                )}
                               </div>
                             </Link>
                           );
@@ -911,19 +969,22 @@ export function ClienteDetalle() {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {presupuestosLista.map(op => (
-                      <Link key={op.id} to={`/presupuestos?id=${op.id}`}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-800">{op.numero}</p>
-                          <p className="text-xs text-gray-400">{formatDate(op.created_at)}</p>
-                        </div>
-                        <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0', ESTADO_OP_COLOR[op.estado])}>
-                          {ESTADO_OP_LABEL[op.estado]}
-                        </span>
-                        <p className="text-sm font-semibold text-gray-700 shrink-0">{formatCurrency(op.precio_total)}</p>
-                      </Link>
-                    ))}
+                    {presupuestosLista.map(op => {
+                      const badge = estadoProformaBadge(op);
+                      return (
+                        <Link key={op.id} to={`/presupuestos?id=${op.id}`}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800">{op.numero}</p>
+                            <p className="text-xs text-gray-400">{formatDate(op.created_at)}</p>
+                          </div>
+                          <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0', badge.cls)}>
+                            {badge.label}
+                          </span>
+                          <p className="text-sm font-semibold text-gray-700 shrink-0">{formatCurrency(op.precio_total)}</p>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -943,19 +1004,22 @@ export function ClienteDetalle() {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {operacionesActivas.map(op => (
-                      <Link key={op.id} to={`/operaciones/${op.id}`}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-800">{op.numero}</p>
-                          <p className="text-xs text-gray-400">{formatDate(op.created_at)}</p>
-                        </div>
-                        <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0', ESTADO_OP_COLOR[op.estado])}>
-                          {ESTADO_OP_LABEL[op.estado]}
-                        </span>
-                        <p className="text-sm font-semibold text-gray-700 shrink-0">{formatCurrency(op.precio_total)}</p>
-                      </Link>
-                    ))}
+                    {operacionesActivas.map(op => {
+                      const badge = estadoProformaBadge(op);
+                      return (
+                        <Link key={op.id} to={`/operaciones/${op.id}`}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800">{op.numero}</p>
+                            <p className="text-xs text-gray-400">{formatDate(op.created_at)}</p>
+                          </div>
+                          <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0', badge.cls)}>
+                            {badge.label}
+                          </span>
+                          <p className="text-sm font-semibold text-gray-700 shrink-0">{formatCurrency(op.precio_total)}</p>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -180,7 +180,7 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
   const { motivo, comentario } = await c.req.json().catch(() => ({})) as any;
 
   const { rows: [op] } = await db.query(
-    `SELECT id, estado FROM operaciones
+    `SELECT id, estado, cliente_id, numero FROM operaciones
      WHERE token_acceso = $1
        AND (token_expira_at IS NULL OR token_expira_at > now())`,
     [token]
@@ -205,6 +205,18 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
      WHERE id = $3`,
     [motivo || null, comentario || null, op.id]
   );
+
+  // Deja la devolución en el historial del cliente — sin esto, el motivo de
+  // rechazo solo quedaba en la operación y no aparecía en el timeline.
+  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  const partesRechazo: string[] = [`Rechazó la proforma ${proformaNumero}`];
+  if (motivo)     partesRechazo.push(`Motivo: ${motivo}`);
+  if (comentario) partesRechazo.push(`Comentario: ${comentario}`);
+  db.query(
+    `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
+     VALUES ($1, $2, 'respuesta_proforma', $3, NULL)`,
+    [op.cliente_id, op.id, partesRechazo.join('. ')]
+  ).catch(err => console.error('[crm] Error al registrar interacción de rechazo:', err));
 
   // Emails (fire and forget)
   fetchCtxEmail(op.id).then(ctx => {

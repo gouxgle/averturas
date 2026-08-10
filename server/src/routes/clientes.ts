@@ -804,7 +804,9 @@ clientes.get('/:id', async (c) => {
       WHERE c.id = $1
     `, [id]),
     db.query(`
-      SELECT id, numero, tipo, estado, precio_total, created_at
+      SELECT id, numero, tipo, estado, precio_total, created_at,
+        aprobado_online_at, respuesta_cliente, respuesta_cliente_at,
+        motivo_rechazo, comentario_rechazo
       FROM operaciones WHERE cliente_id = $1
       ORDER BY created_at DESC
     `, [id]),
