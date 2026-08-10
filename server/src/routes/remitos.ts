@@ -550,6 +550,48 @@ remitos.patch('/:id/estado', async (c) => {
         }
       }
 
+      // Bloquear + validar stock disponible (ya neteada la reserva propia cancelada
+      // arriba) antes de descontar — evita que dos remitos emitidos en simultáneo
+      // sobrevendan el mismo producto. El FOR UPDATE serializa cualquier otra
+      // transacción que también bloquee estas mismas filas (incluida venta rápida).
+      //
+      // El lock y el cálculo de stock van en dos SELECT separados: si van juntos
+      // en un solo SELECT ... FOR UPDATE, el re-chequeo de Postgres al
+      // desbloquearse (EvalPlanQual) sólo refresca las columnas propias de la fila
+      // bloqueada — la subquery contra stock_movimientos sigue viendo el snapshot
+      // previo al bloqueo, sin los movimientos recién commiteados por quien tenía
+      // el lock. Con dos SELECT, el segundo arranca su propio snapshot ya con el
+      // lock en mano.
+      const productoIds = [...new Set(items.map(i => i.producto_id as string))];
+      if (productoIds.length) {
+        await client.query(`
+          SELECT id FROM catalogo_productos WHERE id = ANY($1::uuid[]) FOR UPDATE
+        `, [productoIds]);
+        const { rows: productosLock } = await client.query(`
+          SELECT cp.id, cp.nombre,
+            (COALESCE(cp.stock_inicial, 0) + COALESCE((
+              SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+            ), 0))::int AS stock_actual
+          FROM catalogo_productos cp
+          WHERE cp.id = ANY($1::uuid[])
+        `, [productoIds]);
+        const stockPorProducto = new Map(productosLock.map(p => [p.id as string, p]));
+        const cantidadPorProducto = new Map<string, number>();
+        for (const it of items) {
+          const key = it.producto_id as string;
+          cantidadPorProducto.set(key, (cantidadPorProducto.get(key) ?? 0) + it.cantidad);
+        }
+        for (const [prodId, cantidad] of cantidadPorProducto) {
+          const prod = stockPorProducto.get(prodId);
+          if (!prod || prod.stock_actual < cantidad) {
+            await client.query('ROLLBACK');
+            return c.json({
+              error: `Stock insuficiente para "${prod?.nombre ?? prodId}": disponible ${prod?.stock_actual ?? 0}, pedido ${cantidad}`
+            }, 422);
+          }
+        }
+      }
+
       for (const item of items) {
         await client.query(`
           INSERT INTO stock_movimientos

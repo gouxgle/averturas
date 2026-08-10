@@ -411,12 +411,16 @@ const VentaRapidaItemSchema = z.object({
 });
 
 export const VentaRapidaSchema = z.object({
-  cliente_id:      zUUID,
-  items:           z.array(VentaRapidaItemSchema).min(1, 'Se requiere al menos 1 ítem'),
-  forma_pago:      z.enum(['Contado','Tarjeta de débito/crédito en 1 pago','Transferencia','Tarjeta de crédito 3 cuotas sin interés']),
-  descuento_pct:   z.number().min(0).max(100).optional().default(0),
-  monto_descuento: zPosNum.optional().default(0),
-  retira:          z.boolean().optional().default(true),
+  cliente_id:        zUUID,
+  items:             z.array(VentaRapidaItemSchema).min(1, 'Se requiere al menos 1 ítem'),
+  forma_pago:        z.enum(['Contado','Tarjeta de débito/crédito en 1 pago','Transferencia','Tarjeta de crédito 3 cuotas sin interés']),
+  descuento_pct:     z.number().min(0).max(100).optional().default(0),
+  monto_descuento:   zPosNum.optional().default(0),
+  retira:            z.boolean().optional().default(true),
+  forma_entrega:     z.enum(['retiro_local', 'envio_domicilio']).optional().default('retiro_local'),
+  direccion_entrega: zText(300).optional(),
+  medio_envio:       z.enum(['encomienda', 'flete_propio', 'flete_tercero', 'correo_argentino', 'otro']).optional(),
+  costo_envio:       zPosNum.optional().default(0),
 });
 
 // ── Stock ──────────────────────────────────────────────────────

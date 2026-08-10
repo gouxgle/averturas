@@ -96,33 +96,69 @@ operaciones.post('/venta-rapida', async (c) => {
   const b = await validateBody(c, VentaRapidaSchema);
   if (b instanceof Response) return b;
 
-  // Validar stock suficiente por ítem antes de tocar nada
-  for (const item of b.items) {
-    const { rows: [prod] } = await db.query(`
-      SELECT cp.nombre,
-        (COALESCE(cp.stock_inicial, 0) + COALESCE((
-          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-        ), 0))::int AS stock_actual
-      FROM catalogo_productos cp WHERE cp.id = $1
-    `, [item.producto_id]);
-    if (!prod) return c.json({ error: `Producto no encontrado: ${item.descripcion}` }, 404);
-    if (prod.stock_actual < item.cantidad) {
-      return c.json({
-        error: `Stock insuficiente para "${prod.nombre}": disponible ${prod.stock_actual}, pedido ${item.cantidad}`
-      }, 422);
-    }
+  const esEnvioDomicilio = b.forma_entrega === 'envio_domicilio';
+  if (esEnvioDomicilio && !b.medio_envio) {
+    return c.json({ error: 'Elegí el medio de envío' }, 400);
   }
+  // Si se envía a domicilio no se puede cerrar "entregado" en el momento — eso
+  // es solo para el retiro en mostrador.
+  const retira = esEnvioDomicilio ? false : b.retira;
+  const formaEnvioOp    = esEnvioDomicilio ? 'envio_destino' : 'retiro_local';
+  const medioEnvioRemito = esEnvioDomicilio ? b.medio_envio! : 'retiro_local';
 
   const client = await db.connect();
   try {
     await client.query('BEGIN');
 
+    // Validar stock suficiente DENTRO de la transacción, con lock de fila
+    // (FOR UPDATE) sobre los productos involucrados. Sin esto, dos ventas
+    // simultáneas del mismo producto podrían leer el mismo stock disponible
+    // antes de que ninguna descuente nada y sobrevender — el lock serializa
+    // cualquier otra transacción que también bloquee esas mismas filas
+    // (incluida esta misma ruta, y la emisión de remitos tradicionales).
+    //
+    // OJO: el lock y el cálculo de stock van en dos SELECT separados. Si van
+    // en el mismo SELECT ... FOR UPDATE, el re-chequeo de Postgres al
+    // desbloquearse (EvalPlanQual) sólo refresca las columnas propias de la
+    // fila bloqueada — la subquery correlacionada contra stock_movimientos
+    // se sigue evaluando con el snapshot ORIGINAL (previo al bloqueo), que
+    // todavía no ve los movimientos recién commiteados por la transacción
+    // que liberó el lock. Con dos SELECT, el segundo arranca su propio
+    // snapshot ya con el lock en mano, y sí ve los datos frescos.
+    const productoIds = [...new Set(b.items.map(i => i.producto_id))];
+    await client.query(`
+      SELECT id FROM catalogo_productos WHERE id = ANY($1::uuid[]) FOR UPDATE
+    `, [productoIds]);
+    const { rows: productosLock } = await client.query(`
+      SELECT cp.id, cp.nombre,
+        (COALESCE(cp.stock_inicial, 0) + COALESCE((
+          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+        ), 0))::int AS stock_actual
+      FROM catalogo_productos cp
+      WHERE cp.id = ANY($1::uuid[])
+    `, [productoIds]);
+    const stockPorProducto = new Map(productosLock.map(p => [p.id as string, p]));
+
+    for (const item of b.items) {
+      const prod = stockPorProducto.get(item.producto_id);
+      if (!prod) {
+        await client.query('ROLLBACK');
+        return c.json({ error: `Producto no encontrado: ${item.descripcion}` }, 404);
+      }
+      if (prod.stock_actual < item.cantidad) {
+        await client.query('ROLLBACK');
+        return c.json({
+          error: `Stock insuficiente para "${prod.nombre}": disponible ${prod.stock_actual}, pedido ${item.cantidad}`
+        }, 422);
+      }
+    }
+
     // 1. Operación — venta directa, ya aprobada (sin negociación previa)
     const { rows: [op] } = await client.query(`
       INSERT INTO operaciones (tipo, estado, cliente_id, vendedor_id, created_by, forma_pago, forma_envio, notas, es_venta_rapida)
-      VALUES ('estandar','aprobado',$1,$2,$3,$4,'retiro_local','Venta rápida de mostrador',true)
+      VALUES ('estandar','aprobado',$1,$2,$3,$4,$5,'Venta rápida de mostrador',true)
       RETURNING *
-    `, [b.cliente_id, user.id, user.id, b.forma_pago]);
+    `, [b.cliente_id, user.id, user.id, b.forma_pago, formaEnvioOp]);
 
     // 2. Ítems de la operación
     for (const [idx, item] of b.items.entries()) {
@@ -161,13 +197,40 @@ operaciones.post('/venta-rapida', async (c) => {
       `, [recibo.id, item.descripcion, item.producto_id, item.cantidad, item.precio_unitario * item.cantidad, idx]);
     }
 
+    // 4b. Recibo del costo de envío — aparte del de productos, porque ese importe
+    // puede terminar en manos de un transportista externo y hay que poder
+    // registrarlo/contabilizarlo por separado (no es parte de precio_total).
+    let reciboEnvio: { id: string; numero: string } | null = null;
+    if (esEnvioDomicilio && b.costo_envio > 0) {
+      // Numeración dentro de la misma transacción: nextNumeroRecibo() usa el pool
+      // (otra conexión) y no vería el recibo de productos recién insertado, sin
+      // confirmar todavía — generaría el mismo número dos veces.
+      const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+      const { rows: [{ n }] } = await client.query(
+        `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
+        [`REC-${ym}-%`]
+      );
+      const numeroReciboEnvio = `REC-${ym}-${String(Number(n) + 1).padStart(4, '0')}`;
+
+      const { rows: [reciboE] } = await client.query(`
+        INSERT INTO recibos (numero, cliente_id, operacion_id, monto_total, forma_pago, concepto, created_by)
+        VALUES ($1,$2,$3,$4,$5,'Costo de envío',$6)
+        RETURNING *
+      `, [numeroReciboEnvio, b.cliente_id, op.id, b.costo_envio, b.forma_pago, user.id]);
+      await client.query(`
+        INSERT INTO recibo_items (recibo_id, descripcion, cantidad, monto, orden)
+        VALUES ($1,'Costo de envío',1,$2,0)
+      `, [reciboE.id, b.costo_envio]);
+      reciboEnvio = { id: reciboE.id, numero: reciboE.numero };
+    }
+
     // 5. Remito — nace 'borrador' por diseño de columna
     const numeroRemito = await nextNumeroRemito();
     const { rows: [remito] } = await client.query(`
-      INSERT INTO remitos (numero, cliente_id, operacion_id, medio_envio, notas, created_by)
-      VALUES ($1,$2,$3,'retiro_local','Venta rápida de mostrador',$4)
+      INSERT INTO remitos (numero, cliente_id, operacion_id, medio_envio, direccion_entrega, costo_envio, notas, created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,'Venta rápida de mostrador',$7)
       RETURNING *
-    `, [numeroRemito, b.cliente_id, op.id, user.id]);
+    `, [numeroRemito, b.cliente_id, op.id, medioEnvioRemito, b.direccion_entrega || null, b.costo_envio, user.id]);
 
     for (const item of b.items) {
       await client.query(`
@@ -196,7 +259,7 @@ operaciones.post('/venta-rapida', async (c) => {
 
     // 7. Si el cliente retira ahora: emitido → entregado, y la operación queda cerrada
     let estadoRemitoFinal = 'emitido';
-    if (b.retira) {
+    if (retira) {
       await client.query(`
         UPDATE remitos SET estado='entregado', fecha_entrega_real=CURRENT_DATE, recepcion_estado='conforme'
         WHERE id=$1
@@ -211,6 +274,8 @@ operaciones.post('/venta-rapida', async (c) => {
       recibo_id: recibo.id, numero_recibo: recibo.numero,
       remito_id: remito.id, numero_remito: remito.numero,
       estado_remito: estadoRemitoFinal,
+      recibo_envio_id: reciboEnvio?.id ?? null,
+      numero_recibo_envio: reciboEnvio?.numero ?? null,
     }, 201);
   } catch (err) {
     await client.query('ROLLBACK');
