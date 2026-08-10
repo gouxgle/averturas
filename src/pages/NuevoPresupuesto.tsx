@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
-  Package, X, LayoutGrid, Truck, MapPin, Gift, Building2, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2, Check, AlertCircle, Users, Eye,
+  Package, X, LayoutGrid, MapPin, Star, Edit2,
+  Phone, MessageCircle, CheckCircle2, Users, Eye,
   Ruler, Wrench, AlertTriangle, Tag,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -11,7 +11,6 @@ import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
 import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema, Producto } from '@/types';
-import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ProductoModal } from './Productos';
 import { EditItemModal } from '@/components/EditItemModal';
@@ -37,13 +36,6 @@ interface FormaPagoCatalogo {
 interface FormaPagoAlternativa {
   forma_pago_id: string; nombre: string; descuento_pct: number;
 }
-
-const FORMAS_ENVIO = [
-  { value: 'retiro_local',     label: 'Retiro en local',                icon: MapPin,    color: 'text-gray-600' },
-  { value: 'envio_bonificado', label: 'Envío bonificado',               icon: Gift,      color: 'text-emerald-600' },
-  { value: 'envio_destino',    label: 'Envío a destino (paga cliente)', icon: Truck,     color: 'text-sky-600' },
-  { value: 'envio_empresa',    label: 'Envío a cargo de la empresa',    icon: Building2, color: 'text-violet-600' },
-] as const;
 
 const LABEL_USO: Record<string, string> = {
   interior: 'Interior', exterior: 'Exterior', ambos: 'Interior y exterior',
@@ -257,14 +249,10 @@ export function NuevoPresupuesto() {
   const [notas, setNotas]                   = useState('');
   const [notasInternas, setNotasInternas]   = useState('');
 
-  // Envío
+  // Envío — ya no se decide acá (queda fijo en 'retiro_local'); si una edición vieja
+  // tenía envío a cargo de la empresa con costo, se preserva tal cual al guardar.
   const [formaEnvio, setFormaEnvio] = useState('retiro_local');
   const [costoEnvio, setCostoEnvio] = useState(0);
-
-  // Flags: step solo verde si usuario eligió explícitamente
-  const [userSetFormaPago, setUserSetFormaPago]       = useState(false);
-  const [userSetFormaEnvio, setUserSetFormaEnvio]     = useState(false);
-  const [userSetFechaValidez, setUserSetFechaValidez] = useState(false);
 
   // Ítems
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -285,7 +273,6 @@ export function NuevoPresupuesto() {
   const [productosLoading, setProductosLoading] = useState(false);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
   const [showNotas, setShowNotas] = useState(false);
-  const [showValidacionModal, setShowValidacionModal] = useState(false);
 
   // Modal "Ver más" — detalle de producto desde la galería
   const [detalleOriginal, setDetalleOriginal] = useState<CatalogProduct | null>(null);
@@ -382,18 +369,15 @@ export function NuevoPresupuesto() {
       api.get<Cliente>(`/clientes/${op.cliente_id}`).then(cl => setClientes([cl])).catch(() => {});
       setTipoProyecto(op.tipo_proyecto ?? '');
       setFormaPago(op.forma_pago ?? 'Precio de lista');
-      setUserSetFormaPago(true);
       setFormasPagoAlternativas((op.formas_pago_alternativas ?? []).map(a => ({
         forma_pago_id: a.forma_pago_id ?? '', nombre: a.nombre, descuento_pct: Number(a.descuento_pct),
       })));
       setTiempoEntrega(op.tiempo_entrega ? String(op.tiempo_entrega) : '');
       setFechaValidez(op.fecha_validez ? op.fecha_validez.split('T')[0] : '');
-      setUserSetFechaValidez(true);
       setValidezDias('custom');
       setNotas(op.notas ?? '');
       setNotasInternas(op.notas_internas ?? '');
       setFormaEnvio(op.forma_envio ?? 'retiro_local');
-      setUserSetFormaEnvio(true);
       setCostoEnvio(Number(op.costo_envio) || 0);
       // Reabrir en el mismo camino: si todos los ítems son del mismo modo, precargar esa pestaña
       {
@@ -769,51 +753,15 @@ export function NuevoPresupuesto() {
     ? clienteNombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
     : '?';
 
-  // ── Validación de 5 pasos ────────────────────────────────────────────────────
-  const formaEnvioLabel = FORMAS_ENVIO.find(f => f.value === formaEnvio)?.label.split('(')[0].trim() ?? '—';
-
-  const pasos = [
-    {
-      titulo: 'Carga de cliente',
-      subtitulo: clienteId ? clienteNombre.split(' ').slice(0, 2).join(' ') || 'Cargado' : 'Completar datos',
-      done: !!clienteId,
-    },
-    {
-      titulo: 'Forma de pago',
-      subtitulo: formaPago || 'Seleccionar opción',
-      done: !!formaPago && userSetFormaPago,
-    },
-    {
-      titulo: 'Entrega',
-      subtitulo: formaEnvioLabel,
-      done: !!formaEnvio && userSetFormaEnvio,
-    },
-    {
-      titulo: 'Validez',
-      subtitulo: validezDias !== 'custom'
-        ? `${validezDias}d`
-        : fechaValidezLabel !== '—' ? `Hasta ${fechaValidezLabel}` : 'Sin definir',
-      done: !!fechaValidez && userSetFechaValidez,
-    },
-    {
-      titulo: 'Agregar producto',
-      subtitulo: items.length > 0
-        ? `${items.length} producto${items.length > 1 ? 's' : ''}`
-        : 'Seleccionar productos',
-      done: items.length > 0,
-    },
-  ];
-
-  const todosCompletos = pasos.every(p => p.done);
-  const pasosIncompletos = pasos.filter(p => !p.done);
-  const pasoActivoIndex = pasos.findIndex(p => !p.done);
+  // ── Validación para generar ──────────────────────────────────────────────────
+  // Cliente ya está garantizado por el modal bloqueante; lo único que falta
+  // chequear acá es que haya al menos un producto cargado.
+  const puedeGenerar = !!clienteId && items.length > 0;
 
   function handleGenerarProforma() {
-    if (todosCompletos) {
-      handleSave(true);
-      return;
-    }
-    setShowValidacionModal(true);
+    if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
+    if (items.length === 0) { toast.error('Agregá al menos un producto para generar la proforma'); return; }
+    handleSave(true);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -822,56 +770,6 @@ export function NuevoPresupuesto() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-
-      {/* ── MODAL VALIDACIÓN DE PASOS ── */}
-      {showValidacionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                <AlertCircle size={18} className="text-amber-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-gray-900">Faltan completar pasos</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Completá todos los campos para generar la proforma.
-                </p>
-              </div>
-            </div>
-
-            {/* Lista de pasos incompletos */}
-            <div className="px-6 py-4 space-y-2">
-              {pasosIncompletos.map((p, i) => (
-                <div key={i} className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl border',
-                  'border-red-200 bg-red-50'
-                )}>
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white bg-red-400">
-                    {pasos.indexOf(p) + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-red-800">
-                      {p.titulo}
-                    </p>
-                    <p className="text-[11px] text-red-500 mt-0.5">Obligatorio — completar para continuar</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Acciones */}
-            <div className="px-6 py-4 border-t border-gray-200 flex flex-col gap-2">
-              <button
-                onClick={() => setShowValidacionModal(false)}
-                className="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition-colors"
-              >
-                Volver y seguir cargando
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── TOP BAR ── */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
@@ -932,14 +830,13 @@ export function NuevoPresupuesto() {
               disabled={saving}
               className={cn(
                 'flex items-center gap-1.5 px-4 py-1.5 text-white rounded-l-xl text-xs font-semibold transition-colors disabled:opacity-50',
-                todosCompletos
+                puedeGenerar
                   ? 'bg-[#10b981] hover:bg-emerald-600'
                   : 'bg-amber-500 hover:bg-amber-600'
               )}
             >
               <FileText size={14} />
               {saving ? 'Guardando...' : 'Generar proforma'}
-              {!todosCompletos && <span className="ml-1 bg-white/20 rounded-full px-1.5 text-[10px] font-bold">{pasosIncompletos.length}</span>}
             </button>
             <button className="px-2 py-1.5 bg-[#10b981] hover:bg-emerald-600 text-white rounded-r-xl border-l border-emerald-500 transition-colors">
               <ChevronDown size={13} />
@@ -948,265 +845,82 @@ export function NuevoPresupuesto() {
         </div>
       </div>
 
-      {/* ── BARRA UNIFICADA DE PASOS ── círculos arriba + inputs abajo, alineados por columna ── */}
-      <div className={cn(
-        'border-b px-4 pt-3 pb-2 transition-all duration-300 shrink-0',
-        !clienteId ? 'bg-gradient-to-b from-violet-50 to-white border-violet-200' : 'bg-white border-gray-200'
-      )}>
-        {/* Fila superior: círculos + línea conectora */}
-        <div className="relative flex items-center mb-2">
-          {/* Línea de fondo continua */}
-          <div className="absolute inset-x-[10%] top-1/2 -translate-y-1/2 h-0.5 bg-gray-200 z-0" />
-          {/* Segmentos de progreso (verdes sobre gris) */}
-          {pasos.map((paso, i) => i < pasos.length - 1 && paso.done && (
-            <div key={i}
-              className="absolute h-0.5 bg-green-400 z-0 transition-all duration-500"
-              style={{
-                left:  `calc(10% + ${i * 20}% + 1.5%)`,
-                width: '17%',
-              }}
-            />
-          ))}
-          {pasos.map((paso, i) => {
-            const esActivo = i === pasoActivoIndex;
-            return (
-              <div key={i} className="flex-1 flex justify-center relative z-10">
-                <div className="relative">
-                  {/* Ping exterior — paso activo (siguiente a completar) */}
-                  {esActivo && (
-                    <>
-                      <div className="absolute inset-0 rounded-full bg-violet-400 animate-ping opacity-50 scale-150" />
-                      <div className="absolute inset-0 rounded-full bg-violet-300 animate-pulse opacity-40 scale-125" />
-                    </>
-                  )}
-                  <div className={cn(
-                    'relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 font-bold text-white text-sm',
-                    paso.done     ? 'bg-green-500 shadow-md shadow-green-200' :
-                    esActivo      ? 'bg-violet-600 shadow-lg shadow-violet-300 ring-4 ring-violet-200 animate-bounce' :
-                    /* pending */   'bg-amber-400'
-                  )}>
-                    {paso.done
-                      ? <Check size={14} strokeWidth={3} />
-                      : <span>{i + 1}</span>
-                    }
-                  </div>
+      {/* ── MODAL: elegir cliente (bloqueante hasta elegir uno) ── */}
+      {!clienteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-violet-600 to-violet-500">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-white" />
+                <h2 className="text-base font-bold text-white">¿Para quién es el presupuesto?</h2>
+              </div>
+              <p className="text-xs text-violet-100 mt-1">Buscá el cliente para empezar a cargar productos</p>
+            </div>
+            <div className="p-6">
+              <div className="relative">
+                <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-100">
+                  <Search size={15} className="text-gray-300 shrink-0" />
+                  <input
+                    ref={clienteInputRef}
+                    type="text"
+                    autoFocus
+                    placeholder="Nombre, teléfono o DNI..."
+                    value={clienteSearch}
+                    onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
+                    onFocus={() => setShowClienteList(true)}
+                    className="flex-1 text-sm focus:outline-none"
+                  />
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Fila inferior: título + input/selector de cada paso */}
-        <div className="flex">
-          {pasos.map((paso, i) => {
-            const esActivo = i === pasoActivoIndex;
-            const disabled = i > 0 && !clienteId;
-            return (
-              <div key={i}
-                className={cn(
-                  'flex-1 flex flex-col items-center gap-1 px-1 transition-opacity',
-                  disabled && 'opacity-40 pointer-events-none'
-                )}>
-                {/* Título del paso */}
-                <p className={cn(
-                  'text-[9px] font-bold uppercase tracking-wider text-center leading-tight',
-                  paso.done  ? 'text-green-600' :
-                  esActivo   ? 'text-violet-600' :
-                               'text-amber-600'
-                )}>
-                  {paso.titulo}
-                </p>
-
-                {/* ── Paso 1: Cliente ── */}
-                {i === 0 && (
-                  <div className="w-full relative">
-                    {clienteSeleccionado ? (
-                      <div className={cn(
-                        'flex items-center gap-1.5 px-2 py-1 rounded-lg border',
-                        'bg-green-50 border-green-200'
-                      )}>
-                        <div className="w-5 h-5 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
-                          <span className="text-white text-[9px] font-bold">{clienteIniciales}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-gray-800 truncate flex-1">{clienteNombre.split(' ').slice(0,2).join(' ')}</span>
-                        <button onClick={() => { setClienteId(''); setClienteSearch(''); }}
-                          className="shrink-0 p-0.5 hover:bg-white rounded" title="Cambiar">
-                          <Edit2 size={10} className="text-gray-400" />
+                {clienteSearch && (
+                  <div className="mt-2 border border-gray-200 rounded-xl shadow-sm max-h-64 overflow-y-auto">
+                    {clientes.length === 0 ? (
+                      <div className="px-4 py-4 text-sm text-gray-500 text-center">
+                        No encontrado.{' '}
+                        <button className="text-violet-600 hover:underline font-semibold"
+                          onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
+                          Crear cliente
                         </button>
                       </div>
-                    ) : (
-                      <div>
-                        {esActivo && (
-                          <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
-                            ▼ Empezá aquí
-                          </p>
-                        )}
-                        <div className={cn(
-                          'flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-colors',
-                          esActivo
-                            ? 'border-violet-500 bg-white client-input-glow'
-                            : 'border-gray-200 bg-white'
-                        )}>
-                          <Users size={12} className={esActivo ? 'text-violet-500 shrink-0' : 'text-gray-400 shrink-0'} />
-                          <input
-                            ref={clienteInputRef}
-                            type="text"
-                            placeholder="Nombre, tel. o DNI..."
-                            value={clienteSearch}
-                            onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
-                            onFocus={() => setShowClienteList(true)}
-                            onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
-                            className={cn(
-                              'w-full bg-transparent text-xs focus:outline-none',
-                              esActivo ? 'placeholder:text-violet-300 text-violet-800 font-medium' : 'placeholder:text-gray-300'
-                            )}
-                          />
-                        </div>
-                        {showClienteList && clienteSearch && (
-                          <div className="absolute z-30 top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto w-64">
-                            {clientes.length === 0 ? (
-                              <div className="px-4 py-3 text-sm text-gray-500">
-                                No encontrado.{' '}
-                                <button className="text-violet-600 hover:underline"
-                                  onMouseDown={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
-                                  Crear cliente
-                                </button>
-                              </div>
-                            ) : clientes.slice(0, 8).map(c => (
-                              <button key={c.id}
-                                onMouseDown={() => { setClienteId(c.id); setClientes([c]); setClienteSearch(''); setShowClienteList(false); }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0">
-                                <span className="text-sm text-gray-800">
-                                  {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
-                                </span>
-                                <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Paso 2: Forma de pago ── */}
-                {i === 1 && (
-                  <div>
-                    {esActivo && (
-                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
-                        ▼ Elegí acá
-                      </p>
-                    )}
-                    <div className={cn(
-                      'w-full px-1.5 py-1 rounded-lg border text-center transition-colors',
-                      paso.done ? 'bg-green-50 border-green-200' :
-                      esActivo  ? 'border-violet-500 bg-white client-input-glow' :
-                                  'bg-amber-50 border-amber-200'
-                    )}>
-                      <select
-                        value={formaPago}
-                        onChange={e => { setFormaPago(e.target.value); setUserSetFormaPago(true); }}
-                        onFocus={() => setUserSetFormaPago(true)}
-                        disabled={!clienteId}
-                        className={cn(
-                          'w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center',
-                          esActivo ? 'text-violet-800' : 'text-gray-700'
-                        )}
-                      >
-                        {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Paso 3: Entrega ── */}
-                {i === 2 && (
-                  <div>
-                    {esActivo && (
-                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
-                        ▼ Elegí acá
-                      </p>
-                    )}
-                    <div className={cn(
-                      'w-full px-1.5 py-1 rounded-lg border text-center transition-colors',
-                      paso.done ? 'bg-green-50 border-green-200' :
-                      esActivo  ? 'border-violet-500 bg-white client-input-glow' :
-                                  'bg-amber-50 border-amber-200'
-                    )}>
-                      <select
-                        value={formaEnvio}
-                        onChange={e => { setFormaEnvio(e.target.value); setUserSetFormaEnvio(true); }}
-                        onFocus={() => setUserSetFormaEnvio(true)}
-                        disabled={!clienteId}
-                        className={cn(
-                          'w-full text-[11px] font-semibold bg-transparent border-0 focus:outline-none cursor-pointer text-center',
-                          esActivo ? 'text-violet-800' : 'text-gray-700'
-                        )}
-                      >
-                        {FORMAS_ENVIO.map(f => <option key={f.value} value={f.value}>{f.label.split('(')[0].trim()}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Paso 4: Validez ── */}
-                {i === 3 && (
-                  <div>
-                    {esActivo && (
-                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
-                        ▼ Elegí acá
-                      </p>
-                    )}
-                    <div className="flex items-center gap-1 justify-center">
-                      {([7, 15, 30] as const).map(d => (
-                        <button key={d} type="button"
-                          onClick={() => {
-                            setValidezDias(d);
-                            const f = new Date(); f.setDate(f.getDate() + d);
-                            setFechaValidez(`${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`);
-                            setUserSetFechaValidez(true);
-                          }}
-                          className={cn(
-                            'px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all',
-                            validezDias === d
-                              ? 'border-violet-500 bg-violet-100 text-violet-700'
-                              : esActivo
-                                ? 'border-violet-300 text-violet-500 hover:border-violet-400 hover:text-violet-700'
-                                : 'border-gray-200 text-gray-400 hover:border-violet-300 hover:text-violet-600'
-                          )}
-                        >
-                          {d}d
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Paso 5: Productos ── */}
-                {i === 4 && (
-                  <div>
-                    {esActivo && (
-                      <p className="text-[9px] text-violet-500 font-semibold text-center mb-1 animate-pulse">
-                        ▼ Agregá acá
-                      </p>
-                    )}
-                    <div className={cn(
-                      'px-3 py-1 rounded-lg border text-center text-[11px] font-semibold',
-                      paso.done ? 'bg-green-50 border-green-200 text-green-700' :
-                      esActivo  ? 'border-violet-500 bg-white text-violet-700 client-input-glow' :
-                                  'bg-gray-50 border-gray-200 text-gray-400'
-                    )}>
-                      {items.length > 0
-                        ? `${items.length} producto${items.length > 1 ? 's' : ''}`
-                        : 'Sin agregar'}
-                    </div>
+                    ) : clientes.slice(0, 8).map(c => (
+                      <button key={c.id}
+                        onClick={() => { setClienteId(c.id); setClientes([c]); setClienteSearch(''); setShowClienteList(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-violet-50 flex items-center justify-between border-b border-gray-50 last:border-0 transition-colors">
+                        <span className="text-sm text-gray-800 font-medium">
+                          {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
+                        </span>
+                        <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
-            );
-          })}
+              {!clienteSearch && (
+                <button onClick={() => navigate('/clientes/nuevo')}
+                  className="mt-3 text-xs text-violet-600 hover:underline font-semibold flex items-center gap-1">
+                  <Plus size={12} /> Cliente nuevo
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Franja: cliente elegido ── */}
+      {clienteId && (
+        <div className="border-b border-gray-200 bg-white px-4 py-2 flex items-center gap-2.5 shrink-0">
+          <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center shrink-0">
+            <span className="text-white text-[10px] font-bold">{clienteIniciales}</span>
+          </div>
+          <p className="text-xs font-bold text-gray-800 truncate flex-1 min-w-0">{clienteNombre}</p>
+          {clienteSeleccionado?.telefono && (
+            <span className="hidden sm:inline text-[11px] text-gray-400">{clienteSeleccionado.telefono}</span>
+          )}
+          <button onClick={() => { setClienteId(''); setClienteSearch(''); }}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 text-[11px] font-semibold shrink-0">
+            <Edit2 size={11} /> Cambiar
+          </button>
+        </div>
+      )}
 
       {imagenesVisita.length > 0 && (
         <div className="mx-3 xl:mx-4 mt-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3 overflow-x-auto">
@@ -1694,18 +1408,6 @@ export function NuevoPresupuesto() {
             )}
           </div>
 
-          {/* Overlay — bloquea productos hasta seleccionar cliente */}
-          {!clienteId && (
-            <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-3 z-10 rounded-xl">
-              <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center">
-                <Users size={22} className="text-violet-500" />
-              </div>
-              <div className="text-center px-6">
-                <p className="text-sm font-bold text-gray-800">Primero seleccioná un cliente</p>
-                <p className="text-xs text-gray-500 mt-1">Buscá el cliente en la barra de arriba para continuar</p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ─────────────────────── COLUMNA CENTRAL — PRODUCTOS AGREGADOS ─────────────────────── */}
@@ -2025,75 +1727,88 @@ export function NuevoPresupuesto() {
                 )}
               </div>
 
-              {/* Alternativas de pago a ofrecer */}
-              {formaPago === 'Varias formas de pago' && (
-                <div>
-                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Alternativas de pago a ofrecer</p>
-                  {catalogoFormasPago.length === 0 ? (
-                    <p className="text-[10px] text-amber-600">No hay formas de pago cargadas — agregalas en Configuración → Formas de pago.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {catalogoFormasPago.map(fp => {
-                        const alt = formasPagoAlternativas.find(a => a.forma_pago_id === fp.id);
-                        const marcada = !!alt;
-                        return (
-                          <div key={fp.id} className={cn(
-                            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border',
-                            marcada ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'
-                          )}>
-                            <input type="checkbox" checked={marcada} onChange={() => toggleFormaPagoAlt(fp)}
-                              className="rounded border-gray-300 text-violet-600 focus:ring-violet-400 shrink-0" />
-                            <span className="text-xs text-gray-700 flex-1 truncate">{fp.nombre}</span>
-                            {marcada && (
-                              <div className="flex items-center gap-1 shrink-0">
-                                <input type="number" min={0} max={100} step="0.5"
-                                  value={alt.descuento_pct}
-                                  onChange={e => updateAlternativaPct(fp.id, parseFloat(e.target.value) || 0)}
-                                  className="w-14 px-1.5 py-1 border border-gray-200 rounded text-xs text-right focus:outline-none focus:ring-2 focus:ring-violet-400"/>
-                                <span className="text-[10px] text-gray-400">%</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Forma de envío */}
+              {/* Validez — 7 días por defecto, ajustable acá sin volver atrás */}
               <div>
-                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Forma de envío</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {FORMAS_ENVIO.map(({ value, label, icon: Icon, color }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => { setFormaEnvio(value); setUserSetFormaEnvio(true); }}
+                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Validez de la proforma</p>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  {([7, 15, 30] as const).map(d => (
+                    <button key={d} type="button"
+                      onClick={() => {
+                        setValidezDias(d);
+                        const f = new Date(); f.setDate(f.getDate() + d);
+                        setFechaValidez(`${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`);
+                      }}
                       className={cn(
-                        'flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all',
-                        formaEnvio === value
-                          ? 'border-violet-400 bg-violet-50 text-violet-700'
-                          : 'border-gray-200 text-gray-400 hover:border-gray-200 bg-gray-50'
+                        'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all',
+                        validezDias === d
+                          ? 'border-violet-500 bg-violet-100 text-violet-700'
+                          : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
                       )}
                     >
-                      <Icon size={12} className={formaEnvio === value ? 'text-violet-500' : color} />
-                      <span className="text-center leading-tight">{label.split('(')[0].trim()}</span>
+                      {d}d
                     </button>
                   ))}
                 </div>
-                {formaEnvio === 'envio_empresa' && (
-                  <div className="mt-2">
-                    <label className="text-[9px] text-gray-400 uppercase tracking-wider block mb-1">Importe del envío</label>
-                    <MontoInput
-                      value={costoEnvio ? String(costoEnvio) : ''}
-                      onChange={v => setCostoEnvio(parseFloat(v) || 0)}
-                      placeholder="0,00"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
-                    />
-                  </div>
-                )}
+                <input
+                  type="date"
+                  value={fechaValidez}
+                  onChange={e => { setFechaValidez(e.target.value); setValidezDias('custom'); }}
+                  className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Válido hasta el {fechaValidezLabel}</p>
               </div>
+
+              {/* Forma de pago — colapsada; por defecto queda "Precio de lista" */}
+              <details className="group border-t border-gray-200 pt-3">
+                <summary className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
+                  <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />
+                  Forma de pago: <span className="text-gray-600 normal-case font-bold">{formaPago}</span>
+                </summary>
+                <div className="mt-2 space-y-2">
+                  <select
+                    value={formaPago}
+                    onChange={e => setFormaPago(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
+                  >
+                    {FORMA_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+
+                  {formaPago === 'Varias formas de pago' && (
+                    <div>
+                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Alternativas de pago a ofrecer</p>
+                      {catalogoFormasPago.length === 0 ? (
+                        <p className="text-[10px] text-amber-600">No hay formas de pago cargadas — agregalas en Configuración → Formas de pago.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {catalogoFormasPago.map(fp => {
+                            const alt = formasPagoAlternativas.find(a => a.forma_pago_id === fp.id);
+                            const marcada = !!alt;
+                            return (
+                              <div key={fp.id} className={cn(
+                                'flex items-center gap-2 px-2.5 py-1.5 rounded-lg border',
+                                marcada ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'
+                              )}>
+                                <input type="checkbox" checked={marcada} onChange={() => toggleFormaPagoAlt(fp)}
+                                  className="rounded border-gray-300 text-violet-600 focus:ring-violet-400 shrink-0" />
+                                <span className="text-xs text-gray-700 flex-1 truncate">{fp.nombre}</span>
+                                {marcada && (
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <input type="number" min={0} max={100} step="0.5"
+                                      value={alt.descuento_pct}
+                                      onChange={e => updateAlternativaPct(fp.id, parseFloat(e.target.value) || 0)}
+                                      className="w-14 px-1.5 py-1 border border-gray-200 rounded text-xs text-right focus:outline-none focus:ring-2 focus:ring-violet-400"/>
+                                    <span className="text-[10px] text-gray-400">%</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </details>
 
               {/* Entrega estimada */}
               {tiempoEntrega && (
@@ -2113,12 +1828,6 @@ export function NuevoPresupuesto() {
                   placeholder="Ej: 15"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
                 />
-              </div>
-
-              {/* Validez */}
-              <div>
-                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Validez</p>
-                <p className="text-xs text-gray-600">Válido hasta: <span className="font-semibold">{fechaValidezLabel}</span></p>
               </div>
 
               {/* Condiciones */}
