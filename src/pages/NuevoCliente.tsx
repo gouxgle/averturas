@@ -195,7 +195,6 @@ export function NuevoCliente() {
 
   function setTipo(tipo: TipoPersona) {
     setForm(prev => ({ ...prev, tipo_persona: tipo }));
-    setNombreCompleto('');
     setDniWarning(null);
     setTimeout(() => nombreRef.current?.focus(), 50);
   }
@@ -453,7 +452,6 @@ export function NuevoCliente() {
                       }}
                       onBlur={() => checkTelefono((telPrefijo ? telPrefijo + ' ' : '') + telNumero)}
                       placeholder="123456"
-                      maxLength={6}
                       className={cn(inp, 'flex-1 text-center font-mono tracking-widest', telWarning && 'border-amber-400 focus:ring-amber-400')}
                     />
                   </div>
