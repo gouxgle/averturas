@@ -253,6 +253,31 @@ export function ImprimirVisitaTecnica() {
             ))}
           </div>
         )}
+
+        {/* ── Firma del cliente ── */}
+        <div style={{ marginTop: 14 }}>
+          <SecHeader label="Conformidad del cliente" />
+          <p style={{ fontSize: 9.5, color: '#6b7280', marginTop: -6, marginBottom: 6 }}>
+            Confirmo que las medidas y detalles relevados en esta visita son correctos.
+          </p>
+          <div style={{ display: 'flex', gap: 24, marginTop: 40 }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #999', paddingTop: 4, fontSize: 10, color: '#333' }}>
+                Firma del cliente
+              </div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #999', paddingTop: 4, fontSize: 10, color: '#333' }}>
+                Aclaración
+              </div>
+            </div>
+            <div style={{ width: 100, textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #999', paddingTop: 4, fontSize: 10, color: '#333' }}>
+                Fecha
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );
