@@ -207,7 +207,7 @@ export function Dashboard() {
                   Ver agenda completa <ChevronRight size={12} />
                 </Link>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
                 {[
                   {
                     icon: Truck, color: 'text-amber-600', bg: 'bg-amber-100',
