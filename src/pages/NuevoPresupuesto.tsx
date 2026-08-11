@@ -214,6 +214,9 @@ export function NuevoPresupuesto() {
   const [searchParams] = useSearchParams();
   const { id: editId } = useParams<{ id?: string }>();
   const isEdit = !!editId;
+  // Si se llegó acá recotizando una oportunidad futura (OportunidadCard "Recotizar"),
+  // al guardar hay que marcarla convertida y vincular este presupuesto.
+  const oportunidadId = searchParams.get('oportunidad_id');
   const editLoadedRef = useRef(false);
   const itemsPrecargadosRef = useRef(false);
   const clienteInputRef = useRef<HTMLInputElement>(null);
@@ -682,7 +685,18 @@ export function NuevoPresupuesto() {
       const op = isEdit
         ? await api.put<{ id: string; numero: string }>(`/operaciones/${editId}`, payload)
         : await api.post<{ id: string; numero: string }>('/operaciones', payload);
-      toast.success(isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`);
+
+      const msgBase = isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`;
+      if (oportunidadId) {
+        try {
+          await api.patch(`/oportunidades/${oportunidadId}/estado`, { estado: 'convertida', operacion_id_ganada: op.id });
+          toast.success(`${msgBase} — oportunidad marcada como concretada`);
+        } catch {
+          toast.success(msgBase);
+        }
+      } else {
+        toast.success(msgBase);
+      }
       if (luegoIrAVisita) {
         navigate('/presupuestos/visita-tecnica', {
           state: { clienteId, operacionId: op.id, operacionNumero: op.numero },
@@ -754,13 +768,19 @@ export function NuevoPresupuesto() {
     : '?';
 
   // ── Validación para generar ──────────────────────────────────────────────────
-  // Cliente ya está garantizado por el modal bloqueante; lo único que falta
-  // chequear acá es que haya al menos un producto cargado.
-  const puedeGenerar = !!clienteId && items.length > 0;
+  // Cliente ya está garantizado por el modal bloqueante. Además de tener al menos
+  // un producto, no puede quedar ningún ítem "a relevar" sin resolver — el backend
+  // ya rechaza compartir/aprobar en ese caso (visitaPendiente() en operaciones.ts),
+  // pero acá se corta antes de llegar a abrir el diálogo de enviar/imprimir.
+  const puedeGenerar = !!clienteId && items.length > 0 && pendientesARelevar === 0;
 
   function handleGenerarProforma() {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
     if (items.length === 0) { toast.error('Agregá al menos un producto para generar la proforma'); return; }
+    if (pendientesARelevar > 0) {
+      toast.error('Hay ítems pendientes de relevar — generá la visita técnica antes de enviar la proforma');
+      return;
+    }
     handleSave(true);
   }
 

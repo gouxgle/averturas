@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pencil, Clock, Check, X as XIcon, Ban, Loader2, CalendarClock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, Clock, Check, X as XIcon, Ban, Loader2, CalendarClock, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn, TZ_AR } from '@/lib/utils';
@@ -28,6 +29,7 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
   onUpdate: (op: Oportunidad) => void;
   onEdit: (op: Oportunidad) => void;
 }) {
+  const navigate = useNavigate();
   const [accion, setAccion] = useState<Accion>(null);
   const [fechaPosponer, setFechaPosponer] = useState(fechaMasMeses(1));
   const [motivoDescarte, setMotivoDescarte] = useState('');
@@ -38,6 +40,17 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
   const dias = o.dias_atraso ?? 0;
   const vencida = o.estado === 'pendiente' && dias > 0;
   const esHoy = o.estado === 'pendiente' && dias === 0;
+
+  // Recotizar: si la oportunidad viene de un presupuesto rechazado/vencido,
+  // reabre ESE presupuesto (con los ítems ya cargados) en modo edición. Si es
+  // una oportunidad "suelta" (sin origen), arranca un presupuesto nuevo con el
+  // cliente ya prefijado. En ambos casos, al guardar el presupuesto la
+  // oportunidad queda marcada "convertida" y vinculada (ver NuevoPresupuesto.tsx).
+  function recotizar() {
+    const qs = `oportunidad_id=${o.id}`;
+    if (o.operacion_id_origen) navigate(`/presupuestos/${o.operacion_id_origen}/editar?${qs}`);
+    else navigate(`/presupuestos/nuevo?cliente_id=${o.cliente_id}&${qs}`);
+  }
 
   async function posponer() {
     setProcesando(true);
@@ -130,6 +143,11 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
           <button type="button" onClick={() => setAccion('posponer')}
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-500 hover:bg-gray-100">
             <Clock size={11} /> Posponer
+          </button>
+          <button type="button" onClick={recotizar}
+            title={o.operacion_id_origen ? 'Reabrir el presupuesto original con los mismos ítems' : 'Armar un presupuesto nuevo para este cliente'}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-fuchsia-600 hover:bg-fuchsia-50">
+            <RefreshCw size={11} /> Recotizar
           </button>
           <button type="button" onClick={() => setAccion('concretar')}
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-emerald-600 hover:bg-emerald-50">
