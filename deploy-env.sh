@@ -93,12 +93,18 @@ elif [ "$ENV" = "test" ]; then
 
   echo -e "${BOLD}🧪 Ejecutando deploy en TEST (${TEST_HOST})...${NC}"
   echo "────────────────────────────────────────"
-  ssh -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" bash << REMOTE
+  ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" bash << REMOTE
 set -e
 cd "${TEST_DIR}"
 
-echo "📥 Git pull..."
-git pull origin main
+echo "📥 Actualizando código..."
+# fetch + reset (no "pull"/merge): si el directorio de deploy divergió de origin
+# por el motivo que sea, "git pull" puede abrir un editor para un merge commit
+# y quedar colgado esperando input que nunca llega por SSH no interactivo. Este
+# directorio es un espejo de deploy, nunca debería tener commits propios.
+export GIT_TERMINAL_PROMPT=0
+git fetch origin main
+git reset --hard origin/main
 echo "✅ Código actualizado → \$(git rev-parse --short HEAD)"
 
 echo ""
@@ -110,21 +116,22 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 SQL
 
+# Una sola consulta para traer las ya aplicadas, en vez de un "docker exec" por
+# cada archivo — con 100+ migraciones eso eran 100+ round-trips en cada deploy
+# aunque no hubiera nada nuevo para aplicar.
+APLICADAS=\$(docker exec ${TEST_DB_CONTAINER} psql -U postgres -d postgres -tAc "SELECT filename FROM schema_migrations;")
+
 PENDIENTES=0
 for file in \$(ls "${TEST_DIR}/supabase/migrations/"*.sql | sort); do
   filename=\$(basename "\$file")
-  applied=\$(docker exec ${TEST_DB_CONTAINER} psql -U postgres -d postgres -tAc \
-    "SELECT COUNT(*) FROM schema_migrations WHERE filename = '\$filename';" 2>/dev/null || echo "0")
-  if [ "\$applied" = "1" ]; then
-    echo "  ✓  \$filename"
-  else
+  if ! echo "\$APLICADAS" | grep -qFx "\$filename"; then
     echo "  ⏳ \$filename — aplicando..."
     docker exec -i ${TEST_DB_CONTAINER} psql -U postgres -d postgres < "\$file"
     echo "  ✅ \$filename"
     PENDIENTES=\$((PENDIENTES + 1))
   fi
 done
-[ "\$PENDIENTES" -eq 0 ] && echo "  DB al día" || echo "  ✅ \$PENDIENTES migración(es)"
+[ "\$PENDIENTES" -eq 0 ] && echo "  DB al día (\$(echo "\$APLICADAS" | grep -c .) migraciones)" || echo "  ✅ \$PENDIENTES migración(es) nueva(s)"
 
 echo ""
 echo "🔨 Rebuildeando..."

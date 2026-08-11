@@ -22,6 +22,21 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 - **`docker-compose.yml` de prod vive en `/opt/docker/cesarbritez/docker-compose.yml` (nivel arriba del repo, `COMPOSE_DIR` en `deploy.sh`) — comparte stack con `web`, `portainer`, Evolution API/Redis. NO es el `docker-compose.yml` del repo y `git pull` NO lo toca.** Cualquier env var nueva para `aberturas-app`/`aberturas-db` (ej. `TZ`) hay que agregarla ahí a mano por SSH — el archivo del repo solo sirve para local/test. Bug real (2026-07-25): se agregó `TZ` al compose del repo pensando que cubría prod; prod siguió en UTC hasta editar el compose real en el host.
 - **Timezone**: DB y app deben correr en `America/Argentina/Buenos_Aires` (Formosa, UTC-3, sin DST) — sin esto `CURRENT_DATE`/`DATE(created_at)` y fechas server-side (PDFs, WhatsApp) usan UTC, y algo creado entre ~21:00-23:59 hora local cae en el día UTC siguiente (aparece "de hoy" cuando fue "ayer"). Fijado vía `ALTER DATABASE postgres SET timezone TO '...'` (migración `20260725000003_timezone_argentina.sql`, DB) + env `TZ` (contenedor app, para Node/Puppeteer). En prod, `TZ` va en el compose del host (ver punto anterior), no alcanza con el del repo.
 
+## Cómo trabajar en este repo (para Claude) — velocidad de iteración
+
+El usuario prioriza explícitamente bajar los tiempos de desarrollo. Dos reglas fijas:
+
+**1. No preguntar si se puede decidir razonablemente.** Ante ambigüedad menor (nombre de variable, texto de un label, ubicación exacta de un botón, valor por defecto), tomar la decisión más consistente con el resto del código y seguir — mencionarla en el resumen final, no interrumpir con una pregunta. Reservar las preguntas para lo que de verdad es irreversible, ambiguo entre opciones con impacto real distinto, o afecta datos de producción.
+
+**2. No reconstruir la imagen Docker completa después de cada edición.**
+- **Cambios solo de frontend** (sin tocar rutas/lógica de servidor): verificar con `npx vite build` en un contenedor liviano (`node_modules` del host ya está cacheado vía bind mount, no hace falta reinstalar) y grepear el bundle de `dist/assets/*.js` buscando el texto/clase esperada. **No** correr `docker compose build app` ni redeployar — nada observable en runtime cambió.
+- **Cambios de backend**: agrupar varias ediciones relacionadas y hacer un solo ciclo `tsc -b` → `docker compose build app` → `docker compose up -d --force-recreate app` → verificar (curl/DB) al final, no uno por archivo tocado.
+- El rebuild completo + verificación contra la app corriendo se reserva para lo que realmente lo necesita: endpoints nuevos, condiciones de carrera, cambios de esquema/migración, flujos con estado. Para retoques visuales, texto, o reordenar JSX, el typecheck ya alcanza.
+- Si `docker compose build app` no refleja un archivo recién editado (hash/mtime del bundle sin cambiar), no asumir que está bien — es un bug de caché ya visto en este repo. Confirmar antes de deployar.
+- El `Dockerfile` tiene un bug de fondo ya corregido (2026-08-10): BuildKit corre `server-build` y `frontend-build` en paralelo por defecto pese al comentario que dice lo contrario — si se toca el `Dockerfile`, no romper la dependencia `COPY --from=server-build` que fuerza el orden secuencial (necesario en el servidor de test, con poca RAM).
+
+No agregar infraestructura o herramientas nuevas (perfiles docker-compose de desarrollo, scripts, etc.) sin que se pida explícitamente — el objetivo es optimizar el proceso existente, no sumarle piezas.
+
 ## Stack técnico
 
 ### Frontend

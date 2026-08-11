@@ -10,6 +10,12 @@ RUN NODE_OPTIONS="--max-old-space-size=512" npm run build
 # Etapa 2: build del frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
+# Fuerza a que este stage espere a que termine server-build. Sin esto, BuildKit
+# corre ambos stages en paralelo (son independientes hasta la imagen final) sin
+# importar el orden en que están escritos acá — en un servidor con poca RAM
+# (como el de test) los dos "npm run build" (tsc + vite) al mismo tiempo pueden
+# saturar la memoria y el build queda colgado haciendo swap sin avanzar.
+COPY --from=server-build /server/dist /tmp/.server-build-done
 COPY package.json package-lock.json* bun.lock* ./
 RUN npm install --legacy-peer-deps
 COPY . .
