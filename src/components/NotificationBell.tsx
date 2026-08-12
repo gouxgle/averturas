@@ -1,28 +1,33 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, AlertTriangle, Target, X } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 
 interface Notif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes';
   id: string; numero: string | null; precio_total: number | null;
   aprobado_online_at: string | null;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
   recepcion_estado: 'con_observaciones' | 'no_conforme' | null;
   recepcion_obs: string | null;
   detalle: string | null;
+  data: { telefono: string | null; direccion_entrega: string | null } | null;
   evento_at: string;
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
 
 const OPORTUNIDAD_NOTIF = { texto: 'volvió la fecha de recontacto', color: '#f0abfc', bg: 'rgba(217,70,239,0.15)' };
+const ENTREGA_NOTIF = { color: '#c4b5fd', bg: 'rgba(139,92,246,0.15)' };
 
 const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
-  remito:       () => '/remitos',
-  oportunidad:  () => '/crm?foco=oportunidades',
-  presupuesto:  n  => `/presupuestos?id=${n.id}`,
+  remito:              () => '/remitos',
+  oportunidad:         () => '/crm?foco=oportunidades',
+  presupuesto:         n  => `/presupuestos?id=${n.id}`,
+  entrega_dia_antes:   () => '/remitos',
+  entrega_hora_antes:  () => '/remitos',
 };
 
 const RESP_NOTIF: Record<string, { texto: string; color: string; bg: string }> = {
@@ -77,6 +82,8 @@ export function NotificationBell() {
         const nuevosPresupuestos = nuevas.filter(n => n.tipo === 'presupuesto');
         const nuevosRemitos = nuevas.filter(n => n.tipo === 'remito');
         const nuevasOportunidades = nuevas.filter(n => n.tipo === 'oportunidad');
+        const nuevasEntregasDia = nuevas.filter(n => n.tipo === 'entrega_dia_antes');
+        const nuevasEntregasHora = nuevas.filter(n => n.tipo === 'entrega_hora_antes');
         if (nuevosPresupuestos.length > 0) {
           window.dispatchEvent(new CustomEvent('presupuesto:aprobado-online', {
             detail: { nuevas: nuevosPresupuestos }
@@ -93,6 +100,18 @@ export function NotificationBell() {
           toast.info(`Oportunidad futura: ${nombreCliente(n.cliente)}`, {
             description: n.detalle ?? 'Llegó la fecha de recontacto',
             duration: 6000,
+          });
+        });
+        nuevasEntregasDia.forEach(n => {
+          toast.info(`Entrega mañana: ${nombreCliente(n.cliente)}`, {
+            description: `Preparar el pedido — ${n.numero}`,
+            duration: 6000,
+          });
+        });
+        nuevasEntregasHora.forEach(n => {
+          toast.warning(`Entrega en menos de 1 hora: ${nombreCliente(n.cliente)}`, {
+            description: n.detalle ? `Programada a las ${n.detalle}hs — ${n.numero}` : n.numero ?? '',
+            duration: 8000,
           });
         });
         prevIdsRef.current = new Set(data.map(claveDe));
@@ -154,7 +173,7 @@ export function NotificationBell() {
         title="Notificaciones"
         aria-label="Notificaciones"
       >
-        <Bell size={18} style={{ color: count > 0 ? '#fbbf24' : 'rgba(255,255,255,0.55)' }} />
+        <Bell size={18} style={{ color: count > 0 ? '#fbbf24' : 'rgba(255,255,255,0.68)' }} />
         {count > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold text-white"
             style={{ backgroundColor: '#e31e24' }}>
@@ -185,13 +204,13 @@ export function NotificationBell() {
                 <button
                   onClick={marcarLeidas}
                   disabled={marcando}
-                  className="text-[10px] text-white/40 hover:text-white/70 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                  className="text-[10px] text-white/75 hover:text-white/100 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
                 >
                   Marcar leídas
                 </button>
               )}
               <button onClick={() => setOpen(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-                <X size={13} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                <X size={13} style={{ color: 'rgba(255,255,255,0.75)' }} />
               </button>
             </div>
           </div>
@@ -201,21 +220,25 @@ export function NotificationBell() {
             {count === 0 ? (
               <div className="px-4 py-10 text-center">
                 <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-500/60" />
-                <p className="text-xs text-white/40">Sin notificaciones pendientes</p>
+                <p className="text-xs text-white/75">Sin notificaciones pendientes</p>
               </div>
             ) : (
               notifs.map(n => {
                 const esRemito = n.tipo === 'remito';
                 const esOportunidad = n.tipo === 'oportunidad';
+                const esEntregaDia = n.tipo === 'entrega_dia_antes';
+                const esEntregaHora = n.tipo === 'entrega_hora_antes';
+                const esEntrega = esEntregaDia || esEntregaHora;
                 const rm = esRemito && n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
-                const esRespuesta = !esRemito && !esOportunidad && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
+                const esRespuesta = !esRemito && !esOportunidad && !esEntrega && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
                 const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
-                const acento = rm ?? rc ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null);
+                const acento = rm ?? rc ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null);
                 return (
-                <button
+                <div
                   key={`${n.tipo}-${n.id}`}
+                  role="button" tabIndex={0}
                   onClick={() => irANotif(n)}
-                  className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5"
+                  className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5 cursor-pointer"
                   style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                 >
                   {/* Icono */}
@@ -225,6 +248,8 @@ export function NotificationBell() {
                       ? <AlertTriangle size={16} style={{ color: rm.color }} />
                       : esOportunidad
                       ? <Target size={16} style={{ color: OPORTUNIDAD_NOTIF.color }} />
+                      : esEntrega
+                      ? <Truck size={16} style={{ color: ENTREGA_NOTIF.color }} />
                       : <CheckCircle2 size={16} style={{ color: acento ? acento.color : '#34d399' }} />}
                   </div>
                   {/* Texto */}
@@ -232,19 +257,21 @@ export function NotificationBell() {
                     <p className="text-xs font-semibold text-white leading-snug">
                       {nombreCliente(n.cliente)}
                     </p>
-                    <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.88)' }}>
                       {rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>
                        : esOportunidad ? <>{OPORTUNIDAD_NOTIF.texto}</>
+                       : esEntregaDia ? <>Entrega programada para mañana — <span className="font-mono" style={{ color: ENTREGA_NOTIF.color }}>{n.numero}</span></>
+                       : esEntregaHora ? <>Entrega hoy {n.detalle ? `a las ${n.detalle}hs` : ''} — <span className="font-mono" style={{ color: ENTREGA_NOTIF.color }}>{n.numero}</span></>
                        : rc ? <>{rc.texto} — <span className="font-mono" style={{ color: rc.color }}>{n.numero}</span></>
                           : <>Aprobó el presupuesto <span className="font-mono text-emerald-400">{n.numero}</span></>}
                     </p>
                     {rm && n.recepcion_obs && (
-                      <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                      <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.72)' }}>
                         "{n.recepcion_obs}"
                       </p>
                     )}
                     {esOportunidad && n.detalle && (
-                      <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                      <p className="text-[10px] mt-1 italic line-clamp-2" style={{ color: 'rgba(255,255,255,0.72)' }}>
                         "{n.detalle}"
                       </p>
                     )}
@@ -254,12 +281,22 @@ export function NotificationBell() {
                           {formatCurrency(Number(n.precio_total))}
                         </span>
                       )}
-                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.70)' }}>
                         {fmtRelativo(n.evento_at)}
                       </span>
+                      {esEntregaHora && (
+                        <span className="ml-auto">
+                          <AccionesEntrega
+                            remitoId={n.id}
+                            telefono={n.data?.telefono}
+                            direccionEntrega={n.data?.direccion_entrega}
+                            onEnviado={fetchNotifs}
+                          />
+                        </span>
+                      )}
                     </div>
                   </div>
-                </button>
+                </div>
                 );
               })
             )}

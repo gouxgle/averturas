@@ -133,7 +133,7 @@ operacion_items     — líneas de operación (tipo_abertura_id, sistema_id, sin
 estados_historial   — auditoría de cambios de estado
 stock_lotes         — lotes de ingreso
 stock_movimientos   — movimientos de stock (cantidad signed)
-remitos             — remitos de entrega (operacion_id, estado: borrador|emitido|entregado|cancelado)
+remitos             — remitos de entrega (operacion_id, estado: borrador|emitido|entregado|cancelado; fecha/hora_entrega_est + tarea_id + recordatorio_*_visto, ver "Programación de entregas")
 remito_items        — líneas de remito
 recibos             — cobros (vinculados a operacion_id, estado: emitido|anulado)
 recibo_items        — líneas de recibo
@@ -230,7 +230,7 @@ emitido  → entregado (registra fecha_entrega_real)
 | `/empresa` | routes/empresa.ts | |
 | `/usuarios` | routes/usuarios.ts | |
 | `/stock` | routes/stock.ts | `/alertas` y `/lotes` ANTES de `/:id` |
-| `/remitos` | routes/remitos.ts | `/conteos` ANTES de `/:id` |
+| `/remitos` | routes/remitos.ts | `/conteos`, `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` ANTES de `/:id` |
 | `/recibos` | routes/recibos.ts | `/conteos` ANTES de `/:id` |
 | `/pedidos` | routes/pedidos.ts | `/tablero` y `/reporte-envios` ANTES de `/:id` |
 | `/transportistas` | routes/transportistas.ts | GET lista activos, POST crear, PATCH activar/desactivar |
@@ -354,7 +354,7 @@ El link público no es binario aceptar/rechazar. "Todavía no / Tengo otra respu
 ## Notificaciones (NotificationBell)
 
 - Poll cada 10s a `GET /notificaciones` (+ al volver al tab)
-- Un UNION de 3 ramas, todas no leídas: `presupuesto` (`aprobado_online_at`/`respuesta_cliente_at`), `remito` (`recepcion_estado IN ('con_observaciones','no_conforme')`) y `oportunidad` (oportunidad futura `pendiente` con `fecha_recontacto <= CURRENT_DATE`), ordenadas por `evento_at` DESC
+- Un UNION de 5 ramas, todas no leídas: `presupuesto` (`aprobado_online_at`/`respuesta_cliente_at`), `remito` (`recepcion_estado IN ('con_observaciones','no_conforme')`), `oportunidad` (oportunidad futura `pendiente` con `fecha_recontacto <= CURRENT_DATE`), `entrega_dia_antes` y `entrega_hora_antes` (ver "Programación de entregas" más abajo) — ordenadas por `evento_at` DESC. Todas comparten una columna `data JSONB` (NULL salvo en las 2 de entrega, que llevan `{telefono, direccion_entrega}` para los accesos rápidos)
 - `irANotif` es un mapa por `tipo` (`IR_A_NOTIF`), no un ternario — al agregar un 4º tipo, sumarlo ahí
 - Badge rojo en campanita sidebar (desktop) y top bar (mobile); ícono/color varía según `tipo`/`respuesta_cliente` (ver `RESP_NOTIF`/`OPORTUNIDAD_NOTIF` en NotificationBell.tsx)
 - `PATCH /notificaciones/marcar-leidas` → setea `notif_leida = true` para las 3 tablas
@@ -369,7 +369,7 @@ Devuelve 5 arrays:
 - `compromisos_semana` — `compromisos_pago` pendientes en próximos 7 días
 - `stock_bajo` — `stock_actual <= stock_minimo` (solo productos con stock_minimo > 0)
 
-`GET /dashboard/resumen` (el que realmente consume `Dashboard.tsx`) trae, además de `stats` y los arrays de seguimiento comercial, `pedidos_atrasados` y `oportunidades_pendientes` (oportunidades futuras `pendiente` con `fecha_recontacto <= CURRENT_DATE`) — ambos alimentan tarjetas de "PRIORIDADES DE HOY" (grid `xl:grid-cols-6`).
+`GET /dashboard/resumen` (el que realmente consume `Dashboard.tsx`) trae, además de `stats` y los arrays de seguimiento comercial, `pedidos_atrasados` y `oportunidades_pendientes` (oportunidades futuras `pendiente` con `fecha_recontacto <= CURRENT_DATE`) — ambos alimentan tarjetas de "PRIORIDADES DE HOY" (grid `xl:grid-cols-6`). También trae `entregas_hoy` (remitos `emitido` con `fecha_entrega_est = CURRENT_DATE`, ordenados por hora) — **no** va dentro del grid de 6 tiles (ya tuvo bug de wrap a 1366×768, ver `feedback_aberturas_resolucion_1366` en memoria), es una card aparte debajo.
 
 ## Oportunidades futuras (`oportunidades` + CRM → sección "Oportunidades futuras")
 
@@ -380,6 +380,20 @@ Registra clientes que manifestaron intención de compra pero la postergaron ("el
 - **4 puntos de entrada**: ficha del cliente (`ClienteDetalle.tsx`, menú "Más acciones" + card de oportunidades abiertas), presupuesto rechazado o vencido (`Presupuestos.tsx`, banner inline en el modal de detalle), listado del CRM (`PanelOportunidades.tsx` en `CRM.tsx`), y respuesta pública "necesito más tiempo" (`pub.ts` `/responder`) — en este último caso la tarea de seguimiento generada ES DIRECTAMENTE la tarea espejo (`tipo_accion='oportunidad'`, `tarea_id` seteado en el INSERT) para no duplicar el aviso.
 - **Contacto rápido** (`AccionesContacto.tsx`): WhatsApp vía Evolution API con mensaje sugerido editable (plantilla `oportunidad_recontacto` en `mensajes_plantilla`, editable desde Configuración); Llamar/Email son links `tel:`/`mailto:` que además registran el contacto en background. Los 3 pasan la oportunidad a `contactada` vía `POST /oportunidades/:id/contactar`.
 - Fecha `DATE` de Postgres — igual que el resto del proyecto, usar `.slice(0,10)+'T12:00:00'` al formatear en el frontend.
+
+## Programación de entregas (`remitos` + recordatorios automáticos)
+
+El remito ya es la entidad que representa una entrega (`cliente_id`, `direccion_entrega`, `fecha_entrega_est`). Se le agregaron `hora_entrega_est TIME`, `tarea_id`, `recordatorio_dia_antes_visto` y `recordatorio_hora_antes_visto` (migración `20260812000001_remitos_programar_entrega.sql`). La columna `notas` se reusa como "observaciones de entrega" — no hay campo separado.
+
+- `PATCH /remitos/:id/programar-entrega` — único punto de escritura de estos campos (permite `estado IN ('borrador','emitido')`). Si `fecha_entrega_est`/`hora_entrega_est` cambian respecto al valor actual, resetea ambos `recordatorio_*_visto` a `false` — si no, una entrega reprogramada nunca vuelve a avisar (mismo riesgo que `oportunidades.notif_leida`, documentado ahí).
+- **Tarea espejo** (`tareas.tipo_accion='entrega'`, ya tenía ícono/badge en `CRM.tsx` desde junio pero nunca se usaba): `sincronizarTareaEntrega`/`completarTareaDeEntrega` en `server/src/lib/remitos.ts`, mismo patrón que `lib/oportunidades.ts`. Se completa (no se borra) al marcar el remito `entregado` o `cancelado` en `PATCH /remitos/:id/estado`.
+- **3 recordatorios, sin cron** (mismo mecanismo que oportunidades — evaluado contra `NOW()`/`CURRENT_DATE` en cada poll de 10s de `NotificationBell`):
+  1. Día antes → notificación `entrega_dia_antes` (`fecha_entrega_est = CURRENT_DATE + 1`).
+  2. Mismo día → `entregas_hoy` en `Dashboard.tsx` + tarea espejo en la agenda del CRM. Sin notificación puntual (persistencia, no evento).
+  3. Hora antes → notificación `entrega_hora_antes` (`(fecha_entrega_est + hora_entrega_est) BETWEEN NOW() AND NOW()+1h`), con `AccionesEntrega.tsx` inline (llamar / abrir ubicación / WhatsApp con plantilla `entrega_recordatorio`).
+- **Ubicación**: sin lat/lng ni geocoding — `AccionesEntrega.tsx` arma `https://www.google.com/maps/search/?api=1&query=<direccion_entrega>` al vuelo.
+- **`POST /remitos/:id/recordatorio-whatsapp`** marca `recordatorio_hora_antes_visto=true` al enviar con éxito (enviar el aviso cuenta como "ya visto").
+- UI: `ModalProgramarEntrega.tsx` (botón en `Remitos.tsx` por fila y en `NuevoRemito.tsx` en modo edición) llama al PATCH de arriba.
 
 ## Sidebar — secciones y rutas
 

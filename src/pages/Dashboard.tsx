@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, diasCalendarioAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DolarWidget, WeatherWidget } from '@/components/ClimaDolarStrip';
+import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 
 // ── Tipos ────────────────────────────────────────────────────────────
 
@@ -67,6 +68,11 @@ interface OportunidadPendiente {
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
 
+interface EntregaHoy {
+  id: string; numero: string; hora_entrega_est: string | null; direccion_entrega: string | null;
+  cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string; telefono: string | null };
+}
+
 interface DashboardResumen {
   stats: Stats;
   sin_confirmar: OpItem[];
@@ -79,6 +85,7 @@ interface DashboardResumen {
   recientes: OpItem[];
   pedidos_atrasados: PedidoAtrasado[];
   oportunidades_pendientes: OportunidadPendiente[];
+  entregas_hoy: EntregaHoy[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -159,7 +166,7 @@ export function Dashboard() {
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
             {saludo}, {user?.nombre ?? 'usuario'}! 👋
           </h1>
-          <p className="text-sm text-gray-500 capitalize">
+          <p className="text-sm text-gray-600 capitalize">
             {fechaHoy} · Acá tenés todo lo importante de tu negocio
           </p>
         </div>
@@ -198,11 +205,11 @@ export function Dashboard() {
           <div className="flex-1 min-w-0 space-y-4">
 
             {/* PRIORIDADES DE HOY */}
-            <div className="bg-slate-100 rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-slate-100 rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Target size={15} className="text-red-500" />
                 <h2 className="text-sm font-bold text-gray-800">PRIORIDADES DE HOY</h2>
-                <span className="text-xs text-gray-400 ml-1">Tu foco para hoy</span>
+                <span className="text-xs text-gray-600 ml-1">Tu foco para hoy</span>
                 <Link to="/presupuestos" className="ml-auto flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
                   Ver agenda completa <ChevronRight size={12} />
                 </Link>
@@ -249,14 +256,14 @@ export function Dashboard() {
                   <Link
                     key={href + title}
                     to={href}
-                    className="flex items-start gap-3 p-3.5 rounded-xl bg-white border-2 border-gray-300 shadow-md hover:bg-blue-50 hover:border-blue-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-150"
+                    className="flex items-start gap-3 p-3.5 rounded-xl bg-white border-2 border-gray-400 shadow-md hover:bg-blue-50 hover:border-blue-400 hover:shadow-xl hover:scale-[1.02] transition-all duration-150"
                   >
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
                       <Icon size={17} className={color} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-bold text-gray-800 leading-snug">{title}</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5 leading-tight">{sub}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5 leading-tight">{sub}</p>
                     </div>
                     {count > 0 && (
                       <span className="text-[11px] font-extrabold bg-red-500 text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shrink-0 mt-0.5">
@@ -268,20 +275,50 @@ export function Dashboard() {
               </div>
             </div>
 
+            {/* ENTREGAS DE HOY — recordatorio "mismo día" de la programación de entregas */}
+            {data.entregas_hoy.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Truck size={15} className="text-blue-600" />
+                  <h2 className="text-sm font-bold text-gray-800">ENTREGAS DE HOY</h2>
+                  <Link to="/remitos" className="ml-auto flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
+                    Ver remitos <ChevronRight size={12} />
+                  </Link>
+                </div>
+                <div className="space-y-1.5">
+                  {data.entregas_hoy.map(e => (
+                    <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-200 hover:border-blue-300 transition-colors">
+                      <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                        <Truck size={15} className="text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-800 truncate">{nombreCliente(e.cliente)}</p>
+                        <p className="text-[11px] text-gray-600 font-mono">{e.numero}</p>
+                      </div>
+                      {e.hora_entrega_est && (
+                        <span className="text-xs font-extrabold text-blue-600 tabular-nums shrink-0">{e.hora_entrega_est.slice(0, 5)}hs</span>
+                      )}
+                      <AccionesEntrega remitoId={e.id} telefono={e.cliente.telefono} direccionEntrega={e.direccion_entrega} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* NÚMEROS CLAVE */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={15} className="text-blue-600" />
                 <h2 className="text-sm font-bold text-gray-800">NÚMEROS CLAVE DEL NEGOCIO</h2>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Ventas del día */}
-                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
-                  <p className="text-[11px] font-medium text-gray-500">Ventas del día</p>
+                <div className="space-y-1.5 bg-gray-100 border border-gray-400 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
+                  <p className="text-[11px] font-medium text-gray-600">Ventas del día</p>
                   <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">
                     {formatCurrency(data.stats.ventas_hoy)}
                   </p>
-                  <p className="text-[11px] text-gray-400">Promedio: {formatCurrency(dayOfMonth > 0 ? data.stats.monto_mes / dayOfMonth : 0)}/día</p>
+                  <p className="text-[11px] text-gray-600">Promedio: {formatCurrency(dayOfMonth > 0 ? data.stats.monto_mes / dayOfMonth : 0)}/día</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
@@ -296,12 +333,12 @@ export function Dashboard() {
                 </div>
 
                 {/* Ventas del mes */}
-                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
-                  <p className="text-[11px] font-medium text-gray-500">Ventas del mes</p>
+                <div className="space-y-1.5 bg-gray-100 border border-gray-400 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
+                  <p className="text-[11px] font-medium text-gray-600">Ventas del mes</p>
                   <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">
                     {formatCurrency(data.stats.monto_mes)}
                   </p>
-                  <p className="text-[11px] text-gray-400">Día {dayOfMonth} de {daysInMonth} — {data.stats.ventas_mes} ops.</p>
+                  <p className="text-[11px] text-gray-600">Día {dayOfMonth} de {daysInMonth} — {data.stats.ventas_mes} ops.</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${monthPct}%` }} />
@@ -311,15 +348,15 @@ export function Dashboard() {
                 </div>
 
                 {/* Presupuestos enviados */}
-                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
-                  <p className="text-[11px] font-medium text-gray-500">Presupuestos enviados</p>
+                <div className="space-y-1.5 bg-gray-100 border border-gray-400 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
+                  <p className="text-[11px] font-medium text-gray-600">Presupuestos enviados</p>
                   <div className="flex items-end gap-2">
                     <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">{data.sin_confirmar.length}</p>
                     <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center mb-0.5">
                       <FileText size={15} className="text-blue-500" />
                     </div>
                   </div>
-                  <p className="text-[11px] text-gray-400">Activos este mes</p>
+                  <p className="text-[11px] text-gray-600">Activos este mes</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-400 rounded-full" style={{ width: `${Math.min(data.sin_confirmar.length * 10, 100)}%` }} />
@@ -329,15 +366,15 @@ export function Dashboard() {
                 </div>
 
                 {/* % Cierre */}
-                <div className="space-y-1.5 bg-gray-100 border border-gray-300 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
-                  <p className="text-[11px] font-medium text-gray-500">% de cierre de ventas</p>
+                <div className="space-y-1.5 bg-gray-100 border border-gray-400 rounded-xl p-3 shadow-sm cursor-pointer transition-all duration-150 hover:bg-white hover:border-blue-400 hover:shadow-lg hover:scale-[1.02]">
+                  <p className="text-[11px] font-medium text-gray-600">% de cierre de ventas</p>
                   <div className="flex items-end gap-2">
                     <p className="text-xl font-extrabold text-gray-900 tabular-nums leading-none">{convPct}%</p>
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center mb-0.5">
                       <TrendingUp size={15} className="text-emerald-500" />
                     </div>
                   </div>
-                  <p className="text-[11px] text-gray-400">{data.stats.ventas_mes} cerrados de {data.stats.ventas_mes + data.stats.presupuestos_activos}</p>
+                  <p className="text-[11px] text-gray-600">{data.stats.ventas_mes} cerrados de {data.stats.ventas_mes + data.stats.presupuestos_activos}</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${convPct}%` }} />
@@ -352,7 +389,7 @@ export function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
               {/* Ventas en riesgo */}
-              <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+              <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle size={14} className="text-amber-500" />
                   <h2 className="text-sm font-bold text-gray-800 flex-1">VENTAS EN RIESGO</h2>
@@ -364,7 +401,7 @@ export function Dashboard() {
                 {enviados.length === 0 ? (
                   <div className="py-8 text-center">
                     <CheckCircle2 size={20} className="mx-auto mb-2 text-emerald-400" />
-                    <p className="text-xs text-gray-400">Sin presupuestos enviados en espera</p>
+                    <p className="text-xs text-gray-600">Sin presupuestos enviados en espera</p>
                   </div>
                 ) : (
                   <>
@@ -382,7 +419,7 @@ export function Dashboard() {
                             <div className="flex-1 min-w-0">
                               <p className="text-[13px] font-semibold text-gray-800 truncate">{nombreCliente(op.cliente)}</p>
                               {op.primer_item && (
-                                <p className="text-[11px] text-gray-400 truncate mt-0.5">{op.primer_item}</p>
+                                <p className="text-[11px] text-gray-600 truncate mt-0.5">{op.primer_item}</p>
                               )}
                             </div>
                             <p className="text-sm font-bold text-gray-900 tabular-nums shrink-0">{formatCurrency(Number(op.precio_total))}</p>
@@ -406,7 +443,7 @@ export function Dashboard() {
               </div>
 
               {/* Seguimiento automático */}
-              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <MessageCircle size={14} className="text-violet-500" />
                   <h2 className="text-sm font-bold text-gray-800 flex-1">SEGUIMIENTO AUTOMÁTICO</h2>
@@ -414,12 +451,12 @@ export function Dashboard() {
                     Ver todos <ChevronRight size={12} />
                   </Link>
                 </div>
-                <p className="text-[11px] text-gray-400 mb-3">A quién contactar hoy</p>
+                <p className="text-[11px] text-gray-600 mb-3">A quién contactar hoy</p>
 
                 {data.sin_contacto.length === 0 ? (
                   <div className="py-6 text-center">
                     <CheckCircle2 size={18} className="mx-auto mb-2 text-emerald-400" />
-                    <p className="text-xs text-gray-400">Todos los clientes con contacto reciente</p>
+                    <p className="text-xs text-gray-600">Todos los clientes con contacto reciente</p>
                   </div>
                 ) : (
                   <>
@@ -441,7 +478,7 @@ export function Dashboard() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-[12px] font-semibold text-gray-800 truncate leading-tight">{nombre}</p>
-                              <p className="text-[10px] text-gray-400">Hace {dias} día{dias !== 1 ? 's' : ''}</p>
+                              <p className="text-[10px] text-gray-600">Hace {dias} día{dias !== 1 ? 's' : ''}</p>
                             </div>
                             {cl.telefono ? (
                               <button
@@ -476,11 +513,11 @@ export function Dashboard() {
             </div>
 
             {/* PRODUCTOS MÁS VENDIDOS */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <ShoppingBag size={15} className="text-amber-500" />
                 <h2 className="text-sm font-bold text-gray-800 flex-1">PRODUCTOS MÁS VENDIDOS</h2>
-                <span className="text-xs text-gray-400">Este mes</span>
+                <span className="text-xs text-gray-600">Este mes</span>
                 <Link to="/productos" className="ml-3 flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
                   Ver reporte completo <ChevronRight size={12} />
                 </Link>
@@ -488,8 +525,8 @@ export function Dashboard() {
 
               {data.top_productos.length === 0 ? (
                 <div className="py-6 text-center">
-                  <Package size={18} className="mx-auto mb-2 text-gray-300" />
-                  <p className="text-xs text-gray-400">Sin datos de ventas por producto aún</p>
+                  <Package size={18} className="mx-auto mb-2 text-gray-600" />
+                  <p className="text-xs text-gray-600">Sin datos de ventas por producto aún</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -509,13 +546,13 @@ export function Dashboard() {
                           </div>
                           <div className="w-full min-w-0">
                             <div className="h-12 rounded-lg bg-white/60 flex items-center justify-center">
-                              <Package size={22} className="text-gray-300" />
+                              <Package size={22} className="text-gray-600" />
                             </div>
                           </div>
                         </div>
                         <div>
                           <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.descripcion}</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">{p.unidades} unidades</p>
+                          <p className="text-[11px] text-gray-600 mt-0.5">{p.unidades} unidades</p>
                           <p className={`text-sm font-extrabold mt-1 tabular-nums ${pal.price}`}>
                             {formatCurrency(Number(p.monto_total))}
                           </p>
@@ -526,7 +563,7 @@ export function Dashboard() {
                   {/* Relleno si hay menos de 4 */}
                   {Array.from({ length: Math.max(0, 4 - data.top_productos.length) }).map((_, i) => (
                     <div key={`empty-${i}`} className="rounded-xl border border-dashed border-gray-200 p-3 flex items-center justify-center">
-                      <p className="text-[11px] text-gray-300 text-center">Sin datos</p>
+                      <p className="text-[11px] text-gray-600 text-center">Sin datos</p>
                     </div>
                   ))}
                 </div>
@@ -538,7 +575,7 @@ export function Dashboard() {
           <div className="w-full xl:w-[300px] xl:shrink-0 space-y-4">
 
             {/* SUGERENCIAS DEL SISTEMA */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Lightbulb size={14} className="text-amber-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Sugerencias del sistema</h2>
@@ -576,7 +613,7 @@ export function Dashboard() {
                         <Ico size={13} className={color} />
                       </div>
                       <p className="flex-1 text-[12px] text-gray-600 leading-snug">{text}</p>
-                      <ChevronRight size={14} className="text-gray-300 shrink-0 mt-1" />
+                      <ChevronRight size={14} className="text-gray-600 shrink-0 mt-1" />
                     </button>
                   );
                 })}
@@ -584,7 +621,7 @@ export function Dashboard() {
                 {[data.stats.sin_contacto_30, enviados.length, data.top_productos.length, data.stats.tareas_vencidas].every(v => v === 0) && (
                   <div className="py-4 text-center">
                     <CheckCircle2 size={18} className="mx-auto mb-2 text-emerald-400" />
-                    <p className="text-xs text-gray-400">¡Todo bajo control!</p>
+                    <p className="text-xs text-gray-600">¡Todo bajo control!</p>
                   </div>
                 )}
               </div>
@@ -598,7 +635,7 @@ export function Dashboard() {
             </div>
 
             {/* PROBLEMAS OPERATIVOS */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <AlertTriangle size={14} className="text-amber-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex-1">Problemas operativos</h2>
@@ -622,7 +659,7 @@ export function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-semibold text-gray-800">{label}</p>
-                      <p className="text-[11px] text-gray-400">{sub}</p>
+                      <p className="text-[11px] text-gray-600">{sub}</p>
                     </div>
                     <span className={`text-[11px] font-extrabold text-white px-2 py-0.5 rounded-full min-w-[24px] text-center ${count > 0 ? badgeCl : 'bg-emerald-400'}`}>
                       {count}
@@ -633,7 +670,7 @@ export function Dashboard() {
             </div>
 
             {/* ACTIVIDAD RECIENTE */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Activity size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Actividad reciente</h2>
@@ -669,9 +706,9 @@ export function Dashboard() {
                         <p className="text-[12px] font-semibold text-gray-800 truncate">
                           {ESTADO_LABEL[op.estado] ?? op.estado === 'presupuesto' ? 'Nuevo presupuesto creado' : `${ESTADO_LABEL[op.estado]}`}
                         </p>
-                        <p className="text-[11px] text-gray-400 truncate">{nombreCliente(op.cliente)} · {formatCurrency(Number(op.precio_total))}</p>
+                        <p className="text-[11px] text-gray-600 truncate">{nombreCliente(op.cliente)} · {formatCurrency(Number(op.precio_total))}</p>
                       </div>
-                      <p className="text-[10px] text-gray-400 shrink-0 mt-0.5 whitespace-nowrap">{tiempoLabel}</p>
+                      <p className="text-[10px] text-gray-600 shrink-0 mt-0.5 whitespace-nowrap">{tiempoLabel}</p>
                     </button>
                   );
                 })}

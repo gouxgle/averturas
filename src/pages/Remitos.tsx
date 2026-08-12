@@ -11,6 +11,8 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
+import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
+import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 import { toast } from 'sonner';
 
 // ── Tipos ────────────────────────────────────────────────────────────
@@ -23,7 +25,7 @@ interface Remito {
   id: string; numero: string; estado: 'borrador' | 'emitido' | 'entregado' | 'cancelado';
   medio_envio: string; transportista: string | null; nro_seguimiento: string | null;
   direccion_entrega: string | null; fecha_emision: string;
-  fecha_entrega_est: string | null; fecha_entrega_real: string | null;
+  fecha_entrega_est: string | null; hora_entrega_est: string | null; fecha_entrega_real: string | null;
   notas: string | null; stock_descontado: boolean;
   valor_total: number; items_resumen: ItemResumen[] | null;
   cliente: RCliente & { telefono: string | null };
@@ -34,7 +36,10 @@ interface Remito {
   recepcion_obs: string | null;
 }
 
-interface ProximaEntrega { id: string; numero: string; fecha_entrega_est: string; valor_total: number; cliente: RCliente }
+interface ProximaEntrega {
+  id: string; numero: string; fecha_entrega_est: string; hora_entrega_est: string | null;
+  direccion_entrega: string | null; valor_total: number; cliente: RCliente;
+}
 interface MetodoEnvio { medio_envio: string; n: number; pct: number }
 interface Metricas { tiempo_promedio: number; pct_a_tiempo: number; valor_entregado_mes: number; entregados_mes: number }
 
@@ -99,7 +104,7 @@ const ESTADO_BADGE: Record<UrgState, { label: string; cls: string }> = {
   enviado:   { label: 'Enviado',   cls: 'bg-blue-100 text-blue-700' },
   recibido:  { label: 'Recibido',  cls: 'bg-teal-100 text-teal-700' },
   entregado: { label: 'Entregado', cls: 'bg-emerald-100 text-emerald-700' },
-  cancelado: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-500' },
+  cancelado: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
 };
 
 const RECEPCION_BADGE: Record<string, { label: string; cls: string }> = {
@@ -110,7 +115,7 @@ const RECEPCION_BADGE: Record<string, { label: string; cls: string }> = {
 
 const ENTREGA_FECHA_BADGE: Record<string, { label: string; cls: string }> = {
   entregado:  { label: 'Entregado', cls: 'text-emerald-600 font-semibold' },
-  cancelado:  { label: 'Cancelado', cls: 'text-gray-400' },
+  cancelado:  { label: 'Cancelado', cls: 'text-gray-600' },
 };
 
 const MEDIOS_TIPO: Record<string, { tipo: string; sub: (t: string | null) => string; envio: boolean }> = {
@@ -143,6 +148,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
   const [enviandoWA, setEnviandoWA] = useState(false);
   const [enviadoWA, setEnviadoWA]   = useState(false);
   const [showEstado, setShowEstado] = useState(false);
+  const [showProgramar, setShowProgramar] = useState(false);
 
   useEffect(() => {
     api.get<RemitoDetalle>(`/remitos/${remito.id}`)
@@ -192,7 +198,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               {recBadge && <span className={cn('text-[11px] px-2 py-0.5 rounded-full', recBadge.cls)}>{recBadge.label}</span>}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400">
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600">
             <X size={18} />
           </button>
         </div>
@@ -207,7 +213,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               <div>
                 <p className="font-semibold text-gray-900 text-sm">{ncl(detalle.cliente)}</p>
                 {detalle.cliente.telefono && (
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                  <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
                     <Phone size={10} /> {detalle.cliente.telefono}
                   </p>
                 )}
@@ -222,18 +228,18 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
 
             {/* Items */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Items del remito</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Items del remito</p>
               <div className="divide-y divide-gray-50 border border-gray-200 rounded-xl overflow-hidden">
                 {detalle.items.map(it => (
                   <div key={it.id} className="flex items-center justify-between px-3 py-2.5">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-800 font-medium">{it.descripcion}</p>
-                      {it.notas_item && <p className="text-xs text-gray-400">{it.notas_item}</p>}
+                      {it.notas_item && <p className="text-xs text-gray-600">{it.notas_item}</p>}
                     </div>
                     <div className="text-right shrink-0 ml-3">
                       <p className="text-sm font-semibold text-gray-700">x{it.cantidad}</p>
                       {it.precio_unitario && (
-                        <p className="text-xs text-gray-400">{formatCurrency(it.precio_unitario)}</p>
+                        <p className="text-xs text-gray-600">{formatCurrency(it.precio_unitario)}</p>
                       )}
                     </div>
                   </div>
@@ -245,12 +251,22 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
             {(detalle.fecha_entrega_est || detalle.direccion_entrega || detalle.medio_envio) && (
               <div className="p-3 bg-blue-50 rounded-xl space-y-1">
                 {detalle.fecha_entrega_est && (
-                  <p className="text-xs text-blue-700"><span className="font-semibold">Entrega estimada:</span> {fmtFecha(detalle.fecha_entrega_est)}</p>
+                  <p className="text-xs text-blue-700">
+                    <span className="font-semibold">Entrega estimada:</span> {fmtFecha(detalle.fecha_entrega_est)}
+                    {detalle.hora_entrega_est && ` a las ${detalle.hora_entrega_est.slice(0, 5)}hs`}
+                  </p>
                 )}
                 {detalle.direccion_entrega && (
                   <p className="text-xs text-blue-700"><span className="font-semibold">Dirección:</span> {detalle.direccion_entrega}</p>
                 )}
               </div>
+            )}
+
+            {!['entregado', 'cancelado'].includes(detalle.estado) && (
+              <button onClick={() => setShowProgramar(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-semibold transition-colors">
+                <CalendarClock size={14} /> {detalle.fecha_entrega_est ? 'Reprogramar entrega' : 'Programar entrega'}
+              </button>
             )}
 
             {/* Recepción del cliente */}
@@ -277,7 +293,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               </button>
               {detalle.estado !== 'cancelado' && (
                 <button onClick={() => setShowEstado(true)}
-                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-400 hover:text-gray-600">
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-600 hover:text-gray-600">
                   <ChevronRight size={13} /> Cambiar estado
                 </button>
               )}
@@ -290,6 +306,12 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
         <ModalEstado remito={detalle}
           onClose={() => setShowEstado(false)}
           onSaved={() => { setShowEstado(false); onSaved(); onClose(); }} />
+      )}
+
+      {showProgramar && detalle && (
+        <ModalProgramarEntrega remito={detalle}
+          onClose={() => setShowProgramar(false)}
+          onSuccess={() => { onSaved(); }} />
       )}
     </div>
   );
@@ -338,7 +360,7 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
         <div className="p-5 border-b border-gray-200">
           <h2 className="font-bold text-gray-900">Cambiar estado</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{remito.numero}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{remito.numero}</p>
         </div>
         <div className="p-5 space-y-2">
           {opciones.map(op => (
@@ -519,7 +541,7 @@ export function Remitos() {
         sub="Control de entregas y logística"
         actions={<>
           <button type="button" onClick={cargar} className="p-2.5 bg-white/70 border border-gray-200 rounded-xl hover:bg-white transition-colors">
-            <RefreshCw size={16} className={cn('text-gray-500', loading && 'animate-spin')} />
+            <RefreshCw size={16} className={cn('text-gray-600', loading && 'animate-spin')} />
           </button>
           <Link to="/remitos/nuevo"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all hover:opacity-90 bg-teal-600">
@@ -552,7 +574,7 @@ export function Remitos() {
             ]} />
 
             {/* Filtros + búsqueda */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {([
                   { key: 'todos',      label: 'Todos',      count: data.remitos.length },
@@ -574,7 +596,7 @@ export function Remitos() {
                     {f.label}
                     <span className={cn(
                       'px-1.5 py-0.5 rounded-md text-[10px] font-bold',
-                      filtro === f.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                      filtro === f.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
                     )}>{f.count}</span>
                   </button>
                 ))}
@@ -582,13 +604,13 @@ export function Remitos() {
                   <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
                     Filtros
                   </button>
-                  <button type="button" className="p-1.5 text-gray-400 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+                  <button type="button" className="p-1.5 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
                     <CalendarClock size={14} />
                   </button>
                 </div>
               </div>
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input
                   value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Buscar por número, cliente o producto..."
@@ -598,11 +620,11 @@ export function Remitos() {
             </div>
 
             {/* Lista */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
-                  <p className="text-sm text-gray-400">Sin remitos en esta vista</p>
+                  <p className="text-sm text-gray-600">Sin remitos en esta vista</p>
                 </div>
               ) : (
                 <>
@@ -624,8 +646,8 @@ export function Remitos() {
                           <div className="px-3 py-2.5 flex items-start gap-3">
                             {/* Número */}
                             <div className="shrink-0 w-[76px]">
-                              <p className="text-[11px] font-mono text-gray-400">{r.numero}</p>
-                              <p className="text-[10px] text-gray-300 mt-0.5">{fmtFecha(r.fecha_emision)}</p>
+                              <p className="text-[11px] font-mono text-gray-600">{r.numero}</p>
+                              <p className="text-[10px] text-gray-600 mt-0.5">{fmtFecha(r.fecha_emision)}</p>
                             </div>
                             {/* Main */}
                             <div className="flex-1 min-w-0">
@@ -637,7 +659,7 @@ export function Remitos() {
                                     ? <Truck size={11} className="text-blue-400" />
                                     : <Building2 size={11} className="text-teal-400" />
                                   }
-                                  <span className="text-[10px] text-gray-500">{medio.tipo}{medio.sub(r.transportista) ? ` · ${medio.sub(r.transportista)}` : ''}</span>
+                                  <span className="text-[10px] text-gray-600">{medio.tipo}{medio.sub(r.transportista) ? ` · ${medio.sub(r.transportista)}` : ''}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -651,7 +673,7 @@ export function Remitos() {
                                   </span>
                                 )}
                                 {r.items_resumen?.slice(0, 1).map((it, i) => (
-                                  <span key={i} className="text-[10px] text-gray-400 truncate max-w-[160px]">
+                                  <span key={i} className="text-[10px] text-gray-600 truncate max-w-[160px]">
                                     {it.cantidad} {it.descripcion.slice(0, 28)}{it.descripcion.length > 28 ? '…' : ''}
                                     {(r.items_resumen?.length ?? 0) > 1 ? ` +${(r.items_resumen?.length ?? 0) - 1}` : ''}
                                   </span>
@@ -664,12 +686,12 @@ export function Remitos() {
                                 <>
                                   <p className="text-[11px] text-gray-600">{fmtFecha(r.fecha_entrega_est)}</p>
                                   {urg === 'entregado' && <p className="text-[10px] text-emerald-600 font-semibold">Entregado</p>}
-                                  {urg === 'cancelado' && <p className="text-[10px] text-gray-400">Cancelado</p>}
+                                  {urg === 'cancelado' && <p className="text-[10px] text-gray-600">Cancelado</p>}
                                   {urg === 'atrasado' && <p className="text-[10px] text-red-600 font-semibold">Vencida</p>}
                                   {urg === 'para_hoy' && <p className="text-[10px] text-orange-600 font-semibold">Hoy</p>}
-                                  {urg === 'pendiente' && dias !== null && <p className="text-[10px] text-gray-400">{dias === 1 ? 'Mañana' : `En ${dias}d`}</p>}
+                                  {urg === 'pendiente' && dias !== null && <p className="text-[10px] text-gray-600">{dias === 1 ? 'Mañana' : `En ${dias}d`}</p>}
                                 </>
-                              ) : <p className="text-[11px] text-gray-300">—</p>}
+                              ) : <p className="text-[11px] text-gray-600">—</p>}
                             </div>
                             {/* Acciones */}
                             <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -699,12 +721,12 @@ export function Remitos() {
 
                   {/* Paginación */}
                   <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-gray-600">
                       Mostrando {Math.min((page - 1) * perPage + 1, filtrado.length)} a {Math.min(page * perPage, filtrado.length)} de {filtrado.length} remito{filtrado.length !== 1 ? 's' : ''}
                     </p>
                     <div className="flex items-center gap-1">
                       <button type="button" disabled={page === 1} onClick={() => setPage(p => p - 1)}
-                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 disabled:opacity-40">
+                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-40">
                         ‹
                       </button>
                       {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
@@ -717,7 +739,7 @@ export function Remitos() {
                         </button>
                       ))}
                       <button type="button" disabled={page === totalPages || totalPages === 0} onClick={() => setPage(p => p + 1)}
-                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 disabled:opacity-40">
+                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-40">
                         ›
                       </button>
                     </div>
@@ -729,7 +751,7 @@ export function Remitos() {
             {/* Bottom bar de métricas */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Métodos de entrega */}
-              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+              <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
                     <Truck size={14} className="text-blue-600" />
@@ -748,19 +770,19 @@ export function Remitos() {
               </div>
 
               {/* Tiempo promedio */}
-              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+              <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center">
                     <Clock size={14} className="text-teal-600" />
                   </div>
                   <p className="text-[11px] font-semibold text-gray-600">Tiempo promedio de entrega</p>
                 </div>
-                <p className="text-2xl font-extrabold text-gray-900 mt-1">{data.metricas.tiempo_promedio || '—'} <span className="text-sm font-medium text-gray-400">días</span></p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Este mes</p>
+                <p className="text-2xl font-extrabold text-gray-900 mt-1">{data.metricas.tiempo_promedio || '—'} <span className="text-sm font-medium text-gray-600">días</span></p>
+                <p className="text-[11px] text-gray-600 mt-0.5">Este mes</p>
               </div>
 
               {/* % a tiempo */}
-              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+              <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <CheckCircle2 size={14} className="text-emerald-600" />
@@ -768,11 +790,11 @@ export function Remitos() {
                   <p className="text-[11px] font-semibold text-gray-600">Remitos entregados a tiempo</p>
                 </div>
                 <p className="text-2xl font-extrabold text-gray-900 mt-1">{data.metricas.pct_a_tiempo}%</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Este mes</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">Este mes</p>
               </div>
 
               {/* Valor entregado */}
-              <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+              <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
                     <DollarSign size={14} className="text-green-600" />
@@ -780,7 +802,7 @@ export function Remitos() {
                   <p className="text-[11px] font-semibold text-gray-600">Valor entregado (mes)</p>
                 </div>
                 <p className="text-xl font-extrabold text-gray-900 mt-1 tabular-nums">{formatCurrency(data.metricas.valor_entregado_mes)}</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">En {data.metricas.entregados_mes} remitos</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">En {data.metricas.entregados_mes} remitos</p>
               </div>
             </div>
           </div>
@@ -789,28 +811,30 @@ export function Remitos() {
           <div className="w-[280px] shrink-0 space-y-4">
 
             {/* Entregas del día */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-1">
                 <CalendarClock size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Entregas del día</h2>
               </div>
-              <p className="text-[11px] text-gray-400 mb-3 capitalize">{fechaHoyLabel}</p>
+              <p className="text-[11px] text-gray-600 mb-3 capitalize">{fechaHoyLabel}</p>
               {data.entregas_hoy.length === 0 ? (
-                <p className="text-xs text-gray-400 py-3 text-center">Sin entregas programadas para hoy</p>
+                <p className="text-xs text-gray-600 py-3 text-center">Sin entregas programadas para hoy</p>
               ) : (
                 <>
                   {data.entregas_hoy.map(e => (
-                    <Link key={e.id} to={`/remitos`}
-                      className="flex items-start justify-between py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div>
+                    <div key={e.id} className="flex items-start justify-between py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors">
+                      <Link to={`/remitos`} className="min-w-0">
                         <p className="text-[11px] font-mono font-bold text-blue-600">{e.numero}</p>
                         <p className="text-[11px] text-gray-700 truncate max-w-[130px]">{ncl(e.cliente)}</p>
+                        {e.hora_entrega_est && (
+                          <p className="text-[10px] text-orange-600 font-bold">{e.hora_entrega_est.slice(0, 5)}hs</p>
+                        )}
+                      </Link>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <p className="text-[11px] font-bold text-gray-800 tabular-nums mr-1">{formatCurrency(Number(e.valor_total))}</p>
+                        <AccionesEntrega remitoId={e.id} telefono={e.cliente.telefono} direccionEntrega={e.direccion_entrega} />
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[11px] font-bold text-gray-800 tabular-nums">{formatCurrency(Number(e.valor_total))}</p>
-                        <p className="text-[10px] text-orange-500 font-semibold">Hoy</p>
-                      </div>
-                    </Link>
+                    </div>
                   ))}
                   {data.entregas_hoy.length > 3 && (
                     <button type="button" className="flex items-center gap-1 mt-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 px-2">
@@ -848,7 +872,7 @@ export function Remitos() {
             )}
 
             {/* Resumen logístico */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={14} className="text-teal-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen logístico</h2>
@@ -878,7 +902,7 @@ export function Remitos() {
             </div>
 
             {/* Acciones rápidas */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-violet-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Acciones rápidas</h2>
@@ -925,15 +949,15 @@ export function Remitos() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-gray-800">Enviar remito</p>
-                  <p className="text-xs text-gray-400">{shareRemito.numero}</p>
+                  <p className="text-xs text-gray-600">{shareRemito.numero}</p>
                 </div>
               </div>
-              <button onClick={() => setShareRemito(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+              <button onClick={() => setShareRemito(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600">
                 <X size={15} />
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-gray-600 mb-4">
               Se enviará el remito con link de confirmación a <strong>{ncl(shareRemito.cliente)}</strong>
               {shareRemito.cliente.telefono && <> ({shareRemito.cliente.telefono})</>}.
             </p>
@@ -942,7 +966,7 @@ export function Remitos() {
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors mb-2">
               <Send size={14} /> {enviandoWA ? 'Enviando...' : 'Enviar por WhatsApp'}
             </button>
-            <button onClick={() => setShareRemito(null)} className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+            <button onClick={() => setShareRemito(null)} className="w-full py-2 text-xs text-gray-600 hover:text-gray-600">
               Cancelar
             </button>
           </div>

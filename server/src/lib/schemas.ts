@@ -402,6 +402,13 @@ export const RemitoEstadoSchema = z.object({
   fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 });
 
+export const RemitoProgramarEntregaSchema = z.object({
+  fecha_entrega_est: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  hora_entrega_est:  z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  direccion_entrega: zText(255).optional(),
+  notas:             zText(2000).optional(),
+});
+
 // ── Venta rápida de mostrador ────────────────────────────────────
 const VentaRapidaItemSchema = z.object({
   producto_id:     zUUID,

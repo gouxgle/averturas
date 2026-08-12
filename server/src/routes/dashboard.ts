@@ -219,6 +219,7 @@ dashboard.get('/resumen', async (c) => {
     recientes,
     pedidosAtrasados,
     oportunidadesPendientes,
+    entregasHoy,
   ] = await Promise.all([
 
     db.query(`
@@ -357,6 +358,18 @@ dashboard.get('/resumen', async (c) => {
       ORDER BY o.fecha_recontacto ASC
       LIMIT 20
     `),
+
+    db.query(`
+      SELECT r.id, r.numero, r.hora_entrega_est, r.direccion_entrega,
+        json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+          'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
+          'telefono', cl.telefono) AS cliente
+      FROM remitos r
+      JOIN clientes cl ON cl.id = r.cliente_id
+      WHERE r.fecha_entrega_est = CURRENT_DATE AND r.estado = 'emitido'
+      ORDER BY r.hora_entrega_est ASC NULLS LAST
+      LIMIT 10
+    `),
   ]);
 
   const s = statsRow.rows[0];
@@ -381,6 +394,7 @@ dashboard.get('/resumen', async (c) => {
     recientes:             recientes.rows,
     pedidos_atrasados:     pedidosAtrasados.rows,
     oportunidades_pendientes: oportunidadesPendientes.rows,
+    entregas_hoy:          entregasHoy.rows,
   });
 });
 

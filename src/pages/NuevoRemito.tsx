@@ -3,13 +3,14 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
   MapPin, Hash, RefreshCw, Search, X as XIcon,
-  FileText, CheckSquare, Square, Download, ChevronDown
+  FileText, CheckSquare, Square, Download, ChevronDown, CalendarClock
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
+import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Operacion {
@@ -80,6 +81,7 @@ interface RemitoDetalle {
   direccion_entrega: string | null;
   fecha_emision: string;
   fecha_entrega_est: string | null;
+  hora_entrega_est: string | null;
   notas: string | null;
   items: (RemitoItem & { id: string; producto: Producto | null })[];
   cliente: Cliente;
@@ -142,7 +144,9 @@ export function NuevoRemito() {
   const [direccionEntrega, setDireccionEntrega] = useState('');
   const [fechaEmision, setFechaEmision]   = useState(new Date().toISOString().split('T')[0]);
   const [fechaEntregaEst, setFechaEntregaEst] = useState('');
+  const [horaEntregaEst, setHoraEntregaEst] = useState('');
   const [notas, setNotas]                 = useState('');
+  const [showProgramar, setShowProgramar] = useState(false);
   const [items, setItems]                 = useState<RemitoItem[]>([emptyItem()]);
   // búsqueda de producto por posición de ítem
   const [prodSearch, setProdSearch]       = useState<string[]>(['']);
@@ -229,6 +233,7 @@ export function NuevoRemito() {
       setDireccionEntrega(r.direccion_entrega ?? '');
       setFechaEmision(r.fecha_emision.split('T')[0]);
       setFechaEntregaEst(r.fecha_entrega_est?.split('T')[0] ?? '');
+      setHoraEntregaEst(r.hora_entrega_est?.slice(0, 5) ?? '');
       setNotas(r.notas ?? '');
       const mappedItems = r.items.map(it => ({
         producto_id:     it.producto_id,
@@ -366,7 +371,7 @@ export function NuevoRemito() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/remitos')}
-          className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
+          className="p-2 hover:bg-gray-100 rounded-xl text-gray-600">
           <ArrowLeft size={18} />
         </button>
         <div className="flex items-center gap-3 flex-1">
@@ -377,7 +382,7 @@ export function NuevoRemito() {
             <h1 className="text-xl font-bold text-gray-900">
               {isEdit ? 'Editar remito' : 'Nuevo remito'}
             </h1>
-            <p className="text-sm text-gray-500">Solo borradores editables</p>
+            <p className="text-sm text-gray-600">Solo borradores editables</p>
           </div>
         </div>
         <button onClick={handleSave} disabled={saving}
@@ -418,7 +423,7 @@ export function NuevoRemito() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-emerald-800">{listo.numero}</span>
-                      <span className="text-xs text-gray-500">—</span>
+                      <span className="text-xs text-gray-600">—</span>
                       <span className="text-sm text-gray-800 font-medium truncate">
                         {listo.cliente.tipo_persona === 'juridica'
                           ? listo.cliente.razon_social
@@ -426,7 +431,7 @@ export function NuevoRemito() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-600">
                         $ {Number(listo.precio_total).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
                       </span>
                       <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
@@ -448,7 +453,7 @@ export function NuevoRemito() {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Cliente */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">1</span>
               Cliente
@@ -462,7 +467,7 @@ export function NuevoRemito() {
                 <div className="flex-1">
                   <p className="font-semibold text-gray-900 text-sm">{clienteLabel(clienteSeleccionado)}</p>
                   {clienteSeleccionado.telefono && (
-                    <p className="text-xs text-gray-500">{clienteSeleccionado.telefono}</p>
+                    <p className="text-xs text-gray-600">{clienteSeleccionado.telefono}</p>
                   )}
                 </div>
                 <button onClick={() => { setClienteId(''); setClienteSearch(''); }}
@@ -470,7 +475,7 @@ export function NuevoRemito() {
               </div>
             ) : (
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input
                   value={clienteSearch}
                   onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
@@ -492,9 +497,9 @@ export function NuevoRemito() {
                           if (dir) setDireccionEntrega(dir);
                         }
                       }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-50 last:border-0">
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-200 last:border-0">
                         <span className="font-medium">{clienteLabel(cl)}</span>
-                        {cl.telefono && <span className="text-gray-400 ml-2 text-xs">{cl.telefono}</span>}
+                        {cl.telefono && <span className="text-gray-600 ml-2 text-xs">{cl.telefono}</span>}
                       </button>
                     ))}
                   </div>
@@ -505,14 +510,14 @@ export function NuevoRemito() {
 
           {/* Presupuesto vinculado */}
           {(clienteId || operacionFromUrl) && (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">2</span>
                 Presupuesto vinculado
               </h2>
 
               {operaciones.length === 0 && !operacionFromUrl ? (
-                <p className="text-xs text-gray-400 italic">No hay presupuestos aprobados para este cliente</p>
+                <p className="text-xs text-gray-600 italic">No hay presupuestos aprobados para este cliente</p>
               ) : (
                 <>
                   {/* Cuando viene de Pedidos: operación fija — no dropdown */}
@@ -597,7 +602,7 @@ export function NuevoRemito() {
                   {/* Ítems del presupuesto seleccionado */}
                   {operacionId && (
                     loadingOp ? (
-                      <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-600 py-3">
                         <RefreshCw size={12} className="animate-spin" /> Cargando ítems...
                       </div>
                     ) : opItems.length > 0 ? (
@@ -621,7 +626,7 @@ export function NuevoRemito() {
                             }
                             {selectedOp.size === opItems.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
                           </button>
-                          <span className="text-[10px] text-gray-400">{selectedOp.size} de {opItems.length} seleccionados</span>
+                          <span className="text-[10px] text-gray-600">{selectedOp.size} de {opItems.length} seleccionados</span>
                         </div>
 
                         {/* Lista de ítems */}
@@ -633,24 +638,24 @@ export function NuevoRemito() {
                               next.has(i) ? next.delete(i) : next.add(i);
                               return next;
                             })}
-                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b border-gray-50 last:border-0 transition-colors ${
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b border-gray-200 last:border-0 transition-colors ${
                               selectedOp.has(i) ? 'bg-teal-50/60' : 'hover:bg-gray-50'
                             }`}
                           >
                             {selectedOp.has(i)
                               ? <CheckSquare size={14} className="text-teal-500 shrink-0" />
-                              : <Square size={14} className="text-gray-300 shrink-0" />
+                              : <Square size={14} className="text-gray-600 shrink-0" />
                             }
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-gray-800 truncate">{it.descripcion}</p>
                               {it.medida_ancho && it.medida_alto && (
-                                <p className="text-[10px] text-gray-400">{it.medida_ancho}×{it.medida_alto}m</p>
+                                <p className="text-[10px] text-gray-600">{it.medida_ancho}×{it.medida_alto}m</p>
                               )}
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-xs font-semibold text-gray-700">×{it.cantidad}</p>
                               {it.precio_unitario > 0 && (
-                                <p className="text-[10px] text-gray-400">${Number(it.precio_unitario).toLocaleString('es-AR')}</p>
+                                <p className="text-[10px] text-gray-600">${Number(it.precio_unitario).toLocaleString('es-AR')}</p>
                               )}
                             </div>
                           </div>
@@ -658,7 +663,7 @@ export function NuevoRemito() {
 
                         {/* Botón importar */}
                         <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                          <p className="text-[10px] text-gray-400">
+                          <p className="text-[10px] text-gray-600">
                             {selectedOp.size === opItems.length ? 'Entrega total' : `Entrega parcial (${selectedOp.size} ítem${selectedOp.size !== 1 ? 's' : ''})`}
                           </p>
                           <button
@@ -672,7 +677,7 @@ export function NuevoRemito() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 italic">El presupuesto no tiene ítems</p>
+                      <p className="text-xs text-gray-600 italic">El presupuesto no tiene ítems</p>
                     )
                   )}
                 </>
@@ -681,7 +686,7 @@ export function NuevoRemito() {
           )}
 
           {/* Ítems */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600">
                 {clienteId ? '3' : '2'}
@@ -691,11 +696,11 @@ export function NuevoRemito() {
 
             <div className="space-y-3">
               {items.map((item, i) => (
-                <div key={i} className="p-3 bg-gray-100 rounded-xl border border-gray-300">
+                <div key={i} className="p-3 bg-gray-100 rounded-xl border border-gray-400">
                   <div className="grid grid-cols-12 gap-2 mb-2">
                     {/* Selector producto con búsqueda */}
                     <div className="col-span-5">
-                      <label className="block text-[10px] font-medium text-gray-500 mb-1">Producto</label>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-1">Producto</label>
                       {item.producto_id ? (
                         <div className="flex items-center gap-1 px-2 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
                           <span className="text-xs text-teal-800 flex-1 truncate">
@@ -710,7 +715,7 @@ export function NuevoRemito() {
                         </div>
                       ) : (
                         <div className="relative">
-                          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600" />
                           <input
                             value={prodSearch[i] ?? ''}
                             onChange={e => { setProdSearchAt(i, e.target.value); setProdOpenAt(i, true); }}
@@ -736,17 +741,17 @@ export function NuevoRemito() {
                                       setProdSearchAt(i, p.nombre);
                                       setProdOpenAt(i, false);
                                     }}
-                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs border-b border-gray-50 last:border-0">
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs border-b border-gray-200 last:border-0">
                                     <span className="font-medium text-gray-800">{p.nombre}</span>
-                                    {p.codigo && <span className="text-gray-400 ml-1.5">{p.codigo}</span>}
-                                    <span className="text-gray-300 ml-1.5 capitalize">{p.tipo.replace('_', ' ')}</span>
+                                    {p.codigo && <span className="text-gray-600 ml-1.5">{p.codigo}</span>}
+                                    <span className="text-gray-600 ml-1.5 capitalize">{p.tipo.replace('_', ' ')}</span>
                                   </button>
                                 ))}
                               {productos.filter(p => {
                                 const q = (prodSearch[i] ?? '').toLowerCase();
                                 return !q || p.nombre.toLowerCase().includes(q) || (p.codigo ?? '').toLowerCase().includes(q);
                               }).length === 0 && (
-                                <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
+                                <p className="px-3 py-2 text-xs text-gray-600">Sin resultados</p>
                               )}
                             </div>
                           )}
@@ -756,7 +761,7 @@ export function NuevoRemito() {
 
                     {/* Descripción */}
                     <div className="col-span-7">
-                      <label className="block text-[10px] font-medium text-gray-500 mb-1">Descripción *</label>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-1">Descripción *</label>
                       <input
                         value={item.descripcion}
                         onChange={e => updateItem(i, 'descripcion', e.target.value)}
@@ -769,7 +774,7 @@ export function NuevoRemito() {
                   <div className="grid grid-cols-12 gap-2 items-end">
                     {/* Cantidad */}
                     <div className="col-span-2">
-                      <label className="block text-[10px] font-medium text-gray-500 mb-1">Cant.</label>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-1">Cant.</label>
                       <input type="number" min="1"
                         value={item.cantidad}
                         onChange={e => updateItem(i, 'cantidad', parseInt(e.target.value) || 1)}
@@ -779,7 +784,7 @@ export function NuevoRemito() {
 
                     {/* Precio */}
                     <div className="col-span-3">
-                      <label className="block text-[10px] font-medium text-gray-500 mb-1">Precio unit.</label>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-1">Precio unit.</label>
                       <MontoInput
                         value={item.precio_unitario}
                         onChange={v => updateItem(i, 'precio_unitario', v)}
@@ -790,13 +795,13 @@ export function NuevoRemito() {
 
                     {/* Estado producto */}
                     <div className="col-span-4">
-                      <label className="block text-[10px] font-medium text-gray-500 mb-1">Estado</label>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-1">Estado</label>
                       <div className="flex gap-1">
                         {ESTADOS_PRODUCTO.map(ep => (
                           <button key={ep.value}
                             onClick={() => updateItem(i, 'estado_producto', ep.value)}
                             className={`flex-1 py-1 rounded-lg text-[10px] font-medium border transition-all ${
-                              item.estado_producto === ep.value ? ep.color : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                              item.estado_producto === ep.value ? ep.color : 'border-gray-200 text-gray-600 hover:border-gray-400'
                             }`}>
                             {ep.label}
                           </button>
@@ -806,7 +811,7 @@ export function NuevoRemito() {
 
                     {/* Notas item */}
                     <div className="col-span-2">
-                      <label className="block text-[10px] font-medium text-gray-500 mb-1">Notas</label>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-1">Notas</label>
                       <input
                         value={item.notas_item}
                         onChange={e => updateItem(i, 'notas_item', e.target.value)}
@@ -835,7 +840,7 @@ export function NuevoRemito() {
             {precioTotal > 0 && (
               <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">Total estimado</p>
+                  <p className="text-xs text-gray-600">Total estimado</p>
                   <p className="text-lg font-bold text-gray-900">
                     $ {precioTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </p>
@@ -849,7 +854,7 @@ export function NuevoRemito() {
         <div className="space-y-4">
 
           {/* Medio de envío */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <Truck size={14} className="text-teal-500" /> Envío
             </h2>
@@ -888,7 +893,7 @@ export function NuevoRemito() {
           </div>
 
           {/* Fechas y dirección */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5 space-y-3">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Package size={14} className="text-teal-500" /> Detalles
             </h2>
@@ -903,6 +908,13 @@ export function NuevoRemito() {
               <label className="block text-xs font-medium text-gray-600 mb-1">Entrega estimada</label>
               <input type="date" value={fechaEntregaEst} onChange={e => setFechaEntregaEst(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              {isEdit && id && (
+                <button type="button" onClick={() => setShowProgramar(true)}
+                  className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
+                  <CalendarClock size={12} />
+                  {horaEntregaEst ? `Programada a las ${horaEntregaEst}hs — reprogramar` : 'Programar horario y recordatorios'}
+                </button>
+              )}
             </div>
 
             <div>
@@ -944,6 +956,19 @@ export function NuevoRemito() {
           entityEndpoint={`/remitos/${savedId}`}
           clienteNombre={clienteSeleccionado ? clienteLabel(clienteSeleccionado) : undefined}
           clienteTelefono={clienteSeleccionado?.telefono ?? undefined}
+        />
+      )}
+
+      {showProgramar && id && (
+        <ModalProgramarEntrega
+          remito={{ id, fecha_entrega_est: fechaEntregaEst || null, hora_entrega_est: horaEntregaEst || null, direccion_entrega: direccionEntrega || null, notas: notas || null }}
+          onClose={() => setShowProgramar(false)}
+          onSuccess={(r) => {
+            setFechaEntregaEst(r.fecha_entrega_est?.slice(0, 10) ?? '');
+            setHoraEntregaEst(r.hora_entrega_est?.slice(0, 5) ?? '');
+            setDireccionEntrega(r.direccion_entrega ?? '');
+            setNotas(r.notas ?? '');
+          }}
         />
       )}
     </div>

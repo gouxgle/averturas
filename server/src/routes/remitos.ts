@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
-import { RemitoSchema, RemitoEstadoSchema } from '../lib/schemas.js';
+import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '../lib/schemas.js';
+import { sincronizarTareaEntrega, completarTareaDeEntrega } from '../lib/remitos.js';
+import { enviarWhatsapp } from '../lib/whatsapp.js';
 
 const remitos = new Hono();
 
@@ -88,19 +90,19 @@ remitos.get('/tablero', async (c) => {
     `),
 
     db.query(`
-      SELECT r.id, r.numero, r.fecha_entrega_est,
+      SELECT r.id, r.numero, r.fecha_entrega_est, r.hora_entrega_est, r.direccion_entrega,
         json_build_object('nombre', c.nombre, 'apellido', c.apellido,
-          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona) AS cliente,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona, 'telefono', c.telefono) AS cliente,
         COALESCE((SELECT SUM(ri.precio_unitario * ri.cantidad) FROM remito_items ri WHERE ri.remito_id = r.id), 0)::numeric AS valor_total
       FROM remitos r JOIN clientes c ON c.id = r.cliente_id
       WHERE r.fecha_entrega_est = CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado')
-      ORDER BY r.created_at ASC LIMIT 10
+      ORDER BY r.hora_entrega_est ASC NULLS LAST LIMIT 10
     `),
 
     db.query(`
-      SELECT r.id, r.numero, r.fecha_entrega_est,
+      SELECT r.id, r.numero, r.fecha_entrega_est, r.hora_entrega_est, r.direccion_entrega,
         json_build_object('nombre', c.nombre, 'apellido', c.apellido,
-          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona) AS cliente,
+          'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona, 'telefono', c.telefono) AS cliente,
         COALESCE((SELECT SUM(ri.precio_unitario * ri.cantidad) FROM remito_items ri WHERE ri.remito_id = r.id), 0)::numeric AS valor_total
       FROM remitos r JOIN clientes c ON c.id = r.cliente_id
       WHERE r.fecha_entrega_est < CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado')
@@ -335,6 +337,93 @@ remitos.post('/:id/enviar-whatsapp', async (c) => {
   }
 
   return c.json({ enviado: true, numero, url });
+});
+
+// PATCH /:id/programar-entrega — fecha+hora+dirección+observaciones de entrega,
+// sin exigir estado 'borrador' ni tocar los ítems (a diferencia de PUT /:id)
+remitos.patch('/:id/programar-entrega', async (c) => {
+  const { id } = c.req.param();
+  const b = await validateBody(c, RemitoProgramarEntregaSchema);
+  if (b instanceof Response) return b;
+
+  const { rows: [actual] } = await db.query(
+    `SELECT estado, fecha_entrega_est, hora_entrega_est FROM remitos WHERE id = $1`, [id]
+  );
+  if (!actual) return c.json({ error: 'Remito no encontrado' }, 404);
+  if (!['borrador', 'emitido'].includes(actual.estado)) {
+    return c.json({ error: 'Solo se puede programar la entrega de un remito en borrador o emitido' }, 409);
+  }
+
+  // Reprogramar (cambió fecha u hora) resetea los avisos ya vistos — si no,
+  // una entrega movida nunca vuelve a avisar.
+  const fechaActual = actual.fecha_entrega_est ? new Date(actual.fecha_entrega_est).toISOString().slice(0, 10) : null;
+  const horaActual  = actual.hora_entrega_est ? String(actual.hora_entrega_est).slice(0, 5) : null;
+  const cambio = fechaActual !== b.fecha_entrega_est || horaActual !== (b.hora_entrega_est ?? null);
+
+  await db.query(`
+    UPDATE remitos SET
+      fecha_entrega_est  = $1::date,
+      hora_entrega_est   = $2::time,
+      direccion_entrega  = COALESCE($3, direccion_entrega),
+      notas              = COALESCE($4, notas),
+      recordatorio_dia_antes_visto  = CASE WHEN $5 THEN false ELSE recordatorio_dia_antes_visto END,
+      recordatorio_hora_antes_visto = CASE WHEN $5 THEN false ELSE recordatorio_hora_antes_visto END,
+      updated_at = now()
+    WHERE id = $6
+  `, [b.fecha_entrega_est, b.hora_entrega_est || null, b.direccion_entrega || null, b.notas || null, cambio, id]);
+
+  await sincronizarTareaEntrega(db, id);
+
+  const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
+  return c.json(updated);
+});
+
+// GET /:id/plantilla-entrega — mensaje sugerido para el recordatorio de WhatsApp
+remitos.get('/:id/plantilla-entrega', async (c) => {
+  const { id } = c.req.param();
+  const [{ rows: [rem] }, { rows: [tpl] }, { rows: [empresa] }] = await Promise.all([
+    db.query(`
+      SELECT r.hora_entrega_est, cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona
+      FROM remitos r JOIN clientes cl ON cl.id = r.cliente_id
+      WHERE r.id = $1
+    `, [id]),
+    db.query(`SELECT contenido FROM mensajes_plantilla WHERE clave = 'entrega_recordatorio'`),
+    db.query(`SELECT nombre FROM empresa ORDER BY updated_at DESC LIMIT 1`),
+  ]);
+  if (!rem) return c.json({ error: 'Remito no encontrado' }, 404);
+
+  const nombreCliente = rem.tipo_persona === 'juridica' ? (rem.razon_social ?? '') : (rem.nombre ?? '');
+  const hora = rem.hora_entrega_est ? String(rem.hora_entrega_est).slice(0, 5) : '';
+
+  const contenido = tpl?.contenido
+    ?? 'Hola {{nombre}}! Te escribo de {{empresa}} para avisarte que tu entrega está programada para hoy a las {{hora}}hs.';
+
+  const mensaje = contenido
+    .replace(/\{\{nombre\}\}/g, nombreCliente)
+    .replace(/\{\{empresa\}\}/g, empresa?.nombre ?? '')
+    .replace(/\{\{hora\}\}/g, hora);
+
+  return c.json({ mensaje });
+});
+
+// POST /:id/recordatorio-whatsapp — envía el recordatorio de entrega próxima
+remitos.post('/:id/recordatorio-whatsapp', async (c) => {
+  const { id } = c.req.param();
+  const body = await c.req.json().catch(() => ({}));
+  const mensaje: string | undefined = body?.mensaje;
+  if (!mensaje?.trim()) return c.json({ error: 'Mensaje requerido' }, 422);
+
+  const { rows: [rem] } = await db.query(
+    `SELECT r.id, c.telefono FROM remitos r JOIN clientes c ON c.id = r.cliente_id WHERE r.id = $1`, [id]
+  );
+  if (!rem) return c.json({ error: 'Remito no encontrado' }, 404);
+  if (!rem.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
+
+  const resultado = await enviarWhatsapp(rem.telefono, mensaje);
+  if (!resultado.ok) return c.json({ error: resultado.error }, resultado.status as 422 | 500 | 502);
+
+  await db.query(`UPDATE remitos SET recordatorio_hora_antes_visto = true WHERE id = $1`, [id]);
+  return c.json({ enviado: true });
 });
 
 // GET /:id — detalle con items
@@ -641,6 +730,12 @@ remitos.patch('/:id/estado', async (c) => {
         UPDATE operaciones SET estado = 'entregado', updated_at = now()
         WHERE id = $1 AND estado NOT IN ('cancelado', 'entregado')
       `, [remito.operacion_id]);
+    }
+
+    // Entregado o cancelado: la tarea espejo de "Entrega programada" se
+    // completa (no se borra, queda de historial en la agenda del CRM).
+    if ((nuevoEstado === 'entregado' || nuevoEstado === 'cancelado') && remito.tarea_id) {
+      await completarTareaDeEntrega(client, id);
     }
 
     await client.query('COMMIT');
