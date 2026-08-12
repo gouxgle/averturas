@@ -237,15 +237,15 @@ function SectionCard({
   title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
+    <div className="bg-white rounded-xl border border-gray-400 shadow-lg">
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
         accent ?? 'bg-gray-50 border-gray-200',
       )}>
-        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-400'} />
+        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-600'} />
         <span className={cn(
           'text-[11px] font-semibold uppercase tracking-wider',
-          accent ? '' : 'text-gray-500',
+          accent ? '' : 'text-gray-600',
         )}>{title}</span>
       </div>
       <div className="p-4">{children}</div>
@@ -650,12 +650,12 @@ export default function NuevoPedido() {
 
     return (
       <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-8 text-center">
           <div className="w-16 h-16 bg-lime-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShoppingCart size={28} className="text-lime-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">Pedido creado</h2>
-          <p className="text-gray-500 text-sm mb-6">{savedNumero}</p>
+          <p className="text-gray-600 text-sm mb-6">{savedNumero}</p>
 
           {waEnviado && (
             <p className="text-xs text-green-600 font-medium mb-4">
@@ -701,7 +701,7 @@ export default function NuevoPedido() {
                   <p className="font-semibold text-gray-900 text-sm">Vista previa del mensaje</p>
                 </div>
                 <button onClick={() => setWaPreview(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                  <span className="text-gray-400 text-lg leading-none">×</span>
+                  <span className="text-gray-600 text-lg leading-none">×</span>
                 </button>
               </div>
 
@@ -711,7 +711,7 @@ export default function NuevoPedido() {
               </div>
 
               {proveedorSel?.telefono && (
-                <p className="text-[11px] text-gray-400 text-center mb-4">
+                <p className="text-[11px] text-gray-600 text-center mb-4">
                   Se enviará a {proveedorSel.telefono}
                 </p>
               )}
@@ -722,7 +722,7 @@ export default function NuevoPedido() {
                   {waEnviando ? 'Enviando...' : '✓ Confirmar envío'}
                 </button>
                 <button onClick={() => setWaPreview(false)}
-                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+                  className="w-full py-2 text-xs text-gray-600 hover:text-gray-600">
                   Cancelar
                 </button>
               </div>
@@ -748,7 +748,7 @@ export default function NuevoPedido() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate('/pedidos')}
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
         >
           <ArrowLeft size={18} />
         </button>
@@ -756,7 +756,7 @@ export default function NuevoPedido() {
           <h1 className="text-lg font-bold text-gray-900">
             {isEdit ? 'Editar pedido' : esStockPropio ? 'Pedido para stock propio' : 'Nuevo pedido al proveedor'}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             {esStockPropio ? 'Orden de compra para stock / salón — sin cliente' : 'Orden de compra'}
           </p>
         </div>
@@ -782,7 +782,7 @@ export default function NuevoPedido() {
             ))}
           </select>
           {proveedorSel && (
-            <div className="mt-2 flex gap-3 text-xs text-gray-500 px-1">
+            <div className="mt-2 flex gap-3 text-xs text-gray-600 px-1">
               {proveedorSel.contacto && <span>{proveedorSel.contacto}</span>}
               {proveedorSel.telefono && <span>{proveedorSel.telefono}</span>}
             </div>
@@ -812,18 +812,18 @@ export default function NuevoPedido() {
                     <button
                       key={prod.id}
                       onMouseDown={() => agregarProducto(prod)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-lime-50 border-b border-gray-50 last:border-0 flex items-center gap-2"
+                      className="w-full text-left px-4 py-2.5 hover:bg-lime-50 border-b border-gray-200 last:border-0 flex items-center gap-2"
                     >
                       {prod.imagen_url ? (
                         <img src={prod.imagen_url} alt="" className="w-9 h-9 rounded-lg object-cover border border-gray-200 shrink-0" />
                       ) : (
                         <div className="w-9 h-9 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
-                          <Package size={14} className="text-gray-300" />
+                          <Package size={14} className="text-gray-600" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 truncate">{prod.nombre}</p>
-                        <p className="text-[11px] text-gray-400">
+                        <p className="text-[11px] text-gray-600">
                           Stock: {prod.stock_actual ?? 0}{prod.costo_base ? ` · costo ${formatCurrency(Number(prod.costo_base))}` : ''}
                         </p>
                       </div>
@@ -850,7 +850,7 @@ export default function NuevoPedido() {
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
                 <div>
                   <p className="font-semibold text-gray-900">{operacionSel.numero}</p>
-                  <p className="text-sm text-gray-500">{nombreCliente(operacionSel)}</p>
+                  <p className="text-sm text-gray-600">{nombreCliente(operacionSel)}</p>
                   {operacionSel.proveedor_nombre && (
                     <p className="text-xs text-blue-500">Proveedor: {operacionSel.proveedor_nombre}</p>
                   )}
@@ -858,7 +858,7 @@ export default function NuevoPedido() {
                 {!urlOperacionId && (
                   <button
                     onClick={() => { setOperacionSel(null); setOperacionId(''); setBusqOp(''); setItems([{ descripcion: '', cantidad: 1, costo_unitario: 0 }]); }}
-                    className="p-1.5 rounded-lg hover:bg-blue-100 text-gray-400"
+                    className="p-1.5 rounded-lg hover:bg-blue-100 text-gray-600"
                   >
                     ✕
                   </button>
@@ -885,10 +885,10 @@ export default function NuevoPedido() {
               {/* Lista de ops disponibles */}
               {!isEdit && (
                 loadingOpsDisponibles ? (
-                  <p className="text-xs text-gray-400 text-center py-2">Cargando operaciones disponibles...</p>
+                  <p className="text-xs text-gray-600 text-center py-2">Cargando operaciones disponibles...</p>
                 ) : opsDisponibles.length > 0 ? (
                   <div>
-                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-2">
                       Listas para pedir ({opsDisponibles.length})
                     </p>
                     <div className="space-y-1.5 max-h-52 overflow-y-auto">
@@ -923,17 +923,17 @@ export default function NuevoPedido() {
                           </div>
                           <p className="text-xs text-gray-600">{nombreCliente(op)}</p>
                           {op.proveedor_nombre && (
-                            <p className="text-[10px] text-gray-400">{op.proveedor_nombre}</p>
+                            <p className="text-[10px] text-gray-600">{op.proveedor_nombre}</p>
                           )}
                         </button>
                       ))}
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-2 text-center">
+                    <p className="text-[10px] text-gray-600 mt-2 text-center">
                       O buscá otra operación abajo
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 text-center py-1">
+                  <p className="text-xs text-gray-600 text-center py-1">
                     Sin operaciones pendientes de pedido
                   </p>
                 )
@@ -958,10 +958,10 @@ export default function NuevoPedido() {
                           setShowOps(false);
                           await seleccionarOp(op);
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0"
+                        className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-200 last:border-0"
                       >
                         <p className="text-sm font-medium text-gray-900">{op.numero}</p>
-                        <p className="text-xs text-gray-500">{nombreCliente(op)}</p>
+                        <p className="text-xs text-gray-600">{nombreCliente(op)}</p>
                       </button>
                     ))}
                   </div>
@@ -1002,7 +1002,7 @@ export default function NuevoPedido() {
                 isCovered      ? 'bg-gray-100 border-gray-200 opacity-60' :
                 isReposicion   ? 'bg-violet-50 border-violet-200' :
                 enStockPasivo  ? 'bg-sky-50 border-sky-200' :
-                isDeselected   ? 'bg-gray-50 border-dashed border-gray-300 opacity-70' :
+                isDeselected   ? 'bg-gray-50 border-dashed border-gray-400 opacity-70' :
                                  'bg-gray-50 border-gray-200'
               )}>
                 {/* Checkbox — solo para ítems de operación no cubiertos y sin stock (los de stock se controlan con el toggle de reposición) */}
@@ -1011,7 +1011,7 @@ export default function NuevoPedido() {
                     type="checkbox"
                     checked={isActive}
                     onChange={e => updateItem(idx, 'selected', e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-lime-600 focus:ring-lime-400 shrink-0 cursor-pointer"
+                    className="mt-1 h-4 w-4 rounded border-gray-400 text-lime-600 focus:ring-lime-400 shrink-0 cursor-pointer"
                     title={isActive ? 'Quitar de este pedido' : 'Incluir en este pedido'}
                   />
                 )}
@@ -1023,7 +1023,7 @@ export default function NuevoPedido() {
                   </div>
                 ) : item.operacion_item_id ? (
                   <div className="w-14 h-14 shrink-0 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
-                    <Package size={18} className="text-gray-300" />
+                    <Package size={18} className="text-gray-600" />
                   </div>
                 ) : null}
 
@@ -1045,7 +1045,7 @@ export default function NuevoPedido() {
                       </p>
                     )}
                     {isDeselected && (
-                      <p className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded px-2 py-0.5 font-semibold">
+                      <p className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 rounded px-2 py-0.5 font-semibold">
                         Pendiente para otro proveedor
                       </p>
                     )}
@@ -1087,13 +1087,13 @@ export default function NuevoPedido() {
                     disabled={!isActive}
                     className={cn(
                       'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200',
-                      !isActive ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-default' : 'border-gray-200'
+                      !isActive ? 'bg-gray-100 text-gray-600 border-gray-200 cursor-default' : 'border-gray-200'
                     )}
                   />
                   {!isCovered && isActive && (
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[11px] text-gray-400 mb-0.5">Cantidad</label>
+                        <label className="block text-[11px] text-gray-600 mb-0.5">Cantidad</label>
                         <input
                           type="number"
                           min={1}
@@ -1103,7 +1103,7 @@ export default function NuevoPedido() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] text-gray-400 mb-0.5">Costo unitario</label>
+                        <label className="block text-[11px] text-gray-600 mb-0.5">Costo unitario</label>
                         <CostoInput
                           value={item.costo_unitario}
                           onChange={v => updateItem(idx, 'costo_unitario', v)}
@@ -1113,7 +1113,7 @@ export default function NuevoPedido() {
                     </div>
                   )}
                   {isActive && item.costo_unitario > 0 && (
-                    <p className="text-[11px] text-gray-500 text-right">
+                    <p className="text-[11px] text-gray-600 text-right">
                       Subtotal: {formatCurrency(item.costo_unitario * item.cantidad)}
                     </p>
                   )}
@@ -1122,7 +1122,7 @@ export default function NuevoPedido() {
                   <button
                     onClick={() => removeItem(idx)}
                     disabled={items.length === 1}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 disabled:opacity-0 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-600 hover:text-red-400 disabled:opacity-0 transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1133,7 +1133,7 @@ export default function NuevoPedido() {
 
             <button
               onClick={addItem}
-              className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 text-gray-500 text-sm py-2.5 rounded-xl hover:border-lime-400 hover:text-lime-600 transition-colors"
+              className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-400 text-gray-600 text-sm py-2.5 rounded-xl hover:border-lime-400 hover:text-lime-600 transition-colors"
             >
               <Plus size={14} />
               Agregar ítem
@@ -1147,9 +1147,9 @@ export default function NuevoPedido() {
                 </div>
                 <div className="flex justify-between items-center gap-2">
                   <div>
-                    <span className="text-sm text-gray-500">Costo de envío estimado</span>
+                    <span className="text-sm text-gray-600">Costo de envío estimado</span>
                     {costoEnvioManual === null && (
-                      <span className="text-[10px] text-gray-400 ml-1">(10% sugerido)</span>
+                      <span className="text-[10px] text-gray-600 ml-1">(10% sugerido)</span>
                     )}
                   </div>
                   <input
@@ -1191,7 +1191,7 @@ export default function NuevoPedido() {
                 onChange={e => setFechaEst(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-200"
               />
-              <p className="text-[10px] text-gray-400 mt-1">Por defecto: 3 días hábiles</p>
+              <p className="text-[10px] text-gray-600 mt-1">Por defecto: 3 días hábiles</p>
             </div>
           </div>
           <div>
@@ -1232,14 +1232,14 @@ export default function NuevoPedido() {
 
             {itemsSeleccionados.filter(i => i.descripcion.trim()).length > 0 && (
               <div className="border-t border-lime-200 pt-2 space-y-1.5">
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wider">
                   Items a enviar ({itemsSeleccionados.length})
                 </p>
                 {itemsSeleccionados.filter(i => i.descripcion.trim()).map((item, idx) => (
                   <div key={idx} className="flex justify-between items-baseline text-sm">
                     <span className="text-gray-700 truncate flex-1 pr-2">
                       {item.descripcion}
-                      <span className="text-gray-400 ml-1">×{item.cantidad}</span>
+                      <span className="text-gray-600 ml-1">×{item.cantidad}</span>
                     </span>
                     <span className="font-semibold text-gray-800 shrink-0">
                       {item.costo_unitario > 0 ? formatCurrency(item.costo_unitario * item.cantidad) : '—'}
@@ -1279,7 +1279,7 @@ export default function NuevoPedido() {
         )}
 
         {/* Guardar */}
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleSave}
@@ -1311,15 +1311,15 @@ export default function NuevoPedido() {
                 <LayoutGrid size={18} className="text-lime-600" />
                 <h2 className="text-sm font-bold text-gray-900">Galería de productos</h2>
               </div>
-              <button onClick={() => setGaleriaOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
+              <button onClick={() => setGaleriaOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600">
                 <X size={16} />
               </button>
             </div>
 
             {/* Buscador + filtro por tipo */}
-            <div className="px-5 py-3 border-b border-gray-100 space-y-2.5">
+            <div className="px-5 py-3 border-b border-gray-200 space-y-2.5">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input
                   value={galeriaSearch}
                   onChange={e => setGaleriaSearch(e.target.value)}
@@ -1331,13 +1331,13 @@ export default function NuevoPedido() {
                 <div className="flex gap-1.5 flex-wrap">
                   <button onClick={() => setGaleriaCat('')}
                     className={cn('text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors',
-                      !galeriaCat ? 'bg-lime-500 text-white border-lime-500' : 'border-gray-200 text-gray-500 hover:border-lime-300')}>
+                      !galeriaCat ? 'bg-lime-500 text-white border-lime-500' : 'border-gray-200 text-gray-600 hover:border-lime-300')}>
                     Todos
                   </button>
                   {galeriaTipos.map(t => (
                     <button key={t.id} onClick={() => setGaleriaCat(t.id === galeriaCat ? '' : t.id)}
                       className={cn('text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors',
-                        galeriaCat === t.id ? 'bg-lime-500 text-white border-lime-500' : 'border-gray-200 text-gray-500 hover:border-lime-300')}>
+                        galeriaCat === t.id ? 'bg-lime-500 text-white border-lime-500' : 'border-gray-200 text-gray-600 hover:border-lime-300')}>
                       {t.nombre}
                     </button>
                   ))}
@@ -1348,9 +1348,9 @@ export default function NuevoPedido() {
             {/* Grid de productos */}
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               {galeriaLoading ? (
-                <p className="text-sm text-gray-400 text-center py-8">Cargando catálogo...</p>
+                <p className="text-sm text-gray-600 text-center py-8">Cargando catálogo...</p>
               ) : galeriaFiltrada.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">Sin productos que coincidan</p>
+                <p className="text-sm text-gray-600 text-center py-8">Sin productos que coincidan</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {galeriaFiltrada.map(prod => (
@@ -1374,7 +1374,7 @@ export default function NuevoPedido() {
                       <div className="p-2">
                         <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">{prod.nombre}</p>
                         {prod.costo_base ? (
-                          <p className="text-[11px] text-gray-400 mt-0.5">costo {formatCurrency(Number(prod.costo_base))}</p>
+                          <p className="text-[11px] text-gray-600 mt-0.5">costo {formatCurrency(Number(prod.costo_base))}</p>
                         ) : null}
                       </div>
                     </button>
@@ -1383,8 +1383,8 @@ export default function NuevoPedido() {
               )}
             </div>
 
-            <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center">
-              <p className="text-xs text-gray-400">{items.filter(i => i.producto_id).length} producto(s) en el pedido</p>
+            <div className="px-5 py-3 border-t border-gray-200 flex justify-between items-center">
+              <p className="text-xs text-gray-600">{items.filter(i => i.producto_id).length} producto(s) en el pedido</p>
               <button onClick={() => setGaleriaOpen(false)}
                 className="bg-gray-800 hover:bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-xl">
                 Listo

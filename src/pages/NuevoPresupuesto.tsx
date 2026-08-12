@@ -799,7 +799,7 @@ export function NuevoPresupuesto() {
             onClick={() => navigate(-1)}
             className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0"
           >
-            <ArrowLeft size={17} className="text-gray-500" />
+            <ArrowLeft size={17} className="text-gray-600" />
           </button>
           <h1 className="text-sm font-bold text-gray-900">
             {isEdit ? 'Editar presupuesto' : 'Nuevo presupuesto'}
@@ -839,7 +839,7 @@ export function NuevoPresupuesto() {
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
           >
             <Save size={14} />
             Guardar borrador
@@ -879,7 +879,7 @@ export function NuevoPresupuesto() {
             <div className="p-6">
               <div className="relative">
                 <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-100">
-                  <Search size={15} className="text-gray-300 shrink-0" />
+                  <Search size={15} className="text-gray-600 shrink-0" />
                   <input
                     ref={clienteInputRef}
                     type="text"
@@ -894,7 +894,7 @@ export function NuevoPresupuesto() {
                 {clienteSearch && (
                   <div className="mt-2 border border-gray-200 rounded-xl shadow-sm max-h-64 overflow-y-auto">
                     {clientes.length === 0 ? (
-                      <div className="px-4 py-4 text-sm text-gray-500 text-center">
+                      <div className="px-4 py-4 text-sm text-gray-600 text-center">
                         No encontrado.{' '}
                         <button className="text-violet-600 hover:underline font-semibold"
                           onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>
@@ -904,11 +904,11 @@ export function NuevoPresupuesto() {
                     ) : clientes.slice(0, 8).map(c => (
                       <button key={c.id}
                         onClick={() => { setClienteId(c.id); setClientes([c]); setClienteSearch(''); setShowClienteList(false); }}
-                        className="w-full text-left px-4 py-3 hover:bg-violet-50 flex items-center justify-between border-b border-gray-50 last:border-0 transition-colors">
+                        className="w-full text-left px-4 py-3 hover:bg-violet-50 flex items-center justify-between border-b border-gray-200 last:border-0 transition-colors">
                         <span className="text-sm text-gray-800 font-medium">
                           {c.tipo_persona === 'juridica' ? c.razon_social : `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}
                         </span>
-                        <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
+                        <span className="text-xs text-gray-600">{c.telefono ?? ''}</span>
                       </button>
                     ))}
                   </div>
@@ -933,10 +933,10 @@ export function NuevoPresupuesto() {
           </div>
           <p className="text-xs font-bold text-gray-800 truncate flex-1 min-w-0">{clienteNombre}</p>
           {clienteSeleccionado?.telefono && (
-            <span className="hidden sm:inline text-[11px] text-gray-400">{clienteSeleccionado.telefono}</span>
+            <span className="hidden sm:inline text-[11px] text-gray-600">{clienteSeleccionado.telefono}</span>
           )}
           <button onClick={() => { setClienteId(''); setClienteSearch(''); }}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 text-[11px] font-semibold shrink-0">
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-600 text-[11px] font-semibold shrink-0">
             <Edit2 size={11} /> Cambiar
           </button>
         </div>
@@ -991,7 +991,7 @@ export function NuevoPresupuesto() {
                   'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-colors',
                   modo === key
                     ? 'bg-violet-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-white hover:text-gray-700'
+                    : 'text-gray-600 hover:bg-white hover:text-gray-700'
                 )}
               >
                 <Icon size={13} />
@@ -1028,7 +1028,7 @@ export function NuevoPresupuesto() {
               </div>
 
               {items.length > 0 && (
-                <p className="text-[11px] text-gray-400 text-center">
+                <p className="text-[11px] text-gray-600 text-center">
                   {items.length} abertura{items.length !== 1 ? 's' : ''} cargada{items.length !== 1 ? 's' : ''} — editalas en la columna del medio
                 </p>
               )}
@@ -1053,7 +1053,7 @@ export function NuevoPresupuesto() {
 
               {servicios.length > 0 && (
                 <>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">Servicios del catálogo</p>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mt-1">Servicios del catálogo</p>
                   <div className="flex gap-2">
                     <select
                       value={servicioSeleccionadoId}
@@ -1090,13 +1090,13 @@ export function NuevoPresupuesto() {
                   </div>
                   {(() => {
                     const s = servicios.find(sv => sv.id === servicioSeleccionadoId);
-                    return s?.descripcion ? <p className="text-[11px] text-gray-400 -mt-1">{s.descripcion}</p> : null;
+                    return s?.descripcion ? <p className="text-[11px] text-gray-600 -mt-1">{s.descripcion}</p> : null;
                   })()}
                 </>
               )}
 
               {items.length > 0 && (
-                <p className="text-[11px] text-gray-400 text-center mt-2">
+                <p className="text-[11px] text-gray-600 text-center mt-2">
                   {items.length} ítem{items.length !== 1 ? 's' : ''} cargado{items.length !== 1 ? 's' : ''} — editalos en la columna del medio
                 </p>
               )}
@@ -1168,7 +1168,7 @@ export function NuevoPresupuesto() {
                   'flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition-colors border-b-2',
                   tab === key
                     ? 'border-violet-600 text-violet-700 bg-violet-50'
-                    : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-600 hover:bg-gray-50'
                 )}
               >
                 <Icon size={13} />
@@ -1185,17 +1185,17 @@ export function NuevoPresupuesto() {
             {(tab === 'galeria' || tab === 'frecuentes') && (
               <>
                 {/* Search bar */}
-                <div className="px-3 py-2 border-b border-gray-50">
+                <div className="px-3 py-2 border-b border-gray-200">
                   <div className="flex items-center gap-2 px-2.5 py-1.5 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
-                    <Search size={12} className="text-gray-300 shrink-0" />
+                    <Search size={12} className="text-gray-600 shrink-0" />
                     <input
                       value={galSearch}
                       onChange={e => setGalSearch(e.target.value)}
                       placeholder="Buscar producto, medida o código..."
-                      className="flex-1 bg-transparent text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                      className="flex-1 bg-transparent text-xs text-gray-700 placeholder:text-gray-600 focus:outline-none"
                     />
                     {galSearch && (
-                      <button onMouseDown={() => setGalSearch('')} className="text-gray-300 hover:text-gray-500">
+                      <button onMouseDown={() => setGalSearch('')} className="text-gray-600 hover:text-gray-600">
                         <X size={11} />
                       </button>
                     )}
@@ -1203,12 +1203,12 @@ export function NuevoPresupuesto() {
                 </div>
 
                 {/* Category pills */}
-                <div className="flex gap-1.5 px-3 py-2 overflow-x-auto border-b border-gray-50 shrink-0">
+                <div className="flex gap-1.5 px-3 py-2 overflow-x-auto border-b border-gray-200 shrink-0">
                   <button
                     onClick={() => setCategoriaSel('')}
                     className={cn(
                       'shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors whitespace-nowrap',
-                      !categoriaSel ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-500 hover:border-violet-300'
+                      !categoriaSel ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-600 hover:border-violet-300'
                     )}
                   >
                     Todas
@@ -1219,7 +1219,7 @@ export function NuevoPresupuesto() {
                       onClick={() => setCategoriaSel(ta.id === categoriaSel ? '' : ta.id)}
                       className={cn(
                         'shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors whitespace-nowrap',
-                        categoriaSel === ta.id ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-500 hover:border-violet-300'
+                        categoriaSel === ta.id ? 'bg-violet-600 text-white' : 'border border-gray-200 text-gray-600 hover:border-violet-300'
                       )}
                     >
                       {ta.nombre}
@@ -1230,9 +1230,9 @@ export function NuevoPresupuesto() {
                 {/* Grid de productos */}
                 <div className="flex-1 overflow-y-auto p-3">
                   {productosLoading ? (
-                    <div className="flex items-center justify-center py-10 text-gray-400 text-xs">Cargando...</div>
+                    <div className="flex items-center justify-center py-10 text-gray-600 text-xs">Cargando...</div>
                   ) : productosOrdenados.length === 0 ? (
-                    <div className="flex items-center justify-center py-10 text-gray-400 text-xs">Sin resultados</div>
+                    <div className="flex items-center justify-center py-10 text-gray-600 text-xs">Sin resultados</div>
                   ) : (
                     <div className="grid grid-cols-3 gap-1.5">
                       {productosOrdenados.map(p => {
@@ -1285,7 +1285,7 @@ export function NuevoPresupuesto() {
                             {/* Info */}
                             <div className="p-2">
                               {p.codigo && (
-                                <span className="font-mono text-[8px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded mb-1 inline-block">{p.codigo}</span>
+                                <span className="font-mono text-[8px] bg-gray-100 text-gray-600 px-1 py-0.5 rounded mb-1 inline-block">{p.codigo}</span>
                               )}
                               <p className="text-[11px] font-semibold text-gray-800 leading-tight line-clamp-2">{p.nombre}</p>
                               {(p.ancho || p.alto) && (
@@ -1296,7 +1296,7 @@ export function NuevoPresupuesto() {
                               {enPromo ? (
                                 <div className="flex items-baseline gap-1 mt-1 flex-wrap">
                                   <p className="text-xs font-bold text-pink-600">{formatCurrency(Number(p.promocion!.precio_oferta))}</p>
-                                  <p className="text-[9px] text-gray-400 line-through">{formatCurrency(Number(p.precio_base))}</p>
+                                  <p className="text-[9px] text-gray-600 line-through">{formatCurrency(Number(p.precio_base))}</p>
                                 </div>
                               ) : (
                                 <p className="text-xs font-bold text-[#7c3aed] mt-1">{formatCurrency(Number(p.precio_base))}</p>
@@ -1322,27 +1322,27 @@ export function NuevoPresupuesto() {
             {/* TAB: Buscador */}
             {tab === 'buscar' && (
               <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="px-3 py-3 border-b border-gray-50">
+                <div className="px-3 py-3 border-b border-gray-200">
                   <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
-                    <Search size={14} className="text-gray-300 shrink-0" />
+                    <Search size={14} className="text-gray-600 shrink-0" />
                     <input
                       autoFocus
                       value={buscarSearch}
                       onChange={e => setBuscarSearch(e.target.value)}
                       placeholder="Buscar producto..."
-                      className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-600 focus:outline-none"
                     />
                     {buscarSearch && (
-                      <button onMouseDown={() => { setBuscarSearch(''); setBuscarResults([]); }} className="text-gray-300 hover:text-gray-500">
+                      <button onMouseDown={() => { setBuscarSearch(''); setBuscarResults([]); }} className="text-gray-600 hover:text-gray-600">
                         <X size={12} />
                       </button>
                     )}
-                    {buscarLoading && <Search size={12} className="text-gray-300 animate-pulse shrink-0" />}
+                    {buscarLoading && <Search size={12} className="text-gray-600 animate-pulse shrink-0" />}
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {buscarResults.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-gray-400 text-xs gap-2">
+                    <div className="flex flex-col items-center justify-center py-10 text-gray-600 text-xs gap-2">
                       <Search size={24} className="text-gray-200" />
                       {buscarSearch ? 'Sin resultados' : 'Escribí para buscar'}
                     </div>
@@ -1353,17 +1353,17 @@ export function NuevoPresupuesto() {
                         key={p.id}
                         type="button"
                         onClick={() => agregarProducto(p)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 text-left"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-50 border-b border-gray-200 last:border-0 text-left"
                       >
                         <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                           {img
                             ? <img src={img} alt={p.nombre} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center"><Package size={14} className="text-gray-300" /></div>
+                            : <div className="w-full h-full flex items-center justify-center"><Package size={14} className="text-gray-600" /></div>
                           }
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-gray-800 truncate">{p.nombre}</p>
-                          {p.codigo && <p className="font-mono text-[9px] text-gray-400">{p.codigo}</p>}
+                          {p.codigo && <p className="font-mono text-[9px] text-gray-600">{p.codigo}</p>}
                         </div>
                         <span className="text-xs font-bold text-violet-700 shrink-0">{formatCurrency(Number(p.precio_base))}</span>
                         <Plus size={14} className="text-emerald-500 shrink-0" />
@@ -1408,7 +1408,7 @@ export function NuevoPresupuesto() {
                       {codigoResults.map(p => (
                         <button key={p.id} type="button"
                           onMouseDown={() => agregarProducto(p)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
+                          className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-200 last:border-0 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               {p.codigo && (
@@ -1440,12 +1440,12 @@ export function NuevoPresupuesto() {
               </div>
               <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Productos agregados</span>
               {items.length > 0 && (
-                <span className="text-[10px] text-gray-400">({items.length})</span>
+                <span className="text-[10px] text-gray-600">({items.length})</span>
               )}
             </div>
             <button
               onClick={() => setItems(prev => [...prev, emptyItem()])}
-              className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 border border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-500 rounded-lg font-medium transition-colors"
+              className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 border border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-600 rounded-lg font-medium transition-colors"
             >
               <Plus size={11} /> Ítem manual
             </button>
@@ -1467,10 +1467,10 @@ export function NuevoPresupuesto() {
           {/* Filas del carrito */}
           <div className="flex-1 overflow-y-auto">
             {items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-10 text-gray-400">
+              <div className="flex flex-col items-center justify-center h-full text-center py-10 text-gray-600">
                 <ScanLine size={32} className="text-gray-200 mb-3" />
                 <p className="text-sm font-medium">Sin productos</p>
-                <p className="text-xs text-gray-300 mt-1">Usá la galería de la izquierda para agregar</p>
+                <p className="text-xs text-gray-600 mt-1">Usá la galería de la izquierda para agregar</p>
               </div>
             ) : items.map((item, idx) => {
               const img = item._prod_imagen_url || item.calculo_url || null;
@@ -1484,7 +1484,7 @@ export function NuevoPresupuesto() {
                 <div
                   key={item._key}
                   className={cn(
-                    'grid items-center px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors',
+                    'grid items-center px-4 py-2.5 border-b border-gray-200 hover:bg-gray-50/50 transition-colors',
                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
                   )}
                   style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 40px' }}
@@ -1494,7 +1494,7 @@ export function NuevoPresupuesto() {
                     <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                       {img
                         ? <img src={img} alt={item.descripcion} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-300" /></div>
+                        : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-600" /></div>
                       }
                     </div>
                     <div className="min-w-0">
@@ -1512,31 +1512,31 @@ export function NuevoPresupuesto() {
                         )}
                       </div>
                       {(item._prod_tipo_nombre || item._prod_sistema_nombre) && (
-                        <p className="text-[9px] text-gray-400">
+                        <p className="text-[9px] text-gray-600">
                           {[item._prod_tipo_nombre, item._prod_sistema_nombre].filter(Boolean).join(' · ')}
                         </p>
                       )}
-                      {item.color && <p className="text-[9px] text-gray-400">{item.color}</p>}
+                      {item.color && <p className="text-[9px] text-gray-600">{item.color}</p>}
                     </div>
                   </div>
 
                   {/* Medida */}
                   <div className="text-center">
-                    <span className="text-xs text-gray-500">{medida}</span>
+                    <span className="text-xs text-gray-600">{medida}</span>
                   </div>
 
                   {/* Cantidad */}
                   <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => updateItem(item._key, 'cantidad', Math.max(1, item.cantidad - 1))}
-                      className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-400 transition-colors"
+                      className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-600 transition-colors"
                     >
                       <span className="text-xs leading-none">−</span>
                     </button>
                     <span className="text-xs font-semibold w-6 text-center">{item.cantidad}</span>
                     <button
                       onClick={() => updateItem(item._key, 'cantidad', item.cantidad + 1)}
-                      className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-400 transition-colors"
+                      className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-600 transition-colors"
                     >
                       <Plus size={10} />
                     </button>
@@ -1548,7 +1548,7 @@ export function NuevoPresupuesto() {
                       <span className="text-[10px] font-semibold text-amber-600">Pendiente</span>
                     ) : item.precio_lista != null && item.precio_lista > item.precio_unitario ? (
                       <>
-                        <p className="text-[9px] text-gray-400 line-through leading-none">{formatCurrency(item.precio_lista)}</p>
+                        <p className="text-[9px] text-gray-600 line-through leading-none">{formatCurrency(item.precio_lista)}</p>
                         <span className="text-xs font-bold text-pink-600">{formatCurrency(item.precio_unitario)}</span>
                         <p className="text-[8px] text-pink-500 font-semibold flex items-center justify-end gap-0.5">
                           <Tag size={7}/> ahorrás {formatCurrency(item.precio_lista - item.precio_unitario)}
@@ -1581,14 +1581,14 @@ export function NuevoPresupuesto() {
                     {item.tipo_item !== 'a_relevar' && (
                       <button
                         onClick={() => setEditItemKey(item._key)}
-                        className="p-1 hover:bg-violet-50 rounded text-gray-300 hover:text-violet-600 transition-colors"
+                        className="p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
                       >
                         <Edit2 size={11} />
                       </button>
                     )}
                     <button
                       onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
-                      className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 transition-colors"
+                      className="p-1 hover:bg-red-50 rounded text-gray-600 hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={11} />
                     </button>
@@ -1604,7 +1604,7 @@ export function NuevoPresupuesto() {
           <div className="border-t border-gray-200">
             <button
               onClick={() => setShowNotas(v => !v)}
-              className="w-full px-4 py-2 text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+              className="w-full px-4 py-2 text-left text-xs text-gray-600 hover:text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
             >
               <ChevronDown size={12} className={cn('transition-transform', showNotas ? 'rotate-0' : '-rotate-90')} />
               Agregar observaciones
@@ -1616,7 +1616,7 @@ export function NuevoPresupuesto() {
                   onChange={e => setNotas(e.target.value)}
                   rows={2}
                   placeholder="Notas para el cliente..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
                 />
               </div>
             )}
@@ -1624,13 +1624,13 @@ export function NuevoPresupuesto() {
 
           {/* Footer con totales */}
           <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-600">
               Total productos: <span className="font-semibold text-gray-600">{items.length}</span>
               {' '}|{' '}
               Cantidad total: <span className="font-semibold text-gray-600">{items.reduce((s, it) => s + it.cantidad, 0)}</span>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total</p>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider">Total</p>
               <p className="text-xl font-black text-[#031d49]">{formatCurrency(totalConEnvio)}</p>
             </div>
           </div>
@@ -1721,12 +1721,12 @@ export function NuevoPresupuesto() {
               {/* Breakdown de precios */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">Subtotal</span>
+                  <span className="text-xs text-gray-600">Subtotal</span>
                   <span className="text-xs font-semibold text-gray-700">{formatCurrency(precioTotal)}</span>
                 </div>
                 {formaEnvio === 'envio_empresa' && costoEnvio > 0 && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">Envío</span>
+                    <span className="text-xs text-gray-600">Envío</span>
                     <span className="text-xs font-semibold text-gray-700">{formatCurrency(costoEnvio)}</span>
                   </div>
                 )}
@@ -1749,7 +1749,7 @@ export function NuevoPresupuesto() {
 
               {/* Validez — 7 días por defecto, ajustable acá sin volver atrás */}
               <div>
-                <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Validez de la proforma</p>
+                <p className="text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5">Validez de la proforma</p>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   {([7, 15, 30] as const).map(d => (
                     <button key={d} type="button"
@@ -1762,7 +1762,7 @@ export function NuevoPresupuesto() {
                         'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all',
                         validezDias === d
                           ? 'border-violet-500 bg-violet-100 text-violet-700'
-                          : 'border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+                          : 'border-gray-200 text-gray-600 hover:border-violet-300 hover:text-violet-600'
                       )}
                     >
                       {d}d
@@ -1775,12 +1775,12 @@ export function NuevoPresupuesto() {
                   onChange={e => { setFechaValidez(e.target.value); setValidezDias('custom'); }}
                   className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Válido hasta el {fechaValidezLabel}</p>
+                <p className="text-[10px] text-gray-600 mt-1">Válido hasta el {fechaValidezLabel}</p>
               </div>
 
               {/* Forma de pago — colapsada; por defecto queda "Precio de lista" */}
               <details className="group border-t border-gray-200 pt-3">
-                <summary className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
+                <summary className="text-[9px] font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
                   <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />
                   Forma de pago: <span className="text-gray-600 normal-case font-bold">{formaPago}</span>
                 </summary>
@@ -1795,7 +1795,7 @@ export function NuevoPresupuesto() {
 
                   {formaPago === 'Varias formas de pago' && (
                     <div>
-                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Alternativas de pago a ofrecer</p>
+                      <p className="text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Alternativas de pago a ofrecer</p>
                       {catalogoFormasPago.length === 0 ? (
                         <p className="text-[10px] text-amber-600">No hay formas de pago cargadas — agregalas en Configuración → Formas de pago.</p>
                       ) : (
@@ -1809,7 +1809,7 @@ export function NuevoPresupuesto() {
                                 marcada ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'
                               )}>
                                 <input type="checkbox" checked={marcada} onChange={() => toggleFormaPagoAlt(fp)}
-                                  className="rounded border-gray-300 text-violet-600 focus:ring-violet-400 shrink-0" />
+                                  className="rounded border-gray-400 text-violet-600 focus:ring-violet-400 shrink-0" />
                                 <span className="text-xs text-gray-700 flex-1 truncate">{fp.nombre}</span>
                                 {marcada && (
                                   <div className="flex items-center gap-1 shrink-0">
@@ -1817,7 +1817,7 @@ export function NuevoPresupuesto() {
                                       value={alt.descuento_pct}
                                       onChange={e => updateAlternativaPct(fp.id, parseFloat(e.target.value) || 0)}
                                       className="w-14 px-1.5 py-1 border border-gray-200 rounded text-xs text-right focus:outline-none focus:ring-2 focus:ring-violet-400"/>
-                                    <span className="text-[10px] text-gray-400">%</span>
+                                    <span className="text-[10px] text-gray-600">%</span>
                                   </div>
                                 )}
                               </div>
@@ -1833,15 +1833,15 @@ export function NuevoPresupuesto() {
               {/* Entrega estimada */}
               {tiempoEntrega && (
                 <div>
-                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Entrega estimada</p>
+                  <p className="text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Entrega estimada</p>
                   <p className="text-xs font-bold text-gray-700">En {tiempoEntrega} días hábiles</p>
-                  {entregaEstimadaLabel && <p className="text-[10px] text-gray-400">{entregaEstimadaLabel}</p>}
+                  {entregaEstimadaLabel && <p className="text-[10px] text-gray-600">{entregaEstimadaLabel}</p>}
                 </div>
               )}
 
               {/* Días de entrega input */}
               <div>
-                <label className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">Tiempo de entrega (días)</label>
+                <label className="text-[9px] font-semibold text-gray-600 uppercase tracking-wider block mb-1">Tiempo de entrega (días)</label>
                 <input
                   type="number" min={0} value={tiempoEntrega}
                   onChange={e => setTiempoEntrega(e.target.value)}
@@ -1859,7 +1859,7 @@ export function NuevoPresupuesto() {
                 ].map((cond, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
-                    <span className="text-[10px] text-gray-500">{cond}</span>
+                    <span className="text-[10px] text-gray-600">{cond}</span>
                   </div>
                 ))}
               </div>
@@ -1867,7 +1867,7 @@ export function NuevoPresupuesto() {
               {/* Notas colapsadas */}
               <div className="border-t border-gray-200 pt-3 space-y-2">
                 <details className="group">
-                  <summary className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
+                  <summary className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
                     <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />
                     Notas para el cliente
                   </summary>
@@ -1876,11 +1876,11 @@ export function NuevoPresupuesto() {
                     onChange={e => setNotas(e.target.value)}
                     rows={2}
                     placeholder="Condiciones, aclaraciones..."
-                    className="mt-2 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                    className="mt-2 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
                   />
                 </details>
                 <details className="group">
-                  <summary className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
+                  <summary className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-600 list-none flex items-center gap-1">
                     <ChevronDown size={10} className="transition-transform group-open:rotate-0 -rotate-90" />
                     Notas internas
                   </summary>
@@ -1889,7 +1889,7 @@ export function NuevoPresupuesto() {
                     onChange={e => setNotasInternas(e.target.value)}
                     rows={2}
                     placeholder="Solo para el equipo..."
-                    className="mt-2 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                    className="mt-2 w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
                   />
                 </details>
               </div>
@@ -1943,9 +1943,9 @@ export function NuevoPresupuesto() {
             <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between z-10">
               <div>
                 <p className="text-base font-bold text-gray-900">{variantePicker.nombre}</p>
-                <p className="text-xs text-gray-400">{variantePicker.opciones.length} variantes — elegí una</p>
+                <p className="text-xs text-gray-600">{variantePicker.opciones.length} variantes — elegí una</p>
               </div>
-              <button onClick={() => setVariantePicker(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 shrink-0"><X size={16}/></button>
+              <button onClick={() => setVariantePicker(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 shrink-0"><X size={16}/></button>
             </div>
             <div className="divide-y divide-gray-100">
               {variantePicker.opciones.map(v => {
@@ -1955,12 +1955,12 @@ export function NuevoPresupuesto() {
                   <button key={v.id} type="button"
                     onClick={() => { setVariantePicker(null); agregarProductoDirecto(v); }}
                     className="w-full flex items-center gap-3 px-5 py-3 hover:bg-violet-50 text-left">
-                    <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-100">
+                    <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-200">
                       {img ? <img src={img} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-200"/></div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800">{[medida, v.color].filter(Boolean).join(' · ') || v.nombre}</p>
-                      {v.codigo && <p className="font-mono text-[10px] text-gray-400">{v.codigo}</p>}
+                      {v.codigo && <p className="font-mono text-[10px] text-gray-600">{v.codigo}</p>}
                     </div>
                     <span className="text-sm font-bold text-violet-700 shrink-0">{formatCurrency(Number(v.precio_base))}</span>
                   </button>

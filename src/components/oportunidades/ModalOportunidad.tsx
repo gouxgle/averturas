@@ -115,13 +115,13 @@ export function ModalOportunidad({
   }
 
   const inp = 'w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300';
-  const lbl = 'block text-xs font-semibold text-gray-500 mb-1';
+  const lbl = 'block text-xs font-semibold text-gray-600 mb-1';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-fuchsia-600 to-violet-600 sticky top-0">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-fuchsia-600 to-violet-600 sticky top-0">
           <div className="flex items-center gap-2">
             <Target size={16} className="text-white" />
             <h2 className="text-sm font-bold text-white">{isEdit ? 'Editar oportunidad' : 'Nueva oportunidad futura'}</h2>
@@ -143,12 +143,12 @@ export function ModalOportunidad({
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-fuchsia-50 border border-fuchsia-200">
                   <span className="text-sm font-semibold text-gray-800 flex-1 truncate">{selClienteNombre}</span>
                   <button type="button" onClick={() => { setSelClienteId(''); setSelClienteNombre(''); }}
-                    className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-400" /></button>
+                    className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-600" /></button>
                 </div>
               ) : (
                 <div className="relative">
                   <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl">
-                    <Search size={14} className="text-gray-300 shrink-0" />
+                    <Search size={14} className="text-gray-600 shrink-0" />
                     <input value={clienteSearch}
                       onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
                       onFocus={() => setShowClienteList(true)}
@@ -159,12 +159,12 @@ export function ModalOportunidad({
                   {showClienteList && clienteSearch && (
                     <div className="absolute z-30 top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
                       {clientes.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-400">Sin resultados</div>
+                        <div className="px-4 py-3 text-sm text-gray-600">Sin resultados</div>
                       ) : clientes.slice(0, 8).map(c => (
                         <button key={c.id} type="button" onMouseDown={() => seleccionarCliente(c)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-200 last:border-0">
                           <p className="text-sm font-medium text-gray-800">{nombreCli(c)}</p>
-                          {c.telefono && <p className="text-xs text-gray-400">{c.telefono}</p>}
+                          {c.telefono && <p className="text-xs text-gray-600">{c.telefono}</p>}
                         </button>
                       ))}
                     </div>
@@ -195,7 +195,7 @@ export function ModalOportunidad({
             <div className="flex gap-1.5 mt-1.5 flex-wrap">
               {ATAJOS.map(a => (
                 <button key={a.label} type="button" onClick={() => setFecha(fechaMasMeses(a.meses))}
-                  className="px-2 py-1 rounded-lg border border-gray-200 text-[10px] font-semibold text-gray-500 hover:border-fuchsia-300 hover:text-fuchsia-600">
+                  className="px-2 py-1 rounded-lg border border-gray-200 text-[10px] font-semibold text-gray-600 hover:border-fuchsia-300 hover:text-fuchsia-600">
                   En {a.label}
                 </button>
               ))}
@@ -212,7 +212,7 @@ export function ModalOportunidad({
                 <button key={k} type="button" onClick={() => setInteres(k)}
                   className={cn(
                     'py-2 rounded-xl text-xs font-semibold border transition-all',
-                    interes === k ? INTERES_CFG[k].cls + ' ring-1 ring-inset' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    interes === k ? INTERES_CFG[k].cls + ' ring-1 ring-inset' : 'border-gray-200 text-gray-600 hover:border-gray-400'
                   )}>
                   {INTERES_CFG[k].emoji} {INTERES_CFG[k].label}
                 </button>

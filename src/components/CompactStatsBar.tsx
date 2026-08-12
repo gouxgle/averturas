@@ -17,7 +17,7 @@ export function CompactStatsBar({ items }: { items: StatItem[] }) {
           padding: '0 20px',
         }}>
         <div className="flex items-center gap-1.5 mr-4 shrink-0"
-          style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.40)' }}>
+          style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.78)' }}>
           <BarChart3 size={11} color="#fbbf24" /> Métricas
         </div>
         {items.map((item, i) => (
@@ -27,7 +27,7 @@ export function CompactStatsBar({ items }: { items: StatItem[] }) {
               <span style={{ fontSize: 18, fontWeight: 800, color: item.color ?? '#ffffff', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', lineHeight: 1 }}>
                 {item.value}
               </span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                 {item.label}
               </span>
             </div>

@@ -75,8 +75,8 @@ export function WeatherWidget() {
           <span className="text-[11px] text-sky-500 font-medium">{wmoDesc(code)}</span>
         </div>
         <div className="flex flex-col items-end leading-tight ml-1 pl-3 border-l border-sky-200">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Formosa</span>
-          <span className="text-[10px] text-gray-400">Argentina</span>
+          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Formosa</span>
+          <span className="text-[10px] text-gray-600">Argentina</span>
           <span className="text-sky-400 text-[9px] mt-0.5">{showWeek ? '▲ cerrar' : '▼ semana'}</span>
         </div>
       </button>
@@ -101,7 +101,7 @@ export function WeatherWidget() {
                 >
                   <span className={`text-sm font-bold ${i === 0 ? 'text-sky-600' : 'text-gray-600'}`}>{dayName}</span>
                   <span className="text-4xl leading-none my-1.5">{wmoEmoji(dCode)}</span>
-                  <span className="text-xs text-gray-500 text-center leading-tight min-h-[2.2em]">{wmoDesc(dCode)}</span>
+                  <span className="text-xs text-gray-600 text-center leading-tight min-h-[2.2em]">{wmoDesc(dCode)}</span>
                   <span className="text-xl font-black text-orange-500 mt-1">{Math.round(weather.daily.temperature_2m_max[i])}°</span>
                   <span className="text-base font-semibold text-sky-500">{Math.round(weather.daily.temperature_2m_min[i])}°</span>
                 </div>

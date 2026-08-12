@@ -80,7 +80,7 @@ export const PanelOportunidades = forwardRef<HTMLDivElement, { resaltado?: boole
         'bg-white rounded-2xl border shadow-md overflow-hidden transition-shadow',
         resaltado ? 'ring-2 ring-fuchsia-400 border-fuchsia-300' : 'border-gray-200'
       )}>
-        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+        <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Target size={15} className="text-fuchsia-500" />
             <span className="text-sm font-bold text-gray-800">Oportunidades futuras</span>
@@ -101,7 +101,7 @@ export const PanelOportunidades = forwardRef<HTMLDivElement, { resaltado?: boole
             <button key={t.key} onClick={() => setVista(t.key)}
               className={cn(
                 'shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors whitespace-nowrap',
-                vista === t.key ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-500 hover:border-fuchsia-300'
+                vista === t.key ? 'bg-fuchsia-600 text-white' : 'border border-gray-200 text-gray-600 hover:border-fuchsia-300'
               )}>
               {t.label(resumen)}
             </button>
@@ -110,11 +110,11 @@ export const PanelOportunidades = forwardRef<HTMLDivElement, { resaltado?: boole
 
         <div className="p-4 space-y-2 max-h-[360px] overflow-y-auto">
           {loading ? (
-            <div className="py-10 flex justify-center"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+            <div className="py-10 flex justify-center"><Loader2 size={20} className="animate-spin text-gray-600" /></div>
           ) : items.length === 0 ? (
             <div className="py-10 text-center">
               <Target size={24} className="mx-auto mb-2 text-gray-200" />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-600">
                 {vista === 'vencidas' ? 'Sin oportunidades vencidas' : 'No hay oportunidades en esta vista'}
               </p>
             </div>

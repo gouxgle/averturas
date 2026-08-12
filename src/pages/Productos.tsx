@@ -30,7 +30,7 @@ const PALETA_CATEGORIAS = [
   { color: 'fuchsia', headerBg: 'bg-fuchsia-50', headerText: 'text-fuchsia-700', badgeText: 'text-fuchsia-600 border-fuchsia-200', borderCol: 'border-fuchsia-100', priceColor: 'text-fuchsia-700' },
 ];
 const CATEGORIA_SIN_TIPO = {
-  color: 'gray', headerBg: 'bg-gray-50', headerText: 'text-gray-600', badgeText: 'text-gray-500 border-gray-200',
+  color: 'gray', headerBg: 'bg-gray-50', headerText: 'text-gray-600', badgeText: 'text-gray-600 border-gray-200',
   borderCol: 'border-gray-200', priceColor: 'text-gray-700',
 };
 
@@ -292,7 +292,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
             <p className="text-xs text-red-500 font-medium mb-1">Producto a eliminar</p>
             <p className="text-sm font-bold text-red-800">"{producto.nombre}"</p>
           </div>
-          <p className="text-xs text-gray-500 text-center">Se eliminará permanentemente. Los presupuestos existentes no se verán afectados.</p>
+          <p className="text-xs text-gray-600 text-center">Se eliminará permanentemente. Los presupuestos existentes no se verán afectados.</p>
           <div className="grid grid-cols-2 gap-3">
             <button onClick={() => setConfirmando(false)} className="py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium hover:bg-gray-50">Cancelar</button>
             <button onClick={handleDelete} disabled={eliminando}
@@ -317,7 +317,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
                 const cfg = ETIQUETA_CONFIG[producto.etiqueta!];
                 return <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', cfg.cls)}><cfg.Icon size={9}/>{cfg.label}</span>;
               })()}
-              {producto.codigo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono">{producto.codigo}</span>}
+              {producto.codigo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded font-mono">{producto.codigo}</span>}
               {onToggleSalon ? (
                 <button type="button" onClick={handleToggleSalon} disabled={togglingSalon}
                   title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
@@ -325,7 +325,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
                     'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors disabled:opacity-60',
                     producto.en_salon
                       ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   )}>
                   <Store size={9}/>{togglingSalon ? 'Guardando...' : producto.en_salon ? 'En salón' : 'Marcar en salón'}
                 </button>
@@ -334,12 +334,12 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
                   <Store size={9}/>En salón
                 </span>
               )}
-              {!producto.activo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded">Inactivo</span>}
+              {!producto.activo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">Inactivo</span>}
             </div>
             <h2 className="text-base font-bold text-gray-900">{producto.nombre}</h2>
-            {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-gray-600 mt-0.5">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 shrink-0"><X size={16}/></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 shrink-0"><X size={16}/></button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -352,7 +352,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
                 <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {imagenes.map((url, i) => (
                     <button key={i} onClick={() => setActiveImg(i)}
-                      className={cn('w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-all', i === activeImg ? 'border-sky-500' : 'border-transparent hover:border-gray-300')}>
+                      className={cn('w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-all', i === activeImg ? 'border-sky-500' : 'border-transparent hover:border-gray-400')}>
                       <img src={url} alt="" className="w-full h-full object-cover"/>
                     </button>
                   ))}
@@ -368,28 +368,28 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
           )}
           <div className="bg-gray-50 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">Precio de venta</span>
-              <span className="text-base font-bold text-gray-900">{formatCurrency(precio)}{producto.precio_por_m2 && <span className="text-xs font-normal text-gray-400">/m²</span>}</span>
+              <span className="text-xs text-gray-600">Precio de venta</span>
+              <span className="text-base font-bold text-gray-900">{formatCurrency(precio)}{producto.precio_por_m2 && <span className="text-xs font-normal text-gray-600">/m²</span>}</span>
             </div>
             {dolarCompra && precio > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Valor U$S</span>
+                <span className="text-xs text-gray-600">Valor U$S</span>
                 <span className="text-sm font-semibold text-sky-700">
                   U$S {(precio / dolarCompra).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             )}
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">Costo</span>
+              <span className="text-xs text-gray-600">Costo</span>
               <span className="text-sm text-gray-600">{formatCurrency(costo)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">Margen</span>
+              <span className="text-xs text-gray-600">Margen</span>
               <span className={cn('text-sm font-semibold', margen >= 30 ? 'text-emerald-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>{margen}%</span>
             </div>
             {producto.margen_tipo && (
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Segmento</span>
+                <span className="text-xs text-gray-600">Segmento</span>
                 <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', MARGEN_COLOR[producto.margen_tipo])}>{MARGEN_LABEL[producto.margen_tipo]}</span>
               </div>
             )}
@@ -397,18 +397,18 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
           {producto.promocion && (
             <div className={cn('rounded-xl p-3 border', isPromoActiva(producto) ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200 opacity-60')}>
               <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                <Tag size={13} className={isPromoActiva(producto) ? 'text-pink-500' : 'text-gray-400'}/>
+                <Tag size={13} className={isPromoActiva(producto) ? 'text-pink-500' : 'text-gray-600'}/>
                 <span className="text-xs font-semibold text-gray-700">Promoción {isPromoActiva(producto) ? '· activa' : '· inactiva'}</span>
                 {producto.promocion.auto_renovar && <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border border-violet-200 bg-violet-50 text-violet-700 font-medium"><RefreshCw size={9}/>Auto-renovar mensual</span>}
               </div>
               {producto.promocion.precio_oferta && (
                 <div className="flex items-baseline gap-2">
                   <span className="text-lg font-bold text-pink-700">{formatCurrency(producto.promocion.precio_oferta)}</span>
-                  <span className="text-xs text-gray-400 line-through">{formatCurrency(precio)}</span>
+                  <span className="text-xs text-gray-600 line-through">{formatCurrency(precio)}</span>
                   <span className="text-xs text-pink-600 font-medium">-{Math.round((1 - producto.promocion.precio_oferta / precio) * 100)}%</span>
                 </div>
               )}
-              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1 flex-wrap">
+              <div className="flex items-center gap-1 text-[10px] text-gray-600 mt-1 flex-wrap">
                 <CalendarDays size={10}/>
                 {producto.promocion.fecha_inicio && <span>desde {producto.promocion.fecha_inicio}</span>}
                 {producto.promocion.auto_renovar ? <span>hasta el {lastDayOfMonth()} (renovación mensual)</span> : producto.promocion.fecha_fin && <span>hasta {producto.promocion.fecha_fin}</span>}
@@ -417,7 +417,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
           )}
           {((producto.tipo_abertura as any)?.nombre || (producto.sistema as any)?.nombre || producto.color || attrs.length > 0) && (
             <div className="space-y-1">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Especificaciones</p>
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Especificaciones</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 {(producto.tipo_abertura as any)?.nombre && <Row k="Tipo" v={(producto.tipo_abertura as any).nombre}/>}
                 {(producto.sistema as any)?.nombre && <Row k="Sistema" v={(producto.sistema as any).nombre}/>}
@@ -428,7 +428,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
           )}
           {([producto.caracteristica_1, producto.caracteristica_2, producto.caracteristica_3, producto.caracteristica_4].filter(Boolean) as string[]).length > 0 && (
             <div className="space-y-1">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Características</p>
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Características</p>
               <ul className="space-y-1">
                 {[producto.caracteristica_1, producto.caracteristica_2, producto.caracteristica_3, producto.caracteristica_4].filter(Boolean).map((c, i) => (
                   <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600"><span className="mt-0.5 text-sky-400">·</span>{c}</li>
@@ -438,7 +438,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
           )}
           {(producto.vidrio || producto.premarco || producto.accesorios?.length > 0) && (
             <div className="space-y-1">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Incluye</p>
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Incluye</p>
               <div className="flex flex-wrap gap-1.5">
                 {producto.vidrio && <Tag2 label={`Vidrio: ${producto.vidrio}`}/>}
                 {producto.premarco && <Tag2 label="Premarco"/>}
@@ -446,12 +446,12 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
               </div>
             </div>
           )}
-          {producto.descripcion && <p className="text-xs text-gray-500 border-t border-gray-200 pt-3">{producto.descripcion}</p>}
+          {producto.descripcion && <p className="text-xs text-gray-600 border-t border-gray-200 pt-3">{producto.descripcion}</p>}
         </div>
 
         {onAgregar ? (
           <div className="sticky bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-5 py-3 flex items-center justify-end gap-2">
-            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">Cerrar</button>
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cerrar</button>
             <button onClick={() => { onAgregar(); onClose(); }}
               className="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
               <Plus size={13}/>Agregar a la proforma
@@ -461,7 +461,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
           <div className="sticky bottom-0 bg-white border-t border-gray-200 rounded-b-2xl px-5 py-3 flex items-center justify-between gap-2">
             <button onClick={onToggle}
               className={cn('flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors',
-                producto.activo ? 'border-gray-200 text-gray-500 hover:border-orange-200 hover:text-orange-500' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50')}>
+                producto.activo ? 'border-gray-200 text-gray-600 hover:border-orange-200 hover:text-orange-500' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50')}>
               {producto.activo ? <ToggleRight size={14}/> : <ToggleLeft size={14}/>}
               {producto.activo ? 'Desactivar' : 'Activar'}
             </button>
@@ -478,7 +478,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
 }
 
 function Row({ k, v }: { k: string; v: string }) {
-  return <div><span className="text-[10px] text-gray-400 capitalize">{k}</span><p className="text-xs font-medium text-gray-700 capitalize">{v}</p></div>;
+  return <div><span className="text-[10px] text-gray-600 capitalize">{k}</span><p className="text-xs font-medium text-gray-700 capitalize">{v}</p></div>;
 }
 function Tag2({ label }: { label: string }) {
   return <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded capitalize">{label}</span>;
@@ -528,9 +528,9 @@ function ModeloVariantesModal({ nombre, variantes, priceColor, onClose, onSelect
         <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between z-10">
           <div>
             <p className="text-base font-bold text-gray-900">{nombre}</p>
-            <p className="text-xs text-gray-400">{variantes.length} variantes — elegí una</p>
+            <p className="text-xs text-gray-600">{variantes.length} variantes — elegí una</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 shrink-0"><X size={16}/></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 shrink-0"><X size={16}/></button>
         </div>
         <div className="divide-y divide-gray-100">
           {variantes.map(v => {
@@ -538,12 +538,12 @@ function ModeloVariantesModal({ nombre, variantes, priceColor, onClose, onSelect
             return (
               <button key={v.id} onClick={() => onSelect(v)}
                 className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 text-left">
-                <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-100">
+                <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-200">
                   {img ? <img src={img} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-200"/></div>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800">{variantResumen(v)}</p>
-                  {v.codigo && <p className="font-mono text-[10px] text-gray-400">{v.codigo}</p>}
+                  {v.codigo && <p className="font-mono text-[10px] text-gray-600">{v.codigo}</p>}
                 </div>
                 <span className={cn('text-sm font-bold shrink-0', priceColor)}>{formatCurrency(Number(v.precio_base))}</span>
                 {(v.stock_actual ?? 0) <= 0 && <span className="text-[9px] font-bold text-red-500 shrink-0">Sin stock</span>}
@@ -588,7 +588,7 @@ function TarjetaModeloMosaico({ nombre, variantes, priceColor, onSelectVariante 
         <div className="flex-1 flex flex-col p-3">
           <p className="text-[13px] font-bold text-gray-900 leading-snug line-clamp-2">{nombre}</p>
           {colores.length > 0 && (
-            <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-1">
+            <p className="text-[11px] text-gray-600 mt-0.5 leading-snug line-clamp-1">
               {colores.slice(0, 3).join(', ')}{colores.length > 3 ? ` +${colores.length - 3}` : ''}
             </p>
           )}
@@ -658,7 +658,7 @@ function Columna({ titulo, productos, icono: Icono, headerBg, headerText, badgeB
       </div>
 
       {productos.length === 0 ? (
-        <div className="py-10 text-center text-xs text-gray-400">Sin productos en esta categoría</div>
+        <div className="py-10 text-center text-xs text-gray-600">Sin productos en esta categoría</div>
       ) : (
         <>
           <div className="p-4">
@@ -710,8 +710,8 @@ function FacetsPanel({ facets, activos, onToggle, onLimpiar, activeCount }: {
         )}
       </div>
       {facets.map(f => (
-        <div key={f.key} className="space-y-1.5 pt-3 border-t border-gray-100 first:border-0 first:pt-0">
-          <p className="text-[11px] font-semibold text-gray-500">{f.label}</p>
+        <div key={f.key} className="space-y-1.5 pt-3 border-t border-gray-200 first:border-0 first:pt-0">
+          <p className="text-[11px] font-semibold text-gray-600">{f.label}</p>
           <div className="space-y-1">
             {f.options.map(opt => {
               const checked = (activos[f.key] ?? []).includes(opt.value);
@@ -720,10 +720,10 @@ function FacetsPanel({ facets, activos, onToggle, onLimpiar, activeCount }: {
                   <input
                     type="checkbox" checked={checked}
                     onChange={() => onToggle(f.key, opt.value)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                    className="w-3.5 h-3.5 rounded border-gray-400 text-sky-600 focus:ring-sky-500"
                   />
                   <span className="capitalize flex-1">{opt.label}</span>
-                  <span className="text-[10px] text-gray-400">({opt.count})</span>
+                  <span className="text-[10px] text-gray-600">({opt.count})</span>
                 </label>
               );
             })}
@@ -966,20 +966,20 @@ export function Productos() {
       {/* Buscador + orden */}
       <div className="flex flex-col sm:flex-row gap-2.5">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600"/>
           <input
             type="text" placeholder="Buscar por nombre, código o tipo..."
             value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-md"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-600">
               <X size={14}/>
             </button>
           )}
         </div>
         <div className="relative shrink-0">
-          <ArrowUpDown size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+          <ArrowUpDown size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"/>
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as SortKey)}
@@ -1007,11 +1007,11 @@ export function Productos() {
       {!loading && productos.length > 0 && (
         <div className="space-y-2">
           {categoriaPath.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap text-xs font-semibold text-gray-500">
+            <div className="flex items-center gap-1 flex-wrap text-xs font-semibold text-gray-600">
               <button onClick={() => setCategoriaPath([])} className="hover:text-sky-600 hover:underline">Todos</button>
               {categoriaPath.map((id, i) => (
                 <span key={id} className="flex items-center gap-1">
-                  <ChevronRight size={12} className="text-gray-300"/>
+                  <ChevronRight size={12} className="text-gray-600"/>
                   {i === categoriaPath.length - 1 ? (
                     <span className="text-gray-800">{id === EN_SALON_KEY ? 'En salón' : nodeById[id]?.nombre}</span>
                   ) : (
@@ -1081,11 +1081,11 @@ export function Productos() {
       {!loading && productos.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-500">
+            <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-600">
               <Package size={13}/>
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Unidades en stock</p>
+              <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Unidades en stock</p>
               <p className="text-sm font-black text-gray-800 tabular-nums">{unidadesStock}</p>
             </div>
           </div>
@@ -1094,7 +1094,7 @@ export function Productos() {
               <Tag size={13}/>
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Valor de costo</p>
+              <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Valor de costo</p>
               <p className="text-sm font-black text-amber-700 tabular-nums">{formatCurrency(valorCostoStock)}</p>
             </div>
           </div>
@@ -1103,7 +1103,7 @@ export function Productos() {
               <DollarSign size={13}/>
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Valor de venta</p>
+              <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Valor de venta</p>
               <p className="text-sm font-black text-emerald-700 tabular-nums">{formatCurrency(valorVentaStock)}</p>
             </div>
           </div>
@@ -1117,7 +1117,7 @@ export function Productos() {
             <div key={i} className="flex-1 rounded-2xl border border-gray-200 overflow-hidden animate-pulse">
               <div className="h-12 bg-gray-100"/>
               {[...Array(4)].map((_, j) => (
-                <div key={j} className="flex gap-3 p-3 border-t border-gray-50">
+                <div key={j} className="flex gap-3 p-3 border-t border-gray-200">
                   <div className="w-[108px] h-[108px] bg-gray-100 rounded"/>
                   <div className="flex-1 space-y-2 py-1">
                     <div className="h-3 bg-gray-100 rounded w-3/4"/>
@@ -1132,7 +1132,7 @@ export function Productos() {
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
           <Package size={36} className="text-gray-200 mx-auto mb-3"/>
-          <p className="text-sm text-gray-400 mb-1">No hay productos en el catálogo</p>
+          <p className="text-sm text-gray-600 mb-1">No hay productos en el catálogo</p>
           <Link to="/productos/nuevo" className="text-sm text-sky-600 hover:underline font-medium">Agregar el primero →</Link>
         </div>
       ) : categoriaActiva ? (
@@ -1145,13 +1145,13 @@ export function Productos() {
             </aside>
           )}
           <div className="flex-1 min-w-0 space-y-2">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-600">
               {itemsCategoriaFacetados.length} producto{itemsCategoriaFacetados.length !== 1 ? 's' : ''} en {categoriaActiva.titulo}
             </p>
             {itemsCategoriaFacetados.length === 0 ? (
               <div className="py-16 text-center">
                 <Package size={36} className="text-gray-200 mx-auto mb-3"/>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-600">
                   {categoriaActiva.items.length === 0
                     ? `Sin productos en esta categoría${search ? ' para tu búsqueda' : ''}`
                     : 'Ningún producto coincide con los filtros elegidos'}
@@ -1168,7 +1168,7 @@ export function Productos() {
       ) : search ? (
         /* Búsqueda: mosaico plano */
         <div className="space-y-2">
-          <p className="text-sm text-gray-500">{filteredSorted.length} resultado{filteredSorted.length !== 1 ? 's' : ''} para "{search}"</p>
+          <p className="text-sm text-gray-600">{filteredSorted.length} resultado{filteredSorted.length !== 1 ? 's' : ''} para "{search}"</p>
           <GridMosaico productos={filteredSorted} priceColor="text-sky-700" onSelect={setSelected} onToggle={toggleActivo} onToggleSalon={toggleSalonRapido}/>
         </div>
       ) : (
@@ -1202,7 +1202,7 @@ export function Productos() {
               <div className={cn('mt-0.5 shrink-0', icon)}><Icon size={20}/></div>
               <div>
                 <p className="text-xs font-bold text-gray-800">{title}</p>
-                <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">{desc}</p>
               </div>
             </div>
           ))}
@@ -1215,7 +1215,7 @@ export function Productos() {
           <div className="relative ml-auto w-[85%] max-w-xs h-full bg-gray-50 overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-gray-800">Filtros</p>
-              <button onClick={() => setMobileFiltrosOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500"><X size={16}/></button>
+              <button onClick={() => setMobileFiltrosOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-600"><X size={16}/></button>
             </div>
             <FacetsPanel facets={facetsCategoria} activos={facetFilters} onToggle={toggleFacetValue}
               onLimpiar={() => setFacetFilters({})} activeCount={activeFacetCount}/>

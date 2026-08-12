@@ -162,14 +162,14 @@ export function VisitaTecnica() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft size={18} className="text-gray-500"/>
+            <ArrowLeft size={18} className="text-gray-600"/>
           </button>
           <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
             <Ruler size={18} className="text-slate-600"/>
           </div>
           <div>
             <h1 className="text-base font-bold text-gray-900">Visita técnica</h1>
-            <p className="text-xs text-gray-400">Elegí el cliente y generá el formulario para relevamiento in situ</p>
+            <p className="text-xs text-gray-600">Elegí el cliente y generá el formulario para relevamiento in situ</p>
           </div>
         </div>
         <Link to="/presupuestos/visitas-tecnicas"
@@ -186,7 +186,7 @@ export function VisitaTecnica() {
       )}
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
           <Users size={13}/> Cliente
         </p>
         {clienteId ? (
@@ -194,13 +194,13 @@ export function VisitaTecnica() {
             <span className="text-sm font-semibold text-gray-800 flex-1 truncate">{clienteNombre}</span>
             {!operacionId && (
               <button onClick={() => { setClienteId(''); setClienteNombre(''); }}
-                className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-400"/></button>
+                className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-600"/></button>
             )}
           </div>
         ) : (
           <div className="relative">
             <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl">
-              <Search size={14} className="text-gray-300 shrink-0"/>
+              <Search size={14} className="text-gray-600 shrink-0"/>
               <input
                 value={clienteSearch}
                 onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
@@ -213,13 +213,13 @@ export function VisitaTecnica() {
             {showClienteList && clienteSearch && (
               <div className="absolute z-20 top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
                 {clientes.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-400">Sin resultados</div>
+                  <div className="px-4 py-3 text-sm text-gray-600">Sin resultados</div>
                 ) : clientes.slice(0, 8).map(c => (
                   <button key={c.id} onMouseDown={() => seleccionarCliente(c)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-200 last:border-0">
                     <p className="text-sm font-medium text-gray-800">{nombreCliente(c)}</p>
                     {(c.telefono || c.direccion) && (
-                      <p className="text-xs text-gray-400">{[c.telefono, c.direccion].filter(Boolean).join(' · ')}</p>
+                      <p className="text-xs text-gray-600">{[c.telefono, c.direccion].filter(Boolean).join(' · ')}</p>
                     )}
                   </button>
                 ))}
@@ -268,7 +268,7 @@ export function VisitaTecnica() {
                 Crear y continuar
               </button>
               <button onClick={() => setShowQuickAdd(false)}
-                className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-sm hover:bg-gray-100">Cancelar</button>
+                className="px-3 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-100">Cancelar</button>
             </div>
           </div>
         )}
@@ -277,7 +277,7 @@ export function VisitaTecnica() {
       {/* Cobro de la visita — decisión previa a generarla */}
       {clienteId && !visitaId && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <HandCoins size={13}/> Cobro de la visita
           </p>
 
@@ -297,13 +297,13 @@ export function VisitaTecnica() {
                 <p className={cn('text-sm font-bold', cobrar ? 'text-emerald-700' : 'text-gray-700')}>
                   Cobrar {formatCurrency(costoVisita)}
                 </p>
-                <p className="text-[11px] text-gray-500 mt-0.5">Se emite el recibo al generar la visita</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">Se emite el recibo al generar la visita</p>
               </button>
               <button onClick={() => setCobrar(false)}
                 className={cn('text-left px-3 py-2.5 rounded-xl border-2 transition-colors',
                   !cobrar ? 'border-slate-400 bg-slate-50' : 'border-gray-200 hover:bg-gray-50')}>
                 <p className={cn('text-sm font-bold', !cobrar ? 'text-slate-700' : 'text-gray-700')}>No cobrar</p>
-                <p className="text-[11px] text-gray-500 mt-0.5">Cliente de confianza</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">Cliente de confianza</p>
               </button>
             </div>
           )}
@@ -311,7 +311,7 @@ export function VisitaTecnica() {
           {puedeCobrar && cobrar && (
             <div className="mt-3 space-y-2">
               <div>
-                <label className="block text-[11px] font-medium text-gray-500 mb-1">Forma de pago</label>
+                <label className="block text-[11px] font-medium text-gray-600 mb-1">Forma de pago</label>
                 <select value={formaPago} onChange={e => setFormaPago(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white">
                   {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
@@ -320,7 +320,7 @@ export function VisitaTecnica() {
               <input value={referencia} onChange={e => setReferencia(e.target.value)}
                 placeholder="Referencia del pago (opcional)"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-gray-600">
                 Si después el presupuesto lo amerita, podés acreditar este importe al total.
               </p>
             </div>
@@ -345,7 +345,7 @@ export function VisitaTecnica() {
               </button>
             </div>
           ) : (
-            <p className="text-xs text-gray-400">Sin cargo — no se emitió recibo</p>
+            <p className="text-xs text-gray-600">Sin cargo — no se emitió recibo</p>
           )}
         </div>
       )}

@@ -68,7 +68,7 @@ function fmtVence(iso: string | null): { text: string; cls: string } | null {
   if (diff < 0)  return { text: `venció hace ${Math.abs(diff)} día${Math.abs(diff) === 1 ? '' : 's'}`, cls: 'text-red-600 bg-red-100' };
   if (diff === 0) return { text: 'vence hoy',    cls: 'text-red-600 bg-red-100' };
   if (diff === 1) return { text: 'vence mañana', cls: 'text-amber-600 bg-amber-100' };
-  return { text: `vence en ${diff} días`, cls: 'text-gray-500 bg-gray-100' };
+  return { text: `vence en ${diff} días`, cls: 'text-gray-600 bg-gray-100' };
 }
 
 function fmtLlegada(iso: string | null): string | null {
@@ -83,14 +83,14 @@ function fmtLlegada(iso: string | null): string | null {
 
 // ── Sub-componentes ──────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, sub, iconBg, iconCl, subCl = 'text-gray-400' }: {
+function KpiCard({ icon: Icon, label, value, sub, iconBg, iconCl, subCl = 'text-gray-600' }: {
   icon: React.ElementType; label: string; value: string | number; sub: string;
   iconBg: string; iconCl: string; subCl?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+    <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
       <div className="flex items-start justify-between mb-2">
-        <p className="text-[11px] font-medium text-gray-500 leading-tight">{label}</p>
+        <p className="text-[11px] font-medium text-gray-600 leading-tight">{label}</p>
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
           <Icon size={16} className={iconCl} />
         </div>
@@ -165,11 +165,11 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
       <p className="text-[11px] font-semibold text-gray-800 truncate">{ncl(op.cliente)}</p>
 
       {op.primer_item && (
-        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{op.primer_item}</p>
+        <p className="text-[10px] text-gray-600 mt-0.5 truncate">{op.primer_item}</p>
       )}
 
       {op.fecha_entrega_estimada && (
-        <p className="text-[10px] text-gray-400 mt-0.5">{fmtFecha(op.fecha_entrega_estimada)}</p>
+        <p className="text-[10px] text-gray-600 mt-0.5">{fmtFecha(op.fecha_entrega_estimada)}</p>
       )}
 
       <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-black/10">
@@ -184,7 +184,7 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
         if (!llegada) return null;
         const urgente = llegada === 'llega hoy' || llegada === 'llega mañana';
         return (
-          <p className={cn('text-[10px] font-semibold mt-1.5', urgente ? 'text-amber-600' : 'text-gray-400')}>
+          <p className={cn('text-[10px] font-semibold mt-1.5', urgente ? 'text-amber-600' : 'text-gray-600')}>
             {llegada}
           </p>
         );
@@ -248,7 +248,7 @@ function TCol({ col, title, desc, color, ops }: {
     teal:  { header: 'border-teal-400 text-teal-700 bg-teal-50',          badge: 'bg-teal-500' },
     blue:  { header: 'border-blue-400 text-blue-700 bg-blue-50',          badge: 'bg-blue-500' },
     red:   { header: 'border-red-300 text-red-600 bg-red-50',             badge: 'bg-red-400' },
-  }[color] ?? { header: 'border-gray-300 text-gray-700 bg-gray-50', badge: 'bg-gray-400' };
+  }[color] ?? { header: 'border-gray-400 text-gray-700 bg-gray-50', badge: 'bg-gray-400' };
 
   return (
     <div className="flex-1 min-w-[150px]">
@@ -262,7 +262,7 @@ function TCol({ col, title, desc, color, ops }: {
         {visible.map(op => <TCard key={op.id} op={op} col={col} />)}
       </div>
       {ops.length === 0 && (
-        <p className="text-center text-[11px] text-gray-400 py-6">Sin operaciones</p>
+        <p className="text-center text-[11px] text-gray-600 py-6">Sin operaciones</p>
       )}
       {ops.length > COL_SHOW && (
         <button
@@ -338,11 +338,11 @@ export function Operaciones() {
             ]} />
 
             {/* Tablero 6 columnas */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Zap size={15} className="text-amber-500" />
                 <h2 className="text-sm font-bold text-gray-800">Tablero de Operaciones</h2>
-                <span className="text-[11px] text-gray-400">— flujo completo</span>
+                <span className="text-[11px] text-gray-600">— flujo completo</span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-2 w-full">
                 <TCol col="sin_confirmar"   title="Sin confirmar"       desc="El cliente no ha aprobado aún su presupuesto."                                           color="slate" ops={data.kanban.sin_confirmar} />
@@ -359,7 +359,7 @@ export function Operaciones() {
           <div className="w-full xl:w-[220px] xl:shrink-0 space-y-4">
 
             {/* Entregas programadas */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CalendarClock size={14} className="text-blue-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Entregas programadas</h2>
@@ -389,7 +389,7 @@ export function Operaciones() {
               ))}
 
               {data.proximas.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-4">Sin entregas programadas esta semana</p>
+                <p className="text-xs text-gray-600 text-center py-4">Sin entregas programadas esta semana</p>
               )}
 
               <Link to="/remitos"
@@ -399,7 +399,7 @@ export function Operaciones() {
             </div>
 
             {/* Resumen rápido */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={14} className="text-amber-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Resumen del flujo</h2>
@@ -422,7 +422,7 @@ export function Operaciones() {
             </div>
 
             {/* Acciones rápidas */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-violet-500" />
                 <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Acciones rápidas</h2>
@@ -485,7 +485,7 @@ export function Operaciones() {
             )}
             {showCanceladas && data.kanban.canceladas.length === 0 && (
               <div className="bg-white rounded-2xl border border-red-200 shadow-lg p-4">
-                <p className="text-[11px] text-gray-400 text-center py-2">Sin operaciones canceladas</p>
+                <p className="text-[11px] text-gray-600 text-center py-2">Sin operaciones canceladas</p>
               </div>
             )}
 

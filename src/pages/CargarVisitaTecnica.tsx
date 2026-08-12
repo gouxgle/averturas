@@ -15,7 +15,7 @@ type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
 const COBRO_BADGE: Record<string, { label: (m: number) => string; cls: string }> = {
   pendiente:  { label: () => 'Sin cobrar',                       cls: 'bg-amber-100 text-amber-700' },
   cobrada:    { label: m => `Cobrada ${formatCurrency(m)}`,      cls: 'bg-emerald-100 text-emerald-700' },
-  sin_cargo:  { label: () => 'Sin cargo',                        cls: 'bg-gray-100 text-gray-500' },
+  sin_cargo:  { label: () => 'Sin cargo',                        cls: 'bg-gray-100 text-gray-600' },
   bonificada: { label: () => 'Acreditada',                       cls: 'bg-violet-100 text-violet-700' },
 };
 
@@ -92,18 +92,18 @@ function CheckGroup({ title, fijos, valores, onToggle, otro, onOtroChange }: {
 }) {
   return (
     <div>
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{title}</p>
+      <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">{title}</p>
       <div className="space-y-1.5">
         {fijos.map(f => (
           <label key={f} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={valores.includes(f)} onChange={() => onToggle(f)}
-              className="w-3.5 h-3.5 rounded border-gray-300 text-slate-700 focus:ring-slate-400" />
+              className="w-3.5 h-3.5 rounded border-gray-400 text-slate-700 focus:ring-slate-400" />
             {f}
           </label>
         ))}
         {onOtroChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">Otro:</span>
+            <span className="text-sm text-gray-600">Otro:</span>
             <input value={otro ?? ''} onChange={e => onOtroChange(e.target.value)}
               placeholder="especificar"
               className="flex-1 min-w-0 px-2 py-1 border-b border-gray-200 text-sm focus:outline-none focus:border-slate-400" />
@@ -451,10 +451,10 @@ export function CargarVisitaTecnica() {
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-400">Cargando...</div>;
+    return <div className="p-6 text-sm text-gray-600">Cargando...</div>;
   }
   if (!visita) {
-    return <div className="p-6 text-sm text-gray-400">Visita técnica no encontrada</div>;
+    return <div className="p-6 text-sm text-gray-600">Visita técnica no encontrada</div>;
   }
 
   const yaConvertida = visita.estado === 'convertida';
@@ -467,7 +467,7 @@ export function CargarVisitaTecnica() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/presupuestos/visitas-tecnicas')} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft size={18} className="text-gray-500"/>
+            <ArrowLeft size={18} className="text-gray-600"/>
           </button>
           <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
             <Ruler size={18} className="text-slate-600"/>
@@ -479,7 +479,7 @@ export function CargarVisitaTecnica() {
                 {COBRO_BADGE[visita.cobro_estado]?.label(Number(visita.costo_cobrado ?? 0))}
               </span>
             </div>
-            <p className="text-xs text-gray-400 flex items-center gap-1"><Users size={11}/> {nombreCliente(visita.cliente)}</p>
+            <p className="text-xs text-gray-600 flex items-center gap-1"><Users size={11}/> {nombreCliente(visita.cliente)}</p>
           </div>
         </div>
         <button onClick={() => window.open(`/imprimir/visita-tecnica?visita_id=${visita.id}`, '_blank')}
@@ -511,57 +511,57 @@ export function CargarVisitaTecnica() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Fecha de visita</label>
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Fecha de visita</label>
             <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)} disabled={soloLectura}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Técnico</label>
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Técnico</label>
             <input value={tecnico} onChange={e => setTecnico(e.target.value)} disabled={soloLectura}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
         </div>
         <div>
-          <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Costo externo</label>
+          <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Costo externo</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600">$</span>
             <input type="number" min="0" step="100" value={costoExterno}
               onChange={e => setCostoExterno(e.target.value)}
               onBlur={guardarCostoExterno}
               placeholder="0"
               className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">
+          <p className="text-[11px] text-gray-600 mt-1">
             Lo que se le pagó al técnico o servicio tercerizado. Se usa para medir el margen en Reportes.
           </p>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Ítems relevados</p>
-        <p className="text-[11px] text-gray-400 mb-3">Marcá cada uno como abertura a medir (obra nueva), producto de catálogo (estándar) o servicio (reparación, mantenimiento, cambio de piezas)</p>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Ítems relevados</p>
+        <p className="text-[11px] text-gray-600 mb-3">Marcá cada uno como abertura a medir (obra nueva), producto de catálogo (estándar) o servicio (reparación, mantenimiento, cambio de piezas)</p>
         <div className="space-y-2">
           {items.map((it, idx) => {
             const esServicio = it.tipo_item === 'servicio';
             const esEstandar = it.tipo_item === 'estandar';
             const esAMedida = it.tipo_item === 'a_medida';
             return (
-            <div key={idx} className="relative flex flex-col sm:flex-row gap-2 sm:items-center p-2 rounded-lg border border-gray-100">
+            <div key={idx} className="relative flex flex-col sm:flex-row gap-2 sm:items-center p-2 rounded-lg border border-gray-200">
               {/* Toggle tipo de ítem */}
               <div className="flex shrink-0 rounded-lg border border-gray-200 overflow-hidden w-fit">
                 <button type="button" onClick={() => toggleTipoItem(idx, 'a_medida')} disabled={soloLectura}
                   title="Abertura a medir"
-                  className={`p-2 ${esAMedida ? 'bg-slate-700 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  className={`p-2 ${esAMedida ? 'bg-slate-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                   <Ruler size={14}/>
                 </button>
                 <button type="button" onClick={() => toggleTipoItem(idx, 'estandar')} disabled={soloLectura}
                   title="Producto de catálogo (estándar)"
-                  className={`p-2 border-l border-gray-200 ${esEstandar ? 'bg-sky-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  className={`p-2 border-l border-gray-200 ${esEstandar ? 'bg-sky-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                   <Package size={14}/>
                 </button>
                 <button type="button" onClick={() => toggleTipoItem(idx, 'servicio')} disabled={soloLectura}
                   title="Servicio (reparación/mantenimiento)"
-                  className={`p-2 border-l border-gray-200 ${esServicio ? 'bg-amber-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}>
+                  className={`p-2 border-l border-gray-200 ${esServicio ? 'bg-amber-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                   <Wrench size={14}/>
                 </button>
               </div>
@@ -574,14 +574,14 @@ export function CargarVisitaTecnica() {
                     <button type="button" disabled={soloLectura}
                       onClick={() => { setBuscarProductoIdx(idx); setBuscarProductoQ(''); }}
                       className="w-full flex items-center gap-2 px-2.5 py-2 border border-gray-200 rounded-lg text-sm text-left disabled:bg-gray-50 hover:border-sky-300">
-                      <Search size={13} className="text-gray-300 shrink-0"/>
-                      <span className={it.producto_nombre ? 'text-gray-800' : 'text-gray-300'}>
+                      <Search size={13} className="text-gray-600 shrink-0"/>
+                      <span className={it.producto_nombre ? 'text-gray-800' : 'text-gray-600'}>
                         {it.producto_nombre || 'Buscar producto del catálogo...'}
                       </span>
                     </button>
                     {buscarProductoIdx === idx && (
                       <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                        <div className="p-2 border-b border-gray-100">
+                        <div className="p-2 border-b border-gray-200">
                           <input autoFocus value={buscarProductoQ} onChange={e => setBuscarProductoQ(e.target.value)}
                             onBlur={() => setTimeout(() => setBuscarProductoIdx(null), 150)}
                             placeholder="Nombre o código..."
@@ -589,15 +589,15 @@ export function CargarVisitaTecnica() {
                         </div>
                         <div className="max-h-48 overflow-y-auto">
                           {productosFiltrados.length === 0 ? (
-                            <p className="text-xs text-gray-400 p-3 text-center">Sin resultados</p>
+                            <p className="text-xs text-gray-600 p-3 text-center">Sin resultados</p>
                           ) : productosFiltrados.slice(0, 30).map(p => (
                             <button key={p.id} type="button" onMouseDown={() => seleccionarProducto(idx, p)}
-                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-sky-50 text-left border-b border-gray-50 last:border-0">
+                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-sky-50 text-left border-b border-gray-200 last:border-0">
                               <div className="w-7 h-7 rounded bg-gray-50 overflow-hidden shrink-0">
                                 {(p.imagenes?.[0] || p.imagen_url) && <img src={p.imagenes?.[0] || p.imagen_url!} alt="" className="w-full h-full object-cover"/>}
                               </div>
                               <span className="text-xs text-gray-700 flex-1 truncate">{p.nombre}</span>
-                              {p.codigo && <span className="font-mono text-[9px] text-gray-400">{p.codigo}</span>}
+                              {p.codigo && <span className="font-mono text-[9px] text-gray-600">{p.codigo}</span>}
                             </button>
                           ))}
                         </div>
@@ -622,10 +622,10 @@ export function CargarVisitaTecnica() {
                       return (
                         <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
                           {filtrados.length === 0 ? (
-                            <p className="text-xs text-gray-400 p-3 text-center">Sin resultados — se guarda como texto libre</p>
+                            <p className="text-xs text-gray-600 p-3 text-center">Sin resultados — se guarda como texto libre</p>
                           ) : filtrados.map(s => (
                             <button key={s.id} type="button" onMouseDown={() => seleccionarServicio(idx, s)}
-                              className="w-full text-left px-3 py-2 hover:bg-amber-50 text-xs text-gray-700 border-b border-gray-50 last:border-0">
+                              className="w-full text-left px-3 py-2 hover:bg-amber-50 text-xs text-gray-700 border-b border-gray-200 last:border-0">
                               {s.nombre}
                             </button>
                           ))}
@@ -649,7 +649,7 @@ export function CargarVisitaTecnica() {
                     {!soloLectura && (
                       <button type="button" onClick={() => setEditItemKey(it._key)}
                         title="Editar detalle (tipo, sistema, color, vidrio...)"
-                        className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:text-slate-700 hover:border-slate-300 shrink-0">
+                        className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:text-slate-700 hover:border-slate-300 shrink-0">
                         <Pencil size={14}/>
                       </button>
                     )}
@@ -661,8 +661,8 @@ export function CargarVisitaTecnica() {
                           {tiposAbertura.find(t => t.id === it.tipo_abertura_id)!.nombre}
                         </span>
                       )}
-                      {it.color && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{it.color}</span>}
-                      {it.vidrio && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{it.vidrio}</span>}
+                      {it.color && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">{it.color}</span>}
+                      {it.vidrio && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">{it.vidrio}</span>}
                     </div>
                   )}
                 </div>
@@ -670,7 +670,7 @@ export function CargarVisitaTecnica() {
 
               {!soloLectura && (
                 <button onClick={() => quitarFila(idx)} disabled={items.length === 1}
-                  className="p-2 text-gray-300 hover:text-red-500 disabled:opacity-30 shrink-0">
+                  className="p-2 text-gray-600 hover:text-red-500 disabled:opacity-30 shrink-0">
                   <Trash2 size={15}/>
                 </button>
               )}
@@ -686,7 +686,7 @@ export function CargarVisitaTecnica() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Detalles importantes</p>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Detalles importantes</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <CheckGroup title="Color" fijos={COLOR_FIJOS} valores={color}
             onToggle={v => !soloLectura && toggle(color, setColor, v)}
@@ -703,9 +703,9 @@ export function CargarVisitaTecnica() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fotos de la visita</p>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Fotos de la visita</p>
         {!soloLectura && (
-          <p className="text-[11px] text-gray-400 mb-2">Podés arrastrar imágenes acá o pegarlas con Ctrl+V.</p>
+          <p className="text-[11px] text-gray-600 mb-2">Podés arrastrar imágenes acá o pegarlas con Ctrl+V.</p>
         )}
         <div
           onDragOver={!soloLectura ? handleImgDragOver : undefined}
@@ -728,7 +728,7 @@ export function CargarVisitaTecnica() {
           ))}
           {!soloLectura && (
             <button onClick={() => fileRef.current?.click()} disabled={uploadingImg}
-              className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 hover:border-slate-300 hover:bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 disabled:opacity-50">
+              className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 hover:border-slate-300 hover:bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-600 disabled:opacity-50">
               {uploadingImg ? <Loader2 size={18} className="animate-spin"/> : <Camera size={18}/>}
               <span className="text-[10px] font-semibold">Agregar</span>
             </button>
@@ -737,12 +737,12 @@ export function CargarVisitaTecnica() {
         <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
           onChange={handleImageUpload} className="hidden"/>
         {imagenes.length === 0 && soloLectura && (
-          <p className="text-xs text-gray-400">Sin fotos cargadas</p>
+          <p className="text-xs text-gray-600">Sin fotos cargadas</p>
         )}
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">Observaciones</label>
+        <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 block">Observaciones</label>
         <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} disabled={soloLectura}
           className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
       </div>

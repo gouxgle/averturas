@@ -70,10 +70,10 @@ export function ImprimirRecibo() {
   }, [id]);
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen text-gray-400">Cargando...</div>
+    <div className="flex items-center justify-center min-h-screen text-gray-600">Cargando...</div>
   );
   if (!recibo) return (
-    <div className="flex items-center justify-center min-h-screen text-gray-400">No encontrado</div>
+    <div className="flex items-center justify-center min-h-screen text-gray-600">No encontrado</div>
   );
 
   const cl = recibo.cliente;

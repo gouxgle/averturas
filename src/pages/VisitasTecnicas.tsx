@@ -29,7 +29,7 @@ const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
 const COBRO_BADGE: Record<string, { label: string; cls: string }> = {
   pendiente:  { label: 'Sin cobrar',  cls: 'bg-amber-100 text-amber-700' },
   cobrada:    { label: 'Cobrada',     cls: 'bg-emerald-100 text-emerald-700' },
-  sin_cargo:  { label: 'Sin cargo',   cls: 'bg-gray-100 text-gray-500' },
+  sin_cargo:  { label: 'Sin cargo',   cls: 'bg-gray-100 text-gray-600' },
   bonificada: { label: 'Acreditada',  cls: 'bg-violet-100 text-violet-700' },
 };
 
@@ -73,27 +73,27 @@ export function VisitasTecnicas() {
         sub="Relevamientos en el sitio, a la espera de convertirse en presupuesto"
         actions={
           <Link to="/presupuestos/visita-tecnica"
-            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
             <Plus size={16} /> Nueva visita
           </Link>
         }
       />
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter size={14} className="text-gray-400" />
+        <Filter size={14} className="text-gray-600" />
         {['', 'pendiente', 'relevada', 'convertida', 'cancelada'].map(e => (
           <button key={e} onClick={() => setEstado(e)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${estado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${estado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {e === '' ? 'Todas' : ESTADO_BADGE[e].label}
           </button>
         ))}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cobro</span>
+        <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cobro</span>
         {['', 'pendiente', 'cobrada', 'bonificada', 'sin_cargo'].map(e => (
           <button key={e} onClick={() => setCobroEstado(e)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${cobroEstado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${cobroEstado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {e === '' ? 'Todos' : COBRO_BADGE[e].label}
           </button>
         ))}
@@ -101,13 +101,13 @@ export function VisitasTecnicas() {
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
         {loading ? (
-          <p className="text-sm text-gray-400 p-6 text-center">Cargando...</p>
+          <p className="text-sm text-gray-600 p-6 text-center">Cargando...</p>
         ) : visitas.length === 0 ? (
-          <p className="text-sm text-gray-400 p-6 text-center">No hay visitas técnicas registradas</p>
+          <p className="text-sm text-gray-600 p-6 text-center">No hay visitas técnicas registradas</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+              <tr className="text-left text-xs font-bold text-gray-600 uppercase tracking-wide border-b border-gray-200">
                 <th className="px-4 py-3">Número</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Fecha visita</th>
@@ -123,15 +123,15 @@ export function VisitasTecnicas() {
                 const cobro = COBRO_BADGE[v.cobro_estado] ?? COBRO_BADGE.pendiente;
                 return (
                   <tr key={v.id} onClick={() => navigate(`/presupuestos/visitas-tecnicas/${v.id}`)}
-                    className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                    className="cursor-pointer border-b border-gray-200 last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3 font-semibold text-gray-700">{v.numero}</td>
                     <td className="px-4 py-3 text-gray-700">{ncl(v.cliente)}</td>
-                    <td className="px-4 py-3 text-gray-500">{fmtFecha(v.fecha_visita)}</td>
-                    <td className="px-4 py-3 text-gray-500">{v.items_total}</td>
+                    <td className="px-4 py-3 text-gray-600">{fmtFecha(v.fecha_visita)}</td>
+                    <td className="px-4 py-3 text-gray-600">{v.items_total}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.cls}`}>{badge.label}</span>
                       {v.estado === 'convertida' && v.operacion_numero && (
-                        <span className="ml-1.5 text-xs font-semibold text-gray-400">{v.operacion_numero}</span>
+                        <span className="ml-1.5 text-xs font-semibold text-gray-600">{v.operacion_numero}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -143,7 +143,7 @@ export function VisitasTecnicas() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <ChevronRight size={16} className="text-gray-300 inline-block" />
+                      <ChevronRight size={16} className="text-gray-600 inline-block" />
                     </td>
                   </tr>
                 );

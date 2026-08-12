@@ -106,7 +106,7 @@ function segmento(c: ClienteResumen): { label: string; cls: string } | null {
   if (Number(c.compromisos_vencidos) > 0) return { label: 'Cliente irregular', cls: 'bg-red-50 text-red-600' };
   if (Number(c.operaciones_count) >= 4)    return { label: 'Cliente frecuente', cls: 'bg-emerald-50 text-emerald-700' };
   if ((c.dias_desde_primera_op ?? 999) <= 45) return { label: 'Cliente nuevo', cls: 'bg-blue-50 text-blue-600' };
-  if ((c.dias_desde_ultima_compra ?? 999) >= 60) return { label: 'Cliente inactivo', cls: 'bg-gray-100 text-gray-500' };
+  if ((c.dias_desde_ultima_compra ?? 999) >= 60) return { label: 'Cliente inactivo', cls: 'bg-gray-100 text-gray-600' };
   return { label: 'Cliente activo', cls: 'bg-violet-50 text-violet-600' };
 }
 
@@ -201,7 +201,7 @@ const ESTADO_COBRO_CFG: Record<EstadoCobro, { label: string; bg: string; text: s
   vencido:    { label: 'Vencido',    bg: 'bg-red-100',     text: 'text-red-700',     border: 'border-l-red-500' },
   por_vencer: { label: 'Por vencer', bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-l-amber-400' },
   al_dia:     { label: 'Al día',     bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-l-emerald-400' },
-  saldado:    { label: 'Saldado',    bg: 'bg-gray-100',    text: 'text-gray-500',    border: 'border-l-gray-200' },
+  saldado:    { label: 'Saldado',    bg: 'bg-gray-100',    text: 'text-gray-600',    border: 'border-l-gray-200' },
 };
 
 const TIPO_ICON: Record<string, React.ElementType> = {
@@ -283,9 +283,9 @@ function ModalNuevoCompromiso({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div>
             <h3 className="font-bold text-gray-800">Nuevo compromiso de pago</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{cNombre}</p>
+            <p className="text-xs text-gray-600 mt-0.5">{cNombre}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><XCircle size={18} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"><XCircle size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
@@ -393,16 +393,16 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
   return (
     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Compromisos de pago</span>
+        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Compromisos de pago</span>
         <button onClick={() => onNuevoCompromiso(cliente.id, nombreCliente(cliente))}
           className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-semibold">
           <Plus size={11} /> Nuevo
         </button>
       </div>
       {loading ? (
-        <p className="text-xs text-gray-400 py-1">Cargando...</p>
+        <p className="text-xs text-gray-600 py-1">Cargando...</p>
       ) : compromisos.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">Sin compromisos</p>
+        <p className="text-xs text-gray-600 italic">Sin compromisos</p>
       ) : (
         <div className="space-y-1.5">
           {compromisos.map(comp => {
@@ -421,10 +421,10 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-gray-800">{formatCurrency(Number(comp.monto))}</span>
-                    {comp.descripcion && <span className="text-[11px] text-gray-500">{comp.descripcion}</span>}
-                    {comp.numero_cheque && <span className="text-[11px] text-gray-400">#{comp.numero_cheque}{comp.banco ? ` · ${comp.banco}` : ''}</span>}
+                    {comp.descripcion && <span className="text-[11px] text-gray-600">{comp.descripcion}</span>}
+                    {comp.numero_cheque && <span className="text-[11px] text-gray-600">#{comp.numero_cheque}{comp.banco ? ` · ${comp.banco}` : ''}</span>}
                   </div>
-                  <p className="text-[11px] text-gray-400">{formatDate(comp.fecha_vencimiento)}{comp.operacion ? ` · Op. ${comp.operacion.numero}` : ''}</p>
+                  <p className="text-[11px] text-gray-600">{formatDate(comp.fecha_vencimiento)}{comp.operacion ? ` · Op. ${comp.operacion.numero}` : ''}</p>
                 </div>
                 <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0',
                   comp.estado === 'cobrado' ? 'bg-emerald-100 text-emerald-700' :
@@ -435,15 +435,15 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
                 {comp.estado === 'pendiente' && (
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button onClick={() => cambiarEstado(comp.id, 'cobrado')} title="Cobrado"
-                      className="p-1 rounded hover:bg-emerald-100 text-gray-400 hover:text-emerald-600 transition-colors">
+                      className="p-1 rounded hover:bg-emerald-100 text-gray-600 hover:text-emerald-600 transition-colors">
                       <CheckCheck size={13} />
                     </button>
                     <button onClick={() => cambiarEstado(comp.id, 'rechazado')} title="Rechazado"
-                      className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
+                      className="p-1 rounded hover:bg-red-100 text-gray-600 hover:text-red-500 transition-colors">
                       <XCircle size={13} />
                     </button>
                     <button onClick={() => eliminar(comp.id)} title="Eliminar"
-                      className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-400 transition-colors">
+                      className="p-1 rounded hover:bg-red-100 text-gray-600 hover:text-red-400 transition-colors">
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -489,19 +489,19 @@ function OpCardM({ op }: { op: ModalOpDetalle }) {
   return (
     <div className={cn('rounded-xl border overflow-hidden', op.genera_saldo ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-75')}>
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left">
-        <FileText size={13} className="text-gray-400 shrink-0" />
+        <FileText size={13} className="text-gray-600 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold text-gray-800">{op.numero}</span>
             <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', ESTADO_OP_COLOR_M[op.estado])}>{ESTADO_OP_LABEL_M[op.estado] ?? op.estado}</span>
-            <span className="text-xs text-gray-400">{formatDate(op.created_at)}</span>
+            <span className="text-xs text-gray-600">{formatDate(op.created_at)}</span>
           </div>
           {op.genera_saldo && (
             <div className="mt-1 flex items-center gap-2">
               <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
                 <div className={cn('h-full rounded-full', saldada ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-gray-200')} style={{ width: `${pct}%` }} />
               </div>
-              <span className="text-[10px] text-gray-500">{pct}%</span>
+              <span className="text-[10px] text-gray-600">{pct}%</span>
             </div>
           )}
         </div>
@@ -510,13 +510,13 @@ function OpCardM({ op }: { op: ModalOpDetalle }) {
           {op.genera_saldo && !saldada && saldo !== null && <p className="text-[10px] text-amber-600 font-medium">Saldo: {formatCurrency(saldo)}</p>}
           {op.genera_saldo && saldada && <p className="text-[10px] text-emerald-600 flex items-center gap-0.5 justify-end"><Check size={9} /> Saldado</p>}
         </div>
-        {open ? <ChevronUp size={12} className="text-gray-400 shrink-0" /> : <ChevronDown size={12} className="text-gray-400 shrink-0" />}
+        {open ? <ChevronUp size={12} className="text-gray-600 shrink-0" /> : <ChevronDown size={12} className="text-gray-600 shrink-0" />}
       </button>
       {open && (
         <div className="border-t border-gray-200 px-3 py-2.5 space-y-2">
           {op.items.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Ítems</p>
+              <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5">Ítems</p>
               <div className="space-y-1">
                 {op.items.map((item, i) => (
                   <div key={item.id ?? i} className="flex justify-between text-xs">
@@ -533,7 +533,7 @@ function OpCardM({ op }: { op: ModalOpDetalle }) {
                 <div key={rm.id} className="flex items-center gap-1 bg-blue-50 rounded px-2 py-1 text-xs">
                   <Truck size={10} className="text-blue-500" />
                   <span className="font-semibold text-blue-800">{rm.numero}</span>
-                  <span className="text-gray-500">{ESTADO_OP_LABEL_M[rm.estado] ?? rm.estado}</span>
+                  <span className="text-gray-600">{ESTADO_OP_LABEL_M[rm.estado] ?? rm.estado}</span>
                 </div>
               ))}
             </div>
@@ -590,7 +590,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Estado de Cuenta</p>
+            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Estado de Cuenta</p>
             <h3 className="font-bold text-gray-800 truncate">{nombre}</h3>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -602,10 +602,10 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               </button>
             )}
             <button onClick={() => navigate(`/clientes/${clienteId}/estado-cuenta`)}
-              className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors" title="Ver página completa">
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Ver página completa">
               <ExternalLink size={14} />
             </button>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={onClose} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
               <X size={15} />
             </button>
           </div>
@@ -620,7 +620,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
             </div>
           )}
           {!loading && !data && (
-            <p className="text-center text-gray-400 py-8">Error al cargar datos</p>
+            <p className="text-center text-gray-600 py-8">Error al cargar datos</p>
           )}
           {!loading && data && (
             <>
@@ -628,15 +628,15 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               <div className={cn('rounded-xl border-2 p-4', saldado ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200')}>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total facturado</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Total facturado</p>
                     <p className="text-base font-bold text-gray-800 font-mono">{formatCurrency(data.totales.presupuestado)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Total cobrado</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Total cobrado</p>
                     <p className="text-base font-bold text-emerald-700 font-mono">{formatCurrency(data.totales.cobrado)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Saldo</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Saldo</p>
                     <p className={cn('text-base font-bold font-mono', saldado ? 'text-emerald-600' : 'text-amber-600')}>
                       {formatCurrency(Math.max(0, saldo))}
                     </p>
@@ -661,25 +661,25 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               {ledger.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta corriente</p>
-                    <p className="text-xs text-gray-400">{ledger.length} movimientos</p>
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Cuenta corriente</p>
+                    <p className="text-xs text-gray-600">{ledger.length} movimientos</p>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-gray-200 bg-gray-50">
-                          <th className="text-left py-2 px-3 font-semibold text-gray-500 w-20">Fecha</th>
-                          <th className="text-left py-2 px-2 font-semibold text-gray-500 w-24">Comprob.</th>
-                          <th className="text-left py-2 px-2 font-semibold text-gray-500">Concepto</th>
-                          <th className="text-right py-2 px-2 font-semibold text-gray-500 w-24">Cargo</th>
-                          <th className="text-right py-2 px-2 font-semibold text-gray-500 w-24">Abono</th>
-                          <th className="text-right py-2 px-3 font-semibold text-gray-500 w-24">Saldo</th>
+                          <th className="text-left py-2 px-3 font-semibold text-gray-600 w-20">Fecha</th>
+                          <th className="text-left py-2 px-2 font-semibold text-gray-600 w-24">Comprob.</th>
+                          <th className="text-left py-2 px-2 font-semibold text-gray-600">Concepto</th>
+                          <th className="text-right py-2 px-2 font-semibold text-gray-600 w-24">Cargo</th>
+                          <th className="text-right py-2 px-2 font-semibold text-gray-600 w-24">Abono</th>
+                          <th className="text-right py-2 px-3 font-semibold text-gray-600 w-24">Saldo</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {ledger.map((mov, i) => (
                           <tr key={i} className={cn('hover:bg-gray-50', mov.tipo === 'abono' && 'bg-emerald-50/30')}>
-                            <td className="py-2 px-3 text-gray-500">{formatDate(mov.fecha)}</td>
+                            <td className="py-2 px-3 text-gray-600">{formatDate(mov.fecha)}</td>
                             <td className="py-2 px-2">
                               <div className="flex items-center gap-1">
                                 {mov.tipo === 'cargo'
@@ -690,10 +690,10 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
                             </td>
                             <td className="py-2 px-2 text-gray-600 max-w-[100px] truncate">{mov.concepto}</td>
                             <td className="py-2 px-2 text-right font-mono">
-                              {mov.tipo === 'cargo' ? <span className="font-semibold text-gray-800">{formatCurrency(mov.monto)}</span> : <span className="text-gray-300">—</span>}
+                              {mov.tipo === 'cargo' ? <span className="font-semibold text-gray-800">{formatCurrency(mov.monto)}</span> : <span className="text-gray-600">—</span>}
                             </td>
                             <td className="py-2 px-2 text-right font-mono">
-                              {mov.tipo === 'abono' ? <span className="font-semibold text-emerald-700">{formatCurrency(mov.monto)}</span> : <span className="text-gray-300">—</span>}
+                              {mov.tipo === 'abono' ? <span className="font-semibold text-emerald-700">{formatCurrency(mov.monto)}</span> : <span className="text-gray-600">—</span>}
                             </td>
                             <td className={cn('py-2 px-3 text-right font-mono font-bold', mov.saldo <= 0.01 ? 'text-emerald-600' : 'text-gray-800')}>
                               {formatCurrency(Math.max(0, mov.saldo))}
@@ -703,7 +703,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-gray-200 bg-gray-50">
-                          <td colSpan={3} className="py-2 px-3 text-xs font-semibold text-gray-500">SALDO ACTUAL</td>
+                          <td colSpan={3} className="py-2 px-3 text-xs font-semibold text-gray-600">SALDO ACTUAL</td>
                           <td className="py-2 px-2 text-right font-mono font-bold text-gray-700">{formatCurrency(data.totales.presupuestado)}</td>
                           <td className="py-2 px-2 text-right font-mono font-bold text-emerald-700">{formatCurrency(data.totales.cobrado)}</td>
                           <td className={cn('py-2 px-3 text-right font-mono font-bold text-sm', saldado ? 'text-emerald-600' : 'text-amber-600')}>
@@ -720,7 +720,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               {data.compromisos.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-gray-200">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compromisos de pago</p>
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Compromisos de pago</p>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {data.compromisos.map(comp => {
@@ -733,9 +733,9 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
                               <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', COMP_ESTADO_COLOR_M[comp.estado])}>
                                 {comp.estado === 'vencido' || vencido ? 'VENCIDO' : comp.estado}
                               </span>
-                              {comp.operacion && <span className="text-[10px] text-gray-400">{comp.operacion.numero}</span>}
+                              {comp.operacion && <span className="text-[10px] text-gray-600">{comp.operacion.numero}</span>}
                             </div>
-                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400">
+                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-600">
                               <span>{formatDate(comp.fecha_vencimiento)}</span>
                               {comp.descripcion && <span>{comp.descripcion}</span>}
                               {comp.banco && <span>{comp.banco}</span>}
@@ -751,7 +751,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
                   </div>
                   {compPendientes.length > 0 && (
                     <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-600">
                         {compPendientes.length} pendiente{compPendientes.length !== 1 ? 's' : ''}
                         {compVencidos.length > 0 && <span className="ml-2 text-red-600 font-semibold">({compVencidos.length} vencido{compVencidos.length !== 1 ? 's' : ''})</span>}
                       </span>
@@ -764,7 +764,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               {/* Detalle por operación */}
               {data.operaciones.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Detalle por operación</p>
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Detalle por operación</p>
                   <div className="space-y-2">
                     {data.operaciones.map(op => <OpCardM key={op.id} op={op} />)}
                   </div>
@@ -774,7 +774,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
               {ledger.length === 0 && data.compromisos.length === 0 && (
                 <div className="text-center py-10">
                   <Clock size={24} className="text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Sin movimientos financieros todavía.</p>
+                  <p className="text-sm text-gray-600">Sin movimientos financieros todavía.</p>
                 </div>
               )}
             </>
@@ -890,7 +890,7 @@ export function EstadoCuentaGlobal() {
         sub="Control de saldos y gestión de cobranzas"
         actions={<>
           <button onClick={load} className="p-2 hover:bg-white/70 rounded-lg transition-colors">
-            <RefreshCw size={15} className="text-gray-500" />
+            <RefreshCw size={15} className="text-gray-600" />
           </button>
           <button onClick={() => navigate('/recibos/nuevo')}
             className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md transition-colors">
@@ -911,7 +911,7 @@ export function EstadoCuentaGlobal() {
 
       {/* Cobros prioritarios */}
       {!loading && cobros.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 mb-4">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Flame size={15} className="text-red-500" />
             <span className="text-sm font-bold text-gray-800">Cobros prioritarios del día</span>
@@ -972,20 +972,20 @@ export function EstadoCuentaGlobal() {
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar cliente por nombre, teléfono, DNI/CUIT..."
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-400 font-medium">Filtros rápidos:</span>
+          <span className="text-xs text-gray-600 font-medium">Filtros rápidos:</span>
           {FILTROS_RAPIDOS.map(f => (
             <button key={f.value} onClick={() => setFiltroRapido(filtroRapido === f.value ? 'todos' : f.value)}
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap',
                 filtroRapido === f.value
                   ? 'bg-gray-800 text-white border-gray-800'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
               )}>
               {f.dot && <span className={cn('w-1.5 h-1.5 rounded-full', f.dot)} />}
               {f.label}
@@ -996,7 +996,7 @@ export function EstadoCuentaGlobal() {
 
       {/* Ordenar por */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-xs text-gray-500 font-medium">Ordenar por</span>
+        <span className="text-xs text-gray-600 font-medium">Ordenar por</span>
         {ORDENES.map(o => (
           <button key={o.value} onClick={() => setOrdenLocal(o.value)}
             className={cn(
@@ -1014,11 +1014,11 @@ export function EstadoCuentaGlobal() {
       <div className="flex gap-4 items-start">
         {/* Table */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
           <div className="min-w-[997px]">
             {/* Table header */}
-            <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50"
+            <div className="grid text-[10px] font-semibold text-gray-600 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50"
               style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
               <span className="whitespace-nowrap">Cliente</span>
               <span className="whitespace-nowrap">Última compra</span>
@@ -1045,7 +1045,7 @@ export function EstadoCuentaGlobal() {
             ) : filtrado.length === 0 ? (
               <div className="py-16 text-center">
                 <Users size={32} className="text-gray-200 mx-auto mb-3" />
-                <p className="text-sm text-gray-400">Sin clientes con actividad</p>
+                <p className="text-sm text-gray-600">Sin clientes con actividad</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
@@ -1072,7 +1072,7 @@ export function EstadoCuentaGlobal() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-gray-800 truncate">{nombreCliente(c)}</p>
-                            {c.telefono && <p className="text-[11px] text-gray-400">{c.telefono}</p>}
+                            {c.telefono && <p className="text-[11px] text-gray-600">{c.telefono}</p>}
                             {seg && (
                               <span className={cn('inline-block text-[10px] px-1.5 py-0.5 rounded font-medium mt-0.5', seg.cls)}>{seg.label}</span>
                             )}
@@ -1082,8 +1082,8 @@ export function EstadoCuentaGlobal() {
                         {/* Última compra */}
                         <div>
                           <p className="text-xs text-gray-700">{formatDate(c.ultima_compra_fecha)}</p>
-                          <p className="text-[11px] text-gray-400">{fmtDiasRelativo(c.dias_desde_ultima_compra ?? null)}</p>
-                          <p className="text-[11px] text-gray-400">{c.operaciones_count} compra{c.operaciones_count !== 1 ? 's' : ''}</p>
+                          <p className="text-[11px] text-gray-600">{fmtDiasRelativo(c.dias_desde_ultima_compra ?? null)}</p>
+                          <p className="text-[11px] text-gray-600">{c.operaciones_count} compra{c.operaciones_count !== 1 ? 's' : ''}</p>
                         </div>
 
                         {/* Total comprado */}
@@ -1099,7 +1099,7 @@ export function EstadoCuentaGlobal() {
                               <div className={cn('h-full rounded-full', c.pct_cobrado >= 100 ? 'bg-emerald-500' : c.pct_cobrado > 50 ? 'bg-blue-500' : 'bg-amber-400')}
                                 style={{ width: `${c.pct_cobrado}%` }} />
                             </div>
-                            <span className="text-[10px] text-gray-400">{c.pct_cobrado}%</span>
+                            <span className="text-[10px] text-gray-600">{c.pct_cobrado}%</span>
                           </div>
                         </div>
 
@@ -1137,7 +1137,7 @@ export function EstadoCuentaGlobal() {
                               </p>
                             </div>
                           ) : (
-                            <span className="text-xs text-gray-300">—</span>
+                            <span className="text-xs text-gray-600">—</span>
                           )}
                         </div>
 
@@ -1167,7 +1167,7 @@ export function EstadoCuentaGlobal() {
                           )}
                           <button onClick={() => setDetalleClienteId(c.id)}
                             className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors" title="Ver estado de cuenta">
-                            <BookOpen size={12} className="text-gray-400" />
+                            <BookOpen size={12} className="text-gray-600" />
                           </button>
                         </div>
                       </div>
@@ -1190,7 +1190,7 @@ export function EstadoCuentaGlobal() {
             {!loading && t && filtrado.length > 1 && (
               <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
                 <div className="grid text-xs gap-x-2" style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
-                  <span className="text-gray-500">Mostrando {filtrado.length} de {clientes.length} clientes</span>
+                  <span className="text-gray-600">Mostrando {filtrado.length} de {clientes.length} clientes</span>
                   <span />
                   <span className="text-right font-bold text-gray-700">{formatCurrency(t.presupuestado)}</span>
                   <span className="text-right font-bold text-emerald-600">{formatCurrency(t.cobrado)}</span>
@@ -1209,7 +1209,7 @@ export function EstadoCuentaGlobal() {
         {/* Sidebar */}
         <div className="w-64 shrink-0 space-y-4">
           {/* Resumen de saldos */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Resumen de saldos</p>
             {t && (
               <div className="flex items-center gap-3">
@@ -1238,26 +1238,26 @@ export function EstadoCuentaGlobal() {
           </div>
 
           {/* Análisis de cobranzas */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Análisis de cobranzas</p>
             {t && (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">% de deuda vencida</span>
+                  <span className="text-xs text-gray-600">% de deuda vencida</span>
                   <span className="text-xs font-bold text-red-600">
                     {t.saldo > 0 ? Math.round(t.vencidos_monto / t.saldo * 100) : 0}%
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Promedio días de atraso</span>
+                  <span className="text-xs text-gray-600">Promedio días de atraso</span>
                   <span className="text-xs font-bold text-gray-800">{t.dias_promedio_atraso} días</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Clientes con deuda</span>
+                  <span className="text-xs text-gray-600">Clientes con deuda</span>
                   <span className="text-xs font-bold text-gray-800">{t.clientes_con_saldo} de {t.total_clientes}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Tendencia (30 días)</span>
+                  <span className="text-xs text-gray-600">Tendencia (30 días)</span>
                   <span className={cn('text-xs font-bold flex items-center gap-0.5',
                     t.tendencia_30d >= 0 ? 'text-emerald-600' : 'text-red-500')}>
                     {t.tendencia_30d >= 0
@@ -1271,7 +1271,7 @@ export function EstadoCuentaGlobal() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Acciones rápidas</p>
             <div className="space-y-1.5">
               {[
@@ -1287,7 +1287,7 @@ export function EstadoCuentaGlobal() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-700 font-medium leading-tight">{a.label}</p>
-                    <p className="text-[10px] text-gray-400">{a.sub}</p>
+                    <p className="text-[10px] text-gray-600">{a.sub}</p>
                   </div>
                 </button>
               ))}

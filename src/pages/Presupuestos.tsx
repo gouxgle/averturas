@@ -208,7 +208,7 @@ function canalColor(canal: string | null): string {
   if (canal === 'whatsapp') return 'text-green-600';
   if (canal === 'llamada')  return 'text-blue-600';
   if (canal === 'email')    return 'text-violet-600';
-  return 'text-gray-400';
+  return 'text-gray-600';
 }
 
 function fmtDias(dias: number): string {
@@ -227,7 +227,7 @@ function fmtVencimiento(p: PresupuestoPanel): { text: string; color: string } | 
   if (dv > 0) return { text: `Vencido hace ${dv} día${dv !== 1 ? 's' : ''}`, color: 'text-red-500 font-semibold' };
   if (dh === 0) return { text: 'Vence hoy', color: 'text-amber-500 font-semibold' };
   if (dh <= 7)  return { text: `En ${dh} días`, color: 'text-amber-500' };
-  return { text: formatDate(p.fecha_validez.slice(0, 10) + 'T12:00:00'), color: 'text-gray-500' };
+  return { text: formatDate(p.fecha_validez.slice(0, 10) + 'T12:00:00'), color: 'text-gray-600' };
 }
 
 function borderColor(p: PresupuestoPanel): string {
@@ -469,7 +469,7 @@ function PresupuestoModal({
                   </span>
                 )}
               </div>
-              {op && <p className="text-xs text-gray-400 mt-0.5">{formatDate(op.created_at)}</p>}
+              {op && <p className="text-xs text-gray-600 mt-0.5">{formatDate(op.created_at)}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -504,7 +504,7 @@ function PresupuestoModal({
                   }
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     esVencido || tienePendientes
-                      ? 'bg-gray-50 text-gray-400 border-gray-200'
+                      ? 'bg-gray-50 text-gray-600 border-gray-200'
                       : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
                   }`}>
                   <Share2 size={13} /> {generandoLink ? '...' : 'Compartir'}
@@ -512,7 +512,7 @@ function PresupuestoModal({
               </>
             )}
             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-              <X size={16} className="text-gray-500" />
+              <X size={16} className="text-gray-600" />
             </button>
           </div>
         </div>
@@ -577,22 +577,22 @@ function PresupuestoModal({
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Cargando...</div>
+          <div className="flex items-center justify-center py-20 text-gray-600 text-sm">Cargando...</div>
         ) : error ? (
           <div className="flex items-center justify-center py-20 text-red-500 text-sm">{error}</div>
         ) : op ? (
           <div className="divide-y divide-gray-100">
             <div className="px-5 py-4">
               <div className="flex items-center gap-2 mb-2.5">
-                <User size={13} className="text-gray-400" />
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cliente</p>
+                <User size={13} className="text-gray-600" />
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Cliente</p>
               </div>
               <p className="text-sm font-semibold text-gray-900">
                 {op.cliente.tipo_persona === 'juridica'
                   ? op.cliente.razon_social
                   : `${op.cliente.apellido ?? ''} ${op.cliente.nombre ?? ''}`.trim()}
               </p>
-              <div className="flex gap-4 mt-1 text-xs text-gray-500">
+              <div className="flex gap-4 mt-1 text-xs text-gray-600">
                 {op.cliente.telefono  && <span>{op.cliente.telefono}</span>}
                 {op.cliente.email     && <span>{op.cliente.email}</span>}
                 {(op.cliente.direccion || op.cliente.localidad) && (
@@ -602,16 +602,16 @@ function PresupuestoModal({
             </div>
 
             <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              {op.tipo_proyecto   && <div><span className="text-gray-400">Proyecto: </span><span className="font-medium">{op.tipo_proyecto}</span></div>}
-              {op.tiempo_entrega  && <div><span className="text-gray-400">Entrega: </span><span className="font-medium">{op.tiempo_entrega} días</span></div>}
-              {op.fecha_validez   && <div><span className="text-gray-400">Válido hasta: </span><span className="font-medium">{formatDate(op.fecha_validez.slice(0, 10) + 'T12:00:00')}</span></div>}
-              {op.forma_pago      && <div className="col-span-2"><span className="text-gray-400">Pago: </span><span className="font-semibold text-violet-700">{op.forma_pago}</span></div>}
+              {op.tipo_proyecto   && <div><span className="text-gray-600">Proyecto: </span><span className="font-medium">{op.tipo_proyecto}</span></div>}
+              {op.tiempo_entrega  && <div><span className="text-gray-600">Entrega: </span><span className="font-medium">{op.tiempo_entrega} días</span></div>}
+              {op.fecha_validez   && <div><span className="text-gray-600">Válido hasta: </span><span className="font-medium">{formatDate(op.fecha_validez.slice(0, 10) + 'T12:00:00')}</span></div>}
+              {op.forma_pago      && <div className="col-span-2"><span className="text-gray-600">Pago: </span><span className="font-semibold text-violet-700">{op.forma_pago}</span></div>}
             </div>
 
             <div className="px-5 py-4">
               <div className="flex items-center gap-2 mb-3">
-                <Package size={13} className="text-gray-400" />
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Ítems ({op.items.length})</p>
+                <Package size={13} className="text-gray-600" />
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Ítems ({op.items.length})</p>
               </div>
               <div className="space-y-2.5">
                 {op.items.map((item, i) => {
@@ -622,15 +622,15 @@ function PresupuestoModal({
                     (item.medida_ancho || item.medida_alto) ? `${item.medida_ancho ?? '?'} × ${item.medida_alto ?? '?'} m` : null,
                   ].filter(Boolean).join(' · ');
                   return (
-                    <div key={item.id} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                    <div key={item.id} className="flex items-start justify-between gap-3 py-2 border-b border-gray-200 last:border-0">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-gray-400 shrink-0">{i + 1}.</span>
+                          <span className="text-xs font-semibold text-gray-600 shrink-0">{i + 1}.</span>
                           <span className="text-sm font-medium text-gray-800 truncate">{item.descripcion}</span>
-                          {item.cantidad > 1 && <span className="text-xs text-gray-400 shrink-0">× {item.cantidad}</span>}
+                          {item.cantidad > 1 && <span className="text-xs text-gray-600 shrink-0">× {item.cantidad}</span>}
                         </div>
-                        {specs && <p className="text-[11px] text-gray-400 mt-0.5 ml-4">{specs}</p>}
-                        {item.accesorios.length > 0 && <p className="text-[11px] text-gray-400 mt-0.5 ml-4">Incluye: {item.accesorios.join(', ')}</p>}
+                        {specs && <p className="text-[11px] text-gray-600 mt-0.5 ml-4">{specs}</p>}
+                        {item.accesorios.length > 0 && <p className="text-[11px] text-gray-600 mt-0.5 ml-4">Incluye: {item.accesorios.join(', ')}</p>}
                         {item.incluye_instalacion && <span className="ml-4 text-[10px] text-emerald-600 font-medium">✓ Con instalación</span>}
                       </div>
                       <span className="text-sm font-bold text-gray-800 shrink-0">{formatCurrency(Number(item.precio_total))}</span>
@@ -642,18 +642,18 @@ function PresupuestoModal({
 
             <div className="px-5 py-4 space-y-2">
               {fmtEnvio && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <CreditCard size={13} className="text-gray-400" />
-                  {EnvioIcon && <EnvioIcon size={13} className="text-gray-400" />}
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <CreditCard size={13} className="text-gray-600" />
+                  {EnvioIcon && <EnvioIcon size={13} className="text-gray-600" />}
                   <span>{fmtEnvio.label}</span>
                   {costoEnvio > 0 && <span className="font-semibold">({formatCurrency(costoEnvio)})</span>}
                 </div>
               )}
               <div className="flex items-center justify-end gap-3">
                 {costoEnvio > 0 && (
-                  <span className="text-xs text-gray-400">Productos: {formatCurrency(subtotal)} + Envío: {formatCurrency(costoEnvio)}</span>
+                  <span className="text-xs text-gray-600">Productos: {formatCurrency(subtotal)} + Envío: {formatCurrency(costoEnvio)}</span>
                 )}
-                <span className="text-xs text-gray-500">Total:</span>
+                <span className="text-xs text-gray-600">Total:</span>
                 <span className="text-xl font-bold text-gray-900">{formatCurrency(total)}</span>
               </div>
               {esCuotas && total > 0 && (
@@ -681,18 +681,18 @@ function PresupuestoModal({
                 <div className="px-5 py-4 bg-gray-50/60">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Receipt size={13} className="text-gray-400" />
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobranza</p>
+                      <Receipt size={13} className="text-gray-600" />
+                      <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Cobranza</p>
                     </div>
                     <span className={cn('text-[10px] font-semibold', ecColor)}>{ecLabel}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 mb-3 text-center">
                     <div className="bg-white rounded-lg px-2 py-2 border border-gray-200">
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Total</p>
+                      <p className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Total</p>
                       <p className="text-xs font-bold text-gray-800">{formatCurrency(total)}</p>
                     </div>
                     <div className="bg-emerald-50 rounded-lg px-2 py-2 border border-emerald-100">
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Cobrado</p>
+                      <p className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Cobrado</p>
                       <p className="text-xs font-bold text-emerald-700">{formatCurrency(cobrado)}</p>
                       {descuentos > 0.01 && (
                         <p className="text-[9px] text-violet-500 mt-0.5">+{formatCurrency(descuentos)} bonif.</p>
@@ -702,8 +702,8 @@ function PresupuestoModal({
                       )}
                     </div>
                     <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-200')}>
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Saldo</p>
-                      <p className={cn('text-xs font-bold', saldo > 0.01 ? 'text-amber-700' : 'text-gray-400')}>{formatCurrency(saldo)}</p>
+                      <p className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Saldo</p>
+                      <p className={cn('text-xs font-bold', saldo > 0.01 ? 'text-amber-700' : 'text-gray-600')}>{formatCurrency(saldo)}</p>
                     </div>
                   </div>
                   {total > 0 && (
@@ -711,7 +711,7 @@ function PresupuestoModal({
                       <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
-                      <p className="text-[10px] text-gray-400 mt-1 text-right">{pct}% cobrado</p>
+                      <p className="text-[10px] text-gray-600 mt-1 text-right">{pct}% cobrado</p>
                     </div>
                   )}
                   {/* Visita técnica cobrada: se puede acreditar como pago a cuenta */}
@@ -822,8 +822,8 @@ function PresupuestoModal({
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <ShoppingCart size={11} className="text-gray-400" />
-                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                          <ShoppingCart size={11} className="text-gray-600" />
+                          <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                             Pedidos al proveedor ({pedidos.length})
                           </p>
                         </div>
@@ -844,9 +844,9 @@ function PresupuestoModal({
                             >
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold text-gray-700">{ped.numero}</p>
-                                <p className="text-[10px] text-gray-400 truncate">{ped.proveedor.nombre}</p>
+                                <p className="text-[10px] text-gray-600 truncate">{ped.proveedor.nombre}</p>
                                 {ped.monto_total > 0 && (
-                                  <p className="text-[10px] text-gray-400">{formatCurrency(ped.monto_total)}</p>
+                                  <p className="text-[10px] text-gray-600">{formatCurrency(ped.monto_total)}</p>
                                 )}
                               </div>
                               <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2', estadoColor)}>
@@ -870,7 +870,7 @@ function PresupuestoModal({
 
             {!esAprobado && (
               <div className="px-5 py-3 flex items-center gap-2 bg-gray-50 rounded-b-2xl">
-                <span className="text-xs text-gray-400 mr-1">Cambiar estado:</span>
+                <span className="text-xs text-gray-600 mr-1">Cambiar estado:</span>
                 {op.estado !== 'aprobado' && (
                   <button onClick={() => cambiarEstado('aprobado')} disabled={cambiando || tienePendientes}
                     title={
@@ -1084,7 +1084,7 @@ export function Presupuestos() {
         actions={<>
           <HelpButton topic="presupuestos" />
           <Link to="/presupuestos/visitas-tecnicas"
-            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
+            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
             <Ruler size={16} /> Visita técnica
           </Link>
           <Link to="/presupuestos/nuevo"
@@ -1132,7 +1132,7 @@ export function Presupuestos() {
             </div>
             <div className="relative shrink-0" ref={ordenRef}>
               <button onClick={() => setOrdenOpen(o => !o)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-300 transition-all whitespace-nowrap">
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-400 transition-all whitespace-nowrap">
                 Ordenar por <span className="font-semibold text-gray-800">{ORDENES.find(o => o.value === orden)?.label}</span>
                 <ChevronLeft size={12} className={cn('transition-transform', ordenOpen ? 'rotate-90' : '-rotate-90')} />
               </button>
@@ -1155,22 +1155,22 @@ export function Presupuestos() {
           {/* Search + actions */}
           <div className="flex items-center gap-2 mb-3">
             <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
               <input type="text" placeholder="Buscar por número, cliente o producto..."
                 value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
             </div>
-            <button className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-300 transition-all">
+            <button className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-400 transition-all">
               <Download size={13} /> Exportar
             </button>
             <div className="flex border border-gray-200 rounded-lg overflow-hidden">
               <button className="p-2 bg-violet-50 border-r border-gray-200"><List size={14} className="text-violet-600" /></button>
-              <button className="p-2 bg-white hover:bg-gray-50"><LayoutGrid size={14} className="text-gray-400" /></button>
+              <button className="p-2 bg-white hover:bg-gray-50"><LayoutGrid size={14} className="text-gray-600" /></button>
             </div>
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-x-auto">
             {loading ? (
               <div className="p-3 space-y-1.5 min-w-[640px]">
                 {[...Array(6)].map((_, i) => (
@@ -1188,13 +1188,13 @@ export function Presupuestos() {
             ) : paginated.length === 0 ? (
               <div className="py-16 text-center">
                 <FileText size={32} className="text-gray-200 mx-auto mb-3" />
-                <p className="text-sm text-gray-400 mb-1">No hay presupuestos</p>
+                <p className="text-sm text-gray-600 mb-1">No hay presupuestos</p>
                 <Link to="/presupuestos/nuevo" className="text-sm text-violet-600 hover:underline">Crear el primero</Link>
               </div>
             ) : (
               <div className="p-3 space-y-1.5 min-w-[640px]">
                 {/* Cabecera columnas */}
-                <div className="grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider"
+                <div className="grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider"
                   style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
                   <span>N°</span>
                   <span>Cliente</span>
@@ -1276,7 +1276,7 @@ export function Presupuestos() {
                   return (
                     <div key={p.id}
                       className={cn(
-                        'rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-gray-300 group',
+                        'rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-gray-400 group',
                         borderColor(p),
                         isAprobadoOnline && 'bg-emerald-50/60 border-emerald-200',
                         isRechazado && !isAprobadoOnline && 'bg-red-50/50 border-red-200',
@@ -1289,12 +1289,12 @@ export function Presupuestos() {
                         {/* N° + fecha */}
                         <div>
                           <div className="flex items-center gap-1">
-                            <span className="text-[11px] font-mono text-gray-400 group-hover:text-violet-500 transition-colors">{p.numero}</span>
+                            <span className="text-[11px] font-mono text-gray-600 group-hover:text-violet-500 transition-colors">{p.numero}</span>
                             {isAprobadoOnline && <Check size={10} className="text-emerald-500" />}
                           </div>
-                          <p className="text-[10px] text-gray-300 mt-0.5">{formatDate(p.created_at)}</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5">{formatDate(p.created_at)}</p>
                           {p.tipo && p.tipo !== 'estandar' && (
-                            <p className="text-[9px] text-gray-300 mt-0.5">{p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}</p>
+                            <p className="text-[9px] text-gray-600 mt-0.5">{p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}</p>
                           )}
                         </div>
 
@@ -1309,7 +1309,7 @@ export function Presupuestos() {
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 mt-1 ml-[30px] flex-wrap">
-                            {p.cliente.telefono && <span className="text-[10px] text-gray-400">{p.cliente.telefono}</span>}
+                            {p.cliente.telefono && <span className="text-[10px] text-gray-600">{p.cliente.telefono}</span>}
                             {canal && <span className={cn('text-[10px] font-medium', canalColor(canal))}>{canalLabel(canal)}</span>}
                             {pedidoBadge}
                           </div>
@@ -1342,10 +1342,10 @@ export function Presupuestos() {
                           ) : vc ? (
                             <span className={cn('text-[11px] font-semibold', vc.color)}>{vc.text}</span>
                           ) : (
-                            <span className="text-[11px] text-gray-300">—</span>
+                            <span className="text-[11px] text-gray-600">—</span>
                           )}
                           {p.dias_sin_respuesta !== undefined && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">{fmtDias(p.dias_sin_respuesta)}</p>
+                            <p className="text-[10px] text-gray-600 mt-0.5">{fmtDias(p.dias_sin_respuesta)}</p>
                           )}
                         </div>
 
@@ -1382,7 +1382,7 @@ export function Presupuestos() {
                           )}
                           <button onClick={() => abrirDetalle(p)}
                             className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors">
-                            <MoreVertical size={13} className="text-gray-400" />
+                            <MoreVertical size={13} className="text-gray-600" />
                           </button>
                         </div>
 
@@ -1396,7 +1396,7 @@ export function Presupuestos() {
             {/* Pagination */}
             {!loading && filtrado.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-600">
                   Mostrando {(page - 1) * PER_PAGE + 1} a {Math.min(page * PER_PAGE, filtrado.length)} de {filtrado.length} presupuestos
                 </span>
                 <div className="flex items-center gap-1">
@@ -1414,7 +1414,7 @@ export function Presupuestos() {
                         )}>{n}</button>
                     );
                   })}
-                  {totalPages > 5 && <span className="text-xs text-gray-400 px-1">...</span>}
+                  {totalPages > 5 && <span className="text-xs text-gray-600 px-1">...</span>}
                   <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                     className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                     <ChevronRight size={14} className="text-gray-600" />
@@ -1428,7 +1428,7 @@ export function Presupuestos() {
         {/* Right sidebar */}
         <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
           {/* En riesgo total */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-amber-600">
                 <AlertTriangle size={14} />
@@ -1436,7 +1436,7 @@ export function Presupuestos() {
               </div>
             </div>
             <p className="text-2xl font-bold text-gray-900">{formatCurrency(s?.en_riesgo_total ?? 0)}</p>
-            <p className="text-xs text-gray-400 mt-0.5 mb-3">En presupuestos sin cerrar</p>
+            <p className="text-xs text-gray-600 mt-0.5 mb-3">En presupuestos sin cerrar</p>
             <button onClick={() => setTab('sin_respuesta')}
               className="w-full flex items-center justify-center gap-1.5 py-2 border border-amber-200 rounded-lg text-xs font-semibold text-amber-600 hover:bg-amber-50 transition-colors">
               Ver presupuestos en riesgo →
@@ -1444,12 +1444,12 @@ export function Presupuestos() {
           </div>
 
           {/* Seguimiento sugerido */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-gray-700">Seguimiento sugerido hoy</span>
             </div>
             {seg.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">Sin pendientes urgentes</p>
+              <p className="text-xs text-gray-600 text-center py-4">Sin pendientes urgentes</p>
             ) : (
               <div className="space-y-3">
                 {seg.map(p => (
@@ -1460,7 +1460,7 @@ export function Presupuestos() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-gray-800 truncate">{nombreCliente(p.cliente)}</p>
-                      <p className="text-[10px] text-gray-500 truncate">{p.numero} · {formatCurrency(p.precio_total)}</p>
+                      <p className="text-[10px] text-gray-600 truncate">{p.numero} · {formatCurrency(p.precio_total)}</p>
                       <p className="text-[10px] text-amber-500 font-medium">{fmtDias(p.dias_sin_respuesta)} sin respuesta</p>
                     </div>
                   </button>
@@ -1476,7 +1476,7 @@ export function Presupuestos() {
           </div>
 
           {/* Probabilidad de cierre */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Probabilidad de cierre</p>
             <div className="flex items-center gap-3">
               <DonutChart segments={[
@@ -1494,7 +1494,7 @@ export function Presupuestos() {
                     <span className={cn('w-2 h-2 rounded-full shrink-0', row.color)} />
                     <span className="text-xs text-gray-600 flex-1">{row.label}</span>
                     <span className="text-xs font-semibold text-gray-800">{row.val}</span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="text-[10px] text-gray-600">
                       ({probTotal > 0 ? Math.round(row.val / probTotal * 100) : 0}%)
                     </span>
                   </div>
@@ -1504,7 +1504,7 @@ export function Presupuestos() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Acciones rápidas</p>
             <div className="space-y-2">
               <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left">
@@ -1539,7 +1539,7 @@ export function Presupuestos() {
                     {cancelados.length}
                   </span>
                 )}
-                <ChevronRight size={12} className={cn('text-gray-400 transition-transform', showCancelados && 'rotate-90')} />
+                <ChevronRight size={12} className={cn('text-gray-600 transition-transform', showCancelados && 'rotate-90')} />
               </button>
             </div>
           </div>
@@ -1551,7 +1551,7 @@ export function Presupuestos() {
                 Cancelados
               </p>
               {cancelados.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Sin presupuestos cancelados</p>
+                <p className="text-xs text-gray-600 text-center py-4">Sin presupuestos cancelados</p>
               ) : (
                 <div className="space-y-1.5">
                   {cancelados.map(p => (
@@ -1561,7 +1561,7 @@ export function Presupuestos() {
                       className="rounded-lg border border-red-100 bg-red-50 px-2.5 py-2 cursor-pointer hover:shadow-sm transition-all"
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10px] font-mono text-gray-400">{p.numero}</span>
+                        <span className="text-[10px] font-mono text-gray-600">{p.numero}</span>
                         <span className="text-[10px] font-bold text-gray-800 tabular-nums">{formatCurrency(p.precio_total)}</span>
                       </div>
                       <p className="text-xs font-semibold text-gray-800 truncate mt-0.5">{nombreCliente(p.cliente)}</p>

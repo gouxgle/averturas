@@ -151,11 +151,11 @@ function KpiCard({
   badge?: { text: string; danger?: boolean };
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4 flex flex-col gap-1.5">
+    <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 flex flex-col gap-1.5">
       <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center`}>
         {icon}
       </div>
-      <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mt-0.5">{label}</div>
+      <div className="text-[11px] font-medium text-gray-600 uppercase tracking-wide mt-0.5">{label}</div>
       <div className="flex items-end gap-2">
         <span className="text-2xl font-bold text-gray-900 leading-none">{value}</span>
         {badge && (
@@ -164,7 +164,7 @@ function KpiCard({
           </span>
         )}
       </div>
-      {sub && <div className="text-xs text-gray-500">{sub}</div>}
+      {sub && <div className="text-xs text-gray-600">{sub}</div>}
     </div>
   );
 }
@@ -401,14 +401,14 @@ export function Reportes() {
             {(['hoy','semana','mes'] as FiltroTiempo[]).map(f => (
               <button key={f} onClick={() => aplicarFiltro(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
-                  filtro === f ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  filtro === f ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-700'
                 }`}>
                 {f === 'hoy' ? 'Hoy' : f === 'semana' ? 'Semana' : 'Mes'}
               </button>
             ))}
             <button onClick={() => setFiltro('personalizado')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                filtro === 'personalizado' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                filtro === 'personalizado' ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-700'
               }`}>
               <Calendar size={12} /> Personalizado
             </button>
@@ -417,7 +417,7 @@ export function Reportes() {
             <div className="flex items-center gap-1.5">
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
                 className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white" />
-              <span className="text-gray-400 text-xs">—</span>
+              <span className="text-gray-600 text-xs">—</span>
               <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
                 className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white" />
               <button onClick={fetchData}
@@ -456,14 +456,14 @@ export function Reportes() {
             color="bg-emerald-100"
             label="Ventas rápidas"
             value={fmtM(kpis?.ventas_rapidas_monto ?? 0)}
-            sub={<span className="text-gray-400">{kpis?.ventas_rapidas_cant ?? 0} de mostrador</span>}
+            sub={<span className="text-gray-600">{kpis?.ventas_rapidas_cant ?? 0} de mostrador</span>}
           />
           <KpiCard
             icon={<Target size={16} className="text-violet-600" />}
             color="bg-violet-100"
             label="Tasa de cierre"
             value={`${kpis?.tasa_cierre ?? 0}%`}
-            sub={<span className="text-gray-400">de ops generadas</span>}
+            sub={<span className="text-gray-600">de ops generadas</span>}
           />
           <KpiCard
             icon={<CheckCircle2 size={16} className="text-blue-600" />}
@@ -477,7 +477,7 @@ export function Reportes() {
             color="bg-orange-100"
             label="Pendiente de cobro"
             value={fmtM(kpis?.pendiente_cobro ?? 0)}
-            sub={<span className="text-gray-400">compromisos activos</span>}
+            sub={<span className="text-gray-600">compromisos activos</span>}
           />
           <KpiCard
             icon={<Package size={16} className="text-red-500" />}
@@ -503,9 +503,9 @@ export function Reportes() {
         {/* Columna izquierda: chart + 5 bloques */}
         <div className="flex-1 min-w-0 space-y-3">
         {/* Chart */}
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5 min-w-0">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5 min-w-0">
           <h2 className="text-sm font-semibold text-gray-800 mb-1">Evolución de ventas</h2>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-gray-600 mb-4">
             {data?.evolucion.some(e => e.actual > 0) ? 'Ventas aprobadas por día' : 'Sin datos en el período'}
           </p>
           {loading ? (
@@ -567,7 +567,7 @@ export function Reportes() {
         ) : (
           <div className="grid grid-cols-5 gap-3">
             {/* Comercial */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
                   <TrendingUp size={13} className="text-green-600" />
@@ -580,7 +580,7 @@ export function Reportes() {
                 <MiniBar label="Perdidos"  value={com?.cancelados ?? 0} max={com?.total_generados ?? 1} color="bg-red-400" />
               </div>
               <div className="mt-4 pt-3 border-t border-gray-200">
-                <div className="text-xs text-gray-500">Tasa de cierre</div>
+                <div className="text-xs text-gray-600">Tasa de cierre</div>
                 <div className="text-2xl font-bold text-gray-900">{com?.tasa_cierre ?? 0}%</div>
                 <div className="h-1.5 bg-gray-100 rounded-full mt-1">
                   <div className="h-full bg-green-500 rounded-full" style={{ width: `${com?.tasa_cierre ?? 0}%` }} />
@@ -588,7 +588,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Finanzas */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
                   <DollarSign size={13} className="text-blue-600" />
@@ -609,12 +609,12 @@ export function Reportes() {
                   )}
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
+              <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
                 Días prom. cobro: <span className="font-bold text-gray-800 ml-1">{fin?.dias_promedio_cobro ?? 0} días</span>
               </div>
             </div>
             {/* Productos */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
                   <Package size={13} className="text-amber-600" />
@@ -623,7 +623,7 @@ export function Reportes() {
               </div>
               <div className="space-y-1.5">
                 {(data?.top_tipos ?? []).length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">Sin ventas en el período</p>
+                  <p className="text-xs text-gray-600 text-center py-4">Sin ventas en el período</p>
                 ) : (
                   (data?.top_tipos ?? []).slice(0, 4).map((t, i) => {
                     const max = data!.top_tipos[0].monto_total;
@@ -641,13 +641,13 @@ export function Reportes() {
                   })
                 )}
               </div>
-              <div className="mt-3 pt-3 border-t border-gray-200 flex gap-3 text-xs text-gray-500">
+              <div className="mt-3 pt-3 border-t border-gray-200 flex gap-3 text-xs text-gray-600">
                 <span>Sin stock: <strong className="text-red-600">{data?.stock_counts.sin_stock ?? 0}</strong></span>
                 <span>Sin mvto: <strong>{data?.stock_counts.sin_movimiento_30d ?? 0}</strong></span>
               </div>
             </div>
             {/* Operaciones */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
                   <BarChart3 size={13} className="text-violet-600" />
@@ -656,16 +656,16 @@ export function Reportes() {
               </div>
               <div className="flex items-center justify-between mb-3">
                 <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /><span className="text-gray-500">En producción</span><span className="font-bold ml-auto">{ops?.en_produccion ?? 0}</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /><span className="text-gray-500">Listos</span><span className="font-bold ml-auto">{ops?.listo ?? 0}</span></div>
-                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /><span className="text-gray-500">Atrasados</span><span className="font-bold text-red-600 ml-auto">{ops?.atrasadas ?? 0}</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /><span className="text-gray-600">En producción</span><span className="font-bold ml-auto">{ops?.en_produccion ?? 0}</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /><span className="text-gray-600">Listos</span><span className="font-bold ml-auto">{ops?.listo ?? 0}</span></div>
+                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /><span className="text-gray-600">Atrasados</span><span className="font-bold text-red-600 ml-auto">{ops?.atrasadas ?? 0}</span></div>
                 </div>
               </div>
               <div className="mt-2 pt-3 border-t border-gray-200">
-                <div className="text-xs text-gray-500 mb-1">Cumplimiento entregas</div>
+                <div className="text-xs text-gray-600 mb-1">Cumplimiento entregas</div>
                 <div className="flex items-center gap-2">
                   <GaugePct pct={ops?.cumplimiento_pct ?? 100} color={ops && ops.cumplimiento_pct >= 80 ? '#10B981' : ops && ops.cumplimiento_pct >= 60 ? '#F59E0B' : '#EF4444'} />
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-600">
                     {ops?.remitos_entregados ?? 0}/{ops?.remitos_total ?? 0} remitos
                     {(ops?.dias_promedio_entrega ?? 0) > 0 && <div>Prom: {ops?.dias_promedio_entrega} días</div>}
                   </div>
@@ -673,7 +673,7 @@ export function Reportes() {
               </div>
             </div>
             {/* Proveedores */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
                   <ShoppingCart size={13} className="text-orange-600" />
@@ -681,8 +681,8 @@ export function Reportes() {
                 <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Proveedores</span>
               </div>
               <div className="space-y-3">
-                <div><div className="text-xs text-gray-500">Compras del período</div><div className="text-xl font-bold text-gray-900">{fmtM(data?.compras.compras_periodo ?? 0)}</div></div>
-                <div><div className="text-xs text-gray-500">Deuda con proveedores</div><div className={`text-xl font-bold ${(data?.compras.deuda_proveedores ?? 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>{fmtM(data?.compras.deuda_proveedores ?? 0)}</div></div>
+                <div><div className="text-xs text-gray-600">Compras del período</div><div className="text-xl font-bold text-gray-900">{fmtM(data?.compras.compras_periodo ?? 0)}</div></div>
+                <div><div className="text-xs text-gray-600">Deuda con proveedores</div><div className={`text-xl font-bold ${(data?.compras.deuda_proveedores ?? 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>{fmtM(data?.compras.deuda_proveedores ?? 0)}</div></div>
               </div>
               <div className="mt-4">
                 <Link to="/proveedores" className="text-xs text-orange-600 hover:underline font-medium flex items-center gap-1">Ver proveedores <ArrowRight size={10} /></Link>
@@ -696,7 +696,7 @@ export function Reportes() {
           const vt = data?.visitas_tecnicas;
           if (!vt) return null;
           return (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                   <Ruler size={12} className="text-slate-500" />
@@ -707,28 +707,28 @@ export function Reportes() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Generadas</div>
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Generadas</div>
                   <div className="text-lg font-bold text-gray-900">{vt.generadas}</div>
                 </div>
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Cobradas</div>
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Cobradas</div>
                   <div className="text-lg font-bold text-emerald-700">{fmtM(vt.monto_cobrado)}</div>
-                  <div className="text-[10px] text-gray-400">{vt.cobradas} visita{vt.cobradas !== 1 ? 's' : ''}</div>
+                  <div className="text-[10px] text-gray-600">{vt.cobradas} visita{vt.cobradas !== 1 ? 's' : ''}</div>
                 </div>
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Bonificadas</div>
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Bonificadas</div>
                   <div className="text-lg font-bold text-violet-700">{fmtM(vt.monto_bonificado)}</div>
-                  <div className="text-[10px] text-gray-400">{vt.bonificadas} acreditada{vt.bonificadas !== 1 ? 's' : ''}</div>
+                  <div className="text-[10px] text-gray-600">{vt.bonificadas} acreditada{vt.bonificadas !== 1 ? 's' : ''}</div>
                 </div>
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Sin cargo</div>
-                  <div className="text-lg font-bold text-gray-500">{fmtM(vt.monto_sin_cargo)}</div>
-                  <div className="text-[10px] text-gray-400">{vt.sin_cargo} visita{vt.sin_cargo !== 1 ? 's' : ''}</div>
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Sin cargo</div>
+                  <div className="text-lg font-bold text-gray-600">{fmtM(vt.monto_sin_cargo)}</div>
+                  <div className="text-[10px] text-gray-600">{vt.sin_cargo} visita{vt.sin_cargo !== 1 ? 's' : ''}</div>
                 </div>
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Costo externo</div>
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Costo externo</div>
                   <div className="text-lg font-bold text-orange-600">{fmtM(vt.costo_externo)}</div>
-                  <div className="text-[10px] text-gray-400">técnicos tercerizados</div>
+                  <div className="text-[10px] text-gray-600">técnicos tercerizados</div>
                 </div>
               </div>
 
@@ -736,7 +736,7 @@ export function Reportes() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs font-semibold text-gray-700">Retenido del servicio de visitas</div>
-                    <div className="text-[11px] text-gray-500">cobrado − bonificado − costo externo</div>
+                    <div className="text-[11px] text-gray-600">cobrado − bonificado − costo externo</div>
                   </div>
                   <div className={`text-xl font-bold ${vt.retenido < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
                     {fmtM(vt.retenido)}
@@ -749,7 +749,7 @@ export function Reportes() {
                 )}
               </div>
 
-              <p className="text-[10px] text-gray-400 mt-2">
+              <p className="text-[10px] text-gray-600 mt-2">
                 Las visitas se cuentan por fecha de generación; lo bonificado, por la fecha en que se acreditó.
               </p>
             </div>
@@ -760,7 +760,7 @@ export function Reportes() {
         {/* Alertas + Acciones */}
         <div className="w-64 shrink-0 space-y-3">
           {/* Alertas */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
               <AlertCircle size={13} className="text-red-500" />
               Alertas importantes
@@ -772,7 +772,7 @@ export function Reportes() {
             ) : data?.alertas.length === 0 ? (
               <div className="text-center py-4">
                 <CheckCircle2 size={24} className="text-green-400 mx-auto mb-1" />
-                <p className="text-xs text-gray-400">Todo en orden</p>
+                <p className="text-xs text-gray-600">Todo en orden</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -782,7 +782,7 @@ export function Reportes() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Acciones rápidas</h3>
             <div className="space-y-0.5">
               {[
@@ -795,7 +795,7 @@ export function Reportes() {
                 <button key={a.ruta} onClick={() => navigate(a.ruta)}
                   className="w-full flex items-center justify-between px-2 py-2 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors group">
                   <span>{a.label}</span>
-                  <ChevronRight size={12} className="text-gray-300 group-hover:text-gray-500" />
+                  <ChevronRight size={12} className="text-gray-600 group-hover:text-gray-600" />
                 </button>
               ))}
               <button onClick={() => window.print()}
@@ -810,7 +810,7 @@ export function Reportes() {
 
       {/* ── Listados compactos: Remitos emitidos + Recibos ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
               <Truck size={13} className="text-teal-600" /> Remitos emitidos
@@ -822,12 +822,12 @@ export function Reportes() {
           {loading ? (
             <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-9 bg-gray-50 animate-pulse rounded-lg" />)}</div>
           ) : !data?.remitos_recientes.length ? (
-            <p className="text-xs text-gray-400 text-center py-4">Sin remitos en el período</p>
+            <p className="text-xs text-gray-600 text-center py-4">Sin remitos en el período</p>
           ) : (
             <div className="divide-y divide-gray-100">
               {data.remitos_recientes.map(r => (
                 <Link key={r.id} to="/remitos" className="flex items-center gap-2 py-2 text-xs hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors">
-                  <span className="font-mono text-gray-400 w-24 shrink-0">{r.numero}</span>
+                  <span className="font-mono text-gray-600 w-24 shrink-0">{r.numero}</span>
                   <span className="flex-1 min-w-0 truncate text-gray-700">{r.cliente_nombre}</span>
                   {r.es_venta_rapida && (
                     <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Rápida</span>
@@ -842,7 +842,7 @@ export function Reportes() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
               <Receipt size={13} className="text-emerald-600" /> Recibos
@@ -854,14 +854,14 @@ export function Reportes() {
           {loading ? (
             <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-9 bg-gray-50 animate-pulse rounded-lg" />)}</div>
           ) : !data?.recibos_recientes.length ? (
-            <p className="text-xs text-gray-400 text-center py-4">Sin recibos en el período</p>
+            <p className="text-xs text-gray-600 text-center py-4">Sin recibos en el período</p>
           ) : (
             <div className="divide-y divide-gray-100">
               {data.recibos_recientes.map(r => (
                 <Link key={r.id} to="/recibos" className="flex items-center gap-2 py-2 text-xs hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors">
-                  <span className="font-mono text-gray-400 w-24 shrink-0">{r.numero}</span>
+                  <span className="font-mono text-gray-600 w-24 shrink-0">{r.numero}</span>
                   <span className="flex-1 min-w-0 truncate text-gray-700">{r.cliente_nombre}</span>
-                  <span className="shrink-0 text-[10px] text-gray-400">{r.forma_pago}</span>
+                  <span className="shrink-0 text-[10px] text-gray-600">{r.forma_pago}</span>
                   <span className="shrink-0 font-semibold text-gray-800 w-20 text-right">{fmtM(r.monto_total)}</span>
                 </Link>
               ))}
@@ -881,7 +881,7 @@ export function Reportes() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
           {/* Mejores clientes */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Users size={12} className="text-blue-500" />
@@ -890,17 +890,17 @@ export function Reportes() {
               <Link to="/clientes" className="text-xs text-blue-600 hover:underline">Ver todos →</Link>
             </div>
             {(data?.top_clientes ?? []).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">Sin datos en el período</p>
+              <p className="text-xs text-gray-600 text-center py-6">Sin datos en el período</p>
             ) : (
               <div className="space-y-2">
                 {(data?.top_clientes ?? []).map((c, i) => (
                   <div key={c.id} className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400 w-4 text-center">{i + 1}</span>
+                    <span className="text-xs font-bold text-gray-600 w-4 text-center">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 truncate">
                         {c.razon_social || `${c.apellido ?? ''} ${c.nombre}`.trim()}
                       </div>
-                      <div className="text-xs text-gray-400">{c.cant_ops} op{c.cant_ops !== 1 ? 's' : ''}</div>
+                      <div className="text-xs text-gray-600">{c.cant_ops} op{c.cant_ops !== 1 ? 's' : ''}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-xs font-bold text-gray-800">{fmtM(c.total_ventas)}</div>
@@ -912,7 +912,7 @@ export function Reportes() {
           </div>
 
           {/* Productos más vendidos */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Package size={12} className="text-amber-500" />
@@ -921,15 +921,15 @@ export function Reportes() {
               <Link to="/productos" className="text-xs text-blue-600 hover:underline">Ver todos →</Link>
             </div>
             {(data?.top_tipos ?? []).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">Sin datos en el período</p>
+              <p className="text-xs text-gray-600 text-center py-6">Sin datos en el período</p>
             ) : (
               <div className="space-y-2">
                 {(data?.top_tipos ?? []).map((t, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400 w-4 text-center">{i + 1}</span>
+                    <span className="text-xs font-bold text-gray-600 w-4 text-center">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-800 truncate">{t.tipo}</div>
-                      <div className="text-xs text-gray-400">{t.cant_total} unid.</div>
+                      <div className="text-xs text-gray-600">{t.cant_total} unid.</div>
                     </div>
                     <div className="text-xs font-bold text-gray-800">{fmtM(t.monto_total)}</div>
                   </div>
@@ -939,7 +939,7 @@ export function Reportes() {
           </div>
 
           {/* Métodos de pago */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <DollarSign size={12} className="text-green-500" />
@@ -948,7 +948,7 @@ export function Reportes() {
               <Link to="/recibos" className="text-xs text-blue-600 hover:underline">Ver cobros →</Link>
             </div>
             {(data?.metodos_pago ?? []).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">Sin cobros en el período</p>
+              <p className="text-xs text-gray-600 text-center py-6">Sin cobros en el período</p>
             ) : (
               <div className="flex items-center gap-3">
                 <div className="shrink-0">
@@ -979,7 +979,7 @@ export function Reportes() {
           </div>
 
           {/* Descuentos otorgados */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Tag size={12} className="text-violet-500" />
@@ -988,18 +988,18 @@ export function Reportes() {
             </div>
             {(data?.descuentos.total_descuentos ?? 0) === 0 ? (
               <div className="text-center py-4">
-                <Tag size={24} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-xs text-gray-400">Sin descuentos en el período</p>
+                <Tag size={24} className="text-gray-600 mx-auto mb-2" />
+                <p className="text-xs text-gray-600">Sin descuentos en el período</p>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-violet-50 rounded-xl p-2.5 text-center">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Total descontado</div>
+                    <div className="text-[10px] text-gray-600 mb-0.5">Total descontado</div>
                     <div className="text-base font-bold text-violet-700">{fmtP(data?.descuentos.total_descuentos ?? 0)}</div>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-2.5 text-center">
-                    <div className="text-[10px] text-gray-500 mb-0.5">% sobre precio lista</div>
+                    <div className="text-[10px] text-gray-600 mb-0.5">% sobre precio lista</div>
                     <div className="text-base font-bold text-gray-700">
                       {(data?.descuentos.total_lista ?? 0) > 0
                         ? (((data!.descuentos.total_descuentos) / (data!.descuentos.total_lista)) * 100).toFixed(1)
@@ -1007,16 +1007,16 @@ export function Reportes() {
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500 text-right">
+                <div className="text-xs text-gray-600 text-right">
                   {data?.descuentos.recibos_con_descuento ?? 0} recibo{(data?.descuentos.recibos_con_descuento ?? 0) !== 1 ? 's' : ''} con descuento
                 </div>
                 {(data?.descuentos.top_clientes ?? []).length > 0 && (
-                  <div className="space-y-1.5 pt-1 border-t border-gray-100">
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Mayores descuentos</p>
+                  <div className="space-y-1.5 pt-1 border-t border-gray-200">
+                    <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Mayores descuentos</p>
                     {(data?.descuentos.top_clientes ?? []).map((c, i) => (
                       <div key={c.id} className="flex items-center justify-between text-xs">
                         <span className="text-gray-600 truncate mr-2">
-                          <span className="text-gray-400 mr-1">{i + 1}.</span>
+                          <span className="text-gray-600 mr-1">{i + 1}.</span>
                           {c.nombre}
                         </span>
                         <span className="font-semibold text-violet-700 shrink-0">{fmtP(c.total_descuento)}</span>
@@ -1029,7 +1029,7 @@ export function Reportes() {
           </div>
 
           {/* Objetivos */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Target size={12} className="text-violet-500" />
@@ -1037,7 +1037,7 @@ export function Reportes() {
               </h3>
               {!editandoObjetivo && (
                 <button onClick={() => { setNuevoObjetivo(String(data?.objetivo.objetivo_ventas ?? 0)); setEditandoObjetivo(true); }}
-                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                  className="p-1 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-600">
                   <Edit2 size={11} />
                 </button>
               )}
@@ -1045,7 +1045,7 @@ export function Reportes() {
 
             {editandoObjetivo ? (
               <div className="space-y-2">
-                <label className="text-xs text-gray-500">Objetivo de ventas</label>
+                <label className="text-xs text-gray-600">Objetivo de ventas</label>
                 <input
                   type="number"
                   value={nuevoObjetivo}
@@ -1069,8 +1069,8 @@ export function Reportes() {
               <div className="space-y-3">
                 {(data?.objetivo.objetivo_ventas ?? 0) === 0 ? (
                   <div className="text-center py-4">
-                    <Target size={24} className="text-gray-300 mx-auto mb-2" />
-                    <p className="text-xs text-gray-400">Sin objetivo configurado</p>
+                    <Target size={24} className="text-gray-600 mx-auto mb-2" />
+                    <p className="text-xs text-gray-600">Sin objetivo configurado</p>
                     <button onClick={() => { setNuevoObjetivo(''); setEditandoObjetivo(true); }}
                       className="mt-2 text-xs text-blue-600 hover:underline">
                       Configurar objetivo
@@ -1079,16 +1079,16 @@ export function Reportes() {
                 ) : (
                   <>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Ventas objetivo</span>
+                      <span className="text-gray-600">Ventas objetivo</span>
                       <span className="font-bold text-gray-700">{fmtP(data?.objetivo.objetivo_ventas ?? 0)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Ventas actuales</span>
+                      <span className="text-gray-600">Ventas actuales</span>
                       <span className="font-bold text-gray-900">{fmtP(data?.objetivo.ventas_actuales ?? 0)}</span>
                     </div>
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500">Cumplimiento</span>
+                        <span className="text-gray-600">Cumplimiento</span>
                         <span className={`font-bold ${(data?.objetivo.cumplimiento_pct ?? 0) >= 100 ? 'text-green-600' : (data?.objetivo.cumplimiento_pct ?? 0) >= 75 ? 'text-blue-600' : 'text-orange-500'}`}>
                           {data?.objetivo.cumplimiento_pct ?? 0}%
                         </span>

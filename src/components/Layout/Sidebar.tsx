@@ -85,7 +85,7 @@ function NavItemLink({ item, onClose }: { item: NavItem; onClose?: () => void })
           'lg:justify-center lg:px-0',
           isActive ? cn('text-white', activeBg) : hovered ? 'bg-white/5' : '',
         )}
-        style={({ isActive }) => isActive ? {} : { color: 'rgba(255,255,255,0.55)' }}
+        style={({ isActive }) => isActive ? {} : { color: 'rgba(255,255,255,0.85)' }}
       >
         {({ isActive }) => (
           <>
@@ -105,7 +105,7 @@ function NavItemLink({ item, onClose }: { item: NavItem; onClose?: () => void })
                 : hovered
                   ? cn(activeBg, activeColor, 'scale-110')
                   : '',
-            )} style={!isActive && !hovered ? { color: 'rgba(255,255,255,0.45)' } : {}}>
+            )} style={!isActive && !hovered ? { color: 'rgba(255,255,255,0.82)' } : {}}>
               <Icon size={20} />
             </span>
 
@@ -199,7 +199,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         {onClose && (
           <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg ml-1"
-            style={{ color: 'rgba(255,255,255,0.4)' }} aria-label="Cerrar menú">
+            style={{ color: 'rgba(255,255,255,0.75)' }} aria-label="Cerrar menú">
             <X size={16} />
           </button>
         )}
@@ -215,7 +215,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               <>
                 {/* Mobile: texto de sección */}
                 <p className="lg:hidden text-[10px] font-semibold uppercase tracking-widest px-4 pt-3 pb-1.5"
-                  style={{ color: 'rgba(255,255,255,0.30)' }}>
+                  style={{ color: 'rgba(255,255,255,0.72)' }}>
                   {group.label}
                 </p>
                 {/* Desktop: línea separadora */}
@@ -244,13 +244,13 @@ export function Sidebar({ onClose }: SidebarProps) {
             <p className="text-xs font-semibold truncate" style={{ color: 'rgba(255,255,255,0.90)' }}>
               {user?.nombre ?? 'Usuario'}
             </p>
-            <p className="text-[10px] capitalize" style={{ color: 'rgba(255,255,255,0.40)' }}>
+            <p className="text-[10px] capitalize" style={{ color: 'rgba(255,255,255,0.78)' }}>
               {user?.rol ?? ''}
             </p>
           </div>
           <button onClick={handleSignOut} title="Cerrar sesión"
             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-            style={{ color: 'rgba(255,255,255,0.35)' }}>
+            style={{ color: 'rgba(255,255,255,0.72)' }}>
             <LogOut size={14} />
           </button>
         </div>
@@ -278,7 +278,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           {/* Logout */}
           <button onClick={handleSignOut} title="Cerrar sesión"
             className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors"
-            style={{ color: 'rgba(255,255,255,0.35)' }}>
+            style={{ color: 'rgba(255,255,255,0.72)' }}>
             <LogOut size={18} />
           </button>
         </div>

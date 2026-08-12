@@ -299,7 +299,7 @@ export function VentaRapida() {
           </div>
           <div className="p-6 space-y-3">
             <div className="flex items-center justify-between text-sm bg-gray-50 rounded-xl px-4 py-3">
-              <span className="text-gray-500">Recibo</span>
+              <span className="text-gray-600">Recibo</span>
               <span className="font-mono font-semibold text-gray-800">{resultado.numero_recibo}</span>
             </div>
             {resultado.numero_recibo_envio && (
@@ -309,7 +309,7 @@ export function VentaRapida() {
               </div>
             )}
             <div className="flex items-center justify-between text-sm bg-gray-50 rounded-xl px-4 py-3">
-              <span className="text-gray-500">Remito</span>
+              <span className="text-gray-600">Remito</span>
               <span className="font-mono font-semibold text-gray-800">
                 {resultado.numero_remito}
                 <span className={cn('ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-bold',
@@ -341,7 +341,7 @@ export function VentaRapida() {
               <RefreshCw size={15}/> Nueva venta
             </button>
             <button onClick={() => navigate('/productos')}
-              className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50">
+              className="w-full py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
               Volver a Productos
             </button>
           </div>
@@ -366,19 +366,19 @@ export function VentaRapida() {
 
           {/* Cliente */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-3.5">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <Users size={13}/> Cliente
             </p>
             {clienteId ? (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
                 <span className="text-sm font-semibold text-gray-800 flex-1 truncate">{clienteNombre}</span>
                 <button onClick={() => { setClienteId(''); setClienteNombre(''); setClienteDireccion(''); }}
-                  className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-400"/></button>
+                  className="p-1 hover:bg-white rounded"><X size={13} className="text-gray-600"/></button>
               </div>
             ) : (
               <div className="relative">
                 <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl">
-                  <Search size={14} className="text-gray-300 shrink-0"/>
+                  <Search size={14} className="text-gray-600 shrink-0"/>
                   <input
                     value={clienteSearch}
                     onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
@@ -391,12 +391,12 @@ export function VentaRapida() {
                 {showClienteList && clienteSearch && (
                   <div className="absolute z-20 top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
                     {clientes.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-gray-400">Sin resultados</div>
+                      <div className="px-4 py-3 text-sm text-gray-600">Sin resultados</div>
                     ) : clientes.slice(0, 8).map(c => (
                       <button key={c.id} onMouseDown={() => seleccionarCliente(c)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-200 last:border-0">
                         <p className="text-sm font-medium text-gray-800">{nombreCliente(c)}</p>
-                        {c.telefono && <p className="text-xs text-gray-400">{c.telefono}</p>}
+                        {c.telefono && <p className="text-xs text-gray-600">{c.telefono}</p>}
                       </button>
                     ))}
                     <button onMouseDown={() => { setShowQuickAdd(true); setQNombre(clienteSearch); }}
@@ -441,7 +441,7 @@ export function VentaRapida() {
                     Crear y continuar
                   </button>
                   <button onClick={() => setShowQuickAdd(false)}
-                    className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-sm hover:bg-gray-100">Cancelar</button>
+                    className="px-3 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-100">Cancelar</button>
                 </div>
               </div>
             )}
@@ -449,13 +449,13 @@ export function VentaRapida() {
 
           {/* Productos */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <ShoppingCart size={13}/> Productos con stock disponible
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2 mb-3">
               <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl flex-1 min-w-0">
-                <Search size={14} className="text-gray-300 shrink-0"/>
+                <Search size={14} className="text-gray-600 shrink-0"/>
                 <input
                   value={prodSearch}
                   onChange={e => setProdSearch(e.target.value)}
@@ -463,7 +463,7 @@ export function VentaRapida() {
                   className="flex-1 min-w-0 text-sm focus:outline-none"
                 />
                 {prodSearch && (
-                  <button onClick={() => setProdSearch('')} className="text-gray-300 hover:text-gray-500 shrink-0"><X size={13}/></button>
+                  <button onClick={() => setProdSearch('')} className="text-gray-600 hover:text-gray-600 shrink-0"><X size={13}/></button>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -474,16 +474,16 @@ export function VentaRapida() {
                 </select>
                 <button onClick={() => setSoloPromo(v => !v)}
                   className={cn('flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition-all',
-                    soloPromo ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-500 hover:border-amber-300')}>
+                    soloPromo ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:border-amber-300')}>
                   <Tag size={12}/> En promoción
                 </button>
               </div>
             </div>
 
             {loadingCatalogo ? (
-              <div className="py-8 text-center text-sm text-gray-400">Cargando catálogo...</div>
+              <div className="py-8 text-center text-sm text-gray-600">Cargando catálogo...</div>
             ) : galeria.length === 0 ? (
-              <div className="py-8 text-center text-sm text-gray-400 flex flex-col items-center gap-2">
+              <div className="py-8 text-center text-sm text-gray-600 flex flex-col items-center gap-2">
                 <LayoutGrid size={20} className="text-gray-200"/>
                 {q || soloPromo || tipoAberturaId ? 'Sin resultados para el filtro elegido' : 'No hay productos con stock disponible'}
               </div>
@@ -507,7 +507,7 @@ export function VentaRapida() {
         {/* ── Sidebar: resumen de la venta ── */}
         <div className="xl:sticky xl:top-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1.5">
               <ClipboardList size={13}/> Resumen de la venta
               {items.length > 0 && (
                 <span className="ml-auto text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 font-bold">
@@ -528,16 +528,16 @@ export function VentaRapida() {
             )}
 
             {items.length === 0 ? (
-              <div className="py-8 text-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl">
+              <div className="py-8 text-center text-xs text-gray-600 border border-dashed border-gray-200 rounded-xl">
                 Elegí productos de la galería para armar la venta
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden max-h-[280px] overflow-y-auto">
+              <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden max-h-[280px] overflow-y-auto">
                 {items.map(i => (
                   <div key={i.producto_id} className="p-2.5 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <p className="flex-1 min-w-0 text-xs font-semibold text-gray-800 truncate">{i.nombre}</p>
-                      <button onClick={() => quitarItem(i.producto_id)} className="p-0.5 text-gray-300 hover:text-red-500 shrink-0">
+                      <button onClick={() => quitarItem(i.producto_id)} className="p-0.5 text-gray-600 hover:text-red-500 shrink-0">
                         <Trash2 size={12}/>
                       </button>
                     </div>
@@ -571,7 +571,7 @@ export function VentaRapida() {
             {items.length > 0 && (
               <>
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Forma de pago</p>
+                  <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Forma de pago</p>
                   <select value={formaPago} onChange={e => setFormaPago(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
                     {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
@@ -579,12 +579,12 @@ export function VentaRapida() {
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Bonificación</p>
+                  <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Bonificación</p>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {[5, 7, 10, 15].map(pct => (
                       <button key={pct} onClick={() => aplicarPreset(pct / 100)}
                         className={cn('px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all',
-                          bonPct === pct / 100 ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300')}>
+                          bonPct === pct / 100 ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-emerald-300')}>
                         {pct}%
                       </button>
                     ))}
@@ -592,22 +592,22 @@ export function VentaRapida() {
                       placeholder="Otro %" type="number" min={0} max={50}
                       className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
                     {(bonPct > 0 || bonCustom) && (
-                      <button onClick={resetBonificacion} className="text-xs text-gray-400 hover:text-gray-600">Quitar</button>
+                      <button onClick={resetBonificacion} className="text-xs text-gray-600 hover:text-gray-600">Quitar</button>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Forma de entrega</p>
+                  <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Forma de entrega</p>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button onClick={() => { setFormaEntrega('retiro_local'); setMedioEnvio(''); setCostoEnvio(''); }}
                       className={cn('flex flex-col items-center gap-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all',
-                        formaEntrega === 'retiro_local' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300')}>
+                        formaEntrega === 'retiro_local' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-emerald-300')}>
                       <Store size={15}/> Retira en local
                     </button>
                     <button onClick={() => setFormaEntrega('envio_domicilio')}
                       className={cn('flex flex-col items-center gap-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all',
-                        formaEntrega === 'envio_domicilio' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-500 hover:border-emerald-300')}>
+                        formaEntrega === 'envio_domicilio' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-emerald-300')}>
                       <Truck size={15}/> Envío a domicilio
                     </button>
                   </div>
@@ -625,7 +625,7 @@ export function VentaRapida() {
                         ))}
                       </select>
                       <div>
-                        <label className="text-[11px] text-gray-500 font-medium mb-1 block">Costo de envío (opcional)</label>
+                        <label className="text-[11px] text-gray-600 font-medium mb-1 block">Costo de envío (opcional)</label>
                         <MontoInput
                           value={costoEnvio}
                           onChange={setCostoEnvio}
@@ -633,21 +633,21 @@ export function VentaRapida() {
                           className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                         />
                         {parseFloat(costoEnvio) > 0 && (
-                          <p className="text-[10px] text-gray-400 mt-1">Se va a generar un recibo aparte por este importe.</p>
+                          <p className="text-[10px] text-gray-600 mt-1">Se va a generar un recibo aparte por este importe.</p>
                         )}
                       </div>
                     </div>
                   ) : (
                     <label className="flex items-center gap-2.5 pt-2 cursor-pointer select-none">
                       <input type="checkbox" checked={retira} onChange={e => setRetira(e.target.checked)}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"/>
+                        className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500"/>
                       <span className="text-xs text-gray-700 font-medium">Cliente retira ahora</span>
                     </label>
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-gray-100 space-y-1">
-                  <div className="flex justify-between text-sm text-gray-500">
+                <div className="pt-2 border-t border-gray-200 space-y-1">
+                  <div className="flex justify-between text-sm text-gray-600">
                     <span>Subtotal</span><span className="tabular-nums">{formatCurrency(montoProductos)}</span>
                   </div>
                   {montoDescuento > 0 && (
@@ -659,7 +659,7 @@ export function VentaRapida() {
                     <span>Total</span><span className="tabular-nums">{formatCurrency(montoFinal)}</span>
                   </div>
                   {formaEntrega === 'envio_domicilio' && parseFloat(costoEnvio) > 0 && (
-                    <div className="flex justify-between text-xs text-amber-600 font-semibold pt-1 border-t border-dashed border-gray-100">
+                    <div className="flex justify-between text-xs text-amber-600 font-semibold pt-1 border-t border-dashed border-gray-200">
                       <span>+ Costo de envío (recibo aparte)</span>
                       <span className="tabular-nums">{formatCurrency(parseFloat(costoEnvio) || 0)}</span>
                     </div>

@@ -38,7 +38,7 @@ function InlineForm({ fields, onSave, onCancel }: {
     <div className="flex flex-wrap gap-2 items-end bg-gray-50 rounded-lg p-3 border border-gray-200">
       {fields.map(f => (
         <div key={f.key} className="flex flex-col gap-1 min-w-[130px]">
-          <label className="text-[11px] font-medium text-gray-500">{f.label}</label>
+          <label className="text-[11px] font-medium text-gray-600">{f.label}</label>
           <input
             className="px-2.5 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
             value={vals[f.key]}
@@ -54,7 +54,7 @@ function InlineForm({ fields, onSave, onCancel }: {
           className="flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white text-xs rounded-md font-medium">
           <Check size={13} /> {saving ? '...' : 'Guardar'}
         </button>
-        <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100">
+        <button onClick={onCancel} className="p-1.5 text-gray-600 hover:text-gray-600 rounded-md hover:bg-gray-100">
           <X size={14} />
         </button>
       </div>
@@ -115,7 +115,7 @@ function PanelTiposAbertura() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activos</p>
+        <p className="text-xs text-gray-600">{items.filter(i => i.activo).length} activos</p>
         <button onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
           <Plus size={13} /> Agregar
@@ -138,7 +138,7 @@ function PanelTiposAbertura() {
       <div className="divide-y divide-gray-100">
         {items.map(item => (
           <div key={item.id} className={cn('py-2.5 flex items-center gap-3', !item.activo && 'opacity-50')}>
-            <span className="w-6 text-xs text-gray-400 text-right">{item.orden}</span>
+            <span className="w-6 text-xs text-gray-600 text-right">{item.orden}</span>
             <div className="flex-1 min-w-0">
               {editId === item.id ? (
                 <InlineForm
@@ -155,7 +155,7 @@ function PanelTiposAbertura() {
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                    {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+                    {item.descripcion && <p className="text-xs text-gray-600">{item.descripcion}</p>}
                   </div>
                   {item.margen_venta != null && (
                     <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
@@ -168,20 +168,20 @@ function PanelTiposAbertura() {
             {editId !== item.id && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => { setEditId(item.id); setAdding(false); }}
-                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
                   {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
                 </button>
-                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar">
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-600 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar">
                   <Trash2 size={13} />
                 </button>
               </div>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin tipos cargados</p>}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin tipos cargados</p>}
       </div>
     </div>
   );
@@ -223,7 +223,7 @@ function PanelSistemas() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activos</p>
+        <p className="text-xs text-gray-600">{items.filter(i => i.activo).length} activos</p>
         <button onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
           <Plus size={13} /> Agregar
@@ -259,24 +259,24 @@ function PanelSistemas() {
               ) : (
                 <div>
                   <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                  {item.material && <p className="text-xs text-gray-400">{item.material}</p>}
+                  {item.material && <p className="text-xs text-gray-600">{item.material}</p>}
                 </div>
               )}
             </div>
             {editId !== item.id && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => { setEditId(item.id); setAdding(false); }}
-                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
                   {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
                 </button>
               </div>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin sistemas cargados</p>}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin sistemas cargados</p>}
       </div>
     </div>
   );
@@ -318,7 +318,7 @@ function PanelColores() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activos</p>
+        <p className="text-xs text-gray-600">{items.filter(i => i.activo).length} activos</p>
         <button onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
           <Plus size={13} /> Agregar
@@ -342,7 +342,7 @@ function PanelColores() {
             {item.hex ? (
               <div className="w-5 h-5 rounded-full border border-gray-200 shrink-0" style={{ backgroundColor: item.hex }} />
             ) : (
-              <div className="w-5 h-5 rounded-full border border-dashed border-gray-300 shrink-0" />
+              <div className="w-5 h-5 rounded-full border border-dashed border-gray-400 shrink-0" />
             )}
             <div className="flex-1 min-w-0">
               {editId === item.id ? (
@@ -357,24 +357,24 @@ function PanelColores() {
               ) : (
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                  {item.hex && <p className="text-xs text-gray-400 font-mono">{item.hex}</p>}
+                  {item.hex && <p className="text-xs text-gray-600 font-mono">{item.hex}</p>}
                 </div>
               )}
             </div>
             {editId !== item.id && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => { setEditId(item.id); setAdding(false); }}
-                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
                   {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
                 </button>
               </div>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin colores cargados</p>}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin colores cargados</p>}
       </div>
     </div>
   );
@@ -434,11 +434,11 @@ function PanelServicios() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-600">
         Servicios frecuentes (reparación, mantenimiento, cambio de piezas) para cargar rápido en presupuestos. El precio es sugerido y se puede editar por presupuesto.
       </p>
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activos</p>
+        <p className="text-xs text-gray-600">{items.filter(i => i.activo).length} activos</p>
         <button onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
           <Plus size={13} /> Agregar
@@ -476,30 +476,30 @@ function PanelServicios() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
                     {item.precio_base != null && (
-                      <p className="text-xs text-gray-400 font-mono">${Number(item.precio_base).toLocaleString('es-AR')}</p>
+                      <p className="text-xs text-gray-600 font-mono">${Number(item.precio_base).toLocaleString('es-AR')}</p>
                     )}
                   </div>
-                  {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+                  {item.descripcion && <p className="text-xs text-gray-600">{item.descripcion}</p>}
                 </div>
               )}
             </div>
             {editId !== item.id && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => { setEditId(item.id); setAdding(false); }}
-                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
                   {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
                 </button>
-                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50">
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-600 hover:text-red-500 rounded hover:bg-red-50">
                   <Trash2 size={13} />
                 </button>
               </div>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin servicios cargados</p>}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin servicios cargados</p>}
       </div>
     </div>
   );
@@ -557,11 +557,11 @@ function PanelFormasPago() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-600">
         Alternativas de pago que se pueden ofrecer en un presupuesto (ej. "Contado 7% descuento", "3 cuotas sin interés"). El % es sugerido y se puede editar por presupuesto.
       </p>
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{items.filter(i => i.activo).length} activas</p>
+        <p className="text-xs text-gray-600">{items.filter(i => i.activo).length} activas</p>
         <button onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
           <Plus size={13} /> Agregar
@@ -596,7 +596,7 @@ function PanelFormasPago() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
                   {Number(item.descuento_pct) > 0 && (
-                    <p className="text-xs text-gray-400 font-mono">{item.descuento_pct}%</p>
+                    <p className="text-xs text-gray-600 font-mono">{item.descuento_pct}%</p>
                   )}
                 </div>
               )}
@@ -604,20 +604,20 @@ function PanelFormasPago() {
             {editId !== item.id && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => { setEditId(item.id); setAdding(false); }}
-                  className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                  className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
                   {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
                 </button>
-                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50">
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-600 hover:text-red-500 rounded hover:bg-red-50">
                   <Trash2 size={13} />
                 </button>
               </div>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin formas de pago cargadas</p>}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin formas de pago cargadas</p>}
       </div>
     </div>
   );
@@ -641,7 +641,7 @@ function CategoriaNode({ nodo, hijosDe, depth, addingUnder, setAddingUnder, edit
   return (
     <div>
       <div className={cn('flex items-center gap-2 py-2 group', !nodo.activo && 'opacity-50')} style={{ paddingLeft: depth * 20 }}>
-        {depth > 0 && <ChevronRight size={12} className="text-gray-300 shrink-0" />}
+        {depth > 0 && <ChevronRight size={12} className="text-gray-600 shrink-0" />}
         {editId === nodo.id ? (
           <div className="flex-1">
             <InlineForm
@@ -654,16 +654,16 @@ function CategoriaNode({ nodo, hijosDe, depth, addingUnder, setAddingUnder, edit
           <>
             <span className="text-sm font-medium text-gray-800 flex-1 min-w-0">{nodo.nombre}</span>
             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => { setAddingUnder(nodo.id); setEditId(null); }} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title="Agregar subcategoría">
+              <button onClick={() => { setAddingUnder(nodo.id); setEditId(null); }} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title="Agregar subcategoría">
                 <Plus size={13} />
               </button>
-              <button onClick={() => { setEditId(nodo.id); setAddingUnder(null); }} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title="Renombrar">
+              <button onClick={() => { setEditId(nodo.id); setAddingUnder(null); }} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title="Renombrar">
                 <Pencil size={13} />
               </button>
-              <button onClick={() => onToggle(nodo)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100" title={nodo.activo ? 'Desactivar' : 'Activar'}>
+              <button onClick={() => onToggle(nodo)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={nodo.activo ? 'Desactivar' : 'Activar'}>
                 {nodo.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
               </button>
-              <button onClick={() => onDelete(nodo)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar">
+              <button onClick={() => onDelete(nodo)} className="p-1.5 text-gray-600 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -737,7 +737,7 @@ function PanelCategorias() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">Navegación del catálogo — Familia → Uso → Material → Línea (profundidad libre)</p>
+        <p className="text-xs text-gray-600">Navegación del catálogo — Familia → Uso → Material → Línea (profundidad libre)</p>
         <button onClick={() => { setAddingUnder('__root__'); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium shrink-0">
           <Plus size={13} /> Familia
@@ -759,7 +759,7 @@ function PanelCategorias() {
             editId={editId} setEditId={setEditId}
             onAdd={handleAdd} onEdit={handleEdit} onToggle={toggleActivo} onDelete={eliminar} />
         ))}
-        {raices.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin categorías cargadas</p>}
+        {raices.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin categorías cargadas</p>}
       </div>
     </div>
   );
@@ -796,7 +796,7 @@ function PanelModelos() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-600">
         Los modelos se crean al cargar un producto (Nuevo producto → "Modelo"). Acá solo se administran los ya existentes.
       </p>
       <div className="divide-y divide-gray-100">
@@ -815,23 +815,23 @@ function PanelModelos() {
               ) : (
                 <div>
                   <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
-                  <p className="text-xs text-gray-400">{item.variantes_count} variante{item.variantes_count !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-gray-600">{item.variantes_count} variante{item.variantes_count !== 1 ? 's' : ''}</p>
                 </div>
               )}
             </div>
             {editId !== item.id && (
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => setEditId(item.id)} className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                <button onClick={() => setEditId(item.id)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar (solo sin variantes)">
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-600 hover:text-red-500 rounded hover:bg-red-50" title="Eliminar (solo sin variantes)">
                   <Trash2 size={13} />
                 </button>
               </div>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin modelos cargados</p>}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin modelos cargados</p>}
       </div>
     </div>
   );
@@ -880,10 +880,10 @@ function PanelEmpresa() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-400 py-4">Cargando...</p>;
+  if (loading) return <p className="text-sm text-gray-600 py-4">Cargando...</p>;
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white';
-  const labelCls = 'block text-xs font-medium text-gray-500 mb-1';
+  const labelCls = 'block text-xs font-medium text-gray-600 mb-1';
 
   return (
     <div className="space-y-4">
@@ -919,12 +919,12 @@ function PanelEmpresa() {
         <div className="sm:col-span-2">
           <label className={labelCls}>Costo de visita técnica</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600">$</span>
             <input type="number" min="0" step="100" value={form.costo_visita_tecnica}
               onChange={e => set('costo_visita_tecnica', e.target.value)}
               className={`${inputCls} pl-7`} placeholder="25000" />
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">
+          <p className="text-[11px] text-gray-600 mt-1">
             Se cobra por adelantado al generar la visita. Después podés acreditarlo al presupuesto.
           </p>
         </div>
@@ -971,10 +971,10 @@ function UserForm({ initial, onSave, onCancel, isEdit, currentUserId }: {
   }
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white';
-  const labelCls = 'block text-xs font-medium text-gray-500 mb-1';
+  const labelCls = 'block text-xs font-medium text-gray-600 mb-1';
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-100 rounded-xl border border-gray-300 p-4 space-y-3">
+    <form onSubmit={handleSubmit} className="bg-gray-100 rounded-xl border border-gray-400 p-4 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Nombre *</label>
@@ -995,7 +995,7 @@ function UserForm({ initial, onSave, onCancel, isEdit, currentUserId }: {
             placeholder={isEdit ? '••••••••' : 'Mínimo 6 caracteres'}
           />
           <button type="button" onClick={() => setShowPwd(v => !v)}
-            className="absolute right-2.5 bottom-2 text-gray-400 hover:text-gray-600">
+            className="absolute right-2.5 bottom-2 text-gray-600 hover:text-gray-600">
             {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
@@ -1009,7 +1009,7 @@ function UserForm({ initial, onSave, onCancel, isEdit, currentUserId }: {
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100">
+        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100">
           Cancelar
         </button>
         <button type="submit" disabled={saving}
@@ -1059,12 +1059,12 @@ function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-400 py-4">Cargando...</p>;
+  if (loading) return <p className="text-sm text-gray-600 py-4">Cargando...</p>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{usuarios.filter(u => u.activo).length} activos · {usuarios.length} total</p>
+        <p className="text-xs text-gray-600">{usuarios.filter(u => u.activo).length} activos · {usuarios.length} total</p>
         <button onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
           <Plus size={13} /> Nuevo usuario
@@ -1107,15 +1107,15 @@ function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
                       <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Vos</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400">{u.email}</p>
+                  <p className="text-xs text-gray-600">{u.email}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => { setEditId(u.id); setAdding(false); }}
-                    className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100">
+                    className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
                     <Pencil size={13} />
                   </button>
                   <button onClick={() => toggleActivo(u)}
-                    className="p-1.5 text-gray-400 hover:text-slate-600 rounded hover:bg-gray-100"
+                    className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100"
                     title={u.activo ? 'Desactivar' : 'Activar'}>
                     {u.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
                   </button>
@@ -1124,7 +1124,7 @@ function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
             )}
           </div>
         ))}
-        {usuarios.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Sin usuarios</p>}
+        {usuarios.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin usuarios</p>}
       </div>
     </div>
   );
@@ -1175,7 +1175,7 @@ function PanelMensajes() {
     setEditando(e => ({ ...e, [clave]: orig }));
   }
 
-  if (!plantillas.length) return <p className="text-sm text-gray-400 py-2">Cargando...</p>;
+  if (!plantillas.length) return <p className="text-sm text-gray-600 py-2">Cargando...</p>;
 
   return (
     <div className="space-y-6 pt-1">
@@ -1188,7 +1188,7 @@ function PanelMensajes() {
               <div className="flex gap-1.5">
                 {dirty && (
                   <button onClick={() => resetear(p.clave)}
-                    className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded">
+                    className="text-[11px] text-gray-600 hover:text-gray-600 px-2 py-1 rounded">
                     Descartar
                   </button>
                 )}
@@ -1208,7 +1208,7 @@ function PanelMensajes() {
 
             {p.variables && (
               <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Variables:</span>
+                <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wide">Variables:</span>
                 {p.variables.split(',').map(v => v.trim()).filter(Boolean).map(v => (
                   <button key={v}
                     onClick={() => setEditando(ed => ({ ...ed, [p.clave]: (ed[p.clave] ?? '') + v }))}
@@ -1287,18 +1287,18 @@ function PanelLocalidades() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-600">
         Lista de localidades disponibles al cargar clientes. Se puede desactivar sin eliminar.
       </p>
 
       {/* Lista */}
       <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
         {lista.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-4">Sin localidades</p>
+          <p className="text-sm text-gray-600 text-center py-4">Sin localidades</p>
         )}
         {lista.map(loc => (
           <div key={loc.id} className="flex items-center gap-2 px-3 py-2.5 bg-white hover:bg-gray-50">
-            <GripVertical size={14} className="text-gray-300 shrink-0" />
+            <GripVertical size={14} className="text-gray-600 shrink-0" />
             {editId === loc.id ? (
               <input
                 autoFocus
@@ -1308,7 +1308,7 @@ function PanelLocalidades() {
                 className="flex-1 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             ) : (
-              <span className={cn('flex-1 text-sm', loc.activo ? 'text-gray-800' : 'text-gray-400 line-through')}>{loc.nombre}</span>
+              <span className={cn('flex-1 text-sm', loc.activo ? 'text-gray-800' : 'text-gray-600 line-through')}>{loc.nombre}</span>
             )}
             <div className="flex items-center gap-1 shrink-0">
               {editId === loc.id ? (
@@ -1316,18 +1316,18 @@ function PanelLocalidades() {
                   <button onClick={() => guardarEdicion(loc.id)} disabled={saving}
                     className="p-1 rounded hover:bg-emerald-100 text-emerald-600"><Check size={13} /></button>
                   <button onClick={() => setEditId(null)}
-                    className="p-1 rounded hover:bg-gray-100 text-gray-400"><X size={13} /></button>
+                    className="p-1 rounded hover:bg-gray-100 text-gray-600"><X size={13} /></button>
                 </>
               ) : (
                 <>
                   <button onClick={() => { setEditId(loc.id); setEditVal(loc.nombre); }}
-                    className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={13} /></button>
+                    className="p-1 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-600"><Pencil size={13} /></button>
                   <button onClick={() => toggleActivo(loc)}
-                    className={cn('p-1 rounded', loc.activo ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-300 hover:bg-gray-100')}>
+                    className={cn('p-1 rounded', loc.activo ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100')}>
                     {loc.activo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                   </button>
                   <button onClick={() => eliminar(loc)}
-                    className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
+                    className="p-1 rounded hover:bg-red-50 text-gray-600 hover:text-red-500"><Trash2 size={13} /></button>
                 </>
               )}
             </div>
@@ -1395,11 +1395,11 @@ function PanelBackups() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-sm text-gray-400 text-center py-4">Cargando...</p>;
+  if (loading) return <p className="text-sm text-gray-600 text-center py-4">Cargando...</p>;
 
   if (!data || !data.disponible) {
     return (
-      <p className="text-sm text-gray-400 text-center py-4">
+      <p className="text-sm text-gray-600 text-center py-4">
         Sin datos de backup en este ambiente (el backup automático corre solo en producción).
       </p>
     );
@@ -1420,17 +1420,17 @@ function PanelBackups() {
           </p>
         </div>
         <div className="rounded-xl p-3 border border-gray-200 bg-gray-50">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Fallos (7d)</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">Fallos (7d)</p>
           <p className={cn('text-lg font-extrabold', resumen.fallos_ultimos_7_dias > 0 ? 'text-amber-600' : 'text-gray-800')}>
             {resumen.fallos_ultimos_7_dias} / {resumen.corridas_ultimos_7_dias}
           </p>
         </div>
         <div className="rounded-xl p-3 border border-gray-200 bg-gray-50">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Backups locales</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">Backups locales</p>
           <p className="text-lg font-extrabold text-gray-800">{resumen.cantidad_archivos_locales}</p>
         </div>
         <div className="rounded-xl p-3 border border-gray-200 bg-gray-50">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Espacio en disco</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">Espacio en disco</p>
           <p className="text-lg font-extrabold text-gray-800">{formatBytes(resumen.espacio_local_bytes)}</p>
         </div>
       </div>
@@ -1446,10 +1446,10 @@ function PanelBackups() {
 
       {/* Historial de corridas */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Historial (últimas {corridas.length} corridas)</p>
+        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Historial (últimas {corridas.length} corridas)</p>
         <div className="border border-gray-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-gray-100">
           {corridas.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">Sin corridas registradas</p>
+            <p className="text-sm text-gray-600 text-center py-4">Sin corridas registradas</p>
           ) : corridas.map((r, i) => (
             <div key={i} className="flex items-center gap-2.5 px-3 py-2 bg-white">
               {r.exitoso
@@ -1458,7 +1458,7 @@ function PanelBackups() {
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-gray-700">{formatFechaHora(r.fecha)}</p>
                 {r.exitoso
-                  ? <p className="text-[11px] text-gray-400 truncate">{r.archivo}</p>
+                  ? <p className="text-[11px] text-gray-600 truncate">{r.archivo}</p>
                   : <p className="text-[11px] text-red-500 truncate">{r.error ?? 'Falló sin detalle'}</p>}
               </div>
             </div>
@@ -1469,14 +1469,14 @@ function PanelBackups() {
       {/* Archivos locales (últimos, respaldo aunque no haya subido a Drive) */}
       {archivos_locales.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <HardDrive size={12} /> Archivos en el servidor
           </p>
           <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 max-h-52 overflow-y-auto">
             {archivos_locales.slice(0, 10).map(a => (
               <div key={a.nombre} className="flex items-center justify-between px-3 py-2 bg-white text-xs">
                 <span className="text-gray-600 truncate">{a.nombre}</span>
-                <div className="flex items-center gap-3 shrink-0 text-gray-400">
+                <div className="flex items-center gap-3 shrink-0 text-gray-600">
                   <span className="flex items-center gap-1"><Clock size={11} />{formatFechaHora(a.fecha)}</span>
                   <span>{formatBytes(a.tamano_bytes)}</span>
                 </div>
@@ -1518,14 +1518,14 @@ function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }
       >
         <div className="flex items-center gap-3">
           <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', open ? 'bg-slate-200' : 'bg-gray-100')}>
-            <Icon size={16} className={open ? 'text-slate-700' : 'text-gray-500'} />
+            <Icon size={16} className={open ? 'text-slate-700' : 'text-gray-600'} />
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-800">{label}</p>
-            <p className="text-xs text-gray-400">{desc}</p>
+            <p className="text-xs text-gray-600">{desc}</p>
           </div>
         </div>
-        <X size={16} className={cn('text-gray-400 transition-transform', open ? 'rotate-0' : 'rotate-45')} />
+        <X size={16} className={cn('text-gray-600 transition-transform', open ? 'rotate-0' : 'rotate-45')} />
       </button>
       {open && (
         <div className="px-5 pb-5 pt-2 border-t border-gray-200">
@@ -1555,8 +1555,8 @@ export function Configuracion() {
 
       {/* General */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">General</h2>
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+        <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">General</h2>
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <AccordionItem id="empresa" label="Empresa" icon={Building2} desc="Datos del negocio, CUIT, contacto"
             open={openPanel === 'empresa'} onToggle={() => togglePanel('empresa')}>
             <PanelEmpresa />
@@ -1576,8 +1576,8 @@ export function Configuracion() {
 
       {/* Catálogo de productos */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Catálogo de productos</h2>
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+        <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Catálogo de productos</h2>
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           {CATALOG_BTNS.map(({ id, label, icon, desc }, idx) => (
             <div key={id}>
               {idx > 0 && <div className="border-t border-gray-200" />}
@@ -1598,8 +1598,8 @@ export function Configuracion() {
 
       {/* Mensajes WhatsApp */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Comunicación</h2>
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+        <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Comunicación</h2>
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <AccordionItem id="mensajes" label="Mensajes WhatsApp" icon={MessageSquare}
             desc="Texto de pedidos, presupuestos y remitos enviados por WhatsApp"
             open={openPanel === 'mensajes'} onToggle={() => togglePanel('mensajes')}>
@@ -1610,8 +1610,8 @@ export function Configuracion() {
 
       {/* Sistema */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Sistema</h2>
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+        <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Sistema</h2>
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <AccordionItem id="backups" label="Backups" icon={DatabaseBackup}
             desc="Estado del backup automático a Google Drive"
             open={openPanel === 'backups'} onToggle={() => togglePanel('backups')}>

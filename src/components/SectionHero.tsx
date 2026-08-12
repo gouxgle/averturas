@@ -54,7 +54,7 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900 leading-tight break-words">
               {title}
             </h1>
-            {sub && <p className="text-sm text-gray-500 mt-0.5">{sub}</p>}
+            {sub && <p className="text-sm text-gray-600 mt-0.5">{sub}</p>}
           </div>
         </div>
 

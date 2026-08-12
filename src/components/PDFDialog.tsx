@@ -120,7 +120,7 @@ export function PDFDialog({
             </div>
             {!enviado && (
               <button onClick={() => setPreview(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X size={15} className="text-gray-400" />
+                <X size={15} className="text-gray-600" />
               </button>
             )}
           </div>
@@ -142,7 +142,7 @@ export function PDFDialog({
           </div>
 
           {clienteTelefono && (
-            <p className="text-[11px] text-gray-400 text-center mb-4">
+            <p className="text-[11px] text-gray-600 text-center mb-4">
               {enviado ? `Enviado a ${clienteTelefono}` : `Se enviará a ${clienteTelefono}`}
             </p>
           )}
@@ -162,7 +162,7 @@ export function PDFDialog({
                   {enviando ? 'Enviando...' : <><Send size={14} /> Confirmar envío</>}
                 </button>
                 <button onClick={() => setPreview(false)}
-                  className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+                  className="w-full py-2 text-xs text-gray-600 hover:text-gray-600">
                   Cancelar
                 </button>
               </>
@@ -187,7 +187,7 @@ export function PDFDialog({
           </div>
           <div>
             <p className="font-semibold text-gray-900">{title}</p>
-            <p className="text-sm text-gray-500">{subtitle}</p>
+            <p className="text-sm text-gray-600">{subtitle}</p>
           </div>
         </div>
 
@@ -209,8 +209,8 @@ export function PDFDialog({
           {baseEndpoint && (
             <div className="border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
-                <Share2 size={12} className="text-gray-400" />
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Compartir con el cliente</span>
+                <Share2 size={12} className="text-gray-600" />
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Compartir con el cliente</span>
               </div>
               <div className="p-3 flex flex-col gap-2">
 
@@ -242,7 +242,7 @@ export function PDFDialog({
           </button>
 
           <button onClick={onClose}
-            className="w-full py-2 text-xs text-gray-400 hover:text-gray-600">
+            className="w-full py-2 text-xs text-gray-600 hover:text-gray-600">
             Cerrar
           </button>
         </div>

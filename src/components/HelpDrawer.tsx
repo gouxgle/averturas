@@ -241,12 +241,12 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
               <BookOpen size={16} className="text-violet-600" />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Ayuda</p>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">Ayuda</p>
               <p className="text-sm font-bold text-gray-900">{data.label}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors">
-            <X size={16} className="text-gray-500" />
+            <X size={16} className="text-gray-600" />
           </button>
         </div>
 
@@ -292,7 +292,7 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
                   </span>
                   <div>
                     <p className="text-sm text-gray-800">{step.text}</p>
-                    {step.note && <p className="text-xs text-gray-400 mt-0.5">{step.note}</p>}
+                    {step.note && <p className="text-xs text-gray-600 mt-0.5">{step.note}</p>}
                   </div>
                 </div>
               ))}
@@ -337,7 +337,7 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
 
         {/* Footer — otros temas */}
         <div className="border-t border-gray-200 px-5 py-3">
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-2">Otros temas</p>
+          <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-wider mb-2">Otros temas</p>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(HELP_CONTENT) as HelpTopic[]).filter(k => k !== topic).map(k => (
               <button key={k} onClick={() => onChangeTopic?.(k)}

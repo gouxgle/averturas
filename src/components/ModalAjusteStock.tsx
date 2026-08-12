@@ -112,7 +112,7 @@ export function ModalAjusteStock({
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-xs text-gray-600 mt-1.5">
               {modo === 'absoluto' ? 'Ingresá el total de unidades que hay físicamente.' : 'Ingresá +N para sumar o -N para restar.'}
             </p>
           </div>
@@ -128,7 +128,7 @@ export function ModalAjusteStock({
 
           {selected && delta !== null && valor !== '' && (
             <div className={`flex items-center gap-2 p-3 rounded-xl text-sm ${
-              delta === 0 ? 'bg-gray-50 text-gray-500' :
+              delta === 0 ? 'bg-gray-50 text-gray-600' :
               delta > 0   ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
             }`}>
               <Info size={14} />

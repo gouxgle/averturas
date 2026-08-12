@@ -211,7 +211,7 @@ function ModalProveedor({
         ? 'border-red-400 focus:ring-red-300'
         : 'border-gray-200 focus:ring-amber-400'
     }`;
-  const lbl = 'block text-xs font-medium text-gray-500 mb-1';
+  const lbl = 'block text-xs font-medium text-gray-600 mb-1';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -229,7 +229,7 @@ function ModalProveedor({
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           {/* Datos básicos */}
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos generales</p>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Datos generales</p>
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className={lbl}>Nombre / Razón social *</label>
@@ -299,14 +299,14 @@ function ModalProveedor({
 
           {/* Materiales */}
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Rubros / Materiales</p>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Rubros / Materiales</p>
             <div className="flex flex-wrap gap-2">
               {MATERIALES_OPTS.map(mat => (
                 <button key={mat} type="button" onClick={() => toggleMat(mat)}
                   className={cn('px-3 py-1 text-xs rounded-full border font-medium transition-colors',
                     form.materiales.includes(mat)
                       ? 'bg-amber-600 text-white border-amber-600'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                   )}>
                   {mat}
                 </button>
@@ -316,7 +316,7 @@ function ModalProveedor({
 
           {/* Logística */}
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Logística y entrega</p>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Logística y entrega</p>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={lbl}>Forma de entrega</label>
@@ -341,7 +341,7 @@ function ModalProveedor({
 
           {/* Evaluación + deuda */}
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Evaluación y finanzas</p>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Evaluación y finanzas</p>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className={lbl}>Calificación</label>
@@ -360,7 +360,7 @@ function ModalProveedor({
                   className={inp('deuda_actual')} placeholder="0" />
               </div>
               <div>
-                <label className={lbl}>Margen de venta (%) <span className="text-gray-400 font-normal">— fallback</span></label>
+                <label className={lbl}>Margen de venta (%) <span className="text-gray-600 font-normal">— fallback</span></label>
                 <input type="number" min="0" max="999" step="1" value={form.margen_venta ?? ''} onChange={e => set('margen_venta', parseFloat(e.target.value) || 0)}
                   className={inp('margen_venta')} placeholder="0" />
               </div>
@@ -374,7 +374,7 @@ function ModalProveedor({
                 </div>
                 <span className="text-sm font-medium text-gray-700">Proveedor principal</span>
               </label>
-              <p className="text-xs text-gray-400 mt-0.5 ml-12">Aparece destacado en el panel</p>
+              <p className="text-xs text-gray-600 mt-0.5 ml-12">Aparece destacado en el panel</p>
             </div>
           </div>
 
@@ -418,7 +418,7 @@ function ProveedorRow({
 
   return (
     <div className={cn(
-      'bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 transition-opacity overflow-x-auto',
+      'bg-white rounded-xl border border-gray-400 shadow-lg border-l-4 transition-opacity overflow-x-auto',
       prov.es_principal ? 'border-l-amber-400' : 'border-l-gray-200',
       !prov.activo && 'opacity-50'
     )}>
@@ -437,7 +437,7 @@ function ProveedorRow({
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Principal</span>
               )}
               {prov.tipo && (
-                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0', TIPO_COLORS[prov.tipo] ?? 'bg-gray-100 text-gray-500')}>
+                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0', TIPO_COLORS[prov.tipo] ?? 'bg-gray-100 text-gray-600')}>
                   {prov.tipo}
                 </span>
               )}
@@ -447,16 +447,16 @@ function ProveedorRow({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-600">
               {prov.contacto && <span className="truncate">{prov.contacto}</span>}
               {prov.localidad && <span className="flex items-center gap-0.5 flex-shrink-0"><MapPin size={9} />{prov.localidad}</span>}
             </div>
             <div className="flex flex-wrap gap-1 mt-1">
               {(prov.materiales ?? []).slice(0, 3).map(m => (
-                <span key={m} className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-md">{m}</span>
+                <span key={m} className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-md">{m}</span>
               ))}
               {(prov.materiales ?? []).length > 3 && (
-                <span className="text-[10px] text-gray-400">+{prov.materiales.length - 3}</span>
+                <span className="text-[10px] text-gray-600">+{prov.materiales.length - 3}</span>
               )}
             </div>
           </div>
@@ -467,10 +467,10 @@ function ProveedorRow({
           {prov.lotes_count_6m > 0 ? (
             <>
               <p className="text-sm font-bold text-gray-900">{fmtMonto(prov.compras_monto_6m)}</p>
-              <p className="text-[10px] text-gray-400">{prov.lotes_count_6m} compras</p>
+              <p className="text-[10px] text-gray-600">{prov.lotes_count_6m} compras</p>
             </>
           ) : (
-            <p className="text-xs text-gray-300 italic">Sin compras</p>
+            <p className="text-xs text-gray-600 italic">Sin compras</p>
           )}
         </div>
 
@@ -492,10 +492,10 @@ function ProveedorRow({
             {entregaCfg.label}
           </span>
           {prov.plazo_entrega_dias && (
-            <p className="text-[10px] text-gray-400 mt-0.5">Prom. {prov.plazo_entrega_dias}d</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">Prom. {prov.plazo_entrega_dias}d</p>
           )}
           {prov.costo_flete > 0 && (
-            <p className="text-[10px] text-gray-400">Flete: {prov.costo_flete}%</p>
+            <p className="text-[10px] text-gray-600">Flete: {prov.costo_flete}%</p>
           )}
         </div>
 
@@ -507,7 +507,7 @@ function ProveedorRow({
               <p className={cn('text-[10px] font-semibold mt-0.5', califCfg?.text)}>{califCfg?.label}</p>
             </>
           ) : (
-            <p className="text-[10px] text-gray-300 italic">Sin evaluar</p>
+            <p className="text-[10px] text-gray-600 italic">Sin evaluar</p>
           )}
         </div>
 
@@ -518,7 +518,7 @@ function ProveedorRow({
               ? new Date(String(prov.ultima_compra_fecha).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
               : '—'}
           </p>
-          <p className="text-[10px] text-gray-400">{fmtDias(prov.dias_sin_compra)}</p>
+          <p className="text-[10px] text-gray-600">{fmtDias(prov.dias_sin_compra)}</p>
         </div>
 
         {/* Acciones contacto */}
@@ -537,7 +537,7 @@ function ProveedorRow({
           )}
           {prov.web && (
             <a href={prov.web} target="_blank" rel="noopener noreferrer"
-              className="p-1.5 hover:bg-gray-100 text-gray-400 rounded-lg" title="Web">
+              className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg" title="Web">
               <Globe size={13} />
             </a>
           )}
@@ -552,7 +552,7 @@ function ProveedorRow({
           <button onClick={onEdit} className="p-1.5 hover:bg-amber-50 text-amber-600 rounded-lg" title="Editar">
             <Pencil size={13} />
           </button>
-          <button onClick={onToggle} className="p-1.5 hover:bg-gray-100 text-gray-400 rounded-lg"
+          <button onClick={onToggle} className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg"
             title={prov.activo ? 'Desactivar' : 'Activar'}>
             {prov.activo
               ? <ToggleRight size={16} className="text-green-500" />
@@ -670,7 +670,7 @@ export function Proveedores() {
         title="Proveedores"
         sub="Gestión de proveedores, compras y transporte"
         actions={<>
-          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
+          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-600">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={() => setModal('nuevo')}
@@ -683,19 +683,19 @@ export function Proveedores() {
       {/* KPI tiles — compactos */}
       {stats && (
         <div className="flex gap-2 flex-wrap">
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-300 shadow-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-400 shadow-lg px-3 py-2">
             <Truck size={13} className="text-amber-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-gray-900">{stats.activos_count}</span>
-              <span className="text-[10px] text-gray-400 ml-1">activos / {stats.total_count}</span>
+              <span className="text-[10px] text-gray-600 ml-1">activos / {stats.total_count}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-300 shadow-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-400 shadow-lg px-3 py-2">
             <ShoppingCart size={13} className="text-blue-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-blue-600">{fmtMonto(stats.compras_mes_actual)}</span>
-              <span className="text-[10px] text-gray-400 ml-1">compras mes</span>
+              <span className="text-[10px] text-gray-600 ml-1">compras mes</span>
               {stats.tendencia_compras !== 0 && (
                 <span className={cn('text-[10px] font-medium ml-1', stats.tendencia_compras > 0 ? 'text-amber-600' : 'text-emerald-600')}>
                   {stats.tendencia_compras > 0 ? '▲' : '▼'}{Math.abs(stats.tendencia_compras)}%
@@ -704,27 +704,27 @@ export function Proveedores() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-300 shadow-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-400 shadow-lg px-3 py-2">
             <DollarSign size={13} className="text-red-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-red-600">{fmtMonto(stats.deuda_total)}</span>
-              <span className="text-[10px] text-gray-400 ml-1">deuda total</span>
+              <span className="text-[10px] text-gray-600 ml-1">deuda total</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-300 shadow-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-400 shadow-lg px-3 py-2">
             <Clock size={13} className="text-purple-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-gray-900">{stats.prom_plazo_dias || '—'}</span>
-              <span className="text-[10px] text-gray-400 ml-1">días prom. entrega</span>
+              <span className="text-[10px] text-gray-600 ml-1">días prom. entrega</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-300 shadow-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-400 shadow-lg px-3 py-2">
             <BarChart2 size={13} className="text-emerald-500 flex-shrink-0" />
             <div>
               <span className="text-sm font-bold text-gray-900">{feTotal > 0 ? Math.round((fe.propia ?? 0) / feTotal * 100) : 0}%</span>
-              <span className="text-[10px] text-gray-400 ml-1">entrega propia</span>
+              <span className="text-[10px] text-gray-600 ml-1">entrega propia</span>
             </div>
           </div>
         </div>
@@ -740,14 +740,14 @@ export function Proveedores() {
           {/* Controles */}
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por nombre, ciudad, material..."
                 className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
             </div>
             <button onClick={() => setSoloActivos(v => !v)}
               className={cn('px-3 py-2.5 text-sm rounded-xl border font-medium transition-colors flex-shrink-0',
-                soloActivos ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-gray-200 text-gray-500')}>
+                soloActivos ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-gray-200 text-gray-600')}>
               {soloActivos ? 'Solo activos' : 'Todos'}
             </button>
           </div>
@@ -757,11 +757,11 @@ export function Proveedores() {
             {FILTROS.map(f => (
               <button key={f.key} onClick={() => setFiltro(f.key)}
                 className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                  filtro === f.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700')}>
+                  filtro === f.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-700')}>
                 {f.label}
                 {f.count > 0 && (
                   <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
-                    filtro === f.key ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-500',
+                    filtro === f.key ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-600',
                     f.key === 'con_deuda' && f.count > 0 ? 'bg-red-100 text-red-600' : '')}>
                     {f.count}
                   </span>
@@ -774,26 +774,26 @@ export function Proveedores() {
           {!loading && filtered.length > 0 && (
             <div className="hidden sm:grid items-center gap-3 px-4 py-2"
               style={{ gridTemplateColumns: '1fr 110px 110px 110px 120px 90px 80px 80px' }}>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proveedor</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Compras 6m</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Deuda</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Logística</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Desempeño</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Última compra</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Contacto</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Acciones</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Proveedor</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Compras 6m</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Deuda</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Logística</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">Desempeño</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">Última compra</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">Contacto</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Acciones</span>
             </div>
           )}
 
           {/* Filas */}
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <RefreshCw size={20} className="animate-spin text-gray-400" />
+              <RefreshCw size={20} className="animate-spin text-gray-600" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg py-16 text-center">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg py-16 text-center">
               <Truck size={32} className="mx-auto mb-3 text-gray-200" />
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-600">
                 {(tablero?.proveedores ?? []).length === 0
                   ? 'Sin proveedores. Agregá el primero.'
                   : 'Ninguno coincide con los filtros.'}
@@ -822,7 +822,7 @@ export function Proveedores() {
           {/* Paginación */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-1">
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-600">
                 {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} de {filtered.length} proveedores
               </p>
               <div className="flex items-center gap-1">
@@ -853,7 +853,7 @@ export function Proveedores() {
         <div className="w-64 shrink-0 space-y-4">
 
           {/* Resumen de transporte */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
               Resumen de transporte
             </p>
@@ -880,7 +880,7 @@ export function Proveedores() {
                     <span className={cn('w-2 h-2 rounded-full flex-shrink-0', s.color)} />
                     <span className="flex-1 text-gray-600">{s.label}</span>
                     <span className="font-semibold text-gray-800">{val}</span>
-                    <span className="text-gray-400 w-8 text-right">{pct}%</span>
+                    <span className="text-gray-600 w-8 text-right">{pct}%</span>
                   </div>
                 );
               })}
@@ -888,7 +888,7 @@ export function Proveedores() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Zap size={12} className="text-amber-500" /> Acciones rápidas
             </p>
@@ -914,7 +914,7 @@ export function Proveedores() {
 
           {/* Top proveedores */}
           {(tablero?.top_proveedores.length ?? 0) > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
                 Top por compras (6m)
               </p>
@@ -926,7 +926,7 @@ export function Proveedores() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800 truncate">{p.nombre}</p>
-                      <p className="text-[10px] text-gray-400">{p.lotes_count_6m} compras</p>
+                      <p className="text-[10px] text-gray-600">{p.lotes_count_6m} compras</p>
                     </div>
                     <span className="text-xs font-bold text-gray-700 flex-shrink-0">
                       {fmtMonto(p.compras_monto_6m)}
@@ -943,7 +943,7 @@ export function Proveedores() {
       {(tablero?.compras_por_rubro.length ?? 0) > 0 && (
         <div className="grid grid-cols-2 gap-4">
           {/* Compras por rubro */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <Package size={12} /> Compras por rubro (últ. 6 meses)
             </p>
@@ -973,14 +973,14 @@ export function Proveedores() {
           </div>
 
           {/* Deuda por proveedor */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <DollarSign size={12} /> Deudas a pagar
             </p>
             {(tablero?.proveedores ?? []).filter(p => p.deuda_actual > 0).length === 0 ? (
               <div className="flex items-center gap-2 py-6 justify-center">
                 <Check size={20} className="text-emerald-400" />
-                <p className="text-sm text-gray-400">Sin deudas pendientes</p>
+                <p className="text-sm text-gray-600">Sin deudas pendientes</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -999,7 +999,7 @@ export function Proveedores() {
                       <span className="text-sm font-bold text-red-600 flex-shrink-0">{fmtMonto(p.deuda_actual)}</span>
                       <button onClick={() => setModal(p.id)}
                         className="p-1 hover:bg-gray-100 rounded-md flex-shrink-0">
-                        <Pencil size={11} className="text-gray-400" />
+                        <Pencil size={11} className="text-gray-600" />
                       </button>
                     </div>
                   ))}

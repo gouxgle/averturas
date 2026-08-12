@@ -139,7 +139,7 @@ function estadoBadge(estado: EstadoPedido) {
     pendiente: { label: 'Pendiente de envío', cls: 'bg-amber-100 text-amber-700 border border-amber-200' },
     enviado:   { label: 'Enviado al proveedor', cls: 'bg-sky-100 text-sky-700 border border-sky-200' },
     recibido:  { label: 'Recibido', cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-    cancelado: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-500 border border-gray-200' },
+    cancelado: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
   };
   const { label, cls } = cfg[estado] ?? cfg.cancelado;
   return (
@@ -154,8 +154,8 @@ function borderColor(estado: EstadoPedido) {
     pendiente: 'border-amber-400',
     enviado:   'border-sky-400',
     recibido:  'border-emerald-400',
-    cancelado: 'border-gray-300',
-  }[estado] ?? 'border-gray-300';
+    cancelado: 'border-gray-400',
+  }[estado] ?? 'border-gray-400';
 }
 
 
@@ -323,13 +323,13 @@ function PedidoModal({ id, onClose, onSaved }: {
             {pedido.estado === 'pendiente' && (
               <button
                 onClick={() => navigate(`/pedidos/${id}/editar`)}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
                 title="Editar"
               >
                 <Edit size={16} />
               </button>
             )}
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600">
               <X size={18} />
             </button>
           </div>
@@ -339,15 +339,15 @@ function PedidoModal({ id, onClose, onSaved }: {
 
           {/* Proveedor */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Proveedor</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Proveedor</p>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <div>
                 <p className="font-semibold text-gray-900">{pedido.proveedor.nombre}</p>
                 {pedido.proveedor.contacto && (
-                  <p className="text-sm text-gray-500">{pedido.proveedor.contacto}</p>
+                  <p className="text-sm text-gray-600">{pedido.proveedor.contacto}</p>
                 )}
                 {pedido.proveedor.telefono && (
-                  <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                  <p className="text-sm text-gray-600 flex items-center gap-1 mt-0.5">
                     <Phone size={11} />
                     {pedido.proveedor.telefono}
                   </p>
@@ -383,7 +383,7 @@ function PedidoModal({ id, onClose, onSaved }: {
           {/* Operación vinculada / destino stock propio */}
           {pedido.es_stock_propio ? (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Destino</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Destino</p>
               <div className="p-3 bg-sky-50 rounded-xl border border-sky-200 flex items-center gap-2">
                 <Package size={16} className="text-sky-600 shrink-0" />
                 <div>
@@ -394,7 +394,7 @@ function PedidoModal({ id, onClose, onSaved }: {
             </div>
           ) : pedido.operacion && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Operación vinculada</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Operación vinculada</p>
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                 <div className="flex items-center justify-between">
                   <div>
@@ -409,35 +409,35 @@ function PedidoModal({ id, onClose, onSaved }: {
           {/* Fechas */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-gray-50 rounded-xl text-center">
-              <p className="text-[10px] text-gray-400 uppercase font-semibold mb-1">Fecha pedido</p>
+              <p className="text-[10px] text-gray-600 uppercase font-semibold mb-1">Fecha pedido</p>
               <p className="text-sm font-semibold text-gray-700">{formatFecha(pedido.fecha_pedido)}</p>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl text-center">
-              <p className="text-[10px] text-gray-400 uppercase font-semibold mb-1">Entrega est.</p>
+              <p className="text-[10px] text-gray-600 uppercase font-semibold mb-1">Entrega est.</p>
               <p className="text-sm font-semibold text-gray-700">{formatFecha(pedido.fecha_entrega_est)}</p>
             </div>
             <div className={cn('p-3 rounded-xl text-center', pedido.fecha_recepcion ? 'bg-emerald-50' : 'bg-gray-50')}>
-              <p className="text-[10px] text-gray-400 uppercase font-semibold mb-1">Recibido</p>
+              <p className="text-[10px] text-gray-600 uppercase font-semibold mb-1">Recibido</p>
               <p className="text-sm font-semibold text-gray-700">{formatFecha(pedido.fecha_recepcion)}</p>
             </div>
           </div>
 
           {/* Items */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Items del pedido</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Items del pedido</p>
             <div className="space-y-2">
               {pedido.items.map(item => (
                 <div key={item.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{item.descripcion}</p>
                     {item.producto && (
-                      <p className="text-[11px] text-gray-400">{item.producto.nombre}</p>
+                      <p className="text-[11px] text-gray-600">{item.producto.nombre}</p>
                     )}
                   </div>
                   <div className="text-right ml-3 shrink-0">
                     <p className="text-sm font-semibold text-gray-700">x{item.cantidad}</p>
                     {item.costo_unitario > 0 && (
-                      <p className="text-[11px] text-gray-400">{formatCurrency(item.costo_unitario)} c/u</p>
+                      <p className="text-[11px] text-gray-600">{formatCurrency(item.costo_unitario)} c/u</p>
                     )}
                   </div>
                 </div>
@@ -447,7 +447,7 @@ function PedidoModal({ id, onClose, onSaved }: {
               <div className="mt-3 pt-3 border-t space-y-1">
                 {pedido.costo_envio > 0 && (
                   <>
-                    <div className="flex justify-between text-sm text-gray-500">
+                    <div className="flex justify-between text-sm text-gray-600">
                       <span>Al proveedor (productos)</span>
                       <span>{formatCurrency(pedido.monto_total - pedido.costo_envio)}</span>
                     </div>
@@ -624,7 +624,7 @@ function PedidoModal({ id, onClose, onSaved }: {
                   <label className="block text-xs font-semibold text-gray-600 mb-1">
                     Costo de envío real
                     {pedido.costo_envio > 0 && (
-                      <span className="text-gray-400 font-normal ml-1">
+                      <span className="text-gray-600 font-normal ml-1">
                         (estimado: {formatCurrency(pedido.costo_envio)})
                       </span>
                     )}
@@ -744,7 +744,7 @@ export default function Pedidos() {
         sub="Gestión de órdenes de compra"
         actions={<>
           <button onClick={() => navigate('/pedidos/nuevo?destino=stock')}
-            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors">
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-colors">
             <Package size={16} /> Para stock propio
           </button>
           <button onClick={() => navigate('/pedidos/nuevo')}
@@ -767,7 +767,7 @@ export default function Pedidos() {
         <div className="flex-1 min-w-0">
 
           {/* Filtros */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg">
             <div className="flex flex-col sm:flex-row gap-3 p-3 border-b border-gray-200">
               <div className="flex gap-1 flex-wrap">
                 {TABS.map(t => (
@@ -778,7 +778,7 @@ export default function Pedidos() {
                       'text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors',
                       filtro === t.value
                         ? 'bg-lime-500 text-white'
-                        : 'text-gray-500 hover:bg-gray-100'
+                        : 'text-gray-600 hover:bg-gray-100'
                     )}
                   >
                     {t.label}
@@ -786,7 +786,7 @@ export default function Pedidos() {
                 ))}
               </div>
               <div className="relative flex-1 min-w-0 sm:max-w-xs ml-auto">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -795,16 +795,16 @@ export default function Pedidos() {
                 />
                 {search && (
                   <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <X size={12} className="text-gray-400" />
+                    <X size={12} className="text-gray-600" />
                   </button>
                 )}
               </div>
             </div>
 
             {/* Lista */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
               {paginated.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 text-sm">
+                <div className="py-12 text-center text-gray-600 text-sm">
                   <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
                   No hay pedidos en este filtro
                 </div>
@@ -824,8 +824,8 @@ export default function Pedidos() {
                         <div className="px-3 py-2.5 flex items-start gap-3">
                           {/* Número */}
                           <div className="shrink-0 w-[80px]">
-                            <p className="text-[11px] font-mono text-gray-400">{p.numero}</p>
-                            <p className="text-[10px] text-gray-300 mt-0.5">{formatFecha(p.fecha_pedido)}</p>
+                            <p className="text-[11px] font-mono text-gray-600">{p.numero}</p>
+                            <p className="text-[10px] text-gray-600 mt-0.5">{formatFecha(p.fecha_pedido)}</p>
                           </div>
                           {/* Main */}
                           <div className="flex-1 min-w-0">
@@ -839,7 +839,7 @@ export default function Pedidos() {
                                 <span className="text-[10px] font-mono text-blue-600 shrink-0">{p.operacion.numero}</span>
                               )}
                               {!p.es_stock_propio && p.operacion && (
-                                <span className="text-[10px] text-gray-400 shrink-0 truncate max-w-[100px]">{nombreCliente(p.operacion)}</span>
+                                <span className="text-[10px] text-gray-600 shrink-0 truncate max-w-[100px]">{nombreCliente(p.operacion)}</span>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -849,7 +849,7 @@ export default function Pedidos() {
                                 </span>
                               ) : estadoBadge(p.estado)}
                               {primerItem && (
-                                <span className="text-[10px] text-gray-400 truncate">
+                                <span className="text-[10px] text-gray-600 truncate">
                                   {primerItem.descripcion} x{primerItem.cantidad}{masItems > 0 ? ` +${masItems}` : ''}
                                 </span>
                               )}
@@ -870,7 +870,7 @@ export default function Pedidos() {
                             {p.proveedor.telefono && <WARowButton pedidoId={p.id} />}
                             <button onClick={() => setDetailId(p.id)}
                               className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center">
-                              <ChevronRight size={13} className="text-gray-400" />
+                              <ChevronRight size={13} className="text-gray-600" />
                             </button>
                           </div>
                         </div>
@@ -881,7 +881,7 @@ export default function Pedidos() {
               )}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-600">
                     Mostrando {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filas.length)} de {filas.length}
                   </span>
                   <div className="flex gap-1">
@@ -891,7 +891,7 @@ export default function Pedidos() {
                         onClick={() => setPage(n)}
                         className={cn(
                           'w-7 h-7 rounded-lg text-xs font-semibold',
-                          n === page ? 'bg-lime-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                          n === page ? 'bg-lime-500 text-white' : 'text-gray-600 hover:bg-gray-100'
                         )}
                       >
                         {n}
@@ -922,7 +922,7 @@ export default function Pedidos() {
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 transition-colors"
                   >
                     <p className="text-xs font-semibold text-gray-800">{p.numero}</p>
-                    <p className="text-[11px] text-gray-500 truncate">{p.proveedor.nombre}</p>
+                    <p className="text-[11px] text-gray-600 truncate">{p.proveedor.nombre}</p>
                     {p.fecha_entrega_est && (
                       <p className="text-[11px] text-sky-600 flex items-center gap-1 mt-0.5">
                         <Calendar size={9} />
@@ -950,7 +950,7 @@ export default function Pedidos() {
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-50 transition-colors"
                   >
                     <p className="text-xs font-semibold text-gray-800">{p.numero}</p>
-                    <p className="text-[11px] text-gray-500 truncate">{p.proveedor.nombre}</p>
+                    <p className="text-[11px] text-gray-600 truncate">{p.proveedor.nombre}</p>
                     {p.operacion && (
                       <p className="text-[11px] text-emerald-700 truncate">{nombreCliente(p.operacion)}</p>
                     )}
@@ -961,8 +961,8 @@ export default function Pedidos() {
           )}
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Acciones rápidas</p>
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-3">
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Acciones rápidas</p>
             <div className="space-y-1">
               <button
                 onClick={() => navigate('/pedidos/nuevo')}

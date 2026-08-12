@@ -293,9 +293,9 @@ function ModalIngreso({
                 <label className="flex items-center gap-2.5 mt-2 cursor-pointer select-none">
                   <input type="checkbox" checked={marcarSalon}
                     onChange={e => setMarcarSalon(e.target.checked)}
-                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                    className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500" />
                   <span className="text-sm text-gray-700">Exhibido en salón</span>
-                  <span className="text-xs text-gray-400">(se aplica al registrar el ingreso)</span>
+                  <span className="text-xs text-gray-600">(se aplica al registrar el ingreso)</span>
                 </label>
               );
             })()}
@@ -477,9 +477,9 @@ function ModalEgreso({
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-blue-300'
                   }`}>
-                  <t.icon size={16} className={`mx-auto mb-1 ${tipo === t.key ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <t.icon size={16} className={`mx-auto mb-1 ${tipo === t.key ? 'text-blue-600' : 'text-gray-600'}`} />
                   <div className={`text-xs font-medium ${tipo === t.key ? 'text-blue-700' : 'text-gray-600'}`}>{t.label}</div>
-                  <div className="text-[10px] text-gray-400 mt-0.5 leading-tight">{t.desc}</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5 leading-tight">{t.desc}</div>
                 </button>
               ))}
             </div>
@@ -501,7 +501,7 @@ function ModalEgreso({
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
               Cantidad *
-              {selected && <span className="text-gray-400 font-normal ml-1">(disponible: {selected.stock_actual})</span>}
+              {selected && <span className="text-gray-600 font-normal ml-1">(disponible: {selected.stock_actual})</span>}
             </label>
             <input type="number" min="1" max={selected?.stock_actual ?? undefined}
               value={cantidad} onChange={e => setCantidad(e.target.value)} placeholder="0"
@@ -569,13 +569,13 @@ function MovimientosPanel({ productoId }: { productoId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <RefreshCw size={14} className="animate-spin text-gray-400" />
+        <RefreshCw size={14} className="animate-spin text-gray-600" />
       </div>
     );
   }
 
   if (movimientos.length === 0) {
-    return <p className="text-xs text-gray-400 text-center py-4">Sin movimientos registrados</p>;
+    return <p className="text-xs text-gray-600 text-center py-4">Sin movimientos registrados</p>;
   }
 
   return (
@@ -593,14 +593,14 @@ function MovimientosPanel({ productoId }: { productoId: string }) {
                 <span className={`text-xs font-semibold ${m.cantidad > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                   {m.cantidad > 0 ? '+' : ''}{m.cantidad}
                 </span>
-                <span className="text-xs text-gray-500">{def.label}</span>
-                {m.lote_numero && <span className="text-xs text-gray-400">· {m.lote_numero}</span>}
-                {m.proveedor_nombre && <span className="text-xs text-gray-400">· {m.proveedor_nombre}</span>}
-                {m.operacion_numero && <span className="text-xs text-gray-400">· Op. {m.operacion_numero}</span>}
+                <span className="text-xs text-gray-600">{def.label}</span>
+                {m.lote_numero && <span className="text-xs text-gray-600">· {m.lote_numero}</span>}
+                {m.proveedor_nombre && <span className="text-xs text-gray-600">· {m.proveedor_nombre}</span>}
+                {m.operacion_numero && <span className="text-xs text-gray-600">· Op. {m.operacion_numero}</span>}
               </div>
-              {m.motivo && <p className="text-[10px] text-gray-400">{m.motivo}</p>}
+              {m.motivo && <p className="text-[10px] text-gray-600">{m.motivo}</p>}
             </div>
-            <span className="text-[10px] text-gray-400 flex-shrink-0">{fmtFecha(m.created_at)}</span>
+            <span className="text-[10px] text-gray-600 flex-shrink-0">{fmtFecha(m.created_at)}</span>
           </div>
         );
       })}
@@ -639,7 +639,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -647,7 +647,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
             className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
-        <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500" title="Actualizar">
+        <button onClick={cargar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-600" title="Actualizar">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
         <button onClick={onNuevoIngreso}
@@ -658,12 +658,12 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <RefreshCw size={20} className="animate-spin text-gray-400" />
+          <RefreshCw size={20} className="animate-spin text-gray-600" />
         </div>
       ) : lotes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg py-16 text-center">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg py-16 text-center">
           <Layers size={32} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-sm text-gray-400">No hay lotes registrados</p>
+          <p className="text-sm text-gray-600">No hay lotes registrados</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -676,7 +676,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
             const isOpen   = expanded[lote.id];
 
             return (
-              <div key={lote.id} className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+              <div key={lote.id} className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
                 <div className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggle(lote.id)}>
                   <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
@@ -692,10 +692,10 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                         </span>
                       ))}
                       {lote.proveedor_nombre && (
-                        <span className="text-xs text-gray-400">{lote.proveedor_nombre}</span>
+                        <span className="text-xs text-gray-600">{lote.proveedor_nombre}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-600">
                       <span>{fmtFecha(lote.fecha_ingreso)}</span>
                       {lote.remito_nro  && <span>R: {lote.remito_nro}</span>}
                       {lote.factura_nro && <span>F: {lote.factura_nro}</span>}
@@ -704,21 +704,21 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
 
                   <div className="flex items-center gap-6 flex-shrink-0 text-right">
                     <div>
-                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Ingresado</div>
+                      <div className="text-[10px] text-gray-600 uppercase tracking-wide">Ingresado</div>
                       <div className="text-sm font-bold text-emerald-600">+{totalIngresado}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Vendido</div>
+                      <div className="text-[10px] text-gray-600 uppercase tracking-wide">Vendido</div>
                       <div className="text-sm font-bold text-blue-600">{totalEgresado}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Remanente</div>
+                      <div className="text-[10px] text-gray-600 uppercase tracking-wide">Remanente</div>
                       <div className={`text-sm font-bold ${totalRemanente <= 0 ? 'text-red-500' : 'text-gray-900'}`}>
                         {totalRemanente}
                       </div>
                     </div>
                     <div className="w-4">
-                      {isOpen ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                      {isOpen ? <ChevronUp size={14} className="text-gray-600" /> : <ChevronDown size={14} className="text-gray-600" />}
                     </div>
                   </div>
                 </div>
@@ -731,7 +731,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                         style={{ width: `${pctUsado}%` }}
                       />
                     </div>
-                    <span className="text-[10px] text-gray-400">{Math.round(pctUsado)}% rotado</span>
+                    <span className="text-[10px] text-gray-600">{Math.round(pctUsado)}% rotado</span>
                   </div>
                 </div>
 
@@ -740,12 +740,12 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                     <table className="w-full">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Producto</th>
-                          <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Ingresado</th>
-                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendido</th>
-                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Remanente</th>
-                          <th className="text-right px-4 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Costo unit.</th>
+                          <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Producto</th>
+                          <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Tipo</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Ingresado</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Vendido</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Remanente</th>
+                          <th className="text-right px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Costo unit.</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -755,7 +755,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                             <td className="px-3 py-2.5 text-center">
                               {item.tipo_abertura
                                 ? <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md">{item.tipo_abertura}</span>
-                                : <span className="text-xs text-gray-300">—</span>
+                                : <span className="text-xs text-gray-600">—</span>
                               }
                             </td>
                             <td className="px-3 py-2.5 text-right text-sm font-semibold text-emerald-600">+{item.cantidad_ingresada}</td>
@@ -763,7 +763,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                             <td className={`px-3 py-2.5 text-right text-sm font-bold ${item.stock_remanente <= 0 ? 'text-red-500' : 'text-gray-800'}`}>
                               {item.stock_remanente}
                             </td>
-                            <td className="px-4 py-2.5 text-right text-xs text-gray-400 font-mono">
+                            <td className="px-4 py-2.5 text-right text-xs text-gray-600 font-mono">
                               {item.costo_unitario ? fmt(item.costo_unitario) : '—'}
                             </td>
                           </tr>
@@ -771,7 +771,7 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                       </tbody>
                     </table>
                     {lote.notas && (
-                      <div className="px-4 py-2 text-xs text-gray-400 italic border-t border-gray-50">
+                      <div className="px-4 py-2 text-xs text-gray-600 italic border-t border-gray-200">
                         {lote.notas}
                       </div>
                     )}
@@ -801,7 +801,7 @@ function ProductoRow({
   const rotCfg     = ROTACION_CFG[producto.rotacion];
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-300 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
+    <div className={`bg-white rounded-xl border border-gray-400 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
       <div className="overflow-x-auto">
       <div
         className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-w-[595px]"
@@ -816,7 +816,7 @@ function ProductoRow({
               <img src={producto.imagen_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Package size={16} className="text-gray-300" />
+                <Package size={16} className="text-gray-600" />
               </div>
             )}
           </div>
@@ -836,7 +836,7 @@ function ProductoRow({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-600">
               {producto.codigo && <span>{producto.codigo}</span>}
               {producto.tipo_abertura && <span>{producto.tipo_abertura.nombre}</span>}
               {producto.color && <span>{producto.color}</span>}
@@ -848,7 +848,7 @@ function ProductoRow({
         <div className="text-center">
           <span className={`text-lg font-bold ${estadoCfg.text}`}>{producto.stock_actual}</span>
           {producto.stock_minimo > 0 && (
-            <p className="text-[10px] text-gray-400">mín {producto.stock_minimo}</p>
+            <p className="text-[10px] text-gray-600">mín {producto.stock_minimo}</p>
           )}
         </div>
 
@@ -870,7 +870,7 @@ function ProductoRow({
         {/* Ventas 30d */}
         <div className="text-center">
           <span className="text-sm font-semibold text-gray-700">{producto.ventas_30d}</span>
-          <p className="text-[10px] text-gray-400">unidades</p>
+          <p className="text-[10px] text-gray-600">unidades</p>
         </div>
 
         {/* Valor stock */}
@@ -891,15 +891,15 @@ function ProductoRow({
             <Minus size={14} />
           </button>
           <button onClick={onAjuste} title="Ajustar"
-            className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
+            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors">
             <Wrench size={13} />
           </button>
           <button onClick={onToggleSalon} title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
-            className={`p-1.5 rounded-lg transition-colors ${producto.en_salon ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'}`}>
+            className={`p-1.5 rounded-lg transition-colors ${producto.en_salon ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-600'}`}>
             <Store size={13} />
           </button>
           <button onClick={() => setExpanded(v => !v)} title="Historial"
-            className="p-1.5 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors">
+            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors">
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </div>
@@ -908,7 +908,7 @@ function ProductoRow({
 
       {expanded && (
         <div className="border-t border-gray-200 px-4 py-3 bg-gray-50/50">
-          <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+          <p className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
             <History size={12} /> Últimos movimientos
           </p>
           <MovimientosPanel productoId={producto.id} />
@@ -1050,7 +1050,7 @@ export function Stock() {
     { key: 'todos',          label: 'Todos',          count: stats?.activos_count },
     { key: 'critico',        label: 'Críticos',        count: stats?.critico_count,       color: 'text-red-600' },
     { key: 'bajo',           label: 'Bajo mínimo',     count: stats?.bajo_minimo_count,   color: 'text-amber-600' },
-    { key: 'sin_movimiento', label: 'Sin movimiento',  count: stats?.sin_movimiento_count, color: 'text-gray-500' },
+    { key: 'sin_movimiento', label: 'Sin movimiento',  count: stats?.sin_movimiento_count, color: 'text-gray-600' },
   ];
 
   // reposición sugerida (sidebar)
@@ -1071,7 +1071,7 @@ export function Stock() {
           title="Existencias"
           sub={stats ? `${stats.activos_count} productos activos${stats.critico_count > 0 ? ` · ${stats.critico_count} críticos` : ''}` : 'Control de inventario'}
           actions={<>
-            <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
+            <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-600">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
             <button onClick={() => abrirEgreso()}
@@ -1087,7 +1087,7 @@ export function Stock() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <RefreshCw size={20} className="animate-spin text-gray-400" />
+            <RefreshCw size={20} className="animate-spin text-gray-600" />
           </div>
         ) : stats && (
           <>
@@ -1119,13 +1119,13 @@ export function Stock() {
                             <img src={p.imagen_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Package size={14} className="text-gray-300" />
+                              <Package size={14} className="text-gray-600" />
                             </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">{p.nombre}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-600">
                             {p.tipo_abertura?.nombre ?? 'Sin categoría'}
                             {p.stock_minimo > 0 && ` · mín ${p.stock_minimo}`}
                           </p>
@@ -1155,7 +1155,7 @@ export function Stock() {
               ] as const).map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    tab === t.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700'
+                    tab === t.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-700'
                   }`}>
                   <t.icon size={14} /> {t.label}
                 </button>
@@ -1173,7 +1173,7 @@ export function Stock() {
                 {/* Controles */}
                 <div className="flex items-center gap-3">
                   <div className="relative flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                     <input
                       value={search}
                       onChange={e => setSearch(e.target.value)}
@@ -1186,7 +1186,7 @@ export function Stock() {
                     {FILTROS.map(f => (
                       <button key={f.key} onClick={() => setFiltro(f.key)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          filtro === f.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700'
+                          filtro === f.key ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-700'
                         }`}>
                         {f.label}
                         {(f.count ?? 0) > 0 && (
@@ -1211,20 +1211,20 @@ export function Stock() {
                 {/* Header tabla — oculto en mobile, cada fila ya tiene sus valores auto-descriptivos */}
                 <div className="hidden sm:grid items-center gap-3 px-4 py-2"
                   style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 130px' }}>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Producto</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Stock</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Estado</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Rotación</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">30d</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Valor</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Acciones</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Producto</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">Stock</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">Estado</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">Rotación</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">30d</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Valor</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-right">Acciones</span>
                 </div>
 
                 {/* Filas */}
                 {paginated.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-gray-300 shadow-lg py-16 text-center">
+                  <div className="bg-white rounded-2xl border border-gray-400 shadow-lg py-16 text-center">
                     <Boxes size={32} className="mx-auto mb-3 text-gray-200" />
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-gray-600">
                       {filtro !== 'todos' || search
                         ? 'Ningún producto coincide con los filtros'
                         : 'No hay productos estándar cargados'}
@@ -1254,7 +1254,7 @@ export function Stock() {
                 {/* Paginación */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-1">
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} de {filtered.length} productos
                     </p>
                     <div className="flex items-center gap-1">
@@ -1290,14 +1290,14 @@ export function Stock() {
       <div className="w-64 shrink-0 space-y-4">
 
         {/* Reposición sugerida */}
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <Zap size={12} className="text-orange-500" /> Reposición sugerida
           </p>
           {reposicion.length === 0 ? (
             <div className="text-center py-4">
               <Check size={20} className="mx-auto mb-1 text-emerald-400" />
-              <p className="text-xs text-gray-400">Stock saludable</p>
+              <p className="text-xs text-gray-600">Stock saludable</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1329,7 +1329,7 @@ export function Stock() {
         </div>
 
         {/* Rotación de inventario */}
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Rotación
           </p>
@@ -1356,7 +1356,7 @@ export function Stock() {
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.color}`} />
                   <span className="flex-1 text-gray-600">{s.label}</span>
                   <span className="font-semibold text-gray-800">{s.val}</span>
-                  <span className="text-gray-400 w-8 text-right">{pct}%</span>
+                  <span className="text-gray-600 w-8 text-right">{pct}%</span>
                 </div>
               );
             })}
@@ -1364,20 +1364,20 @@ export function Stock() {
         </div>
 
         {/* Movimiento 30d */}
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Movimiento 30 días
           </p>
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
                 <ArrowDownCircle size={13} className="text-emerald-500" />
                 Entradas
               </div>
               <span className="text-sm font-bold text-emerald-600">+{mov30?.entradas ?? 0}</span>
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
                 <ArrowUpCircle size={13} className="text-red-400" />
                 Salidas
               </div>
@@ -1385,12 +1385,12 @@ export function Stock() {
             </div>
             <div className="h-px bg-gray-100" />
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">Productos vendidos</span>
+              <span className="text-xs text-gray-600">Productos vendidos</span>
               <span className="text-sm font-bold text-gray-700">{mov30?.productos_vendidos ?? 0}</span>
             </div>
             {mov30 && mov30.entradas > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Rotación neta</span>
+                <span className="text-xs text-gray-600">Rotación neta</span>
                 <span className={`text-sm font-bold ${mov30.salidas > mov30.entradas ? 'text-red-500' : 'text-emerald-600'}`}>
                   {mov30.salidas > mov30.entradas ? '-' : '+'}{Math.abs(mov30.entradas - mov30.salidas)}
                 </span>
@@ -1400,7 +1400,7 @@ export function Stock() {
         </div>
 
         {/* Acciones rápidas */}
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">
             Acciones rápidas
           </p>

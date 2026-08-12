@@ -82,9 +82,9 @@ export function AccionesContacto({ oportunidad, onContactado }: {
       {showWa && (
         <div className="absolute right-0 top-full mt-1 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl p-3"
           onClick={e => e.stopPropagation()}>
-          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Mensaje sugerido</p>
+          <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wide mb-1.5">Mensaje sugerido</p>
           {cargandoPlantilla ? (
-            <div className="py-4 flex justify-center"><Loader2 size={16} className="animate-spin text-gray-300" /></div>
+            <div className="py-4 flex justify-center"><Loader2 size={16} className="animate-spin text-gray-600" /></div>
           ) : (
             <textarea value={mensaje} onChange={e => setMensaje(e.target.value)} rows={5}
               className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-300" />

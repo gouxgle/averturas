@@ -38,7 +38,7 @@ export function Login() {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none transition-all';
+  const inputCls = 'w-full px-3 py-2.5 border border-gray-400 rounded-lg text-sm focus:outline-none transition-all';
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: '#f0f2f5' }}>
@@ -51,7 +51,7 @@ export function Login() {
         <p className="text-sm font-medium tracking-widest uppercase mt-1" style={{ color: '#e31e24' }}>
           Aberturas
         </p>
-        <p className="text-xs mt-6 text-center px-6" style={{ color: 'rgba(255,255,255,0.35)' }}>
+        <p className="text-xs mt-6 text-center px-6" style={{ color: 'rgba(255,255,255,0.68)' }}>
           Aberturas bien pensadas.
         </p>
       </div>
@@ -73,11 +73,11 @@ export function Login() {
 
           <div className="bg-white rounded-2xl border border-gray-200 p-7 shadow-sm">
             <h2 className="text-lg font-bold text-gray-800 mb-1">Bienvenido</h2>
-            <p className="text-sm text-gray-500 mb-6">Ingresá tus credenciales para continuar</p>
+            <p className="text-sm text-gray-600 mb-6">Ingresá tus credenciales para continuar</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
                   Email
                 </label>
                 <input
@@ -95,7 +95,7 @@ export function Login() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
                   Contraseña
                 </label>
                 <input
@@ -127,7 +127,7 @@ export function Login() {
             </form>
           </div>
 
-          <p className="text-center text-[11px] text-gray-400 mt-6">
+          <p className="text-center text-[11px] text-gray-600 mt-6">
             César Brítez Aberturas · Formosa Capital
           </p>
         </div>

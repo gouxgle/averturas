@@ -127,7 +127,7 @@ function fmtRelativa(iso: string) {
 const SEG_CFG: Record<Segmento | 'top', { label: string; bg: string; text: string }> = {
   nuevo:      { label: 'Nuevo',             bg: 'bg-violet-100',  text: 'text-violet-700' },
   top:        { label: '⭐ Top cliente',    bg: 'bg-amber-100',   text: 'text-amber-700' },
-  inactivo:   { label: 'Inactivo',          bg: 'bg-gray-100',    text: 'text-gray-500' },
+  inactivo:   { label: 'Inactivo',          bg: 'bg-gray-100',    text: 'text-gray-600' },
   seguimiento:{ label: 'En seguimiento',    bg: 'bg-sky-100',     text: 'text-sky-700' },
   frecuente:  { label: 'Cliente frecuente', bg: 'bg-emerald-100', text: 'text-emerald-700' },
   activo:     { label: 'Activo',            bg: 'bg-emerald-50',  text: 'text-emerald-600' },
@@ -416,7 +416,7 @@ export function Clientes() {
         title="Clientes"
         sub="Gestión de clientes y oportunidades"
         actions={<>
-          <button onClick={() => cargar(busqueda)} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
+          <button onClick={() => cargar(busqueda)} className="p-2 hover:bg-white/70 rounded-xl text-gray-600">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={exportarCSV}
@@ -447,7 +447,7 @@ export function Clientes() {
         <div className="flex-1 min-w-0 space-y-3">
 
           {/* Tabs + ordenar */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg px-4 py-3">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg px-4 py-3">
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
               <div className="flex items-center gap-1 flex-wrap">
                 {TABS.map(t => {
@@ -463,7 +463,7 @@ export function Clientes() {
                       )}>
                       {t.label}
                       <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-bold',
-                        tab === t.key ? 'bg-white/20' : 'bg-gray-100 text-gray-500')}>
+                        tab === t.key ? 'bg-white/20' : 'bg-gray-100 text-gray-600')}>
                         {count}
                       </span>
                     </button>
@@ -493,13 +493,13 @@ export function Clientes() {
             {/* Búsqueda + filtros */}
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input value={busqueda} onChange={e => handleBusqueda(e.target.value)}
                   placeholder="Buscar por nombre, teléfono, DNI/CUIT, correo, localidad..."
                   className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
                 {busqueda && (
                   <button onClick={() => handleBusqueda('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-600">
                     <X size={14} />
                   </button>
                 )}
@@ -520,7 +520,7 @@ export function Clientes() {
           </div>
 
           {/* Lista */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
             {loading ? (
               <div className="p-3 space-y-1.5 min-w-[600px]">
                 {[...Array(7)].map((_, i) => (
@@ -537,7 +537,7 @@ export function Clientes() {
             ) : paginated.length === 0 ? (
               <div className="py-16 text-center">
                 <Users size={32} className="mx-auto mb-3 text-gray-200" />
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-600">
                   {busqueda || tab !== 'todos' ? 'Sin resultados' : 'No hay clientes'}
                 </p>
               </div>
@@ -567,21 +567,21 @@ export function Clientes() {
                               {nombreDisplay(c)}
                             </span>
                             <div className="flex-1 h-px bg-gray-200 mx-1 shrink min-w-4" />
-                            {c.telefono && <span className="text-[10px] text-gray-400 shrink-0">{c.telefono}</span>}
+                            {c.telefono && <span className="text-[10px] text-gray-600 shrink-0">{c.telefono}</span>}
                           </div>
                           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                             <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold', segCfg.bg, segCfg.text)}>
                               {segCfg.label}
                             </span>
                             <div className={cn('w-2 h-2 rounded-full shrink-0', act.dotColor)} />
-                            <span className="text-[10px] text-gray-500">{act.label}</span>
+                            <span className="text-[10px] text-gray-600">{act.label}</span>
                             {c.total_deuda > 0 && (
                               <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded-full">
                                 Deuda {formatCurrency(c.total_deuda)}
                               </span>
                             )}
                             {c.documento_nro && (
-                              <span className="text-[10px] text-gray-300">
+                              <span className="text-[10px] text-gray-600">
                                 {c.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'} {c.documento_nro}
                               </span>
                             )}
@@ -592,9 +592,9 @@ export function Clientes() {
                           {c.operaciones_count > 0 ? (
                             <>
                               <p className="text-[12px] font-bold text-gray-800 tabular-nums">{formatCurrency(c.valor_total_historico)}</p>
-                              <p className="text-[10px] text-gray-400">{c.operaciones_count} op.</p>
+                              <p className="text-[10px] text-gray-600">{c.operaciones_count} op.</p>
                             </>
-                          ) : <p className="text-[11px] text-gray-300">Sin compras</p>}
+                          ) : <p className="text-[11px] text-gray-600">Sin compras</p>}
                         </div>
                         {/* Acciones */}
                         <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -607,12 +607,12 @@ export function Clientes() {
                             </button>
                           )}
                           {c.telefono && (
-                            <a href={`tel:${c.telefono}`} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                            <a href={`tel:${c.telefono}`} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors">
                               <Phone size={14} />
                             </a>
                           )}
                           <button onClick={() => navigate(`/clientes/${c.id}`)}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors">
                             <History size={14} />
                           </button>
                         </div>
@@ -626,12 +626,12 @@ export function Clientes() {
             {/* Paginación */}
             {filtrado.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50/50">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-600">
                   Mostrando {(page - 1) * PER_PAGE + 1} a {Math.min(page * PER_PAGE, filtrado.length)} de {filtrado.length} clientes
                 </p>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500">
+                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-600">
                     <ChevronLeft size={14} />
                   </button>
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -648,7 +648,7 @@ export function Clientes() {
                     );
                   })}
                   <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500">
+                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-600">
                     <ChevronRight size={14} />
                   </button>
                 </div>
@@ -659,7 +659,7 @@ export function Clientes() {
           {/* Barra inferior — 4 tiles resumen */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
 
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                   <Clock size={15} className="text-amber-600" />
@@ -667,10 +667,10 @@ export function Clientes() {
                 <p className="text-xs font-semibold text-gray-700">Clientes sin actividad</p>
               </div>
               <p className="text-2xl font-bold text-gray-900">{resumen.sin_actividad_60d}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Sin actividad en más de 60 días</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">Sin actividad en más de 60 días</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <TrendingUp size={15} className="text-emerald-600" />
@@ -681,12 +681,12 @@ export function Clientes() {
                 <>
                   <p className="text-sm font-bold text-gray-900 truncate">{resumen.mayor_compra.cliente_nombre}</p>
                   <p className="text-lg font-bold text-emerald-700">{formatCurrency(resumen.mayor_compra.monto)}</p>
-                  <p className="text-[10px] text-gray-400">{resumen.mayor_compra.operaciones} operaciones</p>
+                  <p className="text-[10px] text-gray-600">{resumen.mayor_compra.operaciones} operaciones</p>
                 </>
-              ) : <p className="text-xs text-gray-400">Sin datos</p>}
+              ) : <p className="text-xs text-gray-600">Sin datos</p>}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
                   <Star size={15} className="text-amber-600" />
@@ -697,12 +697,12 @@ export function Clientes() {
                 <>
                   <p className="text-sm font-bold text-gray-900 truncate">{resumen.mejor_cliente_mes.cliente_nombre}</p>
                   <p className="text-lg font-bold text-amber-700">{formatCurrency(resumen.mejor_cliente_mes.monto)}</p>
-                  <p className="text-[10px] text-gray-400">{resumen.mejor_cliente_mes.compras} compras</p>
+                  <p className="text-[10px] text-gray-600">{resumen.mejor_cliente_mes.compras} compras</p>
                 </>
-              ) : <p className="text-xs text-gray-400">Sin datos</p>}
+              ) : <p className="text-xs text-gray-600">Sin datos</p>}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
                   {resumen.ticket_trend >= 0
@@ -726,7 +726,7 @@ export function Clientes() {
         <div className="w-full 2xl:w-[260px] 2xl:shrink-0 space-y-4">
 
           {/* Oportunidades para hoy */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-gray-800">Oportunidades para hoy</p>
             </div>
@@ -741,21 +741,21 @@ export function Clientes() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800 leading-tight">{o.label}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{o.sub}</p>
+                      <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">{o.sub}</p>
                     </div>
-                    <span className="text-xs font-bold text-gray-500 shrink-0 mt-0.5">{o.count}</span>
+                    <span className="text-xs font-bold text-gray-600 shrink-0 mt-0.5">{o.count}</span>
                   </button>
                 );
               })}
               {OPO_ITEMS.every(o => o.count === 0) && (
-                <p className="text-xs text-gray-400 text-center py-3">Sin oportunidades pendientes</p>
+                <p className="text-xs text-gray-600 text-center py-3">Sin oportunidades pendientes</p>
               )}
             </div>
           </div>
 
           {/* Clientes por localidad */}
           {por_localidad.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Clientes por localidad</p>
               <DonutChart data={por_localidad.map(l => ({ label: l.localidad, pct: l.pct, count: l.count }))} />
             </div>
@@ -763,7 +763,7 @@ export function Clientes() {
 
           {/* Actividad reciente */}
           {actividad_reciente.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Actividad reciente</p>
               <div className="space-y-2.5">
                 {actividad_reciente.map((a, i) => {
@@ -776,7 +776,7 @@ export function Clientes() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] text-gray-700 leading-tight line-clamp-2">{a.descripcion}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{fmtRelativa(a.fecha)}</p>
+                        <p className="text-[10px] text-gray-600 mt-0.5">{fmtRelativa(a.fecha)}</p>
                       </div>
                     </div>
                   );

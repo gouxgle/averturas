@@ -355,7 +355,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
     <div className="space-y-3">
 
       {/* Barra de progreso — sticky */}
-      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-300 shadow-lg px-4 py-3">
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-400 shadow-lg px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-black flex items-center gap-1.5">
             <DoorOpen size={13} className="text-sky-500" />
@@ -757,7 +757,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
     <div className="space-y-3">
 
       {/* Barra de progreso — sticky */}
-      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-300 shadow-lg px-4 py-3">
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-400 shadow-lg px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-black flex items-center gap-1.5">
             <AppWindow size={13} className="text-sky-500" />
@@ -1016,7 +1016,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
     <div className="space-y-3">
 
       {/* Barra de progreso */}
-      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-300 shadow-lg px-4 py-3">
+      <div className="sticky top-2 z-10 bg-white rounded-xl border border-gray-400 shadow-lg px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-black flex items-center gap-1.5">
             <AppWindow size={13} className="text-sky-500" />
@@ -1261,7 +1261,7 @@ function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }:
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
         <span className="text-sm font-semibold text-black">Atributos de mosquera</span>
         <div className="flex items-center gap-2">
@@ -1787,7 +1787,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Categoría */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={Tag} label="Categoría de producto *" primary />
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CATEGORIAS.map(t => (
@@ -1798,7 +1798,7 @@ export function NuevoProducto() {
               set('alto', '');
             }}
               className={cn('text-left p-3.5 rounded-lg border-2 transition-all',
-                form.tipo === t.value ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
+                form.tipo === t.value ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-400'
               )}>
               <p className={cn('text-sm font-semibold', form.tipo === t.value ? 'text-sky-700' : 'text-black')}>{t.label}</p>
               <p className="text-xs text-black mt-0.5 leading-tight">{t.desc}</p>
@@ -1808,7 +1808,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Navegación en catálogo (árbol de categorías) + nivel comercial + modelo */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={FolderTree} label="Navegación en catálogo (opcional)" />
         <div className="p-4 space-y-3">
           <div>
@@ -1895,7 +1895,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Datos principales */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={Package} label="Datos del producto" primary />
         <div className="p-4 space-y-3">
           <div>
@@ -1952,7 +1952,7 @@ export function NuevoProducto() {
 
       {/* Medidas para puertas */}
       {esPuerta && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
             <div>
@@ -2006,7 +2006,7 @@ export function NuevoProducto() {
 
       {/* Medidas para ventanas / puerta-balcón (ambos libres, cm) */}
       {(esVentana || esPuertaBalcon) && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
             <div>
@@ -2048,7 +2048,7 @@ export function NuevoProducto() {
 
       {/* Medidas para mosqueras (ancho x alto libres en cm) */}
       {esMosquitera && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas (cm)" />
           <div className="p-4 grid grid-cols-2 gap-4">
             <div>
@@ -2079,7 +2079,7 @@ export function NuevoProducto() {
 
       {/* ── SECCIÓN GENÉRICA (otros tipos de abertura, no puerta ni ventana ni puerta-balcón ni mosquera) ── */}
       {!esPuerta && !esVentana && !esPuertaBalcon && !esMosquitera && form.tipo_abertura_id && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Especificaciones" primary />
           <div className="p-4 space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2116,7 +2116,7 @@ export function NuevoProducto() {
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input type="checkbox" checked={form.precio_por_m2}
                   onChange={e => set('precio_por_m2', e.target.checked)}
-                  className="rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
+                  className="rounded border-gray-400 text-sky-600 focus:ring-sky-500" />
                 <span className="text-sm text-black">Precio base por m²</span>
                 <span className="text-xs text-black">(se multiplica por medidas del presupuesto)</span>
               </label>
@@ -2127,7 +2127,7 @@ export function NuevoProducto() {
 
       {/* A medida — campos extra (solo genérico, no puerta ni ventana ni puerta-balcón ni mosquera) */}
       {form.tipo !== 'estandar' && !esPuerta && !esVentana && !esPuertaBalcon && !esMosquitera && form.tipo_abertura_id && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Detalles a medida / fabricación" primary />
           <div className="p-4 space-y-4">
             <div>
@@ -2136,7 +2136,7 @@ export function NuevoProducto() {
                 {(['proveedor', 'fabricacion'] as const).map(op => (
                   <label key={op} className={cn(
                     'flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 cursor-pointer transition-all flex-1 justify-center',
-                    form.origen === op ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
+                    form.origen === op ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-400'
                   )}>
                     <input type="radio" name="origen" value={op} checked={form.origen === op}
                       onChange={() => set('origen', op)} className="accent-sky-600" />
@@ -2192,7 +2192,7 @@ export function NuevoProducto() {
 
       {/* Stock + Proveedor */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Boxes} label="Stock" />
           <div className="p-4 grid grid-cols-2 gap-3">
             {isEdit ? (
@@ -2205,7 +2205,7 @@ export function NuevoProducto() {
                 </div>
                 <button type="button"
                   onClick={() => { setAjusteValorSugerido(undefined); setEnSalonPendientePostAjuste(false); setShowAjusteStock(true); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-300 hover:border-gray-400 text-xs font-semibold text-black shrink-0">
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-400 hover:border-gray-400 text-xs font-semibold text-black shrink-0">
                   <Wrench size={13}/> Corregir stock
                 </button>
               </div>
@@ -2222,10 +2222,10 @@ export function NuevoProducto() {
                 onChange={e => set('stock_minimo', e.target.value)} placeholder="0" className={inputCls} />
               <p className="text-[10px] text-black mt-1">Alerta de reposición</p>
             </div>
-            <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none pt-1 border-t border-gray-100 mt-1">
+            <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none pt-1 border-t border-gray-200 mt-1">
               <input type="checkbox" checked={form.en_salon}
                 onChange={e => handleToggleEnSalon(e.target.checked)}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500" />
               <span className="text-sm text-black">Exhibido en salón</span>
               <span className="text-xs text-black">(muestra físicamente en el local, más allá del stock)</span>
             </label>
@@ -2236,7 +2236,7 @@ export function NuevoProducto() {
             )}
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Tag} label="Proveedor" />
           <div className="p-4 space-y-3">
             <div>
@@ -2298,7 +2298,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Precios */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={DollarSign} label={`Precios base${form.precio_por_m2 ? ' (por m²)' : ''}`} />
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-4">
@@ -2375,7 +2375,7 @@ export function NuevoProducto() {
                   onClick={() => set('etiqueta', v)}
                   className={cn(
                     'px-2 py-2 rounded-lg border text-[11px] text-center font-medium transition-all',
-                    (form.etiqueta ?? '') === v ? activeCls : 'border-gray-200 text-black hover:border-gray-300'
+                    (form.etiqueta ?? '') === v ? activeCls : 'border-gray-200 text-black hover:border-gray-400'
                   )}>
                   {l}
                 </button>
@@ -2397,7 +2397,7 @@ export function NuevoProducto() {
                       ? v === 'bajo'  ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold'
                       : v === 'medio' ? 'border-amber-500 bg-amber-50 text-amber-800 font-semibold'
                                       : 'border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold'
-                      : 'border-gray-200 text-black hover:border-gray-300'
+                      : 'border-gray-200 text-black hover:border-gray-400'
                   )}>
                   <div className="font-semibold">{l}</div>
                   <div className="text-[10px] opacity-70">dto. {pct}</div>
@@ -2409,7 +2409,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Promociones */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <span className="flex items-center gap-2 text-sm font-semibold text-black">
             <Tag size={14} className="text-pink-500" />
@@ -2435,7 +2435,7 @@ export function NuevoProducto() {
                 'w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs text-left transition-all',
                 form.promo_auto_renovar
                   ? 'border-violet-300 bg-violet-50 text-violet-700'
-                  : 'border-gray-200 text-black hover:border-gray-300'
+                  : 'border-gray-200 text-black hover:border-gray-400'
               )}>
               {form.promo_auto_renovar ? <ToggleRight size={15} className="text-violet-500 shrink-0" /> : <ToggleLeft size={15} className="shrink-0" />}
               <div>
@@ -2493,7 +2493,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Imágenes y video */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={ImageIcon} label="Imágenes y video" />
         <div className="p-4 space-y-4">
 
@@ -2538,7 +2538,7 @@ export function NuevoProducto() {
                 className="w-20 h-20 shrink-0 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-sky-400 hover:bg-sky-50 transition-colors disabled:opacity-50">
                 {uploadingImg
                   ? <><div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /><span className="text-[10px] text-black">Subiendo</span></>
-                  : <><Upload size={16} className="text-gray-300" /><span className="text-[10px] text-black">Agregar</span></>
+                  : <><Upload size={16} className="text-gray-600" /><span className="text-[10px] text-black">Agregar</span></>
                 }
               </button>
             </div>
@@ -2563,7 +2563,7 @@ export function NuevoProducto() {
       </div>
 
       {/* Características */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={FileText} label="Características del producto" />
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

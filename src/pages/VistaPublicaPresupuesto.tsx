@@ -153,11 +153,11 @@ function FormWrap({ Icon, color, titulo, sub, onBack, children }: {
             <Icon size={22} />
           </div>
           <h2 className="text-lg font-bold text-gray-800">{titulo}</h2>
-          <p className="text-sm text-gray-400 mt-1">{sub}</p>
+          <p className="text-sm text-gray-600 mt-1">{sub}</p>
         </div>
         {children}
         <button onClick={onBack}
-          className="w-full mt-2 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+          className="w-full mt-2 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
           <ArrowLeft size={14} /> Volver
         </button>
       </div>
@@ -249,7 +249,7 @@ export function VistaPublicaPresupuesto() {
 
   if (estado === 'loading') return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <Loader2 size={28} className="animate-spin text-gray-400" />
+      <Loader2 size={28} className="animate-spin text-gray-600" />
     </div>
   );
 
@@ -258,7 +258,7 @@ export function VistaPublicaPresupuesto() {
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
         <AlertTriangle size={36} className="mx-auto mb-4 text-red-400" />
         <h2 className="text-lg font-bold text-gray-800 mb-2">Link inválido</h2>
-        <p className="text-sm text-gray-500">{errMsg || 'Este presupuesto no existe o el link es incorrecto.'}</p>
+        <p className="text-sm text-gray-600">{errMsg || 'Este presupuesto no existe o el link es incorrecto.'}</p>
       </div>
     </div>
   );
@@ -305,7 +305,7 @@ export function VistaPublicaPresupuesto() {
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
         <CheckCircle2 size={36} className="mx-auto mb-4 text-emerald-500" />
         <h2 className="text-lg font-bold text-gray-800 mb-2">Proforma ya confirmada</h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-600">
           La proforma <strong>{pres?.numero}</strong> ya fue confirmada. Si tenés dudas, comunicate directamente con nosotros.
         </p>
       </div>
@@ -317,7 +317,7 @@ export function VistaPublicaPresupuesto() {
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
         <AlertTriangle size={36} className="mx-auto mb-4 text-amber-400" />
         <h2 className="text-lg font-bold text-gray-800 mb-2">Proforma no aceptada</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-600 mb-4">
           Registramos que no aceptaste esta proforma. Si cambiaste de opinión, comunicate con nosotros.
         </p>
         {waLink(pres?.empresa?.telefono ?? null) && (
@@ -404,26 +404,26 @@ export function VistaPublicaPresupuesto() {
         <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6">
           <div className="text-center mb-5">
             <h2 className="text-lg font-bold text-gray-800">¿Cómo querés continuar?</h2>
-            <p className="text-sm text-gray-400 mt-1">Elegí la opción que mejor te represente</p>
+            <p className="text-sm text-gray-600 mt-1">Elegí la opción que mejor te represente</p>
           </div>
           <div className="space-y-2.5">
             {opciones.map(({ key, Icon, color, titulo, sub }) => (
               <button key={key} onClick={() => { setMotivoSel(null); setComentario(''); setEstado(key as Estado); }}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left">
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all text-left">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
                   style={{ background: `${color}18`, color }}>
                   <Icon size={18} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-800">{titulo}</p>
-                  <p className="text-xs text-gray-400">{sub}</p>
+                  <p className="text-xs text-gray-600">{sub}</p>
                 </div>
-                <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                <ChevronRight size={16} className="text-gray-600 shrink-0" />
               </button>
             ))}
           </div>
           <button onClick={() => setEstado('data')}
-            className="w-full mt-4 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+            className="w-full mt-4 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
             <ArrowLeft size={14} /> Volver al presupuesto
           </button>
         </div>
@@ -441,7 +441,7 @@ export function VistaPublicaPresupuesto() {
           {MOTIVOS_TIEMPO.map(m => (
             <button key={m} onClick={() => setMotivoSel(m)}
               className={`text-left px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                motivoSel === m ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                motivoSel === m ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-gray-200 text-gray-600 hover:border-gray-400'
               }`}>
               {motivoSel === m && <span className="mr-1">✓</span>}{m}
             </button>
@@ -483,11 +483,11 @@ export function VistaPublicaPresupuesto() {
     return (
       <FormWrap Icon={Phone} color="#16a34a" titulo="Quiero que me contacten"
         sub="Elegí cuándo te viene bien y te contactamos" onBack={() => setEstado('menu')}>
-        <label className="block text-xs font-semibold text-gray-500 mb-1">Día preferido</label>
+        <label className="block text-xs font-semibold text-gray-600 mb-1">Día preferido</label>
         <input type="date" value={llamadaFecha} onChange={e => setLlamadaFecha(e.target.value)}
           min={new Date().toISOString().slice(0, 10)}
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-200 mb-3" />
-        <label className="block text-xs font-semibold text-gray-500 mb-1">Franja horaria</label>
+        <label className="block text-xs font-semibold text-gray-600 mb-1">Franja horaria</label>
         <select value={llamadaHorario} onChange={e => setLlamadaHorario(e.target.value)}
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-200 mb-3">
           <option value="">Cualquier horario</option>
@@ -519,7 +519,7 @@ export function VistaPublicaPresupuesto() {
           {CAMBIOS.map(c => (
             <button key={c} onClick={() => toggleCambio(c)}
               className={`text-left px-3 py-2.5 rounded-xl border text-xs font-medium transition-all leading-snug ${
-                cambiosSel.includes(c) ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                cambiosSel.includes(c) ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:border-gray-400'
               }`}>
               {cambiosSel.includes(c) && <span className="mr-1">✓</span>}{c}
             </button>
@@ -547,7 +547,7 @@ export function VistaPublicaPresupuesto() {
             <X size={22} style={{ color: RED }} />
           </div>
           <h2 className="text-lg font-bold text-gray-800">¿Por qué no vas a avanzar?</h2>
-          <p className="text-sm text-gray-400 mt-1">Tu opinión nos ayuda a mejorar</p>
+          <p className="text-sm text-gray-600 mt-1">Tu opinión nos ayuda a mejorar</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-5">
@@ -556,7 +556,7 @@ export function VistaPublicaPresupuesto() {
               className={`text-left px-3 py-3 rounded-xl border text-xs font-medium transition-all leading-snug ${
                 motivoSel === m
                   ? 'border-red-400 bg-red-50 text-red-700'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  : 'border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
               }`}>
               {motivoSel === m && <span className="mr-1">✓</span>}
               {m}
@@ -580,7 +580,7 @@ export function VistaPublicaPresupuesto() {
         </button>
 
         <button onClick={() => { setMotivoSel(null); setComentario(''); setEstado('menu'); }}
-          className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+          className="w-full py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
           <ArrowLeft size={14} /> Volver
         </button>
       </div>
@@ -650,14 +650,14 @@ export function VistaPublicaPresupuesto() {
               <div className="font-black tracking-widest leading-none mb-1"
                 style={{ color: RED, fontFamily: 'Georgia, serif', fontSize: 28 }}>PROFORMA</div>
               <div className="font-bold text-sm" style={{ color: NAVY, fontFamily: 'Georgia, serif' }}>N°: {proformaNum}</div>
-              <div className="text-xs mt-2 text-gray-500">📅 Fecha: {fechaEmision}</div>
+              <div className="text-xs mt-2 text-gray-600">📅 Fecha: {fechaEmision}</div>
               {pres.fecha_validez && (
                 <div className={`text-xs mt-0.5 font-semibold ${vencido ? 'text-red-500' : 'text-amber-600'}`}>
                   ⏱ Válido hasta: {fmtFecha(pres.fecha_validez)}
                 </div>
               )}
               {pres.tiempo_entrega && (
-                <div className="text-xs mt-0.5 text-gray-500">
+                <div className="text-xs mt-0.5 text-gray-600">
                   🚚 Entrega: {pres.tiempo_entrega} días hábiles
                 </div>
               )}
@@ -673,11 +673,11 @@ export function VistaPublicaPresupuesto() {
           <div className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-base">👤</div>
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Cliente</span>
+              <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Cliente</span>
             </div>
             <div className="text-base font-bold" style={{ color: NAVY }}>{clienteNom}</div>
             {(pres.cliente.documento_nro || pres.cliente.telefono) && (
-              <div className="text-xs text-gray-500 mt-0.5">
+              <div className="text-xs text-gray-600 mt-0.5">
                 {pres.cliente.documento_nro &&
                   `${pres.cliente.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'}: ${pres.cliente.documento_nro}`}
                 {pres.cliente.documento_nro && pres.cliente.telefono && ' | '}
@@ -685,10 +685,10 @@ export function VistaPublicaPresupuesto() {
               </div>
             )}
             {pres.cliente.email && (
-              <div className="text-xs text-gray-500">{pres.cliente.email}</div>
+              <div className="text-xs text-gray-600">{pres.cliente.email}</div>
             )}
             {(pres.cliente.direccion || pres.cliente.localidad) && (
-              <div className="text-xs text-gray-500 mt-0.5">
+              <div className="text-xs text-gray-600 mt-0.5">
                 {[pres.cliente.direccion, pres.cliente.localidad].filter(Boolean).join(' | ')}
               </div>
             )}
@@ -696,10 +696,10 @@ export function VistaPublicaPresupuesto() {
           <div className="p-4 bg-blue-50/40 flex items-center gap-3">
             <div className="text-3xl shrink-0">🤝</div>
             <div>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+              <div className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
                 Gracias por elegirnos
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-600 leading-relaxed">
                 Nos comprometemos a brindarte la mejor calidad, atención y asesoramiento en cada proyecto.
               </p>
             </div>
@@ -768,7 +768,7 @@ export function VistaPublicaPresupuesto() {
                 {/* Mobile card (xs) */}
                 <div className="sm:hidden px-4 py-3">
                   <div className="flex items-start gap-3">
-                    <span className="text-gray-300 font-bold text-xs w-4 shrink-0 mt-1">{i + 1}</span>
+                    <span className="text-gray-600 font-bold text-xs w-4 shrink-0 mt-1">{i + 1}</span>
                     <div className="shrink-0">{thumbnail}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -779,7 +779,7 @@ export function VistaPublicaPresupuesto() {
                           </span>
                         )}
                       </div>
-                      {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
+                      {specs && <div className="text-xs text-gray-600 mt-0.5">{specs}</div>}
                       {item.incluye_instalacion && (
                         <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
                       )}
@@ -787,9 +787,9 @@ export function VistaPublicaPresupuesto() {
                   </div>
                   <div className="flex items-center justify-between mt-2 pt-2 ml-7 pl-3"
                     style={{ borderTop: '1px solid #f9fafb' }}>
-                    <span className="text-xs text-gray-500">Cantidad: <strong className="text-gray-700">{item.cantidad}</strong></span>
+                    <span className="text-xs text-gray-600">Cantidad: <strong className="text-gray-700">{item.cantidad}</strong></span>
                     <div className="text-right">
-                      {enPromo && <div className="text-[11px] text-gray-400 line-through">{fmtM(pLista!)}</div>}
+                      {enPromo && <div className="text-[11px] text-gray-600 line-through">{fmtM(pLista!)}</div>}
                       <span className="font-bold text-sm" style={{ color: enPromo ? '#db2777' : '#111827' }}>{fmtM(Number(item.precio_total))}</span>
                       {enPromo && <div className="text-[10px] font-bold" style={{ color: '#db2777' }}>Ahorrás {fmtM(ahorroItem)}</div>}
                     </div>
@@ -799,7 +799,7 @@ export function VistaPublicaPresupuesto() {
                 {/* Desktop row (sm+) */}
                 <div className="hidden sm:grid items-center px-4 py-3 text-sm"
                   style={{ gridTemplateColumns: '28px 56px 1fr 52px 88px 88px' }}>
-                  <span className="text-gray-300 font-bold text-xs">{i + 1}</span>
+                  <span className="text-gray-600 font-bold text-xs">{i + 1}</span>
                   <div className="pr-2">{thumbnail}</div>
                   <div className="pr-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -810,14 +810,14 @@ export function VistaPublicaPresupuesto() {
                         </span>
                       )}
                     </div>
-                    {specs && <div className="text-xs text-gray-400 mt-0.5">{specs}</div>}
+                    {specs && <div className="text-xs text-gray-600 mt-0.5">{specs}</div>}
                     {item.incluye_instalacion && (
                       <span className="text-xs text-emerald-600 font-medium">✓ Incluye instalación</span>
                     )}
                   </div>
                   <span className="text-center text-gray-700 text-xs font-medium">{item.cantidad}</span>
                   <span className="text-right text-xs">
-                    {enPromo && <div className="text-gray-400 line-through">{fmtM(pLista!)}</div>}
+                    {enPromo && <div className="text-gray-600 line-through">{fmtM(pLista!)}</div>}
                     <span style={{ color: enPromo ? '#db2777' : '#6b7280', fontWeight: enPromo ? 700 : 400 }}>{fmtM(pUnit)}</span>
                   </span>
                   <span className="text-right text-xs">
@@ -837,7 +837,7 @@ export function VistaPublicaPresupuesto() {
               <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af', letterSpacing: 2 }}>Total Final</div>
               <div className="text-3xl font-black tabular-nums" style={{ color: NAVY }}>{fmtM(total)}</div>
               {costoEnvio > 0 && (
-                <div className="text-gray-500 text-xs mt-0.5">
+                <div className="text-gray-600 text-xs mt-0.5">
                   (productos {fmtM(total - costoEnvio)} + envío {fmtM(costoEnvio)})
                 </div>
               )}
@@ -846,12 +846,12 @@ export function VistaPublicaPresupuesto() {
                   🏷️ Ahorro por promoción: {fmtM(ahorroPromociones)}
                 </div>
               )}
-              <div className="text-gray-400 text-xs mt-1 italic">Son: {numToWords(total)}</div>
+              <div className="text-gray-600 text-xs mt-1 italic">Son: {numToWords(total)}</div>
             </div>
             {/* Opción de pago siempre visible — se ofrece de entrada, sin depender de una
                 forma de pago elegida (la proforma ya no pregunta eso al cargarla). */}
             {alternativas.length === 0 && (
-              <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-gray-100 pt-2 sm:pt-0 sm:pl-4 w-full sm:w-auto rounded-lg px-3 py-2" style={{ background: '#ede9fe' }}>
+              <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-gray-200 pt-2 sm:pt-0 sm:pl-4 w-full sm:w-auto rounded-lg px-3 py-2" style={{ background: '#ede9fe' }}>
                 <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: '#7c3aed' }}>💳 Con tarjeta de crédito</div>
                 <div className="font-black text-sm mt-0.5 leading-snug" style={{ color: '#7c3aed' }}>
                   Podés pagarlo en 3 cuotas<br className="hidden sm:block"/> sin interés de {fmtM(total / 3)}
@@ -866,7 +866,7 @@ export function VistaPublicaPresupuesto() {
           <div className="bg-white px-4 py-4 mt-px">
             <div className="rounded-xl border border-gray-200 overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Formas de pago disponibles</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-600">Formas de pago disponibles</span>
               </div>
               {alternativas.map((alt, i) => {
                 const pct = Number(alt.descuento_pct);
@@ -879,7 +879,7 @@ export function VistaPublicaPresupuesto() {
                     <div className="text-right shrink-0">
                       {pct > 0 ? (
                         <>
-                          <div className="text-xs text-gray-400 line-through">{fmtM(total)}</div>
+                          <div className="text-xs text-gray-600 line-through">{fmtM(total)}</div>
                           <div className="font-bold text-sm" style={{ color: NAVY }}>{fmtM(totalAlt)}</div>
                           <span className="inline-block mt-0.5 bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0.5 rounded font-semibold">
                             Ahorrás {fmtM(descuentoMonto)} ({pct}%)
@@ -948,7 +948,7 @@ export function VistaPublicaPresupuesto() {
               <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: NAVY }}>
                 Tu compra está protegida
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-600 leading-relaxed">
                 Trabajamos con materiales de calidad y garantía de fabricación en todos nuestros productos.
               </p>
             </div>
@@ -965,7 +965,7 @@ export function VistaPublicaPresupuesto() {
                   </div>
                   <div>
                     <div className="text-xs font-bold" style={{ color: NAVY }}>{title}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                    <div className="text-xs text-gray-600 mt-0.5">{desc}</div>
                   </div>
                 </div>
               ))}
@@ -978,7 +978,7 @@ export function VistaPublicaPresupuesto() {
           <h3 className="text-sm font-black text-gray-800 mb-0.5 uppercase tracking-wide">
             ¿Querés avanzar con tu pedido?
           </h3>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-gray-600 mb-4">
             Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
           </p>
 
@@ -1012,7 +1012,7 @@ export function VistaPublicaPresupuesto() {
             </div>
           )}
 
-          <p className="text-center text-xs text-gray-400 mt-3">
+          <p className="text-center text-xs text-gray-600 mt-3">
             ¿Dudas? Elegí "Tengo otra respuesta" y contanos cómo seguir.
           </p>
         </div>
@@ -1020,17 +1020,17 @@ export function VistaPublicaPresupuesto() {
         {/* ── FOOTER ────────────────────────────────────────────────────── */}
         <div className="mt-4 pb-8 flex items-center justify-center flex-wrap gap-x-4 gap-y-1">
           {pres.empresa.telefono && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-gray-600">
               <Phone size={10} /> {pres.empresa.telefono}
             </span>
           )}
           {pres.empresa.email && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-gray-600">
               <Mail size={10} /> {pres.empresa.email}
             </span>
           )}
           {pres.empresa.direccion && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-gray-600">
               <MapPin size={10} /> {pres.empresa.direccion}
             </span>
           )}
@@ -1053,11 +1053,11 @@ export function VistaPublicaPresupuesto() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-gray-900 text-sm">Términos y Condiciones de Venta</p>
-              <p className="text-[11px] text-gray-400">{pres.empresa.nombre}</p>
+              <p className="text-[11px] text-gray-600">{pres.empresa.nombre}</p>
             </div>
             <button onClick={() => setShowTerminos(false)}
               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-              <X size={16} className="text-gray-500" />
+              <X size={16} className="text-gray-600" />
             </button>
           </div>
 

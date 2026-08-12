@@ -83,15 +83,15 @@ function SectionCard({
   title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-lg">
+    <div className="bg-white rounded-xl border border-gray-400 shadow-lg">
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
         accent ?? 'bg-gray-50 border-gray-200',
       )}>
-        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-400'} />
+        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-600'} />
         <span className={cn(
           'text-[11px] font-semibold uppercase tracking-wider',
-          accent ? '' : 'text-gray-500',
+          accent ? '' : 'text-gray-600',
         )}>{title}</span>
       </div>
       <div className="p-4">{children}</div>
@@ -439,7 +439,7 @@ export function NuevoRecibo() {
   }
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white';
-  const labelCls = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
+  const labelCls = 'block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5';
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
@@ -447,7 +447,7 @@ export function NuevoRecibo() {
       {/* ── Header ───────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/recibos')} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
-          <ArrowLeft size={17} className="text-gray-500" />
+          <ArrowLeft size={17} className="text-gray-600" />
         </button>
         <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
           <Receipt size={16} className="text-emerald-600" />
@@ -458,7 +458,7 @@ export function NuevoRecibo() {
         <div className="flex items-center gap-2">
           <HelpButton topic="recibos" />
           <button onClick={() => navigate('/recibos')}
-            className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
+            className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
@@ -505,15 +505,15 @@ export function NuevoRecibo() {
                 {clientes.map(c => (
                   <button key={c.id} type="button"
                     onMouseDown={() => { setClienteId(c.id); setClienteSel(c); setSearchCliente(''); setShowClientes(false); }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                    className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-200 last:border-0">
                     <p className="text-sm font-medium text-gray-800">{nombreCliente(c)}</p>
-                    {c.telefono && <p className="text-xs text-gray-400">{c.telefono}</p>}
+                    {c.telefono && <p className="text-xs text-gray-600">{c.telefono}</p>}
                   </button>
                 ))}
               </div>
             )}
             {showClientes && searchCliente.length > 1 && clientes.length === 0 && (
-              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-center text-xs text-gray-400">
+              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-center text-xs text-gray-600">
                 Sin resultados
               </div>
             )}
@@ -525,7 +525,7 @@ export function NuevoRecibo() {
       {clienteId && (
         <SectionCard title="Presupuesto aprobado *" icon={Receipt}>
           {operaciones.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">
+            <p className="text-xs text-gray-600 italic">
               Este cliente no tiene presupuestos aprobados.
             </p>
           ) : (
@@ -547,16 +547,16 @@ export function NuevoRecibo() {
               {operacionSel && (
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Total presupuesto</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Total presupuesto</p>
                     <p className="text-sm font-bold text-gray-800">{formatCurrency(totalPresupuesto)}</p>
                   </div>
                   <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Ya cobrado</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Ya cobrado</p>
                     <p className="text-sm font-bold text-emerald-700">{formatCurrency(cobradoOp)}</p>
                   </div>
                   <div className={cn('rounded-xl p-3 text-center', saldoOp <= 0 ? 'bg-gray-100' : 'bg-amber-50')}>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Saldo pendiente</p>
-                    <p className={cn('text-sm font-bold', saldoOp <= 0 ? 'text-gray-400' : 'text-amber-700')}>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Saldo pendiente</p>
+                    <p className={cn('text-sm font-bold', saldoOp <= 0 ? 'text-gray-600' : 'text-amber-700')}>
                       {formatCurrency(saldoOp)}
                     </p>
                   </div>
@@ -592,7 +592,7 @@ export function NuevoRecibo() {
                 {alternativasOfrecidas.map(alt => (
                   <label key={alt.id} className={cn(
                     'flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer',
-                    formaPagoAlternativaId === alt.id ? 'border-violet-400 bg-violet-50' : 'border-gray-200 hover:border-gray-300'
+                    formaPagoAlternativaId === alt.id ? 'border-violet-400 bg-violet-50' : 'border-gray-200 hover:border-gray-400'
                   )}>
                     <input type="radio" name="forma_pago_alternativa" checked={formaPagoAlternativaId === alt.id}
                       onChange={() => elegirAlternativa(alt)}
@@ -641,11 +641,11 @@ export function NuevoRecibo() {
                 className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-xl py-4 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-300"
               >
                 {uploadingComprobante ? (
-                  <RefreshCw size={18} className="text-gray-400 animate-spin" />
+                  <RefreshCw size={18} className="text-gray-600 animate-spin" />
                 ) : (
-                  <ImagePlus size={18} className="text-gray-300" />
+                  <ImagePlus size={18} className="text-gray-600" />
                 )}
-                <p className="text-xs text-gray-500 text-center">
+                <p className="text-xs text-gray-600 text-center">
                   Hacé click y pegá (Ctrl+V) la captura de WhatsApp, o arrastrala acá
                 </p>
                 <input
@@ -669,7 +669,7 @@ export function NuevoRecibo() {
           accent="bg-violet-50 border-violet-100 text-violet-700"
         >
           <div className="space-y-3">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-600">
               {alternativasOfrecidas.length > 0
                 ? 'Descuento de la alternativa elegida — se puede ajustar puntualmente si hace falta.'
                 : formaPago === 'Contado'
@@ -679,7 +679,7 @@ export function NuevoRecibo() {
             </p>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-400 font-semibold">Descuento:</span>
+              <span className="text-xs text-gray-600 font-semibold">Descuento:</span>
               {alternativasOfrecidas.length === 0 && [5, 7, 10, 15].map(pct => (
                 <button key={pct}
                   onClick={() => aplicarPreset(pct / 100)}
@@ -703,7 +703,7 @@ export function NuevoRecibo() {
                     bonCustom ? 'border-violet-400 bg-violet-50' : 'border-gray-200',
                   )}
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">%</span>
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-600 pointer-events-none">%</span>
               </div>
               {(bonPct > 0 || bonCustom) && (
                 <button onClick={resetBonificacion}
@@ -742,7 +742,7 @@ export function NuevoRecibo() {
                       <span>Subtotal operación c/bonif.</span>
                       <span className="font-semibold">{formatCurrency(totalConBonif)}</span>
                     </div>
-                    <div className="flex justify-between text-xs text-gray-500">
+                    <div className="flex justify-between text-xs text-gray-600">
                       <span>Ya cobrado anteriormente</span>
                       <span>− {formatCurrency(cobradoOp)}</span>
                     </div>
@@ -814,7 +814,7 @@ export function NuevoRecibo() {
                 <span className={cn('text-sm font-bold', tipoPago === 'parcial' ? 'text-amber-700' : 'text-gray-600')}>
                   Pago parcial
                 </span>
-                <span className="text-xs text-gray-400">Indicar monto</span>
+                <span className="text-xs text-gray-600">Indicar monto</span>
               </button>
             </div>
 
@@ -823,7 +823,7 @@ export function NuevoRecibo() {
               <div>
                 <label className={labelCls}>Monto a cobrar *</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600 font-medium">$</span>
                   <MontoInput
                     value={montoParcial}
                     onChange={setMontoParcial}
@@ -837,7 +837,7 @@ export function NuevoRecibo() {
                   </p>
                 )}
                 {montoFinal > 0 && saldoTrasRecibo > 0 && (
-                  <p className="text-xs text-gray-400 mt-1.5">
+                  <p className="text-xs text-gray-600 mt-1.5">
                     Saldo pendiente tras este pago:{' '}
                     <span className="font-semibold text-amber-600">{formatCurrency(saldoTrasRecibo)}</span>
                   </p>
@@ -864,7 +864,7 @@ export function NuevoRecibo() {
               <input type="checkbox"
                 checked={crearCompromiso}
                 onChange={e => setCrearCompromiso(e.target.checked)}
-                className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                className="w-4 h-4 text-emerald-600 rounded border-gray-400 focus:ring-emerald-500"
               />
               <span className="text-sm text-gray-700">Registrar compromiso de cancelación del saldo</span>
             </label>
@@ -890,7 +890,7 @@ export function NuevoRecibo() {
                   </select>
                 </div>
                 {compromisoFecha && (
-                  <div className="col-span-2 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-500">
+                  <div className="col-span-2 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600">
                     Compromiso de{' '}
                     <strong className="text-gray-700">{formatCurrency(saldoTrasRecibo)}</strong>
                     {' '}con vencimiento el{' '}
@@ -936,11 +936,11 @@ export function NuevoRecibo() {
 
       {/* ── 8. Resumen final ──────────────────────────────── */}
       {operacionId && (
-        <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-5">
+        <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Total del recibo</p>
-              <p className={cn('text-3xl font-bold', montoFinal > 0 ? 'text-gray-900' : 'text-gray-300')}>
+              <p className="text-xs text-gray-600 uppercase tracking-wide font-semibold mb-1">Total del recibo</p>
+              <p className={cn('text-3xl font-bold', montoFinal > 0 ? 'text-gray-900' : 'text-gray-600')}>
                 {montoFinal > 0
                   ? `$ ${montoFinal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
                   : '$ —'
@@ -966,7 +966,7 @@ export function NuevoRecibo() {
 
               {/* Saldo tras recibo */}
               {tipoPago === 'parcial' && montoFinal > 0 && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-600 mt-1">
                   Saldo pendiente:{' '}
                   <span className={cn('font-semibold', saldoTrasRecibo <= 0 ? 'text-emerald-600' : 'text-amber-600')}>
                     {formatCurrency(saldoTrasRecibo)}
@@ -977,7 +977,7 @@ export function NuevoRecibo() {
 
             <div className="flex flex-col gap-2 shrink-0">
               <button onClick={() => navigate('/recibos')}
-                className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
+                className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
                 Cancelar
               </button>
               <button onClick={handleSave} disabled={saving}

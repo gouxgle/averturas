@@ -53,14 +53,14 @@ export function Changelog() {
       />
 
       {loading ? (
-        <p className="text-sm text-gray-400 text-center py-10">Cargando...</p>
+        <p className="text-sm text-gray-600 text-center py-10">Cargando...</p>
       ) : grupos.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-10">Todavía no hay cambios registrados</p>
+        <p className="text-sm text-gray-600 text-center py-10">Todavía no hay cambios registrados</p>
       ) : (
         <div className="space-y-6">
           {grupos.map(grupo => (
             <div key={grupo.fecha}>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 capitalize">
+              <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 capitalize">
                 {fmtFecha(grupo.fecha)}
               </p>
               <div className="bg-white rounded-2xl border border-gray-200 shadow-md divide-y divide-gray-100">
@@ -77,7 +77,7 @@ export function Changelog() {
                           <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded', cfg.cls)}>{cfg.label}</span>
                         </div>
                         {item.descripcion && (
-                          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.descripcion}</p>
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">{item.descripcion}</p>
                         )}
                       </div>
                     </div>

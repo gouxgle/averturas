@@ -168,7 +168,7 @@ export function TarjetaProductoMosaico({
               title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
               className={cn(
                 'text-[9px] font-bold px-2 py-0.5 rounded-full leading-none shadow-md flex items-center gap-1 transition-colors disabled:opacity-60',
-                producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-500 hover:bg-white'
+                producto.en_salon ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white/90 text-gray-600 hover:bg-white'
               )}>
               <Store size={8}/>{producto.en_salon ? 'En salón' : 'Marcar en salón'}
             </button>
@@ -208,7 +208,7 @@ export function TarjetaProductoMosaico({
             title={producto.activo ? 'Desactivar' : 'Activar'}>
             {producto.activo
               ? <ToggleRight size={16} className="text-emerald-500"/>
-              : <ToggleLeft  size={16} className="text-gray-300"/>}
+              : <ToggleLeft  size={16} className="text-gray-600"/>}
           </button>
         )}
       </div>
@@ -216,13 +216,13 @@ export function TarjetaProductoMosaico({
       {/* Contenido */}
       <div className="flex-1 flex flex-col p-3">
         <p className="text-[13px] font-bold text-gray-900 leading-snug line-clamp-2">{producto.nombre}</p>
-        {subtitle && <p className="text-[11px] text-gray-400 mt-0.5 leading-snug line-clamp-1">{subtitle}</p>}
+        {subtitle && <p className="text-[11px] text-gray-600 mt-0.5 leading-snug line-clamp-1">{subtitle}</p>}
 
         <div className="mt-auto pt-2">
           {precioOrig ? (
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className={cn('text-[15px] font-black leading-none', precioColorEdad)}>{formatCurrency(precioFinal)}</span>
-              <span className="text-[10px] text-gray-400 line-through leading-none">{formatCurrency(precioOrig)}</span>
+              <span className="text-[10px] text-gray-600 line-through leading-none">{formatCurrency(precioOrig)}</span>
             </div>
           ) : (
             <span className={cn('text-[15px] font-black leading-none', precioColorEdad)}
@@ -230,9 +230,9 @@ export function TarjetaProductoMosaico({
               {formatCurrency(precioFinal)}
             </span>
           )}
-          {producto.precio_por_m2 && <span className="text-[10px] text-gray-400 ml-0.5">/m²</span>}
+          {producto.precio_por_m2 && <span className="text-[10px] text-gray-600 ml-0.5">/m²</span>}
           {producto.costo_base > 0 && (
-            <p className="text-[10px] text-gray-400 leading-none mt-1">
+            <p className="text-[10px] text-gray-600 leading-none mt-1">
               Costo: {formatCurrency(Number(producto.costo_base))}
             </p>
           )}
@@ -273,13 +273,13 @@ export function TarjetaProductoMosaico({
                 'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
                 producto.en_salon ? 'bg-gray-100' : 'bg-emerald-100'
               )}>
-                <Store size={18} className={producto.en_salon ? 'text-gray-500' : 'text-emerald-600'}/>
+                <Store size={18} className={producto.en_salon ? 'text-gray-600' : 'text-emerald-600'}/>
               </div>
               <h3 className="text-sm font-bold text-gray-900">
                 {producto.en_salon ? '¿Quitar de exhibición en salón?' : '¿Marcar en salón?'}
               </h3>
             </div>
-            <p className="text-xs text-gray-500 mb-4 pl-[52px]">
+            <p className="text-xs text-gray-600 mb-4 pl-[52px]">
               {producto.nombre}
               {!producto.en_salon && ' — se va a mostrar como exhibido físicamente en el local.'}
             </p>

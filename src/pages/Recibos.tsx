@@ -175,7 +175,7 @@ const ESTADO_BG: Record<EstadoCobro, string> = {
   parcial:  'bg-amber-50 text-amber-700',
   pendiente:'bg-sky-50 text-sky-700',
   vencido:  'bg-red-50 text-red-600',
-  anulado:  'bg-gray-100 text-gray-500',
+  anulado:  'bg-gray-100 text-gray-600',
 };
 
 const ESTADO_BORDER: Record<EstadoCobro, string> = {
@@ -220,7 +220,7 @@ function DonutChart({ data }: { data: { label: string; pct: number; total: numbe
             </div>
             <div className="text-right">
               <span className="text-xs font-semibold text-gray-800">{formatCurrency(s.total)}</span>
-              <span className="text-[10px] text-gray-400 ml-1">({s.pct}%)</span>
+              <span className="text-[10px] text-gray-600 ml-1">({s.pct}%)</span>
             </div>
           </div>
         ))}
@@ -285,7 +285,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
               <p className="text-sm font-bold text-red-800">{rec.numero}</p>
               <p className="text-xs text-red-500 mt-0.5">{formatCurrency(Number(rec.monto_total))} · {pagoLabel(rec.forma_pago)}</p>
             </div>
-            <p className="text-xs text-gray-500 text-center">El recibo quedará marcado como anulado y no podrá reactivarse.</p>
+            <p className="text-xs text-gray-600 text-center">El recibo quedará marcado como anulado y no podrá reactivarse.</p>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => setConfirmando(false)}
                 className="py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium hover:bg-gray-50">
@@ -325,7 +325,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
                   </span>
                 )}
               </div>
-              {rec && <p className="text-xs text-gray-400 mt-0.5">{fmtFecha(rec.fecha)}</p>}
+              {rec && <p className="text-xs text-gray-600 mt-0.5">{fmtFecha(rec.fecha)}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -344,13 +344,13 @@ function ReciboModal({ id, onClose, onAnulado }: {
               </>
             )}
             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-              <X size={16} className="text-gray-500" />
+              <X size={16} className="text-gray-600" />
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Cargando...</div>
+          <div className="flex items-center justify-center py-20 text-gray-600 text-sm">Cargando...</div>
         ) : error ? (
           <div className="flex items-center justify-center py-20 text-red-500 text-sm">
             <AlertTriangle size={16} className="mr-2" /> {error}
@@ -359,16 +359,16 @@ function ReciboModal({ id, onClose, onAnulado }: {
           <div className="divide-y divide-gray-100">
             <div className="px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
-                <User size={13} className="text-gray-400" />
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cliente</p>
+                <User size={13} className="text-gray-600" />
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Cliente</p>
               </div>
               <p className="text-sm font-semibold text-gray-900">{nombreClienteDetalle(rec.cliente)}</p>
               {rec.cliente.documento_nro && (
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-gray-600 mt-0.5">
                   {rec.cliente.tipo_persona === 'juridica' ? 'CUIT' : 'DNI'}: {rec.cliente.documento_nro}
                 </p>
               )}
-              <div className="flex gap-4 mt-1 text-xs text-gray-500 flex-wrap">
+              <div className="flex gap-4 mt-1 text-xs text-gray-600 flex-wrap">
                 {rec.cliente.telefono && <span>{rec.cliente.telefono}</span>}
                 {rec.cliente.email    && <span>{rec.cliente.email}</span>}
               </div>
@@ -376,25 +376,25 @@ function ReciboModal({ id, onClose, onAnulado }: {
 
             <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Importe</p>
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Importe</p>
                 <p className={cn('text-2xl font-bold tabular-nums',
-                  rec.estado === 'anulado' ? 'text-gray-400 line-through' : 'text-gray-900')}>
+                  rec.estado === 'anulado' ? 'text-gray-600 line-through' : 'text-gray-900')}>
                   {formatCurrency(Number(rec.monto_total))}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Forma de pago</p>
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Forma de pago</p>
                 <div className="flex items-center gap-1.5 justify-end">
-                  {(() => { const Icon = pagoIcon(rec.forma_pago); return <Icon size={13} className="text-gray-500" />; })()}
+                  {(() => { const Icon = pagoIcon(rec.forma_pago); return <Icon size={13} className="text-gray-600" />; })()}
                   <span className="text-sm font-semibold text-gray-800">{pagoLabel(rec.forma_pago)}</span>
                 </div>
-                {rec.referencia_pago && <p className="text-xs text-gray-400 mt-0.5">Ref: {rec.referencia_pago}</p>}
+                {rec.referencia_pago && <p className="text-xs text-gray-600 mt-0.5">Ref: {rec.referencia_pago}</p>}
               </div>
             </div>
 
             {rec.comprobante_url && (
-              <div className="px-5 py-3 border-t border-gray-100">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Comprobante de pago</p>
+              <div className="px-5 py-3 border-t border-gray-200">
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Comprobante de pago</p>
                 <a href={rec.comprobante_url} target="_blank" rel="noopener noreferrer" className="inline-block">
                   <img src={rec.comprobante_url} alt="Comprobante de pago"
                     className="max-h-40 rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
@@ -404,7 +404,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
 
             {rec.concepto && (
               <div className="px-5 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Concepto</p>
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Concepto</p>
                 <p className="text-sm text-gray-700">{rec.concepto}</p>
               </div>
             )}
@@ -412,14 +412,14 @@ function ReciboModal({ id, onClose, onAnulado }: {
             {rec.items.length > 0 && (
               <div className="px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Package size={13} className="text-gray-400" />
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <Package size={13} className="text-gray-600" />
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                     Detalle ({rec.items.length})
                   </p>
                 </div>
                 <div className="space-y-1.5">
                   {rec.items.map((item, i) => (
-                    <div key={item.id ?? i} className="flex items-center justify-between gap-3 text-sm py-1 border-b border-gray-50 last:border-0">
+                    <div key={item.id ?? i} className="flex items-center justify-between gap-3 text-sm py-1 border-b border-gray-200 last:border-0">
                       <span className="text-gray-700 flex-1">{item.descripcion}</span>
                       <span className="font-semibold text-gray-900 tabular-nums shrink-0">
                         {formatCurrency(Number(item.monto))}
@@ -432,26 +432,26 @@ function ReciboModal({ id, onClose, onAnulado }: {
 
             {rec.operacion && (
               <div className="px-5 py-4 bg-gray-50/60">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Operación vinculada</p>
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Operación vinculada</p>
                 <div className="flex items-start gap-8 flex-wrap text-sm">
-                  <div><span className="text-gray-500 text-xs">Nro: </span>
+                  <div><span className="text-gray-600 text-xs">Nro: </span>
                     <span className="font-mono font-semibold text-sky-700">{rec.operacion.numero}</span></div>
-                  <div><span className="text-gray-500 text-xs">Total: </span>
+                  <div><span className="text-gray-600 text-xs">Total: </span>
                     <span className="font-semibold text-gray-800">{formatCurrency(Number(rec.operacion.precio_total))}</span></div>
-                  <div><span className="text-gray-500 text-xs">Cobrado: </span>
+                  <div><span className="text-gray-600 text-xs">Cobrado: </span>
                     <span className="font-semibold text-emerald-700">{formatCurrency(Number(rec.cobrado_operacion))}</span></div>
                   {Number(rec.monto_descuento) > 0.01 && (
-                    <div><span className="text-gray-500 text-xs">
+                    <div><span className="text-gray-600 text-xs">
                       Bonificación {Number(rec.descuento_pct) % 1 === 0 ? Number(rec.descuento_pct).toFixed(0) : Number(rec.descuento_pct).toFixed(1)}%:{' '}
                     </span>
                       <span className="font-semibold text-violet-600">− {formatCurrency(Number(rec.monto_descuento))}</span>
                     </div>
                   )}
                   {saldo >= 0.01 && (
-                    <div><span className="text-gray-500 text-xs">Saldo: </span>
+                    <div><span className="text-gray-600 text-xs">Saldo: </span>
                       <span className="font-bold text-red-600">{formatCurrency(saldo)}</span>
                       {rec.compromiso?.fecha_vencimiento && (
-                        <span className="text-xs text-gray-500 ml-1.5">
+                        <span className="text-xs text-gray-600 ml-1.5">
                           — a cancelar el {fmtFechaLarga(rec.compromiso.fecha_vencimiento)}
                         </span>
                       )}
@@ -628,7 +628,7 @@ export function Recibos() {
         title="Recibos"
         sub="Control de cobranzas y pagos"
         actions={<>
-          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-500">
+          <button onClick={cargar} className="p-2 hover:bg-white/70 rounded-xl text-gray-600">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
           <HelpButton topic="recibos" />
@@ -655,7 +655,7 @@ export function Recibos() {
         <div className="flex-1 min-w-0 space-y-3">
 
           {/* Tabs + búsqueda */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg px-4 py-3">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg px-4 py-3">
             <div className="flex items-center gap-2 flex-wrap mb-3">
               {TABS.map(t => {
                 const count = t.key === 'todos' ? filas.length : (conteos[t.key] ?? 0);
@@ -668,14 +668,14 @@ export function Recibos() {
                     {t.label}
                     <span className={cn(
                       'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
-                      filtro === t.key ? 'bg-white/20' : 'bg-gray-100 text-gray-500'
+                      filtro === t.key ? 'bg-white/20' : 'bg-gray-100 text-gray-600'
                     )}>{count}</span>
                   </button>
                 );
               })}
             </div>
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
               <input value={busqueda} onChange={e => handleBusqueda(e.target.value)}
                 placeholder="Buscar por número, cliente o presupuesto..."
                 className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
@@ -683,7 +683,7 @@ export function Recibos() {
           </div>
 
           {/* Lista */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
             {loading ? (
               <div className="p-3 space-y-1.5 min-w-[560px]">
                 {[...Array(6)].map((_, i) => (
@@ -700,7 +700,7 @@ export function Recibos() {
             ) : paginated.length === 0 ? (
               <div className="py-16 text-center">
                 <Receipt size={32} className="mx-auto mb-3 text-gray-200" />
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-600">
                   {busqueda || filtro !== 'todos' ? 'Sin resultados' : 'No hay recibos aún'}
                 </p>
               </div>
@@ -722,8 +722,8 @@ export function Recibos() {
                       <div className="px-3 py-2.5 flex items-start gap-3">
                         {/* Número */}
                         <div className="shrink-0 w-[76px]">
-                          <p className="font-mono text-[11px] text-gray-400">{fila.numero}</p>
-                          <p className="text-[10px] text-gray-300 mt-0.5">{fmtFecha(fila.fecha)}</p>
+                          <p className="font-mono text-[11px] text-gray-600">{fila.numero}</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5">{fmtFecha(fila.fecha)}</p>
                         </div>
                         {/* Main */}
                         <div className="flex-1 min-w-0">
@@ -739,8 +739,8 @@ export function Recibos() {
                             <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', ESTADO_BG[ec])}>
                               {ESTADO_LABEL[ec]}
                             </span>
-                            <FPIcon size={11} className="text-gray-400 shrink-0" />
-                            <span className="text-[10px] text-gray-500 truncate">{pagoLabel(fila.forma_pago)}</span>
+                            <FPIcon size={11} className="text-gray-600 shrink-0" />
+                            <span className="text-[10px] text-gray-600 truncate">{pagoLabel(fila.forma_pago)}</span>
                             {ec === 'parcial' && fila.saldo_pendiente > 0 && (
                               <span className="text-[10px] text-amber-600 font-semibold">Saldo: {formatCurrency(fila.saldo_pendiente)}</span>
                             )}
@@ -763,7 +763,7 @@ export function Recibos() {
                         {/* Monto + acciones */}
                         <div className="shrink-0 flex flex-col items-end gap-1">
                           <span className={cn('text-sm font-bold tabular-nums',
-                            ec === 'anulado' ? 'text-gray-400 line-through' : 'text-gray-900')}>
+                            ec === 'anulado' ? 'text-gray-600 line-through' : 'text-gray-900')}>
                             {formatCurrency(fila.monto_total)}
                           </span>
                           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -778,7 +778,7 @@ export function Recibos() {
                               </button>
                             )}
                             <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
-                              className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors">
+                              className="p-1 rounded hover:bg-gray-100 text-gray-600 transition-colors">
                               <Printer size={13} />
                             </button>
                           </div>
@@ -793,12 +793,12 @@ export function Recibos() {
             {/* Paginación */}
             {filtrado.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50/50">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-600">
                   Mostrando {(page - 1) * PER_PAGE + 1} a {Math.min(page * PER_PAGE, filtrado.length)} de {filtrado.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500">
+                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-600">
                     <ChevronLeft size={14} />
                   </button>
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -815,7 +815,7 @@ export function Recibos() {
                     );
                   })}
                   <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500">
+                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-600">
                     <ChevronRight size={14} />
                   </button>
                 </div>
@@ -827,12 +827,12 @@ export function Recibos() {
           <div className="grid grid-cols-2 gap-4">
 
             {/* Próximos vencimientos */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-gray-800">Próximos vencimientos</p>
               </div>
               {proximos_vencimientos.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Sin vencimientos próximos</p>
+                <p className="text-xs text-gray-600 text-center py-4">Sin vencimientos próximos</p>
               ) : (
                 <div className="space-y-2.5">
                   {proximos_vencimientos.map((v, i) => (
@@ -847,7 +847,7 @@ export function Recibos() {
                         <p className="text-xs font-bold text-gray-900">{formatCurrency(v.monto)}</p>
                         <p className={cn('text-[10px]',
                           v.dias_para_vencer === 0 ? 'text-red-500 font-semibold' :
-                          v.dias_para_vencer <= 2  ? 'text-amber-500 font-semibold' : 'text-gray-400')}>
+                          v.dias_para_vencer <= 2  ? 'text-amber-500 font-semibold' : 'text-gray-600')}>
                           {v.dias_para_vencer === 0 ? 'Vence hoy' :
                            v.dias_para_vencer === 1 ? 'Vence mañana' :
                            `Vence en ${v.dias_para_vencer} días`}
@@ -860,7 +860,7 @@ export function Recibos() {
             </div>
 
             {/* Información clave */}
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Información clave</p>
               <div className="space-y-2">
                 {[
@@ -869,7 +869,7 @@ export function Recibos() {
                   { label: 'Pagos parciales (con saldo)',   value: info_clave.pagos_parciales },
                   { label: 'Comprobantes anulados',         value: info_clave.anulados },
                 ].map((row, i) => (
-                  <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                  <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-200 last:border-0">
                     <p className="text-xs text-gray-600">{row.label}</p>
                     <p className="text-sm font-bold text-gray-900">{row.value}</p>
                   </div>
@@ -883,12 +883,12 @@ export function Recibos() {
         <div className="w-full xl:w-[260px] xl:shrink-0 space-y-4">
 
           {/* Deudas por cliente */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-gray-800">Deudas por cliente</p>
             </div>
             {deudas_cliente.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-3">Sin deudas pendientes</p>
+              <p className="text-xs text-gray-600 text-center py-3">Sin deudas pendientes</p>
             ) : (
               <div className="space-y-2.5">
                 {deudas_cliente.map((d, i) => (
@@ -910,14 +910,14 @@ export function Recibos() {
 
           {/* Métodos de pago */}
           {donutData.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <p className="text-sm font-bold text-gray-800 mb-3">Métodos de pago (este mes)</p>
               <DonutChart data={donutData} />
             </div>
           )}
 
           {/* Acciones rápidas */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <p className="text-sm font-bold text-gray-800 mb-3">Acciones rápidas</p>
             <div className="space-y-1">
               {[

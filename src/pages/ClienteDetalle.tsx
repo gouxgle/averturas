@@ -279,7 +279,7 @@ export function ClienteDetalle() {
   if (!data) {
     return (
       <div className="p-6 text-center py-20">
-        <p className="text-gray-400">Cliente no encontrado</p>
+        <p className="text-gray-600">Cliente no encontrado</p>
         <button onClick={() => navigate('/clientes')} className="text-emerald-600 text-sm mt-2 hover:underline">Volver</button>
       </div>
     );
@@ -329,11 +329,11 @@ export function ClienteDetalle() {
     <div className="p-4 max-w-6xl mx-auto space-y-4">
 
       {/* ── Header ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/clientes')}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
-            <ArrowLeft size={17} className="text-gray-500" />
+            <ArrowLeft size={17} className="text-gray-600" />
           </button>
 
           {/* Avatar */}
@@ -367,17 +367,17 @@ export function ClienteDetalle() {
             {/* Contacto rápido */}
             <div className="flex items-center gap-3 mt-0.5 flex-wrap">
               {cliente.telefono && (
-                <a href={`tel:${cliente.telefono}`} className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-600">
+                <a href={`tel:${cliente.telefono}`} className="flex items-center gap-1 text-xs text-gray-600 hover:text-emerald-600">
                   <Phone size={10} /> {cliente.telefono}
                 </a>
               )}
               {cliente.email && (
-                <a href={`mailto:${cliente.email}`} className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-600">
+                <a href={`mailto:${cliente.email}`} className="flex items-center gap-1 text-xs text-gray-600 hover:text-emerald-600">
                   <Mail size={10} /> {cliente.email}
                 </a>
               )}
               {cliente.localidad && (
-                <span className="flex items-center gap-1 text-xs text-gray-400">
+                <span className="flex items-center gap-1 text-xs text-gray-600">
                   <MapPin size={10} /> {cliente.localidad}
                 </span>
               )}
@@ -395,24 +395,24 @@ export function ClienteDetalle() {
             <div className="relative" ref={moreRef}>
               <button onClick={() => setShowMore(v => !v)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
-                <MoreVertical size={15} className="text-gray-500" />
+                <MoreVertical size={15} className="text-gray-600" />
               </button>
               {showMore && (
                 <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
                   <Link to={`/clientes/${cliente.id}/estado-cuenta`}
                     className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     onClick={() => setShowMore(false)}>
-                    <Receipt size={14} className="text-gray-400" /> Estado de cuenta
+                    <Receipt size={14} className="text-gray-600" /> Estado de cuenta
                   </Link>
                   <Link to={`/presupuestos/nuevo?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
                     className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     onClick={() => setShowMore(false)}>
-                    <FileText size={14} className="text-gray-400" /> Nuevo presupuesto
+                    <FileText size={14} className="text-gray-600" /> Nuevo presupuesto
                   </Link>
                   <button
                     onClick={() => { setShowMore(false); setShowNuevaOportunidad(true); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Target size={14} className="text-gray-400" /> Oportunidad futura
+                    <Target size={14} className="text-gray-600" /> Oportunidad futura
                   </button>
                   <div className="border-t border-gray-200" />
                   <button
@@ -454,15 +454,15 @@ export function ClienteDetalle() {
       {/* ── Stats row ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button onClick={() => setActiveTab('presupuestos')}
-          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-blue-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-400 shadow-lg p-4 text-left hover:border-blue-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <FileText size={14} className="text-blue-500" />
-            <span className="text-xs text-gray-500">Presupuestos</span>
+            <span className="text-xs text-gray-600">Presupuestos</span>
           </div>
           <p className="text-2xl font-bold text-gray-800">{presupuestosLista.length}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">activos</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">activos</p>
           {proformasTotal > 0 && (
-            <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-gray-100" title="Historial de decisión sobre presupuestos pedidos">
+            <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-gray-200" title="Historial de decisión sobre presupuestos pedidos">
               {proformasAprobadas > 0 && (
                 <span className="text-[10px] font-bold text-emerald-600">✓ {proformasAprobadas}</span>
               )}
@@ -470,40 +470,40 @@ export function ClienteDetalle() {
                 <span className="text-[10px] font-bold text-red-500">✕ {proformasRechazadas}</span>
               )}
               {proformasSinRespuesta > 0 && (
-                <span className="text-[10px] font-bold text-gray-400">? {proformasSinRespuesta}</span>
+                <span className="text-[10px] font-bold text-gray-600">? {proformasSinRespuesta}</span>
               )}
             </div>
           )}
         </button>
 
         <button onClick={() => setActiveTab('operaciones')}
-          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-emerald-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-400 shadow-lg p-4 text-left hover:border-emerald-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <ClipboardList size={14} className="text-emerald-500" />
-            <span className="text-xs text-gray-500">Operaciones</span>
+            <span className="text-xs text-gray-600">Operaciones</span>
           </div>
           <p className="text-2xl font-bold text-gray-800">{operacionesActivas.length}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">en curso / históricas</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">en curso / históricas</p>
         </button>
 
         <button onClick={() => setActiveTab('remitos')}
-          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-indigo-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-400 shadow-lg p-4 text-left hover:border-indigo-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <Truck size={14} className="text-indigo-500" />
-            <span className="text-xs text-gray-500">Remitos</span>
+            <span className="text-xs text-gray-600">Remitos</span>
           </div>
           <p className="text-2xl font-bold text-gray-800">{remitos.length}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">entregas</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">entregas</p>
         </button>
 
         <button onClick={() => setActiveTab('recibos')}
-          className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 text-left hover:border-teal-200 hover:shadow transition-all">
+          className="bg-white rounded-xl border border-gray-400 shadow-lg p-4 text-left hover:border-teal-200 hover:shadow transition-all">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={14} className="text-teal-500" />
-            <span className="text-xs text-gray-500">Compras totales</span>
+            <span className="text-xs text-gray-600">Compras totales</span>
           </div>
           <p className="text-lg font-bold text-gray-800">{formatCurrency(cobrosTotal)}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">cobrado</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">cobrado</p>
         </button>
       </div>
 
@@ -514,75 +514,75 @@ export function ClienteDetalle() {
         <div className="col-span-12 lg:col-span-4 space-y-3">
 
           {/* Info general */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Info general</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Info general</span>
               <Link to={`/clientes/${cliente.id}/editar`}
                 className="text-xs text-emerald-600 hover:underline">Editar</Link>
             </div>
             <div className="p-4 space-y-3">
               {cliente.documento_nro && (
                 <div className="flex items-center gap-2">
-                  <Hash size={13} className="text-gray-300 shrink-0" />
+                  <Hash size={13} className="text-gray-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">{esEmpresa ? 'CUIT' : 'DNI'}</p>
+                    <p className="text-[10px] text-gray-600 leading-none">{esEmpresa ? 'CUIT' : 'DNI'}</p>
                     <p className="text-sm text-gray-700 font-medium">{cliente.documento_nro}</p>
                   </div>
                 </div>
               )}
               {(cliente.telefono || cliente.telefono_fijo) && (
                 <div className="flex items-center gap-2">
-                  <Phone size={13} className="text-gray-300 shrink-0" />
+                  <Phone size={13} className="text-gray-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Teléfono</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Teléfono</p>
                     {cliente.telefono && <a href={`tel:${cliente.telefono}`} className="text-sm text-gray-700 hover:text-emerald-600 block">{cliente.telefono}</a>}
-                    {cliente.telefono_fijo && <a href={`tel:${cliente.telefono_fijo}`} className="text-xs text-gray-500 hover:text-emerald-600 block">{cliente.telefono_fijo} (fijo)</a>}
+                    {cliente.telefono_fijo && <a href={`tel:${cliente.telefono_fijo}`} className="text-xs text-gray-600 hover:text-emerald-600 block">{cliente.telefono_fijo} (fijo)</a>}
                   </div>
                 </div>
               )}
               {(cliente.email || cliente.email_alternativo) && (
                 <div className="flex items-center gap-2">
-                  <Mail size={13} className="text-gray-300 shrink-0" />
+                  <Mail size={13} className="text-gray-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Email</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Email</p>
                     {cliente.email && <a href={`mailto:${cliente.email}`} className="text-sm text-gray-700 hover:text-emerald-600 block truncate max-w-[180px]">{cliente.email}</a>}
-                    {cliente.email_alternativo && <a href={`mailto:${cliente.email_alternativo}`} className="text-xs text-gray-500 hover:text-emerald-600 block truncate max-w-[180px]">{cliente.email_alternativo}</a>}
+                    {cliente.email_alternativo && <a href={`mailto:${cliente.email_alternativo}`} className="text-xs text-gray-600 hover:text-emerald-600 block truncate max-w-[180px]">{cliente.email_alternativo}</a>}
                   </div>
                 </div>
               )}
               {(cliente.direccion || cliente.localidad) && (
                 <div className="flex items-start gap-2">
-                  <MapPin size={13} className="text-gray-300 shrink-0 mt-0.5" />
+                  <MapPin size={13} className="text-gray-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Domicilio</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Domicilio</p>
                     {cliente.direccion && <p className="text-sm text-gray-700">{cliente.direccion}</p>}
-                    {cliente.localidad && <p className="text-xs text-gray-500">{cliente.localidad}{cliente.codigo_postal ? ` (${cliente.codigo_postal})` : ''}</p>}
+                    {cliente.localidad && <p className="text-xs text-gray-600">{cliente.localidad}{cliente.codigo_postal ? ` (${cliente.codigo_postal})` : ''}</p>}
                   </div>
                 </div>
               )}
               {cliente.condicion_iva && (
                 <div className="flex items-center gap-2">
-                  <FileText size={13} className="text-gray-300 shrink-0" />
+                  <FileText size={13} className="text-gray-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Condición IVA</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Condición IVA</p>
                     <p className="text-sm text-gray-700">{cliente.condicion_iva}</p>
                   </div>
                 </div>
               )}
               {cliente.origen && (
                 <div className="flex items-center gap-2">
-                  <Target size={13} className="text-gray-300 shrink-0" />
+                  <Target size={13} className="text-gray-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Origen</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Origen</p>
                     <p className="text-sm text-gray-700">{cliente.origen}</p>
                   </div>
                 </div>
               )}
               {cliente.ultima_interaccion && (
                 <div className="flex items-center gap-2">
-                  <Calendar size={13} className="text-gray-300 shrink-0" />
+                  <Calendar size={13} className="text-gray-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Último contacto</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Último contacto</p>
                     <p className="text-sm text-gray-700">{formatDate(cliente.ultima_interaccion)}</p>
                   </div>
                 </div>
@@ -592,14 +592,14 @@ export function ClienteDetalle() {
 
           {/* CRM */}
           {(data.crm_etapa || data.interes || data.producto_interes || data.proxima_accion || data.monto_estimado) && (
-            <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Clasificación CRM</span>
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Clasificación CRM</span>
               </div>
               <div className="p-4 space-y-3">
                 {data.crm_etapa && (
                   <div>
-                    <p className="text-[10px] text-gray-400 mb-1">Etapa</p>
+                    <p className="text-[10px] text-gray-600 mb-1">Etapa</p>
                     <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium',
                       crmEtapa?.bg ?? 'bg-gray-100', crmEtapa?.color ?? 'text-gray-600')}>
                       {crmEtapa?.label ?? data.crm_etapa}
@@ -608,25 +608,25 @@ export function ClienteDetalle() {
                 )}
                 {data.interes && (
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Interés</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Interés</p>
                     <p className="text-sm text-gray-700 mt-0.5">{data.interes}</p>
                   </div>
                 )}
                 {data.producto_interes && (
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Producto de interés</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Producto de interés</p>
                     <p className="text-sm text-gray-700 mt-0.5">{data.producto_interes}</p>
                   </div>
                 )}
                 {data.monto_estimado != null && data.monto_estimado > 0 && (
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Monto estimado</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Monto estimado</p>
                     <p className="text-sm font-semibold text-gray-700 mt-0.5">{formatCurrency(data.monto_estimado)}</p>
                   </div>
                 )}
                 {data.probabilidad != null && (
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none mb-1">Probabilidad</p>
+                    <p className="text-[10px] text-gray-600 leading-none mb-1">Probabilidad</p>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500 rounded-full"
@@ -638,10 +638,10 @@ export function ClienteDetalle() {
                 )}
                 {data.proxima_accion && (
                   <div>
-                    <p className="text-[10px] text-gray-400 leading-none">Próxima acción</p>
+                    <p className="text-[10px] text-gray-600 leading-none">Próxima acción</p>
                     <p className="text-sm text-gray-700 mt-0.5">{data.proxima_accion}</p>
                     {data.proxima_accion_fecha && (
-                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                      <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1">
                         <Calendar size={10} /> {formatDate(data.proxima_accion_fecha)}
                       </p>
                     )}
@@ -660,11 +660,11 @@ export function ClienteDetalle() {
           )}
 
           {/* Valor histórico */}
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <TrendingUp size={14} className="text-emerald-500" />
-                <span className="text-xs text-gray-500">Valor histórico total</span>
+                <span className="text-xs text-gray-600">Valor histórico total</span>
               </div>
               <span className="text-base font-bold text-gray-800">{formatCurrency(cliente.valor_total_historico ?? 0)}</span>
             </div>
@@ -672,11 +672,11 @@ export function ClienteDetalle() {
 
           {/* Oportunidades futuras */}
           {oportunidades.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Target size={14} className="text-fuchsia-500" />
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Oportunidades futuras</span>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Oportunidades futuras</span>
                 </div>
                 <button onClick={() => setShowNuevaOportunidad(true)}
                   className="text-xs text-fuchsia-600 hover:underline font-semibold">+ Nueva</button>
@@ -692,7 +692,7 @@ export function ClienteDetalle() {
 
         {/* Columna der: Tabs */}
         <div className="col-span-12 lg:col-span-8">
-          <div className="bg-white rounded-xl border border-gray-300 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
 
             {/* Tab bar */}
             <div className="flex border-b border-gray-200 overflow-x-auto">
@@ -712,13 +712,13 @@ export function ClienteDetalle() {
                       'flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px',
                       isActive
                         ? 'text-emerald-600 border-emerald-500 bg-emerald-50/50'
-                        : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
+                        : 'text-gray-600 border-transparent hover:text-gray-700 hover:bg-gray-50'
                     )}>
                     <Icon size={13} />
                     {tab.label}
                     {badge > 0 && (
                       <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full',
-                        isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500')}>
+                        isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600')}>
                         {badge}
                       </span>
                     )}
@@ -744,7 +744,7 @@ export function ClienteDetalle() {
                             'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border',
                             activo
                               ? `${cfg.bg} ${cfg.color} border-current/20`
-                              : 'bg-gray-50 text-gray-500 border-transparent hover:bg-gray-100'
+                              : 'bg-gray-50 text-gray-600 border-transparent hover:bg-gray-100'
                           )}>
                           <Icon size={12} /> {cfg.label}
                         </button>
@@ -820,7 +820,7 @@ export function ClienteDetalle() {
                   )}
 
                   {tareasPendientes.length === 0 && !mostrarFormTarea ? (
-                    <p className="text-xs text-gray-400 text-center py-4">Sin tareas pendientes</p>
+                    <p className="text-xs text-gray-600 text-center py-4">Sin tareas pendientes</p>
                   ) : (
                     <div className="divide-y divide-gray-50">
                       {tareasPendientes.map(tarea => {
@@ -828,18 +828,18 @@ export function ClienteDetalle() {
                         return (
                           <div key={tarea.id} className="flex items-start gap-2.5 px-4 py-2.5 group hover:bg-gray-50">
                             <button onClick={() => toggleTarea(tarea.id, true)}
-                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-300 hover:border-emerald-500 hover:bg-emerald-50 shrink-0 transition-colors" />
+                              className="mt-0.5 w-4 h-4 rounded border-2 border-gray-400 hover:border-emerald-500 hover:bg-emerald-50 shrink-0 transition-colors" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-gray-700 leading-snug">{tarea.descripcion}</p>
                               {tarea.vencimiento && (
-                                <p className={cn('text-xs mt-0.5 flex items-center gap-1', vencida ? 'text-red-500 font-medium' : 'text-gray-400')}>
+                                <p className={cn('text-xs mt-0.5 flex items-center gap-1', vencida ? 'text-red-500 font-medium' : 'text-gray-600')}>
                                   <Calendar size={10} />
                                   {vencida ? '¡Vencida! ' : ''}{formatDate(tarea.vencimiento)}
                                 </p>
                               )}
                             </div>
                             <button onClick={() => eliminarTarea(tarea.id)}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-300 transition-all">
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-600 transition-all">
                               <Trash2 size={12} />
                             </button>
                           </div>
@@ -851,7 +851,7 @@ export function ClienteDetalle() {
                   {tareasCompletadas.length > 0 && (
                     <div className="border-t border-gray-200">
                       <button onClick={() => setShowCompletadas(v => !v)}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-xs text-gray-400 hover:bg-gray-50 transition-colors">
+                        className="flex items-center gap-2 w-full px-4 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
                         <ChevronDown size={12} className={cn('transition-transform', showCompletadas ? 'rotate-180' : '')} />
                         {tareasCompletadas.length} completadas
                       </button>
@@ -860,9 +860,9 @@ export function ClienteDetalle() {
                           {tareasCompletadas.map(tarea => (
                             <div key={tarea.id} className="flex items-start gap-2.5 px-4 py-2 group opacity-60">
                               <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
-                              <p className="text-xs text-gray-500 line-through flex-1">{tarea.descripcion}</p>
+                              <p className="text-xs text-gray-600 line-through flex-1">{tarea.descripcion}</p>
                               <button onClick={() => eliminarTarea(tarea.id)}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-300">
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-600">
                                 <Trash2 size={11} />
                               </button>
                             </div>
@@ -876,14 +876,14 @@ export function ClienteDetalle() {
                 {/* Timeline */}
                 <div>
                   <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200">
-                    <Clock size={13} className="text-gray-400" />
-                    <span className="text-xs font-semibold text-gray-500">Historial de actividad</span>
-                    <span className="ml-auto text-xs text-gray-400">{timeline.length} eventos</span>
+                    <Clock size={13} className="text-gray-600" />
+                    <span className="text-xs font-semibold text-gray-600">Historial de actividad</span>
+                    <span className="ml-auto text-xs text-gray-600">{timeline.length} eventos</span>
                   </div>
                   {timeline.length === 0 ? (
                     <div className="py-10 text-center">
-                      <p className="text-sm text-gray-400">Sin actividad registrada</p>
-                      <p className="text-xs text-gray-400 mt-1">Registrá la primera interacción arriba</p>
+                      <p className="text-sm text-gray-600">Sin actividad registrada</p>
+                      <p className="text-xs text-gray-600 mt-1">Registrá la primera interacción arriba</p>
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
@@ -899,7 +899,7 @@ export function ClienteDetalle() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className={cn('text-[11px] font-semibold', cfg.color)}>{cfg.label}</span>
-                                  <span className="text-[11px] text-gray-400">
+                                  <span className="text-[11px] text-gray-600">
                                     {formatDate(evento.created_at)}
                                     {(evento as Interaccion).created_by_usuario?.nombre
                                       ? ` · ${(evento as Interaccion).created_by_usuario!.nombre}`
@@ -909,7 +909,7 @@ export function ClienteDetalle() {
                                 <p className="text-sm text-gray-700 mt-0.5 leading-snug">{evento.descripcion}</p>
                               </div>
                               <button onClick={() => eliminarInteraccion(evento.id)}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-300 transition-all self-start">
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 text-gray-600 transition-all self-start">
                                 <Trash2 size={12} />
                               </button>
                             </div>
@@ -929,12 +929,12 @@ export function ClienteDetalle() {
                                   <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', badge.cls)}>
                                     {badge.label}
                                   </span>
-                                  <span className="text-[11px] text-gray-400">{formatDate(op.created_at)}</span>
+                                  <span className="text-[11px] text-gray-600">{formatDate(op.created_at)}</span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <p className="text-sm font-medium text-gray-700">{op.numero}</p>
                                   {op.precio_total > 0 && (
-                                    <p className="text-xs text-gray-500">{formatCurrency(op.precio_total)}</p>
+                                    <p className="text-xs text-gray-600">{formatCurrency(op.precio_total)}</p>
                                   )}
                                 </div>
                                 {op.estado === 'rechazado' && (op.motivo_rechazo || op.comentario_rechazo) && (
@@ -961,7 +961,7 @@ export function ClienteDetalle() {
                 {presupuestosLista.length === 0 ? (
                   <div className="py-12 text-center">
                     <FileText size={32} className="text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Sin presupuestos activos</p>
+                    <p className="text-sm text-gray-600">Sin presupuestos activos</p>
                     <Link to={`/presupuestos/nuevo?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
                       className="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-600 hover:underline">
                       <Plus size={14} /> Crear presupuesto
@@ -976,7 +976,7 @@ export function ClienteDetalle() {
                           className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800">{op.numero}</p>
-                            <p className="text-xs text-gray-400">{formatDate(op.created_at)}</p>
+                            <p className="text-xs text-gray-600">{formatDate(op.created_at)}</p>
                           </div>
                           <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0', badge.cls)}>
                             {badge.label}
@@ -996,7 +996,7 @@ export function ClienteDetalle() {
                 {operacionesActivas.length === 0 ? (
                   <div className="py-12 text-center">
                     <ClipboardList size={32} className="text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Sin operaciones</p>
+                    <p className="text-sm text-gray-600">Sin operaciones</p>
                     <Link to={`/operaciones/nueva?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
                       className="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-600 hover:underline">
                       <Plus size={14} /> Nueva operación
@@ -1011,7 +1011,7 @@ export function ClienteDetalle() {
                           className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800">{op.numero}</p>
-                            <p className="text-xs text-gray-400">{formatDate(op.created_at)}</p>
+                            <p className="text-xs text-gray-600">{formatDate(op.created_at)}</p>
                           </div>
                           <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0', badge.cls)}>
                             {badge.label}
@@ -1031,7 +1031,7 @@ export function ClienteDetalle() {
                 {remitos.length === 0 ? (
                   <div className="py-12 text-center">
                     <Truck size={32} className="text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Sin remitos</p>
+                    <p className="text-sm text-gray-600">Sin remitos</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
@@ -1040,7 +1040,7 @@ export function ClienteDetalle() {
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-800">{rm.numero}</p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-gray-600">
                             {formatDate(rm.fecha_emision)}
                             {rm.operacion && ` · ${rm.operacion.numero}`}
                           </p>
@@ -1064,7 +1064,7 @@ export function ClienteDetalle() {
                 {recibos.length === 0 ? (
                   <div className="py-12 text-center">
                     <Receipt size={32} className="text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Sin recibos emitidos</p>
+                    <p className="text-sm text-gray-600">Sin recibos emitidos</p>
                   </div>
                 ) : (
                   <>
@@ -1074,7 +1074,7 @@ export function ClienteDetalle() {
                           className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800">{r.numero}</p>
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-gray-600">
                               {formatDate(r.fecha)} · {r.forma_pago}
                               {r.operacion && ` · ${r.operacion.numero}`}
                             </p>
@@ -1084,7 +1084,7 @@ export function ClienteDetalle() {
                       ))}
                     </div>
                     <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-                      <span className="text-xs text-gray-500">Total cobrado</span>
+                      <span className="text-xs text-gray-600">Total cobrado</span>
                       <span className="text-base font-bold text-emerald-700">{formatCurrency(cobrosTotal)}</span>
                     </div>
                   </>
@@ -1099,7 +1099,7 @@ export function ClienteDetalle() {
                   <Star size={24} className="text-amber-400" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 mb-1">Programa de beneficios</p>
-                <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                <p className="text-xs text-gray-600 max-w-xs mx-auto">
                   El sistema de puntos y beneficios estará disponible próximamente.
                 </p>
               </div>

@@ -20,7 +20,7 @@ export function HelpButton({ topic, className }: HelpButtonProps) {
         title="Ayuda"
         className={cn(
           'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-          'text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50',
+          'text-gray-600 border-gray-200 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50',
           className
         )}
       >

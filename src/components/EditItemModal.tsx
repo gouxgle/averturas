@@ -63,7 +63,7 @@ export function EditItemModal({
 }) {
   const up = (f: keyof EditableItemSpec, v: unknown) => onChange(item._key, f, v);
   const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
-  const lbl = 'block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1';
+  const lbl = 'block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1';
   const conPrecio = mode === 'presupuesto';
 
   // Categoría real (ventana/puerta/puerta_balcon/mosquitera) según el tipo de abertura elegido —
@@ -120,7 +120,7 @@ export function EditItemModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
           <h2 className="text-sm font-bold text-gray-900">Editar ítem</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <X size={16} className="text-gray-500" />
+            <X size={16} className="text-gray-600" />
           </button>
         </div>
 
@@ -257,13 +257,13 @@ export function EditItemModal({
                 <label className={lbl}>Atributos de {tipoAberturaNombreItem.toLowerCase()}</label>
                 {campos.map(c => (
                   <div key={c.key} className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-400 w-14 shrink-0">{c.label}</span>
+                    <span className="text-xs text-gray-600 w-14 shrink-0">{c.label}</span>
                     {c.opciones.map(o => (
                       <button key={o.v} type="button" onClick={() => toggleAtrib(c.key, o.v)}
                         className={cn('px-2 py-1 rounded-full text-[11px] font-medium border',
                           item._atribAbrev[c.key] === o.v
                             ? 'bg-violet-600 text-white border-violet-600'
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300')}>
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300')}>
                         {o.l}
                       </button>
                     ))}
@@ -309,7 +309,7 @@ export function EditItemModal({
                         ? [...item.accesorios, a]
                         : item.accesorios.filter(x => x !== a)
                     )}
-                    className="rounded border-gray-300 text-violet-600 focus:ring-violet-400"
+                    className="rounded border-gray-400 text-violet-600 focus:ring-violet-400"
                   />
                   <span className="text-sm text-gray-600">{a}</span>
                 </label>
@@ -349,8 +349,8 @@ export function EditItemModal({
               >
                 {subiendoCalculo
                   ? <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                  : <ImagePlus size={18} className="text-gray-300" />}
-                <p className="text-xs text-gray-500 text-center px-3">
+                  : <ImagePlus size={18} className="text-gray-600" />}
+                <p className="text-xs text-gray-600 text-center px-3">
                   Hacé click y pegá (Ctrl+V) la captura del software, o arrastrala acá
                 </p>
                 <input

@@ -91,8 +91,8 @@ function MargenBadge({ fuente, nombre, valor }: { fuente: string; nombre: string
     producto:  'bg-blue-50 text-blue-700 border-blue-200',
     tipo:      'bg-violet-50 text-violet-700 border-violet-200',
     proveedor: 'bg-gray-100 text-gray-600 border-gray-200',
-    ninguno:   'bg-gray-50 text-gray-400 border-gray-200',
-  }[fuente] ?? 'bg-gray-50 text-gray-400';
+    ninguno:   'bg-gray-50 text-gray-600 border-gray-200',
+  }[fuente] ?? 'bg-gray-50 text-gray-600';
 
   const label = {
     producto:  'Producto',
@@ -101,7 +101,7 @@ function MargenBadge({ fuente, nombre, valor }: { fuente: string; nombre: string
     ninguno:   '—',
   }[fuente] ?? '—';
 
-  if (fuente === 'ninguno') return <span className="text-gray-300 text-xs">—</span>;
+  if (fuente === 'ninguno') return <span className="text-gray-600 text-xs">—</span>;
   return (
     <div className="flex items-center gap-1.5">
       <span className="font-semibold text-gray-800 text-xs">{valor}%</span>
@@ -156,7 +156,7 @@ function VincularModal({
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div>
             <h2 className="font-bold text-gray-900 text-sm">Vincular al catálogo</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{precio.sku} — {precio.descripcion}</p>
+            <p className="text-xs text-gray-600 mt-0.5">{precio.sku} — {precio.descripcion}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
         </div>
@@ -174,7 +174,7 @@ function VincularModal({
             </div>
           )}
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
             <input
               autoFocus
               value={search}
@@ -190,15 +190,15 @@ function VincularModal({
                   className="w-full text-left px-4 py-3 hover:bg-lime-50 transition-colors flex items-center justify-between group disabled:opacity-50">
                   <div>
                     <p className="text-sm font-medium text-gray-800">{p.nombre}</p>
-                    <p className="text-xs text-gray-400">Venta: {formatCurrency(p.precio_base)} · Costo: {formatCurrency(p.costo_base)}</p>
+                    <p className="text-xs text-gray-600">Venta: {formatCurrency(p.precio_base)} · Costo: {formatCurrency(p.costo_base)}</p>
                   </div>
-                  <ChevronRight size={14} className="text-gray-300 group-hover:text-lime-500 transition-colors" />
+                  <ChevronRight size={14} className="text-gray-600 group-hover:text-lime-500 transition-colors" />
                 </button>
               ))}
             </div>
           )}
           {search.length >= 2 && lista.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-4">Sin resultados</p>
+            <p className="text-sm text-gray-600 text-center py-4">Sin resultados</p>
           )}
         </div>
       </div>
@@ -317,18 +317,18 @@ function ActualizarPreciosModal({
         <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
           <div>
             <h2 className="font-bold text-gray-900 text-sm">Actualizar lista de precios</h2>
-            <p className="text-xs text-gray-400">{proveedor.nombre}</p>
+            <p className="text-xs text-gray-600">{proveedor.nombre}</p>
           </div>
           <div className="flex items-center gap-4">
             {/* Pasos */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <div className="flex items-center gap-1.5 text-xs text-gray-600">
               {[1, 2, 3].map(n => (
                 <span key={n} className={cn('flex items-center gap-1.5',
                   paso === n ? 'text-lime-600 font-semibold' : paso > n ? 'text-gray-600' : '')}>
                   <span className={cn('w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border',
                     paso === n ? 'bg-lime-500 text-white border-lime-500' :
                     paso > n  ? 'bg-gray-200 text-gray-600 border-gray-200' :
-                    'border-gray-200 text-gray-400')}>
+                    'border-gray-200 text-gray-600')}>
                     {n}
                   </span>
                   {n < 3 && <ChevronRight size={12} />}
@@ -346,17 +346,17 @@ function ActualizarPreciosModal({
             <div className="grid grid-cols-2 gap-4">
               <button onClick={() => setMetodo('porcentaje')}
                 className={cn('border-2 rounded-2xl p-5 text-left transition-all',
-                  metodo === 'porcentaje' ? 'border-lime-400 bg-lime-50' : 'border-gray-200 hover:border-gray-300')}>
-                <Percent size={20} className={metodo === 'porcentaje' ? 'text-lime-600' : 'text-gray-400'} />
+                  metodo === 'porcentaje' ? 'border-lime-400 bg-lime-50' : 'border-gray-200 hover:border-gray-400')}>
+                <Percent size={20} className={metodo === 'porcentaje' ? 'text-lime-600' : 'text-gray-600'} />
                 <p className="font-semibold text-gray-800 mt-2 text-sm">Porcentaje de aumento</p>
-                <p className="text-xs text-gray-400 mt-1">Aplica el mismo % a toda la lista</p>
+                <p className="text-xs text-gray-600 mt-1">Aplica el mismo % a toda la lista</p>
               </button>
               <button onClick={() => setMetodo('csv')}
                 className={cn('border-2 rounded-2xl p-5 text-left transition-all',
-                  metodo === 'csv' ? 'border-lime-400 bg-lime-50' : 'border-gray-200 hover:border-gray-300')}>
-                <Upload size={20} className={metodo === 'csv' ? 'text-lime-600' : 'text-gray-400'} />
+                  metodo === 'csv' ? 'border-lime-400 bg-lime-50' : 'border-gray-200 hover:border-gray-400')}>
+                <Upload size={20} className={metodo === 'csv' ? 'text-lime-600' : 'text-gray-600'} />
                 <p className="font-semibold text-gray-800 mt-2 text-sm">Importar CSV nuevo</p>
-                <p className="text-xs text-gray-400 mt-1">Compará con precios actuales</p>
+                <p className="text-xs text-gray-600 mt-1">Compará con precios actuales</p>
               </button>
             </div>
 
@@ -371,7 +371,7 @@ function ActualizarPreciosModal({
                     className="w-32 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-300"
                     autoFocus
                   />
-                  <span className="text-sm text-gray-500">% sobre los {precios.length} precios actuales</span>
+                  <span className="text-sm text-gray-600">% sobre los {precios.length} precios actuales</span>
                 </div>
                 <button onClick={generarDiffPorcentaje}
                   className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 text-white rounded-xl font-semibold text-sm hover:bg-lime-600 transition-colors">
@@ -386,11 +386,11 @@ function ActualizarPreciosModal({
                   onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleCsvFile(e.dataTransfer.files[0]); }}
                   onDragOver={e => e.preventDefault()}
                   onClick={() => fileRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-lime-400 hover:bg-lime-50 transition-colors"
+                  className="border-2 border-dashed border-gray-400 rounded-xl p-8 text-center cursor-pointer hover:border-lime-400 hover:bg-lime-50 transition-colors"
                 >
-                  <Upload size={28} className="mx-auto mb-2 text-gray-400" />
+                  <Upload size={28} className="mx-auto mb-2 text-gray-600" />
                   <p className="text-sm font-medium text-gray-700">Arrastrá el CSV o hacé click</p>
-                  <p className="text-xs text-gray-400 mt-1">Formato: sku, descripcion, precio</p>
+                  <p className="text-xs text-gray-600 mt-1">Formato: sku, descripcion, precio</p>
                   <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
                     onChange={e => { if (e.target.files?.[0]) handleCsvFile(e.target.files[0]); }} />
                 </div>
@@ -405,7 +405,7 @@ function ActualizarPreciosModal({
             <div className="px-5 py-3 border-b bg-gray-50 shrink-0">
               <div className="flex items-center gap-4 text-xs">
                 {conCambio.length > 0 && <span className="text-orange-600 font-semibold">{conCambio.length} con cambio</span>}
-                {sinCambio.length > 0 && <span className="text-gray-400">{sinCambio.length} sin cambio</span>}
+                {sinCambio.length > 0 && <span className="text-gray-600">{sinCambio.length} sin cambio</span>}
                 {nuevos.length   > 0 && <span className="text-blue-600 font-semibold">{nuevos.length} nuevos (no se actualizan)</span>}
                 {vinculados.length > 0 && <span className="text-violet-600">{vinculados.filter(d => d.actualizar_catalogo).length} / {vinculados.length} vinculados seleccionados</span>}
               </div>
@@ -414,13 +414,13 @@ function ActualizarPreciosModal({
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 sticky top-0 border-b">
                   <tr>
-                    <th className="text-left px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">SKU</th>
-                    <th className="text-left px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Descripción</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Actual</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Nuevo</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Δ%</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">P.Venta nuevo</th>
-                    <th className="text-center px-3 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Catálogo</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">SKU</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Descripción</th>
+                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Actual</th>
+                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Nuevo</th>
+                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Δ%</th>
+                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">P.Venta nuevo</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Catálogo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -438,7 +438,7 @@ function ActualizarPreciosModal({
                           <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-gray-700">{d.sku}</code>
                         </td>
                         <td className="px-3 py-2 text-gray-700 max-w-[180px] truncate">{d.descripcion}</td>
-                        <td className="px-3 py-2 text-right text-gray-400">
+                        <td className="px-3 py-2 text-right text-gray-600">
                           {d.es_nuevo ? '—' : formatCurrency(d.precio_actual)}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-gray-900">
@@ -448,7 +448,7 @@ function ActualizarPreciosModal({
                           {d.es_nuevo ? (
                             <span className="text-blue-500 font-semibold">nuevo</span>
                           ) : delta === 0 ? (
-                            <span className="text-gray-300">—</span>
+                            <span className="text-gray-600">—</span>
                           ) : (
                             <span className={cn('font-semibold', delta > 0 ? 'text-red-500' : 'text-green-600')}>
                               {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
@@ -456,7 +456,7 @@ function ActualizarPreciosModal({
                           )}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-700">
-                          {d.margen_efectivo > 0 ? formatCurrency(d.precio_venta_nuevo) : <span className="text-gray-300">—</span>}
+                          {d.margen_efectivo > 0 ? formatCurrency(d.precio_venta_nuevo) : <span className="text-gray-600">—</span>}
                         </td>
                         <td className="px-3 py-2 text-center">
                           {d.producto_nombre && !d.es_nuevo ? (
@@ -467,7 +467,7 @@ function ActualizarPreciosModal({
                               <span className="text-[10px] text-violet-600 max-w-[80px] truncate">{d.producto_nombre}</span>
                             </label>
                           ) : (
-                            <span className="text-gray-200">—</span>
+                            <span className="text-gray-500">—</span>
                           )}
                         </td>
                       </tr>
@@ -492,20 +492,20 @@ function ActualizarPreciosModal({
         {/* Paso 3: confirmar */}
         {paso === 3 && (
           <div className="p-6 space-y-5 overflow-y-auto">
-            <div className="bg-gray-100 border border-gray-300 rounded-2xl p-4 space-y-2">
+            <div className="bg-gray-100 border border-gray-400 rounded-2xl p-4 space-y-2">
               <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Resumen</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-900">{diff.filter(d => !d.es_nuevo && d.precio_actual !== d.precio_nuevo).length}</p>
-                  <p className="text-xs text-gray-400">precios a cambiar</p>
+                  <p className="text-xs text-gray-600">precios a cambiar</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-violet-600">{diff.filter(d => d.actualizar_catalogo && !d.es_nuevo).length}</p>
-                  <p className="text-xs text-gray-400">productos del catálogo</p>
+                  <p className="text-xs text-gray-600">productos del catálogo</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-blue-500">{diff.filter(d => d.es_nuevo).length}</p>
-                  <p className="text-xs text-gray-400">nuevos (se omiten)</p>
+                  <p className="text-xs text-gray-600">nuevos (se omiten)</p>
                 </div>
               </div>
             </div>
@@ -515,7 +515,7 @@ function ActualizarPreciosModal({
                 className="w-4 h-4 accent-violet-500 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-gray-800">Recalcular precio de venta en catálogo</p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-600 mt-0.5">
                   Para cada producto vinculado y seleccionado, actualiza <code className="bg-gray-100 px-1 rounded">costo_base</code> y
                   recalcula <code className="bg-gray-100 px-1 rounded">precio_base = precio × (1 + margen%)</code>.
                   No aplica a productos con <em>precio manual</em>.
@@ -774,16 +774,16 @@ function ImportCsvModal({
               onDrop={handleDrop}
               onDragOver={e => e.preventDefault()}
               onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-lime-400 hover:bg-lime-50 transition-colors"
+              className="border-2 border-dashed border-gray-400 rounded-xl p-10 text-center cursor-pointer hover:border-lime-400 hover:bg-lime-50 transition-colors"
             >
-              <Upload size={32} className="mx-auto mb-3 text-gray-400" />
+              <Upload size={32} className="mx-auto mb-3 text-gray-600" />
               <p className="text-sm font-medium text-gray-700">Arrastrá un CSV o hacé click para seleccionar</p>
-              <p className="text-xs text-gray-400 mt-1">Archivos .csv o .txt</p>
+              <p className="text-xs text-gray-600 mt-1">Archivos .csv o .txt</p>
               <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
                 onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
             </div>
             <button onClick={downloadTemplate}
-              className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors">
+              className="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-700 transition-colors">
               <Download size={13} /> Descargar plantilla de ejemplo
             </button>
           </div>
@@ -795,9 +795,9 @@ function ImportCsvModal({
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="text-left px-4 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">SKU</th>
-                    <th className="text-left px-4 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Descripción</th>
-                    <th className="text-right px-4 py-2.5 font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Precio</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">SKU</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Descripción</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Precio</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -910,14 +910,14 @@ export function ProveedorPrecios() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/proveedores')}
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-gray-900 truncate">
             Lista de precios — {proveedor?.nombre ?? '…'}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             {precios.length} productos · actualizada {precios.length > 0
               ? new Intl.DateTimeFormat('es-AR', { dateStyle: 'short' }).format(
                   new Date(precios.reduce((a, b) => a.updated_at > b.updated_at ? a : b).updated_at)
@@ -952,7 +952,7 @@ export function ProveedorPrecios() {
       {/* Buscador */}
       {precios.length > 0 && (
         <div className="relative mb-4 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por SKU o descripción..."
@@ -963,10 +963,10 @@ export function ProveedorPrecios() {
 
       {/* Tabla */}
       {precios.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-16 text-center">
-          <Tag size={40} className="mx-auto mb-4 text-gray-300" />
-          <p className="font-semibold text-gray-500 mb-1">Sin precios cargados</p>
-          <p className="text-sm text-gray-400 mb-6">Agregá precios manualmente o importá un CSV del proveedor</p>
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-16 text-center">
+          <Tag size={40} className="mx-auto mb-4 text-gray-600" />
+          <p className="font-semibold text-gray-600 mb-1">Sin precios cargados</p>
+          <p className="text-sm text-gray-600 mb-6">Agregá precios manualmente o importá un CSV del proveedor</p>
           <div className="flex gap-3 justify-center">
             <button onClick={() => setModal('csv')}
               className="flex items-center gap-2 px-4 py-2.5 bg-lime-500 text-white rounded-xl font-semibold text-sm hover:bg-lime-600 transition-colors">
@@ -979,7 +979,7 @@ export function ProveedorPrecios() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-x-auto">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -993,7 +993,7 @@ export function ProveedorPrecios() {
                   { h: 'Acciones', align: 'right' },
                 ].map(col => (
                   <th key={col.h} className={cn(
-                    'px-3 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider',
+                    'px-3 py-3 text-[11px] font-semibold text-gray-600 uppercase tracking-wider',
                     col.align === 'right' ? 'text-right' : 'text-left',
                   )}>{col.h}</th>
                 ))}
@@ -1002,7 +1002,7 @@ export function ProveedorPrecios() {
             <tbody className="divide-y divide-gray-50">
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-600">
                     Sin resultados para "{search}"
                   </td>
                 </tr>
@@ -1032,7 +1032,7 @@ export function ProveedorPrecios() {
                     <td className="px-3 py-3 text-right text-gray-600 text-xs">
                       {precio.margen_efectivo > 0
                         ? formatCurrency(Math.round(Number(precio.precio) * (1 + Number(precio.margen_efectivo) / 100)))
-                        : <span className="text-gray-300">—</span>}
+                        : <span className="text-gray-600">—</span>}
                     </td>
                     <td className="px-3 py-3">
                       {precio.producto_nombre ? (
@@ -1043,7 +1043,7 @@ export function ProveedorPrecios() {
                         </button>
                       ) : (
                         <button onClick={() => setVincularPrecio(precio)}
-                          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-violet-600 hover:bg-violet-50 border border-dashed border-gray-200 hover:border-violet-300 rounded-lg px-2 py-1 transition-colors">
+                          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-violet-600 hover:bg-violet-50 border border-dashed border-gray-200 hover:border-violet-300 rounded-lg px-2 py-1 transition-colors">
                           <Link size={10} /> Vincular
                         </button>
                       )}
@@ -1066,14 +1066,14 @@ export function ProveedorPrecios() {
             </tbody>
           </table>
           {filtrados.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-gray-50 flex items-center justify-between">
-              <p className="text-xs text-gray-400">
+            <div className="px-4 py-2.5 border-t border-gray-200 flex items-center justify-between">
+              <p className="text-xs text-gray-600">
                 {filtrados.length} de {precios.length} productos
                 {precios.filter(p => p.producto_id).length > 0 && (
                   <span className="ml-2 text-violet-500">· {precios.filter(p => p.producto_id).length} vinculados</span>
                 )}
               </p>
-              <p className="text-xs text-gray-400 flex items-center gap-1">
+              <p className="text-xs text-gray-600 flex items-center gap-1">
                 <Package size={11} />
                 Total lista: {formatCurrency(filtrados.reduce((a, b) => a + Number(b.precio), 0))}
               </p>

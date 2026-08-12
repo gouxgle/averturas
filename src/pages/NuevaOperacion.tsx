@@ -122,14 +122,14 @@ export function NuevaOperacion() {
     <div className="p-3 sm:p-4 lg:p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft size={17} className="text-gray-500" />
+          <ArrowLeft size={17} className="text-gray-600" />
         </button>
         <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
           <Hammer size={17} className="text-amber-600" />
         </div>
         <div>
           <h1 className="text-base font-bold text-gray-900">Nueva operación</h1>
-          <p className="text-xs text-gray-400">Presupuesto o venta</p>
+          <p className="text-xs text-gray-600">Presupuesto o venta</p>
         </div>
       </div>
 
@@ -139,9 +139,9 @@ export function NuevaOperacion() {
           {TIPOS.map(t => (
             <button key={t.value} onClick={() => setTipo(t.value)}
               className={cn('text-left p-4 rounded-lg border-2 transition-all',
-                tipo === t.value ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300')}>
+                tipo === t.value ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-400')}>
               <p className={cn('text-sm font-semibold', tipo === t.value ? 'text-amber-700' : 'text-gray-700')}>{t.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
+              <p className="text-xs text-gray-600 mt-0.5">{t.desc}</p>
             </button>
           ))}
         </div>
@@ -163,18 +163,18 @@ export function NuevaOperacion() {
               value={clienteSearch}
               onChange={e => { setClienteSearch(e.target.value); setShowClienteList(true); }}
               onFocus={() => setShowClienteList(true)}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              className="w-full px-3.5 py-2.5 border border-gray-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
             {showClienteList && clienteSearch && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                 {clientesFiltrados.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-500">No encontrado.{' '}
+                  <div className="px-4 py-3 text-sm text-gray-600">No encontrado.{' '}
                     <button className="text-amber-600 hover:underline" onClick={() => navigate('/clientes/nuevo?nombre=' + clienteSearch)}>Crear cliente</button>
                   </div>
                 ) : clientesFiltrados.slice(0, 8).map(c => (
                   <button key={c.id} onClick={() => { setClienteId(c.id); setClienteSearch(''); setShowClienteList(false); }}
                     className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
                     <span className="text-sm text-gray-800">{c.apellido ?? ''} {c.nombre}</span>
-                    <span className="text-xs text-gray-400">{c.telefono ?? ''}</span>
+                    <span className="text-xs text-gray-600">{c.telefono ?? ''}</span>
                   </button>
                 ))}
               </div>
@@ -187,7 +187,7 @@ export function NuevaOperacion() {
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">Proveedor</h2>
           <select value={proveedorId} onChange={e => setProveedorId(e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+            className="w-full px-3.5 py-2.5 border border-gray-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
             <option value="">Seleccionar proveedor...</option>
             {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
@@ -206,7 +206,7 @@ export function NuevaOperacion() {
         {items.map((item, i) => (
           <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ítem {i + 1}</p>
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Ítem {i + 1}</p>
               {items.length > 1 && (
                 <button onClick={() => setItems(prev => prev.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">
                   <Trash2 size={14} />
@@ -215,14 +215,14 @@ export function NuevaOperacion() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Tipo de abertura</label>
+                <label className="block text-xs text-gray-600 mb-1">Tipo de abertura</label>
                 <select value={item.tipo_abertura_id} onChange={e => updateItem(i, 'tipo_abertura_id', e.target.value)} className={cls + ' bg-white'}>
                   <option value="">Seleccionar...</option>
                   {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Sistema</label>
+                <label className="block text-xs text-gray-600 mb-1">Sistema</label>
                 <select value={item.sistema_id} onChange={e => updateItem(i, 'sistema_id', e.target.value)} className={cls + ' bg-white'}>
                   <option value="">Seleccionar...</option>
                   {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -230,54 +230,54 @@ export function NuevaOperacion() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Descripción *</label>
+              <label className="block text-xs text-gray-600 mb-1">Descripción *</label>
               <input type="text" value={item.descripcion} onChange={e => updateItem(i, 'descripcion', e.target.value)}
                 placeholder="Ej: Ventana batiente 2 hojas..." className={cls} />
             </div>
             {tipo !== 'estandar' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Ancho (cm)</label>
+                  <label className="block text-xs text-gray-600 mb-1">Ancho (cm)</label>
                   <input type="number" value={item.medida_ancho} onChange={e => updateItem(i, 'medida_ancho', e.target.value)} placeholder="120" className={cls} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Alto (cm)</label>
+                  <label className="block text-xs text-gray-600 mb-1">Alto (cm)</label>
                   <input type="number" value={item.medida_alto} onChange={e => updateItem(i, 'medida_alto', e.target.value)} placeholder="100" className={cls} />
                 </div>
               </div>
             )}
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
+                <label className="block text-xs text-gray-600 mb-1">Cantidad</label>
                 <input type="number" min={1} value={item.cantidad} onChange={e => updateItem(i, 'cantidad', parseInt(e.target.value) || 1)} className={cls} />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Costo unitario</label>
+                <label className="block text-xs text-gray-600 mb-1">Costo unitario</label>
                 <MontoInput value={item.costo_unitario ? String(item.costo_unitario) : ''}
                   onChange={v => updateItem(i, 'costo_unitario', parseFloat(v) || 0)}
                   placeholder="0,00" className={cls} />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Precio unitario</label>
+                <label className="block text-xs text-gray-600 mb-1">Precio unitario</label>
                 <MontoInput value={item.precio_unitario ? String(item.precio_unitario) : ''}
                   onChange={v => updateItem(i, 'precio_unitario', parseFloat(v) || 0)}
                   placeholder="0,00" className={cls} />
               </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(i, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+              <input type="checkbox" checked={item.incluye_instalacion} onChange={e => updateItem(i, 'incluye_instalacion', e.target.checked)} className="rounded border-gray-400 text-amber-600 focus:ring-amber-500" />
               <span className="text-xs text-gray-600">Incluye instalación</span>
             </label>
             {item.incluye_instalacion && (
               <div className="grid grid-cols-2 gap-3 pl-5">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Costo instalación</label>
+                  <label className="block text-xs text-gray-600 mb-1">Costo instalación</label>
                   <MontoInput value={item.costo_instalacion ? String(item.costo_instalacion) : ''}
                     onChange={v => updateItem(i, 'costo_instalacion', parseFloat(v) || 0)}
                     placeholder="0,00" className={cls} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Precio instalación</label>
+                  <label className="block text-xs text-gray-600 mb-1">Precio instalación</label>
                   <MontoInput value={item.precio_instalacion ? String(item.precio_instalacion) : ''}
                     onChange={v => updateItem(i, 'precio_instalacion', parseFloat(v) || 0)}
                     placeholder="0,00" className={cls} />
@@ -290,15 +290,15 @@ export function NuevaOperacion() {
         <div className="border-t border-gray-200 pt-4 flex justify-end">
           <div className="space-y-1.5 text-right">
             <div className="flex gap-8">
-              <span className="text-sm text-gray-500">Costo total:</span>
+              <span className="text-sm text-gray-600">Costo total:</span>
               <span className="text-sm font-medium text-gray-700 w-28 text-right">{formatCurrency(costoTotal)}</span>
             </div>
             <div className="flex gap-8">
-              <span className="text-sm text-gray-500">Precio total:</span>
+              <span className="text-sm text-gray-600">Precio total:</span>
               <span className="text-sm font-bold text-gray-800 w-28 text-right">{formatCurrency(precioTotal)}</span>
             </div>
             <div className="flex gap-8">
-              <span className="text-sm text-gray-500">Margen:</span>
+              <span className="text-sm text-gray-600">Margen:</span>
               <span className={cn('text-sm font-semibold w-28 text-right', margen >= 30 ? 'text-green-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>{margen}%</span>
             </div>
           </div>
@@ -308,20 +308,20 @@ export function NuevaOperacion() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md grid grid-cols-2 gap-4">
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Notas para el cliente</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Notas para el cliente</label>
             <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={3}
               placeholder="Condiciones, aclaraciones..."
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Notas internas</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Notas internas</label>
             <textarea value={notasInternas} onChange={e => setNotasInternas(e.target.value)} rows={3}
               placeholder="Solo para el equipo..."
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Válido hasta</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Válido hasta</label>
           <input type="date" value={fechaValidez} onChange={e => setFechaValidez(e.target.value)}
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
         </div>

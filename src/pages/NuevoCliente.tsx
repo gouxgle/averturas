@@ -327,7 +327,7 @@ export function NuevoCliente() {
   const esFisica = form.tipo_persona === 'fisica';
 
   const inp = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white placeholder-gray-300';
-  const lbl = 'block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5';
+  const lbl = 'block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5';
 
   const SubHeader = ({ icon: Icon, label, color }: { icon: React.ElementType; label: string; color: string }) => (
     <div className={cn('flex items-center gap-2 mb-3', color)}>
@@ -336,7 +336,7 @@ export function NuevoCliente() {
     </div>
   );
 
-  if (loading) return <div className="p-6 text-sm text-gray-400">Cargando...</div>;
+  if (loading) return <div className="p-6 text-sm text-gray-600">Cargando...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -349,7 +349,7 @@ export function NuevoCliente() {
       <div className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)}
           className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft size={17} className="text-gray-500" />
+          <ArrowLeft size={17} className="text-gray-600" />
         </button>
         <div className="flex items-center gap-2.5 flex-1">
           <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -359,7 +359,7 @@ export function NuevoCliente() {
             <h1 className="text-sm font-bold text-gray-900">
               {isEdit ? 'Editar cliente' : 'Nuevo cliente'}
             </h1>
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-gray-600">
               {isEdit ? 'Actualizá los datos del cliente' : 'Cargá los datos básicos para avanzar'}
             </p>
           </div>
@@ -367,13 +367,13 @@ export function NuevoCliente() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => window.open('/imprimir/formulario-cliente', '_blank')}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
           >
             <Printer size={13} />
             Imprimir Formulario
           </button>
           <button onClick={() => navigate(-1)}
-            className="hidden sm:block px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50">
+            className="hidden sm:block px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50">
             Cancelar
           </button>
         </div>
@@ -384,7 +384,7 @@ export function NuevoCliente() {
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* ══ SECCIÓN 1: CARGA RÁPIDA ════════════════════════════════════════ */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
             {/* Header sección */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -392,8 +392,8 @@ export function NuevoCliente() {
                   <Zap size={17} className="text-emerald-600" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-gray-900">1. CARGA RÁPIDA  <span className="text-gray-400 font-normal">(Datos iniciales)</span></div>
-                  <div className="text-[11px] text-gray-400">Solo pedimos lo esencial para crear el cliente y avanzar.</div>
+                  <div className="text-sm font-bold text-gray-900">1. CARGA RÁPIDA  <span className="text-gray-600 font-normal">(Datos iniciales)</span></div>
+                  <div className="text-[11px] text-gray-600">Solo pedimos lo esencial para crear el cliente y avanzar.</div>
                 </div>
               </div>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wider">
@@ -409,7 +409,7 @@ export function NuevoCliente() {
                     {esFisica ? 'Apellido y nombre *' : 'Razón social / Empresa *'}
                   </label>
                   <div className="relative">
-                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                     <input
                       ref={nombreRef}
                       autoFocus={!isEdit}
@@ -424,7 +424,7 @@ export function NuevoCliente() {
                   <label className={lbl}>WhatsApp / Celular *</label>
                   <div className="flex items-center gap-1">
                     <div className="relative">
-                      <Phone size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-300" />
+                      <Phone size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600" />
                       {/* Prefijo editable (ej: 3704) */}
                       <input
                         type="tel"
@@ -439,7 +439,7 @@ export function NuevoCliente() {
                         className={cn(inp, 'pl-7 w-[88px] text-center font-mono tracking-wider', telWarning && 'border-amber-400 focus:ring-amber-400')}
                       />
                     </div>
-                    <span className="text-gray-400 font-bold select-none">—</span>
+                    <span className="text-gray-600 font-bold select-none">—</span>
                     {/* Número de 6 dígitos */}
                     <input
                       type="tel"
@@ -472,9 +472,9 @@ export function NuevoCliente() {
                       'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all',
                       esFisica
                         ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
-                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
                     )}>
-                    <User size={14} className={esFisica ? 'text-emerald-600' : 'text-gray-400'} />
+                    <User size={14} className={esFisica ? 'text-emerald-600' : 'text-gray-600'} />
                     Persona física
                   </button>
                   <button type="button" onClick={() => setTipo('juridica')}
@@ -482,9 +482,9 @@ export function NuevoCliente() {
                       'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all',
                       !esFisica
                         ? 'bg-blue-50 border-blue-400 text-blue-700'
-                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
                     )}>
-                    <Building2 size={14} className={!esFisica ? 'text-blue-600' : 'text-gray-400'} />
+                    <Building2 size={14} className={!esFisica ? 'text-blue-600' : 'text-gray-600'} />
                     Empresa
                   </button>
                 </div>
@@ -495,7 +495,7 @@ export function NuevoCliente() {
                 <div>
                   <label className={lbl}>Localidad *</label>
                   <div className="relative">
-                    <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                     <input
                       value={form.localidad}
                       onChange={e => set('localidad', e.target.value)}
@@ -520,9 +520,9 @@ export function NuevoCliente() {
 
               {/* Observación rápida */}
               <div>
-                <label className={lbl}>Observación rápida <span className="normal-case text-gray-300 font-normal">(opcional)</span></label>
+                <label className={lbl}>Observación rápida <span className="normal-case text-gray-600 font-normal">(opcional)</span></label>
                 <div className="relative">
-                  <MessageCircle size={14} className="absolute left-3 top-3 text-gray-300" />
+                  <MessageCircle size={14} className="absolute left-3 top-3 text-gray-600" />
                   <textarea
                     value={form.notas}
                     onChange={e => set('notas', e.target.value)}
@@ -579,11 +579,11 @@ export function NuevoCliente() {
 
               {/* ¿Qué pasa después? */}
               {!isEdit && (
-                <div className="flex items-start gap-3 bg-gray-100 border border-gray-300 rounded-xl px-4 py-3">
+                <div className="flex items-start gap-3 bg-gray-100 border border-gray-400 rounded-xl px-4 py-3">
                   <ChevronRight size={15} className="text-blue-400 mt-0.5 shrink-0" />
                   <div>
                     <div className="text-xs font-bold text-gray-700 mb-0.5">¿Qué pasa después?</div>
-                    <div className="text-[11px] text-gray-400 leading-snug">
+                    <div className="text-[11px] text-gray-600 leading-snug">
                       Si elegís "Guardar y pasar a proforma", se abrirá la pantalla de cotización para que cargues los productos y generes la proforma.
                     </div>
                   </div>
@@ -593,7 +593,7 @@ export function NuevoCliente() {
           </div>
 
           {/* ══ SECCIÓN 2: DATOS COMPLEMENTARIOS ══════════════════════════════ */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
             {/* Header sección */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -601,8 +601,8 @@ export function NuevoCliente() {
                   <Clock size={17} className="text-blue-600" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-gray-900">2. DATOS COMPLEMENTARIOS  <span className="text-gray-400 font-normal">(Opcional)</span></div>
-                  <div className="text-[11px] text-gray-400">Completá estos datos más adelante desde la ficha del cliente.</div>
+                  <div className="text-sm font-bold text-gray-900">2. DATOS COMPLEMENTARIOS  <span className="text-gray-600 font-normal">(Opcional)</span></div>
+                  <div className="text-[11px] text-gray-600">Completá estos datos más adelante desde la ficha del cliente.</div>
                 </div>
               </div>
               <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full uppercase tracking-wider">
@@ -698,7 +698,7 @@ export function NuevoCliente() {
 
                   {/* SEGUNDO DOMICILIO */}
                   <div>
-                    <SubHeader icon={Home} label={<>Segundo domicilio / Alternativo <span className="text-gray-400 normal-case font-normal">(Opcional)</span></>  as unknown as string} color="text-blue-600" />
+                    <SubHeader icon={Home} label={<>Segundo domicilio / Alternativo <span className="text-gray-600 normal-case font-normal">(Opcional)</span></>  as unknown as string} color="text-blue-600" />
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className={lbl}>Dirección</label>
@@ -769,7 +769,7 @@ export function NuevoCliente() {
 
                   {/* DOMICILIO DE OBRA */}
                   <div>
-                    <SubHeader icon={Briefcase} label={<>Domicilio de obra <span className="text-gray-400 normal-case font-normal">(Opcional)</span></> as unknown as string} color="text-blue-600" />
+                    <SubHeader icon={Briefcase} label={<>Domicilio de obra <span className="text-gray-600 normal-case font-normal">(Opcional)</span></> as unknown as string} color="text-blue-600" />
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -801,7 +801,7 @@ export function NuevoCliente() {
                           onChange={e => setObraEsMisma(e.target.checked)}
                           className="w-4 h-4 rounded accent-emerald-600"
                         />
-                        <span className="text-[12px] text-gray-500">Es la misma dirección que el domicilio principal</span>
+                        <span className="text-[12px] text-gray-600">Es la misma dirección que el domicilio principal</span>
                       </label>
                     </div>
                   </div>
@@ -968,20 +968,20 @@ export function NuevoCliente() {
           </div>
 
           {/* ══ BOTTOM: Importante + Flujo ════════════════════════════════════ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white rounded-2xl border border-gray-300 shadow-lg p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             {/* Importante */}
             <div className="flex items-start gap-2">
               <Star size={14} className="text-amber-500 mt-0.5 shrink-0" />
               <div>
                 <div className="text-[11px] font-bold text-amber-700 mb-1">Importante</div>
-                <div className="text-[11px] text-gray-500 leading-snug">
+                <div className="text-[11px] text-gray-600 leading-snug">
                   Estos datos complementarios no son obligatorios ahora. Los podrás completar cuando sea necesario.
                 </div>
               </div>
             </div>
             {/* Flujo */}
             <div className="sm:col-span-2">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">Así funciona el flujo</div>
+              <div className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2 text-center">Así funciona el flujo</div>
               <div className="flex items-center justify-center gap-2">
                 {[
                   { n: 1, title: 'Datos iniciales', sub: 'Cargá lo esencial' },
@@ -992,12 +992,12 @@ export function NuevoCliente() {
                     <div className="text-center">
                       <div className={cn(
                         'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mx-auto mb-1',
-                        step.n === 1 ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500'
+                        step.n === 1 ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
                       )}>{step.n}</div>
                       <div className="text-[10px] font-bold text-gray-700">{step.title}</div>
-                      <div className="text-[10px] text-gray-400">{step.sub}</div>
+                      <div className="text-[10px] text-gray-600">{step.sub}</div>
                     </div>
-                    {i < 2 && <ChevronRight size={14} className="text-gray-300 shrink-0" />}
+                    {i < 2 && <ChevronRight size={14} className="text-gray-600 shrink-0" />}
                   </div>
                 ))}
               </div>
@@ -1010,7 +1010,7 @@ export function NuevoCliente() {
         <div className="hidden lg:block w-56 shrink-0 space-y-4">
 
           {/* Perfil del cliente */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
                 <User size={13} className="text-emerald-600" />
@@ -1024,13 +1024,13 @@ export function NuevoCliente() {
                 style={{ width: `${completion}%` }}
               />
             </div>
-            <div className="text-[10px] text-gray-400 leading-snug">
+            <div className="text-[10px] text-gray-600 leading-snug">
               Completá más datos para mejorar el perfil y habilitar funciones del CRM.
             </div>
           </div>
 
           {/* Consejos */}
-          <div className="bg-white rounded-2xl border border-gray-300 shadow-lg p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <Lightbulb size={13} className="text-amber-500" />
               <div className="text-xs font-bold text-gray-700">Consejos</div>
@@ -1041,7 +1041,7 @@ export function NuevoCliente() {
                 { icon: <Hash size={12} />, text: 'Podrás completar todos los datos más adelante.' },
                 { icon: <MessageCircle size={12} />, text: 'Así no cortamos la conversación.' },
               ].map((tip, i) => (
-                <div key={i} className="flex items-start gap-2 text-[11px] text-gray-500">
+                <div key={i} className="flex items-start gap-2 text-[11px] text-gray-600">
                   <span className="text-blue-400 mt-0.5 shrink-0">{tip.icon}</span>
                   <span className="leading-snug">{tip.text}</span>
                 </div>
@@ -1063,50 +1063,50 @@ export function NuevoCliente() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm">Este número ya está registrado</p>
-                <p className="text-[11px] text-gray-500">Revisá si es el mismo cliente antes de continuar</p>
+                <p className="text-[11px] text-gray-600">Revisá si es el mismo cliente antes de continuar</p>
               </div>
               <button onClick={() => setShowTelModal(false)}
                 className="p-1.5 hover:bg-white/60 rounded-lg transition-colors shrink-0">
-                <X size={16} className="text-gray-500" />
+                <X size={16} className="text-gray-600" />
               </button>
             </div>
 
             <div className="px-5 py-4 space-y-2.5">
               <div className="flex items-center gap-2.5">
                 {telDuplicado.tipo_persona === 'juridica'
-                  ? <Building2 size={14} className="text-gray-400 shrink-0" />
-                  : <User size={14} className="text-gray-400 shrink-0" />}
+                  ? <Building2 size={14} className="text-gray-600 shrink-0" />
+                  : <User size={14} className="text-gray-600 shrink-0" />}
                 <p className="text-sm font-bold text-gray-900">
                   {telDuplicado.razon_social ?? ([telDuplicado.apellido, telDuplicado.nombre].filter(Boolean).join(', ') || '—')}
                 </p>
                 {!telDuplicado.activo && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">Inactivo</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">Inactivo</span>
                 )}
               </div>
               <div className="flex items-center gap-2.5 text-xs text-gray-600">
-                <Phone size={13} className="text-gray-300 shrink-0" />
+                <Phone size={13} className="text-gray-600 shrink-0" />
                 {telDuplicado.telefono}
               </div>
               {telDuplicado.direccion && (
                 <div className="flex items-center gap-2.5 text-xs text-gray-600">
-                  <MapPin size={13} className="text-gray-300 shrink-0" />
+                  <MapPin size={13} className="text-gray-600 shrink-0" />
                   {telDuplicado.direccion}{telDuplicado.localidad ? `, ${telDuplicado.localidad}` : ''}
                 </div>
               )}
               {telDuplicado.email && (
                 <div className="flex items-center gap-2.5 text-xs text-gray-600">
-                  <Mail size={13} className="text-gray-300 shrink-0" />
+                  <Mail size={13} className="text-gray-600 shrink-0" />
                   {telDuplicado.email}
                 </div>
               )}
               {telDuplicado.documento_nro && (
                 <div className="flex items-center gap-2.5 text-xs text-gray-600">
-                  <Hash size={13} className="text-gray-300 shrink-0" />
+                  <Hash size={13} className="text-gray-600 shrink-0" />
                   DNI/CUIT: {telDuplicado.documento_nro}
                 </div>
               )}
               <div className="flex items-center gap-2.5 text-xs text-gray-600">
-                <Tag size={13} className="text-gray-300 shrink-0" />
+                <Tag size={13} className="text-gray-600 shrink-0" />
                 Estado: {telDuplicado.estado}
               </div>
             </div>

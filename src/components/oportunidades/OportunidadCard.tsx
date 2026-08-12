@@ -112,19 +112,19 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
             <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-full border', INTERES_CFG[o.interes].cls)}>
               {INTERES_CFG[o.interes].emoji} {INTERES_CFG[o.interes].label}
             </span>
-            <span className="text-[9px] font-bold text-gray-400">{o.probabilidad}%</span>
+            <span className="text-[9px] font-bold text-gray-600">{o.probabilidad}%</span>
           </div>
-          <p className="text-[11px] text-gray-500 leading-snug line-clamp-2 mt-0.5">{o.motivo}</p>
+          <p className="text-[11px] text-gray-600 leading-snug line-clamp-2 mt-0.5">{o.motivo}</p>
           <div className="flex items-center gap-1.5 mt-1">
-            <CalendarClock size={10} className={vencida ? 'text-red-500' : esHoy ? 'text-amber-500' : 'text-gray-300'} />
+            <CalendarClock size={10} className={vencida ? 'text-red-500' : esHoy ? 'text-amber-500' : 'text-gray-600'} />
             <span className={cn(
               'text-[10px] font-semibold',
-              vencida ? 'text-red-600' : esHoy ? 'text-amber-600' : 'text-gray-400'
+              vencida ? 'text-red-600' : esHoy ? 'text-amber-600' : 'text-gray-600'
             )}>
               {vencida ? `Vencida hace ${dias}d` : esHoy ? 'Hoy' : fmtFecha(o.fecha_recontacto)}
             </span>
             {o.veces_pospuesta > 0 && (
-              <span className="text-[9px] text-gray-300">· pospuesta {o.veces_pospuesta}x</span>
+              <span className="text-[9px] text-gray-600">· pospuesta {o.veces_pospuesta}x</span>
             )}
           </div>
         </div>
@@ -132,16 +132,16 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
         <div className="shrink-0 flex items-center gap-0.5">
           <AccionesContacto oportunidad={o} onContactado={onUpdate} />
           <button type="button" onClick={() => onEdit(o)} title="Editar"
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600">
             <Pencil size={13} />
           </button>
         </div>
       </div>
 
       {accion === null && (
-        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-200">
           <button type="button" onClick={() => setAccion('posponer')}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-500 hover:bg-gray-100">
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-600 hover:bg-gray-100">
             <Clock size={11} /> Posponer
           </button>
           <button type="button" onClick={recotizar}
@@ -154,27 +154,27 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
             <Check size={11} /> Se concretó
           </button>
           <button type="button" onClick={() => setAccion('descartar')}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-400 hover:bg-red-50 hover:text-red-500">
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-600 hover:bg-red-50 hover:text-red-500">
             <Ban size={11} /> Descartar
           </button>
         </div>
       )}
 
       {accion === 'posponer' && (
-        <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5">
           <div className="flex items-center gap-1.5">
             <input type="date" value={fechaPosponer} onChange={e => setFechaPosponer(e.target.value)}
               className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-fuchsia-300" />
             {ATAJOS.map(a => (
               <button key={a.label} type="button" onClick={() => setFechaPosponer(fechaMasMeses(a.meses))}
-                className="px-1.5 py-1 rounded-lg border border-gray-200 text-[9px] font-semibold text-gray-500 hover:border-fuchsia-300">
+                className="px-1.5 py-1 rounded-lg border border-gray-200 text-[9px] font-semibold text-gray-600 hover:border-fuchsia-300">
                 {a.label}
               </button>
             ))}
           </div>
           <div className="flex gap-1.5">
             <button type="button" onClick={() => setAccion(null)} disabled={procesando}
-              className="flex-1 py-1.5 rounded-lg border border-gray-200 text-[10px] font-semibold text-gray-500 hover:bg-gray-50">
+              className="flex-1 py-1.5 rounded-lg border border-gray-200 text-[10px] font-semibold text-gray-600 hover:bg-gray-50">
               Cancelar
             </button>
             <button type="button" onClick={posponer} disabled={procesando}
@@ -186,10 +186,10 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
       )}
 
       {accion === 'concretar' && (
-        <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+        <div className="mt-2 pt-2 border-t border-gray-200 flex items-center gap-1.5">
           <p className="flex-1 text-[10px] text-emerald-700 font-semibold">¿Confirmar que se concretó la venta? 🎉</p>
           <button type="button" onClick={() => setAccion(null)} disabled={procesando}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50"><XIcon size={11} /></button>
+            className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"><XIcon size={11} /></button>
           <button type="button" onClick={concretar} disabled={procesando}
             className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 disabled:opacity-50">
             {procesando ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Confirmar
@@ -198,13 +198,13 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
       )}
 
       {accion === 'descartar' && (
-        <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5">
           <input value={motivoDescarte} onChange={e => setMotivoDescarte(e.target.value)}
             placeholder="Motivo (opcional)"
             className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-red-300" />
           <div className="flex gap-1.5">
             <button type="button" onClick={() => setAccion(null)} disabled={procesando}
-              className="flex-1 py-1.5 rounded-lg border border-gray-200 text-[10px] font-semibold text-gray-500 hover:bg-gray-50">
+              className="flex-1 py-1.5 rounded-lg border border-gray-200 text-[10px] font-semibold text-gray-600 hover:bg-gray-50">
               Cancelar
             </button>
             <button type="button" onClick={descartar} disabled={procesando}

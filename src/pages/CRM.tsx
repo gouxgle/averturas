@@ -134,7 +134,7 @@ const ACCION_ICON: Record<string, React.ReactNode> = {
   instalacion: <Zap size={12} className="text-amber-500" />,
   cobranza:    <ShoppingBag size={12} className="text-rose-500" />,
   cumpleanos:  <Cake size={12} className="text-pink-500" />,
-  seguimiento: <RefreshCw size={12} className="text-gray-500" />,
+  seguimiento: <RefreshCw size={12} className="text-gray-600" />,
   visita:      <Users size={12} className="text-indigo-500" />,
   oportunidad: <Target size={12} className="text-fuchsia-500" />,
 };
@@ -173,11 +173,11 @@ function ModalNuevoLead({ onClose, onSuccess }: { onClose: () => void; onSuccess
     } finally { setSaving(false); }
   };
   const inp = 'w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400';
-  const lbl = 'block text-xs font-semibold text-gray-500 mb-1';
+  const lbl = 'block text-xs font-semibold text-gray-600 mb-1';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600">
           <h2 className="text-sm font-bold text-white">Nuevo Lead</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} className="text-white" /></button>
         </div>
@@ -236,22 +236,22 @@ function ModalMoverEtapa({ cliente, onClose, onSuccess }: { cliente: ClientePipe
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div><h2 className="text-sm font-bold text-gray-900">Mover etapa</h2><p className="text-xs text-gray-400">{cliNombre(cliente)}</p></div>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} className="text-gray-400" /></button>
+        <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div><h2 className="text-sm font-bold text-gray-900">Mover etapa</h2><p className="text-xs text-gray-600">{cliNombre(cliente)}</p></div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} className="text-gray-600" /></button>
         </div>
         <div className="p-5 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             {etapas.map(e => (
               <button key={e.value} onClick={() => setEtapa(e.value)}
                 className={cn('px-3 py-2 rounded-xl text-xs font-semibold border text-left transition-all',
-                  etapa === e.value ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                  etapa === e.value ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:border-gray-400')}>
                 {e.label}
               </button>
             ))}
           </div>
           {etapa === 'cerrado_perdido' && (
-            <div><label className="block text-xs font-semibold text-gray-500 mb-1">Motivo de pérdida</label>
+            <div><label className="block text-xs font-semibold text-gray-600 mb-1">Motivo de pérdida</label>
               <input className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" value={motivo} onChange={e => setMotivo(e.target.value)} /></div>
           )}
           <div className="flex gap-2 pt-1">
@@ -284,8 +284,8 @@ function PipelineCard({ c, onMover }: { c: ClientePipeline; onMover: (x: Cliente
           <ArrowRight size={10} className="text-violet-400" />
         </button>
       </div>
-      <p className="text-[10px] text-gray-400 mb-2">{dias}</p>
-      {c.producto_interes && <p className="text-[10px] text-gray-500 truncate mb-1.5">{c.producto_interes}</p>}
+      <p className="text-[10px] text-gray-600 mb-2">{dias}</p>
+      {c.producto_interes && <p className="text-[10px] text-gray-600 truncate mb-1.5">{c.producto_interes}</p>}
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold text-gray-700">
           {c.ultimo_op_monto || c.monto_estimado ? formatCurrency(Number(c.ultimo_op_monto ?? c.monto_estimado)) : ''}
@@ -397,7 +397,7 @@ export function CRM() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-gray-900">CRM Comercial</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data?.total_pipeline ?? 0} oportunidades activas en pipeline</p>
+          <p className="text-xs text-gray-600 mt-0.5">{data?.total_pipeline ?? 0} oportunidades activas en pipeline</p>
         </div>
         <button onClick={() => setShowLead(true)}
           className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold shadow-md transition-colors">
@@ -419,7 +419,7 @@ export function CRM() {
               <span className={card.iconColor}>{card.icon}</span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 font-medium mb-1">{card.label}</p>
+              <p className="text-xs text-gray-600 font-medium mb-1">{card.label}</p>
               <p className="text-2xl font-black text-gray-900 leading-none mb-1">{card.value}</p>
               {card.sub}
             </div>
@@ -432,12 +432,12 @@ export function CRM() {
 
         {/* Pipeline */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp size={15} className="text-violet-500" />
               <span className="text-sm font-bold text-gray-800">Pipeline de ventas</span>
             </div>
-            <span className="text-[10px] text-gray-400">{data?.total_pipeline} oportunidades activas</span>
+            <span className="text-[10px] text-gray-600">{data?.total_pipeline} oportunidades activas</span>
           </div>
           <div className="overflow-x-auto">
             <div className="flex min-w-max">
@@ -445,15 +445,15 @@ export function CRM() {
                 const cfg = ETAPA_CFG[etapa];
                 const clientes = data?.pipeline[etapa] ?? [];
                 return (
-                  <div key={etapa} className="w-[185px] shrink-0 border-r border-gray-100 last:border-0 flex flex-col">
-                    <div className={cn('px-3 py-2.5 border-b border-gray-100 flex items-center gap-2', cfg.header)}>
+                  <div key={etapa} className="w-[185px] shrink-0 border-r border-gray-200 last:border-0 flex flex-col">
+                    <div className={cn('px-3 py-2.5 border-b border-gray-200 flex items-center gap-2', cfg.header)}>
                       <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', cfg.dot)} />
                       <span className="text-[11px] font-bold flex-1">{cfg.label}</span>
                       <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', cfg.badge)}>{clientes.length}</span>
                     </div>
                     <div className="p-2 space-y-2 max-h-72 overflow-y-auto flex-1">
                       {clientes.length === 0
-                        ? <div className="py-8 text-center text-[10px] text-gray-300">Sin leads</div>
+                        ? <div className="py-8 text-center text-[10px] text-gray-600">Sin leads</div>
                         : clientes.slice(0, 5).map(c => <PipelineCard key={c.id} c={c} onMover={setClienteMover} />)
                       }
                       {clientes.length > 5 && (
@@ -471,7 +471,7 @@ export function CRM() {
 
         {/* Tareas del día */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden flex flex-col">
-          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock size={14} className="text-amber-500" />
               <span className="text-sm font-bold text-gray-800">Tareas y seguimientos</span>
@@ -485,25 +485,25 @@ export function CRM() {
             {(data?.seguimientos_hoy ?? []).length === 0 ? (
               <div className="py-12 text-center">
                 <Check size={28} className="text-emerald-300 mx-auto mb-2" />
-                <p className="text-xs text-gray-400 font-medium">Sin tareas para hoy</p>
+                <p className="text-xs text-gray-600 font-medium">Sin tareas para hoy</p>
               </div>
             ) : (data?.seguimientos_hoy ?? []).map(t => {
               const prio = PRIO_CFG[t.prioridad ?? 'normal'] ?? PRIO_CFG.normal;
               const special = t.tipo_accion ? SPECIAL_BADGE[t.tipo_accion] : null;
               return (
-                <div key={t.id} className="flex items-start gap-3 px-4 py-3.5 border-b border-gray-50 hover:bg-gray-50/70 group transition-colors">
+                <div key={t.id} className="flex items-start gap-3 px-4 py-3.5 border-b border-gray-200 hover:bg-gray-50/70 group transition-colors">
                   {/* Hora */}
                   <div className="shrink-0 pt-0.5 w-10 text-right">
                     <span className="text-[11px] font-bold text-sky-600">{t.hora?.slice(0, 5) ?? ''}</span>
                   </div>
                   {/* Ícono acción */}
                   <div className="mt-0.5 shrink-0">
-                    {t.tipo_accion ? (ACCION_ICON[t.tipo_accion] ?? <Clock size={12} className="text-gray-300" />) : <Clock size={12} className="text-gray-300" />}
+                    {t.tipo_accion ? (ACCION_ICON[t.tipo_accion] ?? <Clock size={12} className="text-gray-600" />) : <Clock size={12} className="text-gray-600" />}
                   </div>
                   {/* Contenido */}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-gray-800 truncate">{cliNombre(t)}</p>
-                    <p className="text-[10px] text-gray-500 truncate">{t.descripcion}</p>
+                    <p className="text-[10px] text-gray-600 truncate">{t.descripcion}</p>
                   </div>
                   {/* Badges derecha */}
                   <div className="shrink-0 flex flex-col items-end gap-1">
@@ -529,7 +529,7 @@ export function CRM() {
             })}
           </div>
           {(data?.seguimientos_hoy ?? []).length > 0 && (
-            <div className="px-4 py-2.5 border-t border-gray-100 text-center">
+            <div className="px-4 py-2.5 border-t border-gray-200 text-center">
               <button className="text-[10px] text-violet-500 font-semibold hover:underline">
                 Ver todas las tareas ({k?.tareas_pendientes ?? 0})
               </button>
@@ -545,11 +545,11 @@ export function CRM() {
 
         {/* Agenda de contactos: atrasadas / hoy / próximos 3 días */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
             <Calendar size={14} className="text-sky-500" />
             <span className="text-xs font-bold text-gray-700">Agenda de contactos</span>
           </div>
-          <div className="flex items-center border-b border-gray-100 text-[10px] font-bold">
+          <div className="flex items-center border-b border-gray-200 text-[10px] font-bold">
             {([
               ['vencidas', `Atrasadas${agenda.vencidas.length ? ` (${agenda.vencidas.length})` : ''}`],
               ['hoy',      `Hoy${agenda.hoy.length ? ` (${agenda.hoy.length})` : ''}`],
@@ -560,7 +560,7 @@ export function CRM() {
                   'flex-1 py-2 border-b-2 transition-colors',
                   tabAgenda === key
                     ? (key === 'vencidas' ? 'border-red-500 text-red-600' : 'border-sky-500 text-sky-600')
-                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-600'
                 )}>
                 {label}
               </button>
@@ -573,20 +573,20 @@ export function CRM() {
                   {tabAgenda === 'vencidas' ? `${diasAtraso(t.vencimiento)}d` : tabAgenda === 'proximos' ? fmtVenc(t.vencimiento) : (t.hora?.slice(0, 5) ?? '—')}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                  {t.tipo_accion ? (ACCION_ICON[t.tipo_accion] ?? <Clock size={11} className="text-gray-300" />) : <Clock size={11} className="text-gray-300" />}
+                  {t.tipo_accion ? (ACCION_ICON[t.tipo_accion] ?? <Clock size={11} className="text-gray-600" />) : <Clock size={11} className="text-gray-600" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold text-gray-700 truncate">{t.descripcion}</p>
-                  <p className="text-[9px] text-gray-400 truncate">{cliNombre(t)}</p>
+                  <p className="text-[9px] text-gray-600 truncate">{cliNombre(t)}</p>
                 </div>
                 <button onClick={() => completarAgendaItem(t.id)} title="Marcar como contactado"
-                  className="shrink-0 p-1 text-gray-300 hover:text-emerald-600 rounded hover:bg-emerald-50">
+                  className="shrink-0 p-1 text-gray-600 hover:text-emerald-600 rounded hover:bg-emerald-50">
                   <Check size={13} />
                 </button>
               </div>
             ))}
             {agenda[tabAgenda].length === 0 && (
-              <p className="text-[10px] text-gray-300 text-center py-5">
+              <p className="text-[10px] text-gray-600 text-center py-5">
                 {tabAgenda === 'vencidas' ? 'Sin contactos atrasados' : tabAgenda === 'hoy' ? 'Sin eventos hoy' : 'Nada para los próximos 3 días'}
               </p>
             )}
@@ -599,7 +599,7 @@ export function CRM() {
 
         {/* Cumpleaños */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Cake size={14} className="text-pink-500" />
               <span className="text-xs font-bold text-gray-700">Cumpleaños próximos</span>
@@ -608,7 +608,7 @@ export function CRM() {
           </div>
           <div className="p-3 space-y-2.5">
             {(data?.cumpleanos_proximos ?? []).length === 0
-              ? <p className="text-[10px] text-gray-300 text-center py-5">Sin cumpleaños próximos</p>
+              ? <p className="text-[10px] text-gray-600 text-center py-5">Sin cumpleaños próximos</p>
               : (data?.cumpleanos_proximos ?? []).map(c => (
                 <div key={c.id} className="flex items-center gap-2.5">
                   <div className={cn(
@@ -620,7 +620,7 @@ export function CRM() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-bold text-gray-700 truncate">{cliNombre(c)}</p>
                     <p className={cn('text-[9px] font-medium',
-                      c.dias_para_cumple === 0 ? 'text-rose-500' : 'text-gray-400')}>
+                      c.dias_para_cumple === 0 ? 'text-rose-500' : 'text-gray-600')}>
                       {c.dias_para_cumple === 0 ? '¡Hoy! — ' : c.dias_para_cumple === 1 ? 'Mañana — ' : `En ${c.dias_para_cumple} días — `}
                       {c.cumple_label}
                     </p>
@@ -639,13 +639,13 @@ export function CRM() {
 
         {/* Alertas */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
             <AlertTriangle size={14} className="text-amber-500" />
             <span className="text-xs font-bold text-gray-700">Alertas</span>
           </div>
           <div className="p-3 space-y-2">
             {alertasSinContacto === 0 && alertasPresupuestos === 0 && alertasPostventa === 0 ? (
-              <div className="py-5 text-center"><Check size={20} className="text-emerald-400 mx-auto mb-1" /><p className="text-[10px] text-gray-400">Sin alertas</p></div>
+              <div className="py-5 text-center"><Check size={20} className="text-emerald-400 mx-auto mb-1" /><p className="text-[10px] text-gray-600">Sin alertas</p></div>
             ) : (
               <>
                 {alertasSinContacto > 0 && (
@@ -682,7 +682,7 @@ export function CRM() {
 
         {/* Postventa pendiente */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <RefreshCw size={14} className="text-teal-500" />
               <span className="text-xs font-bold text-gray-700">Postventa pendiente</span>
@@ -691,7 +691,7 @@ export function CRM() {
           </div>
           <div className="p-3 space-y-2.5">
             {(data?.pipeline.postventa ?? []).length === 0
-              ? <p className="text-[10px] text-gray-300 text-center py-5">Sin clientes en postventa</p>
+              ? <p className="text-[10px] text-gray-600 text-center py-5">Sin clientes en postventa</p>
               : (data?.pipeline.postventa ?? []).slice(0, 5).map(c => {
                 const d = c.dias_sin_contacto;
                 const badgeCls = d > 60 ? 'bg-red-100 text-red-600 border-red-200' :
@@ -704,7 +704,7 @@ export function CRM() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-bold text-gray-700 truncate">{cliNombre(c)}</p>
-                      <p className="text-[9px] text-gray-400 truncate">{c.proxima_accion ?? 'Seguimiento pendiente'}</p>
+                      <p className="text-[9px] text-gray-600 truncate">{c.proxima_accion ?? 'Seguimiento pendiente'}</p>
                     </div>
                     <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0', badgeCls)}>{badgeLabel}</span>
                   </div>
@@ -716,7 +716,7 @@ export function CRM() {
 
         {/* Clientes VIP */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Star size={14} className="text-amber-400" />
               <span className="text-xs font-bold text-gray-700">Clientes VIP</span>
@@ -726,17 +726,17 @@ export function CRM() {
           <div className="p-3 space-y-2.5">
             {(data?.top_clientes ?? []).map((c, i) => (
               <div key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg px-1 py-0.5" onClick={() => navigate(`/clientes/${c.id}`)}>
-                <span className="text-xs font-black text-gray-200 w-4 text-center">{i + 1}</span>
+                <span className="text-xs font-black text-gray-500 w-4 text-center">{i + 1}</span>
                 <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white', avatarColor(c.id))}>
                   {cliIniciales(c)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold text-gray-700 truncate">{cliNombre(c)}</p>
-                  <p className="text-[9px] text-gray-400">Compras: {c.operaciones_count} · Total: {formatCurrency(Number(c.valor_total_historico))}</p>
+                  <p className="text-[9px] text-gray-600">Compras: {c.operaciones_count} · Total: {formatCurrency(Number(c.valor_total_historico))}</p>
                 </div>
               </div>
             ))}
-            {(data?.top_clientes ?? []).length === 0 && <p className="text-[10px] text-gray-300 text-center py-5">Sin datos</p>}
+            {(data?.top_clientes ?? []).length === 0 && <p className="text-[10px] text-gray-600 text-center py-5">Sin datos</p>}
           </div>
         </div>
       </div>
@@ -762,13 +762,13 @@ export function CRM() {
                       {e.count}
                     </div>
                   </div>
-                  <span className="text-[10px] text-gray-500 w-20 truncate">{e.etapa}</span>
+                  <span className="text-[10px] text-gray-600 w-20 truncate">{e.etapa}</span>
                   <span className="text-[10px] font-bold text-gray-700 w-8 text-right">{e.pct}%</span>
                 </div>
               );
             })}
           </div>
-          <p className="text-[10px] text-gray-400 text-right">Tasa conversión global: <strong>{k?.tasa_cierre ?? 0}%</strong></p>
+          <p className="text-[10px] text-gray-600 text-right">Tasa conversión global: <strong>{k?.tasa_cierre ?? 0}%</strong></p>
         </div>
 
         {/* Ventas por período */}
@@ -778,7 +778,7 @@ export function CRM() {
               <TrendingUp size={14} className="text-emerald-500" />
               <span className="text-xs font-bold text-gray-700">Ventas por período</span>
             </div>
-            <span className="text-[10px] text-gray-400 border border-gray-200 px-2 py-0.5 rounded-lg">Este mes</span>
+            <span className="text-[10px] text-gray-600 border border-gray-200 px-2 py-0.5 rounded-lg">Este mes</span>
           </div>
           <div className="mb-2">
             <p className="text-xl font-black text-gray-900">Total ventas {formatCurrency(k?.facturacion_mes ?? 0)}</p>
@@ -809,7 +809,7 @@ export function CRM() {
               <span className="text-xs font-bold text-gray-700">Origen de leads</span>
             </div>
             {(data?.origen_leads ?? []).length === 0
-              ? <p className="text-[10px] text-gray-300 text-center">Sin datos</p>
+              ? <p className="text-[10px] text-gray-600 text-center">Sin datos</p>
               : (
                 <div className="flex items-center gap-3">
                   <ResponsiveContainer width={72} height={72}>
@@ -832,7 +832,7 @@ export function CRM() {
                 </div>
               )
             }
-            <p className="text-[9px] text-gray-400 mt-2 text-right">Total leads: {totalOrigen}</p>
+            <p className="text-[9px] text-gray-600 mt-2 text-right">Total leads: {totalOrigen}</p>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
@@ -843,12 +843,12 @@ export function CRM() {
             <div className="space-y-2">
               {(data?.productos_consultados ?? []).map((p, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs font-black text-gray-200 w-4">{i+1}</span>
+                  <span className="text-xs font-black text-gray-500 w-4">{i+1}</span>
                   <span className="text-[10px] text-gray-700 flex-1 truncate font-medium">{p.producto}</span>
-                  <span className="text-[9px] text-gray-400">{p.presupuestos} pres.</span>
+                  <span className="text-[9px] text-gray-600">{p.presupuestos} pres.</span>
                 </div>
               ))}
-              {(data?.productos_consultados ?? []).length === 0 && <p className="text-[10px] text-gray-300 text-center">Sin datos</p>}
+              {(data?.productos_consultados ?? []).length === 0 && <p className="text-[10px] text-gray-600 text-center">Sin datos</p>}
             </div>
           </div>
         </div>
@@ -859,7 +859,7 @@ export function CRM() {
 
         {/* Oportunidades sin actividad */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertTriangle size={14} className="text-orange-500" />
               <span className="text-sm font-bold text-gray-800">Oportunidades sin actividad</span>
@@ -868,26 +868,26 @@ export function CRM() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
+                <tr className="bg-gray-50 border-b border-gray-200">
                   {['Cliente','Etapa','Última actividad','Días sin actividad','Monto est.','Acción'].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {(data?.oportunidades_inactivas ?? []).length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-xs text-gray-400">Sin oportunidades inactivas</td></tr>
+                  <tr><td colSpan={6} className="text-center py-8 text-xs text-gray-600">Sin oportunidades inactivas</td></tr>
                 ) : (data?.oportunidades_inactivas ?? []).map(o => {
                   const cfg = ETAPA_CFG[o.crm_etapa] ?? ETAPA_CFG.nuevo;
                   const d = o.dias_sin_contacto;
                   const diasCls = d > 28 ? 'bg-red-50 text-red-500' : d > 14 ? 'bg-amber-50 text-amber-500' : 'bg-gray-50 text-gray-600';
                   return (
-                    <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => navigate(`/clientes/${o.id}`)}>
+                    <tr key={o.id} className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => navigate(`/clientes/${o.id}`)}>
                       <td className="px-4 py-3 text-xs font-bold text-gray-800 whitespace-nowrap">{cliNombre(o)}</td>
                       <td className="px-4 py-3">
                         <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold border', cfg.badge)}>{cfg.label}</span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                         {o.ultima_interaccion ? new Date(o.ultima_interaccion).toLocaleDateString('es-AR') : '—'}
                       </td>
                       <td className="px-4 py-3">
@@ -914,7 +914,7 @@ export function CRM() {
 
         {/* Presupuestos sin respuesta */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText size={14} className="text-amber-500" />
               <span className="text-xs font-bold text-gray-700">Presupuestos sin respuesta</span>
@@ -925,7 +925,7 @@ export function CRM() {
           </div>
           <div className="divide-y divide-gray-50">
             {(data?.presupuestos_sin_respuesta ?? []).length === 0 ? (
-              <div className="py-8 text-center"><p className="text-xs text-gray-400">Sin presupuestos pendientes</p></div>
+              <div className="py-8 text-center"><p className="text-xs text-gray-600">Sin presupuestos pendientes</p></div>
             ) : (data?.presupuestos_sin_respuesta ?? []).map(p => (
               <div key={p.op_id} className="px-4 py-3 flex items-center gap-3">
                 <div className={cn('w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white', avatarColor(p.cliente_id))}>
@@ -933,7 +933,7 @@ export function CRM() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold text-gray-800 truncate">{cliNombre(p)}</p>
-                  <p className="text-[9px] text-gray-400">Enviado hace {p.dias_sin_respuesta} días · {formatCurrency(Number(p.precio_total))}</p>
+                  <p className="text-[9px] text-gray-600">Enviado hace {p.dias_sin_respuesta} días · {formatCurrency(Number(p.precio_total))}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {p.telefono && (
@@ -951,7 +951,7 @@ export function CRM() {
 
         {/* Actividad reciente */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-gray-100 flex items-center gap-2">
+          <div className="px-4 py-3.5 border-b border-gray-200 flex items-center gap-2">
             <Activity size={14} className="text-violet-500" />
             <span className="text-xs font-bold text-gray-700">Actividad reciente</span>
           </div>
@@ -969,7 +969,7 @@ export function CRM() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] text-gray-700 leading-tight">{a.text}</p>
-                  <p className="text-[9px] text-gray-400 mt-0.5">{a.time}</p>
+                  <p className="text-[9px] text-gray-600 mt-0.5">{a.time}</p>
                 </div>
               </div>
             ))}
