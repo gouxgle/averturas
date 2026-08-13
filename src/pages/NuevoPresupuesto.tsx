@@ -330,6 +330,17 @@ export function NuevoPresupuesto() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Escape en el modal de elegir cliente: no hay nada cargado todavía, así
+  // que "salir" es directamente abandonar y volver al listado de presupuestos.
+  useEffect(() => {
+    if (isEdit || clienteId) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') navigate('/presupuestos');
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isEdit, clienteId, navigate]);
+
   // Búsqueda de clientes por API con debounce
   useEffect(() => {
     const q = clienteSearch.trim();
@@ -867,14 +878,21 @@ export function NuevoPresupuesto() {
 
       {/* ── MODAL: elegir cliente (bloqueante hasta elegir uno) ── */}
       {!clienteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) navigate('/presupuestos'); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-5 bg-gradient-to-r from-violet-600 to-violet-500">
-              <div className="flex items-center gap-2">
-                <Users size={18} className="text-white" />
-                <h2 className="text-base font-bold text-white">¿Para quién es el presupuesto?</h2>
+            <div className="px-6 py-5 bg-gradient-to-r from-violet-600 to-violet-500 flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Users size={18} className="text-white" />
+                  <h2 className="text-base font-bold text-white">¿Para quién es el presupuesto?</h2>
+                </div>
+                <p className="text-xs text-violet-100 mt-1">Buscá el cliente para empezar a cargar productos</p>
               </div>
-              <p className="text-xs text-violet-100 mt-1">Buscá el cliente para empezar a cargar productos</p>
+              <button onClick={() => navigate('/presupuestos')} title="Cancelar y volver"
+                className="shrink-0 p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                <X size={16} className="text-white" />
+              </button>
             </div>
             <div className="p-6">
               <div className="relative">
