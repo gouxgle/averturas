@@ -1675,6 +1675,10 @@ export function NuevoProducto() {
     if (enSalonPendientePostAjuste) {
       setEnSalonPendientePostAjuste(false);
       if (nuevoStock > 0) set('en_salon', true);
+    } else if (nuevoStock <= 0 && form.en_salon) {
+      // El backend ya desactivó en_salon en la DB (ver POST /stock/ajustar) —
+      // sincronizar el formulario para no pisarlo de vuelta a true al guardar.
+      set('en_salon', false);
     }
   }
 

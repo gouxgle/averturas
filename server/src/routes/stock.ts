@@ -371,19 +371,42 @@ stock.post('/ajustar', async (c) => {
   const b = await validateBody(c, StockAjustarSchema);
   if (b instanceof Response) return b;
 
-  const { rows: [mov] } = await db.query(`
-    INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, notas, created_by)
-    VALUES ($1, 'ajuste', $2, $3, $4, $5)
-    RETURNING *
-  `, [
-    b.producto_id,
-    b.cantidad,
-    b.motivo || 'Ajuste manual',
-    b.notas  || null,
-    user?.id || null,
-  ]);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
 
-  return c.json(mov, 201);
+    const { rows: [mov] } = await client.query(`
+      INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, notas, created_by)
+      VALUES ($1, 'ajuste', $2, $3, $4, $5)
+      RETURNING *
+    `, [
+      b.producto_id,
+      b.cantidad,
+      b.motivo || 'Ajuste manual',
+      b.notas  || null,
+      user?.id || null,
+    ]);
+
+    // Si el ajuste dejó el stock en 0 (o menos), un producto que estaba
+    // "exhibido en salón" ya no puede seguir marcado así — mismo criterio
+    // que al emitir un remito o aprobar una venta (operaciones.ts, remitos.ts).
+    const { rows: [desactivado] } = await client.query(`
+      UPDATE catalogo_productos cp SET en_salon = false
+      WHERE cp.id = $1 AND cp.en_salon = true
+        AND (COALESCE(cp.stock_inicial, 0) + COALESCE((
+          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+        ), 0)) <= 0
+      RETURNING id
+    `, [b.producto_id]);
+
+    await client.query('COMMIT');
+    return c.json({ ...mov, en_salon_desactivado: !!desactivado }, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 export default stock;

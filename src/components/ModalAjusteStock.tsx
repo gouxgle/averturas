@@ -47,13 +47,16 @@ export function ModalAjusteStock({
     if (valor === '') { setError('Ingresá un valor'); return; }
     setSaving(true); setError('');
     try {
-      await api.post('/stock/ajustar', {
+      const r = await api.post<{ en_salon_desactivado?: boolean }>('/stock/ajustar', {
         producto_id: productoId,
         cantidad:    delta,
         motivo:      motivo || 'Ajuste manual',
         notas:       notas  || null,
       });
       toast.success('Ajuste registrado');
+      if (r.en_salon_desactivado) {
+        toast.info('Se desactivó "Exhibido en salón" — el stock quedó en 0');
+      }
       onSaved((selected?.stock_actual ?? 0) + (delta ?? 0));
     } catch (e: any) {
       setError(e?.message || 'Error al guardar');
