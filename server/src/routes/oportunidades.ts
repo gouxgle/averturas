@@ -18,10 +18,11 @@ const CLIENTE_JSON = `
   ) AS cliente
 `;
 
-// GET / — listado, ?vista=vencidas|hoy|proximas|abiertas|a_definir|todas, ?cliente_id=
+// GET / — listado, ?vista=vencidas|hoy|proximas|abiertas|a_definir|todas, ?cliente_id=, ?operacion_id_origen=
 oportunidades.get('/', async (c) => {
   const vista = c.req.query('vista') || 'abiertas';
   const clienteId = c.req.query('cliente_id');
+  const operacionIdOrigen = c.req.query('operacion_id_origen');
   const params: unknown[] = [];
   const conds: string[] = [];
 
@@ -35,6 +36,10 @@ oportunidades.get('/', async (c) => {
   if (clienteId) {
     params.push(clienteId);
     conds.push(`o.cliente_id = $${params.length}`);
+  }
+  if (operacionIdOrigen) {
+    params.push(operacionIdOrigen);
+    conds.push(`o.operacion_id_origen = $${params.length}`);
   }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';

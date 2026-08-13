@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { EstadoOperacion } from '@/types';
 import { toast } from 'sonner';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
+import type { Oportunidad } from '@/components/oportunidades/types';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -298,6 +299,7 @@ function PresupuestoModal({
   const [confirmAcreditar, setConfirmAcreditar] = useState(false);
   const [acreditando, setAcreditando]     = useState(false);
   const [mostrarOportunidad, setMostrarOportunidad] = useState(false);
+  const [oportunidadVinculada, setOportunidadVinculada] = useState<Oportunidad | null>(null);
 
   // ESC cierra el modal
   useEffect(() => {
@@ -318,6 +320,12 @@ function PresupuestoModal({
             .then(setPedidos)
             .catch(() => {});
         }
+        // ¿Ya se registró una oportunidad futura para este presupuesto? Si la hay
+        // y sigue abierta, la franja de "¿lo va a retomar?" debe mostrar la
+        // confirmación en vez de volver a ofrecer registrarla.
+        api.get<Oportunidad[]>(`/oportunidades?operacion_id_origen=${d.id}&vista=todas`)
+          .then(rows => setOportunidadVinculada(rows.find(o => o.estado === 'pendiente' || o.estado === 'contactada') ?? null))
+          .catch(() => {});
       });
   }
 
@@ -895,14 +903,26 @@ function PresupuestoModal({
 
             {/* ¿Lo va a retomar más adelante? — rechazado, o vencido sin confirmar */}
             {(op.estado === 'rechazado' || (esVencido && ['presupuesto', 'enviado'].includes(op.estado))) && (
-              <div className="mx-5 mb-4 flex items-center gap-3 px-4 py-3 bg-fuchsia-50 border border-fuchsia-200 rounded-xl">
-                <Target size={16} className="text-fuchsia-500 shrink-0" />
-                <p className="flex-1 text-xs text-fuchsia-700">¿El cliente lo va a retomar más adelante? Guardalo como oportunidad futura para no perderlo de vista.</p>
-                <button onClick={() => setMostrarOportunidad(true)}
-                  className="shrink-0 px-3 py-1.5 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold rounded-lg">
-                  Registrar
-                </button>
-              </div>
+              oportunidadVinculada ? (
+                <div className="mx-5 mb-4 flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                  <p className="flex-1 text-xs text-emerald-700">
+                    Oportunidad futura cargada — contactar el{' '}
+                    <span className="font-bold">
+                      {new Date(oportunidadVinculada.fecha_recontacto.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <div className="mx-5 mb-4 flex items-center gap-3 px-4 py-3 bg-fuchsia-50 border border-fuchsia-200 rounded-xl">
+                  <Target size={16} className="text-fuchsia-500 shrink-0" />
+                  <p className="flex-1 text-xs text-fuchsia-700">¿El cliente lo va a retomar más adelante? Guardalo como oportunidad futura para no perderlo de vista.</p>
+                  <button onClick={() => setMostrarOportunidad(true)}
+                    className="shrink-0 px-3 py-1.5 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xs font-bold rounded-lg">
+                    Registrar
+                  </button>
+                </div>
+              )
             )}
           </div>
         ) : null}
@@ -917,7 +937,7 @@ function PresupuestoModal({
           motivoInicial={op.motivo_rechazo ?? ''}
           origen="presupuesto"
           onClose={() => setMostrarOportunidad(false)}
-          onSuccess={() => setMostrarOportunidad(false)}
+          onSuccess={(nueva) => { setOportunidadVinculada(nueva); setMostrarOportunidad(false); }}
         />
       )}
     </div>
