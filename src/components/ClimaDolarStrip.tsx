@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { api } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 
 // ── Pronóstico del tiempo (Open-Meteo, Formosa AR) ───────────────────
 
@@ -116,8 +119,31 @@ export function WeatherWidget() {
 
 // ── Cotización del dólar (misma fuente/campo que "Valor U$S" en Productos) ──
 
+interface CotizacionDia { fecha: string; compra: number; venta: number }
+
+function fmtDiaCorto(fecha: string): string {
+  return new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+}
+
+// Tendencia = variación entre el primer y el último valor del rango cargado.
+// Sube → rojo/ámbar (presión de costos, los productos con Valor U$S encarecen);
+// baja → verde (alivio); estable → gris. No es un juicio de "bueno/malo" universal,
+// es el mismo criterio de semáforo que ya usa el resto de la app (rojo = atención).
+function calcularTendencia(historial: CotizacionDia[]) {
+  if (historial.length < 2) return null;
+  const primero = historial[0].compra;
+  const ultimo = historial[historial.length - 1].compra;
+  const deltaPct = primero > 0 ? ((ultimo - primero) / primero) * 100 : 0;
+  const min = Math.min(...historial.map(h => h.compra));
+  const max = Math.max(...historial.map(h => h.compra));
+  return { deltaPct, min, max };
+}
+
 export function DolarWidget() {
   const [compra, setCompra] = useState<number | null>(null);
+  const [showHistorial, setShowHistorial] = useState(false);
+  const [historial, setHistorial] = useState<CotizacionDia[] | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   useEffect(() => {
     api.get<{ compra: number }>('/catalogo/cotizacion-dolar')
@@ -125,18 +151,112 @@ export function DolarWidget() {
       .catch(() => {});
   }, []);
 
+  function toggleHistorial() {
+    const next = !showHistorial;
+    setShowHistorial(next);
+    if (next && !historial) {
+      setCargandoHistorial(true);
+      api.get<CotizacionDia[]>('/catalogo/cotizacion-dolar/historial?dias=30')
+        .then(setHistorial)
+        .catch(() => setHistorial([]))
+        .finally(() => setCargandoHistorial(false));
+    }
+  }
+
   if (compra == null) return null;
 
+  const tendencia = historial ? calcularTendencia(historial) : null;
+
   return (
-    <div
-      className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-md my-2"
-      title="Dólar blue — usado para el indicador de precio en U$S de Productos"
-    >
-      <DollarSign size={22} className="text-emerald-600" />
-      <div className="flex flex-col items-start leading-tight">
-        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wide">Valor Dólar</span>
-        <span className="text-xl font-black text-emerald-700 tabular-nums">{formatCurrency(compra)}</span>
-      </div>
+    <div className="relative inline-block my-2">
+      <button
+        onClick={toggleHistorial}
+        className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-md hover:shadow-lg hover:border-emerald-400 transition-all"
+        title="Clic para ver la evolución de los últimos 30 días"
+      >
+        <DollarSign size={22} className="text-emerald-600" />
+        <div className="flex flex-col items-start leading-tight">
+          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wide">Valor Dólar</span>
+          <span className="text-xl font-black text-emerald-700 tabular-nums">{formatCurrency(compra)}</span>
+        </div>
+        <span className="text-emerald-400 text-[9px] ml-1 self-end mb-0.5">{showHistorial ? '▲ cerrar' : '▼ evolución'}</span>
+      </button>
+
+      {showHistorial && (
+        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl border-2 border-emerald-200 shadow-2xl p-6 w-[520px] max-w-[95vw]">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm font-bold text-emerald-600 uppercase tracking-widest">📈 Evolución 30 días — Dólar blue</p>
+          </div>
+
+          {cargandoHistorial ? (
+            <div className="h-48 bg-gray-50 animate-pulse rounded-xl mt-3" />
+          ) : !historial || historial.length === 0 ? (
+            <p className="text-sm text-gray-600 py-6 text-center">Todavía no hay historial registrado.</p>
+          ) : (
+            <>
+              {/* Tendencia + min/max del período */}
+              <div className="flex items-center gap-4 mt-3 mb-2">
+                {tendencia ? (
+                  <div className={cn(
+                    'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold',
+                    tendencia.deltaPct > 0.5 ? 'bg-red-50 text-red-600'
+                      : tendencia.deltaPct < -0.5 ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-gray-100 text-gray-600'
+                  )}>
+                    {tendencia.deltaPct > 0.5 ? <TrendingUp size={13} />
+                      : tendencia.deltaPct < -0.5 ? <TrendingDown size={13} />
+                      : <Minus size={13} />}
+                    {tendencia.deltaPct > 0 ? '+' : ''}{tendencia.deltaPct.toFixed(1)}% en el período
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-600">Necesitamos más días registrados para mostrar la tendencia.</p>
+                )}
+                {tendencia && (
+                  <p className="text-[11px] text-gray-600">
+                    Mín: <span className="font-semibold text-gray-700">{formatCurrency(tendencia.min)}</span>
+                    {' · '}Máx: <span className="font-semibold text-gray-700">{formatCurrency(tendencia.max)}</span>
+                  </p>
+                )}
+              </div>
+
+              <ResponsiveContainer width="100%" height={190}>
+                <AreaChart data={historial} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradDolar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                  <XAxis
+                    dataKey="fecha"
+                    tickFormatter={fmtDiaCorto}
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    interval={Math.ceil(historial.length / 6) - 1}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={v => formatCurrency(v)}
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={70}
+                    domain={['dataMin - 5', 'dataMax + 5']}
+                  />
+                  <Tooltip
+                    formatter={(val: unknown) => [formatCurrency(Number(val)), 'Compra']}
+                    labelFormatter={(label: unknown) => fmtDiaCorto(String(label))}
+                    contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="compra" stroke="#059669" fill="url(#gradDolar)"
+                    strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

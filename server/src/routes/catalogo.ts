@@ -15,7 +15,29 @@ const catalogo = new Hono();
 catalogo.get('/cotizacion-dolar', async (c) => {
   const cotizacion = await getCotizacionDolar();
   if (!cotizacion) return c.json({ error: 'No se pudo obtener la cotización del dólar' }, 502);
+
+  // Siembra el historial del día — sin cron: el primer pedido de cada día
+  // guarda el valor, igual que el resto de los mecanismos de este proyecto.
+  db.query(
+    `INSERT INTO cotizacion_dolar_historial (fecha, compra, venta)
+     VALUES (CURRENT_DATE, $1, $2)
+     ON CONFLICT (fecha) DO NOTHING`,
+    [cotizacion.compra, cotizacion.venta]
+  ).catch(err => console.error('[cotizacion-dolar] Error al guardar historial:', err));
+
   return c.json(cotizacion);
+});
+
+// GET /cotizacion-dolar/historial?dias=30 — evolución para el desplegable del widget
+catalogo.get('/cotizacion-dolar/historial', async (c) => {
+  const dias = Math.min(Math.max(parseInt(c.req.query('dias') ?? '30', 10) || 30, 1), 365);
+  const { rows } = await db.query(
+    `SELECT fecha, compra, venta FROM cotizacion_dolar_historial
+     WHERE fecha >= CURRENT_DATE - $1::int
+     ORDER BY fecha ASC`,
+    [dias]
+  );
+  return c.json(rows);
 });
 
 // ── Tipos de abertura ─────────────────────────────────────────────────────────
