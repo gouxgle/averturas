@@ -14,6 +14,8 @@ import { formatCurrency, diasCalendarioAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DolarWidget, WeatherWidget } from '@/components/ClimaDolarStrip';
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
+import { CentroAlertas } from '@/components/CentroAlertas';
+import { AlertaBackups } from '@/components/AlertaBackups';
 
 // ── Tipos ────────────────────────────────────────────────────────────
 
@@ -183,6 +185,12 @@ export function Dashboard() {
             <Plus size={15} /> Nuevo presupuesto
           </Link>
         </div>
+      </div>
+
+      <AlertaBackups />
+
+      <div className="mb-5">
+        <CentroAlertas />
       </div>
 
       {loading ? (
