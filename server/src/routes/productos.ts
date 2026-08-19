@@ -73,6 +73,25 @@ productos.get('/', async (c) => {
   return c.json(rows);
 });
 
+// PATCH /renovar-validez-precios — renueva precio_actualizado_at por lotes (una o
+// varias familias de abertura) sin tocar el precio en sí. Para cuando el panorama
+// económico no amerita cambios y no tiene sentido revisar producto por producto
+// solo para resetear el semáforo de antigüedad (verde ≤7d / amarillo 8-10 / rojo >10,
+// ver colorPorAntiguedadPrecio en TarjetaProductoMosaico.tsx).
+productos.patch('/renovar-validez-precios', async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { tipo_abertura_ids?: string[] };
+  const ids = body.tipo_abertura_ids;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return c.json({ error: 'Seleccioná al menos una familia' }, 422);
+  }
+  const { rowCount } = await db.query(
+    `UPDATE catalogo_productos SET precio_actualizado_at = now()
+     WHERE tipo_abertura_id = ANY($1::uuid[]) AND activo = true`,
+    [ids]
+  );
+  return c.json({ actualizados: rowCount });
+});
+
 productos.get('/:id', async (c) => {
   const { rows: [row] } = await db.query(
     `${withJoins} WHERE cp.id = $1`,

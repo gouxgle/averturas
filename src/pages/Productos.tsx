@@ -15,6 +15,7 @@ import {
   TIPO_LABEL, TIPO_COLOR, MARGEN_LABEL, MARGEN_COLOR, ETIQUETA_CONFIG,
 } from '@/components/TarjetaProductoMosaico';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
+import { ModalRenovarValidezPrecios } from '@/components/productos/ModalRenovarValidezPrecios';
 import type { Producto, TipoOperacion } from '@/types';
 
 // Paleta de categorías — cada tipo de abertura (real, de la DB) toma un color en orden,
@@ -748,6 +749,7 @@ export function Productos() {
   const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
   const [showAjusteStock, setShowAjusteStock] = useState(false);
   const [ajusteProductoId, setAjusteProductoId] = useState<string | null>(null);
+  const [showRenovarValidez, setShowRenovarValidez] = useState(false);
   // Si se abrió el ajuste porque se intentó marcar "en salón" sin stock, al guardar
   // el ajuste activamos "en salón" directo — no hace falta un segundo click.
   const [salonPendientePostAjuste, setSalonPendientePostAjuste] = useState<string | null>(null);
@@ -956,12 +958,26 @@ export function Productos() {
         title="Productos"
         sub={`Catálogo de aberturas y precios base · ${productos.length} productos`}
         actions={
-          <Link to="/productos/nuevo"
-            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
-            <Plus size={16}/> Nuevo producto
-          </Link>
+          <>
+            <button onClick={() => setShowRenovarValidez(true)}
+              className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-400 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
+              <RefreshCw size={16}/> Renovar validez de precios
+            </button>
+            <Link to="/productos/nuevo"
+              className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
+              <Plus size={16}/> Nuevo producto
+            </Link>
+          </>
         }
       />
+
+      {showRenovarValidez && (
+        <ModalRenovarValidezPrecios
+          productos={productos}
+          onClose={() => setShowRenovarValidez(false)}
+          onRenovado={load}
+        />
+      )}
 
       {/* Buscador + orden */}
       <div className="flex flex-col sm:flex-row gap-2.5">
