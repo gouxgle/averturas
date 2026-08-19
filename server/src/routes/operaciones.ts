@@ -699,7 +699,7 @@ operaciones.post('/:id/generar-link', async (c) => {
 
   const vtPendiente = await visitaPendiente(id);
   if (vtPendiente) {
-    return c.json({ error: `Falta relevar la visita técnica ${vtPendiente} antes de compartir este presupuesto` }, 409);
+    return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente} antes de compartir este presupuesto` }, 409);
   }
 
   const token = await obtenerOCrearToken(id, op);
@@ -736,7 +736,7 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
 
   const vtPendienteWa = await visitaPendiente(id);
   if (vtPendienteWa) {
-    return c.json({ error: `Falta relevar la visita técnica ${vtPendienteWa} antes de compartir este presupuesto` }, 409);
+    return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendienteWa} antes de compartir este presupuesto` }, 409);
   }
 
   const telefono: string | null = op.telefono;
@@ -833,7 +833,7 @@ operaciones.post('/:id/enviar-email', async (c) => {
 
   const vtPendienteEmail = await visitaPendiente(id);
   if (vtPendienteEmail) {
-    return c.json({ error: `Falta relevar la visita técnica ${vtPendienteEmail} antes de compartir este presupuesto` }, 409);
+    return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendienteEmail} antes de compartir este presupuesto` }, 409);
   }
 
   const emailCliente: string | null = op.email;
@@ -1003,7 +1003,7 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
       `SELECT id, operacion_id, estado FROM visitas_tecnicas WHERE id=$1 FOR UPDATE`,
       [b.visita_tecnica_id]
     );
-    if (!vt) { await client.query('ROLLBACK'); return c.json({ error: 'Visita técnica no encontrada' }, 404); }
+    if (!vt) { await client.query('ROLLBACK'); return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404); }
     if (vt.operacion_id !== id) {
       await client.query('ROLLBACK');
       return c.json({ error: 'Esta visita no está vinculada a este presupuesto' }, 409);
@@ -1206,6 +1206,22 @@ operaciones.get('/:id', async (c) => {
   return c.json({ ...op, items, historial, formas_pago_alternativas });
 });
 
+// GET /:id/versiones — historial de ediciones (v1, v2, v3...). Cada versión es el
+// snapshot del estado justo ANTES de esa edición; el estado vigente se lee en vivo
+// de GET /:id, no aparece acá como una versión más.
+operaciones.get('/:id/versiones', async (c) => {
+  const { id } = c.req.param();
+  const { rows } = await db.query(`
+    SELECT v.id, v.version, v.snapshot, v.created_at,
+      u.nombre AS creado_por_nombre
+    FROM operacion_versiones v
+    LEFT JOIN usuarios u ON u.id = v.created_by
+    WHERE v.operacion_id = $1
+    ORDER BY v.version DESC
+  `, [id]);
+  return c.json(rows);
+});
+
 operaciones.post('/', async (c) => {
   const user = c.get('user');
   const b = await validateBody(c, OperacionSchema);
@@ -1306,6 +1322,7 @@ operaciones.post('/', async (c) => {
 
 operaciones.put('/:id', async (c) => {
   const { id } = c.req.param();
+  const user = c.get('user');
   const b = await validateBody(c, OperacionSchema);
   if (b instanceof Response) return b;
 
@@ -1320,6 +1337,27 @@ operaciones.put('/:id', async (c) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+
+    // Snapshot del estado ANTES de pisarlo — así queda el historial v1, v2, v3...
+    // (el estado actual, post-guardado, siempre se lee en vivo de operaciones/operacion_items).
+    const { rows: [opAnterior] } = await client.query(`SELECT * FROM operaciones WHERE id=$1`, [id]);
+    const { rows: itemsAnteriores } = await client.query(
+      `SELECT * FROM operacion_items WHERE operacion_id=$1 ORDER BY orden`, [id]
+    );
+    const { rows: formasAnteriores } = await client.query(
+      `SELECT * FROM operacion_formas_pago WHERE operacion_id=$1 ORDER BY orden`, [id]
+    );
+    const { rows: [{ next_version }] } = await client.query(
+      `SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM operacion_versiones WHERE operacion_id=$1`, [id]
+    );
+    await client.query(`
+      INSERT INTO operacion_versiones (operacion_id, version, snapshot, created_by)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      id, next_version,
+      JSON.stringify({ operacion: opAnterior, items: itemsAnteriores, formas_pago_alternativas: formasAnteriores }),
+      user?.id || null,
+    ]);
 
     const { rows: [op] } = await client.query(`
       UPDATE operaciones SET
@@ -1423,7 +1461,7 @@ operaciones.patch('/:id/estado', async (c) => {
   if (estado === 'aprobado') {
     const vtPendiente = await visitaPendiente(id);
     if (vtPendiente) {
-      return c.json({ error: `Falta relevar la visita técnica ${vtPendiente} antes de aprobar este presupuesto` }, 409);
+      return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente} antes de aprobar este presupuesto` }, 409);
     }
   }
 

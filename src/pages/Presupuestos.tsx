@@ -16,6 +16,7 @@ import type { EstadoOperacion } from '@/types';
 import { toast } from 'sonner';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 import type { Oportunidad } from '@/components/oportunidades/types';
+import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -505,7 +506,7 @@ function PresupuestoModal({
                   title={
                     tienePendientes
                       ? (vtPendiente
-                          ? `Falta relevar la visita técnica ${vtPendiente.numero} antes de compartir`
+                          ? `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente.numero} antes de compartir`
                           : 'Hay ítems pendientes de relevar antes de compartir')
                     : esVencido ? 'Presupuesto vencido — actualizá la fecha de validez antes de compartir'
                     : undefined
@@ -648,6 +649,8 @@ function PresupuestoModal({
               </div>
             </div>
 
+            <VersionesPresupuesto operacionId={op.id} />
+
             <div className="px-5 py-4 space-y-2">
               {fmtEnvio && (
                 <div className="flex items-center gap-2 text-xs text-gray-600">
@@ -729,7 +732,7 @@ function PresupuestoModal({
                         <>
                           <p className="text-xs font-semibold text-violet-800 flex items-center gap-1.5">
                             <Ruler size={13} className="text-violet-600" />
-                            Visita técnica {vt.numero} — cobrada {formatCurrency(Number(vt.costo_cobrado ?? 0))}
+                            Visita de Relevamiento de Datos {vt.numero} — cobrada {formatCurrency(Number(vt.costo_cobrado ?? 0))}
                           </p>
                           <p className="text-[11px] text-violet-700 mt-0.5">
                             Podés acreditar ese importe como pago a cuenta de este presupuesto.
@@ -884,7 +887,7 @@ function PresupuestoModal({
                     title={
                       tienePendientes
                         ? (vtPendiente
-                            ? `Falta relevar la visita técnica ${vtPendiente.numero} antes de aprobar`
+                            ? `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente.numero} antes de aprobar`
                             : 'Hay ítems pendientes de relevar antes de aprobar')
                         : undefined
                     }
@@ -1105,7 +1108,7 @@ export function Presupuestos() {
           <HelpButton topic="presupuestos" />
           <Link to="/presupuestos/visitas-tecnicas"
             className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all">
-            <Ruler size={16} /> Visita técnica
+            <Ruler size={16} /> Visita de Relevamiento de Datos
           </Link>
           <Link to="/presupuestos/nuevo"
             className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
@@ -1267,7 +1270,7 @@ export function Presupuestos() {
                   const vtBadge = p.tiene_items_a_relevar ? (
                     <span title={
                       p.visita_pendiente_numero
-                        ? `Falta relevar la visita técnica ${p.visita_pendiente_numero}`
+                        ? `Falta relevar la Visita de Relevamiento de Datos ${p.visita_pendiente_numero}`
                         : 'Hay ítems pendientes de relevar'
                     } className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                       📐 Esperando relevamiento
