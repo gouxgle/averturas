@@ -789,7 +789,7 @@ export function NuevoPresupuesto() {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
     if (items.length === 0) { toast.error('Agregá al menos un producto para generar la proforma'); return; }
     if (pendientesARelevar > 0) {
-      toast.error('Hay ítems pendientes de relevar — generá la visita técnica antes de enviar la proforma');
+      toast.error('Hay ítems pendientes de relevar — generá la Visita de Relevamiento de Datos antes de enviar la proforma');
       return;
     }
     handleSave(true);
@@ -836,15 +836,15 @@ export function NuevoPresupuesto() {
               disabled={saving}
               title={
                 pendientesARelevar > 0
-                  ? 'Guarda lo cargado y generá la visita técnica para relevar los ítems pendientes'
+                  ? 'Guarda lo cargado y generá la Visita de Relevamiento de Datos para relevar los ítems pendientes'
                   : 'El cliente no sabe qué necesita — generá un relevamiento en el sitio'
               }
               className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
             >
               <Ruler size={14} />
               {pendientesARelevar > 0
-                ? `Generar visita técnica (${pendientesARelevar})`
-                : 'Visita técnica'}
+                ? `Generar Visita de Relevamiento de Datos (${pendientesARelevar})`
+                : 'Visita de Relevamiento de Datos'}
             </button>
           )}
           <button
@@ -963,7 +963,7 @@ export function NuevoPresupuesto() {
       {imagenesVisita.length > 0 && (
         <div className="mx-3 xl:mx-4 mt-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3 overflow-x-auto">
           <span className="text-xs font-bold text-slate-600 uppercase tracking-wide shrink-0 flex items-center gap-1.5">
-            <Ruler size={13}/> Fotos de la visita técnica
+            <Ruler size={13}/> Fotos de la Visita de Relevamiento de Datos
           </span>
           {imagenesVisita.map(url => (
             <a key={url} href={url} target="_blank" rel="noreferrer"
@@ -998,7 +998,7 @@ export function NuevoPresupuesto() {
               { key: 'estandar',  icon: LayoutGrid, label: 'Estándar',   hint: 'Del catálogo' },
               { key: 'a_medida',  icon: Ruler,      label: 'A medida',   hint: 'Cálculo externo' },
               { key: 'servicio',  icon: Wrench,     label: 'Servicio',   hint: 'Reparación, mantenimiento' },
-              { key: 'a_relevar', icon: MapPin,     label: 'A relevar',  hint: 'No se sabe la medida — necesita visita técnica' },
+              { key: 'a_relevar', icon: MapPin,     label: 'A relevar',  hint: 'No se sabe la medida — necesita Visita de Relevamiento de Datos' },
             ] as const).map(({ key, icon: Icon, label, hint }) => (
               <button
                 key={key}
@@ -1129,7 +1129,7 @@ export function NuevoPresupuesto() {
                 <p className="text-[11px] text-gray-600 leading-snug">
                   Cuando el cliente pide algo que no sabés medir todavía. Se agrega
                   como un ítem más, sin precio, y queda marcado "pendiente de relevar".
-                  Después generás una visita técnica para completarlo — el presupuesto
+                  Después generás una Visita de Relevamiento de Datos para completarlo — el presupuesto
                   no se puede aprobar ni compartir hasta resolverlo.
                 </p>
               </div>
@@ -1676,7 +1676,7 @@ export function NuevoPresupuesto() {
                       {pendientesARelevar} ítem{pendientesARelevar !== 1 ? 's' : ''} pendiente{pendientesARelevar !== 1 ? 's' : ''} de relevar
                     </p>
                     <p className="text-[11px] text-amber-700 mt-0.5">
-                      Guardá y generá la visita técnica para completarlo{pendientesARelevar !== 1 ? 's' : ''}.
+                      Guardá y generá la Visita de Relevamiento de Datos para completarlo{pendientesARelevar !== 1 ? 's' : ''}.
                     </p>
                   </div>
                 </div>
@@ -1693,7 +1693,7 @@ export function NuevoPresupuesto() {
                     </p>
                     <p className="text-[11px] text-amber-700 mt-0.5">
                       Hay ítems sin identificar. No se puede aprobar ni compartir este
-                      presupuesto hasta completar la visita técnica.
+                      presupuesto hasta completar la Visita de Relevamiento de Datos.
                     </p>
                     <button
                       onClick={() => navigate(`/presupuestos/visitas-tecnicas/${visitaPendiente.id}`)}

@@ -82,7 +82,7 @@ export function ImprimirVisitaTecnica() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Visita Técnica';
+    document.title = 'Visita de Relevamiento de Datos';
     if (!visitaId) { setLoading(false); return; }
     api.get<VisitaTecnicaDetalle>(`/visitas-tecnicas/${visitaId}`)
       .then(setVisita)
@@ -104,7 +104,7 @@ export function ImprimirVisitaTecnica() {
       <style>{css}</style>
 
       <div className="no-print" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'white', borderBottom: '1px solid #e5e7eb' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Visita Técnica</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Visita de Relevamiento de Datos</span>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => window.close()}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#4b5563', background: 'white' }}>
@@ -142,7 +142,7 @@ export function ImprimirVisitaTecnica() {
             <Ruler size={26} color="white" />
           </div>
 
-          <div style={{ fontSize: 24, fontWeight: 900, color: NAVY, letterSpacing: 1 }}>VISITA TÉCNICA</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: NAVY, letterSpacing: 1 }}>VISITA DE RELEVAMIENTO DE DATOS</div>
         </div>
 
         {/* ── Datos del cliente ── */}

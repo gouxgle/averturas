@@ -917,7 +917,7 @@ function PanelEmpresa() {
           <input type="url" value={form.terminos_url} onChange={e => set('terminos_url', e.target.value)} className={inputCls} placeholder="https://www.cesarbritez.com.ar/condiciones" />
         </div>
         <div className="sm:col-span-2">
-          <label className={labelCls}>Costo de visita técnica</label>
+          <label className={labelCls}>Costo de Visita de Relevamiento de Datos</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600">$</span>
             <input type="number" min="0" step="100" value={form.costo_visita_tecnica}

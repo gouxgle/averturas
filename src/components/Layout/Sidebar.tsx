@@ -28,7 +28,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { to: '/crm',           label: 'CRM',              icon: GitBranch,       activeColor: 'text-rose-400',    activeBg: 'bg-rose-500/10' },
       { to: '/ventas/rapida', label: 'Venta rápida',     icon: Zap,             activeColor: 'text-emerald-400', activeBg: 'bg-emerald-500/10' },
       { to: '/presupuestos',  label: 'Presupuestos',     icon: FileText,        activeColor: 'text-violet-400',  activeBg: 'bg-violet-500/10' },
-      { to: '/presupuestos/visitas-tecnicas', label: 'Visitas técnicas', icon: Ruler, activeColor: 'text-slate-400', activeBg: 'bg-slate-500/10' },
+      { to: '/presupuestos/visitas-tecnicas', label: 'Visitas de Relevamiento de Datos', icon: Ruler, activeColor: 'text-slate-400', activeBg: 'bg-slate-500/10' },
       { to: '/operaciones',   label: 'Operaciones',      icon: Hammer,          activeColor: 'text-amber-400',   activeBg: 'bg-amber-500/10' },
       { to: '/remitos',       label: 'Remitos',          icon: Truck,           activeColor: 'text-teal-400',    activeBg: 'bg-teal-500/10' },
       { to: '/pedidos',       label: 'Pedidos',          icon: ShoppingCart,    activeColor: 'text-lime-400',    activeBg: 'bg-lime-500/10' },

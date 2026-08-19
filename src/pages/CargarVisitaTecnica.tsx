@@ -191,7 +191,7 @@ export function CargarVisitaTecnica() {
         setObservaciones(v.observaciones ?? '');
         setImagenes(v.imagenes ?? []);
       })
-      .catch(() => toast.error('No se pudo cargar la visita técnica'))
+      .catch(() => toast.error('No se pudo cargar la Visita de Relevamiento de Datos'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -363,7 +363,7 @@ export function CargarVisitaTecnica() {
 
   async function handleGuardar() {
     const r = await guardar();
-    if (r) toast.success('Visita técnica actualizada');
+    if (r) toast.success('Visita de Relevamiento de Datos actualizada');
   }
 
   async function handleCancelar() {
@@ -372,7 +372,7 @@ export function CargarVisitaTecnica() {
       const v = await api.patch<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}/cancelar`);
       setVisita(v);
       setConfirmarCancelar(false);
-      toast.success('Visita técnica cancelada');
+      toast.success('Visita de Relevamiento de Datos cancelada');
     } catch (e: any) {
       toast.error(e?.message ?? 'No se pudo cancelar');
     } finally {
@@ -454,7 +454,7 @@ export function CargarVisitaTecnica() {
     return <div className="p-6 text-sm text-gray-600">Cargando...</div>;
   }
   if (!visita) {
-    return <div className="p-6 text-sm text-gray-600">Visita técnica no encontrada</div>;
+    return <div className="p-6 text-sm text-gray-600">Visita de Relevamiento de Datos no encontrada</div>;
   }
 
   const yaConvertida = visita.estado === 'convertida';
@@ -474,7 +474,7 @@ export function CargarVisitaTecnica() {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base font-bold text-gray-900">Visita técnica {visita.numero}</h1>
+              <h1 className="text-base font-bold text-gray-900">Visita de Relevamiento de Datos {visita.numero}</h1>
               <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold', COBRO_BADGE[visita.cobro_estado]?.cls)}>
                 {COBRO_BADGE[visita.cobro_estado]?.label(Number(visita.costo_cobrado ?? 0))}
               </span>
@@ -504,7 +504,7 @@ export function CargarVisitaTecnica() {
       {estaCancelada && (
         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600 flex items-center gap-2">
           <Ban size={15} className="shrink-0"/>
-          <span>Esta visita técnica fue cancelada.</span>
+          <span>Esta Visita de Relevamiento de Datos fue cancelada.</span>
         </div>
       )}
 
@@ -751,7 +751,7 @@ export function CargarVisitaTecnica() {
         <div className="p-4 bg-red-50 rounded-xl border border-red-200 space-y-3">
           <div className="flex items-center gap-2 text-red-700">
             <AlertTriangle size={16} />
-            <p className="text-sm font-semibold">¿Cancelar esta visita técnica?</p>
+            <p className="text-sm font-semibold">¿Cancelar esta Visita de Relevamiento de Datos?</p>
           </div>
           <p className="text-xs text-red-600">Esta acción no se puede deshacer.</p>
           <div className="flex gap-2">
@@ -786,7 +786,7 @@ export function CargarVisitaTecnica() {
       {!soloLectura && !confirmarCancelar && (
         <button onClick={() => setConfirmarCancelar(true)}
           className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-red-400 hover:text-red-600">
-          <Ban size={13}/> Cancelar visita técnica
+          <Ban size={13}/> Cancelar Visita de Relevamiento de Datos
         </button>
       )}
 

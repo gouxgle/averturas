@@ -252,7 +252,7 @@ export function ImprimirRecibo() {
         {recibo.visita_tecnica && (
           <div style={{ marginBottom: 18, padding: '10px 12px', border: '1px solid #d9d9d9', borderRadius: 6, backgroundColor: '#fafafa' }}>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 5 }}>
-              Visita técnica
+              Visita de Relevamiento de Datos
             </div>
             <div style={{ fontSize: 12, color: '#333' }}>
               <strong>{recibo.visita_tecnica.numero}</strong>

@@ -38,12 +38,12 @@ async function emitirReciboVisita(
     VALUES ($1, $2, NULL, $3, $4, $5, $6, $3, 0, 0, $7)
     RETURNING id, numero, monto_total
   `, [numero, visita.cliente_id, costo, pago.forma_pago,
-      pago.referencia_pago || null, `Visita técnica ${visita.numero}`, userId]);
+      pago.referencia_pago || null, `Visita de Relevamiento de Datos ${visita.numero}`, userId]);
 
   await client.query(`
     INSERT INTO recibo_items (recibo_id, descripcion, cantidad, monto, orden)
     VALUES ($1, $2, 1, $3, 0)
-  `, [rec.id, `Visita técnica de relevamiento a domicilio — ${visita.numero}`, costo]);
+  `, [rec.id, `Visita de Relevamiento de Datos a domicilio — ${visita.numero}`, costo]);
 
   return rec;
 }
@@ -140,7 +140,7 @@ visitasTecnicas.get('/:id', async (c) => {
       [id]
     ),
   ]);
-  if (!visita) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (!visita) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   return c.json({ ...visita, items });
 });
 
@@ -220,7 +220,7 @@ visitasTecnicas.patch('/:id/cobrar', async (c) => {
   const { rows: [visita] } = await db.query(
     `SELECT id, numero, cliente_id, estado, cobro_estado FROM visitas_tecnicas WHERE id=$1`, [id]
   );
-  if (!visita) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (!visita) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   if (visita.estado === 'cancelada') return c.json({ error: 'La visita está cancelada' }, 409);
   if (visita.cobro_estado !== 'pendiente') {
     return c.json({ error: `La visita ya está marcada como ${visita.cobro_estado}` }, 409);
@@ -260,7 +260,7 @@ visitasTecnicas.patch('/:id/sin-cargo', async (c) => {
   const { rows: [visita] } = await db.query(
     `SELECT cobro_estado FROM visitas_tecnicas WHERE id=$1`, [id]
   );
-  if (!visita) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (!visita) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   if (visita.cobro_estado !== 'pendiente') {
     return c.json({ error: `La visita ya está marcada como ${visita.cobro_estado}` }, 409);
   }
@@ -284,7 +284,7 @@ visitasTecnicas.patch('/:id/costo-externo', async (c) => {
     `UPDATE visitas_tecnicas SET costo_externo=$1, updated_at=now() WHERE id=$2 RETURNING *`,
     [b.costo_externo, id]
   );
-  if (!row) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (!row) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   return c.json(row);
 });
 
@@ -305,7 +305,7 @@ visitasTecnicas.post('/:id/bonificar', async (c) => {
       `SELECT id, numero, cliente_id, cobro_estado, recibo_id, operacion_id
        FROM visitas_tecnicas WHERE id=$1 FOR UPDATE`, [id]
     );
-    if (!visita) { await client.query('ROLLBACK'); return c.json({ error: 'Visita técnica no encontrada' }, 404); }
+    if (!visita) { await client.query('ROLLBACK'); return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404); }
 
     if (visita.cobro_estado === 'bonificada') {
       await client.query('ROLLBACK');
@@ -381,7 +381,7 @@ visitasTecnicas.post('/:id/desbonificar', async (c) => {
     const { rows: [visita] } = await client.query(
       `SELECT id, cobro_estado, recibo_id FROM visitas_tecnicas WHERE id=$1 FOR UPDATE`, [id]
     );
-    if (!visita) { await client.query('ROLLBACK'); return c.json({ error: 'Visita técnica no encontrada' }, 404); }
+    if (!visita) { await client.query('ROLLBACK'); return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404); }
     if (visita.cobro_estado !== 'bonificada') {
       await client.query('ROLLBACK');
       return c.json({ error: 'La visita no está acreditada' }, 409);
@@ -413,7 +413,7 @@ visitasTecnicas.put('/:id', async (c) => {
   if (b instanceof Response) return b;
 
   const { rows: [actual] } = await db.query(`SELECT estado FROM visitas_tecnicas WHERE id=$1`, [id]);
-  if (!actual) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (!actual) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   if (actual.estado === 'convertida') {
     return c.json({ error: 'Ya se generó un presupuesto a partir de esta visita' }, 409);
   }
@@ -502,7 +502,7 @@ visitasTecnicas.patch('/:id/cancelar', async (c) => {
     FROM visitas_tecnicas vt LEFT JOIN recibos rec ON rec.id = vt.recibo_id
     WHERE vt.id=$1
   `, [id]);
-  if (!visita) return c.json({ error: 'Visita técnica no encontrada' }, 404);
+  if (!visita) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   if (visita.estado === 'convertida') {
     return c.json({ error: 'No se puede cancelar: ya generó un presupuesto' }, 409);
   }

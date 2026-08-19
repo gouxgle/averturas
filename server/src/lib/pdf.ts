@@ -112,7 +112,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   const vt = recibo.visita_tecnica;
   const visitaHTML = vt ? `
     <div style="border:1px solid #d9d9d9;border-radius:6px;background:#fafafa;padding:10px 12px;margin-bottom:14px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Visita tecnica</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Visita de Relevamiento de Datos</div>
       <div style="font-size:12px;color:#333;">
         <strong>${vt.numero}</strong>${vt.fecha_visita ? ` &middot; Fecha prevista: ${fmtFecha(vt.fecha_visita)}` : ''}
       </div>

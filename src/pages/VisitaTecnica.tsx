@@ -151,7 +151,7 @@ export function VisitaTecnica() {
       setRecibo(v.recibo ?? null);
       toast.success(vaACobrar ? 'Visita generada y cobrada' : 'Visita generada');
     } catch (e: any) {
-      toast.error(e?.message ?? 'Error al crear la visita técnica');
+      toast.error(e?.message ?? 'Error al crear la Visita de Relevamiento de Datos');
     } finally {
       setCreandoVisita(false);
     }
@@ -168,7 +168,7 @@ export function VisitaTecnica() {
             <Ruler size={18} className="text-slate-600"/>
           </div>
           <div>
-            <h1 className="text-base font-bold text-gray-900">Visita técnica</h1>
+            <h1 className="text-base font-bold text-gray-900">Visita de Relevamiento de Datos</h1>
             <p className="text-xs text-gray-600">Elegí el cliente y generá el formulario para relevamiento in situ</p>
           </div>
         </div>
@@ -353,13 +353,13 @@ export function VisitaTecnica() {
       {!visitaId ? (
         <button onClick={generarVisita} disabled={!clienteId || creandoVisita}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors">
-          {creandoVisita ? <Loader2 size={16} className="animate-spin"/> : <Ruler size={16}/>} Generar visita técnica
+          {creandoVisita ? <Loader2 size={16} className="animate-spin"/> : <Ruler size={16}/>} Generar Visita de Relevamiento de Datos
         </button>
       ) : (
         <>
           <button onClick={imprimir}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold transition-colors">
-            <Printer size={16}/> Imprimir formulario de visita técnica
+            <Printer size={16}/> Imprimir formulario de Visita de Relevamiento de Datos
           </button>
           <button onClick={() => navigate(`/presupuestos/visitas-tecnicas/${visitaId}`)}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold transition-colors">
