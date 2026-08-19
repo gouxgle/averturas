@@ -34,8 +34,20 @@ El usuario prioriza explícitamente bajar los tiempos de desarrollo. Dos reglas 
 - El rebuild completo + verificación contra la app corriendo se reserva para lo que realmente lo necesita: endpoints nuevos, condiciones de carrera, cambios de esquema/migración, flujos con estado. Para retoques visuales, texto, o reordenar JSX, el typecheck ya alcanza.
 - Si `docker compose build app` no refleja un archivo recién editado (hash/mtime del bundle sin cambiar), no asumir que está bien — es un bug de caché ya visto en este repo. Confirmar antes de deployar.
 - El `Dockerfile` tiene un bug de fondo ya corregido (2026-08-10): BuildKit corre `server-build` y `frontend-build` en paralelo por defecto pese al comentario que dice lo contrario — si se toca el `Dockerfile`, no romper la dependencia `COPY --from=server-build` que fuerza el orden secuencial (necesario en el servidor de test, con poca RAM).
+- **Servidor de test (149.50.150.131) — 1.9GB RAM, 2 vCPU, comparte la VPS con ~11 contenedores ajenos al proyecto** (Traccar, Stalwart, Evolution API, Portainer, etc.). Sin memoria de sobra, `docker compose build` puede colgar la VPS entera (hasta `sshd` deja de responder) — no es un bug del build, es falta de margen. Fijado (2026-08-13) activando un swapfile de 2GB ya existente en el disco pero nunca habilitado (`swapon /swapfile` + entrada en `/etc/fstab`). Si vuelve a colgarse: verificar primero `free -h`/`swapon --show` por SSH antes de tocar el `Dockerfile` — la causa casi siempre es esto, no el código.
 
 No agregar infraestructura o herramientas nuevas (perfiles docker-compose de desarrollo, scripts, etc.) sin que se pida explícitamente — el objetivo es optimizar el proceso existente, no sumarle piezas.
+
+**3. Calibrar la verificación al tamaño del cambio.** No todo cambio necesita el mismo ritual.
+- **Texto/copy/UI puro** (rename, label, mensaje, reordenar JSX): typecheck + `vite build` liviano alcanza. No crear datos de prueba ni verificar con curl — no hay lógica que pueda romperse.
+- **Lógica con estado real** (dinero, stock, condiciones de carrera, migraciones, endpoints nuevos): ahí sí, verificación end-to-end con datos sintéticos creados y borrados en la misma sesión.
+- Changelog (`npm run changelog:add`) sigue obligatorio para cambios de comportamiento/funcionalidad visibles — no para renames puros sin efecto funcional.
+
+**4. Depuración de infraestructura / SSH — reglas duras (2026-08-18, tras una sesión con demasiadas vueltas):**
+- **Nunca envolver un comando destinado al usuario dentro de un `echo`/tool call propio.** Si el usuario tiene que correr algo en su propia terminal, va directo en el texto de la respuesta (bloque de código markdown), nunca ejecutado ni "impreso" por una herramienta — eso generó confusión real (el usuario copiaba el `echo` de afuera, que no hacía nada).
+- **Acceso nuevo a un servidor → pedir que agreguen la clave pública SSH ya en uso** (`~/.ssh/id_ed25519.pub`) a `authorized_keys`. Nunca intentar automatizar un login por contraseña (pty, `sshpass`, `expect`, `pexpect`) — no solo es fragil, en este entorno el clasificador de seguridad lo bloquea. Es tiempo tirado, ir directo a la clave.
+- **Comandos de "wizard" interactivo sobre credenciales/OAuth** (`rclone config update` sobre un remoto OAuth, `rclone config reconnect`, similares) **pueden disparar un flujo interactivo colgado esperando un navegador** en vez de aplicar un cambio puntual. Para actualizar un solo campo (ej. un token), preferir editar el archivo de config directo (con un script chico que reemplace la línea puntual) en vez de comandos que puedan abrir un wizard.
+- Antes de tocar producción, confirmar el paso concreto (qué se edita, qué se reinicia) — pero una vez confirmado el enfoque, ejecutar la secuencia completa sin pedir permiso de nuevo en cada paso intermedio.
 
 ## Stack técnico
 
@@ -351,6 +363,19 @@ El link público no es binario aceptar/rechazar. "Todavía no / Tengo otra respu
   3. Admin marca manualmente "atendido": `PATCH /operaciones/:id/resolver-respuesta`.
 - Frontend: tab "Seguimiento" en Presupuestos.tsx (`respuesta_cliente IS NOT NULL AND estado NOT IN aprobado/rechazado`), banner celeste en el modal con el texto real del cliente (`respuesta_cliente_detalle`) + botones contextuales (Llamar si `tipo=llamada`, Editar y reenviar si `tipo=modificar`, Marcar atendido siempre).
 
+## Historial de versiones de un presupuesto (`operacion_versiones`)
+
+Cada vez que se edita un presupuesto (`PUT /operaciones/:id`, solo posible si `estado != 'aprobado'`), antes de pisar `operaciones`/`operacion_items`/`operacion_formas_pago` con los datos nuevos, se guarda un snapshot completo del estado **anterior** en `operacion_versiones` (`operacion_id, version, snapshot JSONB, created_by, created_at`). v1 = el estado justo antes de la primera edición; v2 = antes de la segunda; etc. **El estado vigente nunca aparece como una versión más** — se lee en vivo de `GET /operaciones/:id`, igual que siempre.
+
+- `GET /operaciones/:id/versiones` devuelve todas las versiones `ORDER BY version DESC`, cada una con su snapshot completo (no hay endpoint de detalle aparte — los presupuestos no son tan grandes como para justificar paginar esto).
+- Frontend: `src/components/VersionesPresupuesto.tsx`, montado en el modal de detalle de `Presupuestos.tsx` justo debajo de la lista de ítems. Colapsado por defecto, carga las versiones recién al expandir (`GET` lazy). Cada versión se puede expandir a su vez para ver sus ítems.
+- Es un snapshot JSONB de las filas completas (no un diff campo a campo) — simple y suficiente para "ver qué tenía antes", que es lo que se pidió. Si en algún momento se necesita resaltar específicamente qué cambió entre dos versiones, hay que agregar un diff sobre estos mismos snapshots, no cambiar el modelo de datos.
+- `ON DELETE CASCADE` desde `operaciones` — si se borra el presupuesto, se va su historial con él.
+
+## Centro de alertas (`src/components/CentroAlertas.tsx`)
+
+Sección destacada (roja/naranja, arriba de todo) al principio del Dashboard, para que lo programado no se pierda entre secciones dispersas. **No agrega ninguna fuente de datos nueva** — consume directo `GET /tareas/agenda` (`vencidas`+`hoy`), que ya es la agenda unificada: oportunidades futuras y entregas programadas ya llegan ahí como tareas espejo (`tipo_accion='oportunidad'`/`'entrega'`), junto con cualquier tarea manual del CRM (llamada, visita, cobranza, etc.). Botón "✓" por fila llama `PATCH /tareas/:id/completar` igual que la agenda del CRM. Si no hay nada pendiente, muestra un estado calmo ("Al día") en vez de alarmar sin motivo.
+
 ## Notificaciones (NotificationBell)
 
 - Poll cada 10s a `GET /notificaciones` (+ al volver al tab)
@@ -394,6 +419,47 @@ El remito ya es la entidad que representa una entrega (`cliente_id`, `direccion_
 - **Ubicación**: sin lat/lng ni geocoding — `AccionesEntrega.tsx` arma `https://www.google.com/maps/search/?api=1&query=<direccion_entrega>` al vuelo.
 - **`POST /remitos/:id/recordatorio-whatsapp`** marca `recordatorio_hora_antes_visto=true` al enviar con éxito (enviar el aviso cuenta como "ya visto").
 - UI: `ModalProgramarEntrega.tsx` (botón en `Remitos.tsx` por fila y en `NuevoRemito.tsx` en modo edición) llama al PATCH de arriba.
+
+## Pedidos a proveedores — rediseño pendiente (2026-08-16, NADA implementado)
+
+Diseño relevado contra el código real, para retomar cuando se cierren las definiciones pendientes de abajo. No crear las migraciones ni tocar código hasta entonces.
+
+**Problema:** cada venta confirmada dispara su propio pedido al proveedor. Con 3-4 proveedores para el mismo producto no hay forma de compararlos, y los pedidos salen atomizados en vez de agrupados. Algunos proveedores mandan lista de precios, otros no.
+
+**Decisiones ya tomadas (no reabrir):**
+- Agrupación: **cola de pendientes por proveedor**, sin corte horario automático — el operador arma y envía cuando quiere.
+- Multi-proveedor: **comparar y sugerir** el más barato, pero **elige el operador**.
+- Envío: **email y WhatsApp**, con canal preferido por proveedor pero elegible al enviar.
+- Precios sin lista: **aprender del precio real pagado** al recibir + **pegar texto** de WhatsApp/mail. El import CSV se mantiene para quien sí manda lista.
+
+**Hallazgos clave:**
+- `proveedor_precios` (`proveedor_id, sku, descripcion, precio, producto_id`, UNIQUE en `(proveedor_id,sku)`) **ya es la tabla multi-proveedor** — no hace falta tabla nueva, falta *usarla*: `producto_id` se llena 100% a mano hoy, sin ninguna vista de comparación.
+- `pedido_items.operacion_item_id` ya es por línea y nullable → un pedido consolidado multi-operación es viable casi sin tocar esquema. La fricción es que `pedidos.operacion_id` es escalar (precedente ya existe: `es_stock_propio` fuerza `operacion_id=NULL`, `pedidos.ts:244-245`).
+- La regla de "ítem cubierto" (no necesita pedido) está **duplicada 5 veces con 2 semánticas distintas** (`pedidos.ts` ×3, `operaciones.ts` ×2) — `items_cubiertos` es stock-aware, `items_en_pedido` no, pese al nombre parecido. Unificar esto en un `lib/coverage.ts` es el refactor habilitante antes de tocar nada más.
+- No hay historial de precios de proveedor — un aumento masivo mal aplicado no es reversible.
+- `email.ts` no soporta adjuntos (`sendMail` privado solo pasa from/to/subject/html) — agregar `attachments` es trivial, nodemailer ya lo soporta.
+- La plantilla WhatsApp `pedido_proveedor` en `mensajes_plantilla` ya existe; falta la de email.
+- `GET /catalogo/proveedor-precios` tiene `LIMIT 500` sin paginación — truncamiento silencioso.
+
+**Diseño por fases** (detalle completo, con SQL y rutas exactas, en el historial de esta sesión — pedir el plan completo si se retoma):
+- **Fase 0**: unificar la regla de cobertura en `lib/coverage.ts` (5 call sites) + arreglar el `LIMIT 500` y el `PUT /pedidos/:id` sin guard anti-duplicado. Sin esto, las fases siguientes se implementan 5 veces.
+- **Fase 1**: comparación multi-proveedor (`GET /catalogo/productos/:id/precios-proveedores`), conciliación asistida por SKU/descripción normalizada (siempre confirmada por el operador, nunca automática), historial de precios (`proveedor_precios_historial`).
+- **Fase 2**: `GET /pedidos/cola` agrupada por proveedor sugerido + `POST /pedidos` acepta ítems de varias operaciones (`es_consolidado=true`, `operacion_id=NULL`) + nuevo componente `ColaPedidos.tsx` como pestaña en `Pedidos.tsx`.
+- **Fase 3**: `generarPDFPedido()` (copiar patrón de `generarPDFRecibo`), envío por email o WhatsApp elegible, unificar `enviar-whatsapp` para usar `lib/whatsapp.ts` en vez de duplicar el fetch a Evolution.
+- **Fase 4**: aprender precio del `costo_unitario` real al recibir (`origen='recepcion'`) + endpoint para pegar texto libre de WhatsApp/mail y parsear candidatos a confirmar.
+
+**Definiciones pendientes antes de codear (bloqueantes primero):**
+1. ¿El pedido al proveedor debe llevar precios/SKU, o es deliberado que hoy no los lleve (WhatsApp actual solo manda descripción+cantidad)?
+2. Pedido consolidado (varios clientes): ¿cómo se prorratea el costo de envío entre operaciones?
+3. ¿Se puede cancelar solo el ítem de un cliente dentro de un pedido consolidado, o se cancela el pedido entero?
+4. ¿Existen productos con proveedor exclusivo que no deban entrar en la comparación?
+5. Conseguir 2-3 listas de precios reales de proveedores distintos (el parser CSV asume 3 columnas fijas y solo UTF-8).
+6. Conseguir 3-4 mensajes reales de WhatsApp con precios (para diseñar el parser de texto libre contra formatos reales, no inventados).
+7. Volumen real: cuántos proveedores, cuántos SKUs por lista (define si el `LIMIT 500` es urgente).
+8. Umbral de "precio desactualizado" (propuesto: 30 días) y de "antigüedad en la cola" (propuesto: ámbar >2 días, rojo >5) — a confirmar.
+9. Al aprender del precio pagado, ¿debe pisar un precio que vino de una lista formal, o solo pisar precios manuales/de otra recepción?
+
+**Bugs preexistentes encontrados al relevar** (no son de esta feature, quedan anotados): `POST /pedidos/:id/avisar-recepcion-cliente` es código muerto (su plantilla `recepcion_cliente` no existe en ninguna migración); `GET /pedidos/conteos` y `/reporte-envios` sin consumidor; `PedidoSchema.referencia_nro` nunca se lee; editar un pedido le hace perder `es_reposicion` a sus ítems (`NuevoPedido.tsx:421-428`); cancelar un pedido `recibido` no revierte el stock ingresado (asimétrico con remitos); `proveedores.costo_flete` es un nombre engañoso — se usa como porcentaje.
 
 ## Sidebar — secciones y rutas
 
@@ -611,12 +677,18 @@ Backup diario automático de `aberturas-db`, corre **en el host de prod** (179.4
 - `rclone copy` a Google Drive (`gdrive:backups-sistemas/aberturas/`)
 - Log en texto plano: `/var/log/backup-aberturas.log`
 - El script usa `set -e`: si `rclone` falla (ej. token OAuth vencido), aborta antes de loguear "Backup completado" y antes de limpiar retención — el `.sql.gz` local igual queda creado (pg_dump ya corrió bien), solo no sube a Drive.
-- **Gotcha real (2026-07-23)**: token OAuth de rclone expiró (`invalid_grant`) y falló 13 días en silencio (cron seguía "corriendo" pero sin subir nada). Se resuelve con `rclone config reconnect gdrive:` (requiere `rclone authorize` en una máquina con navegador, pegar el resultado). Si el proyecto OAuth de Google Cloud sigue en estado "Testing", el token vuelve a vencer a los 7 días — hay que publicarlo ("In production") en Google Cloud Console > OAuth consent screen para que no expire por tiempo.
+- **Gotcha real, ya pasó DOS veces (2026-07-23 y de nuevo 2026-08-18)**: token OAuth de rclone expira (`invalid_grant`), y como el script usa `set -e` el `pg_dump` local sigue funcionando perfecto pero la subida a Drive falla en silencio — nadie se entera hasta revisar Drive a mano (la 2ª vez fueron 13 días sin subir nada, detectado por el usuario, no por el sistema).
+  - **Causa del vencimiento en sí — no resuelta, no es el modo "Testing"**: se descartó que el proyecto OAuth de Google Cloud estuviera en "Testing" (se confirmó "En producción" el 2026-08-18). La causa real del `invalid_grant` sigue sin confirmarse — candidatos: revocación manual desde myaccount.google.com → Seguridad → Acceso de terceros, o un cambio de contraseña de la cuenta de Google (invalida todos los refresh tokens existentes). Si vuelve a pasar, revisar esa página antes de asumir que es el mismo bug de siempre.
+  - **Fix aplicado (2026-08-18)**: `rclone authorize "drive" --drive-scope drive.file` corrido por el usuario en su máquina (tiene navegador) → el JSON de token resultante se pisó a mano en `token = ` dentro de `[gdrive]` en `/root/.config/rclone/rclone.conf` del server, vía `python3 -c "re.subn(...)"` (NO usar `rclone config update gdrive token '...'`: para remotos OAuth dispara el wizard interactivo completo y se queda colgado esperando un browser — hay que editar el archivo directo).
+  - **Efecto secundario real del scope `drive.file` al reautorizar**: la app "olvida" la carpeta `backups-sistemas/aberturas/` creada en la autorización anterior (16 jun) y el script crea una carpeta **nueva con el mismo nombre** en la raíz del Drive en vez de reusar la vieja — quedaron dos carpetas `backups-sistemas`, fusionadas a mano por el usuario (mover contenido de la vieja a la nueva + borrar la vieja). **Va a volver a pasar en la próxima reautorización** — decisión explícita del usuario (2026-08-18): mantener `drive.file` (scope acotado, más seguro) en vez de pasar a `drive` (scope completo, evitaría la duplicación pero le da a rclone acceso técnico a todo el Drive). Si se repite: mismo pasos, fusionar carpetas a mano de nuevo.
+- **Mitigado (2026-08-18)**: `AlertaBackups.tsx` en el Dashboard (solo admin, ver abajo) — para que la próxima vez que el token venza se note el mismo día en vez de 13 días después. Esto no evita que el token venza, solo evita que la falla pase desapercibida.
 
 **Monitoreo — Configuración → Backups** (`src/pages/Configuracion.tsx` `PanelBackups` + `server/src/routes/backups.ts`, endpoint `GET /backups`, solo admin):
 - Parsea el log existente por bloques (`Iniciando backup` → éxito si aparece `Backup completado:`, si no busca línea de error de `pg_dump` o de rclone) — **no requiere tocar el script** del host.
 - `docker-compose.yml` monta 2 paths del host **solo lectura** en el contenedor `app`: `/var/lib/docker-data/backups:/app/backup-data:ro` y `/var/log/backup-aberturas.log:/app/backup-log/backup-aberturas.log:ro`. Esos paths solo existen en prod — en local/test el mount queda vacío (Docker crea un directorio vacío si el archivo/carpeta no existe en el host) y el endpoint devuelve `disponible:false` sin romper.
+- **Gotcha real (2026-08-18)**: esos 2 mounts estaban documentados acá arriba como si existieran, pero **nunca se habían agregado de verdad** al `docker-compose.yml` real de prod (`/opt/docker/cesarbritez/docker-compose.yml`, fuera del repo — el servicio `aberturas-app` solo tenía montado `uploads`). Resultado: el panel siempre devolvía `disponible:false` en prod, no solo en local/test como se esperaba. Agregados a mano + `docker compose up -d --force-recreate aberturas-app` para aplicar (hay backups con timestamp del compose file en esa misma carpeta, `docker-compose.yml.bak-*`, antes de cada edición manual). Si se vuelve a tocar ese compose file, verificar que estos 2 mounts sigan estando.
 - Muestra: días desde el último éxito, fallos en los últimos 7 días, historial de corridas (con el error puntual si falló), y archivos `.sql.gz` disponibles localmente (fallback aunque no hayan subido a Drive).
+- **`src/components/AlertaBackups.tsx`** (Dashboard, solo `user.rol === 'admin'`, silenciosa si está todo bien): reusa el mismo `GET /backups` — si `dias_desde_ultimo_exitoso >= 2`, banner rojo arriba de todo con el error puntual de la última corrida y link a Configuración. No duplica lógica del backend, solo le da visibilidad proactiva a un cálculo que ya existía.
 - No hay botón de "ejecutar ahora": la app no tiene acceso al socket de Docker ni al script del host, es solo lectura/visualización.
 
 ## Problemas conocidos y soluciones
