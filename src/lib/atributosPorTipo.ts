@@ -35,7 +35,7 @@ export const ATRIBUTOS_ABREVIADOS: Record<CategoriaTipoAbertura, AtributoAbrevia
     { key: 'tipo_puerta', label: 'Tipo', opciones: [
       { v: 'aluminio', l: 'Aluminio' }, { v: 'placa', l: 'Placa' }, { v: 'chapa_simple', l: 'Chapa simple' },
       { v: 'chapa_inyectada', l: 'Chapa inyectada' }, { v: 'plegable_pvc', l: 'Plegable PVC' }, { v: 'granero', l: 'Granero' },
-      { v: 'corrediza_oculta', l: 'Corrediza oculta' }, { v: 'embutir', l: 'Embutir' },
+      { v: 'corrediza_oculta', l: 'Paralela' }, { v: 'embutir', l: 'Embutir' },
     ] },
     { key: 'apertura', label: 'Apertura', opciones: [
       { v: 'de_abrir', l: 'De abrir' }, { v: 'corrediza', l: 'Corrediza' }, { v: 'plegable', l: 'Plegable' }, { v: 'embutir', l: 'Embutir' },

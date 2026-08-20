@@ -23,7 +23,7 @@ const TIPO_PUERTA = [
   { v: 'chapa_inyectada', l: 'Chapa inyectada' },
   { v: 'plegable_pvc',    l: 'Plegable PVC' },
   { v: 'granero',         l: 'Granero' },
-  { v: 'corrediza_oculta',l: 'Corrediza oculta' },
+  { v: 'corrediza_oculta',l: 'Paralela' },
   { v: 'embutir',         l: 'Embutir' },
 ];
 
@@ -111,7 +111,7 @@ const COLORES_PUERTA: Record<string, string[]> = {
   chapa_inyectada:  ['Blanco', 'Negro', 'Gris', 'Beige', 'Marrón'],
   plegable_pvc:     ['Blanco', 'Marrón'],
   granero:          ['Blanco', 'Cedro', 'Nogal', 'Roble', 'Gris', 'Tabaco', 'Wengue'],
-  corrediza_oculta: ['Blanco', 'Negro', 'Natural'],
+  corrediza_oculta: ['Roble', 'Cedro', 'Wengue', 'Nogal', 'Blanco', 'Negro'],
   embutir:          ['Blanco', 'Negro', 'Natural'],
 };
 
