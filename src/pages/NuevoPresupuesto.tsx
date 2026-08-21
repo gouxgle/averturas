@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams, useLocation } from 'react-rout
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, MapPin, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2, Users, Eye,
+  Phone, MessageCircle, CheckCircle2, Users,
   Ruler, Wrench, AlertTriangle, Tag,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -1267,7 +1267,8 @@ export function NuevoPresupuesto() {
                               'relative rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md group',
                               enCarrito ? 'border-violet-400 ring-1 ring-violet-300' : 'border-gray-200 hover:border-violet-300'
                             )}
-                            onClick={() => agregarProducto(p)}
+                            onClick={e => verDetalle(e, p)}
+                            title="Ver detalle"
                           >
                             {/* Imagen */}
                             <div className="h-20 bg-gray-50 overflow-hidden">
@@ -1288,18 +1289,6 @@ export function NuevoPresupuesto() {
                                 <CheckCircle2 size={10} className="text-white" />
                               </span>
                             )}
-                            {/* Ver más */}
-                            <button
-                              type="button"
-                              onClick={e => verDetalle(e, p)}
-                              title="Ver detalle"
-                              className={cn(
-                                'absolute w-5 h-5 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity',
-                                enPromo ? 'bottom-2 left-1.5' : 'top-1.5 left-1.5'
-                              )}
-                            >
-                              <Eye size={11} className="text-gray-600" />
-                            </button>
                             {/* Info */}
                             <div className="p-2">
                               {p.codigo && (
