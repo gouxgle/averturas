@@ -23,6 +23,17 @@ function titleCase(str: string) {
   return str.trim().replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
 }
 
+// Teléfono argentino: código de área + número local suman 10 dígitos
+// (ej: área 11 (CABA/GBA) + 8 dígitos, área 3704 (Resistencia) + 6 dígitos,
+// área 341 (Rosario) + 7 dígitos). El largo del número se ajusta dinámicamente
+// al largo del código de área en vez de asumir siempre 6 dígitos.
+const TEL_TOTAL_DIGITOS = 10;
+const TEL_NUMERO_EJEMPLO = '25188174';
+function telNumeroMaxLen(prefijo: string): number {
+  if (!prefijo) return 6;
+  return Math.max(4, TEL_TOTAL_DIGITOS - prefijo.length);
+}
+
 // Combina apellido + nombre para el campo rápido
 function combinarNombre(apellido: string | null, nombre: string | null) {
   return [apellido, nombre].filter(Boolean).join(' ');
@@ -432,7 +443,11 @@ export function NuevoCliente() {
                         onChange={e => {
                           const v = e.target.value.replace(/\D/g, '').slice(0, 5);
                           setTelPrefijo(v);
-                          set('telefono', v + (telNumero ? ' ' + telNumero : ''));
+                          // El número ya cargado puede exceder el nuevo máximo (ej: venía de
+                          // un prefijo corto tipo "11" y ahora se cambió a uno largo tipo "3704")
+                          const nuevoNumero = telNumero.slice(0, telNumeroMaxLen(v));
+                          if (nuevoNumero !== telNumero) setTelNumero(nuevoNumero);
+                          set('telefono', v + (nuevoNumero ? ' ' + nuevoNumero : ''));
                           setTelWarning(null);
                         }}
                         placeholder="3704"
@@ -440,18 +455,18 @@ export function NuevoCliente() {
                       />
                     </div>
                     <span className="text-gray-600 font-bold select-none">—</span>
-                    {/* Número de 6 dígitos */}
+                    {/* Número local: largo dinámico según el código de área (área+número = 10 dígitos) */}
                     <input
                       type="tel"
                       value={telNumero}
                       onChange={e => {
-                        const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        const v = e.target.value.replace(/\D/g, '').slice(0, telNumeroMaxLen(telPrefijo));
                         setTelNumero(v);
                         set('telefono', (telPrefijo ? telPrefijo + ' ' : '') + v);
                         setTelWarning(null);
                       }}
                       onBlur={() => checkTelefono((telPrefijo ? telPrefijo + ' ' : '') + telNumero)}
-                      placeholder="123456"
+                      placeholder={TEL_NUMERO_EJEMPLO.slice(0, telNumeroMaxLen(telPrefijo))}
                       className={cn(inp, 'flex-1 text-center font-mono tracking-widest', telWarning && 'border-amber-400 focus:ring-amber-400')}
                     />
                   </div>
