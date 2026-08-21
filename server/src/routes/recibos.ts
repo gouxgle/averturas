@@ -582,12 +582,16 @@ recibos.put('/:id', async (c) => {
 // PATCH /:id/anular
 recibos.patch('/:id/anular', async (c) => {
   const { id } = c.req.param();
+  const b = await c.req.json().catch(() => ({}));
+  const motivo = typeof b.motivo_anulacion === 'string' ? b.motivo_anulacion.trim() : '';
+  if (!motivo) return c.json({ error: 'El motivo de anulación es obligatorio' }, 400);
+
   const client = await db.connect();
   try {
     await client.query('BEGIN');
     const { rows: [rec] } = await client.query(
-      `UPDATE recibos SET estado='anulado', updated_at=now() WHERE id=$1 AND estado='emitido' RETURNING *`,
-      [id]
+      `UPDATE recibos SET estado='anulado', motivo_anulacion=$2, updated_at=now() WHERE id=$1 AND estado='emitido' RETURNING *`,
+      [id, motivo]
     );
     if (!rec) {
       await client.query('ROLLBACK');

@@ -108,6 +108,7 @@ interface ReciboDetalle {
   monto_total: number; forma_pago: string; referencia_pago: string | null;
   comprobante_url: string | null;
   concepto: string | null; notas: string | null;
+  motivo_anulacion: string | null;
   cliente: {
     id: string; nombre: string | null; apellido: string | null;
     razon_social: string | null; tipo_persona: string;
@@ -178,6 +179,15 @@ const ESTADO_BG: Record<EstadoCobro, string> = {
   anulado:  'bg-gray-100 text-gray-600',
 };
 
+const MOTIVOS_ANULACION_ESTANDAR = [
+  'Error de carga',
+  'Cliente canceló el pago',
+  'Recibo duplicado',
+  'Cambio de forma de pago',
+  'Pago rechazado (cheque/transferencia)',
+];
+const MOTIVO_OTRO = 'Otro (especificar)';
+
 const ESTADO_BORDER: Record<EstadoCobro, string> = {
   cobrado:  'border-l-emerald-400',
   parcial:  'border-l-amber-400',
@@ -240,6 +250,8 @@ function ReciboModal({ id, onClose, onAnulado }: {
   const [error, setError]     = useState<string | null>(null);
   const [anulando, setAnulando]       = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [motivoSel, setMotivoSel]     = useState('');
+  const [motivoLibre, setMotivoLibre] = useState('');
 
   useEffect(() => {
     setLoading(true); setError(null);
@@ -254,11 +266,13 @@ function ReciboModal({ id, onClose, onAnulado }: {
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
 
+  const motivoFinal = motivoSel === MOTIVO_OTRO ? motivoLibre.trim() : motivoSel;
+
   async function handleAnular() {
-    if (!rec) return;
+    if (!rec || !motivoFinal) return;
     setAnulando(true);
     try {
-      await api.patch(`/recibos/${id}/anular`);
+      await api.patch(`/recibos/${id}/anular`, { motivo_anulacion: motivoFinal });
       toast.success(`Recibo ${rec.numero} anulado`);
       onAnulado(id);
       onClose();
@@ -285,14 +299,30 @@ function ReciboModal({ id, onClose, onAnulado }: {
               <p className="text-sm font-bold text-red-800">{rec.numero}</p>
               <p className="text-xs text-red-500 mt-0.5">{formatCurrency(Number(rec.monto_total))} · {pagoLabel(rec.forma_pago)}</p>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Motivo de anulación *</label>
+              <select value={motivoSel} onChange={e => setMotivoSel(e.target.value)}
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400">
+                <option value="">Seleccionar motivo...</option>
+                {MOTIVOS_ANULACION_ESTANDAR.map(m => <option key={m} value={m}>{m}</option>)}
+                <option value={MOTIVO_OTRO}>{MOTIVO_OTRO}</option>
+              </select>
+              {motivoSel === MOTIVO_OTRO && (
+                <input value={motivoLibre} onChange={e => setMotivoLibre(e.target.value)}
+                  placeholder="Escribir el motivo..." autoFocus
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mt-2 focus:outline-none focus:ring-2 focus:ring-red-400" />
+              )}
+            </div>
+
             <p className="text-xs text-gray-600 text-center">El recibo quedará marcado como anulado y no podrá reactivarse.</p>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => setConfirmando(false)}
                 className="py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium hover:bg-gray-50">
                 Cancelar
               </button>
-              <button onClick={handleAnular} disabled={anulando}
-                className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2">
+              <button onClick={handleAnular} disabled={anulando || !motivoFinal}
+                className="py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold flex items-center justify-center gap-2">
                 {anulando
                   ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Anulando...</>
                   : <><Ban size={14} /> Sí, anular</>}
@@ -357,6 +387,15 @@ function ReciboModal({ id, onClose, onAnulado }: {
           </div>
         ) : rec ? (
           <div className="divide-y divide-gray-100">
+            {rec.estado === 'anulado' && rec.motivo_anulacion && (
+              <div className="px-5 py-3 bg-red-50 border-b border-red-100">
+                <div className="flex items-center gap-2 mb-1">
+                  <Ban size={13} className="text-red-500" />
+                  <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">Motivo de anulación</p>
+                </div>
+                <p className="text-sm text-red-700">{rec.motivo_anulacion}</p>
+              </div>
+            )}
             <div className="px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
                 <User size={13} className="text-gray-600" />
