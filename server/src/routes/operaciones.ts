@@ -603,7 +603,8 @@ operaciones.get('/ventas-panel', async (c) => {
              SELECT 1 FROM pedido_items pi JOIN pedidos p2 ON p2.id = pi.pedido_id
              WHERE pi.operacion_item_id = oi.id AND p2.estado != 'cancelado'
            )
-        ) AS items_en_pedido
+        ) AS items_en_pedido,
+        (SELECT COUNT(*)::int FROM operacion_versiones ov WHERE ov.operacion_id = o.id) AS version_count
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id
       LEFT JOIN LATERAL (

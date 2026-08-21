@@ -59,6 +59,7 @@ interface PresupuestoPanel {
   pedido_estado: 'pendiente' | 'enviado' | 'recibido' | 'cancelado' | null;
   items_total: number;
   items_en_pedido: number;
+  version_count: number;
   cliente: ClienteMin;
 }
 
@@ -1296,6 +1297,13 @@ export function Presupuestos() {
                     );
                   })() : null;
 
+                  const editadoBadge = (p.version_count ?? 0) > 0 ? (
+                    <span title={`Editado ${p.version_count} ${p.version_count === 1 ? 'vez' : 'veces'} desde que se creó — ver historial de versiones en el detalle`}
+                      className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                      <Pen size={8} /> Editado{p.version_count > 1 ? ` ×${p.version_count}` : ''}
+                    </span>
+                  ) : null;
+
                   return (
                     <div key={p.id}
                       className={cn(
@@ -1319,6 +1327,7 @@ export function Presupuestos() {
                           {p.tipo && p.tipo !== 'estandar' && (
                             <p className="text-[9px] text-gray-600 mt-0.5">{p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}</p>
                           )}
+                          {editadoBadge && <div className="mt-0.5">{editadoBadge}</div>}
                         </div>
 
                         {/* Cliente */}
