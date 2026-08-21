@@ -27,8 +27,8 @@ export function EntornoBanner() {
 
   return (
     <>
-      <div className={`fixed top-0 left-0 right-0 h-1.5 z-[9999] ${s.franja}`} />
-      <div className={`fixed top-2 right-2 z-[9999] px-2.5 py-1 rounded-full text-[10px] font-bold shadow-lg pointer-events-none select-none ${s.badge}`}>
+      <div className={`fixed top-0 left-0 right-0 h-1.5 z-[9999] print:hidden ${s.franja}`} />
+      <div className={`fixed top-2 right-2 z-[9999] px-2.5 py-1 rounded-full text-[10px] font-bold shadow-lg pointer-events-none select-none print:hidden ${s.badge}`}>
         {s.label}
       </div>
     </>
