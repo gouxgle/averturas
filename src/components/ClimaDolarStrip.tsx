@@ -122,7 +122,7 @@ export function WeatherWidget() {
 interface CotizacionDia { fecha: string; compra: number; venta: number }
 
 function fmtDiaCorto(fecha: string): string {
-  return new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+  return new Date(fecha.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
 }
 
 // Tendencia = variación entre el primer y el último valor del rango cargado.
