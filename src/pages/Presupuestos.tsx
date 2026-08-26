@@ -302,6 +302,21 @@ function PresupuestoModal({
   const [acreditando, setAcreditando]     = useState(false);
   const [mostrarOportunidad, setMostrarOportunidad] = useState(false);
   const [oportunidadVinculada, setOportunidadVinculada] = useState<Oportunidad | null>(null);
+  const [extendiendoValidez, setExtendiendoValidez] = useState(false);
+
+  async function extenderValidez(dias: number) {
+    setExtendiendoValidez(true);
+    try {
+      await api.patch(`/operaciones/${id}/extender-validez`, { dias });
+      toast.success(`Validez extendida +${dias} días`);
+      await cargarDetalle();
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo extender la validez');
+    } finally {
+      setExtendiendoValidez(false);
+    }
+  }
 
   // ESC cierra el modal
   useEffect(() => {
@@ -614,7 +629,25 @@ function PresupuestoModal({
             <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               {op.tipo_proyecto   && <div><span className="text-gray-600">Proyecto: </span><span className="font-medium">{op.tipo_proyecto}</span></div>}
               {op.tiempo_entrega  && <div><span className="text-gray-600">Entrega: </span><span className="font-medium">{op.tiempo_entrega} días</span></div>}
-              {op.fecha_validez   && <div><span className="text-gray-600">Válido hasta: </span><span className="font-medium">{formatDate(op.fecha_validez.slice(0, 10) + 'T12:00:00')}</span></div>}
+              {op.fecha_validez   && (
+                <div>
+                  <span className="text-gray-600">Válido hasta: </span>
+                  <span className={cn('font-medium', esVencido && 'text-red-500 font-bold')}>
+                    {formatDate(op.fecha_validez.slice(0, 10) + 'T12:00:00')}
+                  </span>
+                  {['presupuesto','enviado'].includes(op.estado) && (
+                    <span className="ml-2 inline-flex gap-1">
+                      {[7, 15].map(dias => (
+                        <button key={dias} onClick={() => extenderValidez(dias)} disabled={extendiendoValidez}
+                          title={`Extender validez ${dias} días`}
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 hover:bg-sky-100 disabled:opacity-50 text-sky-700 border border-sky-200">
+                          +{dias}d
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              )}
               {op.forma_pago      && <div className="col-span-2"><span className="text-gray-600">Pago: </span><span className="font-semibold text-violet-700">{op.forma_pago}</span></div>}
             </div>
 
@@ -961,6 +994,20 @@ export function Presupuestos() {
   const [detailPanel, setDetailPanel] = useState<PresupuestoPanel | null>(null);
   const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
   const [showCancelados, setShowCancelados] = useState(false);
+  const [extendiendoIds, setExtendiendoIds] = useState<Set<string>>(new Set());
+
+  async function extenderValidez(id: string, numero: string, dias: number) {
+    setExtendiendoIds(s => new Set(s).add(id));
+    try {
+      await api.patch(`/operaciones/${id}/extender-validez`, { dias });
+      toast.success(`Presupuesto ${numero}: validez extendida +${dias} días`);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo extender la validez');
+    } finally {
+      setExtendiendoIds(s => { const n = new Set(s); n.delete(id); return n; });
+    }
+  }
 
   async function enviarMensajeWa(clienteId: string, mensaje: string) {
     setEnviandoWaIds(s => new Set(s).add(clienteId));
@@ -1378,6 +1425,19 @@ export function Presupuestos() {
                           )}
                           {p.dias_sin_respuesta !== undefined && (
                             <p className="text-[10px] text-gray-600 mt-0.5">{fmtDias(p.dias_sin_respuesta)}</p>
+                          )}
+                          {['presupuesto','enviado'].includes(p.estado) && (
+                            <div className="flex gap-0.5 mt-1" onClick={e => e.stopPropagation()}>
+                              {[7, 15].map(dias => (
+                                <button key={dias}
+                                  onClick={() => extenderValidez(p.id, p.numero, dias)}
+                                  disabled={extendiendoIds.has(p.id)}
+                                  title={`Extender validez ${dias} días`}
+                                  className="flex-1 text-[9px] font-bold px-1 py-0.5 rounded bg-sky-50 hover:bg-sky-100 disabled:opacity-50 text-sky-700 border border-sky-200">
+                                  +{dias}d
+                                </button>
+                              ))}
+                            </div>
                           )}
                         </div>
 

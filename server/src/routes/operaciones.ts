@@ -978,6 +978,28 @@ operaciones.patch('/:id/resolver-respuesta', async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /:id/extender-validez — suma N días a fecha_validez para darle más tiempo
+// al cliente sin reabrir el formulario completo de edición. Si ya estaba vencido,
+// extiende desde HOY (no desde la fecha vencida) — sino "+7 días" a un presupuesto
+// vencido hace 10 días seguiría dando una fecha en el pasado.
+operaciones.patch('/:id/extender-validez', async (c) => {
+  const { id } = c.req.param();
+  const b = await c.req.json().catch(() => ({}));
+  const dias = Number(b.dias);
+  if (!Number.isInteger(dias) || dias <= 0 || dias > 90) return c.json({ error: 'Cantidad de días inválida' }, 400);
+
+  const { rows: [op] } = await db.query(
+    `UPDATE operaciones
+     SET fecha_validez = GREATEST(COALESCE(fecha_validez, CURRENT_DATE), CURRENT_DATE) + $2::int,
+         updated_at = now()
+     WHERE id = $1 AND estado IN ('presupuesto','enviado')
+     RETURNING id, numero, fecha_validez`,
+    [id, dias]
+  );
+  if (!op) return c.json({ error: 'Presupuesto no encontrado o no está en un estado activo' }, 400);
+  return c.json(op);
+});
+
 // POST /:id/completar-relevamiento — resuelve los renglones "a relevar" de un
 // presupuesto YA EXISTENTE con lo medido en la visita técnica vinculada. Cada
 // ítem relevado ACTUALIZA EN EL LUGAR el placeholder correspondiente (matcheado
