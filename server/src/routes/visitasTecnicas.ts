@@ -439,8 +439,9 @@ visitasTecnicas.put('/:id', async (c) => {
         observaciones     = $7,
         estado            = $8,
         imagenes          = $9,
+        firma_url         = $10,
         updated_at        = now()
-      WHERE id = $10
+      WHERE id = $11
       RETURNING *
     `, [
       b.fecha_visita || null,
@@ -452,6 +453,7 @@ visitasTecnicas.put('/:id', async (c) => {
       b.observaciones?.trim() || null,
       estadoNuevo,
       b.imagenes,
+      b.firma_url || null,
       id,
     ]);
 

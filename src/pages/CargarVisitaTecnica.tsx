@@ -9,6 +9,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema } from '@/types';
 import { EditItemModal, type EditableItemSpec } from '@/components/EditItemModal';
+import { FirmaDigital } from '@/components/FirmaDigital';
 
 type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
 
@@ -49,6 +50,7 @@ interface VisitaTecnicaDetalle {
   color: string[]; vidrio: string[]; instalacion: string[]; abertura_especial: string[];
   observaciones: string | null;
   imagenes: string[];
+  firma_url: string | null;
   cliente_id: string;
   cliente: Cliente;
   cobro_estado: 'pendiente' | 'cobrada' | 'sin_cargo' | 'bonificada';
@@ -138,6 +140,7 @@ export function CargarVisitaTecnica() {
   const [observaciones, setObservaciones] = useState('');
   const [imagenes, setImagenes] = useState<string[]>([]);
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [firmaUrl, setFirmaUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [productos, setProductos] = useState<CatalogoProductoLite[]>([]);
   const [buscarProductoIdx, setBuscarProductoIdx] = useState<number | null>(null);
@@ -190,6 +193,7 @@ export function CargarVisitaTecnica() {
         setAberturaOtro(v.abertura_especial.find(c => !ABERTURA_FIJOS.includes(c)) ?? '');
         setObservaciones(v.observaciones ?? '');
         setImagenes(v.imagenes ?? []);
+        setFirmaUrl(v.firma_url ?? null);
       })
       .catch(() => toast.error('No se pudo cargar la Visita de Relevamiento de Datos'))
       .finally(() => setLoading(false));
@@ -333,6 +337,7 @@ export function CargarVisitaTecnica() {
         abertura_especial: [...aberturaEspecial, ...(aberturaOtro.trim() ? [aberturaOtro.trim()] : [])],
         observaciones: observaciones.trim() || null,
         imagenes,
+        firma_url: firmaUrl,
         items: itemsValidos().map(it => ({
           ambiente: it.ambiente.trim() || null,
           descripcion: it.descripcion.trim() || null,
@@ -509,7 +514,7 @@ export function CargarVisitaTecnica() {
       )}
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Fecha de visita</label>
             <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)} disabled={soloLectura}
@@ -687,7 +692,7 @@ export function CargarVisitaTecnica() {
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Detalles importantes</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <CheckGroup title="Color" fijos={COLOR_FIJOS} valores={color}
             onToggle={v => !soloLectura && toggle(color, setColor, v)}
             otro={colorOtro} onOtroChange={soloLectura ? undefined : setColorOtro}/>
@@ -728,9 +733,9 @@ export function CargarVisitaTecnica() {
           ))}
           {!soloLectura && (
             <button onClick={() => fileRef.current?.click()} disabled={uploadingImg}
-              className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 hover:border-slate-300 hover:bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-600 disabled:opacity-50">
-              {uploadingImg ? <Loader2 size={18} className="animate-spin"/> : <Camera size={18}/>}
-              <span className="text-[10px] font-semibold">Agregar</span>
+              className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-1 text-slate-700 disabled:opacity-50">
+              {uploadingImg ? <Loader2 size={20} className="animate-spin"/> : <Camera size={20}/>}
+              <span className="text-[10px] font-bold">Tomar foto</span>
             </button>
           )}
         </div>
@@ -745,6 +750,14 @@ export function CargarVisitaTecnica() {
         <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 block">Observaciones</label>
         <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} disabled={soloLectura}
           className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Firma del cliente</p>
+        {!soloLectura && (
+          <p className="text-[11px] text-gray-600 mb-2">Conformidad con las medidas y detalles relevados en esta visita.</p>
+        )}
+        <FirmaDigital value={firmaUrl} onChange={setFirmaUrl} disabled={soloLectura} />
       </div>
 
       {!soloLectura && confirmarCancelar && (

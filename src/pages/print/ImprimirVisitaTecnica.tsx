@@ -22,6 +22,7 @@ interface VisitaTecnicaDetalle {
   instalacion: string[];
   abertura_especial: string[];
   observaciones: string | null;
+  firma_url: string | null;
   cliente: Cliente;
   items: VisitaTecnicaItem[];
 }
@@ -260,8 +261,11 @@ export function ImprimirVisitaTecnica() {
           <p style={{ fontSize: 9.5, color: '#6b7280', marginTop: -6, marginBottom: 6 }}>
             Confirmo que las medidas y detalles relevados en esta visita son correctos.
           </p>
-          <div style={{ display: 'flex', gap: 24, marginTop: 40 }}>
+          <div style={{ display: 'flex', gap: 24, marginTop: visita?.firma_url ? 8 : 40, alignItems: 'flex-end' }}>
             <div style={{ flex: 1, textAlign: 'center' }}>
+              {visita?.firma_url && (
+                <img src={visita.firma_url} alt="Firma del cliente" style={{ height: 60, marginBottom: 4 }} />
+              )}
               <div style={{ borderTop: '1px solid #999', paddingTop: 4, fontSize: 10, color: '#333' }}>
                 Firma del cliente
               </div>

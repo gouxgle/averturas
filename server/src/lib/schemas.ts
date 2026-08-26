@@ -279,6 +279,7 @@ export const VisitaTecnicaSchema = z.object({
   abertura_especial: z.array(z.string()).optional().default([]),
   observaciones:     zText(2000).optional(),
   imagenes:          z.array(z.string()).optional().default([]),
+  firma_url:         zText(300).optional().nullable(),
   items:             z.array(VisitaTecnicaItemSchema).optional().default([]),
 });
 
