@@ -105,18 +105,25 @@ visitasTecnicas.post('/upload-imagen', async (c) => {
   if (!file || !file.size) return c.json({ error: 'No se recibió imagen' }, 400);
 
   const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
-  const allowed = ['jpg', 'jpeg', 'png', 'webp'];
+  const allowed = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
   if (!allowed.includes(ext)) return c.json({ error: 'Formato no permitido' }, 400);
 
   const filename = `${randomUUID()}.webp`;
   const dir = './uploads/visitas-tecnicas';
   await mkdir(dir, { recursive: true });
 
-  const optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
-    .rotate()
-    .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 82 })
-    .toBuffer();
+  let optimizado: Buffer;
+  try {
+    optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
+      .rotate()
+      .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+  } catch {
+    return c.json({
+      error: 'No se pudo procesar esta foto (formato no compatible). En iPhone: Ajustes → Cámara → Formatos → "Más compatible", y volvé a intentar.',
+    }, 422);
+  }
 
   await writeFile(`${dir}/${filename}`, optimizado);
 

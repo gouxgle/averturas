@@ -240,6 +240,40 @@ export function CargarVisitaTecnica() {
   function agregarFila() { setItems(prev => [...prev, emptyItem()]); }
   function quitarFila(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)); }
 
+  // El iPhone guarda las fotos de cámara en HEIC por defecto — el backend (sharp
+  // sin libheif) no puede procesarlo. Se reconvierte a JPEG en el navegador antes
+  // de subir (Safari sí puede decodificar HEIC nativo al dibujarlo en un <img>).
+  // Si algo falla en la conversión, se intenta subir el archivo original igual.
+  async function normalizarFoto(file: File): Promise<File> {
+    const esHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+    if (!esHeic) return file;
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+        reader.readAsDataURL(file);
+      });
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('No se pudo decodificar la imagen'));
+        img.src = dataUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(img, 0, 0);
+      const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      if (!blob) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+    } catch {
+      return file;
+    }
+  }
+
   async function uploadFiles(files: File[]) {
     if (!files.length) return;
     setUploadingImg(true);
@@ -247,21 +281,27 @@ export function CargarVisitaTecnica() {
       const token = sessionStorage.getItem('aberturas_token');
       const newUrls: string[] = [];
       for (const file of files) {
+        const archivo = await normalizarFoto(file);
         const fd = new FormData();
-        fd.append('imagen', file);
+        fd.append('imagen', archivo);
         const res = await fetch('/api/visitas-tecnicas/upload-imagen', {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: fd,
         });
-        if (!res.ok) throw new Error('Error al subir imagen');
+        if (!res.ok) {
+          const detalle = await res.json().catch(() => null);
+          throw new Error(detalle?.error || 'Error al subir imagen');
+        }
         const { url } = await res.json();
         newUrls.push(url);
+        // Se agregan de a una — si una foto falla a mitad de una selección múltiple,
+        // las anteriores ya subidas no se pierden.
+        setImagenes(prev => [...prev, url]);
       }
-      setImagenes(prev => [...prev, ...newUrls]);
-      toast.success(newUrls.length === 1 ? 'Foto cargada' : `${newUrls.length} fotos cargadas`);
-    } catch {
-      toast.error('No se pudo subir la foto');
+      if (newUrls.length) toast.success(newUrls.length === 1 ? 'Foto cargada' : `${newUrls.length} fotos cargadas`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo subir la foto');
     } finally {
       setUploadingImg(false);
     }
