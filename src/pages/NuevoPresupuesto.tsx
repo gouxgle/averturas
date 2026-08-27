@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, MapPin, Star, Edit2,
   Phone, MessageCircle, CheckCircle2, Users,
-  Ruler, Wrench, AlertTriangle, Tag,
+  Ruler, Wrench, AlertTriangle, Tag, Copy, Layers,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
@@ -14,6 +14,7 @@ import type { Cliente, TipoAbertura, Sistema, Producto } from '@/types';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ProductoModal } from './Productos';
 import { EditItemModal } from '@/components/EditItemModal';
+import { CargaMultipleAMedida } from '@/components/CargaMultipleAMedida';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -135,7 +136,7 @@ interface FullOperacion {
 
 // ── Ítem del formulario ────────────────────────────────────────────────────────
 
-interface ItemForm {
+export interface ItemForm {
   _key: string;
   producto_id: string;
   tipo_item: 'estandar' | 'a_medida' | 'servicio' | 'a_relevar';
@@ -275,6 +276,7 @@ export function NuevoPresupuesto() {
   const [servicios, setServicios] = useState<ServicioCatalogo[]>([]);
   const [productosLoading, setProductosLoading] = useState(false);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
+  const [cargaMultipleAbierta, setCargaMultipleAbierta] = useState(false);
   const [showNotas, setShowNotas] = useState(false);
 
   // Modal "Ver más" — detalle de producto desde la galería
@@ -509,6 +511,34 @@ export function NuevoPresupuesto() {
 
   function updateItem(key: string, field: keyof ItemForm, value: unknown) {
     setItems(prev => prev.map(it => it._key === key ? { ...it, [field]: value } : it));
+  }
+
+  // Duplica un ítem copiando solo las características: medidas, precios e imagen del
+  // cálculo se limpian porque son justamente lo que cambia entre dos aberturas parecidas.
+  // Se inserta debajo del original y queda abierto para completarlo.
+  function duplicarItem(key: string) {
+    const original = items.find(it => it._key === key);
+    if (!original) return;
+    const copia: ItemForm = {
+      ...original,
+      _key: uuid(),
+      medida_ancho: '', medida_alto: '',
+      costo_unitario: 0, precio_unitario: 0, precio_lista: null,
+      calculo_url: '',
+      accesorios: [...original.accesorios],
+      _atribAbrev: { ...original._atribAbrev },
+    };
+    setItems(prev => {
+      const idx = prev.findIndex(it => it._key === key);
+      return [...prev.slice(0, idx + 1), copia, ...prev.slice(idx + 1)];
+    });
+    setEditItemKey(copia._key);
+  }
+
+  function agregarItemsMultiples(nuevos: ItemForm[]) {
+    setItems(prev => [...prev, ...nuevos]);
+    setCargaMultipleAbierta(false);
+    toast.success(`${nuevos.length} abertura${nuevos.length !== 1 ? 's' : ''} agregada${nuevos.length !== 1 ? 's' : ''}`);
   }
 
   const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
@@ -1036,6 +1066,18 @@ export function NuevoPresupuesto() {
                 <span className="text-sm font-bold">Agregar abertura a medida</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => setCargaMultipleAbierta(true)}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                <Layers size={16} />
+                <span className="text-sm font-bold">Cargar varias medidas</span>
+              </button>
+              <p className="text-[11px] text-gray-600 text-center -mt-1">
+                Varias aberturas iguales que solo cambian de medida
+              </p>
+
               <div className="rounded-xl bg-violet-50 border border-violet-100 px-3 py-3">
                 <p className="text-[11px] font-bold text-violet-700 mb-1.5">Cómo cargarla</p>
                 <ol className="space-y-1 text-[11px] text-gray-600 leading-snug list-decimal list-inside">
@@ -1043,6 +1085,10 @@ export function NuevoPresupuesto() {
                   <li>Cargá el <strong>precio costo</strong> y el <strong>precio de venta</strong> que dio el software.</li>
                   <li>Adjuntá la captura del cálculo como respaldo.</li>
                 </ol>
+                <p className="text-[11px] text-gray-600 leading-snug mt-2 pt-2 border-t border-violet-100">
+                  Si son <strong>varias iguales con distinta medida</strong>, usá "Cargar varias medidas":
+                  elegís las características una sola vez.
+                </p>
               </div>
 
               {items.length > 0 && (
@@ -1593,6 +1639,15 @@ export function NuevoPresupuesto() {
                         <Edit2 size={11} />
                       </button>
                     )}
+                    {item.tipo_item !== 'a_relevar' && (
+                      <button
+                        onClick={() => duplicarItem(item._key)}
+                        title="Duplicar — copia las características, no las medidas ni el precio"
+                        className="p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
+                      >
+                        <Copy size={11} />
+                      </button>
+                    )}
                     <button
                       onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
                       className="p-1 hover:bg-red-50 rounded text-gray-600 hover:text-red-500 transition-colors"
@@ -1914,6 +1969,20 @@ export function NuevoPresupuesto() {
           coloresDB={coloresDB}
           onChange={updateItem}
           onClose={() => setEditItemKey(null)}
+          onDuplicar={duplicarItem}
+        />
+      )}
+
+      {/* ── Carga múltiple: N aberturas iguales con distinta medida ── */}
+      {cargaMultipleAbierta && (
+        <CargaMultipleAMedida
+          plantillaInicial={{ ...emptyItem(), tipo_item: 'a_medida' }}
+          tiposAbertura={tiposAbertura}
+          sistemas={sistemas}
+          coloresDB={coloresDB}
+          nuevaKey={uuid}
+          onConfirmar={agregarItemsMultiples}
+          onClose={() => setCargaMultipleAbierta(false)}
         />
       )}
 

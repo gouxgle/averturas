@@ -1,14 +1,9 @@
 import { useState, useRef } from 'react';
-import { X, ImagePlus, Trash2 } from 'lucide-react';
+import { X, ImagePlus, Trash2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatCurrency, cn } from '@/lib/utils';
-import { MontoInput } from '@/components/MontoInput';
+import { formatCurrency } from '@/lib/utils';
 import type { TipoAbertura, Sistema } from '@/types';
-import { ATRIBUTOS_ABREVIADOS, ACCESORIOS_POR_TIPO, detectarCategoriaTipoAbertura, aplicarResumenAtributos } from '@/lib/atributosPorTipo';
-
-const VIDRIO_OPTS    = ['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'];
-const ACCESORIO_OPTS = ['Barral', 'Cerradura', 'Manijón', 'Otros'];
-const COLORES_ITEM   = ['Blanco', 'Negro', 'Anodizado', 'Otro'];
+import { EspecificacionesAbertura, inpCls, lblCls } from '@/components/EspecificacionesAbertura';
 
 // Campos que edita este modal — subconjunto común entre un ítem de presupuesto (ItemForm)
 // y un ítem "a medida" relevado en una visita técnica (VisitaTecnicaItem). Costo/precio/
@@ -47,6 +42,7 @@ export function EditItemModal({
   coloresDB,
   onChange,
   onClose,
+  onDuplicar,
   mode = 'presupuesto',
   uploadUrl = '/api/operaciones/upload-calculo',
   uploadField = 'calculo',
@@ -57,22 +53,15 @@ export function EditItemModal({
   coloresDB: { id: string; nombre: string }[];
   onChange: (key: string, field: keyof EditableItemSpec, value: unknown) => void;
   onClose: () => void;
+  onDuplicar?: (key: string) => void;
   mode?: 'presupuesto' | 'visita';
   uploadUrl?: string;
   uploadField?: string;
 }) {
   const up = (f: keyof EditableItemSpec, v: unknown) => onChange(item._key, f, v);
-  const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white';
-  const lbl = 'block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1';
+  const inp = inpCls;
+  const lbl = lblCls;
   const conPrecio = mode === 'presupuesto';
-
-  // Categoría real (ventana/puerta/puerta_balcon/mosquitera) según el tipo de abertura elegido —
-  // se usa para mostrar atributos y accesorios correctos, no genéricos, evitando cargar
-  // datos que no corresponden a ese tipo (ej. "Manijón" en una ventana).
-  const tipoAberturaNombreItem = tiposAbertura.find(t => t.id === item.tipo_abertura_id)?.nombre ?? '';
-  const categoriaItem = item.tipo_item === 'a_medida' && tipoAberturaNombreItem
-    ? detectarCategoriaTipoAbertura(tipoAberturaNombreItem)
-    : null;
 
   const [subiendoCalculo, setSubiendoCalculo] = useState(false);
   const calculoInputRef = useRef<HTMLInputElement>(null);
@@ -117,207 +106,34 @@ export function EditItemModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
-          <h2 className="text-sm font-bold text-gray-900">Editar ítem</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <X size={16} className="text-gray-600" />
-          </button>
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
+          <h2 className="text-sm font-bold text-gray-900 shrink-0">Editar ítem</h2>
+          <div className="flex items-center gap-1.5">
+            {onDuplicar && (
+              <button
+                onClick={() => onDuplicar(item._key)}
+                title="Copia las características para que solo cambies medidas y precio"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200"
+              >
+                <Copy size={13} /> Duplicar ítem
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
+              <X size={16} className="text-gray-600" />
+            </button>
+          </div>
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Tipo de abertura + Sistema — primero: define qué atributos/accesorios corresponden */}
-          {item.tipo_item !== 'servicio' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={lbl}>Tipo de abertura</label>
-                <select value={item.tipo_abertura_id} onChange={e => up('tipo_abertura_id', e.target.value)} className={inp}>
-                  <option value="">—</option>
-                  {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={lbl}>Sistema</label>
-                <select value={item.sistema_id} onChange={e => up('sistema_id', e.target.value)} className={inp}>
-                  <option value="">—</option>
-                  {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Descripción */}
-          <div>
-            <label className={lbl}>Descripción</label>
-            <input
-              type="text"
-              value={item.descripcion}
-              onChange={e => up('descripcion', e.target.value)}
-              className={inp}
-              placeholder="Descripción del producto..."
-            />
-          </div>
-
-          {/* Precio costo + Precio de venta (ambos los da el software externo) — no aplica en visita técnica */}
-          {conPrecio && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>{item.tipo_item === 'a_medida' ? 'Precio costo (software)' : 'Precio costo'}</label>
-              <MontoInput
-                value={item.costo_unitario ? String(item.costo_unitario) : ''}
-                onChange={v => up('costo_unitario', parseFloat(v) || 0)}
-                placeholder="0,00"
-                className={inp}
-              />
-            </div>
-            <div>
-              <label className={lbl}>{item.tipo_item === 'a_medida' ? 'Precio venta (software)' : 'Precio unitario'}</label>
-              <MontoInput
-                value={item.precio_unitario ? String(item.precio_unitario) : ''}
-                onChange={v => up('precio_unitario', parseFloat(v) || 0)}
-                placeholder="0,00"
-                className={inp}
-              />
-            </div>
-          </div>
-          )}
-
-          {/* Instalación */}
-          {conPrecio && item.tipo_item !== 'servicio' && (
-          <div>
-            <label className={lbl}>Instalación</label>
-            <select
-              value={item.incluye_instalacion ? 'si' : 'no'}
-              onChange={e => up('incluye_instalacion', e.target.value === 'si')}
-              className={inp}
-            >
-              <option value="no">No incluye</option>
-              <option value="si">Incluye instalación</option>
-            </select>
-          </div>
-          )}
-
-          {conPrecio && item.tipo_item !== 'servicio' && item.incluye_instalacion && (
-            <div>
-              <label className={lbl}>Precio instalación</label>
-              <MontoInput
-                value={item.precio_instalacion ? String(item.precio_instalacion) : ''}
-                onChange={v => up('precio_instalacion', parseFloat(v) || 0)}
-                placeholder="0,00"
-                className={inp}
-              />
-            </div>
-          )}
-
-          {item.tipo_item !== 'servicio' && (
-          <>
-          {/* Color + Vidrio */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Color</label>
-              <select value={item.color} onChange={e => up('color', e.target.value)} className={inp}>
-                <option value="">—</option>
-                {coloresDB.length
-                  ? coloresDB.map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)
-                  : COLORES_ITEM.map(c => <option key={c} value={c}>{c}</option>)
-                }
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Vidrio</label>
-              <select value={item.vidrio} onChange={e => up('vidrio', e.target.value)} className={inp}>
-                <option value="">—</option>
-                {VIDRIO_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Premarco — solo para tipos sin ficha propia (ni ventana/puerta/puerta-balcón/mosquitera),
-              misma regla que en Nuevo Producto: esos 4 tipos no preguntan premarco */}
-          {!categoriaItem && (
-            <div>
-              <label className={lbl}>Premarco</label>
-              <select value={item.premarco ? 'si' : 'no'} onChange={e => up('premarco', e.target.value === 'si')} className={inp}>
-                <option value="no">No</option>
-                <option value="si">Sí</option>
-              </select>
-            </div>
-          )}
-
-          {/* Atributos abreviados según tipo de abertura (solo a medida) */}
-          {categoriaItem && (() => {
-            const campos = ATRIBUTOS_ABREVIADOS[categoriaItem];
-            function toggleAtrib(key: string, valor: string) {
-              const actual = item._atribAbrev[key] === valor ? '' : valor;
-              const nuevaSeleccion = { ...item._atribAbrev, [key]: actual };
-              up('_atribAbrev', nuevaSeleccion);
-              up('descripcion', aplicarResumenAtributos(item.descripcion, nuevaSeleccion, campos));
-            }
-            return (
-              <div className="space-y-2">
-                <label className={lbl}>Atributos de {tipoAberturaNombreItem.toLowerCase()}</label>
-                {campos.map(c => (
-                  <div key={c.key} className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-600 w-14 shrink-0">{c.label}</span>
-                    {c.opciones.map(o => (
-                      <button key={o.v} type="button" onClick={() => toggleAtrib(c.key, o.v)}
-                        className={cn('px-2 py-1 rounded-full text-[11px] font-medium border',
-                          item._atribAbrev[c.key] === o.v
-                            ? 'bg-violet-600 text-white border-violet-600'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300')}>
-                        {o.l}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-
-          {/* Medidas — no aplica en visita técnica: ya se cargan en mm en la fila de afuera */}
-          {conPrecio && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Ancho (m)</label>
-              <input
-                type="number" step="0.01" value={item.medida_ancho ?? ''}
-                onChange={e => up('medida_ancho', e.target.value)}
-                placeholder="1.20" className={inp}
-              />
-            </div>
-            <div>
-              <label className={lbl}>Alto (m)</label>
-              <input
-                type="number" step="0.01" value={item.medida_alto ?? ''}
-                onChange={e => up('medida_alto', e.target.value)}
-                placeholder="2.05" className={inp}
-              />
-            </div>
-          </div>
-          )}
-
-          {/* Accesorios — reales para el tipo elegido, o lista genérica si no se identificó el tipo */}
-          <div>
-            <label className={lbl}>Accesorios</label>
-            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
-              {(categoriaItem ? ACCESORIOS_POR_TIPO[categoriaItem] : ACCESORIO_OPTS).map(a => (
-                <label key={a} className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={item.accesorios.includes(a)}
-                    onChange={e => up('accesorios',
-                      e.target.checked
-                        ? [...item.accesorios, a]
-                        : item.accesorios.filter(x => x !== a)
-                    )}
-                    className="rounded border-gray-400 text-violet-600 focus:ring-violet-400"
-                  />
-                  <span className="text-sm text-gray-600">{a}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          </>
-          )}
+          <EspecificacionesAbertura
+            item={item}
+            tiposAbertura={tiposAbertura}
+            sistemas={sistemas}
+            coloresDB={coloresDB}
+            onChange={onChange}
+            conPrecio={conPrecio}
+            conMedidas={conPrecio}
+          />
 
           {/* Cálculo del software externo (adjunto) */}
           <div>
