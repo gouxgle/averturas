@@ -103,7 +103,7 @@ export function CentroAlertas() {
 
   return (
     <div className="rounded-2xl border-2 border-red-300 shadow-xl overflow-hidden">
-      <div className="px-5 py-3 flex items-center gap-2.5"
+      <div className="px-5 py-3 flex items-center gap-2.5 flex-wrap"
         style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ea580c 100%)' }}>
         <BellRing size={18} className="text-white shrink-0" />
         <h2 className="text-sm font-extrabold text-white uppercase tracking-wide">Centro de alertas</h2>

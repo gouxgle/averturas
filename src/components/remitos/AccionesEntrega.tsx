@@ -74,7 +74,7 @@ export function AccionesEntrega({ remitoId, telefono, direccionEntrega, onEnviad
       )}
 
       {showWa && (
-        <div className="absolute right-0 top-full mt-1 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl p-3"
+        <div className="absolute right-0 top-full mt-1 z-30 w-72 max-w-[95vw] bg-white rounded-xl border border-gray-200 shadow-xl p-3"
           onClick={e => e.stopPropagation()}>
           <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wide mb-1.5">Mensaje sugerido</p>
           {cargandoPlantilla ? (

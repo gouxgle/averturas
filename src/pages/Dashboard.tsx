@@ -163,20 +163,22 @@ export function Dashboard() {
       {/* ── Encabezado ───────────────────────────────────────────── */}
       {/* Dólar antes que Clima: el desplegable del pronóstico se abre hacia la derecha
           desde el Clima y taparía al Dólar si estuviera después. */}
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">
             {saludo}, {user?.nombre ?? 'usuario'}! 👋
           </h1>
           <p className="text-sm text-gray-600 capitalize">
             {fechaHoy} · Acá tenés todo lo importante de tu negocio
           </p>
         </div>
-        <div className="flex-1 flex justify-center items-center gap-3 flex-wrap">
+        {/* Dólar + Clima: igual que en el resto de la app (SectionHero), solo desktop —
+            en mobile no entran sin romper el layout de título + botón. */}
+        <div className="hidden lg:flex flex-1 justify-center items-center gap-3">
           <DolarWidget />
           <WeatherWidget />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <Link
             to="/presupuestos/nuevo"
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-md transition-all hover:opacity-90"
