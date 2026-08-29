@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { formatearErrorApi, toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
@@ -249,8 +250,12 @@ function ModalIngreso({
       }
       toast.success('Ingreso de stock registrado');
       onSaved();
-    } catch (e: unknown) {
-      setError((e as Error).message || 'Error al guardar');
+    } catch (e) {
+      const { titulo, lineas } = formatearErrorApi(e, {
+        fallback: 'Error al guardar',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+      });
+      setError(lineas.length ? lineas.join(' · ') : titulo);
       setSaving(false);
     }
   }
@@ -441,8 +446,12 @@ function ModalEgreso({
       });
       toast.success('Egreso de stock registrado');
       onSaved();
-    } catch (e: unknown) {
-      setError((e as Error).message || 'Error al guardar');
+    } catch (e) {
+      const { titulo, lineas } = formatearErrorApi(e, {
+        fallback: 'Error al guardar',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+      });
+      setError(lineas.length ? lineas.join(' · ') : titulo);
       setSaving(false);
     }
   }
@@ -973,8 +982,8 @@ export function Stock() {
         ...prev,
         productos: prev.productos.map(p => p.id === id ? { ...p, en_salon: !p.en_salon } : p),
       } : prev);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo actualizar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
     }
   }
 

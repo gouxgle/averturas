@@ -3,6 +3,7 @@ import { X, RefreshCw, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import type { Producto } from '@/types';
 
 function diasDesde(fechaIso: string): number {
@@ -68,8 +69,8 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
       toast.success(`Validez renovada en ${r.actualizados} producto${r.actualizados !== 1 ? 's' : ''}`);
       onRenovado();
       onClose();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo renovar la validez');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo renovar la validez' });
     } finally {
       setGuardando(false);
     }

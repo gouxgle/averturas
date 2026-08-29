@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, CalendarClock, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { formatearErrorApi, CAMPO_LABELS } from '@/lib/apiError';
 
 interface RemitoParaProgramar {
   id: string;
@@ -48,8 +49,12 @@ export function ModalProgramarEntrega({ remito, onClose, onSuccess }: {
       toast.success('Entrega programada');
       onSuccess(r);
       onClose();
-    } catch (e: any) {
-      setError(e?.message ?? 'No se pudo programar la entrega');
+    } catch (e) {
+      const { titulo, lineas } = formatearErrorApi(e, {
+        fallback: 'No se pudo programar la entrega',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+      });
+      setError(lineas.length ? lineas.join(' · ') : titulo);
     } finally {
       setSaving(false);
     }

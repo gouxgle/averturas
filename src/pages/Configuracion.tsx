@@ -3,6 +3,7 @@ import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, L
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { useAuth } from '@/hooks/useAuth';
 import { SectionHero } from '@/components/SectionHero';
 
@@ -729,8 +730,8 @@ function PanelCategorias() {
       await api.delete(`/catalogo/categorias/${item.id}`);
       toast.success('Categoría eliminada');
       load();
-    } catch (e: unknown) {
-      toast.error((e as Error).message || 'No se pudo eliminar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo eliminar' });
     }
   }
 
@@ -789,8 +790,8 @@ function PanelModelos() {
       await api.delete(`/catalogo/modelos/${item.id}`);
       toast.success('Modelo eliminado');
       load();
-    } catch (e: unknown) {
-      toast.error((e as Error).message || 'No se pudo eliminar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo eliminar' });
     }
   }
 
@@ -874,7 +875,7 @@ function PanelEmpresa() {
       await api.put('/empresa', form);
       toast.success('Datos de empresa guardados');
     } catch (e) {
-      toast.error((e as Error).message);
+      toastApiError(e, { fallback: 'No se pudieron guardar los datos de la empresa' });
     } finally {
       setSaving(false);
     }
@@ -1055,7 +1056,7 @@ function PanelUsuarios({ currentUserId }: { currentUserId: string }) {
       await api.put(`/usuarios/${u.id}`, { nombre: u.nombre, email: u.email, rol: u.rol, activo: !u.activo, password: '' });
       load();
     } catch (e) {
-      toast.error((e as Error).message);
+      toastApiError(e, { fallback: 'No se pudo actualizar el usuario' });
     }
   }
 

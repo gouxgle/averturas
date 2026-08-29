@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { TarjetaProductoMosaico, isPromoActiva } from '@/components/TarjetaProductoMosaico';
 import { SectionHero } from '@/components/SectionHero';
@@ -176,8 +177,8 @@ export function VentaRapida() {
       seleccionarCliente(cliente);
       setQNombre(''); setQApellido(''); setQTelefono(''); setQTelDup(null);
       toast.success('Cliente creado');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al crear cliente');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al crear cliente', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
       setCreandoCliente(false);
     }
@@ -265,8 +266,15 @@ export function VentaRapida() {
       });
       setResultado(res);
       toast.success('Venta registrada');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al registrar la venta');
+    } catch (e) {
+      toastApiError(e, {
+        fallback: 'Error al registrar la venta',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+        labelItem: idx => {
+          const it = items[idx];
+          return `Ítem ${idx + 1}${it?.nombre ? ` (${it.nombre})` : ''}`;
+        },
+      });
     } finally {
       setSaving(false);
     }

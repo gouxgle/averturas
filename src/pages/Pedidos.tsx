@@ -9,6 +9,7 @@ import {
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatearErrorApi, toastApiError } from '@/lib/apiError';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 
@@ -182,8 +183,8 @@ function WARowButton({ pedidoId }: { pedidoId: string }) {
       await api.post(`/pedidos/${pedidoId}/enviar-whatsapp`, {});
       setEnviado(true);
       toast.success('Pedido enviado por WhatsApp');
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Error al enviar por WhatsApp');
+    } catch (err) {
+      toastApiError(err, { fallback: 'Error al enviar por WhatsApp' });
     } finally {
       setEnviando(false);
     }
@@ -235,8 +236,9 @@ function PedidoModal({ id, onClose, onSaved }: {
       setEnviadoWA(true);
       toast.success('Pedido enviado por WhatsApp');
       if (res.pedido) { setPedido(res.pedido as any); onSaved(); }
-    } catch (e: any) {
-      setErrorWA(e?.message ?? 'Error al enviar por WhatsApp');
+    } catch (e) {
+      const { titulo, lineas } = formatearErrorApi(e, { fallback: 'Error al enviar por WhatsApp' });
+      setErrorWA(lineas.length ? lineas.join(' · ') : titulo);
     } finally {
       setEnviandoWA(false);
     }

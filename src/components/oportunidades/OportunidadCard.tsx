@@ -4,6 +4,7 @@ import { Pencil, Clock, Check, X as XIcon, Ban, Loader2, CalendarClock, RefreshC
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn, TZ_AR } from '@/lib/utils';
+import { toastApiError } from '@/lib/apiError';
 import { AccionesContacto } from './AccionesContacto';
 import { INTERES_CFG, nombreClienteOportunidad, type Oportunidad } from './types';
 
@@ -59,8 +60,8 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
       toast.success('Oportunidad pospuesta');
       onUpdate(actualizada);
       setAccion(null);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo posponer');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo posponer' });
     } finally {
       setProcesando(false);
     }
@@ -73,8 +74,8 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
       toast.success('¡Oportunidad concretada!');
       onUpdate(actualizada);
       setAccion(null);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo actualizar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
     } finally {
       setProcesando(false);
     }
@@ -89,8 +90,8 @@ export function OportunidadCard({ oportunidad, onUpdate, onEdit }: {
       toast.success('Oportunidad descartada');
       onUpdate(actualizada);
       setAccion(null);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo actualizar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
     } finally {
       setProcesando(false);
     }

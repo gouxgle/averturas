@@ -7,6 +7,7 @@ import {
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 
 // ── Tipos ──────────────────────────────────────────────────────
 
@@ -619,8 +620,15 @@ export default function NuevoPedido() {
         setSavedNumero(numero);
         toast.success(`Pedido ${numero} creado`);
       }
-    } catch {
-      toast.error('Error al guardar el pedido');
+    } catch (e) {
+      toastApiError(e, {
+        fallback: 'Error al guardar el pedido',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+        labelItem: idx => {
+          const it = itemsAEnviar[idx];
+          return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -641,8 +649,8 @@ export default function NuevoPedido() {
         setWaEnviado(true);
         setWaPreview(false);
         toast.success(`Pedido enviado al proveedor (${res.numero})`);
-      } catch (e: any) {
-        toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+      } catch (e) {
+        toastApiError(e, { fallback: 'Error al enviar por WhatsApp' });
       } finally {
         setWaEnviando(false);
       }

@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
@@ -344,9 +345,15 @@ export function NuevoRemito() {
         return;
       }
       navigate('/remitos');
-    } catch (e: unknown) {
-      const msg = (e as Error).message;
-      toast.error(msg || 'Error al guardar');
+    } catch (e) {
+      toastApiError(e, {
+        fallback: 'Error al guardar',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+        labelItem: idx => {
+          const it = itemsValidos[idx];
+          return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
+        },
+      });
     } finally {
       setSaving(false);
     }

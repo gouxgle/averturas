@@ -7,6 +7,7 @@ import {
   Shield, Truck, Headphones, Award, SlidersHorizontal, ArrowUpDown, ChevronRight, Boxes,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
@@ -275,7 +276,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
       toast.success(`"${producto.nombre}" eliminado del catálogo`);
       onDelete?.(producto.id); onClose();
     } catch (e) {
-      toast.error((e as Error).message || 'No se pudo eliminar');
+      toastApiError(e, { fallback: 'No se pudo eliminar' });
       setConfirmando(false);
     } finally { setEliminando(false); }
   }
@@ -804,8 +805,8 @@ export function Productos() {
     try {
       const { en_salon } = await api.patch<{ id: string; en_salon: boolean }>(`/productos/${id}/toggle-salon`);
       actualizarEnSalonLocal(id, en_salon);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo actualizar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
     }
   }
 

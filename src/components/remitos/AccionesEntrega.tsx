@@ -3,6 +3,7 @@ import { MessageCircle, Phone, MapPin, Send, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { toastApiError } from '@/lib/apiError';
 
 // Accesos rápidos para una entrega próxima: llamar / ubicación / WhatsApp con
 // mensaje sugerido editable. Calco de AccionesContacto.tsx (oportunidades),
@@ -40,8 +41,8 @@ export function AccionesEntrega({ remitoId, telefono, direccionEntrega, onEnviad
       toast.success('WhatsApp enviado');
       setShowWa(false);
       onEnviado?.();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo enviar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo enviar' });
     } finally {
       setEnviando(false);
     }

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema } from '@/types';
 import { EditItemModal, type EditableItemSpec } from '@/components/EditItemModal';
 import { FirmaDigital } from '@/components/FirmaDigital';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 
 type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
 
@@ -360,8 +361,8 @@ export function CargarVisitaTecnica() {
     try {
       await api.patch(`/visitas-tecnicas/${id}/costo-externo`, { costo_externo: valor });
       setVisita(prev => prev ? { ...prev, costo_externo: valor } : prev);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo guardar el costo externo');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo guardar el costo externo' });
     }
   }
 
@@ -398,8 +399,15 @@ export function CargarVisitaTecnica() {
       const full = await api.put<VisitaTecnicaDetalle>(`/visitas-tecnicas/${id}`, body);
       setVisita(full);
       return full;
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al guardar');
+    } catch (e) {
+      toastApiError(e, {
+        fallback: 'Error al guardar',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+        labelItem: idx => {
+          const it = itemsValidos()[idx];
+          return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : it?.ambiente ? ` (${it.ambiente})` : ''}`;
+        },
+      });
       return null;
     } finally {
       setSaving(false);
@@ -418,8 +426,8 @@ export function CargarVisitaTecnica() {
       setVisita(v);
       setConfirmarCancelar(false);
       toast.success('Visita de Relevamiento de Datos cancelada');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo cancelar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo cancelar' });
     } finally {
       setCancelando(false);
     }
@@ -463,8 +471,15 @@ export function CargarVisitaTecnica() {
         });
         toast.success(`Presupuesto ${r.operacion_numero ?? ''} completado`.trim());
         navigate(`/presupuestos/${r.operacion_id}/editar`);
-      } catch (e: any) {
-        toast.error(e?.message ?? 'No se pudo completar el presupuesto');
+      } catch (e) {
+        toastApiError(e, {
+          fallback: 'No se pudo completar el presupuesto',
+          labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+          labelItem: idx => {
+            const it = itemsCompletar[idx];
+            return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
+          },
+        });
       }
       return;
     }

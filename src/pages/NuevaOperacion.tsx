@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2, Save, Hammer } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import type { TipoOperacion, Cliente, TipoAbertura, Sistema, Proveedor } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
 
@@ -110,7 +111,15 @@ export function NuevaOperacion() {
       toast.success(`Operación ${op.numero} creada`);
       navigate(`/operaciones/${op.id}`);
     } catch (e) {
-      toast.error((e as Error).message || 'Error al guardar la operación');
+      const itemsValidos = items.filter(it => it.descripcion.trim());
+      toastApiError(e, {
+        fallback: 'Error al guardar la operación',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+        labelItem: idx => {
+          const it = itemsValidos[idx];
+          return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
+        },
+      });
     } finally {
       setSaving(false);
     }

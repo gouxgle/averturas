@@ -12,6 +12,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 
@@ -273,7 +274,7 @@ function ModalNuevoCompromiso({
       });
       toast.success('Compromiso registrado');
       onCreated(); onClose();
-    } catch { toast.error('Error al guardar'); }
+    } catch (e) { toastApiError(e, { fallback: 'Error al guardar' }); }
     finally { setSaving(false); }
   }
 
@@ -378,7 +379,7 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
       setCompromisos(prev => prev.map(c => c.id === id ? { ...c, estado: estado as Compromiso['estado'] } : c));
       onRefresh();
       toast.success(`Marcado como ${estado}`);
-    } catch { toast.error('Error al actualizar'); }
+    } catch (e) { toastApiError(e, { fallback: 'Error al actualizar' }); }
   }
 
   async function eliminar(id: string) {
@@ -387,7 +388,7 @@ function ExpandedRow({ cliente, onNuevoCompromiso, onRefresh }: {
       setCompromisos(prev => prev.filter(c => c.id !== id));
       onRefresh();
       toast.success('Eliminado');
-    } catch { toast.error('Error al eliminar'); }
+    } catch (e) { toastApiError(e, { fallback: 'Error al eliminar' }); }
   }
 
   return (
@@ -561,8 +562,8 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
     try {
       await api.post(`/clientes/${clienteId}/enviar-estado-cuenta-whatsapp`, {});
       toast.success('Estado de cuenta enviado por WhatsApp');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar por WhatsApp' });
     } finally {
       setEnviando(false);
     }
@@ -809,8 +810,8 @@ export function EstadoCuentaGlobal() {
     try {
       await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
       toast.success('Mensaje enviado por WhatsApp');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar WhatsApp' });
     } finally {
       setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
     }

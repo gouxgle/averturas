@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FORMAS_PAGO } from '@/lib/formasPago';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import type { Cliente } from '@/types';
 
 interface ReciboVisita { id: string; numero: string; monto_total: number }
@@ -117,8 +118,8 @@ export function VisitaTecnica() {
       seleccionarCliente(cliente);
       setQNombre(''); setQApellido(''); setQTelefono(''); setQDireccion(''); setQTelDup(null);
       toast.success('Cliente creado');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al crear cliente');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al crear cliente', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
       setCreandoCliente(false);
     }
@@ -150,8 +151,11 @@ export function VisitaTecnica() {
       setVisitaNumero(v.numero);
       setRecibo(v.recibo ?? null);
       toast.success(vaACobrar ? 'Visita generada y cobrada' : 'Visita generada');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al crear la Visita de Relevamiento de Datos');
+    } catch (e) {
+      toastApiError(e, {
+        fallback: 'Error al crear la Visita de Relevamiento de Datos',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+      });
     } finally {
       setCreandoVisita(false);
     }

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { formatCurrency, cn } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
@@ -210,8 +211,8 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
                   await api.post(`/operaciones/${op.id}/avisar-cliente`, {});
                   setAvisado(true);
                   toast.success('Cliente avisado por WhatsApp');
-                } catch (e: any) {
-                  toast.error(e?.message ?? 'Error al enviar WhatsApp');
+                } catch (e) {
+                  toastApiError(e, { fallback: 'Error al enviar WhatsApp' });
                 } finally {
                   setAvisando(false);
                 }

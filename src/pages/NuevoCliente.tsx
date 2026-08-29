@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { cn } from '@/lib/utils';
 import type { CategoriaCliente, Cliente } from '@/types';
 
@@ -318,7 +319,7 @@ export function NuevoCliente() {
       if (afterSave) afterSave(clienteId);
       else navigate(`/clientes/${clienteId}`);
     } catch (e) {
-      toast.error((e as Error).message || 'Error al guardar');
+      toastApiError(e, { fallback: 'Error al guardar', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
       setSaving(false);
     }

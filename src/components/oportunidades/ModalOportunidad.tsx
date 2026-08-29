@@ -3,6 +3,7 @@ import { X, Search, Target, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatearErrorApi, CAMPO_LABELS } from '@/lib/apiError';
 import type { Cliente } from '@/types';
 import { INTERES_CFG, nombreClienteOportunidad, type Oportunidad, type OportunidadInteres, type OportunidadOrigen } from './types';
 
@@ -107,8 +108,12 @@ export function ModalOportunidad({
         onSuccess(op);
       }
       onClose();
-    } catch (e: any) {
-      setError(e?.message ?? 'No se pudo guardar');
+    } catch (e) {
+      const { titulo, lineas } = formatearErrorApi(e, {
+        fallback: 'No se pudo guardar',
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+      });
+      setError(lineas.length ? lineas.join(' · ') : titulo);
     } finally {
       setSaving(false);
     }

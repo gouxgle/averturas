@@ -9,6 +9,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn, diasCalendarioAR, TZ_AR } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 
@@ -192,8 +193,8 @@ export function Clientes() {
     try {
       await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
       toast.success('Mensaje enviado por WhatsApp');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar WhatsApp' });
     } finally {
       setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
     }

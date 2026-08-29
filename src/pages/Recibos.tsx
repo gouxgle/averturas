@@ -13,6 +13,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 
 // ── Tipos ────────────────────────────────────────────────────────
 
@@ -277,7 +278,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
       onAnulado(id);
       onClose();
     } catch (e) {
-      toast.error((e as Error).message || 'Error al anular');
+      toastApiError(e, { fallback: 'Error al anular' });
       setAnulando(false); setConfirmando(false);
     }
   }
@@ -544,8 +545,8 @@ export function Recibos() {
     try {
       await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
       toast.success('Mensaje enviado por WhatsApp');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar WhatsApp' });
     } finally {
       setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
     }

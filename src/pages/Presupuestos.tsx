@@ -14,6 +14,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { EstadoOperacion } from '@/types';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 import type { Oportunidad } from '@/components/oportunidades/types';
 import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
@@ -311,8 +312,8 @@ function PresupuestoModal({
       toast.success(`Validez extendida +${dias} días`);
       await cargarDetalle();
       onRefresh();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo extender la validez');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo extender la validez' });
     } finally {
       setExtendiendoValidez(false);
     }
@@ -365,8 +366,8 @@ function PresupuestoModal({
       setConfirmAcreditar(false);
       await cargarDetalle();
       onRefresh();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo acreditar la visita');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo acreditar la visita' });
     } finally {
       setAcreditando(false);
     }
@@ -395,8 +396,8 @@ function PresupuestoModal({
       setOp(prev => prev ? { ...prev, enviado_wa_at: new Date().toISOString() } : prev);
       onRefresh();
       toast.success(`Mensaje enviado al ${res.numero}`);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar por WhatsApp' });
     } finally {
       setEnviandoWA(false);
     }
@@ -412,8 +413,8 @@ function PresupuestoModal({
       setLinkUrl(res.url);
       onRefresh();
       toast.success(`Presupuesto enviado a ${res.email}`);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar por email');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar por email' });
     } finally {
       setEnviandoEmail(false);
     }
@@ -438,8 +439,8 @@ function PresupuestoModal({
       setOp(prev => prev ? { ...prev, respuesta_cliente: null, respuesta_cliente_at: null } : prev);
       onRefresh();
       toast.success('Seguimiento marcado como atendido');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo actualizar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
     } finally {
       setResolviendo(false);
     }
@@ -669,10 +670,12 @@ function PresupuestoModal({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-gray-600 shrink-0">{i + 1}.</span>
-                          <span className="text-sm font-medium text-gray-800 truncate">{item.descripcion}</span>
+                          <span className="text-sm font-semibold text-gray-800 truncate">{specs || item.descripcion}</span>
                           {item.cantidad > 1 && <span className="text-xs text-gray-600 shrink-0">× {item.cantidad}</span>}
                         </div>
-                        {specs && <p className="text-[11px] text-gray-600 mt-0.5 ml-4">{specs}</p>}
+                        {specs && item.descripcion && item.descripcion !== specs && (
+                          <p className="text-[11px] text-gray-600 mt-0.5 ml-4">{item.descripcion}</p>
+                        )}
                         {item.accesorios.length > 0 && <p className="text-[11px] text-gray-600 mt-0.5 ml-4">Incluye: {item.accesorios.join(', ')}</p>}
                         {item.incluye_instalacion && <span className="ml-4 text-[10px] text-emerald-600 font-medium">✓ Con instalación</span>}
                       </div>
@@ -1002,8 +1005,8 @@ export function Presupuestos() {
       await api.patch(`/operaciones/${id}/extender-validez`, { dias });
       toast.success(`Presupuesto ${numero}: validez extendida +${dias} días`);
       await load();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo extender la validez');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo extender la validez' });
     } finally {
       setExtendiendoIds(s => { const n = new Set(s); n.delete(id); return n; });
     }
@@ -1014,8 +1017,8 @@ export function Presupuestos() {
     try {
       await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
       toast.success('Mensaje enviado por WhatsApp');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar WhatsApp' });
     } finally {
       setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
     }

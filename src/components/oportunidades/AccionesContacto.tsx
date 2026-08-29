@@ -3,6 +3,7 @@ import { MessageCircle, Phone, Mail, Send, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { toastApiError } from '@/lib/apiError';
 import type { Oportunidad } from './types';
 
 // Contacto rápido desde una oportunidad: WhatsApp (Evolution API, con mensaje
@@ -45,8 +46,8 @@ export function AccionesContacto({ oportunidad, onContactado }: {
       toast.success('WhatsApp enviado');
       setShowWa(false);
       onContactado(actualizada);
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo enviar');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo enviar' });
     } finally {
       setEnviando(false);
     }

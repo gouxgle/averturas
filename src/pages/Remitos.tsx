@@ -14,6 +14,7 @@ import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 
 // ── Tipos ────────────────────────────────────────────────────────────
 
@@ -170,8 +171,8 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
       setEnviadoWA(true);
       toast.success('Remito enviado por WhatsApp');
       onSaved();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar por WhatsApp' });
     } finally {
       setEnviandoWA(false);
     }
@@ -348,8 +349,8 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
       });
       toast.success('Estado actualizado');
       onSaved();
-    } catch (e: unknown) {
-      toast.error((e as Error).message || 'Error'); setSaving(false);
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al actualizar el estado' }); setSaving(false);
     }
   }
 
@@ -492,8 +493,8 @@ export function Remitos() {
       setShareRemito(null);
       setLinkUrl(null);
       cargar();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error al enviar por WhatsApp');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al enviar por WhatsApp' });
     } finally {
       setEnviandoWA(false);
     }

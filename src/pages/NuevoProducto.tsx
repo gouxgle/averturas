@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente, DISPONIBILIDAD_VIGENCIA_DIAS } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import type { TipoOperacion, TipoAbertura, Sistema, Proveedor, Categoria, CatalogoModelo } from '@/types';
 import { MontoInput } from '@/components/MontoInput';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
@@ -1464,7 +1465,7 @@ export function NuevoProducto() {
       setNuevoModeloNombre('');
       toast.success(`Modelo "${nuevo.nombre}" creado`);
     } catch (e) {
-      toast.error((e as Error).message || 'No se pudo crear el modelo');
+      toastApiError(e, { fallback: 'No se pudo crear el modelo', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     }
   }
 
@@ -1747,7 +1748,7 @@ export function NuevoProducto() {
       }
       navigate('/productos');
     } catch (e) {
-      toast.error((e as Error).message || 'Error al guardar el producto');
+      toastApiError(e, { fallback: 'Error al guardar el producto', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
       setSaving(false);
     }

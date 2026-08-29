@@ -10,6 +10,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import type { Cliente, Operacion, Interaccion, Tarea, TipoInteraccion, EstadoCliente } from '@/types';
 import { OportunidadCard } from '@/components/oportunidades/OportunidadCard';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
@@ -256,7 +257,7 @@ export function ClienteDetalle() {
       toast.success('Cliente eliminado');
       navigate('/clientes');
     } catch (e) {
-      toast.error((e as Error).message || 'No se pudo eliminar');
+      toastApiError(e, { fallback: 'No se pudo eliminar' });
       setShowDeleteConfirm(false);
     }
   }

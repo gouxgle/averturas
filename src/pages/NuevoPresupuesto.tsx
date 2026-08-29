@@ -15,6 +15,7 @@ import { PDFDialog } from '@/components/PDFDialog';
 import { ProductoModal } from './Productos';
 import { EditItemModal } from '@/components/EditItemModal';
 import { CargaMultipleAMedida } from '@/components/CargaMultipleAMedida';
+import { formatearErrorApi, CAMPO_LABELS } from '@/lib/apiError';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -276,7 +277,7 @@ export function NuevoPresupuesto() {
   const [servicios, setServicios] = useState<ServicioCatalogo[]>([]);
   const [productosLoading, setProductosLoading] = useState(false);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
-  const [cargaMultipleAbierta, setCargaMultipleAbierta] = useState(false);
+  const [cargaMultiplePlantilla, setCargaMultiplePlantilla] = useState<ItemForm | null>(null);
   const [showNotas, setShowNotas] = useState(false);
 
   // Modal "Ver más" — detalle de producto desde la galería
@@ -535,9 +536,27 @@ export function NuevoPresupuesto() {
     setEditItemKey(copia._key);
   }
 
+  // Plantilla inicial para "Cargar varias medidas": si ya se cargó una abertura a medida
+  // en este presupuesto, arranca con sus características (igual que Duplicar) para no
+  // hacer repetir tipo/sistema/color/vidrio si son todas iguales — el caso más común de
+  // usar esta carga. Si no hay ninguna todavía, arranca en blanco.
+  function plantillaParaCargaMultiple(): ItemForm {
+    const ultimaAMedida = [...items].reverse().find(it => it.tipo_item === 'a_medida');
+    if (!ultimaAMedida) return { ...emptyItem(), tipo_item: 'a_medida' };
+    return {
+      ...ultimaAMedida,
+      _key: uuid(),
+      medida_ancho: '', medida_alto: '',
+      costo_unitario: 0, precio_unitario: 0, precio_lista: null,
+      calculo_url: '',
+      accesorios: [...ultimaAMedida.accesorios],
+      _atribAbrev: { ...ultimaAMedida._atribAbrev },
+    };
+  }
+
   function agregarItemsMultiples(nuevos: ItemForm[]) {
     setItems(prev => [...prev, ...nuevos]);
-    setCargaMultipleAbierta(false);
+    setCargaMultiplePlantilla(null);
     toast.success(`${nuevos.length} abertura${nuevos.length !== 1 ? 's' : ''} agregada${nuevos.length !== 1 ? 's' : ''}`);
   }
 
@@ -748,7 +767,22 @@ export function NuevoPresupuesto() {
         navigate('/presupuestos');
       }
     } catch (e) {
-      toast.error((e as Error).message || 'Error al guardar');
+      const { titulo, lineas, primerItemIdx } = formatearErrorApi(e, {
+        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+        labelItem: idx => {
+          const it = items[idx];
+          return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
+        },
+      });
+      if (lineas.length) {
+        toast.error(titulo, { description: lineas.join('\n'), duration: 10000 });
+        // Si el error señala un ítem puntual, abrirlo directo para corregir en vez de
+        // dejar al usuario adivinando cuál de todos los cargados tiene el problema.
+        const key = primerItemIdx != null ? items[primerItemIdx]?._key : undefined;
+        if (key) setEditItemKey(key);
+      } else {
+        toast.error(titulo);
+      }
     } finally {
       setSaving(false);
     }
@@ -1068,14 +1102,16 @@ export function NuevoPresupuesto() {
 
               <button
                 type="button"
-                onClick={() => setCargaMultipleAbierta(true)}
+                onClick={() => setCargaMultiplePlantilla(plantillaParaCargaMultiple())}
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
               >
                 <Layers size={16} />
                 <span className="text-sm font-bold">Cargar varias medidas</span>
               </button>
               <p className="text-[11px] text-gray-600 text-center -mt-1">
-                Varias aberturas iguales que solo cambian de medida
+                {items.some(it => it.tipo_item === 'a_medida')
+                  ? 'Arranca con las características de la última abertura cargada'
+                  : 'Varias aberturas iguales que solo cambian de medida'}
               </p>
 
               <div className="rounded-xl bg-violet-50 border border-violet-100 px-3 py-3">
@@ -1974,15 +2010,15 @@ export function NuevoPresupuesto() {
       )}
 
       {/* ── Carga múltiple: N aberturas iguales con distinta medida ── */}
-      {cargaMultipleAbierta && (
+      {cargaMultiplePlantilla && (
         <CargaMultipleAMedida
-          plantillaInicial={{ ...emptyItem(), tipo_item: 'a_medida' }}
+          plantillaInicial={cargaMultiplePlantilla}
           tiposAbertura={tiposAbertura}
           sistemas={sistemas}
           coloresDB={coloresDB}
           nuevaKey={uuid}
           onConfirmar={agregarItemsMultiples}
-          onClose={() => setCargaMultipleAbierta(false)}
+          onClose={() => setCargaMultiplePlantilla(null)}
         />
       )}
 

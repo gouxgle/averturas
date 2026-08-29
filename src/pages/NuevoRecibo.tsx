@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { FORMAS_PAGO } from '@/lib/formasPago';
@@ -432,7 +433,7 @@ export function NuevoRecibo() {
         setSavedId(rec.id);
       }
     } catch (e) {
-      toast.error((e as Error).message || 'Error al guardar');
+      toastApiError(e, { fallback: 'Error al guardar', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
       setSaving(false);
     }
