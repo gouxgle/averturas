@@ -809,45 +809,135 @@ function ProductoRow({
   const estadoCfg  = ESTADO_CFG[producto.estado];
   const rotCfg     = ROTACION_CFG[producto.rotacion];
 
+  const acciones = (
+    <>
+      <button onClick={onIngreso} title="Ingresar"
+        className="p-2.5 sm:p-1.5 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors">
+        <Plus size={14} />
+      </button>
+      <button onClick={onEgreso} disabled={producto.stock_actual <= 0} title="Egresar"
+        className="p-2.5 sm:p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+        <Minus size={14} />
+      </button>
+      <button onClick={onAjuste} title="Ajustar"
+        className="p-2.5 sm:p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors">
+        <Wrench size={13} />
+      </button>
+      <button onClick={onToggleSalon} title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
+        className={`p-2.5 sm:p-1.5 rounded-lg transition-colors ${producto.en_salon ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-600'}`}>
+        <Store size={13} />
+      </button>
+      <button onClick={() => setExpanded(v => !v)} title="Historial"
+        className="p-2.5 sm:p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors">
+        {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+    </>
+  );
+
+  const miniatura = (
+    <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
+      {producto.imagen_url ? (
+        <img src={producto.imagen_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <Package size={16} className="text-gray-600" />
+        </div>
+      )}
+    </div>
+  );
+
+  const nombreYBadges = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <p className="text-sm font-semibold text-gray-900 truncate min-w-0">{producto.nombre}</p>
+      {producto.tipo !== 'estandar' && (
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
+          producto.tipo === 'fabricacion_propia' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'
+        }`}>
+          {producto.tipo === 'fabricacion_propia' ? 'Fab.' : 'A medida'}
+        </span>
+      )}
+      {producto.en_salon && (
+        <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 bg-emerald-50 text-emerald-600">
+          <Store size={9} />En salón
+        </span>
+      )}
+    </div>
+  );
+
+  const codigoLinea = (
+    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-600 flex-wrap">
+      {producto.codigo && <span>{producto.codigo}</span>}
+      {producto.tipo_abertura && <span>{producto.tipo_abertura.nombre}</span>}
+      {producto.color && <span>{producto.color}</span>}
+    </div>
+  );
+
+  const estadoBadge = (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${estadoCfg.bg} ${estadoCfg.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${estadoCfg.dot}`} />
+      {estadoCfg.label}
+    </span>
+  );
+
+  const rotacionBadge = (
+    <span className={`text-xs font-medium px-2 py-1 rounded-lg ${rotCfg.bg} ${rotCfg.text}`}>
+      {rotCfg.label}
+    </span>
+  );
+
   return (
     <div className={`bg-white rounded-xl border border-gray-400 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
+
+      {/* ── Tarjeta — solo mobile ── */}
+      <div className="sm:hidden p-3 cursor-pointer" onClick={() => setExpanded(v => !v)}>
+        <div className="flex items-start gap-2.5">
+          {miniatura}
+          <div className="min-w-0 flex-1">
+            {nombreYBadges}
+            {codigoLinea}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className="bg-gray-50 rounded-lg px-2.5 py-2">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Stock</p>
+            <span className={`text-base font-bold ${estadoCfg.text}`}>{producto.stock_actual}</span>
+            {producto.stock_minimo > 0 && (
+              <span className="text-[10px] text-gray-600 ml-1">mín {producto.stock_minimo}</span>
+            )}
+          </div>
+          <div className="bg-gray-50 rounded-lg px-2.5 py-2">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Ventas 30d</p>
+            <span className="text-sm font-semibold text-gray-700">{producto.ventas_30d} unidades</span>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-2.5 py-2">{estadoBadge}</div>
+          <div className="bg-gray-50 rounded-lg px-2.5 py-2">{rotacionBadge}</div>
+        </div>
+
+        <div className="flex items-center justify-between flex-wrap gap-2 mt-2 pt-2 border-t border-gray-100">
+          <div className="min-w-0">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wide">Valor en stock</p>
+            <span className="text-sm font-semibold text-gray-700">
+              {producto.valor_stock > 0 ? fmtMonto(producto.valor_stock) : '—'}
+            </span>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+            {acciones}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Fila — solo desktop ── */}
       <div
-        className="grid grid-cols-2 sm:grid-cols-[1fr_65px_90px_80px_70px_100px_130px] items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
+        className="hidden sm:grid grid-cols-[1fr_65px_90px_80px_70px_100px_130px] items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
         onClick={() => setExpanded(v => !v)}
       >
         {/* Producto */}
-        <div className="col-span-2 sm:col-span-1 min-w-0 flex items-center gap-2.5">
-          {/* Miniatura */}
-          <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
-            {producto.imagen_url ? (
-              <img src={producto.imagen_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package size={16} className="text-gray-600" />
-              </div>
-            )}
-          </div>
+        <div className="min-w-0 flex items-center gap-2.5">
+          {miniatura}
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-gray-900 truncate">{producto.nombre}</p>
-              {producto.tipo !== 'estandar' && (
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 ${
-                  producto.tipo === 'fabricacion_propia' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'
-                }`}>
-                  {producto.tipo === 'fabricacion_propia' ? 'Fab.' : 'A medida'}
-                </span>
-              )}
-              {producto.en_salon && (
-                <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 bg-emerald-50 text-emerald-600">
-                  <Store size={9} />En salón
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-600">
-              {producto.codigo && <span>{producto.codigo}</span>}
-              {producto.tipo_abertura && <span>{producto.tipo_abertura.nombre}</span>}
-              {producto.color && <span>{producto.color}</span>}
-            </div>
+            {nombreYBadges}
+            {codigoLinea}
           </div>
         </div>
 
@@ -860,19 +950,10 @@ function ProductoRow({
         </div>
 
         {/* Estado */}
-        <div className="text-center">
-          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${estadoCfg.bg} ${estadoCfg.text}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${estadoCfg.dot}`} />
-            {estadoCfg.label}
-          </span>
-        </div>
+        <div className="text-center">{estadoBadge}</div>
 
         {/* Rotación */}
-        <div className="text-center">
-          <span className={`text-xs font-medium px-2 py-1 rounded-lg ${rotCfg.bg} ${rotCfg.text}`}>
-            {rotCfg.label}
-          </span>
-        </div>
+        <div className="text-center">{rotacionBadge}</div>
 
         {/* Ventas 30d */}
         <div className="text-center">
@@ -889,26 +970,7 @@ function ProductoRow({
 
         {/* Acciones */}
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-          <button onClick={onIngreso} title="Ingresar"
-            className="p-1.5 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors">
-            <Plus size={14} />
-          </button>
-          <button onClick={onEgreso} disabled={producto.stock_actual <= 0} title="Egresar"
-            className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-            <Minus size={14} />
-          </button>
-          <button onClick={onAjuste} title="Ajustar"
-            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors">
-            <Wrench size={13} />
-          </button>
-          <button onClick={onToggleSalon} title={producto.en_salon ? 'Quitar de exhibición en salón' : 'Marcar exhibido en salón'}
-            className={`p-1.5 rounded-lg transition-colors ${producto.en_salon ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-600'}`}>
-            <Store size={13} />
-          </button>
-          <button onClick={() => setExpanded(v => !v)} title="Historial"
-            className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors">
-            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </button>
+          {acciones}
         </div>
       </div>
 
