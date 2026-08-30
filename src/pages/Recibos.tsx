@@ -286,8 +286,8 @@ function ReciboModal({ id, onClose, onAnulado }: {
   if (confirmando && rec) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-          <div className="bg-red-600 px-6 py-5 flex flex-col items-center text-center">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90dvh] overflow-y-auto">
+          <div className="bg-red-600 px-6 py-5 flex flex-col items-center text-center rounded-t-2xl">
             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
               <AlertTriangle size={28} className="text-white" />
             </div>
@@ -723,9 +723,9 @@ export function Recibos() {
           </div>
 
           {/* Lista */}
-          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg">
             {loading ? (
-              <div className="p-3 space-y-1.5 min-w-[560px]">
+              <div className="p-3 space-y-1.5">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse flex gap-3">
                     <div className="w-[76px] h-4 bg-gray-100 rounded shrink-0" />
@@ -745,7 +745,7 @@ export function Recibos() {
                 </p>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5 min-w-[560px]">
+              <div className="p-3 space-y-1.5">
                 {paginated.map(fila => {
                   const ec = fila.estado_cobro as EstadoCobro;
                   const FPIcon = pagoIcon(fila.forma_pago);
@@ -759,9 +759,9 @@ export function Recibos() {
                       )}
                       onClick={() => setDetailId(fila.id)}
                     >
-                      <div className="px-3 py-2.5 flex items-start gap-3">
+                      <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
                         {/* Número */}
-                        <div className="shrink-0 w-[76px]">
+                        <div className="sm:shrink-0 sm:w-[76px] flex items-baseline gap-2 sm:block">
                           <p className="font-mono text-[11px] text-gray-600">{fila.numero}</p>
                           <p className="text-[10px] text-gray-600 mt-0.5">{fmtFecha(fila.fecha)}</p>
                         </div>
@@ -801,7 +801,7 @@ export function Recibos() {
                           )}
                         </div>
                         {/* Monto + acciones */}
-                        <div className="shrink-0 flex flex-col items-end gap-1">
+                        <div className="sm:shrink-0 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1">
                           <span className={cn('text-sm font-bold tabular-nums',
                             ec === 'anulado' ? 'text-gray-600 line-through' : 'text-gray-900')}>
                             {formatCurrency(fila.monto_total)}
@@ -811,14 +811,14 @@ export function Recibos() {
                               <button
                                 onClick={() => enviarMensajeWa(fila.cliente_id, waMsg)}
                                 disabled={enviandoWaIds.has(fila.cliente_id)}
-                                className="p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
+                                className="p-2.5 sm:p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
                                 {enviandoWaIds.has(fila.cliente_id)
                                   ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
                                   : <MessageCircle size={13} />}
                               </button>
                             )}
                             <button onClick={() => window.open(`/imprimir/recibo/${fila.id}`, '_blank')}
-                              className="p-1 rounded hover:bg-gray-100 text-gray-600 transition-colors">
+                              className="p-2.5 sm:p-1 rounded hover:bg-gray-100 text-gray-600 transition-colors">
                               <Printer size={13} />
                             </button>
                           </div>

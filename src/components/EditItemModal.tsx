@@ -104,7 +104,7 @@ export function EditItemModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
           <h2 className="text-sm font-bold text-gray-900 shrink-0">Editar ítem</h2>

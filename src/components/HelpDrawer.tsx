@@ -232,7 +232,7 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-[440px] bg-white shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-[440px] max-w-full bg-white shadow-2xl flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">

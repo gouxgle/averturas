@@ -69,7 +69,7 @@ export function NotificationBell() {
 
   const fetchNotifs = useCallback(async () => {
     try {
-      const data = await api.get<Notif[]>('/notificaciones');
+      const data = await api.get<Notif[]>('/notificaciones', { silent: true });
       setNotifs(data);
       const claveDe = (n: Notif) => `${n.tipo}-${n.id}`;
       if (!inicializado.current) {
@@ -184,7 +184,7 @@ export function NotificationBell() {
 
       {/* Panel dropdown */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-2xl overflow-hidden border border-white/10"
+        <div className="absolute right-0 top-full mt-2 w-80 max-w-[95vw] rounded-2xl shadow-2xl overflow-hidden border border-white/10"
           style={{ backgroundColor: '#0a2761', zIndex: 100 }}>
 
           {/* Header panel */}

@@ -734,7 +734,7 @@ function PresupuestoModal({
                     </div>
                     <span className={cn('text-[10px] font-semibold', ecColor)}>{ecLabel}</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mb-3 text-center">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 text-center">
                     <div className="bg-white rounded-lg px-2 py-2 border border-gray-200">
                       <p className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Total</p>
                       <p className="text-xs font-bold text-gray-800">{formatCurrency(total)}</p>
@@ -1232,7 +1232,7 @@ export function Presupuestos() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
               <input type="text" placeholder="Buscar por número, cliente o producto..."
                 value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
             </div>
             <button className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-400 transition-all">
               <Download size={13} /> Exportar
@@ -1244,12 +1244,11 @@ export function Presupuestos() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-400 shadow-lg">
             {loading ? (
-              <div className="p-3 space-y-1.5 min-w-[640px]">
+              <div className="p-3 space-y-1.5">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse grid gap-3"
-                    style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
+                  <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse grid grid-cols-1 sm:grid-cols-[70px_1fr_110px_80px_85px_80px] gap-3">
                     <div className="h-4 bg-gray-100 rounded" />
                     <div className="h-4 bg-gray-100 rounded" />
                     <div className="h-4 bg-gray-100 rounded" />
@@ -1266,10 +1265,9 @@ export function Presupuestos() {
                 <Link to="/presupuestos/nuevo" className="text-sm text-violet-600 hover:underline">Crear el primero</Link>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5 min-w-[640px]">
-                {/* Cabecera columnas */}
-                <div className="grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider"
-                  style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
+              <div className="p-3 space-y-1.5">
+                {/* Cabecera columnas — solo desktop; en mobile cada fila es autodescriptiva */}
+                <div className="hidden sm:grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider sm:grid-cols-[70px_1fr_110px_80px_85px_80px]">
                   <span>N°</span>
                   <span>Cliente</span>
                   <span>Estado</span>
@@ -1364,8 +1362,7 @@ export function Presupuestos() {
                       )}
                       onClick={() => abrirDetalle(p)}>
 
-                      <div className="grid gap-3 px-3 py-2.5 items-start"
-                        style={{ gridTemplateColumns: '70px 1fr 110px 80px 85px 80px' }}>
+                      <div className="grid grid-cols-1 sm:grid-cols-[70px_1fr_110px_80px_85px_80px] gap-3 px-3 py-2.5 items-start">
 
                         {/* N° + fecha */}
                         <div>
@@ -1456,13 +1453,13 @@ export function Presupuestos() {
                               <button
                                 onClick={() => enviarMensajeWa(p.cliente.id, `Hola ${p.cliente.nombre ?? ''}, te contactamos por el presupuesto ${p.numero}.`)}
                                 disabled={enviandoWaIds.has(p.cliente.id)}
-                                className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 disabled:opacity-60 flex items-center justify-center transition-colors" title="Enviar WhatsApp">
+                                className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-green-50 hover:bg-green-100 disabled:opacity-60 flex items-center justify-center transition-colors" title="Enviar WhatsApp">
                                 {enviandoWaIds.has(p.cliente.id)
                                   ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
                                   : <MessageSquare size={13} className="text-green-600" />}
                               </button>
                               <a href={`tel:${p.cliente.telefono}`}
-                                className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
+                                className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
                                 title="Llamar">
                                 <Phone size={13} className="text-blue-600" />
                               </a>
@@ -1470,13 +1467,13 @@ export function Presupuestos() {
                           )}
                           {p.cliente.email && (
                             <a href={`mailto:${p.cliente.email}`}
-                              className="w-7 h-7 rounded-lg bg-violet-50 hover:bg-violet-100 flex items-center justify-center transition-colors"
+                              className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-violet-50 hover:bg-violet-100 flex items-center justify-center transition-colors"
                               title="Email">
                               <Mail size={13} className="text-violet-600" />
                             </a>
                           )}
                           <button onClick={() => abrirDetalle(p)}
-                            className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors">
+                            className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors">
                             <MoreVertical size={13} className="text-gray-600" />
                           </button>
                         </div>

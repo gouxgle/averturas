@@ -704,9 +704,9 @@ export function NuevoRemito() {
             <div className="space-y-3">
               {items.map((item, i) => (
                 <div key={i} className="p-3 bg-gray-100 rounded-xl border border-gray-400">
-                  <div className="grid grid-cols-12 gap-2 mb-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-2">
                     {/* Selector producto con búsqueda */}
-                    <div className="col-span-5">
+                    <div className="sm:col-span-5">
                       <label className="block text-[10px] font-medium text-gray-600 mb-1">Producto</label>
                       {item.producto_id ? (
                         <div className="flex items-center gap-1 px-2 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
@@ -729,7 +729,7 @@ export function NuevoRemito() {
                             onFocus={() => setProdOpenAt(i, true)}
                             onBlur={() => setTimeout(() => setProdOpenAt(i, false), 150)}
                             placeholder="Buscar producto..."
-                            className="w-full pl-6 pr-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            className="w-full pl-6 pr-2 py-1.5 border border-gray-200 rounded-lg text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
                           />
                           {prodOpen[i] && (
                             <div className="absolute z-30 left-0 right-0 mt-0.5 bg-white rounded-xl border border-gray-200 shadow-lg max-h-44 overflow-y-auto">
@@ -767,41 +767,41 @@ export function NuevoRemito() {
                     </div>
 
                     {/* Descripción */}
-                    <div className="col-span-7">
+                    <div className="sm:col-span-7">
                       <label className="block text-[10px] font-medium text-gray-600 mb-1">Descripción *</label>
                       <input
                         value={item.descripcion}
                         onChange={e => updateItem(i, 'descripcion', e.target.value)}
                         placeholder="Descripción del ítem"
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
                     {/* Cantidad */}
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <label className="block text-[10px] font-medium text-gray-600 mb-1">Cant.</label>
                       <input type="number" min="1"
                         value={item.cantidad}
                         onChange={e => updateItem(i, 'cantidad', parseInt(e.target.value) || 1)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 text-center"
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 text-center"
                       />
                     </div>
 
                     {/* Precio */}
-                    <div className="col-span-3">
+                    <div className="sm:col-span-3">
                       <label className="block text-[10px] font-medium text-gray-600 mb-1">Precio unit.</label>
                       <MontoInput
                         value={item.precio_unitario}
                         onChange={v => updateItem(i, 'precio_unitario', v)}
                         placeholder="0,00"
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
 
                     {/* Estado producto */}
-                    <div className="col-span-4">
+                    <div className="col-span-2 sm:col-span-4">
                       <label className="block text-[10px] font-medium text-gray-600 mb-1">Estado</label>
                       <div className="flex gap-1">
                         {ESTADOS_PRODUCTO.map(ep => (
@@ -817,13 +817,13 @@ export function NuevoRemito() {
                     </div>
 
                     {/* Notas item */}
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <label className="block text-[10px] font-medium text-gray-600 mb-1">Notas</label>
                       <input
                         value={item.notas_item}
                         onChange={e => updateItem(i, 'notas_item', e.target.value)}
                         placeholder="—"
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
 

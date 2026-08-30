@@ -81,7 +81,7 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85dvh] overflow-hidden flex flex-col">
         <div className="px-6 py-4 bg-gradient-to-r from-sky-600 to-blue-600 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <RefreshCw size={16} className="text-white" />

@@ -311,7 +311,7 @@ function ActualizarPreciosModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90dvh] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
@@ -410,8 +410,8 @@ function ActualizarPreciosModal({
                 {vinculados.length > 0 && <span className="text-violet-600">{vinculados.filter(d => d.actualizar_catalogo).length} / {vinculados.length} vinculados seleccionados</span>}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <table className="w-full text-xs">
+            <div className="flex-1 overflow-auto">
+              <table className="w-full min-w-[640px] text-xs">
                 <thead className="bg-gray-50 sticky top-0 border-b">
                   <tr>
                     <th className="text-left px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">SKU</th>
@@ -752,7 +752,7 @@ function ImportCsvModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90dvh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <h2 className="font-bold text-gray-900">
             {paso === 'upload' ? 'Importar lista de precios CSV' : `Vista previa — ${filas.length} productos`}
@@ -791,8 +791,8 @@ function ImportCsvModal({
 
         {paso === 'preview' && (
           <>
-            <div className="flex-1 overflow-y-auto">
-              <table className="w-full text-xs">
+            <div className="flex-1 overflow-auto">
+              <table className="w-full min-w-[420px] text-xs">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">SKU</th>

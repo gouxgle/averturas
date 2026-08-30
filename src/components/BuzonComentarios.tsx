@@ -103,7 +103,7 @@ export function BuzonComentarios() {
   return (
     <div ref={panelRef} className="fixed bottom-4 left-4 z-40">
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-[380px] max-h-[75vh] bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-2 w-[380px] max-w-[calc(100vw-2rem)] max-h-[75dvh] bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-amber-50">
             <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
               <StickyNote size={14} className="text-amber-500" /> Buzón de comentarios

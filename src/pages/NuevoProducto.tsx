@@ -378,10 +378,10 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
       </div>
 
       {/* ── Identificación ── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="col-span-2">
           <FieldCard title="Tipo de puerta" complete={tp !== ''}>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5">
               {TIPO_PUERTA.map(o => (
                 <button key={o.v} type="button" onClick={() => handleTipoPuerta(o.v)} className={btn(tp === o.v)}>
                   {o.l}
@@ -407,7 +407,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
           <SectionDivider label="Configuración de hojas" />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <FieldCard title="Tipo de configuración" complete={cfg !== ''}>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {CONFIG_HOJAS.map(o => (
                   <button key={o.v} type="button" onClick={() => handleConfig(o.v)} className={btn(cfg === o.v)}>
                     <span className="block">{o.l}</span>
@@ -461,7 +461,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               </div>
             </FieldCard>
             <FieldCard title="Estructura" complete={Boolean(atributos.estructura)}>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {ESTRUCTURA.map(o => (
                   <button key={o.v} type="button" onClick={() => setAttr('estructura', o.v)} className={btn(atributos.estructura === o.v)}>
                     {o.l}
@@ -569,7 +569,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               </div>
             </FieldCard>
             <FieldCard title="Apertura" complete={Boolean(atributos.apertura)}>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {APERTURA.map(o => (
                   <button key={o.v} type="button" onClick={() => setAttr('apertura', o.v)} className={btn(atributos.apertura === o.v)}>
                     {o.l}
@@ -645,7 +645,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               ))}
             </div>
           </FieldCard>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Cerradura" complete={atributos.cerradura !== undefined}>
               <div className="flex gap-2">
                 {[{ v: true, l: 'Con cerradura' }, { v: false, l: 'Sin cerradura' }].map(o => (
@@ -781,7 +781,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
 
       {/* ── Tipo de ventana ── */}
       <FieldCard title="Tipo de ventana" complete={tv !== ''}>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
           {TIPO_VENTANA.map(o => (
             <button key={o.v} type="button" onClick={() => handleTipoVentana(o.v)} className={btn(tv === o.v)}>
               {o.l}
@@ -831,7 +831,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
         <>
           <SectionDivider label="Configuración" />
           <FieldCard title="Configuración especial" complete={Boolean(atributos.configuracion_especial)}>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {CFG_ESPECIAL_VENTANA.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('configuracion_especial', o.v)} className={btn(atributos.configuracion_especial === o.v)}>
                   {o.l}
@@ -876,7 +876,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
       {tv && (
         <>
           <SectionDivider label="Línea y color" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Línea" complete={Boolean(atributos.linea)}>
               <div className="flex flex-col gap-1.5">
                 {LINEA_VNT.map(o => (
@@ -1037,7 +1037,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
 
       {/* Tipo de apertura */}
       <FieldCard title="Tipo de apertura" complete={tv !== ''}>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
           {TIPO_VENTANA.map(o => (
             <button key={o.v} type="button" onClick={() => handleTipo(o.v)} className={btn(tv === o.v)}>
               {o.l}
@@ -1087,7 +1087,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
         <>
           <SectionDivider label="Configuración" />
           <FieldCard title="Configuración especial" complete={Boolean(atributos.configuracion_especial)}>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {CFG_ESPECIAL_PBALCON.map(o => (
                 <button key={o.v} type="button" onClick={() => setAttr('configuracion_especial', o.v)} className={btn(atributos.configuracion_especial === o.v)}>
                   {o.l}
@@ -1129,7 +1129,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
       {tv && (
         <>
           <SectionDivider label="Línea y color" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Línea" complete={Boolean(atributos.linea)}>
               <div className="flex flex-col gap-1.5">
                 {LINEA_VNT.map(o => (
@@ -1286,7 +1286,7 @@ function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }:
         </div>
 
         <SectionDivider label="Material y malla" />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldCard title="Material del marco" complete={marco !== ''}>
             <div className="flex flex-col gap-1.5">
               {MARCO_MOSQUITERA.map(o => (
@@ -1754,7 +1754,7 @@ export function NuevoProducto() {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white';
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white';
   const labelCls = 'block text-[11px] font-semibold text-black uppercase tracking-wider mb-1.5';
 
   const SectionHeader = ({ icon: Icon, label, primary = false }: { icon: React.ElementType; label: string; primary?: boolean }) => (
@@ -1959,7 +1959,7 @@ export function NuevoProducto() {
       {esPuerta && (
         <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
-          <div className="p-4 grid grid-cols-2 gap-4">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Ancho total</label>
               <div className={cn(
@@ -2013,7 +2013,7 @@ export function NuevoProducto() {
       {(esVentana || esPuertaBalcon) && (
         <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas de marco (cm)" />
-          <div className="p-4 grid grid-cols-2 gap-4">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Ancho *</label>
               <div className="relative">
@@ -2055,7 +2055,7 @@ export function NuevoProducto() {
       {esMosquitera && (
         <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Ruler} label="Medidas (cm)" />
-          <div className="p-4 grid grid-cols-2 gap-4">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Ancho *</label>
               <div className="relative">
@@ -2105,7 +2105,7 @@ export function NuevoProducto() {
             </div>
 
             {form.tipo === 'estandar' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Ancho (m)</label>
                   <input type="number" value={form.ancho} onChange={e => set('ancho', e.target.value)} placeholder="0.90" className={inputCls} />
@@ -2152,7 +2152,7 @@ export function NuevoProducto() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Ancho (m)</label>
                 <input type="number" value={form.ancho} onChange={e => set('ancho', e.target.value)} placeholder="0.90" className={inputCls} />
@@ -2171,7 +2171,7 @@ export function NuevoProducto() {
                 )}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Premarco</label>
                 <select value={form.premarco ? 'si' : 'no'} onChange={e => set('premarco', e.target.value === 'si')} className={inputCls}>
@@ -2199,7 +2199,7 @@ export function NuevoProducto() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
           <SectionHeader icon={Boxes} label="Stock" />
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {isEdit ? (
               <div className="col-span-2 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div>
@@ -2306,7 +2306,7 @@ export function NuevoProducto() {
       <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={DollarSign} label={`Precios base${form.precio_por_m2 ? ' (por m²)' : ''}`} />
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Costo *</label>
               <MontoInput value={form.costo_base} onChange={v => set('costo_base', v)}
@@ -2337,7 +2337,7 @@ export function NuevoProducto() {
             </div>
           )}
           {/* Margen override + precio_manual */}
-          <div className="grid grid-cols-2 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
             <div>
               <label className={labelCls}>
                 <span className="flex items-center gap-1"><Percent size={11} /> Margen objetivo (override)</span>
@@ -2369,7 +2369,7 @@ export function NuevoProducto() {
             <label className={labelCls}>
               <span className="flex items-center gap-1"><Star size={11} /> Etiqueta de venta</span>
             </label>
-            <div className="grid grid-cols-4 gap-2 mt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-1">
               {([
                 ['', 'Ninguna', 'border-gray-200 text-black'],
                 ['mas_vendido', 'Más vendido', 'border-amber-400 bg-amber-50 text-amber-800'],
@@ -2392,7 +2392,7 @@ export function NuevoProducto() {
             <label className={labelCls}>
               <span className="flex items-center gap-1"><Percent size={11} /> Segmento de margen</span>
             </label>
-            <div className="grid grid-cols-3 gap-2 mt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
               {([['bajo', 'Bajo', '25 %'], ['medio', 'Medio', '35 %'], ['alto', 'Alto', '40 %']] as const).map(([v, l, pct]) => (
                 <button key={v} type="button"
                   onClick={() => set('margen_tipo', form.margen_tipo === v ? '' : v)}
@@ -2453,7 +2453,7 @@ export function NuevoProducto() {
               </div>
             </button>
 
-            <div className={cn('grid grid-cols-2 gap-3', form.promo_auto_renovar && 'opacity-50 pointer-events-none')}>
+            <div className={cn('grid grid-cols-1 sm:grid-cols-2 gap-3', form.promo_auto_renovar && 'opacity-50 pointer-events-none')}>
               <div>
                 <label className={cn(labelCls, 'flex items-center gap-1')}><CalendarDays size={11} /> Fecha inicio</label>
                 <input type="date" value={form.promo_fecha_inicio}

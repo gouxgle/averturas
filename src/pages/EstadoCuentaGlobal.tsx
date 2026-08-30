@@ -280,7 +280,7 @@ function ModalNuevoCompromiso({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div>
             <h3 className="font-bold text-gray-800">Nuevo compromiso de pago</h3>
@@ -304,7 +304,7 @@ function ModalNuevoCompromiso({
               })}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Monto *</label>
               <input type="number" step="0.01" min="0.01" required value={form.monto} onChange={e => upd('monto', e.target.value)}
@@ -323,7 +323,7 @@ function ModalNuevoCompromiso({
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
           </div>
           {form.tipo === 'cheque' && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">N° Cheque</label>
                 <input type="text" value={form.numero_cheque} onChange={e => upd('numero_cheque', e.target.value)}
@@ -586,7 +586,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
@@ -627,7 +627,7 @@ function ModalDetalleEstadoCuenta({ clienteId, onClose }: { clienteId: string; o
             <>
               {/* Resumen financiero */}
               <div className={cn('rounded-xl border-2 p-4', saldado ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200')}>
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
                   <div>
                     <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Total facturado</p>
                     <p className="text-base font-bold text-gray-800 font-mono">{formatCurrency(data.totales.presupuestado)}</p>
@@ -1012,15 +1012,12 @@ export function EstadoCuentaGlobal() {
       </div>
 
       {/* Main layout */}
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
         {/* Table */}
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-          <div className="min-w-[997px]">
-            {/* Table header */}
-            <div className="grid text-[10px] font-semibold text-gray-600 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50"
-              style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
+            {/* Table header — solo desktop; en mobile cada fila es autodescriptiva */}
+            <div className="hidden sm:grid text-[10px] font-semibold text-gray-600 uppercase tracking-wider gap-x-2 px-4 py-2.5 border-b border-gray-200 bg-gray-50 sm:grid-cols-[220px_108px_108px_117px_96px_90px_85px_85px]">
               <span className="whitespace-nowrap">Cliente</span>
               <span className="whitespace-nowrap">Última compra</span>
               <span className="text-right whitespace-nowrap">Total comprado</span>
@@ -1060,14 +1057,13 @@ export function EstadoCuentaGlobal() {
                     <div key={c.id}>
                       <div
                         className={cn(
-                          'grid items-center gap-x-2 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
+                          'grid grid-cols-2 sm:grid-cols-[220px_108px_108px_117px_96px_90px_85px_85px] items-center gap-x-2 gap-y-1 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 group',
                           cfg.border
                         )}
-                        style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}
                         onClick={() => setDetalleClienteId(c.id)}
                       >
                         {/* Cliente */}
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="col-span-2 sm:col-span-1 flex items-center gap-2.5 min-w-0">
                           <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0', avatarColor(c))}>
                             {initials(c)}
                           </div>
@@ -1143,7 +1139,7 @@ export function EstadoCuentaGlobal() {
                         </div>
 
                         {/* Acciones */}
-                        <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
+                        <div className="col-span-2 sm:col-span-1 flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
                           {c.telefono && (
                             <>
                               <button
@@ -1190,7 +1186,13 @@ export function EstadoCuentaGlobal() {
             {/* Footer totales */}
             {!loading && t && filtrado.length > 1 && (
               <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <div className="grid text-xs gap-x-2" style={{ gridTemplateColumns: '220px 108px 108px 117px 96px 90px 85px 85px' }}>
+                <p className="text-xs text-gray-600 sm:hidden mb-1.5">Mostrando {filtrado.length} de {clientes.length} clientes</p>
+                <div className="grid grid-cols-3 gap-2 text-xs sm:hidden">
+                  <div><p className="text-[10px] text-gray-600">Comprado</p><p className="font-bold text-gray-700">{formatCurrency(t.presupuestado)}</p></div>
+                  <div><p className="text-[10px] text-gray-600">Cobrado</p><p className="font-bold text-emerald-600">{formatCurrency(t.cobrado)}</p></div>
+                  <div><p className="text-[10px] text-gray-600">Saldo</p><p className="font-bold text-red-600">{formatCurrency(t.saldo)}</p></div>
+                </div>
+                <div className="hidden sm:grid text-xs gap-x-2 sm:grid-cols-[220px_108px_108px_117px_96px_90px_85px_85px]">
                   <span className="text-gray-600">Mostrando {filtrado.length} de {clientes.length} clientes</span>
                   <span />
                   <span className="text-right font-bold text-gray-700">{formatCurrency(t.presupuestado)}</span>
@@ -1203,12 +1205,10 @@ export function EstadoCuentaGlobal() {
               </div>
             )}
           </div>
-          </div>
-          </div>
         </div>
 
         {/* Sidebar */}
-        <div className="w-64 shrink-0 space-y-4">
+        <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
           {/* Resumen de saldos */}
           <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-semibold text-gray-700 mb-3">Resumen de saldos</p>

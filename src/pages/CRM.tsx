@@ -172,22 +172,22 @@ function ModalNuevoLead({ onClose, onSuccess }: { onClose: () => void; onSuccess
       onSuccess(); onClose();
     } finally { setSaving(false); }
   };
-  const inp = 'w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400';
+  const inp = 'w-full px-3 py-2 border border-gray-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-violet-400';
   const lbl = 'block text-xs font-semibold text-gray-600 mb-1';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600 rounded-t-2xl">
           <h2 className="text-sm font-bold text-white">Nuevo Lead</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg"><X size={16} className="text-white" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className={lbl}>Nombre *</label><input className={inp} value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} required /></div>
             <div><label className={lbl}>Apellido</label><input className={inp} value={form.apellido} onChange={e => setForm(p => ({ ...p, apellido: e.target.value }))} /></div>
           </div>
           <div><label className={lbl}>Teléfono</label><input className={inp} value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} /></div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className={lbl}>Origen</label>
               <select className={inp} value={form.origen} onChange={e => setForm(p => ({ ...p, origen: e.target.value }))}>
                 {['whatsapp','instagram','facebook','referido','web','visita_local','otro'].map(o => <option key={o} value={o}>{o}</option>)}
@@ -235,7 +235,7 @@ function ModalMoverEtapa({ cliente, onClose, onSuccess }: { cliente: ClientePipe
   ];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90dvh] overflow-y-auto">
         <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
           <div><h2 className="text-sm font-bold text-gray-900">Mover etapa</h2><p className="text-xs text-gray-600">{cliNombre(cliente)}</p></div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} className="text-gray-600" /></button>

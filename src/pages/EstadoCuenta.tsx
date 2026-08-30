@@ -208,6 +208,7 @@ function OperacionCard({ op }: { op: OperacionDetalle }) {
           {op.items.length > 0 && (
             <div className="px-4 py-3">
               <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Ítems</p>
+              <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-gray-200">
@@ -236,6 +237,7 @@ function OperacionCard({ op }: { op: OperacionDetalle }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
           {op.remitos.length > 0 && (

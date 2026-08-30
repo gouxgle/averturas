@@ -552,16 +552,16 @@ export function Remitos() {
       />
 
       {loading && !data ? (
-        <div className="flex gap-5">
+        <div className="flex flex-col xl:flex-row gap-5">
           <div className="flex-1 space-y-4">
             {[80, 60, 400, 80].map((h, i) => <div key={i} className="animate-pulse bg-gray-100 rounded-2xl" style={{ height: h }} />)}
           </div>
-          <div className="w-72 space-y-4 shrink-0">
+          <div className="w-full xl:w-72 xl:shrink-0 space-y-4">
             {[160, 160, 140, 120].map((h, i) => <div key={i} className="animate-pulse bg-gray-100 rounded-2xl" style={{ height: h }} />)}
           </div>
         </div>
       ) : data && (
-        <div className="flex gap-5 items-start">
+        <div className="flex flex-col xl:flex-row gap-5 xl:items-start">
 
           {/* Columna principal */}
           <div className="flex-1 min-w-0 space-y-4">
@@ -621,7 +621,7 @@ export function Remitos() {
             </div>
 
             {/* Lista */}
-            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg">
               {filtrado.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package size={28} className="mx-auto mb-3 text-gray-200" />
@@ -629,7 +629,7 @@ export function Remitos() {
                 </div>
               ) : (
                 <>
-                  <div className="p-3 space-y-1.5 min-w-[680px]">
+                  <div className="p-3 space-y-1.5">
                     {paginated.map(r => {
                       const urg = urgState(r);
                       const badge = ESTADO_BADGE[urg];
@@ -644,9 +644,9 @@ export function Remitos() {
                             r.recepcion_estado === 'conforme' && 'bg-emerald-50/40'
                           )}
                           onClick={() => setDetailRemito(r)}>
-                          <div className="px-3 py-2.5 flex items-start gap-3">
+                          <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
                             {/* Número */}
-                            <div className="shrink-0 w-[76px]">
+                            <div className="sm:shrink-0 sm:w-[76px] flex items-baseline gap-2 sm:block">
                               <p className="text-[11px] font-mono text-gray-600">{r.numero}</p>
                               <p className="text-[10px] text-gray-600 mt-0.5">{fmtFecha(r.fecha_emision)}</p>
                             </div>
@@ -682,7 +682,7 @@ export function Remitos() {
                               </div>
                             </div>
                             {/* Fecha entrega */}
-                            <div className="shrink-0 text-right min-w-[70px]">
+                            <div className="sm:shrink-0 text-left sm:text-right sm:min-w-[70px]">
                               {r.fecha_entrega_est ? (
                                 <>
                                   <p className="text-[11px] text-gray-600">{fmtFecha(r.fecha_entrega_est)}</p>
@@ -695,21 +695,21 @@ export function Remitos() {
                               ) : <p className="text-[11px] text-gray-600">—</p>}
                             </div>
                             {/* Acciones */}
-                            <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                            <div className="sm:shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
                               {r.cliente.telefono && (
                                 <button type="button" onClick={() => setShareRemito(r)}
                                   title="Enviar por WhatsApp"
-                                  className="w-7 h-7 rounded-lg bg-green-50 hover:bg-green-100 border border-green-200 flex items-center justify-center transition-colors">
+                                  className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-green-50 hover:bg-green-100 border border-green-200 flex items-center justify-center transition-colors">
                                   <MessageCircle size={13} className="text-green-600" />
                                 </button>
                               )}
                               <button type="button" onClick={() => setDetailRemito(r)}
-                                className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center transition-colors">
+                                className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center transition-colors">
                                 <Eye size={13} className="text-gray-600" />
                               </button>
                               {r.estado !== 'cancelado' && (
                                 <button type="button" onClick={() => setEstadoModal(r)}
-                                  className="w-7 h-7 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center transition-colors">
+                                  className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center transition-colors">
                                   <ChevronRight size={13} className="text-teal-600" />
                                 </button>
                               )}
@@ -809,7 +809,7 @@ export function Remitos() {
           </div>
 
           {/* Sidebar */}
-          <div className="w-[280px] shrink-0 space-y-4">
+          <div className="w-full xl:w-[280px] xl:shrink-0 space-y-4">
 
             {/* Entregas del día */}
             <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">

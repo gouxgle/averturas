@@ -515,7 +515,7 @@ export function VistaPublicaPresupuesto() {
     return (
       <FormWrap Icon={Pencil} color="#7c3aed" titulo="Quiero modificar la propuesta"
         sub="Marcá qué querés cambiar y te reenviamos una nueva versión" onBack={() => setEstado('menu')}>
-        <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
           {CAMBIOS.map(c => (
             <button key={c} onClick={() => toggleCambio(c)}
               className={`text-left px-3 py-2.5 rounded-xl border text-xs font-medium transition-all leading-snug ${
@@ -550,7 +550,7 @@ export function VistaPublicaPresupuesto() {
           <p className="text-sm text-gray-600 mt-1">Tu opinión nos ayuda a mejorar</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
           {MOTIVOS.map(m => (
             <button key={m} onClick={() => setMotivoSel(m)}
               className={`text-left px-3 py-3 rounded-xl border text-xs font-medium transition-all leading-snug ${
@@ -1043,7 +1043,7 @@ export function VistaPublicaPresupuesto() {
     {showTerminos && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
         onClick={() => setShowTerminos(false)}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col"
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85dvh] flex flex-col"
           onClick={e => e.stopPropagation()}>
 
           {/* Header */}

@@ -215,7 +215,7 @@ function ModalProveedor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -230,7 +230,7 @@ function ModalProveedor({
           {/* Datos básicos */}
           <div>
             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Datos generales</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className={lbl}>Nombre / Razón social *</label>
                 <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
@@ -246,7 +246,7 @@ function ModalProveedor({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <div>
                 <label className={lbl}>Contacto</label>
                 <input type="text" value={form.contacto ?? ''} onChange={e => set('contacto', e.target.value || null)}
@@ -271,7 +271,7 @@ function ModalProveedor({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               <div>
                 <label className={lbl}>Dirección</label>
                 <input type="text" value={form.direccion ?? ''} onChange={e => set('direccion', e.target.value || null)}
@@ -317,7 +317,7 @@ function ModalProveedor({
           {/* Logística */}
           <div>
             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Logística y entrega</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className={lbl}>Forma de entrega</label>
                 <select value={form.forma_entrega ?? 'propia'} onChange={e => set('forma_entrega', e.target.value)} className={inp('forma_entrega')}>
@@ -342,7 +342,7 @@ function ModalProveedor({
           {/* Evaluación + deuda */}
           <div>
             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Evaluación y finanzas</p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={lbl}>Calificación</label>
                 <div className="flex items-center gap-3 mt-1">
@@ -418,15 +418,14 @@ function ProveedorRow({
 
   return (
     <div className={cn(
-      'bg-white rounded-xl border border-gray-400 shadow-lg border-l-4 transition-opacity overflow-x-auto',
+      'bg-white rounded-xl border border-gray-400 shadow-lg border-l-4 transition-opacity',
       prov.es_principal ? 'border-l-amber-400' : 'border-l-gray-200',
       !prov.activo && 'opacity-50'
     )}>
-      <div className="grid items-center gap-3 px-4 py-3 min-w-[730px]"
-        style={{ gridTemplateColumns: '1fr 110px 110px 110px 120px 90px 80px 80px' }}>
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_110px_110px_110px_120px_90px_80px_80px] items-center gap-3 px-4 py-3">
 
         {/* Proveedor */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="col-span-2 sm:col-span-1 flex items-center gap-3 min-w-0">
           <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0', color)}>
             {initials(prov.nombre)}
           </div>
@@ -544,7 +543,7 @@ function ProveedorRow({
         </div>
 
         {/* Editar / precios / toggle / eliminar */}
-        <div className="flex items-center justify-end gap-1">
+        <div className="col-span-2 sm:col-span-1 flex items-center justify-end gap-1">
           <button onClick={onPrecios}
             className="p-1.5 hover:bg-lime-50 text-lime-600 rounded-lg" title="Lista de precios">
             <Tag size={13} />
@@ -731,7 +730,7 @@ export function Proveedores() {
       )}
 
       {/* 2-col: main + sidebar */}
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col xl:flex-row gap-5 xl:items-start">
 
         {/* ── Main ── */}
         <div className="flex-1 min-w-0 space-y-4">
@@ -850,7 +849,7 @@ export function Proveedores() {
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="w-64 shrink-0 space-y-4">
+        <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
 
           {/* Resumen de transporte */}
           <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
@@ -941,7 +940,7 @@ export function Proveedores() {
 
       {/* ── Análisis inferior ── */}
       {(tablero?.compras_por_rubro.length ?? 0) > 0 && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Compras por rubro */}
           <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">

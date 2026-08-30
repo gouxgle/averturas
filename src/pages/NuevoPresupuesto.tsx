@@ -197,6 +197,53 @@ function emptyItem(): ItemForm {
   };
 }
 
+// ── Borrador automático ─────────────────────────────────────────────────────
+// Red de seguridad para cargas largas (muchos ítems a medida, cada uno requiere
+// atención): si la página se pierde por lo que sea — sesión vencida, cierre
+// accidental de la pestaña, F5 sin querer — el trabajo no se cargó de nuevo
+// desde cero. Se guarda solo mientras se está creando un presupuesto NUEVO
+// (no en edición, donde el servidor ya tiene el último guardado) y solo si
+// no vino precargado desde una visita técnica.
+const BORRADOR_KEY = 'aberturas_borrador_presupuesto';
+
+interface BorradorPresupuesto {
+  ts: number;
+  clienteId: string;
+  items: ItemForm[];
+  formaPago: string;
+  notas: string;
+  notasInternas: string;
+  tipoProyecto: string;
+  fechaValidez: string;
+  formaEnvio: string;
+  costoEnvio: number;
+  tiempoEntrega: string;
+}
+
+function leerBorrador(): BorradorPresupuesto | null {
+  try {
+    const raw = localStorage.getItem(BORRADOR_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as BorradorPresupuesto;
+    if (!d.clienteId && !d.items?.length) return null;
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+function borrarBorrador() {
+  try { localStorage.removeItem(BORRADOR_KEY); } catch { /* localStorage deshabilitado */ }
+}
+
+function fmtHaceRato(ts: number): string {
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  return `hace ${h} h`;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function itemPrecioTotal(item: ItemForm) {
@@ -279,6 +326,63 @@ export function NuevoPresupuesto() {
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
   const [cargaMultiplePlantilla, setCargaMultiplePlantilla] = useState<ItemForm | null>(null);
   const [showNotas, setShowNotas] = useState(false);
+
+  // Borrador automático — ver comentario junto a BORRADOR_KEY más arriba
+  const [borradorDisponible, setBorradorDisponible] = useState<BorradorPresupuesto | null>(null);
+  const borradorListoRef = useRef(false);
+
+  function restaurarBorrador() {
+    if (!borradorDisponible) return;
+    const d = borradorDisponible;
+    setClienteId(d.clienteId);
+    if (d.clienteId) api.get<Cliente>(`/clientes/${d.clienteId}`).then(cl => setClientes([cl])).catch(() => {});
+    setItems(d.items);
+    setFormaPago(d.formaPago);
+    setNotas(d.notas);
+    setNotasInternas(d.notasInternas);
+    setTipoProyecto(d.tipoProyecto);
+    setFechaValidez(d.fechaValidez);
+    setFormaEnvio(d.formaEnvio);
+    setCostoEnvio(d.costoEnvio);
+    setTiempoEntrega(d.tiempoEntrega);
+    setBorradorDisponible(null);
+    borradorListoRef.current = true;
+    toast.success('Borrador recuperado');
+  }
+
+  function descartarBorrador() {
+    borrarBorrador();
+    setBorradorDisponible(null);
+    borradorListoRef.current = true;
+  }
+
+  // Al entrar a un presupuesto NUEVO (no edición, no precargado desde visita
+  // técnica), buscar si quedó un borrador de una carga anterior sin guardar.
+  useEffect(() => {
+    if (isEdit) { borradorListoRef.current = true; return; }
+    const state = location.state as { itemsPrecargados?: unknown[] } | null;
+    if (state?.itemsPrecargados?.length) { borradorListoRef.current = true; return; }
+    const d = leerBorrador();
+    if (d) setBorradorDisponible(d);
+    else borradorListoRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autoguardado debounced — recién arranca una vez resuelta la pregunta de
+  // "¿hay un borrador para recuperar?" (si no, se pisaría antes de mostrarlo).
+  useEffect(() => {
+    if (isEdit || !borradorListoRef.current) return;
+    const t = setTimeout(() => {
+      const hayAlgo = clienteId || items.some(it => it.descripcion.trim() || it.medida_ancho || it.medida_alto);
+      if (!hayAlgo) { borrarBorrador(); return; }
+      const snap: BorradorPresupuesto = {
+        ts: Date.now(), clienteId, items, formaPago, notas, notasInternas,
+        tipoProyecto, fechaValidez, formaEnvio, costoEnvio, tiempoEntrega,
+      };
+      try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(snap)); } catch { /* localStorage lleno/deshabilitado */ }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [isEdit, clienteId, items, formaPago, notas, notasInternas, tipoProyecto, fechaValidez, formaEnvio, costoEnvio, tiempoEntrega]);
 
   // Modal "Ver más" — detalle de producto desde la galería
   const [detalleOriginal, setDetalleOriginal] = useState<CatalogProduct | null>(null);
@@ -746,6 +850,7 @@ export function NuevoPresupuesto() {
         ? await api.put<{ id: string; numero: string }>(`/operaciones/${editId}`, payload)
         : await api.post<{ id: string; numero: string }>('/operaciones', payload);
 
+      if (!isEdit) borrarBorrador();
       const msgBase = isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`;
       if (oportunidadId) {
         try {
@@ -940,8 +1045,39 @@ export function NuevoPresupuesto() {
         </div>
       </div>
 
+      {/* ── MODAL: recuperar borrador (prioridad sobre elegir cliente) ── */}
+      {borradorDisponible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-5 bg-gradient-to-r from-amber-500 to-amber-400 flex items-start gap-3">
+              <AlertTriangle size={22} className="text-white shrink-0 mt-0.5" />
+              <div>
+                <h2 className="text-base font-bold text-white">Encontramos una carga sin guardar</h2>
+                <p className="text-xs text-amber-50 mt-1">
+                  De {fmtHaceRato(borradorDisponible.ts)}
+                  {borradorDisponible.items.length > 0
+                    ? `, con ${borradorDisponible.items.length} ítem${borradorDisponible.items.length !== 1 ? 's' : ''} cargado${borradorDisponible.items.length !== 1 ? 's' : ''}.`
+                    : '.'}
+                  {' '}¿La recuperamos para seguir donde quedaste?
+                </p>
+              </div>
+            </div>
+            <div className="p-5 flex gap-3">
+              <button onClick={descartarBorrador}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                Descartar
+              </button>
+              <button onClick={restaurarBorrador}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold">
+                Recuperar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL: elegir cliente (bloqueante hasta elegir uno) ── */}
-      {!clienteId && (
+      {!clienteId && !borradorDisponible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={e => { if (e.target === e.currentTarget) navigate('/presupuestos'); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -1292,7 +1428,7 @@ export function NuevoPresupuesto() {
                       value={galSearch}
                       onChange={e => setGalSearch(e.target.value)}
                       placeholder="Buscar producto, medida o código..."
-                      className="flex-1 bg-transparent text-xs text-gray-700 placeholder:text-gray-600 focus:outline-none"
+                      className="flex-1 bg-transparent text-base sm:text-xs text-gray-700 placeholder:text-gray-600 focus:outline-none"
                     />
                     {galSearch && (
                       <button onMouseDown={() => setGalSearch('')} className="text-gray-600 hover:text-gray-600">
@@ -1334,7 +1470,7 @@ export function NuevoPresupuesto() {
                   ) : productosOrdenados.length === 0 ? (
                     <div className="flex items-center justify-center py-10 text-gray-600 text-xs">Sin resultados</div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                       {productosOrdenados.map(p => {
                         const img = p.imagenes?.[0] || p.imagen_url;
                         const enCarrito = items.some(it => it.producto_id === p.id);
@@ -1542,9 +1678,9 @@ export function NuevoPresupuesto() {
 
           {/* Tabla — scroll horizontal en mobile, columnas fijas no entran en pantallas chicas */}
           <div className="flex-1 overflow-x-auto flex flex-col">
-          <div className="min-w-[420px] flex flex-col flex-1">
+          <div className="min-w-[450px] flex flex-col flex-1">
           {/* Tabla header */}
-          <div className="grid bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2" style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 40px' }}>
+          <div className="grid bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2" style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 70px' }}>
             <span>Producto</span>
             <span className="text-center">Medida</span>
             <span className="text-center">Cant.</span>
@@ -1576,7 +1712,7 @@ export function NuevoPresupuesto() {
                     'grid items-center px-4 py-2.5 border-b border-gray-200 hover:bg-gray-50/50 transition-colors',
                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
                   )}
-                  style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 40px' }}
+                  style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 70px' }}
                 >
                   {/* Producto info */}
                   <div className="flex items-center gap-2 min-w-0">
@@ -1670,6 +1806,7 @@ export function NuevoPresupuesto() {
                     {item.tipo_item !== 'a_relevar' && (
                       <button
                         onClick={() => setEditItemKey(item._key)}
+                        title="Editar"
                         className="p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
                       >
                         <Edit2 size={11} />
@@ -2051,7 +2188,7 @@ export function NuevoPresupuesto() {
       {variantePicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setVariantePicker(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80dvh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between z-10">
               <div>
                 <p className="text-base font-bold text-gray-900">{variantePicker.nombre}</p>

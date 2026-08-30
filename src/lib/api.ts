@@ -14,7 +14,18 @@ export const tokenStorage = {
   },
 };
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+interface RequestOpts {
+  // Llamadas "de fondo" (polling, chequeos automáticos) — un 401 acá NUNCA debe
+  // expulsar al usuario de la página. Antes, CUALQUIER 401 (incluido el poll de
+  // NotificationBell cada 10s) hacía window.location.href='/login' sin avisar,
+  // borrando de golpe todo lo que hubiera sin guardar en un formulario largo
+  // (bug real reportado — carga de varios ítems, la sesión vencía en medio de la
+  // carga y el usuario perdía todo el trabajo). Ahora solo una llamada explícita
+  // del usuario (silent=false, el default) puede disparar esa redirección.
+  silent?: boolean;
+}
+
+async function request<T>(method: string, path: string, body?: unknown, opts?: RequestOpts): Promise<T> {
   const token = tokenStorage.get();
   const res = await fetch(`/api${path}`, {
     method,
@@ -26,8 +37,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
 
   if (res.status === 401) {
-    tokenStorage.clear();
-    window.location.href = '/login';
+    if (!opts?.silent) {
+      tokenStorage.clear();
+      window.location.href = '/login';
+    }
     throw new Error('No autorizado');
   }
 
@@ -44,9 +57,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
-  get:    <T>(path: string)              => request<T>('GET',    path),
-  post:   <T>(path: string, body: unknown) => request<T>('POST',   path, body),
-  put:    <T>(path: string, body: unknown) => request<T>('PUT',    path, body),
-  patch:  <T>(path: string, body?: unknown) => request<T>('PATCH',  path, body),
-  delete: <T>(path: string)              => request<T>('DELETE', path),
+  get:    <T>(path: string, opts?: RequestOpts)              => request<T>('GET',    path, undefined, opts),
+  post:   <T>(path: string, body: unknown, opts?: RequestOpts) => request<T>('POST',   path, body, opts),
+  put:    <T>(path: string, body: unknown, opts?: RequestOpts) => request<T>('PUT',    path, body, opts),
+  patch:  <T>(path: string, body?: unknown, opts?: RequestOpts) => request<T>('PATCH',  path, body, opts),
+  delete: <T>(path: string, opts?: RequestOpts)              => request<T>('DELETE', path, undefined, opts),
 };

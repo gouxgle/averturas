@@ -60,13 +60,13 @@ export function ModalProgramarEntrega({ remito, onClose, onSuccess }: {
     }
   }
 
-  const inp = 'w-full px-3 py-2 border border-gray-400 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
+  const inp = 'w-full px-3 py-2 border border-gray-400 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
   const lbl = 'block text-xs font-semibold text-gray-600 mb-1';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-600 to-sky-600 sticky top-0">
           <div className="flex items-center gap-2">
             <CalendarClock size={16} className="text-white" />

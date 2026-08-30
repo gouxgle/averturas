@@ -521,9 +521,9 @@ export function Clientes() {
           </div>
 
           {/* Lista */}
-          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg">
             {loading ? (
-              <div className="p-3 space-y-1.5 min-w-[600px]">
+              <div className="p-3 space-y-1.5">
                 {[...Array(7)].map((_, i) => (
                   <div key={i} className="rounded-xl border border-gray-200 px-3 py-3 animate-pulse flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-gray-100 shrink-0" />
@@ -543,7 +543,7 @@ export function Clientes() {
                 </p>
               </div>
             ) : (
-              <div className="p-3 space-y-1.5 min-w-[600px]">
+              <div className="p-3 space-y-1.5">
                 {paginated.map(c => {
                   const seg = efectivoSegmento(c);
                   const segCfg = SEG_CFG[seg];
@@ -556,7 +556,8 @@ export function Clientes() {
                     <div key={c.id}
                       className={cn('rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer hover:shadow-md transition-all group', lBorder)}
                       onClick={() => navigate(`/clientes/${c.id}`)}>
-                      <div className="px-3 py-2.5 flex items-start gap-3">
+                      <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         {/* Avatar */}
                         <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 mt-0.5', av.bg, av.text)}>
                           {getInitials(c)}
@@ -588,8 +589,10 @@ export function Clientes() {
                             )}
                           </div>
                         </div>
+                       </div>
+                       <div className="flex items-center sm:flex-col sm:items-end justify-between sm:justify-start gap-1 sm:shrink-0">
                         {/* Stats */}
-                        <div className="shrink-0 text-right">
+                        <div className="text-left sm:text-right">
                           {c.operaciones_count > 0 ? (
                             <>
                               <p className="text-[12px] font-bold text-gray-800 tabular-nums">{formatCurrency(c.valor_total_historico)}</p>
@@ -598,7 +601,7 @@ export function Clientes() {
                           ) : <p className="text-[11px] text-gray-600">Sin compras</p>}
                         </div>
                         {/* Acciones */}
-                        <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           {c.telefono && (
                             <button onClick={() => enviarMensajeWa(c.id, waMsg)} disabled={enviandoWaIds.has(c.id)}
                               className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
@@ -617,6 +620,7 @@ export function Clientes() {
                             <History size={14} />
                           </button>
                         </div>
+                       </div>
                       </div>
                     </div>
                   );

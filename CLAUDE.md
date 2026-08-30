@@ -497,6 +497,32 @@ Estos 2 componentes compartidos se usan en casi todas las secciones (Dashboard, 
 - **Safety-net global**: `html, body { overflow-x: hidden }` en `index.css` — evita que un overflow puntual futuro arrastre toda la página de costado.
 - Listas con tabla ancha (Presupuestos y similares) siguen con scroll horizontal propio en mobile (`overflow-x-auto` en el contenedor de la tabla) — funciona pero no es tarjetas apiladas; pendiente si se pide pulir más.
 
+## Convenciones de UI / Responsive
+
+El frontend es React + TypeScript + Vite + Tailwind.
+Tailwind es mobile-first: la clase sin prefijo es MÓVIL,
+`md:` y `lg:` agregan a medida que la pantalla crece.
+
+Reglas obligatorias:
+- Nunca usar anchos fijos (`w-[600px]`, `min-w-` sin justificación).
+  Usar `w-full` + `max-w-*`.
+- Grillas siempre escalonadas:
+  `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
+- Tablas de datos: en móvil se renderizan como tarjetas
+  (`md:hidden`), en desktop como `<table>` (`hidden md:table`).
+  Mismo componente, misma fuente de datos, dos presentaciones.
+  NO duplicar lógica ni crear componentes "Mobile" separados.
+- Botones e íconos táctiles: mínimo `h-11` (44px).
+- Inputs: `text-base` mínimo (evita zoom automático en iOS).
+- Modales: `w-full sm:max-w-lg` + `max-h-[90dvh] overflow-y-auto`.
+  Usar `dvh`, nunca `vh`.
+- Sidebar: off-canvas en móvil
+  (`-translate-x-full` / `translate-x-0`), fijo en `lg:` (implementación real en `AppLayout.tsx`/`Sidebar.tsx`).
+- Breakpoint de referencia para pruebas: 375px (iPhone SE).
+
+Prohibido: crear una versión "mobile" paralela de una vista.
+Una sola implementación responsive.
+
 ## Convenciones de UI — badges y labels
 
 | Badge / label | Contexto | Condición |

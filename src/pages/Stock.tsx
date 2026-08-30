@@ -262,7 +262,7 @@ function ModalIngreso({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -458,7 +458,7 @@ function ModalEgreso({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -745,8 +745,8 @@ function LotesTab({ onNuevoIngreso }: { onNuevoIngreso: () => void }) {
                 </div>
 
                 {isOpen && lote.items.length > 0 && (
-                  <div className="border-t border-gray-200">
-                    <table className="w-full">
+                  <div className="border-t border-gray-200 overflow-x-auto">
+                    <table className="w-full min-w-[560px]">
                       <thead>
                         <tr className="bg-gray-50">
                           <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Producto</th>
@@ -811,14 +811,12 @@ function ProductoRow({
 
   return (
     <div className={`bg-white rounded-xl border border-gray-400 shadow-lg border-l-4 ${estadoCfg.border} overflow-hidden`}>
-      <div className="overflow-x-auto">
       <div
-        className="grid items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors min-w-[595px]"
-        style={{ gridTemplateColumns: '1fr 65px 90px 80px 70px 100px 130px' }}
+        className="grid grid-cols-2 sm:grid-cols-[1fr_65px_90px_80px_70px_100px_130px] items-center gap-3 px-4 py-3 hover:bg-gray-50/50 cursor-pointer transition-colors"
         onClick={() => setExpanded(v => !v)}
       >
         {/* Producto */}
-        <div className="min-w-0 flex items-center gap-2.5">
+        <div className="col-span-2 sm:col-span-1 min-w-0 flex items-center gap-2.5">
           {/* Miniatura */}
           <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
             {producto.imagen_url ? (
@@ -912,7 +910,6 @@ function ProductoRow({
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </div>
-      </div>
       </div>
 
       {expanded && (
@@ -1071,7 +1068,7 @@ export function Stock() {
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto page-enter" data-section="stock">
-      <div className="flex gap-6 min-h-0">
+      <div className="flex flex-col xl:flex-row gap-6 min-h-0">
       {/* ── Contenido principal ── */}
       <div className="flex-1 min-w-0 space-y-5">
         <SectionHero
@@ -1296,7 +1293,7 @@ export function Stock() {
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="w-64 shrink-0 space-y-4">
+      <div className="w-full xl:w-64 xl:shrink-0 space-y-4">
 
         {/* Reposición sugerida */}
         <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">

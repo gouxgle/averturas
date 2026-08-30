@@ -338,7 +338,7 @@ export function NuevoCliente() {
 
   const esFisica = form.tipo_persona === 'fisica';
 
-  const inp = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white placeholder-gray-300';
+  const inp = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white placeholder-gray-300';
   const lbl = 'block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5';
 
   const SubHeader = ({ icon: Icon, label, color }: { icon: React.ElementType; label: string; color: string }) => (
@@ -636,7 +636,7 @@ export function NuevoCliente() {
                   <div>
                     <SubHeader icon={User} label="Datos personales" color="text-blue-600" />
                     <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className={lbl}>{esFisica ? 'DNI' : 'CUIT / CUIL'}</label>
                           <input
@@ -664,7 +664,7 @@ export function NuevoCliente() {
                         </div>
                       </div>
                       {esFisica && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className={lbl}>Género</label>
                             <select value={form.genero} onChange={e => set('genero', e.target.value)} className={inp}>
@@ -693,7 +693,7 @@ export function NuevoCliente() {
                   {/* DOMICILIO PRINCIPAL */}
                   <div>
                     <SubHeader icon={Home} label="Domicilio principal" color="text-blue-600" />
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="col-span-2">
                         <label className={lbl}>Dirección particular</label>
                         <input value={form.direccion} onChange={e => set('direccion', e.target.value)}
@@ -715,7 +715,7 @@ export function NuevoCliente() {
                   {/* SEGUNDO DOMICILIO */}
                   <div>
                     <SubHeader icon={Home} label={<>Segundo domicilio / Alternativo <span className="text-gray-600 normal-case font-normal">(Opcional)</span></>  as unknown as string} color="text-blue-600" />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="col-span-2">
                         <label className={lbl}>Dirección</label>
                         <input value={form.dom_alternativo} onChange={e => set('dom_alternativo', e.target.value)}
@@ -748,7 +748,7 @@ export function NuevoCliente() {
                   <div>
                     <SubHeader icon={Phone} label="Contacto" color="text-blue-600" />
                     <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className={lbl}>Tel. fijo (opcional)</label>
                           <input type="tel" value={form.telefono_fijo} onChange={e => set('telefono_fijo', e.target.value)}
@@ -787,7 +787,7 @@ export function NuevoCliente() {
                   <div>
                     <SubHeader icon={Briefcase} label={<>Domicilio de obra <span className="text-gray-600 normal-case font-normal">(Opcional)</span></> as unknown as string} color="text-blue-600" />
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className={lbl}>Dirección de obra</label>
                           <input
@@ -826,7 +826,7 @@ export function NuevoCliente() {
                   <div>
                     <SubHeader icon={Tag} label="Clasificación" color="text-blue-600" />
                     <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className={lbl}>Estado</label>
                           <select value={form.estado} onChange={e => set('estado', e.target.value)} className={inp}>
@@ -856,7 +856,7 @@ export function NuevoCliente() {
                           </select>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className={lbl}>Preferencia de contacto</label>
                           <select value={form.preferencia_contacto} onChange={e => set('preferencia_contacto', e.target.value)} className={inp}>
@@ -899,7 +899,7 @@ export function NuevoCliente() {
                   <div>
                     <SubHeader icon={Lightbulb} label="Clasificación CRM" color="text-purple-600" />
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className={lbl}>Etapa CRM</label>
                           <select value={form.crm_etapa} onChange={e => set('crm_etapa', e.target.value)} className={inp}>
@@ -924,7 +924,7 @@ export function NuevoCliente() {
                   {/* DATOS ADMINISTRATIVOS */}
                   <div>
                     <SubHeader icon={FileText} label="Datos administrativos" color="text-blue-600" />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className={lbl}>CUIT / CUIL (opcional)</label>
                         <input

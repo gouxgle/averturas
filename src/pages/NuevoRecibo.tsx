@@ -439,7 +439,7 @@ export function NuevoRecibo() {
     }
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white';
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white';
   const labelCls = 'block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5';
 
   return (
@@ -546,7 +546,7 @@ export function NuevoRecibo() {
               </select>
 
               {operacionSel && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
                     <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Total presupuesto</p>
                     <p className="text-sm font-bold text-gray-800">{formatCurrency(totalPresupuesto)}</p>
@@ -700,7 +700,7 @@ export function NuevoRecibo() {
                   onChange={e => aplicarCustom(e.target.value)}
                   placeholder="Otro %"
                   className={cn(
-                    'w-24 pl-3 pr-7 py-1.5 border rounded-lg text-xs focus:ring-2 focus:ring-violet-500 focus:outline-none',
+                    'w-24 pl-3 pr-7 py-1.5 border rounded-lg text-base sm:text-xs focus:ring-2 focus:ring-violet-500 focus:outline-none',
                     bonCustom ? 'border-violet-400 bg-violet-50' : 'border-gray-200',
                   )}
                 />
@@ -770,7 +770,7 @@ export function NuevoRecibo() {
           <div className="space-y-4">
 
             {/* Radio: Pago total / Pago parcial */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => setTipoPago('total')}
                 className={cn(
@@ -871,7 +871,7 @@ export function NuevoRecibo() {
             </label>
 
             {crearCompromiso && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Fecha estimada *</label>
                   <input type="date"

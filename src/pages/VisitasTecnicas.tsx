@@ -105,7 +105,8 @@ export function VisitasTecnicas() {
         ) : visitas.length === 0 ? (
           <p className="text-sm text-gray-600 p-6 text-center">No hay visitas técnicas registradas</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="text-left text-xs font-bold text-gray-600 uppercase tracking-wide border-b border-gray-200">
                 <th className="px-4 py-3">Número</th>
@@ -150,6 +151,7 @@ export function VisitasTecnicas() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

@@ -125,7 +125,7 @@ export function NuevaOperacion() {
     }
   }
 
-  const cls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500';
+  const cls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500';
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 max-w-4xl mx-auto space-y-6">
@@ -144,7 +144,7 @@ export function NuevaOperacion() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Tipo de operación *</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {TIPOS.map(t => (
             <button key={t.value} onClick={() => setTipo(t.value)}
               className={cn('text-left p-4 rounded-lg border-2 transition-all',
@@ -222,7 +222,7 @@ export function NuevaOperacion() {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Tipo de abertura</label>
                 <select value={item.tipo_abertura_id} onChange={e => updateItem(i, 'tipo_abertura_id', e.target.value)} className={cls + ' bg-white'}>
@@ -244,7 +244,7 @@ export function NuevaOperacion() {
                 placeholder="Ej: Ventana batiente 2 hojas..." className={cls} />
             </div>
             {tipo !== 'estandar' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Ancho (cm)</label>
                   <input type="number" value={item.medida_ancho} onChange={e => updateItem(i, 'medida_ancho', e.target.value)} placeholder="120" className={cls} />
@@ -255,7 +255,7 @@ export function NuevaOperacion() {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Cantidad</label>
                 <input type="number" min={1} value={item.cantidad} onChange={e => updateItem(i, 'cantidad', parseInt(e.target.value) || 1)} className={cls} />
@@ -278,7 +278,7 @@ export function NuevaOperacion() {
               <span className="text-xs text-gray-600">Incluye instalación</span>
             </label>
             {item.incluye_instalacion && (
-              <div className="grid grid-cols-2 gap-3 pl-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-5">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Costo instalación</label>
                   <MontoInput value={item.costo_instalacion ? String(item.costo_instalacion) : ''}
@@ -314,7 +314,7 @@ export function NuevaOperacion() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md grid grid-cols-2 gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-md grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Notas para el cliente</label>

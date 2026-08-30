@@ -499,7 +499,7 @@ export function Reportes() {
       )}
 
       {/* ── Chart + bloques sectoriales + Alertas ── */}
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
         {/* Columna izquierda: chart + 5 bloques */}
         <div className="flex-1 min-w-0 space-y-3">
         {/* Chart */}
@@ -559,13 +559,13 @@ export function Reportes() {
 
         {/* 5 bloques sectoriales */}
         {loading ? (
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="bg-white rounded-2xl border border-gray-200 h-52 animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Comercial */}
             <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -758,7 +758,7 @@ export function Reportes() {
         </div>{/* fin columna izquierda */}
 
         {/* Alertas + Acciones */}
-        <div className="w-64 shrink-0 space-y-3">
+        <div className="w-full xl:w-64 xl:shrink-0 space-y-3">
           {/* Alertas */}
           <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
@@ -872,7 +872,7 @@ export function Reportes() {
 
       {/* ── Bottom: Rankings + Métodos pago + Objetivos ── */}
       {loading ? (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-white rounded-2xl border border-gray-200 h-56 animate-pulse" />
           ))}
@@ -993,7 +993,7 @@ export function Reportes() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="bg-violet-50 rounded-xl p-2.5 text-center">
                     <div className="text-[10px] text-gray-600 mb-0.5">Total descontado</div>
                     <div className="text-base font-bold text-violet-700">{fmtP(data?.descuentos.total_descuentos ?? 0)}</div>

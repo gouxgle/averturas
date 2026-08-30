@@ -74,7 +74,7 @@ export function CargaMultipleAMedida({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-4 max-h-[92vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-4 max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl z-10">
           <div className="flex items-center gap-2 min-w-0">

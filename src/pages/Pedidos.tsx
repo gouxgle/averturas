@@ -192,7 +192,7 @@ function WARowButton({ pedidoId }: { pedidoId: string }) {
 
   return (
     <button onClick={enviar} disabled={enviando || enviado}
-      className="p-1 rounded hover:bg-green-50 disabled:opacity-50 text-green-500"
+      className="p-2.5 sm:p-1 rounded hover:bg-green-50 disabled:opacity-50 text-green-500"
       title={enviado ? 'Enviado' : 'Enviar por WhatsApp'}>
       <MessageCircle size={13} className={enviado ? 'text-green-600' : ''} />
     </button>
@@ -804,14 +804,14 @@ export default function Pedidos() {
             </div>
 
             {/* Lista */}
-            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-400 shadow-lg">
               {paginated.length === 0 ? (
                 <div className="py-12 text-center text-gray-600 text-sm">
                   <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
                   No hay pedidos en este filtro
                 </div>
               ) : (
-                <div className="p-3 space-y-1.5 min-w-[680px]">
+                <div className="p-3 space-y-1.5">
                   {paginated.map(p => {
                     const primerItem = p.items_resumen?.[0];
                     const masItems   = (p.items_resumen?.length ?? 0) - 1;
@@ -823,9 +823,9 @@ export default function Pedidos() {
                         className={cn('rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer hover:shadow-md transition-all', lBorder)}
                         onClick={() => setDetailId(p.id)}
                       >
-                        <div className="px-3 py-2.5 flex items-start gap-3">
+                        <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
                           {/* Número */}
-                          <div className="shrink-0 w-[80px]">
+                          <div className="sm:shrink-0 sm:w-[80px] flex items-baseline gap-2 sm:block">
                             <p className="text-[11px] font-mono text-gray-600">{p.numero}</p>
                             <p className="text-[10px] text-gray-600 mt-0.5">{formatFecha(p.fecha_pedido)}</p>
                           </div>
@@ -858,7 +858,7 @@ export default function Pedidos() {
                             </div>
                           </div>
                           {/* Entrega + monto */}
-                          <div className="shrink-0 text-right min-w-[80px]">
+                          <div className="sm:shrink-0 text-left sm:text-right sm:min-w-[80px]">
                             <div>{entregaBadge(p.fecha_entrega_est, p.estado)}</div>
                             {p.monto_total > 0 && (
                               <p className="text-[12px] font-bold text-gray-800 tabular-nums mt-0.5">{formatCurrency(p.monto_total)}</p>
@@ -868,10 +868,10 @@ export default function Pedidos() {
                             )}
                           </div>
                           {/* Acciones */}
-                          <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <div className="sm:shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
                             {p.proveedor.telefono && <WARowButton pedidoId={p.id} />}
                             <button onClick={() => setDetailId(p.id)}
-                              className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center">
+                              className="w-11 h-11 sm:w-7 sm:h-7 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 flex items-center justify-center">
                               <ChevronRight size={13} className="text-gray-600" />
                             </button>
                           </div>

@@ -1099,7 +1099,7 @@ export default function NuevoPedido() {
                     )}
                   />
                   {!isCovered && isActive && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[11px] text-gray-600 mb-0.5">Cantidad</label>
                         <input
@@ -1181,7 +1181,7 @@ export default function NuevoPedido() {
 
         {/* Fecha y notas */}
         <SectionCard title="Fecha y notas" icon={ShoppingCart}>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Fecha del pedido</label>
               <input
@@ -1354,7 +1354,7 @@ export default function NuevoPedido() {
             </div>
 
             {/* Grid de productos */}
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
+            <div className="p-4 max-h-[60dvh] overflow-y-auto">
               {galeriaLoading ? (
                 <p className="text-sm text-gray-600 text-center py-8">Cargando catálogo...</p>
               ) : galeriaFiltrada.length === 0 ? (
