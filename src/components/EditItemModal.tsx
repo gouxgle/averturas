@@ -67,18 +67,13 @@ export function EditItemModal({
   const calculoInputRef = useRef<HTMLInputElement>(null);
 
   // Adjunto del cálculo del software externo — pegar / arrastrar / seleccionar / cámara.
-  // El chequeo de tipo es intencionalmente laxo: en Android el archivo que entrega la
-  // cámara a veces no trae un MIME reconocible (varía por navegador/fabricante) — el
-  // servidor tiene la validación real (MIME + fallback de extensión), acá solo se
-  // descartan casos obviamente no-imagen para dar feedback rápido sin pegarle un viaje
-  // al servidor.
+  // Sin chequeo de tipo acá: en Android confirmamos (curl directo al endpoint) que la
+  // foto de cámara puede llegar sin filename con extensión Y sin MIME de imagen al
+  // mismo tiempo ("blob" / "application/octet-stream"), y cualquier chequeo de
+  // metadata — por más laxo que sea — puede rechazar una foto real por eso. La
+  // validación de verdad es en el servidor, que intenta decodificar el archivo con
+  // sharp y recién ahí, por contenido real, decide si es una imagen válida.
   async function subirCalculo(file: File) {
-    const ext = (file.name.split('.').pop() ?? '').toLowerCase();
-    const extConocida = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'gif', 'bmp'].includes(ext);
-    if (!file.type.startsWith('image/') && !extConocida) {
-      toast.error('Solo se aceptan imágenes');
-      return;
-    }
     setSubiendoCalculo(true);
     try {
       const token = sessionStorage.getItem('aberturas_token');

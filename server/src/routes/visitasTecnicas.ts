@@ -104,15 +104,15 @@ visitasTecnicas.post('/upload-imagen', async (c) => {
   const file = body.get('imagen') as File | null;
   if (!file || !file.size) return c.json({ error: 'No se recibió imagen' }, 400);
 
-  // El nombre del archivo capturado con cámara no siempre trae extensión reconocible
-  // (varía por navegador/fabricante en Android) — el MIME type que pone el propio
-  // navegador es más confiable, así que es la señal principal. La extensión queda
-  // solo como fallback para el raro caso de un MIME vacío/genérico.
-  const ext = (file.name.split('.').pop() ?? '').toLowerCase();
-  const extConocida = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'gif', 'bmp'].includes(ext);
-  const tipoEsImagen = file.type.startsWith('image/');
-  if (!tipoEsImagen && !extConocida) return c.json({ error: 'Formato no permitido' }, 400);
-
+  // Antes acá había un chequeo de MIME type / extensión antes de intentar procesar.
+  // Se sacó: hay navegadores Android (según fabricante/versión) que en la foto de
+  // cámara no mandan ninguna de las dos señales de forma confiable — filename sin
+  // extensión ("blob") Y file.type vacío o "application/octet-stream" al mismo
+  // tiempo — y esa combinación rechazaba fotos reales con "Formato no permitido"
+  // (reproducido y confirmado con curl). sharp() de abajo ya es la validación real:
+  // si el buffer no es una imagen decodificable, tira y cae en el catch con un
+  // mensaje claro — no hace falta adivinar antes por metadata que el navegador
+  // puede no mandar bien.
   const filename = `${randomUUID()}.webp`;
   const dir = './uploads/visitas-tecnicas';
   await mkdir(dir, { recursive: true });
