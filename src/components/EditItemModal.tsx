@@ -66,9 +66,19 @@ export function EditItemModal({
   const [subiendoCalculo, setSubiendoCalculo] = useState(false);
   const calculoInputRef = useRef<HTMLInputElement>(null);
 
-  // Adjunto del cálculo del software externo — pegar / arrastrar / seleccionar
+  // Adjunto del cálculo del software externo — pegar / arrastrar / seleccionar / cámara.
+  // El chequeo de tipo es intencionalmente laxo: en Android el archivo que entrega la
+  // cámara a veces no trae un MIME reconocible (varía por navegador/fabricante) — el
+  // servidor tiene la validación real (MIME + fallback de extensión), acá solo se
+  // descartan casos obviamente no-imagen para dar feedback rápido sin pegarle un viaje
+  // al servidor.
   async function subirCalculo(file: File) {
-    if (!file.type.startsWith('image/')) { toast.error('Solo se aceptan imágenes'); return; }
+    const ext = (file.name.split('.').pop() ?? '').toLowerCase();
+    const extConocida = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'gif', 'bmp'].includes(ext);
+    if (!file.type.startsWith('image/') && !extConocida) {
+      toast.error('Solo se aceptan imágenes');
+      return;
+    }
     setSubiendoCalculo(true);
     try {
       const token = sessionStorage.getItem('aberturas_token');
@@ -79,12 +89,15 @@ export function EditItemModal({
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,
       });
-      if (!res.ok) throw new Error('Error al subir');
+      if (!res.ok) {
+        const detalle = await res.json().catch(() => null);
+        throw new Error(detalle?.error || 'Error al subir imagen');
+      }
       const { url } = await res.json();
       up('calculo_url', url);
       toast.success('Imagen adjuntada');
-    } catch {
-      toast.error('No se pudo subir la imagen');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo subir la imagen');
     } finally {
       setSubiendoCalculo(false);
     }
