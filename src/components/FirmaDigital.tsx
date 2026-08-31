@@ -136,7 +136,7 @@ export function FirmaDigital({ value, onChange, disabled }: FirmaDigitalProps) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        className="w-full h-40 rounded-xl border-2 border-dashed border-gray-300 bg-white touch-none"
+        className="w-full aspect-[3/1] rounded-xl border-2 border-dashed border-gray-300 bg-white touch-none"
       />
       <div className="flex gap-2">
         <button type="button" onClick={limpiar}

@@ -410,7 +410,7 @@ export function Clientes() {
   };
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4" data-section="clientes">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1440px] mx-auto space-y-4" data-section="clientes">
       <SectionHero
         section="clientes"
         icon={Users}

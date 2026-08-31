@@ -4,6 +4,7 @@ import { Ruler, Plus, ChevronRight, Filter } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
+import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 interface VTCliente {
   nombre: string | null; apellido: string | null;
@@ -64,8 +65,16 @@ export function VisitasTecnicas() {
 
   useEffect(() => { load(); }, [load]);
 
+  const stats = {
+    total:       visitas.length,
+    pendientes:  visitas.filter(v => v.estado === 'pendiente').length,
+    relevadas:   visitas.filter(v => v.estado === 'relevada').length,
+    convertidas: visitas.filter(v => v.estado === 'convertida').length,
+    sinCobrar:   visitas.filter(v => v.cobro_estado === 'pendiente').length,
+  };
+
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4" data-section="presupuestos">
       <SectionHero
         section="presupuestos"
         icon={Ruler}
@@ -79,27 +88,37 @@ export function VisitasTecnicas() {
         }
       />
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Filter size={14} className="text-gray-600" />
-        {['', 'pendiente', 'relevada', 'convertida', 'cancelada'].map(e => (
-          <button key={e} onClick={() => setEstado(e)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${estado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {e === '' ? 'Todas' : ESTADO_BADGE[e].label}
-          </button>
-        ))}
+      <CompactStatsBar items={[
+        { value: stats.total,       label: 'total',              color: '#a78bfa' },
+        { value: stats.pendientes,  label: 'pendientes de relevar', color: '#94a3b8' },
+        { value: stats.relevadas,   label: 'relevadas',          color: '#38bdf8' },
+        { value: stats.convertidas, label: 'convertidas',        color: '#34d399' },
+        { value: stats.sinCobrar,   label: 'sin cobrar',         color: '#fbbf24' },
+      ]} />
+
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter size={14} className="text-gray-600" />
+          {['', 'pendiente', 'relevada', 'convertida', 'cancelada'].map(e => (
+            <button key={e} onClick={() => setEstado(e)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${estado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              {e === '' ? 'Todas' : ESTADO_BADGE[e].label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cobro</span>
+          {['', 'pendiente', 'cobrada', 'bonificada', 'sin_cargo'].map(e => (
+            <button key={e} onClick={() => setCobroEstado(e)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${cobroEstado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              {e === '' ? 'Todos' : COBRO_BADGE[e].label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Cobro</span>
-        {['', 'pendiente', 'cobrada', 'bonificada', 'sin_cargo'].map(e => (
-          <button key={e} onClick={() => setCobroEstado(e)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${cobroEstado === e ? 'bg-slate-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {e === '' ? 'Todos' : COBRO_BADGE[e].label}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
         {loading ? (
           <p className="text-sm text-gray-600 p-6 text-center">Cargando...</p>
         ) : visitas.length === 0 ? (

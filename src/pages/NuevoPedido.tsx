@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
+import { SectionCard } from '@/components/SectionCard';
 
 // ── Tipos ──────────────────────────────────────────────────────
 
@@ -230,28 +231,6 @@ function nombreCliente(op: OperacionAprobada | OperacionDetalle) {
   const c = op.cliente;
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
   return [c.apellido, c.nombre].filter(Boolean).join(' ') || '—';
-}
-
-function SectionCard({
-  title, icon: Icon, children, accent,
-}: {
-  title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-400 shadow-lg">
-      <div className={cn(
-        'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
-        accent ?? 'bg-gray-50 border-gray-200',
-      )}>
-        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-600'} />
-        <span className={cn(
-          'text-[11px] font-semibold uppercase tracking-wider',
-          accent ? '' : 'text-gray-600',
-        )}>{title}</span>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
 }
 
 function waTextoPedido(proveedor: Proveedor | null, items: PedidoItemForm[], operacion: OperacionAprobada | OperacionDetalle | null, fechaEst: string) {

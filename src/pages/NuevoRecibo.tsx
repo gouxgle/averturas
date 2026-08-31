@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
+import { SectionCard } from '@/components/SectionCard';
 import { FORMAS_PAGO } from '@/lib/formasPago';
 
 // ── Conceptos predefinidos ────────────────────────────────────
@@ -76,28 +77,6 @@ interface PresupuestoDetalle {
 function nombreCliente(c: Cliente) {
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
   return [c.apellido, c.nombre].filter(Boolean).join(', ') || '—';
-}
-
-function SectionCard({
-  title, icon: Icon, children, accent,
-}: {
-  title: string; icon: React.ElementType; children: React.ReactNode; accent?: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-400 shadow-lg">
-      <div className={cn(
-        'flex items-center gap-2 px-4 py-2.5 border-b rounded-t-xl',
-        accent ?? 'bg-gray-50 border-gray-200',
-      )}>
-        <Icon size={13} className={accent ? 'opacity-70' : 'text-gray-600'} />
-        <span className={cn(
-          'text-[11px] font-semibold uppercase tracking-wider',
-          accent ? '' : 'text-gray-600',
-        )}>{title}</span>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
 }
 
 // ── Página ────────────────────────────────────────────────────

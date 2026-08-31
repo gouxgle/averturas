@@ -388,7 +388,7 @@ export function CRM() {
   );
 
   return (
-    <div className="p-4 xl:p-5 space-y-5 max-w-[1600px] mx-auto">
+    <div className="p-4 xl:p-5 space-y-5 max-w-[1600px] mx-auto" data-section="crm">
 
       {showLead && <ModalNuevoLead onClose={() => setShowLead(false)} onSuccess={fetchData} />}
       {clienteMover && <ModalMoverEtapa cliente={clienteMover} onClose={() => setClienteMover(null)} onSuccess={fetchData} />}
@@ -414,7 +414,7 @@ export function CRM() {
           { icon: <Check size={22} />, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-500', label: 'Ventas cerradas', value: k?.ventas_cerradas ?? 0, sub: <VsBadge pct={25} /> },
           { icon: <TrendingUp size={22} />, iconBg: 'bg-red-100', iconColor: 'text-red-500', label: 'Facturación del mes', value: formatCurrency(k?.facturacion_mes ?? 0), sub: <VsBadge pct={k?.ventas_vs_anterior ?? 0} /> },
         ].map((card, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-200 shadow-md p-5 flex gap-4 items-start">
+          <div key={i} className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5 flex gap-4 items-start">
             <div className={cn('w-14 h-14 rounded-2xl flex items-center justify-center shrink-0', card.iconBg)}>
               <span className={card.iconColor}>{card.icon}</span>
             </div>
@@ -431,7 +431,7 @@ export function CRM() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
 
         {/* Pipeline */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp size={15} className="text-violet-500" />
@@ -470,7 +470,7 @@ export function CRM() {
         </div>
 
         {/* Tareas del día */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden flex flex-col">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden flex flex-col">
           <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock size={14} className="text-amber-500" />
@@ -544,7 +544,7 @@ export function CRM() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
 
         {/* Agenda de contactos: atrasadas / hoy / próximos 3 días */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
             <Calendar size={14} className="text-sky-500" />
             <span className="text-xs font-bold text-gray-700">Agenda de contactos</span>
@@ -598,7 +598,7 @@ export function CRM() {
         </div>
 
         {/* Cumpleaños */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Cake size={14} className="text-pink-500" />
@@ -638,7 +638,7 @@ export function CRM() {
         </div>
 
         {/* Alertas */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
             <AlertTriangle size={14} className="text-amber-500" />
             <span className="text-xs font-bold text-gray-700">Alertas</span>
@@ -681,7 +681,7 @@ export function CRM() {
         </div>
 
         {/* Postventa pendiente */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <RefreshCw size={14} className="text-teal-500" />
@@ -715,7 +715,7 @@ export function CRM() {
         </div>
 
         {/* Clientes VIP */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Star size={14} className="text-amber-400" />
@@ -745,7 +745,7 @@ export function CRM() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* Embudo */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} className="text-violet-500" />
             <span className="text-xs font-bold text-gray-700">Embudo de ventas</span>
@@ -772,7 +772,7 @@ export function CRM() {
         </div>
 
         {/* Ventas por período */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-5">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-5">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <TrendingUp size={14} className="text-emerald-500" />
@@ -803,7 +803,7 @@ export function CRM() {
 
         {/* Origen leads + Productos */}
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <Gift size={13} className="text-rose-500" />
               <span className="text-xs font-bold text-gray-700">Origen de leads</span>
@@ -835,7 +835,7 @@ export function CRM() {
             <p className="text-[9px] text-gray-600 mt-2 text-right">Total leads: {totalOrigen}</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <Package size={13} className="text-sky-500" />
               <span className="text-xs font-bold text-gray-700">Productos más consultados</span>
@@ -858,7 +858,7 @@ export function CRM() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px_260px] gap-4">
 
         {/* Oportunidades sin actividad */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertTriangle size={14} className="text-orange-500" />
@@ -913,7 +913,7 @@ export function CRM() {
         </div>
 
         {/* Presupuestos sin respuesta */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3.5 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText size={14} className="text-amber-500" />
@@ -950,7 +950,7 @@ export function CRM() {
         </div>
 
         {/* Actividad reciente */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-4 py-3.5 border-b border-gray-200 flex items-center gap-2">
             <Activity size={14} className="text-violet-500" />
             <span className="text-xs font-bold text-gray-700">Actividad reciente</span>

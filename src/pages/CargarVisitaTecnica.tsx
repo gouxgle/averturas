@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Ruler, Plus, Trash2, Save, Loader2, Printer,
+  Ruler, Plus, Trash2, Save, Loader2, Printer,
   ArrowRight, Users, Camera, X, Wrench, Package, Search, AlertTriangle, Ban, Pencil,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import type { Cliente, TipoAbertura, Sistema } from '@/types';
 import { EditItemModal, type EditableItemSpec } from '@/components/EditItemModal';
 import { FirmaDigital } from '@/components/FirmaDigital';
+import { FormPageHeader } from '@/components/FormPageHeader';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 
 type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
@@ -98,9 +99,9 @@ function CheckGroup({ title, fijos, valores, onToggle, otro, onOtroChange }: {
       <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">{title}</p>
       <div className="space-y-1.5">
         {fijos.map(f => (
-          <label key={f} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label key={f} className="flex items-center gap-2 py-1.5 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={valores.includes(f)} onChange={() => onToggle(f)}
-              className="w-3.5 h-3.5 rounded border-gray-400 text-slate-700 focus:ring-slate-400" />
+              className="w-4 h-4 rounded border-gray-400 text-slate-700 focus:ring-slate-400" />
             {f}
           </label>
         ))}
@@ -109,7 +110,7 @@ function CheckGroup({ title, fijos, valores, onToggle, otro, onOtroChange }: {
             <span className="text-sm text-gray-600">Otro:</span>
             <input value={otro ?? ''} onChange={e => onOtroChange(e.target.value)}
               placeholder="especificar"
-              className="flex-1 min-w-0 px-2 py-1 border-b border-gray-200 text-sm focus:outline-none focus:border-slate-400" />
+              className="flex-1 min-w-0 px-2 py-1 border-b border-gray-200 text-base sm:text-sm focus:outline-none focus:border-slate-400" />
           </div>
         )}
       </div>
@@ -523,30 +524,27 @@ export function CargarVisitaTecnica() {
   const editItemData = editItemKey ? items.find(it => it._key === editItemKey) : null;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/presupuestos/visitas-tecnicas')} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft size={18} className="text-gray-600"/>
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5" data-section="presupuestos">
+      <FormPageHeader
+        onBack={() => navigate('/presupuestos/visitas-tecnicas')}
+        icon={Ruler}
+        iconColorClass="bg-slate-100 text-slate-600"
+        title={`Visita de Relevamiento de Datos ${visita.numero}`}
+        sub={
+          <span className="flex items-center gap-1.5 flex-wrap">
+            <span className="flex items-center gap-1"><Users size={11}/> {nombreCliente(visita.cliente)}</span>
+            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold', COBRO_BADGE[visita.cobro_estado]?.cls)}>
+              {COBRO_BADGE[visita.cobro_estado]?.label(Number(visita.costo_cobrado ?? 0))}
+            </span>
+          </span>
+        }
+        action={
+          <button onClick={() => window.open(`/imprimir/visita-tecnica?visita_id=${visita.id}`, '_blank')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition-all">
+            <Printer size={16}/> Imprimir
           </button>
-          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
-            <Ruler size={18} className="text-slate-600"/>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base font-bold text-gray-900">Visita de Relevamiento de Datos {visita.numero}</h1>
-              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold', COBRO_BADGE[visita.cobro_estado]?.cls)}>
-                {COBRO_BADGE[visita.cobro_estado]?.label(Number(visita.costo_cobrado ?? 0))}
-              </span>
-            </div>
-            <p className="text-xs text-gray-600 flex items-center gap-1"><Users size={11}/> {nombreCliente(visita.cliente)}</p>
-          </div>
-        </div>
-        <button onClick={() => window.open(`/imprimir/visita-tecnica?visita_id=${visita.id}`, '_blank')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:underline shrink-0">
-          <Printer size={13}/> Imprimir
-        </button>
-      </div>
+        }
+      />
 
       {yaConvertida && (
         <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 flex items-center justify-between gap-2 flex-wrap">
@@ -568,17 +566,17 @@ export function CargarVisitaTecnica() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Fecha de visita</label>
             <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)} disabled={soloLectura}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Técnico</label>
             <input value={tecnico} onChange={e => setTecnico(e.target.value)} disabled={soloLectura}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
           </div>
         </div>
         <div>
@@ -589,7 +587,7 @@ export function CargarVisitaTecnica() {
               onChange={e => setCostoExterno(e.target.value)}
               onBlur={guardarCostoExterno}
               placeholder="0"
-              className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+              className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
           </div>
           <p className="text-[11px] text-gray-600 mt-1">
             Lo que se le pagó al técnico o servicio tercerizado. Se usa para medir el margen en Reportes.
@@ -597,7 +595,7 @@ export function CargarVisitaTecnica() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Ítems relevados</p>
         <p className="text-[11px] text-gray-600 mb-3">Marcá cada uno como abertura a medir (obra nueva), producto de catálogo (estándar) o servicio (reparación, mantenimiento, cambio de piezas)</p>
         <div className="space-y-2">
@@ -629,7 +627,7 @@ export function CargarVisitaTecnica() {
               {esEstandar ? (
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 items-center">
                   <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={soloLectura}
-                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <div className="relative">
                     <button type="button" disabled={soloLectura}
                       onClick={() => { setBuscarProductoIdx(idx); setBuscarProductoQ(''); }}
@@ -645,7 +643,7 @@ export function CargarVisitaTecnica() {
                           <input autoFocus value={buscarProductoQ} onChange={e => setBuscarProductoQ(e.target.value)}
                             onBlur={() => setTimeout(() => setBuscarProductoIdx(null), 150)}
                             placeholder="Nombre o código..."
-                            className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-300"/>
+                            className="w-full px-2 py-1.5 text-base sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-300"/>
                         </div>
                         <div className="max-h-48 overflow-y-auto">
                           {productosFiltrados.length === 0 ? (
@@ -668,14 +666,14 @@ export function CargarVisitaTecnica() {
               ) : esServicio ? (
                 <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 items-center">
                   <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={soloLectura}
-                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                    className="px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                   <div className="relative">
                     <input value={it.descripcion} disabled={soloLectura}
                       onChange={e => updateItem(idx, 'descripcion', e.target.value)}
                       onFocus={() => setBuscarServicioIdx(idx)}
                       onBlur={() => setTimeout(() => setBuscarServicioIdx(null), 150)}
                       placeholder="Buscar servicio o escribir uno nuevo..."
-                      className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                      className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                     {buscarServicioIdx === idx && servicios.length > 0 && (() => {
                       const q = it.descripcion.trim().toLowerCase();
                       const filtrados = q ? servicios.filter(s => s.nombre.toLowerCase().includes(q)) : servicios;
@@ -698,18 +696,18 @@ export function CargarVisitaTecnica() {
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_64px_64px_36px] gap-2 items-center">
                     <input value={it.ambiente} onChange={e => updateItem(idx, 'ambiente', e.target.value)} placeholder="Ambiente" disabled={soloLectura}
-                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                     <input value={it.descripcion} onChange={e => updateItem(idx, 'descripcion', e.target.value)}
                       placeholder="Descripción" disabled={soloLectura}
-                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
                     <input value={it.ancho_mm} onChange={e => updateItem(idx, 'ancho_mm', e.target.value)} placeholder="Ancho mm" type="number" disabled={soloLectura}
-                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
                     <input value={it.alto_mm} onChange={e => updateItem(idx, 'alto_mm', e.target.value)} placeholder="Alto mm" type="number" disabled={soloLectura}
-                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
+                      className="min-w-0 px-2.5 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"/>
                     {!soloLectura && (
                       <button type="button" onClick={() => setEditItemKey(it._key)}
                         title="Editar detalle (tipo, sistema, color, vidrio...)"
-                        className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:text-slate-700 hover:border-slate-300 shrink-0">
+                        className="p-2.5 rounded-lg border border-gray-200 text-gray-600 hover:text-slate-700 hover:border-slate-300 shrink-0">
                         <Pencil size={14}/>
                       </button>
                     )}
@@ -730,7 +728,7 @@ export function CargarVisitaTecnica() {
 
               {!soloLectura && (
                 <button onClick={() => quitarFila(idx)} disabled={items.length === 1}
-                  className="p-2 text-gray-600 hover:text-red-500 disabled:opacity-30 shrink-0">
+                  className="p-2.5 text-gray-600 hover:text-red-500 disabled:opacity-30 shrink-0">
                   <Trash2 size={15}/>
                 </button>
               )}
@@ -739,15 +737,15 @@ export function CargarVisitaTecnica() {
           })}
         </div>
         {!soloLectura && (
-          <button onClick={agregarFila} className="mt-3 text-xs font-semibold text-slate-600 hover:underline flex items-center gap-1">
+          <button onClick={agregarFila} className="mt-3 py-2 text-xs font-semibold text-slate-600 hover:underline flex items-center gap-1">
             <Plus size={13}/> Agregar fila
           </button>
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Detalles importantes</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <CheckGroup title="Color" fijos={COLOR_FIJOS} valores={color}
             onToggle={v => !soloLectura && toggle(color, setColor, v)}
             otro={colorOtro} onOtroChange={soloLectura ? undefined : setColorOtro}/>
@@ -762,7 +760,7 @@ export function CargarVisitaTecnica() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Fotos de la visita</p>
         {!soloLectura && (
           <p className="text-[11px] text-gray-600 mb-2">Podés arrastrar imágenes acá o pegarlas con Ctrl+V.</p>
@@ -780,8 +778,8 @@ export function CargarVisitaTecnica() {
               </a>
               {!soloLectura && (
                 <button onClick={() => quitarImagen(idx)}
-                  className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                  <X size={12}/>
+                  className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors">
+                  <X size={13}/>
                 </button>
               )}
             </div>
@@ -801,13 +799,13 @@ export function CargarVisitaTecnica() {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 block">Observaciones</label>
         <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} disabled={soloLectura}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-gray-50"/>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Firma del cliente</p>
         {!soloLectura && (
           <p className="text-[11px] text-gray-600 mb-2">Conformidad con las medidas y detalles relevados en esta visita.</p>
@@ -836,13 +834,13 @@ export function CargarVisitaTecnica() {
       )}
 
       {!soloLectura && !confirmarCancelar && (
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <button onClick={handleGuardar} disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold disabled:opacity-50">
+            className="sm:flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold disabled:opacity-50 order-2 sm:order-1">
             {saving ? <Loader2 size={15} className="animate-spin"/> : <Save size={15}/>} Guardar
           </button>
           <button onClick={handleAvanzar} disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold disabled:opacity-50">
+            className="sm:flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold disabled:opacity-50 order-1 sm:order-2">
             {saving ? <Loader2 size={15} className="animate-spin"/> : <ArrowRight size={15}/>}
             {visita.operacion_id
               ? `Completar presupuesto ${visita.operacion_numero ?? ''}`.trim()
@@ -853,7 +851,7 @@ export function CargarVisitaTecnica() {
 
       {!soloLectura && !confirmarCancelar && (
         <button onClick={() => setConfirmarCancelar(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-red-400 hover:text-red-600">
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-red-400 hover:text-red-600">
           <Ban size={13}/> Cancelar Visita de Relevamiento de Datos
         </button>
       )}

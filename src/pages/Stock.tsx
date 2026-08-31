@@ -1129,7 +1129,7 @@ export function Stock() {
   [tablero]);
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto page-enter" data-section="stock">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto page-enter" data-section="stock">
       <div className="flex flex-col xl:flex-row gap-6 min-h-0">
       {/* ── Contenido principal ── */}
       <div className="flex-1 min-w-0 space-y-5">

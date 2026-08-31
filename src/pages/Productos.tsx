@@ -702,7 +702,7 @@ function FacetsPanel({ facets, activos, onToggle, onLimpiar, activeCount }: {
   onToggle: (key: string, value: string) => void; onLimpiar: () => void; activeCount: number;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-4">
+    <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
           <SlidersHorizontal size={13}/> Filtrar productos
@@ -952,7 +952,7 @@ export function Productos() {
   const unidadesStock   = productosVisibles.reduce((s, p) => s + (p.stock_actual ?? 0), 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5" data-section="productos">
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-5" data-section="productos">
       <SectionHero
         section="productos"
         icon={Layers}

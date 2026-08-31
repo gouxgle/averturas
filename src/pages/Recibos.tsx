@@ -661,7 +661,7 @@ export function Recibos() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 max-w-[1400px] mx-auto space-y-4" data-section="recibos">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1440px] mx-auto space-y-4" data-section="recibos">
       <SectionHero
         section="recibos"
         icon={Receipt}

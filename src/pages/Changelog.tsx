@@ -44,9 +44,9 @@ export function Changelog() {
   }
 
   return (
-    <div className="p-6 space-y-5 max-w-3xl mx-auto">
+    <div className="p-6 space-y-5 max-w-3xl mx-auto" data-section="config">
       <SectionHero
-        section="sistema"
+        section="config"
         icon={History}
         title="Novedades"
         sub="Registro cronológico de cambios del sistema — para saber qué se modificó y probarlo"
@@ -63,7 +63,7 @@ export function Changelog() {
               <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 capitalize">
                 {fmtFecha(grupo.fecha)}
               </p>
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-md divide-y divide-gray-100">
+              <div className="bg-white rounded-2xl border border-gray-400 shadow-lg divide-y divide-gray-200">
                 {grupo.items.map(item => {
                   const cfg = CATEGORIA_CFG[item.categoria];
                   return (

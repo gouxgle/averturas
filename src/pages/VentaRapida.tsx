@@ -296,8 +296,15 @@ export function VentaRapida() {
   // ── Pantalla de éxito ────────────────────────────────────────
   if (resultado) {
     return (
-      <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+      <div className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto space-y-4" data-section="venta-rapida">
+        <SectionHero
+          section="venta-rapida"
+          icon={Zap}
+          title="Venta rápida de mostrador"
+          sub="Cobra, entrega y descuenta stock en un solo paso"
+        />
+        <div className="max-w-lg mx-auto">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
           <div className="px-6 py-8 flex flex-col items-center bg-emerald-600">
             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3">
               <Check size={32} className="text-white" strokeWidth={3}/>
@@ -327,7 +334,7 @@ export function VentaRapida() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
               <button onClick={() => window.open(`/imprimir/recibo/${resultado.recibo_id}`, '_blank')}
                 className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-sm font-semibold">
                 <Printer size={14}/> Imprimir recibo
@@ -354,6 +361,7 @@ export function VentaRapida() {
             </button>
           </div>
         </div>
+        </div>
       </div>
     );
   }
@@ -368,12 +376,12 @@ export function VentaRapida() {
         sub="Cobra, entrega y descuenta stock en un solo paso"
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
         {/* ── Columna principal ── */}
         <div className="space-y-4 min-w-0">
 
           {/* Cliente */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-3.5">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <Users size={13}/> Cliente
             </p>
@@ -393,7 +401,7 @@ export function VentaRapida() {
                     onFocus={() => setShowClienteList(true)}
                     onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
                     placeholder="Buscar por nombre, teléfono o DNI..."
-                    className="flex-1 text-sm focus:outline-none"
+                    className="flex-1 text-base sm:text-sm focus:outline-none"
                   />
                 </div>
                 {showClienteList && clienteSearch && (
@@ -425,17 +433,17 @@ export function VentaRapida() {
             {/* Alta rápida inline */}
             {showQuickAdd && !clienteId && (
               <div className="mt-3 p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input value={qNombre} onChange={e => setQNombre(e.target.value)} placeholder="Nombre"
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
                   <input value={qApellido} onChange={e => setQApellido(e.target.value)} placeholder="Apellido"
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
                 </div>
                 <input value={qTelefono}
                   onChange={e => setQTelefono(e.target.value)}
                   onBlur={() => checkTelDup(qTelefono)}
                   placeholder="Teléfono"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
                 {qTelDup && (
                   <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
                     <span>Ya existe: <strong>{nombreCliente(qTelDup)}</strong></span>
@@ -456,7 +464,7 @@ export function VentaRapida() {
           </div>
 
           {/* Productos */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
             <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <ShoppingCart size={13}/> Productos con stock disponible
             </p>
@@ -468,7 +476,7 @@ export function VentaRapida() {
                   value={prodSearch}
                   onChange={e => setProdSearch(e.target.value)}
                   placeholder="Filtrar por nombre o código..."
-                  className="flex-1 min-w-0 text-sm focus:outline-none"
+                  className="flex-1 min-w-0 text-base sm:text-sm focus:outline-none"
                 />
                 {prodSearch && (
                   <button onClick={() => setProdSearch('')} className="text-gray-600 hover:text-gray-600 shrink-0"><X size={13}/></button>
@@ -476,7 +484,7 @@ export function VentaRapida() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <select value={tipoAberturaId} onChange={e => setTipoAberturaId(e.target.value)}
-                  className="px-2.5 py-2 border border-gray-200 rounded-xl text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-300 max-w-[160px]">
+                  className="px-2.5 py-2 border border-gray-200 rounded-xl text-base sm:text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-300 max-w-[160px]">
                   <option value="">Todos los tipos</option>
                   {tiposAbertura.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                 </select>
@@ -496,7 +504,7 @@ export function VentaRapida() {
                 {q || soloPromo || tipoAberturaId ? 'Sin resultados para el filtro elegido' : 'No hay productos con stock disponible'}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[36rem] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:max-h-[36rem] lg:overflow-y-auto pr-1">
                 {galeria.map(p => (
                   <TarjetaProductoMosaico
                     key={p.id}
@@ -514,7 +522,7 @@ export function VentaRapida() {
 
         {/* ── Sidebar: resumen de la venta ── */}
         <div className="xl:sticky xl:top-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-3">
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 space-y-3">
             <p className="text-xs font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1.5">
               <ClipboardList size={13}/> Resumen de la venta
               {items.length > 0 && (
@@ -540,13 +548,13 @@ export function VentaRapida() {
                 Elegí productos de la galería para armar la venta
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden max-h-[280px] overflow-y-auto">
+              <div className="divide-y divide-gray-200 border border-gray-200 rounded-xl overflow-hidden lg:max-h-[280px] lg:overflow-y-auto">
                 {items.map(i => (
                   <div key={i.producto_id} className="p-2.5 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <p className="flex-1 min-w-0 text-xs font-semibold text-gray-800 truncate">{i.nombre}</p>
-                      <button onClick={() => quitarItem(i.producto_id)} className="p-0.5 text-gray-600 hover:text-red-500 shrink-0">
-                        <Trash2 size={12}/>
+                      <button onClick={() => quitarItem(i.producto_id)} className="p-2 -m-1.5 text-gray-600 hover:text-red-500 shrink-0">
+                        <Trash2 size={13}/>
                       </button>
                     </div>
                     {i.cantidad > i.stock_actual && (
@@ -555,10 +563,10 @@ export function VentaRapida() {
                     <div className="flex items-center gap-1.5">
                       <div className="flex items-center gap-0.5 shrink-0">
                         <button onClick={() => setCantidad(i.producto_id, i.cantidad - 1)}
-                          className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Minus size={9}/></button>
+                          className="w-9 h-9 sm:w-5 sm:h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Minus size={9}/></button>
                         <span className="w-5 text-center text-xs font-bold tabular-nums">{i.cantidad}</span>
                         <button onClick={() => setCantidad(i.producto_id, i.cantidad + 1)}
-                          className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus size={9}/></button>
+                          className="w-9 h-9 sm:w-5 sm:h-5 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><Plus size={9}/></button>
                       </div>
                       <div className="flex-1 min-w-0">
                         <MontoInput
@@ -581,7 +589,7 @@ export function VentaRapida() {
                 <div>
                   <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Forma de pago</p>
                   <select value={formaPago} onChange={e => setFormaPago(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
                     {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
@@ -598,7 +606,7 @@ export function VentaRapida() {
                     ))}
                     <input value={bonCustom} onChange={e => aplicarCustom(e.target.value)}
                       placeholder="Otro %" type="number" min={0} max={50}
-                      className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                      className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
                     {(bonPct > 0 || bonCustom) && (
                       <button onClick={resetBonificacion} className="text-xs text-gray-600 hover:text-gray-600">Quitar</button>
                     )}
@@ -607,7 +615,7 @@ export function VentaRapida() {
 
                 <div>
                   <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Forma de entrega</p>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     <button onClick={() => { setFormaEntrega('retiro_local'); setMedioEnvio(''); setCostoEnvio(''); }}
                       className={cn('flex flex-col items-center gap-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all',
                         formaEntrega === 'retiro_local' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:border-emerald-300')}>
@@ -624,9 +632,9 @@ export function VentaRapida() {
                     <div className="mt-2 space-y-2">
                       <input value={direccionEntrega} onChange={e => setDireccionEntrega(e.target.value)}
                         placeholder="Dirección de entrega"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
                       <select value={medioEnvio} onChange={e => setMedioEnvio(e.target.value as MedioEnvio | '')}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
                         <option value="">Medio de envío...</option>
                         {(Object.keys(MEDIO_ENVIO_LABEL) as MedioEnvio[]).map(k => (
                           <option key={k} value={k}>{MEDIO_ENVIO_LABEL[k]}</option>

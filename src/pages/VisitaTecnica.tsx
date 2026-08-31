@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Ruler, Users, Search, X, Plus, Check, Loader2, Printer, ClipboardList, List,
+  Ruler, Users, Search, X, Plus, Check, Loader2, Printer, ClipboardList, List,
   Receipt, HandCoins, Settings,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -9,6 +9,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { FORMAS_PAGO } from '@/lib/formasPago';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
+import { FormPageHeader } from '@/components/FormPageHeader';
 import type { Cliente } from '@/types';
 
 interface ReciboVisita { id: string; numero: string; monto_total: number }
@@ -162,25 +163,20 @@ export function VisitaTecnica() {
   }
 
   return (
-    <div className="p-6 max-w-lg mx-auto space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft size={18} className="text-gray-600"/>
-          </button>
-          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
-            <Ruler size={18} className="text-slate-600"/>
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-gray-900">Visita de Relevamiento de Datos</h1>
-            <p className="text-xs text-gray-600">Elegí el cliente y generá el formulario para relevamiento in situ</p>
-          </div>
-        </div>
-        <Link to="/presupuestos/visitas-tecnicas"
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:underline shrink-0">
-          <List size={13}/> Ver visitas
-        </Link>
-      </div>
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4" data-section="presupuestos">
+      <FormPageHeader
+        onBack={() => navigate(-1)}
+        icon={Ruler}
+        iconColorClass="bg-slate-100 text-slate-600"
+        title="Visita de Relevamiento de Datos"
+        sub="Elegí el cliente y generá el formulario para relevamiento in situ"
+        action={
+          <Link to="/presupuestos/visitas-tecnicas"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition-all">
+            <List size={16}/> Ver visitas
+          </Link>
+        }
+      />
 
       {operacionId && (
         <div className="px-4 py-2.5 rounded-xl bg-violet-50 border border-violet-200 text-xs text-violet-700">
@@ -189,7 +185,7 @@ export function VisitaTecnica() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
           <Users size={13}/> Cliente
         </p>
@@ -211,7 +207,7 @@ export function VisitaTecnica() {
                 onFocus={() => setShowClienteList(true)}
                 onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
                 placeholder="Buscar por nombre, teléfono o DNI..."
-                className="flex-1 text-sm focus:outline-none"
+                className="flex-1 text-base sm:text-sm focus:outline-none"
               />
             </div>
             {showClienteList && clienteSearch && (
@@ -245,20 +241,20 @@ export function VisitaTecnica() {
         {/* Alta rápida inline — incluye domicilio, dato clave para la visita */}
         {showQuickAdd && !clienteId && (
           <div className="mt-3 p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input value={qNombre} onChange={e => setQNombre(e.target.value)} placeholder="Nombre"
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+                className="px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
               <input value={qApellido} onChange={e => setQApellido(e.target.value)} placeholder="Apellido"
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+                className="px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
             </div>
             <input value={qTelefono}
               onChange={e => setQTelefono(e.target.value)}
               onBlur={() => checkTelDup(qTelefono)}
               placeholder="Teléfono"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
             <input value={qDireccion} onChange={e => setQDireccion(e.target.value)}
               placeholder="Domicilio de la visita"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"/>
             {qTelDup && (
               <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
                 <span>Ya existe: <strong>{nombreCliente(qTelDup)}</strong></span>
@@ -280,7 +276,7 @@ export function VisitaTecnica() {
 
       {/* Cobro de la visita — decisión previa a generarla */}
       {clienteId && !visitaId && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
           <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <HandCoins size={13}/> Cobro de la visita
           </p>
@@ -317,13 +313,13 @@ export function VisitaTecnica() {
               <div>
                 <label className="block text-[11px] font-medium text-gray-600 mb-1">Forma de pago</label>
                 <select value={formaPago} onChange={e => setFormaPago(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white">
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white">
                   {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
               <input value={referencia} onChange={e => setReferencia(e.target.value)}
                 placeholder="Referencia del pago (opcional)"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
               <p className="text-[11px] text-gray-600">
                 Si después el presupuesto lo amerita, podés acreditar este importe al total.
               </p>
@@ -334,7 +330,7 @@ export function VisitaTecnica() {
 
       {/* Confirmación post-creación */}
       {visitaId && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-md p-4 space-y-2">
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4 space-y-2">
           <p className="text-sm text-gray-600">
             Visita <strong className="text-gray-900">{visitaNumero}</strong> generada
           </p>

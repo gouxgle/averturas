@@ -159,7 +159,7 @@ export function Dashboard() {
     : 0;
 
   return (
-    <div className="page-enter p-3 sm:p-4 lg:p-6 max-w-[1340px] mx-auto" data-section="dashboard">
+    <div className="page-enter p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto" data-section="dashboard">
 
       {/* ── Encabezado ───────────────────────────────────────────── */}
       {/* Dólar antes que Clima: el desplegable del pronóstico se abre hacia la derecha

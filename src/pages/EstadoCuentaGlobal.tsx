@@ -883,7 +883,7 @@ export function EstadoCuentaGlobal() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 max-w-[1340px] mx-auto page-enter space-y-4" data-section="estado">
+    <div className="p-3 sm:p-4 lg:p-5 max-w-[1440px] mx-auto page-enter space-y-4" data-section="estado">
       <SectionHero
         section="estado"
         icon={BookOpen}
