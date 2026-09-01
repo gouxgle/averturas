@@ -373,8 +373,13 @@ const RECIBO_DETALLE_SQL = `
       'telefono', cl.telefono, 'email', cl.email,
       'direccion', cl.direccion, 'localidad', cl.localidad,
       'documento_nro', cl.documento_nro) AS cliente,
-    json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado) AS operacion,
-    json_build_object('id', rm.id, 'numero', rm.numero, 'estado', rm.estado) AS remito,
+    -- CASE WHEN obligatorio: con LEFT JOIN sin match, json_build_object devuelve
+    -- {"id":null,...} — un objeto VERDADERO en JS, así que el guard "recibo.remito &&"
+    -- pasaba igual y el recibo impreso mostraba "Ref. remito:" vacío.
+    CASE WHEN op.id IS NULL THEN NULL ELSE
+      json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado) END AS operacion,
+    CASE WHEN rm.id IS NULL THEN NULL ELSE
+      json_build_object('id', rm.id, 'numero', rm.numero, 'estado', rm.estado) END AS remito,
     CASE WHEN vt.id IS NULL THEN NULL ELSE json_build_object(
       'id', vt.id, 'numero', vt.numero, 'fecha_visita', vt.fecha_visita,
       'cobro_estado', vt.cobro_estado) END AS visita_tecnica,
@@ -641,8 +646,7 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
   if (!r) return c.json({ error: 'Recibo no encontrado' }, 404);
   if (!r.cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
 
-  // remito null si no tiene id real (LEFT JOIN retorna objeto con nulls)
-  if (r.remito && !r.remito.id) r.remito = null;
+  // (el remito/operación sin match ya vienen NULL desde RECIBO_DETALLE_SQL)
 
   // Compromiso pendiente (igual que GET /:id)
   let compromiso = null;

@@ -82,6 +82,11 @@ export function ImprimirRecibo() {
     : `${cl.apellido ?? ''} ${cl.nombre ?? ''}`.trim() || '—';
 
   const tieneItems = recibo.items && recibo.items.length > 0;
+  // Si los ítems suman más que lo cobrado, el detalle describe QUÉ incluye el
+  // presupuesto (pago parcial), no el desglose de lo que se pagó. Sin aclararlo, un
+  // cliente puede leer la tabla como si hubiera pagado esos importes.
+  const totalItems = tieneItems ? recibo.items.reduce((s, i) => s + Number(i.monto), 0) : 0;
+  const detalleEsPresupuesto = tieneItems && totalItems > Number(recibo.monto_total) + 0.01;
 
   return (
     <>
@@ -217,7 +222,7 @@ export function ImprimirRecibo() {
         }}>
           <div>
             <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Importe total
+              Importe de este recibo
             </div>
             <div style={{ color: NAVY, fontSize: 28, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>
               {fmt(Number(recibo.monto_total))}
@@ -273,6 +278,12 @@ export function ImprimirRecibo() {
 
         {/* Detalle de ítems si tiene */}
         {tieneItems && (
+          <>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#555', marginBottom: 6 }}>
+            {detalleEsPresupuesto
+              ? `Detalle del presupuesto ${recibo.operacion?.numero ?? ''} (no es el desglose de este pago)`
+              : 'Detalle'}
+          </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
             <thead>
               <tr style={{ backgroundColor: '#f0f0f0' }}>
@@ -293,6 +304,7 @@ export function ImprimirRecibo() {
               ))}
             </tbody>
           </table>
+          </>
         )}
 
         {/* Descuento aplicado */}
@@ -308,7 +320,7 @@ export function ImprimirRecibo() {
             </div>
             {recibo.operacion && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#888', marginBottom: 4 }}>
-                <span>Total de la operación sin descuento</span>
+                <span>Total del presupuesto sin descuento</span>
                 <span>{fmt(Number(recibo.operacion.precio_total))}</span>
               </div>
             )}
@@ -327,13 +339,16 @@ export function ImprimirRecibo() {
         {recibo.operacion && (
           <div style={{ paddingTop: 10, borderTop: '1px solid #eee', marginBottom: 20 }}>
             <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
-              {/* "Total de la operación" ya se muestra dentro del recuadro lila si hay descuento */}
+              {/* El total del presupuesto es CONTEXTO, no lo que se cobró en este
+                  recibo: va en regular y gris, contra el monospace 28px del importe
+                  de arriba y el rojo del saldo. Si hay descuento ya se muestra
+                  dentro del recuadro lila. */}
               {!Number(recibo.monto_descuento) && (
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
-                    Total de la operación
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#aaa', marginBottom: 2 }}>
+                    Total del presupuesto (referencia)
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>
+                  <div style={{ fontSize: 12, fontWeight: 400, color: '#777' }}>
                     {fmt(Number(recibo.operacion.precio_total))}
                   </div>
                 </div>

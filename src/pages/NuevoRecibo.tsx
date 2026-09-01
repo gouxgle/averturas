@@ -65,12 +65,23 @@ interface PresupuestoDetalle {
   costo_envio: number;
   precio_total: number;
   items: Array<{
+    descripcion: string;
+    producto_id: string | null;
     precio_unitario: number;
     precio_instalacion: number;
     incluye_instalacion: boolean;
     cantidad: number;
+    /** unitario + instalación, × cantidad — lo calcula GET /operaciones/:id */
+    precio_total: number;
   }>;
   formas_pago_alternativas?: Array<{ id: string; nombre: string; descuento_pct: number }>;
+}
+
+interface ReciboItemPayload {
+  descripcion: string;
+  producto_id: string | null;
+  cantidad?: number;
+  monto: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -98,6 +109,10 @@ export function NuevoRecibo() {
   const [formaPagoAlternativaId, setFormaPagoAlternativaId] = useState('');
   const [referencia,  setReferencia]  = useState('');
   const [concepto,    setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
+  // El concepto se arma solo con el número del presupuesto (igual que la venta rápida
+  // de mostrador), pero deja de tocarse apenas el usuario escribe el suyo o viene uno
+  // por URL (ej. "Cancelación de saldo" desde el botón "Cobrar saldo" de Recibos).
+  const [conceptoManual, setConceptoManual] = useState(Boolean(urlConcepto));
   const [notas,       setNotas]       = useState('');
   const [comprobanteUrl,     setComprobanteUrl]     = useState('');
   const [uploadingComprobante, setUploadingComprobante] = useState(false);
@@ -123,6 +138,9 @@ export function NuevoRecibo() {
   const [operacionSel,       setOperacionSel]       = useState<Operacion | null>(null);
   const [presupuestoDetalle, setPresupuestoDetalle] = useState<PresupuestoDetalle | null>(null);
   const [tienePedido,        setTienePedido]        = useState(false);
+  // Ítems ya guardados (modo edición). Sin esto, guardar una edición los borraba:
+  // PUT /recibos/:id hace DELETE + re-INSERT de recibo_items con lo que llega.
+  const [itemsExistentes, setItemsExistentes] = useState<ReciboItemPayload[]>([]);
 
   // ── UI ────────────────────────────────────────────────────
   const [saving,        setSaving]        = useState(false);
@@ -152,6 +170,15 @@ export function NuevoRecibo() {
         setComprobanteUrl(data.comprobante_url ?? '');
         setTipoPago('parcial');
         setMontoParcial(String(data.monto_total));
+        setConceptoManual(true);
+        setItemsExistentes((data.items ?? []).map((it: {
+          descripcion: string; producto_id: string | null; cantidad: number | null; monto: number;
+        }) => ({
+          descripcion: it.descripcion,
+          producto_id: it.producto_id ?? null,
+          cantidad:    it.cantidad && it.cantidad > 0 ? it.cantidad : undefined,
+          monto:       Number(it.monto),
+        })));
       });
     }
   }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -263,6 +290,39 @@ export function NuevoRecibo() {
   const esParcial = tipoPago === 'parcial';
   const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
   const esCuotas = formaPago === 'Tarjeta de crédito 3 cuotas sin interés';
+
+  // ── Concepto e ítems tomados del presupuesto ──────────────
+  // Mismo criterio que la venta rápida de mostrador: el recibo dice a qué presupuesto
+  // corresponde y qué incluye, sin que haya que escribirlo a mano.
+  //
+  // El concepto describe lo que el pago HACE, no qué botón se apretó: "Pago total"
+  // solo cuando este recibo cubre el presupuesto entero y no hubo cobros previos. Si
+  // ya se cobró algo antes y este pago cierra el saldo, es la cancelación de un saldo
+  // — decirle "Pago total" al segundo de dos pagos era engañoso en el comprobante.
+  const cancelaSaldo   = montoFinal > 0 && saldoTrasRecibo < 0.01;
+  const huboCobrosPrevios = cobradoOp > 0.01;
+  const conceptoSugerido = operacionSel
+    ? (cancelaSaldo
+        ? (huboCobrosPrevios
+            ? `Pago parcial — cancelación total de saldo presupuesto N° ${operacionSel.numero}`
+            : `Pago total presupuesto N° ${operacionSel.numero}`)
+        : `Pago parcial presupuesto N° ${operacionSel.numero}`)
+    : '';
+
+  useEffect(() => {
+    if (isEdit || conceptoManual || !conceptoSugerido) return;
+    setConcepto(conceptoSugerido);
+  }, [conceptoSugerido, conceptoManual, isEdit]);
+
+  // Ítems del presupuesto, para que el recibo detalle qué se está cobrando. Suman
+  // exactamente `operaciones.precio_total` (el trigger recalcular_totales_operacion
+  // no incluye el envío, así que no hay que sumarlo acá).
+  const itemsDelPresupuesto = (presupuestoDetalle?.items ?? []).map(it => ({
+    descripcion: (it.descripcion || 'Ítem del presupuesto').slice(0, 500),
+    producto_id: it.producto_id ?? null,
+    cantidad:    Number.isInteger(it.cantidad) && it.cantidad > 0 ? it.cantidad : undefined,
+    monto:       Math.round(Number(it.precio_total) * 100) / 100,
+  }));
 
   // ── Helpers bonificación ──────────────────────────────────
   function resetBonificacion() {
@@ -383,7 +443,9 @@ export function NuevoRecibo() {
       concepto:        concepto   || null,
       notas:           notas      || null,
       monto_total:     montoFinal,
-      items:           [],
+      // En alta, el detalle de lo que se cobra sale del presupuesto vinculado; en
+      // edición se reenvían los que ya tenía (el PUT los reemplaza por completo).
+      items:           isEdit ? itemsExistentes : itemsDelPresupuesto,
       descuento_pct:   descPct,
       monto_lista:     listaTotal,
       monto_descuento: descMonto,
@@ -778,7 +840,7 @@ export function NuevoRecibo() {
               </button>
 
               <button
-                onClick={() => { setTipoPago('parcial'); if (!concepto.trim() || concepto === 'Pago total') setConcepto('Pago parcial'); }}
+                onClick={() => setTipoPago('parcial')}
                 className={cn(
                   'relative flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
                   tipoPago === 'parcial'
@@ -896,7 +958,7 @@ export function NuevoRecibo() {
               <input
                 list="conceptos-list"
                 value={concepto}
-                onChange={e => setConcepto(e.target.value)}
+                onChange={e => { setConcepto(e.target.value); setConceptoManual(true); }}
                 placeholder="Seleccioná o escribí el concepto..."
                 className={inputCls}
               />

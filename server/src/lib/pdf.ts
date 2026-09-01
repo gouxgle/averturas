@@ -89,7 +89,19 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   const montoLista     = Number(recibo.monto_lista     ?? recibo.monto_total);
   const totalDesc      = Number(recibo.total_descuentos_operacion ?? 0);
 
+  // Si los items suman mas que lo cobrado, el detalle describe QUE incluye el
+  // presupuesto (pago parcial), no el desglose de lo que se pago — hay que aclararlo
+  // o el cliente lee la tabla como si hubiera pagado esos importes.
+  // Mismo criterio que ImprimirRecibo.tsx: los dos disenos tienen que coincidir.
+  const totalItems = tieneItems ? recibo.items.reduce((s, i) => s + Number(i.monto), 0) : 0;
+  const detalleEsPresupuesto = tieneItems && totalItems > Number(recibo.monto_total) + 0.01;
+
   const itemsHTML = tieneItems ? `
+    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;">${
+      detalleEsPresupuesto
+        ? `Detalle del presupuesto ${recibo.operacion?.numero ?? ''} (no es el desglose de este pago)`
+        : 'Detalle'
+    }</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
       <thead>
         <tr style="background:#f0f0f0;">
@@ -133,7 +145,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
       </div>
       ${recibo.operacion ? `
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px;">
-          <span>Total de la operacion sin descuento</span><span>${fmt(Number(recibo.operacion.precio_total))}</span>
+          <span>Total del presupuesto sin descuento</span><span>${fmt(Number(recibo.operacion.precio_total))}</span>
         </div>
       ` : ''}
       <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;">
@@ -162,8 +174,8 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
         <div style="display:flex;gap:40px;flex-wrap:wrap;">
           ${!montoDescuento ? `
             <div>
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Total de la operacion</div>
-              <div style="font-size:13px;font-weight:600;color:#333;">${fmt(Number(recibo.operacion.precio_total))}</div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#aaa;margin-bottom:2px;">Total del presupuesto (referencia)</div>
+              <div style="font-size:12px;font-weight:400;color:#777;">${fmt(Number(recibo.operacion.precio_total))}</div>
             </div>
           ` : ''}
           ${saldo >= 0.01 ? `
@@ -245,7 +257,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   <!-- Monto grande -->
   <div style="border:2px solid ${NAVY};border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div>
-      <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Importe total</div>
+      <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Importe de este recibo</div>
       <div style="color:${NAVY};font-size:28px;font-weight:900;font-family:monospace;margin-top:2px;">${fmt(Number(recibo.monto_total))}</div>
     </div>
     <div style="text-align:right;">
