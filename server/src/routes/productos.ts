@@ -18,7 +18,7 @@ const withJoins = `
       THEN json_build_object('id', s.id, 'nombre', s.nombre)
       ELSE NULL END AS sistema,
     CASE WHEN p.id IS NOT NULL
-      THEN json_build_object('id', p.id, 'nombre', p.nombre)
+      THEN json_build_object('id', p.id, 'nombre', p.nombre, 'color', p.color, 'plazo_entrega_dias', p.plazo_entrega_dias)
       ELSE NULL END AS proveedor,
     CASE WHEN mo.id IS NOT NULL
       THEN json_build_object('id', mo.id, 'nombre', mo.nombre)
@@ -33,9 +33,13 @@ const withJoins = `
 productos.get('/', async (c) => {
   const tipo   = c.req.query('tipo');
   const search = c.req.query('search') ?? '';
+  // ?activo=true — para los selectores de producto (presupuesto, pedido), que no
+  // deben ofrecer productos dados de baja. La gestión del catálogo los sigue viendo.
+  const soloActivos = c.req.query('activo') === 'true';
   const params: unknown[] = [];
   let where = 'WHERE 1=1';
 
+  if (soloActivos) where += ' AND cp.activo = true';
   if (tipo && tipo !== 'todos') {
     params.push(tipo);
     where += ` AND cp.tipo = $${params.length}`;
@@ -55,7 +59,7 @@ productos.get('/', async (c) => {
         THEN json_build_object('id', s.id, 'nombre', s.nombre)
         ELSE NULL END AS sistema,
       CASE WHEN p.id IS NOT NULL
-        THEN json_build_object('id', p.id, 'nombre', p.nombre)
+        THEN json_build_object('id', p.id, 'nombre', p.nombre, 'color', p.color, 'plazo_entrega_dias', p.plazo_entrega_dias)
         ELSE NULL END AS proveedor,
       CASE WHEN mo.id IS NOT NULL
         THEN json_build_object('id', mo.id, 'nombre', mo.nombre)

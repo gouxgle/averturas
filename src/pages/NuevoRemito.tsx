@@ -12,6 +12,7 @@ import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
+import { BadgeProveedor } from '@/components/BadgeProveedor';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Operacion {
@@ -59,6 +60,7 @@ interface Producto {
   tipo: string;
   precio_base: number | null;
   stock_actual?: number;
+  proveedor?: { id: string; nombre: string; color: string | null } | null;
 }
 
 interface RemitoItem {
@@ -752,6 +754,7 @@ export function NuevoRemito() {
                                     <span className="font-medium text-gray-800">{p.nombre}</span>
                                     {p.codigo && <span className="text-gray-600 ml-1.5">{p.codigo}</span>}
                                     <span className="text-gray-600 ml-1.5 capitalize">{p.tipo.replace('_', ' ')}</span>
+                                    <BadgeProveedor proveedor={p.proveedor} size="xs" className="ml-1.5 align-middle" />
                                   </button>
                                 ))}
                               {productos.filter(p => {

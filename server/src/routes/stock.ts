@@ -106,6 +106,9 @@ stock.get('/tablero', async (c) => {
           p.stock_minimo, p.stock_inicial, p.precio_base, p.costo_base, p.imagen_url,
           json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
           json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
+          CASE WHEN pr.id IS NOT NULL
+            THEN json_build_object('id', pr.id, 'nombre', pr.nombre, 'color', pr.color, 'plazo_entrega_dias', pr.plazo_entrega_dias)
+            ELSE NULL END AS proveedor,
           (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual,
           COALESCE(SUM(-m.cantidad) FILTER (WHERE m.tipo LIKE 'egreso%' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS ventas_30d,
           COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'ingreso' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS entradas_30d,
@@ -114,11 +117,12 @@ stock.get('/tablero', async (c) => {
         FROM catalogo_productos p
         LEFT JOIN tipos_abertura ta ON ta.id = p.tipo_abertura_id
         LEFT JOIN sistemas s        ON s.id  = p.sistema_id
+        LEFT JOIN proveedores pr    ON pr.id = p.proveedor_id
         LEFT JOIN stock_movimientos m ON m.producto_id = p.id
         WHERE p.activo = true
         GROUP BY p.id, p.nombre, p.codigo, p.tipo, p.color, p.en_salon,
                  p.stock_minimo, p.stock_inicial, p.precio_base, p.costo_base, p.imagen_url,
-                 ta.id, ta.nombre, s.id, s.nombre
+                 ta.id, ta.nombre, s.id, s.nombre, pr.id, pr.nombre, pr.color
       )
       SELECT *,
         (stock_actual * COALESCE(precio_base, 0))::numeric AS valor_stock,

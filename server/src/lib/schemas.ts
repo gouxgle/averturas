@@ -336,8 +336,17 @@ export const ModeloSchema = z.object({
   activo:       z.boolean().optional(),
 });
 
+// Claves de la paleta de colores identificatorios de proveedor.
+// Debe mantenerse sincronizada con COLORES_PROVEEDOR en src/lib/coloresProveedor.ts
+// (el frontend mapea la clave a las clases del badge).
+export const CLAVES_COLOR_PROVEEDOR = [
+  'violeta', 'celeste', 'esmeralda', 'ambar', 'rosa', 'indigo',
+  'teal', 'naranja', 'lima', 'fucsia', 'cian', 'pizarra',
+] as const;
+
 export const ProveedorSchema = z.object({
   nombre:             z.string().min(1, 'Nombre requerido').max(200),
+  color:              z.enum(CLAVES_COLOR_PROVEEDOR).optional().nullable(),
   tipo:               z.enum(['Fabricante','Revendedor','Importador']).optional().nullable(),
   contacto:           zText(120).optional(),
   telefono:           zPhone,

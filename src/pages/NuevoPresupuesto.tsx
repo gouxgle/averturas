@@ -16,6 +16,11 @@ import { ProductoModal } from './Productos';
 import { EditItemModal } from '@/components/EditItemModal';
 import { CargaMultipleAMedida } from '@/components/CargaMultipleAMedida';
 import { formatearErrorApi, CAMPO_LABELS } from '@/lib/apiError';
+import { BandaProveedor } from '@/components/BadgeProveedor';
+import { isPromoActiva, productoMatchTexto } from '@/lib/catalogoFiltros';
+import type { Categoria } from '@/lib/catalogoCategorias';
+import { ModalCatalogoProductos } from '@/components/catalogo/ModalCatalogoProductos';
+import { ModeloVariantesModal } from '@/components/catalogo/GridMosaico';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
@@ -63,50 +68,11 @@ interface ServicioCatalogo {
   precio_base: number | null;
 }
 
-interface CatalogProduct {
-  id: string;
-  nombre: string;
-  codigo: string | null;
-  descripcion: string | null;
-  costo_base: number;
-  precio_base: number;
-  tipo_abertura_id: string | null;
-  tipo_abertura: { id: string; nombre: string } | null;
-  sistema_id: string | null;
-  sistema: { id: string; nombre: string } | null;
-  color: string | null;
-  vidrio: string | null;
-  premarco: boolean;
-  accesorios: string[];
-  ancho: number | null;
-  alto: number | null;
-  atributos: Record<string, unknown>;
-  stock_actual: number;
-  imagen_url: string | null;
-  imagenes: string[];
-  caracteristica_1: string | null;
-  caracteristica_2: string | null;
-  modelo_id: string | null;
-  modelo_nombre: string | null;
-  disponibilidad_confirmada_at: string | null;
-  promocion: {
-    activo: boolean;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
-    precio_oferta: number | null;
-    auto_renovar?: boolean;
-  } | null;
-}
-
-// Misma regla que Productos.tsx: activo, dentro de vigencia (o auto-renovar mensual)
-function isPromoActiva(p: CatalogProduct): boolean {
-  if (!p.promocion?.activo) return false;
-  const hoy = new Date().toISOString().slice(0, 10);
-  if (p.promocion.fecha_inicio && hoy < p.promocion.fecha_inicio) return false;
-  if (p.promocion.auto_renovar) return true;
-  if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
-  return true;
-}
+// El picker de productos usa `Producto` (el mismo tipo del catálogo) y consume
+// `GET /productos?activo=true`. Antes tenía un `CatalogProduct` propio, más angosto,
+// que no traía `categoria_id` — sin eso no se puede navegar el árbol de categorías,
+// que es justamente lo que hace falta para compartir la búsqueda con la sección
+// Productos. `CatalogProduct` quedó obsoleto y se eliminó.
 
 // ── Tipo para carga de edición ────────────────────────────────────────────────
 
@@ -317,10 +283,14 @@ export function NuevoPresupuesto() {
   const [descripcionARelevar, setDescripcionARelevar] = useState('');
   const [servicioSeleccionadoId, setServicioSeleccionadoId] = useState('');
   const esAMedida = modo === 'a_medida';
-  const [tab, setTab] = useState<'galeria' | 'buscar' | 'frecuentes' | 'scanner'>('galeria');
+  // "Galería" ya no es un tab: abre el modal de catálogo completo (misma búsqueda que
+  // la sección Productos). Quedan inline los dos flujos rápidos de una mano.
+  const [tab, setTab] = useState<'frecuentes' | 'scanner'>('frecuentes');
+  const [showGaleria, setShowGaleria] = useState(false);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriaSel, setCategoriaSel] = useState('');
   const [galSearch, setGalSearch] = useState('');
-  const [productos, setProductos] = useState<CatalogProduct[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [servicios, setServicios] = useState<ServicioCatalogo[]>([]);
   const [productosLoading, setProductosLoading] = useState(false);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
@@ -385,28 +355,28 @@ export function NuevoPresupuesto() {
   }, [isEdit, clienteId, items, formaPago, notas, notasInternas, tipoProyecto, fechaValidez, formaEnvio, costoEnvio, tiempoEntrega]);
 
   // Modal "Ver más" — detalle de producto desde la galería
-  const [detalleOriginal, setDetalleOriginal] = useState<CatalogProduct | null>(null);
+  const [detalleOriginal, setDetalleOriginal] = useState<Producto | null>(null);
   const [detalleProducto, setDetalleProducto] = useState<Producto | null>(null);
 
-  function verDetalle(e: React.MouseEvent, p: CatalogProduct) {
-    e.stopPropagation();
+  function verDetalleProducto(p: Producto) {
     setDetalleOriginal(p);
     api.get<Producto>(`/productos/${p.id}`)
       .then(setDetalleProducto)
       .catch(() => { toast.error('No se pudo cargar el detalle del producto'); setDetalleOriginal(null); });
   }
+  function verDetalle(e: React.MouseEvent, p: Producto) {
+    e.stopPropagation();
+    verDetalleProducto(p);
+  }
 
   // Buscador por código / scanner
   const [codigoSearch, setCodigoSearch]   = useState('');
-  const [codigoResults, setCodigoResults] = useState<CatalogProduct[]>([]);
+  const [codigoResults, setCodigoResults] = useState<Producto[]>([]);
   const [showCodigo, setShowCodigo]       = useState(false);
   const [codigoLoading, setCodigoLoading] = useState(false);
   const codigoRef = useRef<HTMLInputElement>(null);
 
   // Buscador tab "buscar"
-  const [buscarSearch, setBuscarSearch]   = useState('');
-  const [buscarResults, setBuscarResults] = useState<CatalogProduct[]>([]);
-  const [buscarLoading, setBuscarLoading] = useState(false);
 
   // Carga inicial de catálogos (sin clientes — se buscan por API al tipear)
   useEffect(() => {
@@ -465,9 +435,14 @@ export function NuevoPresupuesto() {
   // Carga galería de productos
   useEffect(() => {
     setProductosLoading(true);
-    api.get<CatalogProduct[]>('/catalogo/productos')
+    api.get<Producto[]>('/productos?activo=true')
       .then(r => setProductos(r))
       .finally(() => setProductosLoading(false));
+  }, []);
+
+  // Árbol de categorías — lo navega el modal de catálogo, igual que la sección Productos
+  useEffect(() => {
+    api.get<Categoria[]>('/catalogo/categorias').then(setCategorias).catch(() => {});
   }, []);
 
   // Cargar datos en modo edición
@@ -594,9 +569,9 @@ export function NuevoPresupuesto() {
     }
 
     if (estandarIds.length > 0) {
-      api.get<CatalogProduct[]>('/catalogo/productos').then(catalogo => {
+      api.get<Producto[]>('/productos?activo=true').then(catalogo => {
         const porId = new Map(catalogo.map(p => [p.id, p]));
-        const itemsEstandar = estandarIds.map(id => porId.get(id)).filter((p): p is CatalogProduct => !!p).map(itemFromCatalogProduct);
+        const itemsEstandar = estandarIds.map(id => porId.get(id)).filter((p): p is Producto => !!p).map(itemFromProducto);
         setItems(prev => [...prev, ...itemsEstandar]);
       }).catch(() => toast.error('No se pudieron cargar los productos relevados en la visita'));
     }
@@ -685,23 +660,23 @@ export function NuevoPresupuesto() {
   }
 
   // Agrega ítem desde catálogo — si ya existe incrementa cantidad
-  const [variantePicker, setVariantePicker] = useState<{ nombre: string; opciones: CatalogProduct[] } | null>(null);
+  const [variantePicker, setVariantePicker] = useState<{ nombre: string; opciones: Producto[] } | null>(null);
 
   // Si el producto pertenece a un modelo con más de una variante cargada, no se agrega
   // directo — se pide elegir medida/color primero (regla del negocio: nunca agregar sin
   // variante elegida cuando hay ambigüedad real).
-  function agregarProducto(p: CatalogProduct) {
+  function agregarProducto(p: Producto) {
     if (p.modelo_id) {
       const hermanas = productos.filter(x => x.modelo_id === p.modelo_id);
       if (hermanas.length > 1) {
-        setVariantePicker({ nombre: p.modelo_nombre ?? p.nombre, opciones: hermanas });
+        setVariantePicker({ nombre: p.modelo?.nombre ?? p.nombre, opciones: hermanas });
         return;
       }
     }
     agregarProductoDirecto(p);
   }
 
-  function itemFromCatalogProduct(p: CatalogProduct): ItemForm {
+  function itemFromProducto(p: Producto): ItemForm {
     const enPromo = isPromoActiva(p) && p.promocion?.precio_oferta != null;
     return {
       _key:                uuid(),
@@ -738,7 +713,11 @@ export function NuevoPresupuesto() {
     };
   }
 
-  function agregarProductoDirecto(p: CatalogProduct) {
+  // Solo la mutación del carrito. Está separada de `agregarDesdeScanner` a propósito:
+  // los efectos del lector (limpiar el input y devolverle el foco) no deben dispararse
+  // cuando se agrega desde el modal de catálogo — ahí robarían el foco a un input que
+  // no se ve y, en mobile, abrirían el teclado detrás del modal.
+  function sumarAlCarrito(p: Producto) {
     setItems(prev => {
       const existente = prev.find(it => it.producto_id === p.id);
       if (existente) {
@@ -746,8 +725,12 @@ export function NuevoPresupuesto() {
           it.producto_id === p.id ? { ...it, cantidad: it.cantidad + 1 } : it
         );
       }
-      return [...prev, itemFromCatalogProduct(p)];
+      return [...prev, itemFromProducto(p)];
     });
+  }
+
+  function agregarProductoDirecto(p: Producto) {
+    sumarAlCarrito(p);
     setCodigoSearch('');
     setCodigoResults([]);
     setShowCodigo(false);
@@ -758,8 +741,8 @@ export function NuevoPresupuesto() {
     if (!q.trim()) { setCodigoResults([]); setShowCodigo(false); return; }
     setCodigoLoading(true);
     try {
-      const res = await api.get<CatalogProduct[]>(
-        `/catalogo/productos?search=${encodeURIComponent(q.trim())}`
+      const res = await api.get<Producto[]>(
+        `/productos?activo=true&search=${encodeURIComponent(q.trim())}`
       );
       if (exactOnEnter) {
         const exact = res.find(r => r.codigo?.toLowerCase() === q.trim().toLowerCase());
@@ -780,22 +763,6 @@ export function NuevoPresupuesto() {
     const t = setTimeout(() => buscarCodigo(codigoSearch, false), 300);
     return () => clearTimeout(t);
   }, [codigoSearch, buscarCodigo]);
-
-  // Búsqueda en tab "buscar"
-  useEffect(() => {
-    if (!buscarSearch.trim()) { setBuscarResults([]); return; }
-    const t = setTimeout(async () => {
-      setBuscarLoading(true);
-      try {
-        const res = await api.get<CatalogProduct[]>(
-          `/catalogo/productos?search=${encodeURIComponent(buscarSearch.trim())}`
-        );
-        setBuscarResults(res.slice(0, 20));
-      } catch { /* silencioso */ }
-      finally { setBuscarLoading(false); }
-    }, 280);
-    return () => clearTimeout(t);
-  }, [buscarSearch]);
 
   async function handleSave(abrirPdf = false, luegoIrAVisita = false) {
     if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
@@ -905,32 +872,39 @@ export function NuevoPresupuesto() {
   }
 
   // ── Filtrado galería ──────────────────────────────────────────────────────────
+  // Solapa "Frecuentes": mismo filtro de texto/tipo de siempre, con los productos que
+  // ya están en el presupuesto arriba de todo.
   const productosFiltrados = productos.filter(p => {
-    const q = galSearch.toLowerCase();
-    const matchSearch = !q
-      || p.nombre.toLowerCase().includes(q)
-      || (p.codigo ?? '').toLowerCase().includes(q)
-      || (p.tipo_abertura?.nombre ?? '').toLowerCase().includes(q)
-      || (p.sistema?.nombre ?? '').toLowerCase().includes(q)
-      || (p.caracteristica_1 ?? '').toLowerCase().includes(q)
-      || (p.caracteristica_2 ?? '').toLowerCase().includes(q);
+    const matchSearch = productoMatchTexto(p, galSearch);
     const matchCat = !categoriaSel || p.tipo_abertura_id === categoriaSel;
     return matchSearch && matchCat;
   });
 
-  // Para tab "frecuentes": productos ya en carrito primero
-  const productosOrdenados = tab === 'frecuentes'
-    ? [...productosFiltrados].sort((a, b) => {
-        const enA = items.some(it => it.producto_id === a.id) ? -1 : 1;
-        const enB = items.some(it => it.producto_id === b.id) ? -1 : 1;
-        return enA - enB;
-      })
-    : productosFiltrados;
+  const productosOrdenados = [...productosFiltrados].sort((a, b) => {
+    const enA = items.some(it => it.producto_id === a.id) ? -1 : 1;
+    const enB = items.some(it => it.producto_id === b.id) ? -1 : 1;
+    return enA - enB;
+  });
 
   // Validez label
   const fechaValidezLabel = fechaValidez
     ? new Date(fechaValidez + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '—';
+
+  // Plazo sugerido para el presupuesto: el del proveedor MÁS LENTO entre los ítems
+  // cargados (la entrega se completa cuando llega el último). Solo cuenta lo que hay
+  // que pedir: un ítem con stock no espera a nadie. Es una sugerencia — el campo
+  // `tiempo_entrega` es lo que se le promete al cliente y lo decide el vendedor.
+  const { plazoSugerido, plazoSugeridoProv } = (() => {
+    let max = -1, prov = '';
+    for (const it of items) {
+      if (!it.producto_id || it._prod_stock > 0) continue;
+      const p = productos.find(x => x.id === it.producto_id);
+      const dias = p?.proveedor?.plazo_entrega_dias;
+      if (dias != null && dias > max) { max = dias; prov = p?.proveedor?.nombre ?? ''; }
+    }
+    return { plazoSugerido: max >= 0 ? max : null, plazoSugeridoProv: prov };
+  })();
 
   const entregaEstimadaLabel = tiempoEntrega ? (() => {
     const d = new Date();
@@ -1391,9 +1365,17 @@ export function NuevoPresupuesto() {
           {/* Tabs — solo en modo estándar */}
           {modo === 'estandar' && (
           <div className="flex border-b border-gray-200">
+            {/* Galería abre el catálogo completo en un modal — buscador, categorías,
+                filtros por proveedor y orden por plazo de entrega, lo mismo que la
+                sección Productos. No es un tab: no tiene contenido inline. */}
+            <button
+              onClick={() => setShowGaleria(true)}
+              className="flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition-colors border-b-2 border-transparent text-gray-600 hover:text-violet-700 hover:bg-violet-50"
+            >
+              <LayoutGrid size={13} />
+              Galería
+            </button>
             {([
-              { key: 'galeria',   icon: LayoutGrid, label: 'Galería' },
-              { key: 'buscar',    icon: Search,     label: 'Buscador' },
               { key: 'frecuentes',icon: Star,       label: 'Frecuentes' },
               { key: 'scanner',   icon: ScanLine,   label: 'Código' },
             ] as const).map(({ key, icon: Icon, label }) => (
@@ -1417,8 +1399,10 @@ export function NuevoPresupuesto() {
           {/* Contenido del tab — solo en modo estándar */}
           <div className={cn('flex-1 flex-col overflow-hidden', modo === 'estandar' ? 'flex' : 'hidden')}>
 
-            {/* TAB: Galería / Frecuentes */}
-            {(tab === 'galeria' || tab === 'frecuentes') && (
+            {/* TAB: Frecuentes — tarjeta densa propia, pensada para la columna de
+                340-420px del editor. NO es un duplicado de TarjetaProductoMosaico:
+                esa está diseñada para una grilla a ancho de página y no entra acá. */}
+            {tab === 'frecuentes' && (
               <>
                 {/* Search bar */}
                 <div className="px-3 py-2 border-b border-gray-200">
@@ -1488,6 +1472,8 @@ export function NuevoPresupuesto() {
                             onClick={e => verDetalle(e, p)}
                             title="Ver detalle"
                           >
+                            {/* Franja del proveedor — mismo formato que la tarjeta del catálogo */}
+                            <BandaProveedor proveedor={p.proveedor} className="px-2 py-0.5" />
                             {/* Imagen */}
                             <div className="h-20 bg-gray-50 overflow-hidden">
                               {img
@@ -1542,61 +1528,6 @@ export function NuevoPresupuesto() {
                   )}
                 </div>
               </>
-            )}
-
-            {/* TAB: Buscador */}
-            {tab === 'buscar' && (
-              <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="px-3 py-3 border-b border-gray-200">
-                  <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-violet-300 focus-within:border-violet-400">
-                    <Search size={14} className="text-gray-600 shrink-0" />
-                    <input
-                      autoFocus
-                      value={buscarSearch}
-                      onChange={e => setBuscarSearch(e.target.value)}
-                      placeholder="Buscar producto..."
-                      className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-600 focus:outline-none"
-                    />
-                    {buscarSearch && (
-                      <button onMouseDown={() => { setBuscarSearch(''); setBuscarResults([]); }} className="text-gray-600 hover:text-gray-600">
-                        <X size={12} />
-                      </button>
-                    )}
-                    {buscarLoading && <Search size={12} className="text-gray-600 animate-pulse shrink-0" />}
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  {buscarResults.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-gray-600 text-xs gap-2">
-                      <Search size={24} className="text-gray-200" />
-                      {buscarSearch ? 'Sin resultados' : 'Escribí para buscar'}
-                    </div>
-                  ) : buscarResults.map(p => {
-                    const img = p.imagenes?.[0] || p.imagen_url;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => agregarProducto(p)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-50 border-b border-gray-200 last:border-0 text-left"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                          {img
-                            ? <img src={img} alt={p.nombre} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center"><Package size={14} className="text-gray-600" /></div>
-                          }
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-800 truncate">{p.nombre}</p>
-                          {p.codigo && <p className="font-mono text-[9px] text-gray-600">{p.codigo}</p>}
-                        </div>
-                        <span className="text-xs font-bold text-violet-700 shrink-0">{formatCurrency(Number(p.precio_base))}</span>
-                        <Plus size={14} className="text-emerald-500 shrink-0" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             )}
 
             {/* TAB: Scanner */}
@@ -2083,6 +2014,16 @@ export function NuevoPresupuesto() {
                   placeholder="Ej: 15"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
                 />
+                {/* Sugerencia, nunca autocompletado: el plazo es el declarado por el
+                    proveedor más lento entre los ítems cargados, y este campo es lo que
+                    se le promete al cliente. La decisión es del vendedor. */}
+                {plazoSugerido != null && String(plazoSugerido) !== tiempoEntrega && (
+                  <p className="text-[10px] text-gray-600 mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span>Sugerido por los ítems cargados: <strong>{plazoSugerido} días</strong>{plazoSugeridoProv ? ` (${plazoSugeridoProv})` : ''}</span>
+                    <button type="button" onClick={() => setTiempoEntrega(String(plazoSugerido))}
+                      className="text-violet-600 hover:underline font-semibold">Usar</button>
+                  </p>
+                )}
               </div>
 
               {/* Condiciones */}
@@ -2179,45 +2120,38 @@ export function NuevoPresupuesto() {
       {detalleProducto && (
         <ProductoModal
           producto={detalleProducto}
+          zClass={showGaleria ? 'z-[80]' : 'z-50'}
           onClose={() => { setDetalleProducto(null); setDetalleOriginal(null); }}
           onAgregar={() => detalleOriginal && agregarProducto(detalleOriginal)}
         />
       )}
 
-      {/* ── Modal elegir variante (producto con modelo y 2+ variantes) ── */}
+      {/* ── Modal de catálogo — misma búsqueda que la sección Productos ── */}
+      {showGaleria && (
+        <ModalCatalogoProductos
+          productos={productos}
+          categorias={categorias}
+          loading={productosLoading}
+          onSelect={p => verDetalleProducto(p)}
+          onAgregar={agregarProducto}
+          cantidadEnCarrito={p => items.find(it => it.producto_id === p.id)?.cantidad ?? 0}
+          itemsEnCarrito={items.length}
+          onClose={() => setShowGaleria(false)}
+        />
+      )}
+
+      {/* ── Modal elegir variante (producto con modelo y 2+ variantes) ──
+          Dentro del modal de catálogo la grilla ya agrupa por modelo; esto cubre el
+          camino del scanner y el de Frecuentes. */}
       {variantePicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) setVariantePicker(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80dvh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between z-10">
-              <div>
-                <p className="text-base font-bold text-gray-900">{variantePicker.nombre}</p>
-                <p className="text-xs text-gray-600">{variantePicker.opciones.length} variantes — elegí una</p>
-              </div>
-              <button onClick={() => setVariantePicker(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 shrink-0"><X size={16}/></button>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {variantePicker.opciones.map(v => {
-                const img = v.imagenes?.[0] || v.imagen_url;
-                const medida = v.ancho && v.alto ? `${v.ancho} × ${v.alto} cm` : null;
-                return (
-                  <button key={v.id} type="button"
-                    onClick={() => { setVariantePicker(null); agregarProductoDirecto(v); }}
-                    className="w-full flex items-center gap-3 px-5 py-3 hover:bg-violet-50 text-left">
-                    <div className="w-11 h-11 rounded-lg bg-gray-50 overflow-hidden shrink-0 border border-gray-200">
-                      {img ? <img src={img} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-gray-200"/></div>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{[medida, v.color].filter(Boolean).join(' · ') || v.nombre}</p>
-                      {v.codigo && <p className="font-mono text-[10px] text-gray-600">{v.codigo}</p>}
-                    </div>
-                    <span className="text-sm font-bold text-violet-700 shrink-0">{formatCurrency(Number(v.precio_base))}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <ModeloVariantesModal
+          nombre={variantePicker.nombre}
+          variantes={variantePicker.opciones}
+          priceColor="text-violet-700"
+          zClass="z-[80]"
+          onClose={() => setVariantePicker(null)}
+          onSelect={v => { setVariantePicker(null); sumarAlCarrito(v); }}
+        />
       )}
 
       {/* suppress unused-var lint only */}

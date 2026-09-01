@@ -13,6 +13,7 @@ import { MontoInput } from '@/components/MontoInput';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
+import { BadgeProveedor } from '@/components/BadgeProveedor';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface ProductoExistencias {
@@ -30,6 +31,7 @@ interface ProductoExistencias {
   costo_base: number | null;
   tipo_abertura: { id: string; nombre: string } | null;
   sistema: { id: string; nombre: string } | null;
+  proveedor: { id: string; nombre: string; color: string | null } | null;
   ventas_30d: number;
   entradas_30d: number;
   ultima_venta_fecha: string | null;
@@ -861,6 +863,7 @@ function ProductoRow({
           <Store size={9} />En salón
         </span>
       )}
+      <BadgeProveedor proveedor={producto.proveedor} size="xs" />
     </div>
   );
 

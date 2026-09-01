@@ -10,6 +10,7 @@ import { SectionHero } from '@/components/SectionHero';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { COLORES_PROVEEDOR, colorProveedor } from '@/lib/coloresProveedor';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Proveedor {
@@ -24,6 +25,8 @@ interface Proveedor {
   deuda_actual: number;
   es_principal: boolean;
   margen_venta: number;
+  /** Clave de la paleta identificatoria; null = color automático derivado del id. */
+  color: string | null;
   created_at: string;
   // computed from compras
   lotes_count_6m: number;
@@ -110,6 +113,7 @@ function emptyForm(): FormData {
     materiales: [], notas: null,
     forma_entrega: 'propia', plazo_entrega_dias: null,
     costo_flete: 0, calificacion: null, deuda_actual: 0, es_principal: false, margen_venta: 0,
+    color: null,
   };
 }
 
@@ -164,12 +168,14 @@ function StarRating({ value, onChange, size = 14 }: { value: number | null; onCh
 
 // ── ModalProveedor ────────────────────────────────────────────
 function ModalProveedor({
-  initial, title, onSave, onClose
+  initial, title, onSave, onClose, proveedorId
 }: {
   initial: FormData;
   title: string;
   onSave: (vals: FormData) => Promise<void>;
   onClose: () => void;
+  /** Solo en edición: se usa para previsualizar el color automático derivado del id. */
+  proveedorId?: string;
 }) {
   const [form, setForm] = useState<FormData>(initial);
   const [saving, setSaving] = useState(false);
@@ -314,6 +320,39 @@ function ModalProveedor({
             </div>
           </div>
 
+          {/* Color identificatorio */}
+          <div>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Color identificatorio</p>
+            <p className="text-[11px] text-gray-600 mb-2">
+              Se muestra en cada producto de este proveedor para reconocerlo de un vistazo.
+              Si no elegís ninguno, se usa uno automático.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {COLORES_PROVEEDOR.map(col => {
+                // En edición sin color elegido se resalta el automático (para que se
+                // vea cuál está usando hoy); en alta nueva no hay id, no se resalta nada.
+                const activo = form.color
+                  ? form.color === col.key
+                  : proveedorId ? colorProveedor({ id: proveedorId })?.key === col.key : false;
+                return (
+                  <button key={col.key} type="button" title={col.label}
+                    onClick={() => set('color', form.color === col.key ? null : col.key)}
+                    className={cn(
+                      'w-9 h-9 rounded-full border-2 transition-all',
+                      activo ? 'border-gray-700 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105',
+                    )}
+                    style={{ backgroundColor: col.hex }}
+                  />
+                );
+              })}
+            </div>
+            {!form.color && (
+              <p className="text-[11px] text-gray-600 mt-2">
+                Sin elegir — se usa el color automático (resaltado arriba). Tocá uno para fijarlo.
+              </p>
+            )}
+          </div>
+
           {/* Logística */}
           <div>
             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Logística y entrega</p>
@@ -414,7 +453,8 @@ function ProveedorRow({
 }) {
   const entregaCfg = ENTREGA_CFG[prov.forma_entrega ?? 'propia'];
   const califCfg   = prov.calificacion ? CALIF_CFG[prov.calificacion] : null;
-  const color      = avatarColor(prov.nombre);
+  // El avatar usa el color identificatorio, el mismo que aparece en sus productos.
+  const colorId    = colorProveedor(prov);
 
   return (
     <div className={cn(
@@ -426,7 +466,9 @@ function ProveedorRow({
 
         {/* Proveedor */}
         <div className="col-span-2 sm:col-span-1 flex items-center gap-3 min-w-0">
-          <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0', color)}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+            style={{ backgroundColor: colorId?.hex }}
+            title={prov.color ? `Color: ${colorId?.label}` : `Color automático: ${colorId?.label}`}>
             {initials(prov.nombre)}
           </div>
           <div className="min-w-0">
@@ -1032,7 +1074,9 @@ export function Proveedores() {
             deuda_actual:       editingProv?.deuda_actual ?? 0,
             es_principal:       editingProv?.es_principal ?? false,
             margen_venta:       editingProv?.margen_venta ?? 0,
+            color:              editingProv?.color ?? null,
           }}
+          proveedorId={editingProv?.id}
           onSave={handleSave}
           onClose={() => setModal(null)}
         />

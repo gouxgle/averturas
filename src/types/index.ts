@@ -140,6 +140,10 @@ export interface Proveedor {
   email: string | null;
   notas: string | null;
   activo: boolean;
+  /** Clave de la paleta de colores identificatorios (src/lib/coloresProveedor.ts). */
+  color?: string | null;
+  /** Plazo de entrega DECLARADO por el proveedor, en días. Es del proveedor, no del producto. */
+  plazo_entrega_dias?: number | null;
 }
 
 export interface OperacionItem {

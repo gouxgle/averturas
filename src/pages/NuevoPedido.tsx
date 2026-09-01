@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { SectionCard } from '@/components/SectionCard';
+import { BadgeProveedor, BandaProveedor } from '@/components/BadgeProveedor';
 
 // ── Tipos ──────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ interface CatalogoProducto {
   imagen_url?: string | null;
   stock_actual?: number | null;
   tipo_abertura_id?: string | null;
+  proveedor?: { id: string; nombre: string; color: string | null } | null;
 }
 
 interface TipoAbertura { id: string; nombre: string }
@@ -810,9 +812,12 @@ export default function NuevoPedido() {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 truncate">{prod.nombre}</p>
-                        <p className="text-[11px] text-gray-600">
-                          Stock: {prod.stock_actual ?? 0}{prod.costo_base ? ` · costo ${formatCurrency(Number(prod.costo_base))}` : ''}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-[11px] text-gray-600">
+                            Stock: {prod.stock_actual ?? 0}{prod.costo_base ? ` · costo ${formatCurrency(Number(prod.costo_base))}` : ''}
+                          </p>
+                          <BadgeProveedor proveedor={prod.proveedor} size="xs" />
+                        </div>
                       </div>
                       <span className="text-lime-600 text-lg shrink-0">＋</span>
                     </button>
@@ -1343,6 +1348,8 @@ export default function NuevoPedido() {
                   {galeriaFiltrada.map(prod => (
                     <button key={prod.id} onClick={() => agregarProducto(prod)}
                       className="text-left border border-gray-200 rounded-xl overflow-hidden hover:border-lime-400 hover:shadow-md transition-all group">
+                      {/* Franja del proveedor — mismo formato que la tarjeta del catálogo */}
+                      <BandaProveedor proveedor={prod.proveedor} className="px-2 py-0.5" />
                       <div className="aspect-square bg-gray-50 relative">
                         {prod.imagen_url ? (
                           <img src={prod.imagen_url} alt="" className="w-full h-full object-cover" />

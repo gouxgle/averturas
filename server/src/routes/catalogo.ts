@@ -481,8 +481,8 @@ catalogo.post('/proveedores', async (c) => {
     `INSERT INTO proveedores
        (nombre, tipo, contacto, telefono, email, cuit, direccion, localidad, provincia,
         web, materiales, notas, forma_entrega, plazo_entrega_dias, costo_flete,
-        calificacion, deuda_actual, es_principal, margen_venta)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        calificacion, deuda_actual, es_principal, margen_venta, color)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      RETURNING *`,
     [
       b.nombre.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
@@ -497,6 +497,7 @@ catalogo.post('/proveedores', async (c) => {
       b.deuda_actual    ?? 0,
       b.es_principal    ?? false,
       b.margen_venta    ?? 0,
+      b.color           ?? null,
     ]
   );
   return c.json(rows[0], 201);
@@ -517,8 +518,8 @@ catalogo.put('/proveedores/:id', async (c) => {
          direccion=$7, localidad=$8, provincia=$9, web=$10, materiales=$11,
          notas=$12, activo=$13, forma_entrega=$14, plazo_entrega_dias=$15,
          costo_flete=$16, calificacion=$17, deuda_actual=$18, es_principal=$19,
-         margen_venta=$20
-     WHERE id=$21 RETURNING *`,
+         margen_venta=$20, color=$21
+     WHERE id=$22 RETURNING *`,
     [
       b.nombre?.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
       b.email || null, b.cuit || null, b.direccion || null, b.localidad || null,
@@ -532,6 +533,7 @@ catalogo.put('/proveedores/:id', async (c) => {
       b.deuda_actual        ?? 0,
       b.es_principal        ?? false,
       b.margen_venta        ?? 0,
+      b.color               ?? null,
       c.req.param('id'),
     ]
   );
@@ -757,11 +759,15 @@ catalogo.get('/productos', async (c) => {
     SELECT cp.*,
       json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
       json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
+      CASE WHEN pr.id IS NOT NULL
+        THEN json_build_object('id', pr.id, 'nombre', pr.nombre, 'color', pr.color, 'plazo_entrega_dias', pr.plazo_entrega_dias)
+        ELSE NULL END AS proveedor,
       mo.nombre AS modelo_nombre,
       (COALESCE(cp.stock_inicial, 0) + COALESCE(st.mov_total, 0))::int AS stock_actual
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     LEFT JOIN sistemas s        ON s.id  = cp.sistema_id
+    LEFT JOIN proveedores pr    ON pr.id = cp.proveedor_id
     LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
     LEFT JOIN LATERAL (
       SELECT SUM(cantidad)::int AS mov_total

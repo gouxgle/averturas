@@ -1,11 +1,21 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Package, ToggleLeft, ToggleRight, AlertTriangle, Tag, Store, Play,
-  Percent, ShoppingCart, Star, ThumbsUp, Sparkles, Loader2,
+  Package, ToggleLeft, ToggleRight, Tag, Store, Play,
+  Percent, ShoppingCart, Star, ThumbsUp, Sparkles, Loader2, Plus,
 } from 'lucide-react';
-import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
+import { colorProveedor } from '@/lib/coloresProveedor';
+import { BandaProveedor } from '@/components/BadgeProveedor';
+import { BadgeDisponibilidad } from '@/components/BadgeDisponibilidad';
+import {
+  buildSubtitle, isPromoActiva, NIVEL_COMERCIAL_LABEL, NIVEL_COMERCIAL_COLOR,
+} from '@/lib/catalogoFiltros';
 import type { Producto, TipoOperacion } from '@/types';
+
+// `isPromoActiva` y `buildSubtitle` viven en @/lib/catalogoFiltros — se re-exportan
+// acá porque media app los importa desde este archivo desde antes de la extracción.
+export { isPromoActiva, buildSubtitle };
 
 // ── Mapas de labels / colores — compartidos entre Productos y Venta rápida ──
 
@@ -30,51 +40,6 @@ export const ETIQUETA_CONFIG = {
   recomendado: { label: 'Recomendado', cls: 'bg-orange-500 text-white',  Icon: ThumbsUp  },
   nuevo:       { label: 'Nuevo',       cls: 'bg-emerald-500 text-white', Icon: Sparkles  },
 } as const;
-const NIVEL_COMERCIAL_LABEL: Record<string, string> = {
-  economica: 'Económica', estandar: 'Estándar', premium: 'Premium', alta_seguridad: 'Alta seguridad',
-};
-const NIVEL_COMERCIAL_COLOR: Record<string, string> = {
-  economica: 'bg-slate-50 text-slate-600 border-slate-200',
-  estandar: 'bg-sky-50 text-sky-700 border-sky-200',
-  premium: 'bg-violet-50 text-violet-700 border-violet-200',
-  alta_seguridad: 'bg-red-50 text-red-700 border-red-200',
-};
-
-const L_TIPO_VENTANA: Record<string, string> = {
-  corrediza:'Corrediza',con_celosia:'Con celosía',de_abrir:'De abrir',
-  banderola:'Banderola',ventiluz:'Ventiluz',aireador:'Aireador',persiana:'Persiana',
-};
-const L_HOJAS_VNT: Record<string, string> = {
-  '2_hojas':'2 hojas','3_hojas':'3 hojas','4_hojas':'4 hojas',
-};
-const L_CONFIG_HOJAS: Record<string, string> = {
-  hoja_simple:'Hoja simple',hoja_y_media:'Hoja y media',
-  dos_hojas:'2 hojas iguales',puerta_pano_fijo:'Puerta + paño fijo',
-};
-const L_MARCO: Record<string, string> = { transitable:'Transitable',no_transitable:'No transitable' };
-const L_USO: Record<string, string> = { interior:'Interior',exterior:'Exterior',ingreso_frente:'Ingreso/Frente' };
-
-function buildSubtitle(p: Producto): string {
-  const a = p.atributos ?? {};
-  const parts: string[] = [];
-  if (a.tipo_ventana) parts.push(L_TIPO_VENTANA[a.tipo_ventana as string] ?? String(a.tipo_ventana));
-  if (a.config_hojas) parts.push(L_CONFIG_HOJAS[a.config_hojas as string] ?? String(a.config_hojas));
-  if (a.hojas)        parts.push(L_HOJAS_VNT[a.hojas as string] ?? String(a.hojas));
-  if (a.marco_tipo)   parts.push(L_MARCO[a.marco_tipo as string] ?? String(a.marco_tipo));
-  if (a.uso)          parts.push(L_USO[a.uso as string] ?? String(a.uso));
-  if (p.ancho && p.alto) parts.push(`${p.ancho} × ${p.alto} cm`);
-  return parts.join(' · ');
-}
-
-export function isPromoActiva(p: Producto): boolean {
-  if (!p.promocion?.activo) return false;
-  const hoy = new Date().toISOString().slice(0, 10);
-  if (p.promocion.fecha_inicio && hoy < p.promocion.fecha_inicio) return false;
-  if (p.promocion.auto_renovar) return true;
-  if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;
-  return true;
-}
-
 // Antigüedad del precio: verde <=7 días, amarillo 8-10, rojo >10 — para detectar
 // a simple vista precios que no se están actualizando (manual o por lista de proveedor).
 function colorPorAntiguedadPrecio(fechaIso: string): string {
@@ -87,13 +52,20 @@ function colorPorAntiguedadPrecio(fechaIso: string): string {
 // ── Tarjeta mosaico — el mismo recuadro se usa en Catálogo (Productos.tsx) y en
 // Venta rápida de mostrador, para que un producto se vea igual en los dos lugares.
 export function TarjetaProductoMosaico({
-  producto, priceColor, onSelect, onToggle, onToggleSalon, mostrarVenderAhora = true, cantidadEnCarrito = 0,
+  producto, priceColor, onSelect, onToggle, onToggleSalon, onAgregar,
+  mostrarVenderAhora = true, cantidadEnCarrito = 0,
 }: {
   producto: Producto;
   priceColor: string;
   onSelect: (p: Producto) => void;
   onToggle?: (p: Producto) => void;
   onToggleSalon?: (p: Producto) => void | Promise<void>;
+  /**
+   * Modo selección (armar presupuesto / pedido): botón "+" abajo a la derecha.
+   * OJO: comparte esquina con el toggle de activo (`onToggle`, modo gestión). Nunca
+   * se pasan los dos juntos — gestión y selección son contextos distintos.
+   */
+  onAgregar?: (p: Producto) => void;
   mostrarVenderAhora?: boolean;
   cantidadEnCarrito?: number;
 }) {
@@ -110,6 +82,7 @@ export function TarjetaProductoMosaico({
   const subtitle    = buildSubtitle(producto);
   const precioColorEdad = producto.precio_actualizado_at ? colorPorAntiguedadPrecio(producto.precio_actualizado_at) : priceColor;
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
+  const colorProv   = colorProveedor(producto.proveedor);
   const navigate    = useNavigate();
 
   // Un solo click en la grilla es fácil de errar (tarjetas chicas, una al lado de la
@@ -137,6 +110,17 @@ export function TarjetaProductoMosaico({
       !producto.activo && 'opacity-50'
     )} onClick={() => onSelect(producto)}>
 
+      {/* Franja del proveedor — color sólido a todo el ancho con el nombre. Es lo
+          que permite distinguirlo de un vistazo en una grilla; por eso ocupa la
+          cabecera entera y no un badge chico entre los demás. */}
+      <BandaProveedor proveedor={producto.proveedor} plazoDias={producto.proveedor?.plazo_entrega_dias ?? null} />
+
+      {/* Borde de color a la izquierda: refuerza el color aunque la cabecera
+          quede fuera de la vista al scrollear una grilla larga. */}
+      {colorProv && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 z-[1]" style={{ backgroundColor: colorProv.hex }} />
+      )}
+
       {/* Imagen */}
       <div className="relative w-full aspect-square bg-gray-50 overflow-hidden">
         {imagenes.length > 0 ? (
@@ -152,12 +136,7 @@ export function TarjetaProductoMosaico({
               <etiquetaCfg.Icon size={8}/>{etiquetaCfg.label}
             </span>
           )}
-          {(producto.stock_actual ?? 0) <= 0 && !disponibilidadVigente(producto.disponibilidad_confirmada_at) && (
-            <span title="Sin stock — confirmá plazo con el proveedor antes de comprometer fecha de entrega"
-              className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white leading-none shadow-md flex items-center gap-1">
-              <AlertTriangle size={8}/>Sin confirmar
-            </span>
-          )}
+          <BadgeDisponibilidad producto={producto} />
           {promoOk && (
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-pink-600 text-white leading-none shadow-md flex items-center gap-1">
               <Tag size={8}/>-{descPct}%
@@ -201,6 +180,16 @@ export function TarjetaProductoMosaico({
           </span>
         )}
 
+        {/* Agregar al presupuesto/pedido (modo selección) — misma esquina que el
+            toggle de activo, que es del modo gestión; nunca coexisten. */}
+        {onAgregar && (
+          <button onClick={e => { e.stopPropagation(); onAgregar(producto); }}
+            title="Agregar"
+            className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center">
+            <Plus size={16}/>
+          </button>
+        )}
+
         {/* Toggle activo — al hover (gestión de catálogo) */}
         {onToggle && (
           <button onClick={e => { e.stopPropagation(); onToggle(producto); }}
@@ -237,6 +226,7 @@ export function TarjetaProductoMosaico({
             </p>
           )}
 
+          {/* El proveedor ya va en la franja de arriba — no se repite acá. */}
           <div className="flex items-center gap-1 mt-1.5 flex-wrap">
             <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
               {TIPO_LABEL[producto.tipo]}
