@@ -98,6 +98,12 @@ export const OperacionSchema = z.object({
   items:            z.array(OperacionItemSchema).min(1, 'Se requiere al menos 1 ítem'),
   visita_tecnica_id: zUUID.optional().nullable(),
   formas_pago_alternativas: z.array(OperacionFormaPagoSchema).optional().default([]),
+  /**
+   * Solo en PUT: por qué se está editando. Se guarda en la versión que este cambio
+   * reemplaza, para poder contar aparte las modificaciones que pidió el cliente
+   * (las únicas que se le muestran en la proforma y el link público).
+   */
+  version_origen:   z.enum(['cliente', 'interna']).optional().default('interna'),
 });
 
 export const EstadoOperacionSchema = z.object({

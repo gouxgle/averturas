@@ -686,7 +686,7 @@ function PresupuestoModal({
               </div>
             </div>
 
-            <VersionesPresupuesto operacionId={op.id} />
+            <VersionesPresupuesto operacionId={op.id} numero={op.numero} />
 
             <div className="px-5 py-4 space-y-2">
               {fmtEnvio && (

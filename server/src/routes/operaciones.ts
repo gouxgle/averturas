@@ -1132,7 +1132,7 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
-  const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }] = await Promise.all([
+  const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }, versiones] = await Promise.all([
     db.query(`
       SELECT o.*,
         COALESCE((
@@ -1223,10 +1223,21 @@ operaciones.get('/:id', async (c) => {
       WHERE operacion_id = $1
       ORDER BY orden
     `, [id]),
+    // Ediciones: total y cuántas fueron a pedido del cliente (las únicas que se
+    // muestran en la proforma y en el link público).
+    db.query(`
+      SELECT COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE origen = 'cliente')::int AS del_cliente
+      FROM operacion_versiones WHERE operacion_id = $1
+    `, [id]),
   ]);
 
   if (!op) return c.json({ error: 'Operación no encontrada' }, 404);
-  return c.json({ ...op, items, historial, formas_pago_alternativas });
+  return c.json({
+    ...op, items, historial, formas_pago_alternativas,
+    version_count: versiones.rows[0]?.total ?? 0,
+    modificaciones_cliente: versiones.rows[0]?.del_cliente ?? 0,
+  });
 });
 
 // GET /:id/versiones — historial de ediciones (v1, v2, v3...). Cada versión es el
@@ -1235,13 +1246,50 @@ operaciones.get('/:id', async (c) => {
 operaciones.get('/:id/versiones', async (c) => {
   const { id } = c.req.param();
   const { rows } = await db.query(`
-    SELECT v.id, v.version, v.snapshot, v.created_at,
+    SELECT v.id, v.version, v.snapshot, v.created_at, v.origen,
       u.nombre AS creado_por_nombre
     FROM operacion_versiones v
     LEFT JOIN usuarios u ON u.id = v.created_by
     WHERE v.operacion_id = $1
     ORDER BY v.version DESC
   `, [id]);
+
+  // El snapshot guarda las filas crudas de operacion_items, sin los nombres que
+  // vienen de JOIN (tipo de abertura, línea, producto). Para poder mostrar la
+  // versión con el mismo formato que la proforma hay que resolverlos acá.
+  // Ojo: se resuelven contra el catálogo ACTUAL — si un producto se renombró
+  // después, se ve el nombre de hoy. El texto de la proforma (item.descripcion) sí
+  // está congelado en el snapshot, que es lo que el cliente efectivamente leyó.
+  type ItemSnap = Record<string, unknown>;
+  const idsDe = (campo: string) => [...new Set(
+    rows.flatMap(r => (r.snapshot?.items ?? []) as ItemSnap[])
+        .map(it => it[campo]).filter((v): v is string => typeof v === 'string')
+  )];
+  const tipoIds = idsDe('tipo_abertura_id');
+  const sistIds = idsDe('sistema_id');
+  const prodIds = idsDe('producto_id');
+
+  async function mapaDe(tabla: string, ids: string[], extra = '') {
+    if (!ids.length) return {} as Record<string, { nombre: string; imagen_url?: string }>;
+    const { rows: r } = await db.query(
+      `SELECT id, nombre${extra} FROM ${tabla} WHERE id = ANY($1::uuid[])`, [ids]
+    );
+    return Object.fromEntries(r.map(x => [x.id, x]));
+  }
+  const [tipos, sistemas, productos] = await Promise.all([
+    mapaDe('tipos_abertura', tipoIds),
+    mapaDe('sistemas', sistIds),
+    mapaDe('catalogo_productos', prodIds, ', imagen_url'),
+  ]);
+
+  for (const r of rows) {
+    for (const it of (r.snapshot?.items ?? []) as ItemSnap[]) {
+      it.tipo_abertura_nombre  = tipos[it.tipo_abertura_id as string]?.nombre ?? null;
+      it.sistema_nombre        = sistemas[it.sistema_id as string]?.nombre ?? null;
+      it.producto_nombre       = productos[it.producto_id as string]?.nombre ?? null;
+      it.producto_imagen_url   = productos[it.producto_id as string]?.imagen_url ?? null;
+    }
+  }
   return c.json(rows);
 });
 
@@ -1374,12 +1422,13 @@ operaciones.put('/:id', async (c) => {
       `SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM operacion_versiones WHERE operacion_id=$1`, [id]
     );
     await client.query(`
-      INSERT INTO operacion_versiones (operacion_id, version, snapshot, created_by)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO operacion_versiones (operacion_id, version, snapshot, created_by, origen)
+      VALUES ($1, $2, $3, $4, $5)
     `, [
       id, next_version,
       JSON.stringify({ operacion: opAnterior, items: itemsAnteriores, formas_pago_alternativas: formasAnteriores }),
       user?.id || null,
+      b.version_origen ?? 'interna',
     ]);
 
     const { rows: [op] } = await client.query(`

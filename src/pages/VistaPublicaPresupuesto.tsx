@@ -28,6 +28,8 @@ interface Presupuesto {
   id: string; numero: string; estado: string; forma_pago: string | null;
   forma_envio: string | null; costo_envio: number; tiempo_entrega: number | null;
   fecha_validez: string | null; notas: string | null; precio_total: number;
+  /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
+  modificaciones_cliente?: number;
   aprobado_online_at: string | null; created_at: string;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
@@ -659,6 +661,14 @@ export function VistaPublicaPresupuesto() {
               {pres.tiempo_entrega && (
                 <div className="text-xs mt-0.5 text-gray-600">
                   🚚 Entrega: {pres.tiempo_entrega} días hábiles
+                </div>
+              )}
+              {/* Cuántas veces se rehízo esta proforma a pedido del cliente — mismo
+                  criterio y misma redacción que ImprimirPresupuesto.tsx. */}
+              {(pres.modificaciones_cliente ?? 0) > 0 && (
+                <div className="text-xs mt-0.5 text-gray-600">
+                  ✏️ <strong>Revisión N° {(pres.modificaciones_cliente ?? 0) + 1}</strong>
+                  {' — '}{pres.modificaciones_cliente} modificación{pres.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
                 </div>
               )}
             </div>

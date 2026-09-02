@@ -99,6 +99,8 @@ interface FullOperacion {
   }>;
   formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
   visita_tecnica: { id: string; numero: string; estado: string } | null;
+  /** Respuesta intermedia del link público; 'modificar' = el cliente pidió cambios. */
+  respuesta_cliente?: string | null;
 }
 
 // ── Ítem del formulario ────────────────────────────────────────────────────────
@@ -239,6 +241,10 @@ export function NuevoPresupuesto() {
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [editEstado, setEditEstado] = useState('');
+  // Por qué se edita: a pedido del cliente o corrección interna. Solo las del
+  // cliente se cuentan en la proforma y en el link público, así que una corrección
+  // propia no puede quedar registrada como un pedido suyo.
+  const [versionOrigen, setVersionOrigen] = useState<'cliente' | 'interna'>('interna');
   const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
   const [imagenesVisita, setImagenesVisita] = useState<string[]>([]);
   const [visitaCredito, setVisitaCredito] = useState<{ numero: string; monto: number } | null>(null);
@@ -456,6 +462,9 @@ export function NuevoPresupuesto() {
         return;
       }
       setEditEstado(op.estado);
+      // Si el cliente respondió "quiero modificar la propuesta" desde el link
+      // público, el sistema ya sabe que este cambio lo pidió él — se preselecciona.
+      if (op.respuesta_cliente === 'modificar') setVersionOrigen('cliente');
       setNumeroActual(op.numero);
       setClienteId(op.cliente_id);
       if (op.visita_tecnica && !['convertida', 'cancelada'].includes(op.visita_tecnica.estado)) {
@@ -788,6 +797,7 @@ export function NuevoPresupuesto() {
         costo_envio:    costoEnvio,
         visita_tecnica_id: !isEdit && visitaTecnicaId ? visitaTecnicaId : undefined,
         formas_pago_alternativas: formaPago === 'Varias formas de pago' ? formasPagoAlternativas : [],
+        version_origen: isEdit ? versionOrigen : undefined,
         items: items.map((it, idx) => ({
           tipo_abertura_id:    it.tipo_abertura_id || null,
           sistema_id:          it.sistema_id || null,
@@ -1018,6 +1028,33 @@ export function NuevoPresupuesto() {
           </div>
         </div>
       </div>
+
+      {isEdit && (
+        <div className="shrink-0 bg-amber-50/70 border-b border-amber-200 px-4 py-2 flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-semibold text-gray-700">Este cambio:</span>
+          {([
+            { key: 'cliente', label: 'Lo pidió el cliente' },
+            { key: 'interna', label: 'Corrección interna' },
+          ] as const).map(({ key, label }) => (
+            <button key={key} type="button" onClick={() => setVersionOrigen(key)}
+              className={cn(
+                'px-3 h-8 rounded-lg text-xs font-semibold border transition-colors',
+                versionOrigen === key
+                  ? (key === 'cliente'
+                      ? 'bg-amber-500 text-white border-amber-500'
+                      : 'bg-gray-700 text-white border-gray-700')
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400',
+              )}>
+              {label}
+            </button>
+          ))}
+          <span className="text-[11px] text-gray-600 basis-full sm:basis-auto">
+            {versionOrigen === 'cliente'
+              ? 'Suma al contador de modificaciones que el cliente ve en la proforma.'
+              : 'No se le muestra al cliente.'}
+          </span>
+        </div>
+      )}
 
       {/* ── MODAL: recuperar borrador (prioridad sobre elegir cliente) ── */}
       {borradorDisponible && (

@@ -44,6 +44,10 @@ pub.get('/presupuesto/:token', async (c) => {
       o.id, o.numero, o.estado, o.tipo, o.forma_pago, o.forma_envio,
       o.costo_envio, o.tiempo_entrega, o.fecha_validez, o.notas,
       o.precio_total, o.aprobado_online_at, o.token_acceso_at, o.created_at,
+      -- Cuántas veces se rehízo la proforma a pedido del cliente. Solo las de
+      -- origen 'cliente': las correcciones internas no se le muestran.
+      (SELECT COUNT(*)::int FROM operacion_versiones ov
+        WHERE ov.operacion_id = o.id AND ov.origen = 'cliente') AS modificaciones_cliente,
       json_build_object(
         'nombre',        cl.nombre,
         'apellido',      cl.apellido,
