@@ -181,10 +181,13 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
           ${saldo >= 0.01 ? `
             <div>
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Saldo pendiente</div>
-              <div style="font-size:13px;font-weight:700;color:${RED};">
-                ${fmt(saldo)}
-                ${fvStr ? `<span style="font-weight:400;font-size:11px;color:#555;margin-left:8px;">a cancelar el ${fvStr}</span>` : ''}
-              </div>
+              <div style="font-size:13px;font-weight:700;color:${RED};">${fmt(saldo)}</div>
+            </div>
+          ` : ''}
+          ${fvStr ? `
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:2px;">Se compromete a pagar el</div>
+              <div style="font-size:14px;font-weight:700;color:${NAVY};">${fvStr}</div>
             </div>
           ` : ''}
         </div>

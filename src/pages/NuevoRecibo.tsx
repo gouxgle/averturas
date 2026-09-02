@@ -291,6 +291,21 @@ export function NuevoRecibo() {
   const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
   const esCuotas = formaPago === 'Tarjeta de crédito 3 cuotas sin interés';
 
+  // Atajos de vencimiento para el compromiso — se cuentan desde la fecha del recibo,
+  // no desde hoy (se puede estar cargando un cobro de días atrás).
+  function fechaEnDias(dias: number): string {
+    const d = new Date(fecha + 'T12:00:00');
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  }
+  // Un parcial que igual cancela todo el saldo no deja nada que comprometer.
+  const hayQueComprometer = saldoTrasRecibo > 0.01;
+  const diasHastaCompromiso = compromisoFecha
+    ? Math.round(
+        (new Date(compromisoFecha + 'T12:00:00').getTime() - new Date(fecha + 'T12:00:00').getTime()) / 86400000,
+      )
+    : null;
+
   // ── Concepto e ítems tomados del presupuesto ──────────────
   // Mismo criterio que la venta rápida de mostrador: el recibo dice a qué presupuesto
   // corresponde y qué incluye, sin que haya que escribirlo a mano.
@@ -301,12 +316,16 @@ export function NuevoRecibo() {
   // — decirle "Pago total" al segundo de dos pagos era engañoso en el comprobante.
   const cancelaSaldo   = montoFinal > 0 && saldoTrasRecibo < 0.01;
   const huboCobrosPrevios = cobradoOp > 0.01;
+  // "Pago total" solo si es el modo elegido Y no hubo cobros previos. Con "Pago
+  // parcial" seleccionado el concepto arranca SIEMPRE con "Pago parcial", aunque el
+  // monto tipeado alcance a cubrir el saldo — si no, escribir el importe completo
+  // hacía que el concepto se contradijera con el modo elegido.
   const conceptoSugerido = operacionSel
-    ? (cancelaSaldo
-        ? (huboCobrosPrevios
-            ? `Pago parcial — cancelación total de saldo presupuesto N° ${operacionSel.numero}`
-            : `Pago total presupuesto N° ${operacionSel.numero}`)
-        : `Pago parcial presupuesto N° ${operacionSel.numero}`)
+    ? (tipoPago === 'total' && !huboCobrosPrevios
+        ? `Pago total presupuesto N° ${operacionSel.numero}`
+        : cancelaSaldo
+          ? `Pago parcial — cancelación total de saldo presupuesto N° ${operacionSel.numero}`
+          : `Pago parcial presupuesto N° ${operacionSel.numero}`)
     : '';
 
   useEffect(() => {
@@ -423,7 +442,7 @@ export function NuevoRecibo() {
       return;
     }
     if (montoFinal <= 0)           { toast.error('El monto debe ser mayor a 0'); return; }
-    if (esParcial && crearCompromiso && !compromisoFecha) {
+    if (esParcial && hayQueComprometer && crearCompromiso && !compromisoFecha) {
       toast.error('Ingresá la fecha estimada de cancelación del saldo');
       return;
     }
@@ -453,7 +472,7 @@ export function NuevoRecibo() {
       forma_pago_alternativa_id: formaPagoAlternativaId || null,
     };
 
-    if (!isEdit && esParcial && crearCompromiso && compromisoFecha) {
+    if (!isEdit && esParcial && hayQueComprometer && crearCompromiso && compromisoFecha) {
       payload.compromiso = {
         monto:             Math.round(saldoTrasRecibo * 100) / 100,
         fecha_vencimiento: compromisoFecha,
@@ -878,11 +897,48 @@ export function NuevoRecibo() {
                     El monto supera el saldo ({formatCurrency(saldoEfectivo)}). Verificá si es seña anticipada.
                   </p>
                 )}
-                {montoFinal > 0 && saldoTrasRecibo > 0 && (
-                  <p className="text-xs text-gray-600 mt-1.5">
-                    Saldo pendiente tras este pago:{' '}
-                    <span className="font-semibold text-amber-600">{formatCurrency(saldoTrasRecibo)}</span>
-                  </p>
+                {/* Cuenta completa del saldo, calculada sola: de dónde sale y qué
+                    queda. Antes solo se veía el resultado en una línea gris chica. */}
+                {montoFinal > 0 && (
+                  <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-1.5">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Total del presupuesto</span>
+                      <span className="tabular-nums">{formatCurrency(totalPresupuesto)}</span>
+                    </div>
+                    {cobradoOp > 0 && (
+                      <div className="flex justify-between text-xs text-gray-600">
+                        <span>Ya cobrado antes de este recibo</span>
+                        <span className="tabular-nums">− {formatCurrency(cobradoOp)}</span>
+                      </div>
+                    )}
+                    {descuentosOp > 0 && (
+                      <div className="flex justify-between text-xs text-gray-600">
+                        <span>Bonificaciones otorgadas</span>
+                        <span className="tabular-nums">− {formatCurrency(descuentosOp)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-gray-700 font-medium">
+                      <span>Este pago</span>
+                      <span className="tabular-nums">− {formatCurrency(montoFinal)}</span>
+                    </div>
+                    <div className={cn(
+                      'flex justify-between items-baseline pt-1.5 border-t',
+                      saldoTrasRecibo > 0.01 ? 'border-amber-200' : 'border-emerald-200',
+                    )}>
+                      <span className={cn(
+                        'text-xs font-bold uppercase tracking-wide',
+                        saldoTrasRecibo > 0.01 ? 'text-amber-700' : 'text-emerald-700',
+                      )}>
+                        {saldoTrasRecibo > 0.01 ? 'Saldo pendiente' : 'Saldo cancelado'}
+                      </span>
+                      <span className={cn(
+                        'text-lg font-black tabular-nums',
+                        saldoTrasRecibo > 0.01 ? 'text-amber-700' : 'text-emerald-700',
+                      )}>
+                        {formatCurrency(saldoTrasRecibo)}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -891,7 +947,7 @@ export function NuevoRecibo() {
       )}
 
       {/* ── 6. Compromiso de saldo (solo pago parcial) ───── */}
-      {!isEdit && esParcial && operacionSel && montoFinal > 0 && (
+      {!isEdit && esParcial && operacionSel && montoFinal > 0 && hayQueComprometer && (
         <SectionCard title="Compromiso de pago del saldo" icon={Calendar}>
           <div className="space-y-3">
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-800">
@@ -912,16 +968,56 @@ export function NuevoRecibo() {
             </label>
 
             {crearCompromiso && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Fecha estimada *</label>
+              <div className="space-y-3">
+                {/* La fecha es el dato que hay que acordar con el cliente en el
+                    mostrador, así que va destacada y no como un input más. */}
+                <div className={cn(
+                  'rounded-xl border-2 p-3',
+                  compromisoFecha ? 'border-amber-300 bg-amber-50/60' : 'border-red-300 bg-red-50/60',
+                )}>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-gray-700 flex items-center gap-1.5 mb-2">
+                    <Calendar size={13} /> ¿Cuándo cancela el saldo? *
+                  </label>
                   <input type="date"
                     value={compromisoFecha}
                     onChange={e => setCompromisoFecha(e.target.value)}
                     min={fecha}
-                    className={inputCls}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[7, 15, 30, 60].map(d => (
+                      <button key={d} type="button" onClick={() => setCompromisoFecha(fechaEnDias(d))}
+                        className={cn(
+                          'px-2.5 h-8 rounded-lg text-xs font-semibold border transition-colors',
+                          compromisoFecha === fechaEnDias(d)
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300',
+                        )}>
+                        {d} días
+                      </button>
+                    ))}
+                  </div>
+                  {compromisoFecha ? (
+                    <p className="text-sm text-amber-900 mt-2.5 leading-snug">
+                      Se compromete a pagar{' '}
+                      <strong className="font-black">{formatCurrency(saldoTrasRecibo)}</strong>
+                      {' '}el{' '}
+                      <strong className="font-black">
+                        {new Date(compromisoFecha + 'T12:00:00').toLocaleDateString('es-AR', {
+                          weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+                        })}
+                      </strong>
+                      {diasHastaCompromiso !== null && diasHastaCompromiso >= 0 && (
+                        <span className="text-amber-700"> (en {diasHastaCompromiso} día{diasHastaCompromiso !== 1 ? 's' : ''})</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600 font-medium mt-2">
+                      Falta la fecha — sin esto no se puede guardar el recibo.
+                    </p>
+                  )}
                 </div>
+
                 <div>
                   <label className={labelCls}>Tipo</label>
                   <select value={compromisoTipo} onChange={e => setCompromisoTipo(e.target.value)} className={inputCls}>
@@ -931,18 +1027,6 @@ export function NuevoRecibo() {
                     <option value="transferencia">Transferencia diferida</option>
                   </select>
                 </div>
-                {compromisoFecha && (
-                  <div className="col-span-2 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600">
-                    Compromiso de{' '}
-                    <strong className="text-gray-700">{formatCurrency(saldoTrasRecibo)}</strong>
-                    {' '}con vencimiento el{' '}
-                    <strong className="text-gray-700">
-                      {new Date(compromisoFecha + 'T12:00:00').toLocaleDateString('es-AR', {
-                        day: '2-digit', month: 'long', year: 'numeric',
-                      })}
-                    </strong>
-                  </div>
-                )}
               </div>
             )}
           </div>

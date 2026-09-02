@@ -362,11 +362,6 @@ export function ImprimirRecibo() {
                   - Number(recibo.total_descuentos_operacion ?? 0)
                 );
                 if (saldo < 0.01) return null;
-                const fvRaw = recibo.compromiso?.fecha_vencimiento;
-                const fvStr = fvRaw
-                  ? new Date(fvRaw.slice(0, 10) + 'T12:00:00')
-                      .toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                  : null;
                 return (
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
@@ -374,12 +369,21 @@ export function ImprimirRecibo() {
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: RED }}>
                       {fmt(saldo)}
-                      {fvStr && (
-                        <span style={{ fontWeight: 400, fontSize: 11, color: '#555', marginLeft: 8 }}>
-                          a cancelar el {fvStr}
-                        </span>
-                      )}
                     </div>
+                  </div>
+                );
+              })()}
+              {(() => {
+                const fvRaw = recibo.compromiso?.fecha_vencimiento;
+                if (!fvRaw) return null;
+                const fv = new Date(fvRaw.slice(0, 10) + 'T12:00:00')
+                  .toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+                return (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 2 }}>
+                      Se compromete a pagar el
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{fv}</div>
                   </div>
                 );
               })()}
