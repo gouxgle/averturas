@@ -70,3 +70,6 @@ contacts*.csv
 service-account.json
 vps-config/stalwart-evolution-api.env
 vps-config/*.env
+
+# Credenciales del usuario de pruebas local (nunca se comparten)
+tests/.env.e2e

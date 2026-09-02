@@ -6,10 +6,18 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const auth = new Hono();
 
-// Rate limiting simple en memoria: máx 5 intentos por IP en 15 minutos
+// Rate limiting simple en memoria: máx N intentos por IP por ventana.
+//
+// Configurable por env porque en local todos los clientes comparten el bucket
+// 'unknown' (sin proxy no hay x-forwarded-for), así que un par de corridas de tests
+// end-to-end agotaban el límite y bloqueaban el desarrollo hasta reiniciar el
+// contenedor. En prod/test NO se define la env y quedan los 5/15min de siempre.
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 5;
-const RATE_WINDOW_MS = 15 * 60 * 1000;
+// `|| default` y no `?? default`: docker-compose pasa la env como string VACÍO
+// cuando no está en el .env, y Number('') es 0 — con ?? el límite quedaría en 0 y
+// nadie podría loguearse.
+const RATE_LIMIT     = Number(process.env.LOGIN_RATE_LIMIT) || 5;
+const RATE_WINDOW_MS = (Number(process.env.LOGIN_RATE_WINDOW_MIN) || 15) * 60 * 1000;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();

@@ -44,6 +44,10 @@ services:
       NODE_ENV:              production
       TZ:                    America/Argentina/Buenos_Aires
       SENTRY_DSN:            ${SENTRY_DSN:-}
+      # Sin definir en test/prod queda el default seguro (5 intentos / 15 min).
+      # En local se sube desde .env para que las corridas de tests no se bloqueen.
+      LOGIN_RATE_LIMIT:      ${LOGIN_RATE_LIMIT:-}
+      LOGIN_RATE_WINDOW_MIN: ${LOGIN_RATE_WINDOW_MIN:-}
       EVOLUTION_API_URL:     ${EVOLUTION_API_URL:-}
       EVOLUTION_API_KEY:     ${EVOLUTION_API_KEY:-}
       EVOLUTION_INSTANCE:    ${EVOLUTION_INSTANCE:-}

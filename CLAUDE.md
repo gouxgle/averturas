@@ -42,10 +42,24 @@ El usuario prioriza explícitamente bajar los tiempos de desarrollo. Dos reglas 
 
 No agregar infraestructura o herramientas nuevas (perfiles docker-compose de desarrollo, scripts, etc.) sin que se pida explícitamente — el objetivo es optimizar el proceso existente, no sumarle piezas.
 
-**3. Calibrar la verificación al tamaño del cambio.** No todo cambio necesita el mismo ritual.
-- **Texto/copy/UI puro** (rename, label, mensaje, reordenar JSX): typecheck + `vite build` liviano alcanza. No crear datos de prueba ni verificar con curl — no hay lógica que pueda romperse.
-- **Lógica con estado real** (dinero, stock, condiciones de carrera, migraciones, endpoints nuevos): ahí sí, verificación end-to-end con datos sintéticos creados y borrados en la misma sesión.
-- Changelog (`npm run changelog:add`) sigue obligatorio para cambios de comportamiento/funcionalidad visibles — no para renames puros sin efecto funcional.
+**3. Calibrar la verificación al tamaño del cambio.** Esta es la regla que más tiempo ahorra o desperdicia. Elegir UN nivel y no encadenarlos "por las dudas":
+
+| Cambio | Verificación suficiente |
+|---|---|
+| Texto, label, copy, reordenar JSX, renombrar | `tsc --noEmit`. Nada más. |
+| UI sin layout nuevo (colores, badges, campos de un form que ya existe) | `tsc` + `vite build` en contenedor liviano |
+| **Layout / responsive / pantalla nueva / modal anidado** | + screenshot Playwright (ver `tests/README.md`) |
+| Query, endpoint, migración, cualquier cosa con plata o stock | + verificación por SQL o API contra la DB local |
+
+- **El screenshot es la verificación cara** (spec + docker + login + acertar los selectores: 4-6 tool calls, y los selectores fallan seguido). Vale la pena solo cuando el riesgo es visual y el typecheck no lo puede ver. Para lógica, un `SELECT` o un `curl` responde lo mismo en un solo paso.
+- **No rebuildear Docker para ver un cambio de frontend.** El bundle servido no cambia el resultado de un typecheck. Rebuild solo si se tocó `server/` o si hace falta el screenshot.
+- **Una sola pasada de verificación al final**, no una por archivo tocado. Agrupar todas las ediciones relacionadas y verificar una vez.
+- **No re-correr lo que ya pasó.** Si `tsc` y los tests dieron verde y después solo se tocaron comentarios o strings, no repetirlos.
+- Changelog (`npm run changelog:add`) sigue obligatorio para cambios de comportamiento visibles — no para renames puros sin efecto funcional.
+
+**3b. Datos de prueba: usar el usuario fijo, no crear uno por tarea.** La DB local tiene `e2e@local.test` permanente (ver `tests/README.md`). Crear un usuario descartable con `bcrypt.hashSync` + INSERT + DELETE en cada tarea era puro overhead. Las credenciales van por `tests/.env.e2e` con `--env-file`: **el clasificador de seguridad bloquea cualquier comando con una contraseña literal en la línea de comandos** — pasa lo mismo con `curl -d '{"password":"..."}'`, que hay que reemplazar por `curl -d @archivo.json`.
+
+**3c. El rate limit de login ya no es un problema en local.** `LOGIN_RATE_LIMIT=500` en el `.env` local (default 5/15min si no está definida, que es lo que queda en test/prod). Antes había que reiniciar el contenedor a mitad de una corrida de tests.
 
 **4. Depuración de infraestructura / SSH — reglas duras (2026-08-18, tras una sesión con demasiadas vueltas):**
 - **Nunca envolver un comando destinado al usuario dentro de un `echo`/tool call propio.** Si el usuario tiene que correr algo en su propia terminal, va directo en el texto de la respuesta (bloque de código markdown), nunca ejecutado ni "impreso" por una herramienta — eso generó confusión real (el usuario copiaba el `echo` de afuera, que no hacía nada).
