@@ -32,7 +32,29 @@ El usuario prioriza explícitamente bajar los tiempos de desarrollo. Dos reglas 
 
 **1. No preguntar si se puede decidir razonablemente.** Ante ambigüedad menor (nombre de variable, texto de un label, ubicación exacta de un botón, valor por defecto), tomar la decisión más consistente con el resto del código y seguir — mencionarla en el resumen final, no interrumpir con una pregunta. Reservar las preguntas para lo que de verdad es irreversible, ambiguo entre opciones con impacto real distinto, o afecta datos de producción.
 
-**2. No reconstruir la imagen Docker completa después de cada edición.**
+**2. Para ver cambios de frontend: dev server con hot reload, no rebuild.**
+
+```bash
+npm run dev:docker      # http://localhost:5173 — recarga sola al guardar
+```
+
+Levanta Vite dentro de un `node:20-alpine` con `--network host`, y su proxy manda
+`/api` al backend que ya corre en `localhost:3000`. **Arranca en ~300 ms y aplica
+cada cambio al instante**, contra los ~50 s de `docker compose build app` +
+`--force-recreate`.
+
+- Corre en contenedor y no en el host porque **`node_modules` es de root** (todo se
+  instaló desde contenedores) y `vite` en el host muere con `EACCES` al escribir
+  `node_modules/.vite-temp`. Por eso `npm run dev` a secas **no funciona en esta
+  máquina** — usar siempre `dev:docker`. Si algún día se arregla el dueño de
+  `node_modules` (`chown -R`, necesita sudo), `npm run dev` vuelve a servir.
+- **Solo sirve para frontend.** Si se toca `server/`, hay que rebuildear igual: el
+  dev server no compila el backend, solo lo proxea.
+- El puerto 3000 sigue sirviendo el frontend *compilado*. Para verificar el bundle
+  real (o sacar screenshots con Playwright, que apunta a :3000) sí hace falta el
+  rebuild.
+
+**2b. No reconstruir la imagen Docker completa después de cada edición.**
 - **Cambios solo de frontend** (sin tocar rutas/lógica de servidor): verificar con `npx vite build` en un contenedor liviano (`node_modules` del host ya está cacheado vía bind mount, no hace falta reinstalar) y grepear el bundle de `dist/assets/*.js` buscando el texto/clase esperada. **No** correr `docker compose build app` ni redeployar — nada observable en runtime cambió.
 - **Cambios de backend**: agrupar varias ediciones relacionadas y hacer un solo ciclo `tsc -b` → `docker compose build app` → `docker compose up -d --force-recreate app` → verificar (curl/DB) al final, no uno por archivo tocado.
 - El rebuild completo + verificación contra la app corriendo se reserva para lo que realmente lo necesita: endpoints nuevos, condiciones de carrera, cambios de esquema/migración, flujos con estado. Para retoques visuales, texto, o reordenar JSX, el typecheck ya alcanza.
@@ -40,7 +62,7 @@ El usuario prioriza explícitamente bajar los tiempos de desarrollo. Dos reglas 
 - El `Dockerfile` tiene un bug de fondo ya corregido (2026-08-10): BuildKit corre `server-build` y `frontend-build` en paralelo por defecto pese al comentario que dice lo contrario — si se toca el `Dockerfile`, no romper la dependencia `COPY --from=server-build` que fuerza el orden secuencial (necesario en el servidor de test, con poca RAM).
 - **Servidor de test (149.50.150.131) — 1.9GB RAM, 2 vCPU, comparte la VPS con ~11 contenedores ajenos al proyecto** (Traccar, Stalwart, Evolution API, Portainer, etc.). Sin memoria de sobra, `docker compose build` puede colgar la VPS entera (hasta `sshd` deja de responder) — no es un bug del build, es falta de margen. Fijado (2026-08-13) activando un swapfile de 2GB ya existente en el disco pero nunca habilitado (`swapon /swapfile` + entrada en `/etc/fstab`). Si vuelve a colgarse: verificar primero `free -h`/`swapon --show` por SSH antes de tocar el `Dockerfile` — la causa casi siempre es esto, no el código.
 
-No agregar infraestructura o herramientas nuevas (perfiles docker-compose de desarrollo, scripts, etc.) sin que se pida explícitamente — el objetivo es optimizar el proceso existente, no sumarle piezas.
+No agregar infraestructura o herramientas nuevas (perfiles docker-compose de desarrollo, scripts, etc.) sin que se pida explícitamente — el objetivo es optimizar el proceso existente, no sumarle piezas. (El `dev:docker` del punto 2 es la única excepción vigente, pedida el 2026-09-02.)
 
 **3. Calibrar la verificación al tamaño del cambio.** Esta es la regla que más tiempo ahorra o desperdicia. Elegir UN nivel y no encadenarlos "por las dudas":
 

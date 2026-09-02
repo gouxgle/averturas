@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:docker": "docker run --rm -it --network host -v \"$PWD\":/w -w /w node:20-alpine npx vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
