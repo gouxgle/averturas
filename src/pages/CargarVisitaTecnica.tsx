@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Ruler, Plus, Trash2, Save, Loader2, Printer,
   ArrowRight, Users, Camera, X, Wrench, Package, Search, AlertTriangle, Ban, Pencil,
+  HandCoins, Receipt,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -12,6 +13,7 @@ import { EditItemModal, type EditableItemSpec } from '@/components/EditItemModal
 import { FirmaDigital } from '@/components/FirmaDigital';
 import { FormPageHeader } from '@/components/FormPageHeader';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
+import { FORMAS_PAGO } from '@/lib/formasPago';
 
 type TipoItemVisita = 'a_medida' | 'servicio' | 'estandar';
 
@@ -154,7 +156,18 @@ export function CargarVisitaTecnica() {
   const [coloresDB, setColoresDB] = useState<{ id: string; nombre: string }[]>([]);
   const [editItemKey, setEditItemKey] = useState<string | null>(null);
 
+  // Corrección del cobro (se eligió "No cobrar" por error al crear la visita)
+  const [costoConfigurado, setCostoConfigurado] = useState(0);
+  const [panelCobro, setPanelCobro] = useState(false);
+  const [montoCobro, setMontoCobro] = useState('');
+  const [formaPagoCobro, setFormaPagoCobro] = useState(FORMAS_PAGO[0]);
+  const [referenciaCobro, setReferenciaCobro] = useState('');
+  const [cobrando, setCobrando] = useState(false);
+
   useEffect(() => {
+    api.get<{ costo_visita_tecnica: number | null }>('/empresa')
+      .then(e => setCostoConfigurado(Number(e?.costo_visita_tecnica ?? 0)))
+      .catch(() => {});
     api.get<CatalogoProductoLite[]>('/catalogo/productos').then(setProductos).catch(() => {});
     api.get<ServicioCatalogo[]>('/catalogo/servicios').then(setServicios).catch(() => {});
     api.get<TipoAbertura[]>('/catalogo/tipos-abertura').then(setTiposAbertura).catch(() => {});
@@ -364,6 +377,56 @@ export function CargarVisitaTecnica() {
       setVisita(prev => prev ? { ...prev, costo_externo: valor } : prev);
     } catch (e) {
       toastApiError(e, { fallback: 'No se pudo guardar el costo externo' });
+    }
+  }
+
+  // ── Corrección del cobro ────────────────────────────────────────────────
+  // La decisión de cobrar se toma al crear la visita y hasta acá no había forma de
+  // rectificarla: una visita marcada "sin cargo" por error quedaba así para siempre,
+  // sin recibo y sin poder acreditarse al presupuesto. Se permite aunque la visita ya
+  // esté convertida — el error se descubre justamente ahí.
+  function abrirPanelCobro() {
+    // El costo configurado hoy es la propuesta; el de la visita sirve de respaldo para
+    // las previas a la feature de cobro, que lo tienen en blanco.
+    const propuesto = costoConfigurado > 0 ? costoConfigurado : Number(visita?.costo_cobrado ?? 0);
+    setMontoCobro(propuesto > 0 ? String(propuesto) : '');
+    setPanelCobro(true);
+  }
+
+  async function confirmarCobro() {
+    if (!id) return;
+    const monto = parseFloat(montoCobro);
+    if (isNaN(monto) || monto <= 0) { toast.error('Ingresá el importe a cobrar'); return; }
+    if (!formaPagoCobro.trim()) { toast.error('Elegí la forma de pago'); return; }
+
+    setCobrando(true);
+    try {
+      const r = await api.patch<{ recibo: { numero: string } | null }>(
+        `/visitas-tecnicas/${id}/cobrar`,
+        { monto, forma_pago: formaPagoCobro, referencia_pago: referenciaCobro.trim() || undefined }
+      );
+      setPanelCobro(false);
+      setReferenciaCobro('');
+      load();   // recarga con recibo_numero y el resto de los campos de la vista
+      toast.success(r?.recibo?.numero ? `Visita cobrada — recibo ${r.recibo.numero}` : 'Visita cobrada');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo cobrar la visita' });
+    } finally {
+      setCobrando(false);
+    }
+  }
+
+  async function marcarSinCargo() {
+    if (!id) return;
+    setCobrando(true);
+    try {
+      await api.patch(`/visitas-tecnicas/${id}/sin-cargo`);
+      load();
+      toast.success('Visita marcada sin cargo');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo marcar sin cargo' });
+    } finally {
+      setCobrando(false);
     }
   }
 
@@ -594,6 +657,116 @@ export function CargarVisitaTecnica() {
           </p>
         </div>
       </div>
+
+      {/* Cobro de la visita — a diferencia del relevado, esto NO depende de soloLectura:
+          el error de cobro se descubre casi siempre después de convertir la visita en
+          presupuesto, que es cuando hay que reflejar el costo. Mismo criterio que el
+          costo externo de arriba. */}
+      {!estaCancelada && (
+        <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
+          <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <HandCoins size={13}/> Cobro de la visita
+          </p>
+
+          {visita.cobro_estado === 'cobrada' && (
+            <div className="px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <p className="text-sm font-bold text-emerald-700 flex items-center gap-1.5 flex-wrap">
+                <Receipt size={14} className="shrink-0"/>
+                Cobrada {formatCurrency(Number(visita.costo_cobrado ?? 0))}
+                {visita.recibo_numero && <span className="font-semibold">· {visita.recibo_numero}</span>}
+              </p>
+              <p className="text-[11px] text-emerald-700 mt-1">
+                Si el importe o la forma de pago están mal, anulá el recibo desde{' '}
+                <Link to="/recibos" className="font-bold underline">Recibos</Link> y volvé a cobrar la visita.
+              </p>
+            </div>
+          )}
+
+          {visita.cobro_estado === 'bonificada' && (
+            <div className="px-3 py-2.5 rounded-xl bg-violet-50 border border-violet-200">
+              <p className="text-sm font-bold text-violet-700">
+                Acreditada al presupuesto{visita.operacion_numero ? ` ${visita.operacion_numero}` : ''} —{' '}
+                {formatCurrency(Number(visita.costo_cobrado ?? 0))}
+              </p>
+              <p className="text-[11px] text-violet-700 mt-1">
+                El recibo {visita.recibo_numero ?? ''} cuenta como pago a cuenta de ese presupuesto. Se revierte desde ahí.
+              </p>
+            </div>
+          )}
+
+          {(visita.cobro_estado === 'sin_cargo' || visita.cobro_estado === 'pendiente') && (
+            panelCobro ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Importe a cobrar</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600">$</span>
+                    <input type="number" min="0" step="100" value={montoCobro} autoFocus
+                      onChange={e => setMontoCobro(e.target.value)} placeholder="0"
+                      className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                  </div>
+                  <p className="text-[11px] text-gray-600 mt-1">
+                    {costoConfigurado > 0
+                      ? <>Costo configurado hoy: {formatCurrency(costoConfigurado)}. Cambialo si esta visita se acordó por otro importe.</>
+                      : <>No hay costo de visita configurado. Podés cargar el importe acá igual, o fijarlo en <Link to="/configuracion" className="font-bold underline">Configuración</Link>.</>}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Forma de pago</label>
+                  <select value={formaPagoCobro} onChange={e => setFormaPagoCobro(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
+                    {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Referencia (opcional)</label>
+                  <input value={referenciaCobro} onChange={e => setReferenciaCobro(e.target.value)}
+                    placeholder="N° de transferencia, cupón..."
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"/>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={confirmarCobro} disabled={cobrando}
+                    className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-1.5">
+                    {cobrando ? <Loader2 size={14} className="animate-spin"/> : <Receipt size={14}/>}
+                    Cobrar y emitir recibo
+                  </button>
+                  <button onClick={() => setPanelCobro(false)} disabled={cobrando}
+                    className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={cn('px-3 py-2.5 rounded-xl border text-xs',
+                  visita.cobro_estado === 'sin_cargo'
+                    ? 'bg-gray-50 border-gray-200 text-gray-600'
+                    : 'bg-amber-50 border-amber-200 text-amber-700')}>
+                  {visita.cobro_estado === 'sin_cargo'
+                    ? 'Esta visita se generó sin cargo: no tiene recibo emitido.'
+                    : 'Esta visita quedó pendiente de cobro: no tiene recibo emitido.'}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                  <button onClick={abrirPanelCobro} disabled={cobrando}
+                    className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-1.5">
+                    <Receipt size={14}/> Cobrar visita
+                  </button>
+                  {visita.cobro_estado === 'pendiente' && (
+                    <button onClick={marcarSinCargo} disabled={cobrando}
+                      className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60">
+                      Marcar sin cargo
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2">
+                  Al cobrarla se emite el recibo con fecha de hoy. Después, desde el presupuesto, podés acreditar
+                  ese importe como pago a cuenta.
+                </p>
+              </>
+            )
+          )}
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-4">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Ítems relevados</p>

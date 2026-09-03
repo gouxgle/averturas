@@ -373,6 +373,81 @@ function PresupuestoModal({
     }
   }
 
+  // Tarjeta del crédito de la visita de relevamiento. Se usa en dos lugares: dentro del
+  // panel de Cobranza cuando el presupuesto está aprobado, y como bloque suelto cuando
+  // todavía no lo está. Acreditar no depende de la aprobación (el backend solo bloquea
+  // cancelado/rechazado), y el error típico — visita generada sin costo, corregida
+  // después — se arregla justamente antes de que el cliente apruebe.
+  function creditoVisitaCard(saldo: number) {
+    const vt = op?.visita_tecnica;
+    if (!vt) return null;
+    const importe = Number(vt.costo_cobrado ?? 0);
+
+    if (vt.cobro_estado === 'cobrada') {
+      return (
+        <div className="mb-2 p-3 rounded-xl bg-violet-50 border border-violet-200">
+          {!confirmAcreditar ? (
+            <>
+              <p className="text-xs font-semibold text-violet-800 flex items-center gap-1.5">
+                <Ruler size={13} className="text-violet-600" />
+                Visita de Relevamiento de Datos {vt.numero} — cobrada {formatCurrency(importe)}
+              </p>
+              <p className="text-[11px] text-violet-700 mt-0.5">
+                Podés acreditar ese importe como pago a cuenta de este presupuesto.
+              </p>
+              <button onClick={() => setConfirmAcreditar(true)}
+                className="mt-2 w-full py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-semibold transition-colors">
+                Acreditar al presupuesto
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold text-violet-800">¿Acreditar la visita?</p>
+              <p className="text-[11px] text-violet-700 mt-1">
+                Se acreditan {formatCurrency(importe)} como pago a cuenta.
+                El recibo {vt.recibo_numero ?? ''} queda vinculado a este presupuesto.
+              </p>
+              {importe > saldo + 0.01 && (
+                <p className="text-[11px] text-amber-700 mt-1 font-medium">
+                  El crédito supera el saldo pendiente — quedará un excedente de{' '}
+                  {formatCurrency(importe - saldo)} sin aplicar.
+                </p>
+              )}
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => acreditarVisita(true)} disabled={acreditando}
+                  className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold">
+                  {acreditando ? 'Acreditando...' : 'Confirmar'}
+                </button>
+                <button onClick={() => setConfirmAcreditar(false)}
+                  className="px-3 py-2 border border-violet-200 text-violet-700 rounded-lg text-xs font-semibold hover:bg-white">
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    if (vt.cobro_estado === 'bonificada') {
+      return (
+        <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-violet-50 border border-violet-200">
+          <span className="text-[11px] text-violet-700">
+            Visita {vt.numero} acreditada
+            {vt.recibo_numero && <> · {vt.recibo_numero}</>}
+            {' '}({formatCurrency(importe)})
+          </span>
+          <button onClick={() => acreditarVisita(false)} disabled={acreditando}
+            className="text-[11px] font-bold text-violet-600 hover:underline disabled:opacity-60 shrink-0">
+            Revertir
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
   async function generarLink() {
     if (esVencido) {
       toast.error('El presupuesto está vencido. Editalo para actualizar la fecha de validez antes de compartir.');
@@ -716,11 +791,19 @@ function PresupuestoModal({
               )}
             </div>
 
+            {/* Presupuesto todavía sin aprobar: el panel de Cobranza no se muestra, pero el
+                crédito de la visita sí tiene que poder acreditarse — si no, una visita
+                corregida a último momento queda sin reflejarse en la proforma. */}
+            {op.estado !== 'aprobado' && op.visita_tecnica && (
+              <div className="px-5 pb-4">
+                {creditoVisitaCard(Math.max(0, total - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0)))}
+              </div>
+            )}
+
             {op.estado === 'aprobado' && (() => {
               const cobrado       = Number(op.cobrado_total    ?? 0);
               const descuentos    = Number(op.total_descuentos ?? 0);
               const creditoVisita = Number(op.credito_visita   ?? 0);
-              const vt            = op.visita_tecnica;
               const saldo      = Math.max(0, total - cobrado - descuentos);
               const pct        = total > 0 ? Math.min(100, Math.round((cobrado + descuentos) / total * 100)) : 0;
               const ecLabel    = cobrado < 0.01 ? 'Sin cobrar' : saldo < 0.01 ? 'Cobrado' : 'Pago parcial (seña)';
@@ -762,65 +845,8 @@ function PresupuestoModal({
                       <p className="text-[10px] text-gray-600 mt-1 text-right">{pct}% cobrado</p>
                     </div>
                   )}
-                  {/* Visita técnica cobrada: se puede acreditar como pago a cuenta */}
-                  {vt && vt.cobro_estado === 'cobrada' && (
-                    <div className="mb-2 p-3 rounded-xl bg-violet-50 border border-violet-200">
-                      {!confirmAcreditar ? (
-                        <>
-                          <p className="text-xs font-semibold text-violet-800 flex items-center gap-1.5">
-                            <Ruler size={13} className="text-violet-600" />
-                            Visita de Relevamiento de Datos {vt.numero} — cobrada {formatCurrency(Number(vt.costo_cobrado ?? 0))}
-                          </p>
-                          <p className="text-[11px] text-violet-700 mt-0.5">
-                            Podés acreditar ese importe como pago a cuenta de este presupuesto.
-                          </p>
-                          <button onClick={() => setConfirmAcreditar(true)}
-                            className="mt-2 w-full py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-semibold transition-colors">
-                            Acreditar al presupuesto
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs font-semibold text-violet-800">¿Acreditar la visita?</p>
-                          <p className="text-[11px] text-violet-700 mt-1">
-                            Se acreditan {formatCurrency(Number(vt.costo_cobrado ?? 0))} como pago a cuenta.
-                            El recibo {vt.recibo_numero ?? ''} queda vinculado a este presupuesto.
-                          </p>
-                          {Number(vt.costo_cobrado ?? 0) > saldo + 0.01 && (
-                            <p className="text-[11px] text-amber-700 mt-1 font-medium">
-                              El crédito supera el saldo pendiente — quedará un excedente de{' '}
-                              {formatCurrency(Number(vt.costo_cobrado ?? 0) - saldo)} sin aplicar.
-                            </p>
-                          )}
-                          <div className="flex gap-2 mt-2">
-                            <button onClick={() => acreditarVisita(true)} disabled={acreditando}
-                              className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold">
-                              {acreditando ? 'Acreditando...' : 'Confirmar'}
-                            </button>
-                            <button onClick={() => setConfirmAcreditar(false)}
-                              className="px-3 py-2 border border-violet-200 text-violet-700 rounded-lg text-xs font-semibold hover:bg-white">
-                              Cancelar
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Ya acreditada */}
-                  {vt && vt.cobro_estado === 'bonificada' && (
-                    <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-violet-50 border border-violet-200">
-                      <span className="text-[11px] text-violet-700">
-                        Visita {vt.numero} acreditada
-                        {vt.recibo_numero && <> · {vt.recibo_numero}</>}
-                        {' '}({formatCurrency(Number(vt.costo_cobrado ?? 0))})
-                      </span>
-                      <button onClick={() => acreditarVisita(false)} disabled={acreditando}
-                        className="text-[11px] font-bold text-violet-600 hover:underline disabled:opacity-60 shrink-0">
-                        Revertir
-                      </button>
-                    </div>
-                  )}
+                  {/* Visita de relevamiento cobrada: se puede acreditar como pago a cuenta */}
+                  {creditoVisitaCard(saldo)}
 
                   {saldo > 0.01 && (
                     <button

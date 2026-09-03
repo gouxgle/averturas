@@ -223,7 +223,12 @@ visitasTecnicas.post('/', async (c) => {
   }
 });
 
-// PATCH /:id/cobrar — cobra una visita que quedó pendiente (o visitas previas a la feature)
+// PATCH /:id/cobrar — cobra una visita que quedó pendiente, o CORRIGE una que se marcó
+// sin cargo por error (se eligió "No cobrar" al crearla y después había que cobrarla).
+// Se permite aunque la visita ya esté 'convertida' en presupuesto: el error se detecta
+// justamente ahí, cuando hay que reflejar el costo en la proforma — mismo criterio que
+// PATCH /:id/costo-externo. Una visita ya cobrada NO se toca por acá: hay plata
+// registrada, el camino es anular su recibo (eso la devuelve a 'pendiente').
 visitasTecnicas.patch('/:id/cobrar', async (c) => {
   const { id } = c.req.param();
   const user = c.get('user');
@@ -231,15 +236,21 @@ visitasTecnicas.patch('/:id/cobrar', async (c) => {
   if (b instanceof Response) return b;
 
   const { rows: [visita] } = await db.query(
-    `SELECT id, numero, cliente_id, estado, cobro_estado FROM visitas_tecnicas WHERE id=$1`, [id]
+    `SELECT vt.id, vt.numero, vt.cliente_id, vt.estado, vt.cobro_estado, rec.numero AS recibo_numero
+       FROM visitas_tecnicas vt
+       LEFT JOIN recibos rec ON rec.id = vt.recibo_id
+      WHERE vt.id=$1`, [id]
   );
   if (!visita) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
   if (visita.estado === 'cancelada') return c.json({ error: 'La visita está cancelada' }, 409);
-  if (visita.cobro_estado !== 'pendiente') {
-    return c.json({ error: `La visita ya está marcada como ${visita.cobro_estado}` }, 409);
+  if (!['pendiente', 'sin_cargo'].includes(visita.cobro_estado)) {
+    const ref = visita.recibo_numero ? ` (${visita.recibo_numero})` : '';
+    return c.json({
+      error: `La visita ya está cobrada${ref}. Para cambiarlo, anulá ese recibo desde Recibos y volvé a cobrarla.`,
+    }, 409);
   }
 
-  const costo = await costoVisitaConfigurado();
+  const costo = b.monto ?? await costoVisitaConfigurado();
   if (costo <= 0) {
     return c.json({ error: 'No hay costo de visita configurado. Cargalo en Configuración → Empresa.' }, 400);
   }
@@ -271,11 +282,21 @@ visitasTecnicas.patch('/:id/cobrar', async (c) => {
 visitasTecnicas.patch('/:id/sin-cargo', async (c) => {
   const { id } = c.req.param();
   const { rows: [visita] } = await db.query(
-    `SELECT cobro_estado FROM visitas_tecnicas WHERE id=$1`, [id]
+    `SELECT vt.cobro_estado, rec.numero AS recibo_numero
+       FROM visitas_tecnicas vt
+       LEFT JOIN recibos rec ON rec.id = vt.recibo_id
+      WHERE vt.id=$1`, [id]
   );
   if (!visita) return c.json({ error: 'Visita de Relevamiento de Datos no encontrada' }, 404);
+  if (visita.cobro_estado === 'sin_cargo') return c.json({ error: 'La visita ya está sin cargo' }, 409);
   if (visita.cobro_estado !== 'pendiente') {
-    return c.json({ error: `La visita ya está marcada como ${visita.cobro_estado}` }, 409);
+    // Ya se cobró: dejarla sin cargo implica sacar plata registrada, y eso tiene su
+    // propia pantalla (anular el recibo, con motivo). Anular devuelve la visita a
+    // 'pendiente' y recién ahí se la puede marcar sin cargo desde acá.
+    const ref = visita.recibo_numero ? ` (${visita.recibo_numero})` : '';
+    return c.json({
+      error: `La visita ya está cobrada${ref}. Anulá ese recibo desde Recibos para poder dejarla sin cargo.`,
+    }, 409);
   }
 
   const costo = await costoVisitaConfigurado();

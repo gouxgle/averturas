@@ -219,6 +219,10 @@ export const CompletarRelevamientoSchema = z.object({
 export const VisitaTecnicaCobrarSchema = z.object({
   forma_pago:      z.string().min(1).max(150),
   referencia_pago: zText(200).optional(),
+  // Importe a cobrar. Si no viene se usa el costo configurado en empresa. Se acepta
+  // explícito para poder corregir visitas viejas: las previas a la feature de cobro
+  // tienen costo_cobrado en NULL, y el costo configurado pudo cambiar desde entonces.
+  monto:           z.number().positive('El importe debe ser mayor a 0').optional(),
 });
 
 export const VisitaTecnicaBonificarSchema = z.object({
