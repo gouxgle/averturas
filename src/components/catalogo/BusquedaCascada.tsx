@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import {
   cascadaActiva, opcionesFamilias, opcionesMateriales, opcionesMedidas, opcionesTipologias,
@@ -22,15 +21,10 @@ export function BusquedaCascada({ productos, valor, onChange }: {
   valor: CascadaFiltro;
   onChange: (next: CascadaFiltro) => void;
 }) {
-  const [medidaQuery, setMedidaQuery] = useState('');
-
-  const materiales  = useMemo(() => opcionesMateriales(productos, valor), [productos, valor]);
-  const familias     = useMemo(() => opcionesFamilias(productos, valor), [productos, valor]);
-  const tipologias   = useMemo(() => opcionesTipologias(productos, valor), [productos, valor]);
-  const medidasTodas = useMemo(() => opcionesMedidas(productos, valor), [productos, valor]);
-  const medidas = medidaQuery.trim()
-    ? medidasTodas.filter(m => m.label.replace(/\s/g, '').includes(medidaQuery.trim().replace(/\s/g, '')))
-    : medidasTodas.slice(0, 8);
+  const materiales = useMemo(() => opcionesMateriales(productos, valor), [productos, valor]);
+  const familias   = useMemo(() => opcionesFamilias(productos, valor), [productos, valor]);
+  const tipologias = useMemo(() => opcionesTipologias(productos, valor), [productos, valor]);
+  const medidas    = useMemo(() => opcionesMedidas(productos, valor), [productos, valor]);
 
   // Si no hay ningún material cargado en el catálogo visible, el paso 1 no aporta nada
   // (pasaría siempre) — se oculta en vez de mostrar un selector vacío.
@@ -98,33 +92,13 @@ export function BusquedaCascada({ productos, valor, onChange }: {
         {/* 4. Medida estándar */}
         <div>
           <p className={SEL_LABEL}><span className={PASO_NUM}>4</span> Medida estándar</p>
-          {medidasTodas.length === 0 ? (
+          {medidas.length === 0 ? (
             <p className="text-xs text-gray-600 italic pt-2">Sin medidas cargadas</p>
           ) : (
-            <div className="space-y-1.5">
-              <div className="relative">
-                <input value={medidaQuery} onChange={e => setMedidaQuery(e.target.value)}
-                  placeholder="Buscar medida..."
-                  className="w-full pl-2.5 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"/>
-                {medidaQuery && (
-                  <button onClick={() => setMedidaQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600">
-                    <X size={12}/>
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {medidas.map(m => (
-                  <button key={m.value} onClick={() => set('medida', m.value)}
-                    className={cn('px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors',
-                      valor.medida === m.value
-                        ? 'bg-sky-600 border-sky-600 text-white'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {m.label}
-                  </button>
-                ))}
-                {medidas.length === 0 && <p className="text-xs text-gray-600 italic">Sin resultados</p>}
-              </div>
-            </div>
+            <select value={valor.medida ?? ''} onChange={e => set('medida', e.target.value)} className={SELECT_CLS}>
+              <option value="">Todas</option>
+              {medidas.map(m => <option key={m.value} value={m.value}>{m.label} ({m.count})</option>)}
+            </select>
           )}
         </div>
       </div>
