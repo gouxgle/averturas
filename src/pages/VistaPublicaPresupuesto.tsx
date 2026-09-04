@@ -30,6 +30,7 @@ interface Presupuesto {
   fecha_validez: string | null; notas: string | null; precio_total: number;
   /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
   modificaciones_cliente?: number;
+  visita_tecnica?: { id: string; numero: string; cobro_estado: string; costo_cobrado: number | null } | null;
   aprobado_online_at: string | null; created_at: string;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
@@ -857,6 +858,18 @@ export function VistaPublicaPresupuesto() {
                 </div>
               )}
               <div className="text-gray-600 text-xs mt-1 italic">Son: {numToWords(total)}</div>
+              {pres.visita_tecnica?.cobro_estado === 'cobrada' && (
+                <div className="mt-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#ede9fe', color: '#6d28d9' }}>
+                  El cargo por la visita de relevamiento ({fmtM(Number(pres.visita_tecnica.costo_cobrado ?? 0))})
+                  se descuenta del total del presupuesto si lo aceptás.
+                </div>
+              )}
+              {pres.visita_tecnica?.cobro_estado === 'bonificada' && (
+                <div className="mt-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#ede9fe', color: '#6d28d9' }}>
+                  El cargo por la visita de relevamiento ({fmtM(Number(pres.visita_tecnica.costo_cobrado ?? 0))})
+                  ya fue descontado del total de este presupuesto.
+                </div>
+              )}
             </div>
             {/* Opción de pago siempre visible — se ofrece de entrada, sin depender de una
                 forma de pago elegida (la proforma ya no pregunta eso al cargarla). */}

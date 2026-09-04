@@ -48,6 +48,17 @@ pub.get('/presupuesto/:token', async (c) => {
       -- origen 'cliente': las correcciones internas no se le muestran.
       (SELECT COUNT(*)::int FROM operacion_versiones ov
         WHERE ov.operacion_id = o.id AND ov.origen = 'cliente') AS modificaciones_cliente,
+      -- Visita de relevamiento que originó este presupuesto, si fue cobrada: se le
+      -- muestra al cliente como aviso de que ese importe se toma a cuenta del total
+      -- (ver leyenda en el front). Mismo subquery que GET /operaciones/:id (uso interno).
+      (
+        SELECT json_build_object(
+          'id', vt.id, 'numero', vt.numero, 'cobro_estado', vt.cobro_estado,
+          'costo_cobrado', vt.costo_cobrado)
+        FROM visitas_tecnicas vt
+        WHERE vt.operacion_id = o.id
+        ORDER BY vt.created_at DESC LIMIT 1
+      ) AS visita_tecnica,
       json_build_object(
         'nombre',        cl.nombre,
         'apellido',      cl.apellido,

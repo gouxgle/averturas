@@ -86,6 +86,7 @@ interface Operacion {
   forma_envio: string | null; costo_envio: number | null;
   /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
   modificaciones_cliente?: number;
+  visita_tecnica?: { id: string; numero: string; cobro_estado: string; costo_cobrado: number | null } | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
     tipo_persona: string; telefono: string | null; email: string | null;
@@ -544,6 +545,18 @@ export function ImprimirPresupuesto() {
               <div style={{ color: '#6b7280', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
                 Son: {numToWords(total)}
               </div>
+              {op.visita_tecnica?.cobro_estado === 'cobrada' && (
+                <div style={{ background: '#ede9fe', color: '#6d28d9', fontSize: 9.5, fontWeight: 600, borderRadius: 6, padding: '4px 8px', marginTop: 5, maxWidth: 260 }}>
+                  El cargo por la visita de relevamiento ({fmtM(Number(op.visita_tecnica.costo_cobrado ?? 0))})
+                  se descuenta del total del presupuesto si lo aceptás.
+                </div>
+              )}
+              {op.visita_tecnica?.cobro_estado === 'bonificada' && (
+                <div style={{ background: '#ede9fe', color: '#6d28d9', fontSize: 9.5, fontWeight: 600, borderRadius: 6, padding: '4px 8px', marginTop: 5, maxWidth: 260 }}>
+                  El cargo por la visita de relevamiento ({fmtM(Number(op.visita_tecnica.costo_cobrado ?? 0))})
+                  ya fue descontado del total de este presupuesto.
+                </div>
+              )}
               {totalInstalacion > 0 && (
                 <div style={{ color: '#059669', fontSize: 10, fontWeight: 700, marginTop: 3 }}>
                   Incluye costo de traslado e instalación
