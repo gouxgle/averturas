@@ -1365,7 +1365,12 @@ export function NuevoProducto() {
     tipo:             'estandar' as TipoOperacion,
     tipo_abertura_id: '',
     sistema_id:       '',
-    material:         '',
+    // Default 'Aluminio' porque hasta hoy TODO el catálogo cargado es de aluminio
+    // (dato de negocio confirmado, ver migración catalogo_productos_material_backfill_
+    // aluminio) — recién ahora se empiezan a cargar productos de otros materiales.
+    // Precarga el caso común y obliga a un cambio consciente para el resto. Solo pesa
+    // en alta: en edición este estado se pisa con el valor real del producto (abajo).
+    material:         'Aluminio',
     color:            '',
     ancho:            '',
     alto:             '',
