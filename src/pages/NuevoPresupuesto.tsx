@@ -18,7 +18,6 @@ import { CargaMultipleAMedida } from '@/components/CargaMultipleAMedida';
 import { formatearErrorApi, CAMPO_LABELS } from '@/lib/apiError';
 import { BandaProveedor } from '@/components/BadgeProveedor';
 import { isPromoActiva, productoMatchTexto } from '@/lib/catalogoFiltros';
-import type { Categoria } from '@/lib/catalogoCategorias';
 import { ModalCatalogoProductos } from '@/components/catalogo/ModalCatalogoProductos';
 import { ModeloVariantesModal } from '@/components/catalogo/GridMosaico';
 
@@ -293,7 +292,6 @@ export function NuevoPresupuesto() {
   // la sección Productos). Quedan inline los dos flujos rápidos de una mano.
   const [tab, setTab] = useState<'frecuentes' | 'scanner'>('frecuentes');
   const [showGaleria, setShowGaleria] = useState(false);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [categoriaSel, setCategoriaSel] = useState('');
   const [galSearch, setGalSearch] = useState('');
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -446,10 +444,6 @@ export function NuevoPresupuesto() {
       .finally(() => setProductosLoading(false));
   }, []);
 
-  // Árbol de categorías — lo navega el modal de catálogo, igual que la sección Productos
-  useEffect(() => {
-    api.get<Categoria[]>('/catalogo/categorias').then(setCategorias).catch(() => {});
-  }, []);
 
   // Cargar datos en modo edición
   useEffect(() => {
@@ -2167,7 +2161,6 @@ export function NuevoPresupuesto() {
       {showGaleria && (
         <ModalCatalogoProductos
           productos={productos}
-          categorias={categorias}
           loading={productosLoading}
           onSelect={p => verDetalleProducto(p)}
           onAgregar={agregarProducto}

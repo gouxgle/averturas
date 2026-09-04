@@ -68,7 +68,7 @@ export function productoMatchTexto(p: Producto, query: string): boolean {
   const q = query.toLowerCase().trim();
   if (!q) return true;
   const campos = [
-    p.nombre, p.codigo, p.tipo_abertura?.nombre, p.sistema?.nombre,
+    p.nombre, p.codigo, p.tipo_abertura?.nombre, p.sistema?.nombre, p.material,
     p.modelo?.nombre, p.caracteristica_1, p.caracteristica_2,
   ];
   return campos.some(c => c?.toLowerCase().includes(q));
@@ -149,7 +149,7 @@ export function attrValueLabel(key: string, v: string): string {
  * materiales (búsqueda libre, "Todos"). Proveedor, color, nivel y medida sí son
  * transversales: valen en cualquier set.
  */
-export function buildFacets(items: Producto[], opts?: { soloTransversales?: boolean }): FacetDef[] {
+export function buildFacets(items: Producto[], opts?: { soloTransversales?: boolean; excludeAttrKeys?: string[] }): FacetDef[] {
   const facets: FacetDef[] = [];
 
   // Proveedor — el eje que permite comparar de quién viene cada opción del resultado
@@ -194,26 +194,18 @@ export function buildFacets(items: Producto[], opts?: { soloTransversales?: bool
     });
   }
 
-  const medidaCounts = new Map<string, number>();
-  items.forEach(p => {
-    if (p.ancho && p.alto) {
-      const k = `${p.ancho}x${p.alto}`;
-      medidaCounts.set(k, (medidaCounts.get(k) ?? 0) + 1);
-    }
-  });
-  if (medidaCounts.size >= 2) {
-    facets.push({
-      key: '__medida', label: 'Medida (cm)',
-      options: [...medidaCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-        .map(([value, count]) => ({ value, label: value.replace('x', ' × '), count })),
-    });
-  }
+  // Nota: la "Medida (cm)" transversal se sacó de acá — es el 4° paso de la búsqueda en
+  // cascada (Material → Familia → Tipología → Medida, ver catalogoCascada.ts) en los
+  // dos consumidores de este archivo, así que una faceta aparte sería un control
+  // duplicado para el mismo dato.
 
   if (opts?.soloTransversales) return facets;
 
+  const excluir = new Set(opts?.excludeAttrKeys ?? []);
   const attrCounts = new Map<string, Map<string, number>>();
   items.forEach(p => {
     Object.entries(p.atributos ?? {}).forEach(([k, v]) => {
+      if (excluir.has(k)) return;
       if (v === null || v === undefined || v === '' || Array.isArray(v) || typeof v === 'object') return;
       const sv = typeof v === 'boolean' ? (v ? '__true__' : '__false__') : String(v);
       if (!attrCounts.has(k)) attrCounts.set(k, new Map());
@@ -242,9 +234,6 @@ export function productoPasaFacets(p: Producto, activos: Record<string, string[]
       if (!p.color || !values.includes(p.color)) return false;
     } else if (key === 'nivel_comercial') {
       if (!p.nivel_comercial || !values.includes(p.nivel_comercial)) return false;
-    } else if (key === '__medida') {
-      const k = p.ancho && p.alto ? `${p.ancho}x${p.alto}` : '';
-      if (!values.includes(k)) return false;
     } else if (key.startsWith('attr:')) {
       const raw = p.atributos?.[key.slice(5)];
       const sv = typeof raw === 'boolean' ? (raw ? '__true__' : '__false__') : raw == null ? '' : String(raw);

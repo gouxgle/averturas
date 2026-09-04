@@ -1,6 +1,5 @@
 import { X, ShoppingCart } from 'lucide-react';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
-import type { Categoria } from '@/lib/catalogoCategorias';
 import type { Producto } from '@/types';
 
 // Modal de catálogo para armar un presupuesto o pedido: es el MISMO
@@ -11,10 +10,9 @@ import type { Producto } from '@/types';
 // Convención de z-index (los modales de la app viven en z-50 y quedarían por debajo):
 //   contenedor z-[60] · drawer de filtros z-[70] · modales anidados z-[80]
 export function ModalCatalogoProductos({
-  productos, categorias, loading, onSelect, onAgregar, cantidadEnCarrito, itemsEnCarrito, onClose,
+  productos, loading, onSelect, onAgregar, cantidadEnCarrito, itemsEnCarrito, onClose,
 }: {
   productos: Producto[];
-  categorias: Categoria[];
   loading?: boolean;
   onSelect: (p: Producto) => void;
   onAgregar: (p: Producto) => void;
@@ -39,7 +37,6 @@ export function ModalCatalogoProductos({
         <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           <ExploradorCatalogo
             productos={productos}
-            categorias={categorias}
             loading={loading}
             onSelect={onSelect}
             onAgregar={onAgregar}

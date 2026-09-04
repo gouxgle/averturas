@@ -17,6 +17,11 @@ import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 type Atributos = Record<string, unknown>;
 
 // ── Constantes puertas ────────────────────────────────────────
+// Primer filtro de la búsqueda del catálogo (Material → Familia → Tipología → Medida).
+// No reemplaza "Estructura"/"Línea" de cada familia — es el eje transversal que hoy
+// no existía como campo propio (ver migración catalogo_productos_material).
+const MATERIAL_FIJOS = ['Aluminio', 'PVC', 'Acero', 'Chapa', 'Madera', 'MDF'];
+
 const TIPO_PUERTA = [
   { v: 'aluminio',        l: 'Aluminio' },
   { v: 'placa',           l: 'Placa' },
@@ -1360,6 +1365,7 @@ export function NuevoProducto() {
     tipo:             'estandar' as TipoOperacion,
     tipo_abertura_id: '',
     sistema_id:       '',
+    material:         '',
     color:            '',
     ancho:            '',
     alto:             '',
@@ -1500,6 +1506,7 @@ export function NuevoProducto() {
           tipo:             data.tipo,
           tipo_abertura_id: data.tipo_abertura_id ?? '',
           sistema_id:       data.sistema_id ?? '',
+          material:         data.material ?? '',
           color:            data.color ?? '',
           ancho:            data.ancho ? String(data.ancho) : '',
           alto:             data.alto ? String(data.alto) : '',
@@ -1700,6 +1707,7 @@ export function NuevoProducto() {
         tipo:             tipoFinal,
         tipo_abertura_id: form.tipo_abertura_id || null,
         sistema_id:       form.sistema_id || null,
+        material:         form.material || null,
         color:            form.color || null,
         ancho:            form.ancho ? parseFloat(form.ancho) : null,
         alto:             form.alto  ? parseFloat(form.alto)  : null,
@@ -1920,6 +1928,23 @@ export function NuevoProducto() {
                 Derivado de la categoría "{raizCategoriaElegida!.nombre}" — para cambiarlo, modificá la Familia arriba.
               </p>
             )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Material</label>
+            <select value={MATERIAL_FIJOS.includes(form.material) || form.material === '' ? form.material : '__otro__'}
+              onChange={e => set('material', e.target.value === '__otro__' ? ' ' : e.target.value)}
+              className={inputCls}>
+              <option value="">Sin definir</option>
+              {MATERIAL_FIJOS.map(m => <option key={m} value={m}>{m}</option>)}
+              <option value="__otro__">Otro...</option>
+            </select>
+            {!MATERIAL_FIJOS.includes(form.material) && form.material !== '' && (
+              <input value={form.material.trim() === '' ? '' : form.material} autoFocus
+                onChange={e => set('material', e.target.value)}
+                placeholder="Especificar material" className={cn(inputCls, 'mt-1.5')} />
+            )}
+            <p className="text-xs text-black mt-1">Primer filtro de la búsqueda del catálogo (Material → Familia → Tipología → Medida).</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

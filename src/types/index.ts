@@ -227,6 +227,8 @@ export interface Producto {
   en_salon: boolean;
   codigo: string | null;
   color: string | null;
+  /** Aluminio/PVC/Acero/... — primer filtro de la búsqueda en cascada. Texto libre. */
+  material: string | null;
   stock_inicial: number;
   stock_minimo: number;
   stock_actual: number;

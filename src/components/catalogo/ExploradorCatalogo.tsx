@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Search, X, Layers, Package, AppWindow, DoorOpen, Store,
-  SlidersHorizontal, ArrowUpDown, ChevronRight, Zap,
+  Search, X, Package, AppWindow, DoorOpen, Store,
+  SlidersHorizontal, ArrowUpDown, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -10,16 +10,18 @@ import {
 } from '@/lib/catalogoFiltros';
 import { ningunProveedorConPlazo } from '@/lib/disponibilidad';
 import {
-  CATEGORIA_SIN_TIPO, EN_SALON_KEY, FILTRO_BTN, PALETA_CATEGORIAS, SIN_TIPO_KEY,
-  buildDescendientes, buildHijosDe, buildNodeById, paletaDeNodo, rootIdDe,
-  type Categoria,
-} from '@/lib/catalogoCategorias';
+  CASCADA_VACIA, cascadaActiva, productosFiltradosPorCascada, tipologiaKeyDeFamilia,
+  type CascadaFiltro,
+} from '@/lib/catalogoCascada';
+import { CATEGORIA_SIN_TIPO, PALETA_CATEGORIAS, SIN_TIPO_KEY } from '@/lib/catalogoCategorias';
+import { BusquedaCascada } from '@/components/catalogo/BusquedaCascada';
 import { FacetsPanel } from '@/components/catalogo/FacetsPanel';
 import { GridMosaico } from '@/components/catalogo/GridMosaico';
 import { ColumnaCategoria } from '@/components/catalogo/ColumnaCategoria';
 import type { Producto } from '@/types';
 
-// Explorador del catálogo: buscador + árbol de categorías + orden + facetas + grilla.
+// Explorador del catálogo: buscador libre + búsqueda en cascada (Material → Familia →
+// Tipología → Medida) + facetas de afinado + orden + grilla.
 //
 // Es UNA sola implementación con dos consumidores: la sección Productos (modo gestión:
 // activar/desactivar, marcar en salón, vender ahora) y el modal de catálogo al armar
@@ -28,7 +30,6 @@ import type { Producto } from '@/types';
 
 export interface ExploradorCatalogoProps {
   productos: Producto[];
-  categorias: Categoria[];
   loading?: boolean;
 
   /** Click en la tarjeta — típicamente abrir el detalle. */
@@ -46,9 +47,10 @@ export interface ExploradorCatalogoProps {
   onSelectVariante?: (p: Producto) => void;
 
   /**
-   * Mostrar facetas transversales (proveedor / color / nivel / medida) también en
-   * "Todos" y en la búsqueda. Las facetas por `atributos` siguen apareciendo solo
-   * dentro de una categoría, porque su schema depende del tipo de abertura.
+   * Mostrar facetas transversales (proveedor / color / nivel) también sin ningún filtro
+   * de la cascada activo. Las facetas por `atributos` (Sistema/Línea, Diseño, Vidrio,
+   * Funcionamiento...) siguen apareciendo solo con una Familia elegida, porque su
+   * schema depende del tipo de abertura.
    */
   facetasTransversalesEnBusqueda?: boolean;
 
@@ -63,7 +65,7 @@ export interface ExploradorCatalogoProps {
 }
 
 export function ExploradorCatalogo({
-  productos, categorias, loading = false,
+  productos, loading = false,
   onSelect, onToggleActivo, onToggleSalon, mostrarVenderAhora,
   onAgregar, cantidadEnCarrito, onSelectVariante,
   facetasTransversalesEnBusqueda = false,
@@ -72,14 +74,20 @@ export function ExploradorCatalogo({
 }: ExploradorCatalogoProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('relevancia');
-  const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
+  const [cascada, setCascada] = useState<CascadaFiltro>(CASCADA_VACIA);
   const [facetFilters, setFacetFilters] = useState<Record<string, string[]>>({});
   const [soloInmediata, setSoloInmediata] = useState(false);
+  const [soloEnSalon, setSoloEnSalon] = useState(false);
   const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
 
-  const nodoActivoId = categoriaPath.length ? categoriaPath[categoriaPath.length - 1] : null;
-  // Las facetas de una categoría no tienen sentido en otra — se limpian al navegar.
-  useEffect(() => { setFacetFilters({}); }, [nodoActivoId]);
+  // Las facetas de afinado dependen del schema de la Familia — no tienen sentido en
+  // otra, se limpian al cambiar de familia.
+  const familiaSel = cascada.familiaId;
+
+  function setCascadaYLimpiarFacetas(next: CascadaFiltro) {
+    if (next.familiaId !== cascada.familiaId) setFacetFilters({});
+    setCascada(next);
+  }
 
   function toggleFacetValue(key: string, value: string) {
     setFacetFilters(prev => {
@@ -97,85 +105,81 @@ export function ExploradorCatalogo({
     [productos, search],
   );
 
-  // ── Árbol de categorías
-  const hijosDe   = useMemo(() => buildHijosDe(categorias), [categorias]);
-  const raices    = hijosDe['__root__'] ?? [];
-  const nodeById  = useMemo(() => buildNodeById(categorias), [categorias]);
-  const descendientesDe = useMemo(() => buildDescendientes(categorias, hijosDe), [categorias, hijosDe]);
+  const trasCascada = useMemo(() => productosFiltradosPorCascada(filtered, cascada), [filtered, cascada]);
 
-  // Agrupa por Familia (raíz del árbol) — vista "Todos" apilada. Cualquier categoría
-  // nueva cargada en Configuración aparece sola al agregarle productos.
-  const categorizarPorRaiz = useMemo(() => (lista: Producto[]) => {
+  // ── Agrupación por Familia (tipo_abertura) — vista "Todos" apilada por defecto.
+  const familiasOrdenadas = useMemo(() => {
+    const seen = new Map<string, { id: string; nombre: string }>();
+    productos.forEach(p => {
+      if (p.tipo_abertura_id && p.tipo_abertura?.nombre && !seen.has(p.tipo_abertura_id)) {
+        seen.set(p.tipo_abertura_id, { id: p.tipo_abertura_id, nombre: p.tipo_abertura.nombre });
+      }
+    });
+    return [...seen.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [productos]);
+
+  const agruparPorFamilia = useMemo(() => (lista: Producto[]) => {
     const grupos: Record<string, Producto[]> = { [SIN_TIPO_KEY]: [] };
-    raices.forEach(r => { grupos[r.id] = []; });
+    familiasOrdenadas.forEach(f => { grupos[f.id] = []; });
     lista.forEach(p => {
-      const rid = rootIdDe(nodeById, p.categoria_id);
-      const key = rid && grupos[rid] ? rid : SIN_TIPO_KEY;
+      const key = p.tipo_abertura_id && grupos[p.tipo_abertura_id] ? p.tipo_abertura_id : SIN_TIPO_KEY;
       grupos[key].push(p);
     });
     Object.keys(grupos).forEach(k => { grupos[k] = sortProductos(grupos[k], sortBy); });
     return grupos;
-  }, [raices, nodeById, sortBy]);
+  }, [familiasOrdenadas, sortBy]);
 
-  const gruposFiltrados = useMemo(() => categorizarPorRaiz(filtered), [categorizarPorRaiz, filtered]);
-  // Existencia por categoría en TODO el catálogo — a propósito sobre `productos` y no
-  // sobre `filtered`: si no, los pills aparecen y desaparecen mientras se tipea.
-  const existeCategoria = useMemo(() => {
-    const c = categorizarPorRaiz(productos);
+  const gruposFiltrados = useMemo(() => agruparPorFamilia(filtered), [agruparPorFamilia, filtered]);
+  // Existencia por familia en TODO el catálogo — a propósito sobre `productos` y no
+  // sobre `filtered`: si no, los pills aparecerían y desaparecerían mientras se tipea.
+  const existeFamilia = useMemo(() => {
+    const c = agruparPorFamilia(productos);
     return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v.length > 0]));
-  }, [categorizarPorRaiz, productos]);
+  }, [agruparPorFamilia, productos]);
 
   const columnas = useMemo(() => [
-    ...raices.map((t, i) => {
+    ...familiasOrdenadas.map((f, i) => {
       const pal = PALETA_CATEGORIAS[i % PALETA_CATEGORIAS.length];
-      const n = t.nombre.toLowerCase();
+      const n = f.nombre.toLowerCase();
       const icono = n.includes('puerta') && !n.includes('balc') ? DoorOpen
         : (n.includes('ventana') || n.includes('balc')) ? AppWindow : Package;
       return {
-        key: t.id, titulo: t.nombre, items: gruposFiltrados[t.id] ?? [], icono, color: pal.color,
+        key: f.id, titulo: f.nombre, items: gruposFiltrados[f.id] ?? [], icono, color: pal.color,
         headerBg: pal.headerBg, headerText: pal.headerText, badgeBg: 'bg-white', badgeText: pal.badgeText,
         borderCol: pal.borderCol, priceColor: pal.priceColor,
       };
     }),
-    ...(existeCategoria[SIN_TIPO_KEY] ? [{
+    ...(existeFamilia[SIN_TIPO_KEY] ? [{
       key: SIN_TIPO_KEY, titulo: 'Sin categoría', items: gruposFiltrados[SIN_TIPO_KEY] ?? [], icono: Package, color: CATEGORIA_SIN_TIPO.color,
       headerBg: CATEGORIA_SIN_TIPO.headerBg, headerText: CATEGORIA_SIN_TIPO.headerText, badgeBg: 'bg-white', badgeText: CATEGORIA_SIN_TIPO.badgeText,
       borderCol: CATEGORIA_SIN_TIPO.borderCol, priceColor: CATEGORIA_SIN_TIPO.priceColor,
     }] : []),
-  ], [raices, gruposFiltrados, existeCategoria]);
+  ], [familiasOrdenadas, gruposFiltrados, existeFamilia]);
 
-  // "En salón" es un subgrupo transversal (cruza categorías) — pill aparte, solo en la raíz.
   const existeEnSalon = productos.some(p => p.en_salon);
 
-  const categoriaActiva = nodoActivoId ? {
-    key: nodoActivoId,
-    titulo: nodoActivoId === EN_SALON_KEY ? 'En salón' : (nodeById[nodoActivoId]?.nombre ?? ''),
-    items: nodoActivoId === EN_SALON_KEY
-      ? filtered.filter(p => p.en_salon)
-      : filtered.filter(p => p.categoria_id && descendientesDe[nodoActivoId]?.has(p.categoria_id)),
-    priceColor: paletaDeNodo(nodeById, raices, nodoActivoId).priceColor,
-  } : null;
-
-  // Facetas por atributo solo dentro de una categoría real: fuera de ahí el set mezcla
-  // materiales, y por lo tanto schemas de atributos distintos. Las transversales
-  // (proveedor, color, nivel, medida) no tienen ese problema.
+  // Facetas de afinado (Sistema/Línea, Diseño, Vidrio, Funcionamiento...) solo con una
+  // Familia elegida: fuera de ahí el set mezcla materiales y por lo tanto schemas de
+  // atributos distintos. Se excluye la clave que ya se usa como paso 3 (Tipología) para
+  // no mostrar el mismo dato dos veces. Proveedor/color/nivel sí son transversales.
   const facetsActivas = useMemo(() => {
-    if (categoriaActiva && categoriaActiva.key !== EN_SALON_KEY) return buildFacets(categoriaActiva.items);
+    if (familiaSel) {
+      const nombreFamilia = trasCascada[0]?.tipo_abertura?.nombre ?? '';
+      const keyTipologia = tipologiaKeyDeFamilia(nombreFamilia);
+      return buildFacets(trasCascada, { excludeAttrKeys: keyTipologia ? [keyTipologia] : [] });
+    }
     if (!facetasTransversalesEnBusqueda) return [];
-    return buildFacets(categoriaActiva ? categoriaActiva.items : filtered, { soloTransversales: true });
-  }, [categoriaActiva?.key, categoriaActiva?.items, filtered, facetasTransversalesEnBusqueda]);
+    return buildFacets(trasCascada, { soloTransversales: true });
+  }, [familiaSel, trasCascada, facetasTransversalesEnBusqueda]);
 
-  // Pipeline común a las dos vistas planas: facetas → chip de entrega → orden.
-  // Con Productos por default (sin facetas fuera de categoría y el chip apagado) da
-  // exactamente la misma lista que antes de la extracción.
   const visibles = useMemo(() => {
-    const base = categoriaActiva ? categoriaActiva.items : filtered;
-    let out = base.filter(p => productoPasaFacets(p, facetFilters));
+    let out = trasCascada.filter(p => productoPasaFacets(p, facetFilters));
     if (soloInmediata) out = out.filter(p => (p.stock_actual ?? 0) >= 1);
+    if (soloEnSalon) out = out.filter(p => p.en_salon);
     return sortProductos(out, sortBy);
-  }, [categoriaActiva?.items, filtered, facetFilters, soloInmediata, sortBy]);
+  }, [trasCascada, facetFilters, soloInmediata, soloEnSalon, sortBy]);
 
-  const hayFiltroDeLista = activeFacetCount > 0 || soloInmediata;
+  const hayFiltroDeLista = activeFacetCount > 0 || soloInmediata || soloEnSalon || cascadaActiva(cascada);
   const sinPlazoCargado = facetasTransversalesEnBusqueda && !loading && productos.length > 0
     && ningunProveedorConPlazo(productos);
 
@@ -186,12 +190,12 @@ export function ExploradorCatalogo({
 
   return (
     <div className="space-y-5">
-      {/* Buscador + orden + entrega inmediata */}
+      {/* Buscador libre + orden + entrega inmediata + en salón */}
       <div className="flex flex-col sm:flex-row gap-2.5">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600"/>
           <input
-            type="text" placeholder="Buscar por nombre, código o tipo..."
+            type="text" placeholder='Buscar producto, código o medida... Ej: "ventana 120x100"'
             value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white shadow-md"
           />
@@ -225,6 +229,20 @@ export function ExploradorCatalogo({
         >
           <Zap size={14}/> Entrega inmediata
         </button>
+        {existeEnSalon && (
+          <button
+            onClick={() => setSoloEnSalon(v => !v)}
+            title="Solo productos exhibidos en el local"
+            className={cn(
+              'flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all shrink-0',
+              soloEnSalon
+                ? 'bg-emerald-600 text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50',
+            )}
+          >
+            <Store size={14}/> En salón
+          </button>
+        )}
         {facetsActivas.length > 0 && (
           <button
             onClick={() => setMobileFiltrosOpen(true)}
@@ -246,78 +264,9 @@ export function ExploradorCatalogo({
         </p>
       )}
 
-      {/* Navegación por árbol de categorías — breadcrumb + nivel actual */}
+      {/* Búsqueda en cascada: Material → Familia → Tipología → Medida */}
       {!loading && productos.length > 0 && (
-        <div className="space-y-2">
-          {categoriaPath.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap text-xs font-semibold text-gray-600">
-              <button onClick={() => setCategoriaPath([])} className="hover:text-sky-600 hover:underline">Todos</button>
-              {categoriaPath.map((id, i) => (
-                <span key={id} className="flex items-center gap-1">
-                  <ChevronRight size={12} className="text-gray-600"/>
-                  {i === categoriaPath.length - 1 ? (
-                    <span className="text-gray-800">{id === EN_SALON_KEY ? 'En salón' : nodeById[id]?.nombre}</span>
-                  ) : (
-                    <button onClick={() => setCategoriaPath(categoriaPath.slice(0, i + 1))} className="hover:text-sky-600 hover:underline">
-                      {nodeById[id]?.nombre}
-                    </button>
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2.5">
-            <button
-              onClick={() => setCategoriaPath([])}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all',
-                categoriaPath.length === 0
-                  ? 'bg-gray-800 text-white shadow-md shadow-gray-300'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              )}
-            >
-              <Layers size={16}/> Todos
-              <span className={cn('text-[11px] font-semibold px-1.5 py-0.5 rounded-full', categoriaPath.length === 0 ? 'bg-white/20' : 'bg-gray-100')}>
-                {filtered.length}
-              </span>
-            </button>
-
-            {categoriaPath.length === 0 && columnas.map(col => (
-              <button
-                key={col.key}
-                onClick={() => setCategoriaPath([col.key])}
-                className={cn('flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all', FILTRO_BTN[col.color].inactive)}
-              >
-                <col.icono size={16}/> {col.titulo}
-                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-white">{col.items.length}</span>
-              </button>
-            ))}
-            {categoriaPath.length === 0 && existeEnSalon && (
-              <button
-                onClick={() => setCategoriaPath([EN_SALON_KEY])}
-                className={cn('flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ml-1.5 border-l-2 border-gray-200 pl-3.5', FILTRO_BTN.emerald.inactive)}
-              >
-                <Store size={16}/> En salón
-                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-white">{filtered.filter(p => p.en_salon).length}</span>
-              </button>
-            )}
-
-            {nodoActivoId && nodoActivoId !== EN_SALON_KEY && (hijosDe[nodoActivoId] ?? []).map(hijo => {
-              const count = filtered.filter(p => p.categoria_id && descendientesDe[hijo.id]?.has(p.categoria_id)).length;
-              return (
-                <button
-                  key={hijo.id}
-                  onClick={() => setCategoriaPath([...categoriaPath, hijo.id])}
-                  className={cn('flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all', FILTRO_BTN[paletaDeNodo(nodeById, raices, nodoActivoId).color ?? 'sky'].inactive)}
-                >
-                  {hijo.nombre}
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-white">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <BusquedaCascada productos={filtered} valor={cascada} onChange={setCascadaYLimpiarFacetas}/>
       )}
 
       {renderHeader?.(visibles)}
@@ -348,39 +297,8 @@ export function ExploradorCatalogo({
             <p className="text-sm text-gray-600">Ningún producto coincide con la búsqueda</p>
           </div>
         )
-      ) : categoriaActiva ? (
-        /* Categoría activa: sidebar de facetas + mosaico de esa categoría */
-        <div className="flex gap-4 items-start">
-          {facetsActivas.length > 0 && (
-            <aside className="hidden lg:block w-52 shrink-0 sticky top-4 space-y-4">
-              <FacetsPanel facets={facetsActivas} activos={facetFilters} onToggle={toggleFacetValue}
-                onLimpiar={() => setFacetFilters({})} activeCount={activeFacetCount}/>
-            </aside>
-          )}
-          <div className="flex-1 min-w-0 space-y-2">
-            <p className="text-sm text-gray-600">
-              {visibles.length} producto{visibles.length !== 1 ? 's' : ''} en {categoriaActiva.titulo}
-            </p>
-            {visibles.length === 0 ? (
-              <div className="py-16 text-center">
-                <Package size={36} className="text-gray-200 mx-auto mb-3"/>
-                <p className="text-sm text-gray-600">
-                  {categoriaActiva.items.length === 0
-                    ? `Sin productos en esta categoría${search ? ' para tu búsqueda' : ''}`
-                    : 'Ningún producto coincide con los filtros elegidos'}
-                </p>
-                {hayFiltroDeLista && (
-                  <button onClick={() => { setFacetFilters({}); setSoloInmediata(false); }}
-                    className="text-sm text-sky-600 hover:underline font-medium mt-2">Limpiar filtros</button>
-                )}
-              </div>
-            ) : (
-              <GridMosaico productos={visibles} priceColor={categoriaActiva.priceColor} {...propsGrilla}/>
-            )}
-          </div>
-        </div>
       ) : search || hayFiltroDeLista ? (
-        /* Búsqueda o filtro transversal: mosaico plano */
+        /* Búsqueda o cascada/facetas activas: mosaico plano de resultados */
         <div className="flex gap-4 items-start">
           {facetsActivas.length > 0 && (
             <aside className="hidden lg:block w-52 shrink-0 sticky top-4 space-y-4">
@@ -397,7 +315,7 @@ export function ExploradorCatalogo({
                 <Package size={36} className="text-gray-200 mx-auto mb-3"/>
                 <p className="text-sm text-gray-600">Ningún producto coincide con los filtros elegidos</p>
                 {hayFiltroDeLista && (
-                  <button onClick={() => { setFacetFilters({}); setSoloInmediata(false); }}
+                  <button onClick={() => { setFacetFilters({}); setSoloInmediata(false); setSoloEnSalon(false); setCascada(CASCADA_VACIA); }}
                     className="text-sm text-sky-600 hover:underline font-medium mt-2">Limpiar filtros</button>
                 )}
               </div>
@@ -407,7 +325,7 @@ export function ExploradorCatalogo({
           </div>
         </div>
       ) : (
-        /* Vista normal: secciones apiladas por categoría, cada una en mosaico */
+        /* Vista normal: secciones apiladas por familia, cada una en mosaico */
         <div className="space-y-5">
           {columnas.map(col => (
             <ColumnaCategoria
@@ -427,7 +345,7 @@ export function ExploradorCatalogo({
         </div>
       )}
 
-      {!loading && !search && !categoriaActiva && !hayFiltroDeLista && renderFooter?.()}
+      {!loading && !search && !hayFiltroDeLista && renderFooter?.()}
 
       {mobileFiltrosOpen && (
         <div className={cn('fixed inset-0 flex lg:hidden', zDrawer)}>

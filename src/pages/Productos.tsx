@@ -18,7 +18,6 @@ import { BandaProveedor } from '@/components/BadgeProveedor';
 import { LineaDisponibilidad } from '@/components/BadgeDisponibilidad';
 import { colorProveedor } from '@/lib/coloresProveedor';
 import { buildSubtitle, isPromoActiva } from '@/lib/catalogoFiltros';
-import type { Categoria } from '@/lib/catalogoCategorias';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 import { ModalRenovarValidezPrecios } from '@/components/productos/ModalRenovarValidezPrecios';
@@ -322,7 +321,6 @@ export function Productos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState<Producto | null>(null);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [showAjusteStock, setShowAjusteStock] = useState(false);
   const [ajusteProductoId, setAjusteProductoId] = useState<string | null>(null);
   const [showRenovarValidez, setShowRenovarValidez] = useState(false);
@@ -338,13 +336,6 @@ export function Productos() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  // Árbol de navegación (Familia → Uso → Material → Línea) — se arranca en la raíz ("Todos")
-  useEffect(() => {
-    api.get<Categoria[]>('/catalogo/categorias')
-      .then(setCategorias)
-      .catch(() => {});
-  }, []);
 
   async function toggleActivo(producto: Producto) {
     const { activo } = await api.patch<{ id: string; activo: boolean }>(`/productos/${producto.id}/toggle`);
@@ -466,7 +457,6 @@ export function Productos() {
 
       <ExploradorCatalogo
         productos={productos}
-        categorias={categorias}
         loading={loading}
         onSelect={setSelected}
         onToggleActivo={toggleActivo}
