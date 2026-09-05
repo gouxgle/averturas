@@ -48,6 +48,11 @@ interface OperacionItem {
   producto_id?: string | null;
   tipo_abertura_nombre?: string;
   sistema_nombre?: string;
+  color?: string | null;
+  medida_ancho?: number | null;
+  medida_alto?: number | null;
+  accesorios?: string[];
+  producto_atributos?: Record<string, unknown> | null;
   producto_proveedor_sku?: string | null;
   producto_costo_base?: number | null;
   producto_imagen_url?: string | null;
@@ -131,6 +136,29 @@ function buildPreciosMapa(lista: { sku: string; precio: number; producto_id: str
   return { bySku, byProductoId };
 }
 
+// Mismo criterio que Presupuestos.tsx (líneas 738-742): el ítem de operación describe
+// tipo/línea/color/medida en columnas propias, separadas de `descripcion` — que muchas
+// veces solo trae el resumen abreviado entre corchetes ("[Aluminio · De abrir · Exterior]",
+// ver aplicarResumenAtributos en lib/atributosPorTipo.ts) cuando el vendedor no escribió
+// texto libre. Si el pedido copia solo `descripcion` tal cual, el proveedor recibe nada
+// más que ese resumen y pierde el tipo, la línea, el color, la medida y los accesorios.
+function specsDeItem(oi: OperacionItem): string {
+  const attr = oi.producto_atributos ?? {};
+  const hojas = attr.hojas ? `${attr.hojas} hojas` : attr.config_hojas ? String(attr.config_hojas) : null;
+  return [
+    oi.tipo_abertura_nombre, oi.sistema_nombre, oi.color, hojas,
+    (oi.medida_ancho || oi.medida_alto) ? `${oi.medida_ancho ?? '?'} × ${oi.medida_alto ?? '?'} m` : null,
+  ].filter(Boolean).join(' · ');
+}
+
+function descripcionParaPedido(oi: OperacionItem): string {
+  const specs = specsDeItem(oi);
+  const detalle = oi.descripcion && oi.descripcion !== specs ? oi.descripcion : null;
+  let texto = [specs, detalle].filter(Boolean).join(' ') || oi.descripcion || '';
+  if (oi.accesorios?.length) texto += ` — Incluye: ${oi.accesorios.join(', ')}`;
+  return texto;
+}
+
 function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm {
   const sku       = oi.producto_proveedor_sku ?? null;
   const precio    = resolverPrecio(precios, oi.producto_id, sku);
@@ -142,7 +170,7 @@ function mapItemFromOp(oi: OperacionItem, precios: PreciosMapa): PedidoItemForm 
   return {
     operacion_item_id: oi.id,
     producto_id:       oi.producto_id ?? undefined,
-    descripcion:       oi.descripcion,
+    descripcion:       descripcionParaPedido(oi),
     cantidad:          oi.cantidad,
     costo_unitario:    isCovered ? 0 : costo,
     proveedor_sku:     sku,
