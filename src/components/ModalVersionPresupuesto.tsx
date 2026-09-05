@@ -24,10 +24,27 @@ export interface ItemVersion {
   color: string | null;
   vidrio: string | null;
   premarco?: boolean;
+  accesorios?: string[];
   notas?: string | null;
   tipo_abertura_nombre?: string | null;
   sistema_nombre?: string | null;
   producto_nombre?: string | null;
+  producto_atributos?: Record<string, unknown> | null;
+}
+
+// Mismo criterio que la proforma vigente (src/pages/Presupuestos.tsx:737-742): tipo,
+// línea, color, hojas (vía producto_atributos) y medida. Se suman acá vidrio/premarco,
+// que la proforma no repite ahí pero sí tiene sentido ver en una versión histórica.
+export function specsItemVersion(it: ItemVersion): string {
+  const attr = it.producto_atributos ?? {};
+  const hojas = attr.hojas ? `${attr.hojas} hojas` : attr.config_hojas ? String(attr.config_hojas) : null;
+  const specs = [
+    it.tipo_abertura_nombre, it.sistema_nombre, it.color, hojas,
+    (it.medida_ancho || it.medida_alto) ? `${it.medida_ancho ?? '?'} × ${it.medida_alto ?? '?'} m` : null,
+  ].filter(Boolean) as string[];
+  if (it.vidrio) specs.push(`Vidrio ${it.vidrio}`);
+  if (it.premarco) specs.push('Con premarco');
+  return specs.join(' · ');
 }
 
 export interface OperacionVersion {
@@ -121,24 +138,20 @@ export function ModalVersionPresupuesto({
           {/* Ítems */}
           <div className="border border-gray-200 rounded-xl overflow-hidden">
             {items.map((it, i) => {
-              const specs: string[] = [];
-              if (it.tipo_abertura_nombre) specs.push(it.tipo_abertura_nombre);
-              if (it.sistema_nombre)       specs.push(it.sistema_nombre);
-              if (it.medida_ancho || it.medida_alto)
-                specs.push(`${it.medida_ancho ?? '—'} × ${it.medida_alto ?? '—'} m`);
-              if (it.color)   specs.push(it.color);
-              if (it.vidrio)  specs.push(`Vidrio ${it.vidrio}`);
-              if (it.premarco) specs.push('Con premarco');
+              const specs = specsItemVersion(it);
               return (
                 <div key={it.id ?? i} className={cn('px-3 py-2.5', i % 2 === 1 && 'bg-gray-50')}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-gray-800">
-                        {i + 1}. {it.descripcion}
+                        {i + 1}. {specs || it.descripcion}
                         {it.cantidad > 1 && <span className="text-gray-600"> × {it.cantidad}</span>}
                       </p>
-                      {specs.length > 0 && (
-                        <p className="text-[11px] text-gray-600 mt-0.5">{specs.join(' · ')}</p>
+                      {specs && it.descripcion && it.descripcion !== specs && (
+                        <p className="text-[11px] text-gray-600 mt-0.5">{it.descripcion}</p>
+                      )}
+                      {!!it.accesorios?.length && (
+                        <p className="text-[11px] text-gray-600 mt-0.5">Incluye: {it.accesorios.join(', ')}</p>
                       )}
                       {it.incluye_instalacion && (
                         <p className="text-[11px] text-emerald-700 mt-0.5">Incluye instalación</p>

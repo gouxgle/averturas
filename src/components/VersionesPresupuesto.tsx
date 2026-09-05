@@ -3,7 +3,7 @@ import { History, ChevronDown, ChevronRight, Loader2, Eye, Pen } from 'lucide-re
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import {
-  ModalVersionPresupuesto,
+  ModalVersionPresupuesto, specsItemVersion,
   type ItemVersion, type OperacionVersion,
 } from '@/components/ModalVersionPresupuesto';
 
@@ -98,16 +98,25 @@ export function VersionesPresupuesto({ operacionId, numero = '' }: { operacionId
                       {v.snapshot.operacion.forma_pago && (
                         <p className="text-[11px] text-gray-600">Forma de pago: <span className="font-medium">{v.snapshot.operacion.forma_pago}</span></p>
                       )}
-                      {v.snapshot.items.map((it, i) => (
-                        <div key={it.id ?? i} className="flex items-start justify-between gap-3 py-1 border-b border-gray-200 last:border-0">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-xs text-gray-700">
-                              {i + 1}. {it.descripcion}{it.cantidad > 1 ? ` × ${it.cantidad}` : ''}
-                            </span>
+                      {v.snapshot.items.map((it, i) => {
+                        const specs = specsItemVersion(it);
+                        return (
+                          <div key={it.id ?? i} className="flex items-start justify-between gap-3 py-1 border-b border-gray-200 last:border-0">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-gray-700">
+                                {i + 1}. {specs || it.descripcion}{it.cantidad > 1 ? ` × ${it.cantidad}` : ''}
+                              </p>
+                              {specs && it.descripcion && it.descripcion !== specs && (
+                                <p className="text-[10px] text-gray-600 mt-0.5 ml-3.5">{it.descripcion}</p>
+                              )}
+                              {!!it.accesorios?.length && (
+                                <p className="text-[10px] text-gray-600 mt-0.5 ml-3.5">Incluye: {it.accesorios.join(', ')}</p>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold text-gray-700 shrink-0">{formatCurrency(totalItem(it))}</span>
                           </div>
-                          <span className="text-xs font-semibold text-gray-700 shrink-0">{formatCurrency(totalItem(it))}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                       <button type="button" onClick={() => setVerCompleta(v)}
                         className="mt-1 w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50">
                         <Eye size={13}/> Ver la proforma completa de esta versión

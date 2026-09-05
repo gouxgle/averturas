@@ -1270,7 +1270,7 @@ operaciones.get('/:id/versiones', async (c) => {
   const prodIds = idsDe('producto_id');
 
   async function mapaDe(tabla: string, ids: string[], extra = '') {
-    if (!ids.length) return {} as Record<string, { nombre: string; imagen_url?: string }>;
+    if (!ids.length) return {} as Record<string, { nombre: string; imagen_url?: string; atributos?: Record<string, unknown> }>;
     const { rows: r } = await db.query(
       `SELECT id, nombre${extra} FROM ${tabla} WHERE id = ANY($1::uuid[])`, [ids]
     );
@@ -1279,7 +1279,9 @@ operaciones.get('/:id/versiones', async (c) => {
   const [tipos, sistemas, productos] = await Promise.all([
     mapaDe('tipos_abertura', tipoIds),
     mapaDe('sistemas', sistIds),
-    mapaDe('catalogo_productos', prodIds, ', imagen_url'),
+    // `atributos` es lo que permite calcular "hojas" en el frontend, igual que en
+    // GET /:id (mismo patrón que `producto_atributos` de operaciones.ts:1189).
+    mapaDe('catalogo_productos', prodIds, ', imagen_url, atributos'),
   ]);
 
   for (const r of rows) {
@@ -1288,6 +1290,7 @@ operaciones.get('/:id/versiones', async (c) => {
       it.sistema_nombre        = sistemas[it.sistema_id as string]?.nombre ?? null;
       it.producto_nombre       = productos[it.producto_id as string]?.nombre ?? null;
       it.producto_imagen_url   = productos[it.producto_id as string]?.imagen_url ?? null;
+      it.producto_atributos    = productos[it.producto_id as string]?.atributos ?? null;
     }
   }
   return c.json(rows);
