@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
-  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench,
+  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench, Layers,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente, DISPONIBILIDAD_VIGENCIA_DIAS } from '@/lib/utils';
@@ -17,10 +17,12 @@ import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 type Atributos = Record<string, unknown>;
 
 // ── Constantes puertas ────────────────────────────────────────
-// Primer filtro de la búsqueda del catálogo (Material → Familia → Tipología → Medida).
-// No reemplaza "Estructura"/"Línea" de cada familia — es el eje transversal que hoy
-// no existía como campo propio (ver migración catalogo_productos_material).
-const MATERIAL_FIJOS = ['Aluminio', 'PVC', 'Acero', 'Chapa', 'Madera', 'MDF'];
+// Primer dato del producto y primer filtro de la búsqueda del catálogo
+// (Material → Familia → Tipología → Medida). No reemplaza "Estructura"/"Línea" de cada
+// familia — es el eje transversal que hoy no existía como campo propio (ver migración
+// catalogo_productos_material). Solo las 3 gamas reales que maneja el negocio — "Otro..."
+// cubre cualquier caso excepcional sin ensuciar el filtro con valores fijos sin uso real.
+const MATERIAL_FIJOS = ['Aluminio', 'PVC', 'Acero'];
 
 const TIPO_PUERTA = [
   { v: 'aluminio',        l: 'Aluminio' },
@@ -1355,6 +1357,10 @@ export function NuevoProducto() {
   // Si se abrió el ajuste porque se intentó tildar "en salón" sin stock, al guardar
   // el ajuste activamos el checkbox directo — no hace falta un segundo paso.
   const [enSalonPendientePostAjuste, setEnSalonPendientePostAjuste] = useState(false);
+  // Controla si el select de Material muestra "Otro..." con el input libre debajo,
+  // en vez de codificarlo con un valor sentinel dentro de form.material (eso dejaba
+  // guardar un string de un solo espacio si el usuario no completaba el input).
+  const [materialOtro, setMaterialOtro] = useState(false);
   const [creandoModelo, setCreandoModelo] = useState(false);
   const [nuevoModeloNombre, setNuevoModeloNombre] = useState('');
 
@@ -1550,6 +1556,7 @@ export function NuevoProducto() {
           nivel_comercial:     data.nivel_comercial ?? '',
           modelo_id:           data.modelo_id ?? '',
         });
+        setMaterialOtro(!!data.material && !MATERIAL_FIJOS.includes(data.material));
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
         }
@@ -1804,6 +1811,29 @@ export function NuevoProducto() {
         </div>
       </div>
 
+      {/* Material — primer dato de la carga: gama de Aluminio, PVC o Acero */}
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
+        <SectionHeader icon={Layers} label="Material" primary />
+        <div className="p-4">
+          <select value={materialOtro ? '__otro__' : form.material}
+            onChange={e => {
+              if (e.target.value === '__otro__') { setMaterialOtro(true); set('material', ''); }
+              else { setMaterialOtro(false); set('material', e.target.value); }
+            }}
+            className={inputCls}>
+            <option value="">Sin definir</option>
+            {MATERIAL_FIJOS.map(m => <option key={m} value={m}>{m}</option>)}
+            <option value="__otro__">Otro...</option>
+          </select>
+          {materialOtro && (
+            <input value={form.material} autoFocus
+              onChange={e => set('material', e.target.value)}
+              placeholder="Especificar material" className={cn(inputCls, 'mt-1.5')} />
+          )}
+          <p className="text-xs text-black mt-1">Se ve en la tarjeta y la ficha del producto, y es el primer filtro de la búsqueda del catálogo.</p>
+        </div>
+      </div>
+
       {/* Categoría */}
       <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={Tag} label="Categoría de producto *" primary />
@@ -1933,23 +1963,6 @@ export function NuevoProducto() {
                 Derivado de la categoría "{raizCategoriaElegida!.nombre}" — para cambiarlo, modificá la Familia arriba.
               </p>
             )}
-          </div>
-
-          <div>
-            <label className={labelCls}>Material</label>
-            <select value={MATERIAL_FIJOS.includes(form.material) || form.material === '' ? form.material : '__otro__'}
-              onChange={e => set('material', e.target.value === '__otro__' ? ' ' : e.target.value)}
-              className={inputCls}>
-              <option value="">Sin definir</option>
-              {MATERIAL_FIJOS.map(m => <option key={m} value={m}>{m}</option>)}
-              <option value="__otro__">Otro...</option>
-            </select>
-            {!MATERIAL_FIJOS.includes(form.material) && form.material !== '' && (
-              <input value={form.material.trim() === '' ? '' : form.material} autoFocus
-                onChange={e => set('material', e.target.value)}
-                placeholder="Especificar material" className={cn(inputCls, 'mt-1.5')} />
-            )}
-            <p className="text-xs text-black mt-1">Primer filtro de la búsqueda del catálogo (Material → Familia → Tipología → Medida).</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

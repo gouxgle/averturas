@@ -236,10 +236,11 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
               </div>
             </div>
           )}
-          {((producto.tipo_abertura as any)?.nombre || (producto.sistema as any)?.nombre || producto.color || attrs.length > 0) && (
+          {(producto.material || (producto.tipo_abertura as any)?.nombre || (producto.sistema as any)?.nombre || producto.color || attrs.length > 0) && (
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Especificaciones</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                {producto.material && <Row k="Material" v={producto.material}/>}
                 {(producto.tipo_abertura as any)?.nombre && <Row k="Tipo" v={(producto.tipo_abertura as any).nombre}/>}
                 {(producto.sistema as any)?.nombre && <Row k="Sistema" v={(producto.sistema as any).nombre}/>}
                 {producto.color && <Row k="Color" v={producto.color}/>}

@@ -37,6 +37,7 @@ export const NIVEL_COMERCIAL_COLOR: Record<string, string> = {
 export function buildSubtitle(p: Producto): string {
   const a = p.atributos ?? {};
   const parts: string[] = [];
+  if (p.material) parts.push(p.material);
   if (a.tipo_ventana) parts.push(L_TIPO_VENTANA[a.tipo_ventana as string] ?? String(a.tipo_ventana));
   if (a.config_hojas) parts.push(L_CONFIG_HOJAS[a.config_hojas as string] ?? String(a.config_hojas));
   if (a.hojas)        parts.push(L_HOJAS_VNT[a.hojas as string] ?? String(a.hojas));
