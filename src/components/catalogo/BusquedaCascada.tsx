@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { cn } from '@/lib/utils';
 import {
   cascadaActiva, opcionesFamilias, opcionesMateriales, opcionesMedidas, opcionesTipologias,
   type CascadaFiltro,
@@ -48,17 +47,10 @@ export function BusquedaCascada({ productos, valor, onChange }: {
         {materiales.length === 0 ? (
           <span className="text-xs text-gray-600 italic">—</span>
         ) : (
-          <div className="flex flex-wrap gap-1">
-            {materiales.map(m => (
-              <button key={m.value} onClick={() => set('material', m.value)}
-                className={cn('px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors',
-                  valor.material === m.value
-                    ? 'bg-sky-600 border-sky-600 text-white'
-                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                {m.label} <span className="opacity-70">({m.count})</span>
-              </button>
-            ))}
-          </div>
+          <select value={valor.material ?? ''} onChange={e => set('material', e.target.value)} className={SELECT_CLS}>
+            <option value="">Todos</option>
+            {materiales.map(m => <option key={m.value} value={m.value}>{m.label} ({m.count})</option>)}
+          </select>
         )}
       </div>
 
