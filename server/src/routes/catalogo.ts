@@ -4,7 +4,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
 import {
-  TipoAberturaSchema, SistemaSchema, ColorSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
+  TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema, FormaPagoCatalogoSchema,
 } from '../lib/schemas.js';
 
@@ -256,6 +256,67 @@ catalogo.put('/colores/:id', async (c) => {
 
 catalogo.delete('/colores/:id', async (c) => {
   await db.query(`UPDATE colores SET activo=false WHERE id=$1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+// ── Materiales (Aluminio / Acero / PVC / ...) ─────────────────────────────────
+// Alimenta el desplegable "Material" al cargar/editar un producto. La columna
+// catalogo_productos.material sigue siendo texto libre (la usa la búsqueda en
+// cascada) — acá solo se administra la lista de opciones sugeridas.
+
+catalogo.get('/materiales', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM materiales ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/materiales', async (c) => {
+  const b = await validateBody(c, MaterialSchema);
+  if (b instanceof Response) return b;
+  const nombre = b.nombre.trim();
+  const dup = await db.query(`SELECT id FROM materiales WHERE lower(nombre) = lower($1)`, [nombre]);
+  if (dup.rows.length) return c.json({ error: 'Ya existe un material con ese nombre' }, 409);
+  const { rows } = await db.query(
+    `INSERT INTO materiales (nombre, orden) VALUES ($1, $2) RETURNING *`,
+    [nombre, b.orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/materiales/:id', async (c) => {
+  const b = await validateBody(c, MaterialSchema);
+  if (b instanceof Response) return b;
+  const { id } = c.req.param();
+  const nombre = b.nombre.trim();
+  const dup = await db.query(
+    `SELECT id FROM materiales WHERE lower(nombre) = lower($1) AND id <> $2`, [nombre, id]
+  );
+  if (dup.rows.length) return c.json({ error: 'Ya existe un material con ese nombre' }, 409);
+  const { rows } = await db.query(
+    `UPDATE materiales SET nombre=$1, orden=$2, activo=$3 WHERE id=$4 RETURNING *`,
+    [nombre, b.orden ?? 0, b.activo ?? true, id]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /materiales/:id — borra definitivamente si ningún producto lo usa (por
+// nombre, ya que catalogo_productos.material es texto libre). Si está en uso,
+// 409 — el usuario puede desactivarlo (PUT activo=false) para sacarlo del alta.
+catalogo.delete('/materiales/:id', async (c) => {
+  const { id } = c.req.param();
+  const mat = await db.query(`SELECT nombre FROM materiales WHERE id=$1`, [id]);
+  if (!mat.rows[0]) return c.json({ error: 'No encontrado' }, 404);
+
+  const enUso = await db.query(
+    `SELECT 1 FROM catalogo_productos WHERE lower(material) = lower($1) LIMIT 1`,
+    [mat.rows[0].nombre]
+  );
+  if (enUso.rows.length) return c.json({ error: 'Material en uso por productos' }, 409);
+
+  await db.query(`DELETE FROM materiales WHERE id=$1`, [id]);
   return c.json({ ok: true });
 });
 

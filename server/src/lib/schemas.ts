@@ -316,6 +316,12 @@ export const ColorSchema = z.object({
   activo: z.boolean().optional(),
 });
 
+export const MaterialSchema = z.object({
+  nombre: z.string().min(1).max(100),
+  orden:  z.number().int().nonnegative().optional(),
+  activo: z.boolean().optional(),
+});
+
 export const ServicioSchema = z.object({
   nombre:      z.string().min(1).max(200),
   descripcion: zText(500).optional(),
@@ -370,11 +376,14 @@ export const ProveedorSchema = z.object({
   notas:              zText(2000).optional(),
   forma_entrega:      z.enum(['propia','tercerizada','retiro']).optional().default('propia'),
   plazo_entrega_dias: z.number().int().positive().optional().nullable(),
-  costo_flete:        z.number().min(0).max(100).optional().nullable().default(0),
+  // costo_flete / deuda_actual / margen_venta son columnas NUMERIC → el driver pg
+  // las devuelve como string, y el form de edición reenvía ese valor tal cual
+  // cuando el usuario no toca el campo. z.coerce evita el falso "Datos inválidos".
+  costo_flete:        z.coerce.number().min(0).max(100).optional().nullable().default(0),
   calificacion:       z.number().int().min(1).max(5).optional().nullable(),
-  deuda_actual:       zPosNum.optional().nullable().default(0),
+  deuda_actual:       z.coerce.number().nonnegative('Debe ser mayor o igual a 0').optional().nullable().default(0),
   es_principal:       z.boolean().optional().default(false),
-  margen_venta:       z.number().min(0).max(100).optional().nullable().default(0),
+  margen_venta:       z.coerce.number().min(0).max(999).optional().nullable().default(0),
   activo:             z.boolean().optional(),
 });
 
