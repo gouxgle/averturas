@@ -173,12 +173,16 @@ describe('ReciboSchema', () => {
     expect(ReciboSchema.safeParse({ ...baseRecibo, monto_total: 0 }).success).toBe(false);
   });
 
-  it('rechaza forma_pago inválida', () => {
-    const result = ReciboSchema.safeParse({ ...baseRecibo, forma_pago: 'Bitcoin' });
-    expect(result.success).toBe(false);
+  it('rechaza forma_pago vacía', () => {
+    // forma_pago es texto libre (no enum) — la única regla es que no sea vacío.
+    expect(ReciboSchema.safeParse({ ...baseRecibo, forma_pago: '' }).success).toBe(false);
   });
 
-  it('acepta todas las formas de pago válidas', () => {
+  it('acepta forma_pago de texto libre', () => {
+    expect(ReciboSchema.safeParse({ ...baseRecibo, forma_pago: 'Cheque a 30 días' }).success).toBe(true);
+  });
+
+  it('acepta las formas de pago habituales', () => {
     const formas = [
       'Contado',
       'Tarjeta de débito/crédito en 1 pago',
