@@ -7,6 +7,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ReciboSchema } from '../lib/schemas.js';
 import { generarPDFRecibo } from '../lib/pdf.js';
+import { registrarActividad } from '../lib/actividad.js';
 
 const recibos = new Hono();
 
@@ -513,6 +514,11 @@ recibos.post('/', async (c) => {
     // Cerrar compromisos pendientes si la operación quedó completamente pagada
     if (b.operacion_id) await cerrarCompromisosSiSaldado(b.operacion_id);
 
+    registrarActividad(c, {
+      entidad: 'recibo', entidad_id: rec.id, entidad_numero: rec.numero,
+      accion: 'crear',
+      detalle: `${rec.forma_pago ?? 'Pago'} $${Number(rec.monto_total).toLocaleString('es-AR')}`,
+    });
     return c.json(rec, 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -575,6 +581,11 @@ recibos.put('/:id', async (c) => {
     }
 
     await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'recibo', entidad_id: rec.id, entidad_numero: rec.numero,
+      accion: 'editar',
+      detalle: `Total $${Number(rec.monto_total).toLocaleString('es-AR')}`,
+    });
     return c.json(rec);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -612,6 +623,10 @@ recibos.patch('/:id/anular', async (c) => {
     `, [id]);
 
     await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'recibo', entidad_id: rec.id, entidad_numero: rec.numero,
+      accion: 'anular', detalle: motivo,
+    });
     return c.json(rec);
   } catch (err) {
     await client.query('ROLLBACK');

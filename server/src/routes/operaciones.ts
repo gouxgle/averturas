@@ -6,6 +6,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
 import { sendProformaCompartida } from '../email.js';
+import { registrarActividad } from '../lib/actividad.js';
 
 const operaciones = new Hono();
 
@@ -269,6 +270,19 @@ operaciones.post('/venta-rapida', async (c) => {
     }
 
     await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'presupuesto', entidad_id: op.id, entidad_numero: op.numero,
+      accion: 'venta_rapida',
+      detalle: `Venta rápida — recibo ${recibo.numero}, remito ${remito.numero}`,
+    });
+    registrarActividad(c, {
+      entidad: 'recibo', entidad_id: recibo.id, entidad_numero: recibo.numero,
+      accion: 'crear', detalle: `Venta rápida de ${op.numero}`,
+    });
+    registrarActividad(c, {
+      entidad: 'remito', entidad_id: remito.id, entidad_numero: remito.numero,
+      accion: 'crear', detalle: `Venta rápida de ${op.numero}`,
+    });
     return c.json({
       operacion_id: op.id, numero_operacion: op.numero,
       recibo_id: recibo.id, numero_recibo: recibo.numero,
@@ -1224,10 +1238,12 @@ operaciones.get('/:id', async (c) => {
       ORDER BY orden
     `, [id]),
     // Ediciones: total y cuántas fueron a pedido del cliente (las únicas que se
-    // muestran en la proforma y en el link público).
+    // muestran en la proforma y en el link público). `ultima_cliente_at` es el
+    // momento de la última edición pedida por el cliente → fecha de la revisión.
     db.query(`
       SELECT COUNT(*)::int AS total,
-             COUNT(*) FILTER (WHERE origen = 'cliente')::int AS del_cliente
+             COUNT(*) FILTER (WHERE origen = 'cliente')::int AS del_cliente,
+             MAX(created_at) FILTER (WHERE origen = 'cliente') AS ultima_cliente_at
       FROM operacion_versiones WHERE operacion_id = $1
     `, [id]),
   ]);
@@ -1237,6 +1253,7 @@ operaciones.get('/:id', async (c) => {
     ...op, items, historial, formas_pago_alternativas,
     version_count: versiones.rows[0]?.total ?? 0,
     modificaciones_cliente: versiones.rows[0]?.del_cliente ?? 0,
+    ultima_revision_cliente_at: versiones.rows[0]?.ultima_cliente_at ?? null,
   });
 });
 
@@ -1385,6 +1402,11 @@ operaciones.post('/', async (c) => {
     }
 
     await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'presupuesto', entidad_id: op.id, entidad_numero: op.numero,
+      accion: 'crear',
+      detalle: b.visita_tecnica_id ? 'Desde visita de relevamiento' : null,
+    });
     return c.json(op, 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -1513,6 +1535,13 @@ operaciones.put('/:id', async (c) => {
     }
 
     await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'presupuesto', entidad_id: id, entidad_numero: op.numero,
+      accion: 'editar',
+      detalle: `Modificación registrada como v${next_version}` +
+        ((b.version_origen ?? 'interna') === 'cliente' ? ' · a pedido del cliente' : ' · corrección interna'),
+      meta: { version: next_version, origen: b.version_origen ?? 'interna' },
+    });
     return c.json(op);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -1540,12 +1569,23 @@ operaciones.patch('/:id/estado', async (c) => {
     }
   }
 
+  const { rows: [prev] } = await db.query(`SELECT estado FROM operaciones WHERE id = $1`, [id]);
+
   const { rows: [row] } = await db.query(`
     UPDATE operaciones SET estado = $1 WHERE id = $2
     RETURNING id, numero, estado
   `, [estado, id]);
 
   if (!row) return c.json({ error: 'Operación no encontrada' }, 404);
+
+  if (prev && prev.estado !== row.estado) {
+    registrarActividad(c, {
+      entidad: 'presupuesto', entidad_id: row.id, entidad_numero: row.numero,
+      accion: 'cambio_estado',
+      detalle: `${prev.estado} → ${row.estado}`,
+      meta: { estado_anterior: prev.estado, estado_nuevo: row.estado },
+    });
+  }
   return c.json(row);
 });
 

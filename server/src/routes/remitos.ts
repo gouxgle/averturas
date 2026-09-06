@@ -4,6 +4,7 @@ import { validateBody } from '../lib/validate.js';
 import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '../lib/schemas.js';
 import { sincronizarTareaEntrega, completarTareaDeEntrega } from '../lib/remitos.js';
 import { enviarWhatsapp } from '../lib/whatsapp.js';
+import { registrarActividad } from '../lib/actividad.js';
 
 const remitos = new Hono();
 
@@ -509,6 +510,11 @@ remitos.post('/', async (c) => {
     }
 
     await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'remito', entidad_id: remito.id, entidad_numero: remito.numero,
+      accion: 'crear',
+      detalle: b.operacion_id ? null : 'Sin operación vinculada',
+    });
     return c.json(remito, 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -573,6 +579,10 @@ remitos.put('/:id', async (c) => {
 
     await client.query('COMMIT');
     const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
+    registrarActividad(c, {
+      entidad: 'remito', entidad_id: id, entidad_numero: updated?.numero ?? null,
+      accion: 'editar',
+    });
     return c.json(updated);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -740,6 +750,17 @@ remitos.patch('/:id/estado', async (c) => {
 
     await client.query('COMMIT');
     const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
+
+    const accionEstado = nuevoEstado === 'emitido' ? 'emitir'
+      : nuevoEstado === 'entregado' ? 'entregar'
+      : nuevoEstado === 'cancelado' ? 'cancelar'
+      : 'cambio_estado';
+    registrarActividad(c, {
+      entidad: 'remito', entidad_id: id, entidad_numero: remito.numero,
+      accion: accionEstado,
+      detalle: `${estadoActual} → ${nuevoEstado}`,
+      meta: { estado_anterior: estadoActual, estado_nuevo: nuevoEstado },
+    });
     return c.json(updated);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -752,10 +773,13 @@ remitos.patch('/:id/estado', async (c) => {
 // DELETE /:id — solo borrador
 remitos.delete('/:id', async (c) => {
   const { id } = c.req.param();
-  const { rows: [r] } = await db.query(`SELECT estado FROM remitos WHERE id=$1`, [id]);
+  const { rows: [r] } = await db.query(`SELECT estado, numero FROM remitos WHERE id=$1`, [id]);
   if (!r) return c.json({ error: 'Remito no encontrado' }, 404);
   if (r.estado !== 'borrador') return c.json({ error: 'Solo se puede eliminar un remito en borrador' }, 409);
   await db.query(`DELETE FROM remitos WHERE id=$1`, [id]);
+  registrarActividad(c, {
+    entidad: 'remito', entidad_id: id, entidad_numero: r.numero, accion: 'eliminar',
+  });
   return c.json({ ok: true });
 });
 

@@ -48,6 +48,9 @@ pub.get('/presupuesto/:token', async (c) => {
       -- origen 'cliente': las correcciones internas no se le muestran.
       (SELECT COUNT(*)::int FROM operacion_versiones ov
         WHERE ov.operacion_id = o.id AND ov.origen = 'cliente') AS modificaciones_cliente,
+      -- Fecha de la última revisión pedida por el cliente (para la línea de revisión).
+      (SELECT MAX(ov.created_at) FROM operacion_versiones ov
+        WHERE ov.operacion_id = o.id AND ov.origen = 'cliente') AS ultima_revision_cliente_at,
       -- Visita de relevamiento que originó este presupuesto, si fue cobrada: se le
       -- muestra al cliente como aviso de que ese importe se toma a cuenta del total
       -- (ver leyenda en el front). Mismo subquery que GET /operaciones/:id (uso interno).

@@ -30,6 +30,8 @@ interface Presupuesto {
   fecha_validez: string | null; notas: string | null; precio_total: number;
   /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
   modificaciones_cliente?: number;
+  /** Fecha de la última revisión pedida por el cliente. */
+  ultima_revision_cliente_at?: string | null;
   visita_tecnica?: { id: string; numero: string; cobro_estado: string; costo_cobrado: number | null } | null;
   aprobado_online_at: string | null; created_at: string;
   cliente: {
@@ -664,14 +666,19 @@ export function VistaPublicaPresupuesto() {
                   🚚 Entrega: {pres.tiempo_entrega} días hábiles
                 </div>
               )}
-              {/* Cuántas veces se rehízo esta proforma a pedido del cliente — mismo
-                  criterio y misma redacción que ImprimirPresupuesto.tsx. */}
-              {(pres.modificaciones_cliente ?? 0) > 0 && (
-                <div className="text-xs mt-0.5 text-gray-600">
-                  ✏️ <strong>Revisión N° {(pres.modificaciones_cliente ?? 0) + 1}</strong>
-                  {' — '}{pres.modificaciones_cliente} modificación{pres.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
-                </div>
-              )}
+              {/* Línea de revisión — siempre visible, mismo criterio y redacción
+                  que ImprimirPresupuesto.tsx. Solo cuenta ediciones a pedido del cliente. */}
+              <div className="text-xs mt-0.5 text-gray-600">
+                {(pres.modificaciones_cliente ?? 0) > 0 ? (
+                  <>
+                    ✏️ <strong>Revisión N° {(pres.modificaciones_cliente ?? 0) + 1}</strong>
+                    {' — '}{pres.modificaciones_cliente} modificación{pres.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
+                    {pres.ultima_revision_cliente_at ? ` · ${fmtFecha(pres.ultima_revision_cliente_at)}` : ''}
+                  </>
+                ) : (
+                  <>✏️ <strong>Versión original</strong>{' — '}sin modificaciones a pedido del cliente</>
+                )}
+              </div>
             </div>
           </div>
           {/* Separador doble navy — igual que PDF */}

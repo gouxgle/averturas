@@ -86,6 +86,8 @@ interface Operacion {
   forma_envio: string | null; costo_envio: number | null;
   /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
   modificaciones_cliente?: number;
+  /** Fecha de la última revisión pedida por el cliente. */
+  ultima_revision_cliente_at?: string | null;
   visita_tecnica?: { id: string; numero: string; cobro_estado: string; costo_cobrado: number | null } | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
@@ -308,16 +310,21 @@ export function ImprimirPresupuesto() {
                   🚚 <span>Entrega: {op.tiempo_entrega} días hábiles</span>
                 </div>
               )}
-              {/* Cuántas veces se rehízo la proforma a pedido del cliente. Solo las
-                  marcadas como pedido suyo — las correcciones internas no cuentan. */}
-              {(op.modificaciones_cliente ?? 0) > 0 && (
-                <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-                  ✏️ <span>
-                    <strong>Revisión N° {(op.modificaciones_cliente ?? 0) + 1}</strong>
-                    {' — '}{op.modificaciones_cliente} modificación{op.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
-                  </span>
-                </div>
-              )}
+              {/* Línea de revisión — siempre visible. Solo cuenta las ediciones
+                  marcadas como pedido del cliente; las correcciones internas no. */}
+              <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                ✏️ <span>
+                  {(op.modificaciones_cliente ?? 0) > 0 ? (
+                    <>
+                      <strong>Revisión N° {(op.modificaciones_cliente ?? 0) + 1}</strong>
+                      {' — '}{op.modificaciones_cliente} modificación{op.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
+                      {op.ultima_revision_cliente_at ? ` · ${fmtFecha(op.ultima_revision_cliente_at)}` : ''}
+                    </>
+                  ) : (
+                    <><strong>Versión original</strong>{' — '}sin modificaciones a pedido del cliente</>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
         </div>

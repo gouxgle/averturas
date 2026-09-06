@@ -7,6 +7,7 @@ import {
   PedidoSchema,
   EstadoOperacionSchema,
   PedidoEstadoSchema,
+  ProveedorSchema,
 } from '../lib/schemas.js';
 
 // ── LoginSchema ────────────────────────────────────────────────
@@ -234,5 +235,36 @@ describe('PedidoEstadoSchema', () => {
 
   it('rechaza estado inválido', () => {
     expect(PedidoEstadoSchema.safeParse({ estado: 'procesando' }).success).toBe(false);
+  });
+});
+
+// ── ProveedorSchema ────────────────────────────────────────────
+describe('ProveedorSchema', () => {
+  it('acepta números en costo_flete / deuda_actual / margen_venta', () => {
+    const result = ProveedorSchema.safeParse({
+      nombre: 'Aluminios del Norte', costo_flete: 10, deuda_actual: 25000, margen_venta: 40,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('coacciona strings de columnas NUMERIC (como las devuelve el driver pg)', () => {
+    // El form de edición reenvía el valor tal cual vino del backend cuando el
+    // usuario no toca el campo → llega "10.00" en vez de 10.
+    const result = ProveedorSchema.safeParse({
+      nombre: 'Aluminios del Norte', costo_flete: '10.00', deuda_actual: '25000.00', margen_venta: '40.00',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.costo_flete).toBe(10);
+      expect(result.data.deuda_actual).toBe(25000);
+      expect(result.data.margen_venta).toBe(40);
+    }
+  });
+
+  it('aplica default 0 cuando el campo viene null', () => {
+    const result = ProveedorSchema.safeParse({
+      nombre: 'Sin datos', costo_flete: null, deuda_actual: null, margen_venta: null,
+    });
+    expect(result.success).toBe(true);
   });
 });
