@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
-  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench, Layers,
+  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench, Layers, Copy,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente, DISPONIBILIDAD_VIGENCIA_DIAS } from '@/lib/utils';
@@ -17,12 +17,11 @@ import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 type Atributos = Record<string, unknown>;
 
 // ── Constantes puertas ────────────────────────────────────────
-// Primer dato del producto y primer filtro de la búsqueda del catálogo
-// (Material → Familia → Tipología → Medida). No reemplaza "Estructura"/"Línea" de cada
-// familia — es el eje transversal que hoy no existía como campo propio (ver migración
-// catalogo_productos_material). Solo las 3 gamas reales que maneja el negocio — "Otro..."
-// cubre cualquier caso excepcional sin ensuciar el filtro con valores fijos sin uso real.
-const MATERIAL_FIJOS = ['Aluminio', 'PVC', 'Acero'];
+// El campo "Material" (primer dato del producto y primer filtro de la búsqueda del
+// catálogo: Material → Familia → Tipología → Medida) toma sus opciones de una lista
+// configurable desde Configuración → Materiales (GET /catalogo/materiales). No
+// reemplaza "Estructura"/"Línea" de cada familia — es el eje transversal. "Otro..."
+// cubre cualquier caso excepcional sin tener que darlo de alta en la lista.
 
 const TIPO_PUERTA = [
   { v: 'aluminio',        l: 'Aluminio' },
@@ -1344,6 +1343,7 @@ export function NuevoProducto() {
   const [sistemas, setSistemas]       = useState<Sistema[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [colores, setColores]         = useState<{ id: string; nombre: string; hex: string | null }[]>([]);
+  const [materiales, setMateriales]   = useState<{ id: string; nombre: string }[]>([]);
   const [categorias, setCategorias]   = useState<Categoria[]>([]);
   const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
   const [modelos, setModelos]         = useState<CatalogoModelo[]>([]);
@@ -1498,13 +1498,15 @@ export function NuevoProducto() {
       api.get<{ id: string; nombre: string; hex: string | null }[]>('/catalogo/colores'),
       api.get<Categoria[]>('/catalogo/categorias'),
       api.get<CatalogoModelo[]>('/catalogo/modelos'),
-    ]).then(([ta, s, prov, col, cat, mod]) => {
+      api.get<{ id: string; nombre: string }[]>('/catalogo/materiales'),
+    ]).then(([ta, s, prov, col, cat, mod, mat]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setProveedores(prov);
       setColores(col);
       setCategorias(cat);
       setModelos(mod);
+      setMateriales(mat);
     });
 
     if (isEdit && id) {
@@ -1556,7 +1558,6 @@ export function NuevoProducto() {
           nivel_comercial:     data.nivel_comercial ?? '',
           modelo_id:           data.modelo_id ?? '',
         });
-        setMaterialOtro(!!data.material && !MATERIAL_FIJOS.includes(data.material));
         if (data.atributos && typeof data.atributos === 'object') {
           setAtributos(data.atributos);
         }
@@ -1568,6 +1569,15 @@ export function NuevoProducto() {
       });
     }
   }, [id, isEdit]);
+
+  // "Otro..." se decide contra la lista configurable de materiales, que carga async
+  // igual que el producto en edición (pueden resolver en cualquier orden). Solo actúa
+  // con un material ya cargado: al elegir "Otro..." el campo queda vacío y este efecto
+  // no lo pisa, dejando el input libre abierto.
+  useEffect(() => {
+    if (materiales.length === 0 || !form.material) return;
+    setMaterialOtro(!materiales.some(m => m.nombre === form.material));
+  }, [materiales, form.material]);
 
   // Default alto = 200 cm al detectar puerta (solo si campo vacío)
   useEffect(() => {
@@ -1702,17 +1712,18 @@ export function NuevoProducto() {
     }
   }
 
-  async function handleSave() {
-    if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return; }
-    if (!form.costo_base || !form.precio_base) { toast.error('Los precios son requeridos'); return; }
+  function validarAntesDeGuardar(): boolean {
+    if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return false; }
+    if (!form.costo_base || !form.precio_base) { toast.error('Los precios son requeridos'); return false; }
+    return true;
+  }
 
-    setSaving(true);
-    try {
+  function buildPayload() {
       const tipoFinal: TipoOperacion = form.tipo === 'estandar'
         ? 'estandar'
         : form.origen === 'fabricacion' ? 'fabricacion_propia' : 'a_medida_proveedor';
 
-      const payload = {
+      return {
         nombre:           form.nombre.trim(),
         codigo:           form.codigo.trim() || null,
         descripcion:      form.descripcion.trim() || null,
@@ -1758,7 +1769,13 @@ export function NuevoProducto() {
         nivel_comercial:  form.nivel_comercial || null,
         modelo_id:        form.modelo_id || null,
       };
+  }
 
+  async function handleSave() {
+    if (!validarAntesDeGuardar()) return;
+    setSaving(true);
+    try {
+      const payload = buildPayload();
       if (isEdit && id) {
         await api.put(`/productos/${id}`, payload);
         toast.success('Producto actualizado');
@@ -1767,6 +1784,28 @@ export function NuevoProducto() {
         toast.success('Producto creado');
       }
       navigate('/productos');
+    } catch (e) {
+      toastApiError(e, { fallback: 'Error al guardar el producto', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Mismo producto, varios proveedores: en vez de repetir toda la carga (medidas,
+  // atributos, imágenes, precios...) por cada proveedor que también lo tiene, guarda
+  // esta variante y deja el formulario tal cual — solo limpia proveedor/código/SKU,
+  // que es lo único que cambia entre variantes. Siempre crea (POST), nunca pisa un
+  // producto existente — por eso solo se ofrece al cargar uno nuevo, no al editar.
+  async function handleGuardarYDuplicar() {
+    if (!validarAntesDeGuardar()) return;
+    setSaving(true);
+    try {
+      const payload = buildPayload();
+      await api.post('/productos', payload);
+      toast.success('Producto creado — elegí el proveedor y el código de la siguiente variante');
+      set('proveedor_id', '');
+      set('proveedor_sku', '');
+      set('codigo', '');
     } catch (e) {
       toastApiError(e, { fallback: 'Error al guardar el producto', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
@@ -1811,7 +1850,7 @@ export function NuevoProducto() {
         </div>
       </div>
 
-      {/* Material — primer dato de la carga: gama de Aluminio, PVC o Acero */}
+      {/* Material — primer dato de la carga. Opciones configurables en Configuración → Materiales. */}
       <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={Layers} label="Material" primary />
         <div className="p-4">
@@ -1822,7 +1861,10 @@ export function NuevoProducto() {
             }}
             className={inputCls}>
             <option value="">Sin definir</option>
-            {MATERIAL_FIJOS.map(m => <option key={m} value={m}>{m}</option>)}
+            {materiales.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+            {!materialOtro && form.material && !materiales.some(m => m.nombre === form.material) && (
+              <option value={form.material}>{form.material}</option>
+            )}
             <option value="__otro__">Otro...</option>
           </select>
           {materialOtro && (
@@ -1830,7 +1872,7 @@ export function NuevoProducto() {
               onChange={e => set('material', e.target.value)}
               placeholder="Especificar material" className={cn(inputCls, 'mt-1.5')} />
           )}
-          <p className="text-xs text-black mt-1">Se ve en la tarjeta y la ficha del producto, y es el primer filtro de la búsqueda del catálogo.</p>
+          <p className="text-xs text-black mt-1">Se ve en la tarjeta y la ficha del producto, y es el primer filtro de la búsqueda del catálogo. Las opciones se administran en Configuración → Materiales.</p>
         </div>
       </div>
 
@@ -2635,17 +2677,31 @@ export function NuevoProducto() {
       </div>
 
       {/* Botón guardar al final */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-2 border-t border-gray-200">
         <button onClick={() => navigate('/productos')}
           className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-black hover:bg-gray-50">
           Cancelar
         </button>
+        {!isEdit && (
+          <button onClick={handleGuardarYDuplicar} disabled={saving}
+            title="Guarda este producto y deja los mismos datos cargados para agregar la variante del siguiente proveedor"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-60 rounded-lg text-sm font-semibold">
+            <Copy size={15} />
+            Guardar y cargar para otro proveedor
+          </button>
+        )}
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-md">
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-md">
           <Save size={15} />
           {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
         </button>
       </div>
+      {!isEdit && (
+        <p className="text-xs text-black -mt-2">
+          ¿El mismo producto lo tiene más de un proveedor? Usá "Guardar y cargar para otro proveedor" — guarda esta
+          variante y deja todo lo demás cargado, solo hay que cambiar Proveedor y Código.
+        </p>
+      )}
 
       {showAjusteStock && isEdit && id && (
         <ModalAjusteStock
