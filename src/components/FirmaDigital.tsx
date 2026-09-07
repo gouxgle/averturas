@@ -6,13 +6,17 @@ interface FirmaDigitalProps {
   value: string | null;
   onChange: (url: string | null) => void;
   disabled?: boolean;
+  /** Endpoint de subida — cada sección tiene el suyo (sharp la convierte a webp
+   * igual que cualquier otra foto). Default: visitas técnicas, el primer uso. */
+  uploadEndpoint?: string;
 }
 
-// Firma del cliente dando conformidad a las medidas relevadas. Canvas puro
-// (sin librería) — pointer events cubre dedo, stylus y mouse. Sube el trazo
-// como imagen al mismo endpoint que las fotos de la visita (sharp la
-// convierte a webp igual que cualquier otra foto).
-export function FirmaDigital({ value, onChange, disabled }: FirmaDigitalProps) {
+// Firma de conformidad capturada en el celular de quien está en el lugar
+// (técnico en la visita, repartidor al entregar). Canvas puro (sin librería) —
+// pointer events cubre dedo, stylus y mouse.
+export function FirmaDigital({
+  value, onChange, disabled, uploadEndpoint = '/api/visitas-tecnicas/upload-imagen',
+}: FirmaDigitalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const hasStroke = useRef(false);
@@ -91,7 +95,7 @@ export function FirmaDigital({ value, onChange, disabled }: FirmaDigitalProps) {
       const token = sessionStorage.getItem('aberturas_token');
       const fd = new FormData();
       fd.append('imagen', blob, 'firma.png');
-      const res = await fetch('/api/visitas-tecnicas/upload-imagen', {
+      const res = await fetch(uploadEndpoint, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,

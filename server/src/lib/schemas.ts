@@ -429,6 +429,8 @@ export const RemitoSchema = z.object({
 export const RemitoEstadoSchema = z.object({
   estado:             z.enum(['borrador','emitido','entregado','cancelado']),
   fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  // Firma de conformidad, capturada al marcar "entregado" — ver FirmaDigital.tsx.
+  firma_url:          zText(300).optional().nullable(),
 });
 
 export const RemitoProgramarEntregaSchema = z.object({

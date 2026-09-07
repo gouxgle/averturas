@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '../lib/schemas.js';
@@ -7,6 +10,34 @@ import { enviarWhatsapp } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
 
 const remitos = new Hono();
+
+// POST /upload-imagen — firma digital de conformidad (mismo patrón que
+// visitas-tecnicas/upload-imagen: sharp → webp, sin distinguir firma de foto).
+remitos.post('/upload-imagen', async (c) => {
+  const body = await c.req.formData();
+  const file = body.get('imagen') as File | null;
+  if (!file || !file.size) return c.json({ error: 'No se recibió imagen' }, 400);
+
+  const filename = `${randomUUID()}.webp`;
+  const dir = './uploads/remitos';
+  await mkdir(dir, { recursive: true });
+
+  let optimizado: Buffer;
+  try {
+    optimizado = await sharp(Buffer.from(await file.arrayBuffer()))
+      .rotate()
+      .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+  } catch (err) {
+    console.error('[remitos] Error procesando imagen:', err instanceof Error ? err.message : err);
+    return c.json({ error: 'No se pudo procesar la imagen. Probá de nuevo.' }, 422);
+  }
+
+  await writeFile(`${dir}/${filename}`, optimizado);
+
+  return c.json({ url: `/uploads/remitos/${filename}` });
+});
 
 async function nextNumero(): Promise<string> {
   const ym = new Date().toISOString().slice(0, 7).replace('-', '');
@@ -598,7 +629,7 @@ remitos.patch('/:id/estado', async (c) => {
   const user   = c.get('user');
   const bEstado = await validateBody(c, RemitoEstadoSchema);
   if (bEstado instanceof Response) return bEstado;
-  const { estado: nuevoEstado, fecha_entrega_real } = bEstado;
+  const { estado: nuevoEstado, fecha_entrega_real, firma_url } = bEstado;
 
   const TRANSICIONES: Record<string, string[]> = {
     borrador:   ['emitido', 'cancelado'],
@@ -730,9 +761,10 @@ remitos.patch('/:id/estado', async (c) => {
       UPDATE remitos SET
         estado = $1,
         fecha_entrega_real = COALESCE($2::date, CASE WHEN $1='entregado' THEN CURRENT_DATE ELSE fecha_entrega_real END),
+        firma_url = COALESCE($4, firma_url),
         updated_at = now()
       WHERE id = $3
-    `, [nuevoEstado, fecha_entrega_real || null, id]);
+    `, [nuevoEstado, fecha_entrega_real || null, id, firma_url || null]);
 
     // Al entregar: marcar la operación vinculada como entregada
     if (nuevoEstado === 'entregado' && remito.operacion_id) {

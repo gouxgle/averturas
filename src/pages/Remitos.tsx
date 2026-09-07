@@ -13,6 +13,7 @@ import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
+import { FirmaDigital } from '@/components/FirmaDigital';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 
@@ -35,6 +36,8 @@ interface Remito {
   recepcion_estado: 'conforme' | 'con_observaciones' | 'no_conforme' | null;
   recepcion_at: string | null;
   recepcion_obs: string | null;
+  /** Firma de conformidad capturada en el celular al marcar "entregado" (opcional). */
+  firma_url: string | null;
 }
 
 interface ProximaEntrega {
@@ -279,6 +282,14 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               </div>
             )}
 
+            {/* Firma de conformidad — capturada en el celular al marcar entregado */}
+            {detalle.firma_url && (
+              <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
+                <p className="text-xs font-semibold text-gray-700 mb-1.5">Firma de conformidad</p>
+                <FirmaDigital value={detalle.firma_url} onChange={() => {}} disabled />
+              </div>
+            )}
+
             {/* Acciones */}
             <div className="flex flex-col gap-2 pt-1">
               {detalle.cliente.telefono && (
@@ -323,6 +334,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
 function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: () => void; onSaved: () => void }) {
   const [nuevoEstado, setNuevoEstado] = useState('');
   const [fechaReal, setFechaReal] = useState(new Date().toISOString().split('T')[0]);
+  const [firmaUrl, setFirmaUrl] = useState<string | null>(remito.firma_url ?? null);
   const [saving, setSaving] = useState(false);
 
   const TRANS: Record<string, { value: string; label: string; desc: string; cls: string }[]> = {
@@ -346,6 +358,7 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
       await api.patch(`/remitos/${remito.id}/estado`, {
         estado: nuevoEstado,
         fecha_entrega_real: nuevoEstado === 'entregado' ? fechaReal : undefined,
+        firma_url: nuevoEstado === 'entregado' ? firmaUrl : undefined,
       });
       toast.success('Estado actualizado');
       onSaved();
@@ -372,10 +385,16 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
             </button>
           ))}
           {nuevoEstado === 'entregado' && (
-            <div className="pt-1">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Fecha real de entrega</label>
-              <input type="date" value={fechaReal} onChange={e => setFechaReal(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            <div className="pt-1 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Fecha real de entrega</label>
+                <input type="date" value={fechaReal} onChange={e => setFechaReal(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Firma de conformidad (opcional)</label>
+                <FirmaDigital value={firmaUrl} onChange={setFirmaUrl} uploadEndpoint="/api/remitos/upload-imagen" />
+              </div>
             </div>
           )}
           {nuevoEstado === 'emitido' && (
