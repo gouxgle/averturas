@@ -196,7 +196,13 @@
 /* ── Page wrapper: fade al entrar ─────────────────────────────────────────── */
 
 .page-enter {
-  animation: fadeInUp 0.35s cubic-bezier(.22,.68,0,1.1) both;
+  /* Sin fill-mode "forwards": el transform final (translateY(0), un no-op visual)
+     no debe quedar pegado tras terminar la animación — un transform "residual",
+     aunque sea 0, convierte este div en containing block para sus descendientes
+     position:fixed (los modales, que no usan portal) y rompe el centrado contra
+     el viewport, empujándolos hacia abajo en páginas largas. Bug real: modal de
+     detalle en Estado de Cuenta apareciendo corrido hacia abajo (2026-09-07). */
+  animation: fadeInUp 0.35s cubic-bezier(.22,.68,0,1.1) backwards;
 }
 
 /* ── Glassmorphism card (para uso selectivo) ──────────────────────────────── */

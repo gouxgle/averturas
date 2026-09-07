@@ -348,11 +348,6 @@ export interface EstadoCuentaPDF {
   }>;
 }
 
-const fmtDate = (iso: string) => {
-  try { return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-  catch { return iso; }
-};
-
 function buildEstadoCuentaHTML(data: EstadoCuentaPDF, empresa: EmpresaPDF): string {
   const cl = data.cliente;
   const clienteNombre = cl.tipo_persona === 'juridica'
@@ -430,12 +425,18 @@ function buildEstadoCuentaHTML(data: EstadoCuentaPDF, empresa: EmpresaPDF): stri
         </thead>
         <tbody>
           ${compsPendientes.map((comp, i) => {
-            const isVencido = comp.estado === 'vencido' || (comp.estado === 'pendiente' && new Date(comp.fecha_vencimiento.slice(0, 10) + 'T12:00:00') < new Date());
+            // fecha_vencimiento es columna DATE de Postgres → pg la devuelve como objeto Date,
+            // no como string (ver convención "Columnas DATE" en CLAUDE.md). Un .slice() directo
+            // sobre eso tira TypeError sin capturar → 500 en cualquier cliente con compromisos
+            // pendientes. Normalizar primero, igual que ya hace fmtFecha() más arriba en este archivo.
+            const vencRaw = comp.fecha_vencimiento as unknown;
+            const vencISO = vencRaw instanceof Date ? vencRaw.toISOString() : String(vencRaw);
+            const isVencido = comp.estado === 'vencido' || (comp.estado === 'pendiente' && new Date(vencISO.slice(0, 10) + 'T12:00:00') < new Date());
             const detalle = [comp.descripcion, comp.banco, comp.numero_cheque ? 'Ch. ' + comp.numero_cheque : null, comp.operacion ? 'Op. ' + comp.operacion.numero : null].filter(Boolean).join(' · ') || '—';
             return `
               <tr style="background:${isVencido ? '#fff5f5' : i % 2 === 0 ? 'white' : '#f8f9fa'};">
                 <td style="padding:6px 8px;font-size:11px;color:#555;border-bottom:1px solid #eee;">${COMP_TIPO[comp.tipo] ?? comp.tipo}</td>
-                <td style="padding:6px 8px;font-size:11px;font-weight:600;color:${isVencido ? '#dc2626' : '#1a1a1a'};border-bottom:1px solid #eee;">${fmtDate(comp.fecha_vencimiento)}${isVencido ? ' &#9888;' : ''}</td>
+                <td style="padding:6px 8px;font-size:11px;font-weight:600;color:${isVencido ? '#dc2626' : '#1a1a1a'};border-bottom:1px solid #eee;">${fmtFecha(comp.fecha_vencimiento)}${isVencido ? ' &#9888;' : ''}</td>
                 <td style="padding:6px 8px;font-size:11px;color:#555;border-bottom:1px solid #eee;">${detalle}</td>
                 <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;font-weight:700;color:${isVencido ? '#dc2626' : '#1a1a1a'};border-bottom:1px solid #eee;">${fmt(Number(comp.monto))}</td>
               </tr>
