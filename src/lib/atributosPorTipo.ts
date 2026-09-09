@@ -27,7 +27,7 @@ export const ATRIBUTOS_ABREVIADOS: Record<CategoriaTipoAbertura, AtributoAbrevia
     { key: 'config_hojas', label: 'Hojas', opciones: [
       { v: '2_hojas', l: '2 hojas' }, { v: '3_hojas', l: '3 hojas' }, { v: '4_hojas', l: '4 hojas' },
     ] },
-    { key: 'linea', label: 'Línea', opciones: [
+    { key: 'sistema', label: 'Sistema', opciones: [
       { v: 'herrero', l: 'Herrero' }, { v: 'modena', l: 'Módena' }, { v: 'a30', l: 'A30' },
     ] },
   ],

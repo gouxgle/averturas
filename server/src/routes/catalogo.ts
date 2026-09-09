@@ -4,7 +4,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
 import {
-  TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
+  TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, LineaSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema, FormaPagoCatalogoSchema,
 } from '../lib/schemas.js';
 
@@ -317,6 +317,65 @@ catalogo.delete('/materiales/:id', async (c) => {
   if (enUso.rows.length) return c.json({ error: 'Material en uso por productos' }, 409);
 
   await db.query(`DELETE FROM materiales WHERE id=$1`, [id]);
+  return c.json({ ok: true });
+});
+
+// ── Líneas comerciales (Dorada / Hogar / Amapola / ...) ───────────────────────
+// Clasificación de MARKETING del producto — agrupa productos para venderlos como
+// colección. No confundir con /sistemas, que es el sistema técnico (perfiles y método
+// de construcción). A diferencia de /materiales (texto libre), acá el producto guarda
+// una FK (catalogo_productos.linea_id): así renombrar una línea se propaga solo.
+
+catalogo.get('/lineas', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM lineas ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/lineas', async (c) => {
+  const b = await validateBody(c, LineaSchema);
+  if (b instanceof Response) return b;
+  const nombre = b.nombre.trim();
+  const dup = await db.query(`SELECT id FROM lineas WHERE lower(nombre) = lower($1)`, [nombre]);
+  if (dup.rows.length) return c.json({ error: 'Ya existe una línea con ese nombre' }, 409);
+  const { rows } = await db.query(
+    `INSERT INTO lineas (nombre, orden) VALUES ($1, $2) RETURNING *`,
+    [nombre, b.orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/lineas/:id', async (c) => {
+  const b = await validateBody(c, LineaSchema);
+  if (b instanceof Response) return b;
+  const { id } = c.req.param();
+  const nombre = b.nombre.trim();
+  const dup = await db.query(
+    `SELECT id FROM lineas WHERE lower(nombre) = lower($1) AND id <> $2`, [nombre, id]
+  );
+  if (dup.rows.length) return c.json({ error: 'Ya existe una línea con ese nombre' }, 409);
+  const { rows } = await db.query(
+    `UPDATE lineas SET nombre=$1, orden=$2, activo=$3 WHERE id=$4 RETURNING *`,
+    [nombre, b.orden ?? 0, b.activo ?? true, id]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /lineas/:id — la FK es ON DELETE SET NULL, así que borrar una línea en uso
+// desclasificaría productos en silencio. Se bloquea con 409: el usuario puede
+// desactivarla (PUT activo=false) para sacarla del alta sin tocar lo ya clasificado.
+catalogo.delete('/lineas/:id', async (c) => {
+  const { id } = c.req.param();
+  const enUso = await db.query(
+    `SELECT 1 FROM catalogo_productos WHERE linea_id = $1 LIMIT 1`, [id]
+  );
+  if (enUso.rows.length) return c.json({ error: 'Línea en uso por productos' }, 409);
+
+  const { rowCount } = await db.query(`DELETE FROM lineas WHERE id=$1`, [id]);
+  if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
   return c.json({ ok: true });
 });
 
@@ -820,6 +879,9 @@ catalogo.get('/productos', async (c) => {
     SELECT cp.*,
       json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
       json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
+      CASE WHEN li.id IS NOT NULL
+        THEN json_build_object('id', li.id, 'nombre', li.nombre)
+        ELSE NULL END AS linea,
       CASE WHEN pr.id IS NOT NULL
         THEN json_build_object('id', pr.id, 'nombre', pr.nombre, 'color', pr.color, 'plazo_entrega_dias', pr.plazo_entrega_dias)
         ELSE NULL END AS proveedor,
@@ -828,6 +890,7 @@ catalogo.get('/productos', async (c) => {
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     LEFT JOIN sistemas s        ON s.id  = cp.sistema_id
+    LEFT JOIN lineas li         ON li.id = cp.linea_id
     LEFT JOIN proveedores pr    ON pr.id = cp.proveedor_id
     LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
     LEFT JOIN LATERAL (

@@ -170,7 +170,7 @@ describe('expandirPlantillaAItems', () => {
     ];
     const [i1, i2] = expandirPlantillaAItems(plantillaBase(), filas, keyGen());
     i1.accesorios.push('Sellado');
-    i1._atribAbrev.linea = 'modena';
+    i1._atribAbrev.sistema = 'modena';
     // Sin copia propia, mutar uno mutaría a todos
     expect(i2.accesorios).toEqual(['Herrajes completos']);
     expect(i2._atribAbrev).toEqual({ tipo_ventana: 'corrediza' });

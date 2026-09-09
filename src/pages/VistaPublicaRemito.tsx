@@ -348,7 +348,7 @@ export function VistaPublicaRemito() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{item.descripcion}</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px 10px' }}>
                         {item.tipo_abertura_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Tipo: {item.tipo_abertura_nombre}</span>}
-                        {item.sistema_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Línea: {item.sistema_nombre}</span>}
+                        {item.sistema_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Sistema: {item.sistema_nombre}</span>}
                         {item.vidrio && <span style={{ fontSize: 11, color: '#6b7280' }}>Vidrio: {item.vidrio}</span>}
                       </div>
                     </td>

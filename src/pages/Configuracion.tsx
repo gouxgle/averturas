@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes, CreditCard } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes, CreditCard, Tag } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -13,6 +13,8 @@ interface TipoAbertura { id: string; nombre: string; descripcion: string | null;
 interface Sistema { id: string; nombre: string; material: string | null; descripcion: string | null; activo: boolean; }
 interface Color { id: string; nombre: string; hex: string | null; activo: boolean; }
 interface Material { id: string; nombre: string; orden: number; activo: boolean; }
+/** Línea COMERCIAL (marketing). El sistema técnico es `Sistema`, arriba. */
+interface Linea { id: string; nombre: string; orden: number; activo: boolean; }
 interface Empresa { id: string; nombre: string; cuit: string | null; telefono: string | null; email: string | null; direccion: string | null; logo_url: string | null; instagram: string | null; terminos_url: string | null; costo_visita_tecnica: number | null; }
 interface Servicio { id: string; nombre: string; descripcion: string | null; precio_base: number | null; orden: number; activo: boolean; }
 interface FormaPago { id: string; nombre: string; descuento_pct: number; orden: number; activo: boolean; }
@@ -235,7 +237,7 @@ function PanelSistemas() {
       {adding && (
         <InlineForm
           fields={[
-            { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Línea 30' },
+            { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Herrero, Módena, A30' },
             { key: 'material', label: 'Material', value: '', placeholder: 'aluminio, vidrio...' },
             { key: 'descripcion', label: 'Descripción', value: '', placeholder: 'Opcional' },
           ]}
@@ -496,6 +498,125 @@ function PanelMateriales() {
           </div>
         ))}
         {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin materiales cargados</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Panel: Líneas comerciales ───────────────────────────────────────────────────
+// Clasificación de MARKETING del producto (Dorada, Hogar, Amapola...). El producto
+// guarda la FK, así que renombrar acá se propaga solo a todo el catálogo.
+// No confundir con PanelSistemas, que es el sistema técnico (perfiles).
+
+function PanelLineas() {
+  const [items, setItems] = useState<Linea[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function load() {
+    const data = await api.get<Linea[]>('/catalogo/lineas?all=1');
+    setItems(data);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd(vals: Record<string, string>) {
+    try {
+      await api.post('/catalogo/lineas', { nombre: vals.nombre, orden: Number(vals.orden) || 0 });
+      toast.success('Línea agregada');
+      setAdding(false);
+      load();
+    } catch (e: unknown) {
+      toastApiError(e, { fallback: 'No se pudo agregar' });
+    }
+  }
+
+  async function handleEdit(id: string, vals: Record<string, string>) {
+    const item = items.find(i => i.id === id)!;
+    try {
+      await api.put(`/catalogo/lineas/${id}`, {
+        ...item, nombre: vals.nombre, orden: Number(vals.orden) || 0,
+      });
+      toast.success('Actualizado');
+      setEditId(null);
+      load();
+    } catch (e: unknown) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
+    }
+  }
+
+  async function toggleActivo(item: Linea) {
+    await api.put(`/catalogo/lineas/${item.id}`, { ...item, activo: !item.activo });
+    load();
+  }
+
+  async function eliminar(item: Linea) {
+    try {
+      await api.delete(`/catalogo/lineas/${item.id}`);
+      toast.success('Línea eliminada');
+      load();
+    } catch (e: unknown) {
+      const msg = (e as Error).message || 'Error';
+      toast.error(msg.includes('uso')
+        ? 'En uso por productos — desactivala en vez de borrarla, o reasigná esos productos'
+        : 'Error al eliminar');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-600">{items.filter(i => i.activo).length} activas</p>
+        <button onClick={() => { setAdding(true); setEditId(null); }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium">
+          <Plus size={13} /> Agregar
+        </button>
+      </div>
+
+      {adding && (
+        <InlineForm
+          fields={[
+            { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Línea Dorada' },
+            { key: 'orden', label: 'Orden', value: '0', placeholder: '0' },
+          ]}
+          onSave={handleAdd}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      <div className="divide-y divide-gray-100">
+        {items.map(item => (
+          <div key={item.id} className={cn('py-2.5 flex items-center gap-3', !item.activo && 'opacity-50')}>
+            <div className="flex-1 min-w-0">
+              {editId === item.id ? (
+                <InlineForm
+                  fields={[
+                    { key: 'nombre', label: 'Nombre *', value: item.nombre },
+                    { key: 'orden', label: 'Orden', value: String(item.orden) },
+                  ]}
+                  onSave={vals => handleEdit(item.id, vals)}
+                  onCancel={() => setEditId(null)}
+                />
+              ) : (
+                <p className="text-sm font-medium text-gray-800">{item.nombre}</p>
+              )}
+            </div>
+            {editId !== item.id && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => { setEditId(item.id); setAdding(false); }}
+                  className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100">
+                  <Pencil size={13} />
+                </button>
+                <button onClick={() => toggleActivo(item)} className="p-1.5 text-gray-600 hover:text-slate-600 rounded hover:bg-gray-100" title={item.activo ? 'Desactivar' : 'Activar'}>
+                  {item.activo ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+                </button>
+                <button onClick={() => eliminar(item)} className="p-1.5 text-gray-600 hover:text-red-600 rounded hover:bg-gray-100" title="Eliminar">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-gray-600 py-4 text-center">Sin líneas cargadas</p>}
       </div>
     </div>
   );
@@ -1612,13 +1733,14 @@ function PanelBackups() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'materiales' | 'colores' | 'servicios' | 'formas_pago' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | null;
+type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'materiales' | 'lineas' | 'colores' | 'servicios' | 'formas_pago' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | null;
 
 const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | null>; label: string; icon: typeof Layers; desc: string }[] = [
-  { id: 'categorias',     label: 'Categorías',          icon: FolderTree, desc: 'Árbol de navegación: Familia → Uso → Material → Línea' },
+  { id: 'categorias',     label: 'Categorías',          icon: FolderTree, desc: 'Árbol de navegación del catálogo (los niveles los definís vos)' },
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
-  { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Líneas y materiales' },
+  { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Sistema técnico: perfiles y método de construcción (Herrero, Módena, A30...)' },
   { id: 'materiales',     label: 'Materiales',          icon: Layers,    desc: 'Aluminio, acero, PVC... — opciones del campo "Material" del producto' },
+  { id: 'lineas',         label: 'Líneas',              icon: Tag,       desc: 'Clasificación comercial del catálogo (Dorada, Hogar, Amapola...)' },
   { id: 'colores',        label: 'Colores',             icon: Palette,   desc: 'Colores disponibles' },
   { id: 'servicios',      label: 'Servicios',           icon: Wrench,    desc: 'Reparación, mantenimiento, cambio de piezas' },
   { id: 'formas_pago',    label: 'Formas de pago',      icon: CreditCard, desc: 'Alternativas ofrecibles en el presupuesto (contado, cuotas...)' },
@@ -1709,6 +1831,7 @@ export function Configuracion() {
                 {id === 'tipos_abertura' && <PanelTiposAbertura />}
                 {id === 'sistemas'       && <PanelSistemas />}
                 {id === 'materiales'     && <PanelMateriales />}
+                {id === 'lineas'         && <PanelLineas />}
                 {id === 'colores'        && <PanelColores />}
                 {id === 'servicios'      && <PanelServicios />}
                 {id === 'formas_pago'    && <PanelFormasPago />}

@@ -248,7 +248,10 @@ export interface Producto {
   etiqueta: 'mas_vendido' | 'recomendado' | 'nuevo' | null;
   margen_tipo: 'bajo' | 'medio' | 'alto' | null;
   categoria_id: string | null;
-  nivel_comercial: 'economica' | 'estandar' | 'premium' | 'alta_seguridad' | null;
+  /** Línea comercial (marketing) — agrupa productos como colección. NO es el sistema
+   *  técnico: eso es `sistema`/`sistema_id` y el atributo `atributos.sistema`. */
+  linea_id: string | null;
+  linea?: { id: string; nombre: string } | null;
   modelo_id: string | null;
   modelo?: { id: string; nombre: string } | null;
   promocion: {

@@ -9,7 +9,7 @@ import { colorProveedor } from '@/lib/coloresProveedor';
 import { BandaProveedor } from '@/components/BadgeProveedor';
 import { BadgeDisponibilidad } from '@/components/BadgeDisponibilidad';
 import {
-  buildSubtitle, isPromoActiva, NIVEL_COMERCIAL_LABEL, NIVEL_COMERCIAL_COLOR,
+  buildSubtitle, isPromoActiva, LINEA_COLOR,
 } from '@/lib/catalogoFiltros';
 import type { Producto, TipoOperacion } from '@/types';
 
@@ -231,9 +231,9 @@ export function TarjetaProductoMosaico({
             <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', TIPO_COLOR[producto.tipo])}>
               {TIPO_LABEL[producto.tipo]}
             </span>
-            {producto.nivel_comercial && (
-              <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', NIVEL_COMERCIAL_COLOR[producto.nivel_comercial])}>
-                {NIVEL_COMERCIAL_LABEL[producto.nivel_comercial]}
+            {producto.linea?.nombre && (
+              <span className={cn('text-[9px] px-1.5 py-0.5 rounded border font-medium', LINEA_COLOR)}>
+                {producto.linea.nombre}
               </span>
             )}
             {producto.margen_tipo && (

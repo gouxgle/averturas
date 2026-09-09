@@ -322,6 +322,13 @@ export const MaterialSchema = z.object({
   activo: z.boolean().optional(),
 });
 
+// Línea comercial (marketing) — no confundir con SistemaSchema, que es el sistema técnico.
+export const LineaSchema = z.object({
+  nombre: z.string().min(1).max(100),
+  orden:  z.number().int().nonnegative().optional(),
+  activo: z.boolean().optional(),
+});
+
 export const ServicioSchema = z.object({
   nombre:      z.string().min(1).max(200),
   descripcion: zText(500).optional(),

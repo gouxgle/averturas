@@ -24,14 +24,13 @@ export const L_CONFIG_HOJAS: Record<string, string> = {
 export const L_MARCO: Record<string, string> = { transitable:'Transitable',no_transitable:'No transitable' };
 export const L_USO: Record<string, string> = { interior:'Interior',exterior:'Exterior',ingreso_frente:'Ingreso/Frente' };
 
-export const NIVEL_COMERCIAL_LABEL: Record<string, string> = {
-  economica: 'Económica', estandar: 'Estándar', premium: 'Premium', alta_seguridad: 'Alta seguridad',
-};
-export const NIVEL_COMERCIAL_COLOR: Record<string, string> = {
-  economica: 'bg-slate-50 text-slate-600 border-slate-200',
-  estandar: 'bg-sky-50 text-sky-700 border-sky-200',
-  premium: 'bg-violet-50 text-violet-700 border-violet-200',
-  alta_seguridad: 'bg-red-50 text-red-700 border-red-200',
+// Línea comercial: un solo estilo, porque los valores ya no son un enum fijo — se
+// administran desde Configuración → Líneas y cada negocio arma los suyos.
+export const LINEA_COLOR = 'bg-amber-50 text-amber-700 border-amber-200';
+
+// Sistema técnico (perfiles de aluminio) — vive en atributos.sistema.
+export const L_SISTEMA: Record<string, string> = {
+  herrero: 'Herrero', modena: 'Módena', a30: 'A30',
 };
 
 export function buildSubtitle(p: Producto): string {
@@ -133,10 +132,11 @@ const ATTR_FACET_LABEL: Record<string, string> = {
   cerradura: 'Cerradura', vidrio_incluye: 'Vidrio', instalacion: 'Instalación',
   estructura: 'Estructura', hoja_principal: 'Hoja principal', tipo_ventana: 'Tipo',
   hojas: 'Cantidad de hojas', marco_tipo: 'Marco', tipo_provision: 'Provisión',
+  sistema: 'Sistema',
 };
 const ATTR_VALUE_MAPS: Record<string, Record<string, string>> = {
   tipo_ventana: L_TIPO_VENTANA, hojas: L_HOJAS_VNT, config_hojas: L_CONFIG_HOJAS,
-  marco_tipo: L_MARCO, uso: L_USO,
+  marco_tipo: L_MARCO, uso: L_USO, sistema: L_SISTEMA,
 };
 export function attrValueLabel(key: string, v: string): string {
   if (v === '__true__') return 'Sí';
@@ -176,12 +176,21 @@ export function buildFacets(items: Producto[], opts?: { soloTransversales?: bool
     });
   }
 
-  const nivelCounts = new Map<string, number>();
-  items.forEach(p => { if (p.nivel_comercial) nivelCounts.set(p.nivel_comercial, (nivelCounts.get(p.nivel_comercial) ?? 0) + 1); });
-  if (nivelCounts.size >= 2) {
+  // Línea comercial — la faceta guarda el id (la FK) y muestra el nombre, así renombrar
+  // una línea en Configuración no rompe el filtro.
+  const lineaCounts = new Map<string, { nombre: string; count: number }>();
+  items.forEach(p => {
+    if (!p.linea?.id) return;
+    const prev = lineaCounts.get(p.linea.id);
+    if (prev) prev.count++;
+    else lineaCounts.set(p.linea.id, { nombre: p.linea.nombre, count: 1 });
+  });
+  if (lineaCounts.size >= 2) {
     facets.push({
-      key: 'nivel_comercial', label: 'Nivel',
-      options: [...nivelCounts.entries()].map(([value, count]) => ({ value, label: NIVEL_COMERCIAL_LABEL[value] ?? value, count })),
+      key: 'linea', label: 'Línea',
+      options: [...lineaCounts.entries()]
+        .sort((a, b) => a[1].nombre.localeCompare(b[1].nombre))
+        .map(([value, v]) => ({ value, label: v.nombre, count: v.count })),
     });
   }
 
@@ -233,8 +242,8 @@ export function productoPasaFacets(p: Producto, activos: Record<string, string[]
       if (!p.proveedor?.id || !values.includes(p.proveedor.id)) return false;
     } else if (key === 'color') {
       if (!p.color || !values.includes(p.color)) return false;
-    } else if (key === 'nivel_comercial') {
-      if (!p.nivel_comercial || !values.includes(p.nivel_comercial)) return false;
+    } else if (key === 'linea') {
+      if (!p.linea?.id || !values.includes(p.linea.id)) return false;
     } else if (key.startsWith('attr:')) {
       const raw = p.atributos?.[key.slice(5)];
       const sv = typeof raw === 'boolean' ? (raw ? '__true__' : '__false__') : raw == null ? '' : String(raw);

@@ -408,7 +408,7 @@ export function ImprimirRemito() {
                           <span style={{ fontSize: 9.5, color: '#6b7280' }}>Tipo: {item.tipo_abertura_nombre}</span>
                         )}
                         {item.sistema_nombre && (
-                          <span style={{ fontSize: 9.5, color: '#6b7280' }}>Línea: {item.sistema_nombre}</span>
+                          <span style={{ fontSize: 9.5, color: '#6b7280' }}>Sistema: {item.sistema_nombre}</span>
                         )}
                         {item.vidrio && (
                           <span style={{ fontSize: 9.5, color: '#6b7280' }}>Vidrio: {item.vidrio}</span>

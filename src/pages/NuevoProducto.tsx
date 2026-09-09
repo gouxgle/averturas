@@ -71,7 +71,7 @@ const ESTRUCTURA = [
   { v: 'madera',                 l: 'Madera' },
 ];
 
-const LINEA_ALUM = [
+const SISTEMA_ALUM = [
   { v: 'herrero', l: 'Herrero' },
   { v: 'modena',  l: 'Módena' },
   { v: 'a30',     l: 'A30' },
@@ -173,7 +173,7 @@ const DISEÑO_VNT = [
   { v: 'repartido', l: 'Repartido / con divisoria' },
 ];
 
-const LINEA_VNT = [
+const SISTEMA_VNT = [
   { v: 'herrero', l: 'Herrero' },
   { v: 'modena',  l: 'Módena' },
   { v: 'a30',     l: 'A30' },
@@ -306,7 +306,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
   const tp          = atributos.tipo_puerta as string ?? '';
   const cfg         = atributos.config_hojas as string ?? '';
   const anchHoja    = atributos.ancho_hoja as number ?? 0;
-  const linea       = atributos.linea as string ?? '';
+  const sistema     = atributos.sistema as string ?? '';
   const vidIncluye  = atributos.vidrio_incluye;
   const componentes = atributos.componentes as string[] ?? [];
   const tieneModelos = Boolean(MODELO[tp]);
@@ -321,7 +321,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
     Boolean(atributos.hoja_principal),
     Boolean(atributos.tipo_provision),
     Boolean(atributos.estructura),
-    tp !== 'aluminio' || linea !== '',
+    tp !== 'aluminio' || sistema !== '',
     !MODELO[tp] || Boolean(atributos.modelo),
     Boolean(atributos.apertura),
     atributos.vidrio_incluye !== undefined,
@@ -344,7 +344,7 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
   }
   function handleTipoPuerta(v: string) {
     setAttr('tipo_puerta', v);
-    setAttr('linea', '');
+    setAttr('sistema', '');
     setAttr('espesor', '');
     setAttr('modelo', '');
     setAttr('modelo_comercial', '');
@@ -478,19 +478,19 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
           </div>
 
           {tp === 'aluminio' && (
-            <div className={cn('grid gap-3', linea === 'herrero' ? 'sm:grid-cols-2' : 'grid-cols-1')}>
-              <FieldCard title="Línea (aluminio)" complete={linea !== ''}>
+            <div className={cn('grid gap-3', sistema === 'herrero' ? 'sm:grid-cols-2' : 'grid-cols-1')}>
+              <FieldCard title="Sistema (aluminio)" complete={sistema !== ''}>
                 <div className="flex gap-1.5">
-                  {LINEA_ALUM.map(o => (
-                    <button key={o.v} type="button" onClick={() => { setAttr('linea', o.v); setAttr('espesor', ''); }}
+                  {SISTEMA_ALUM.map(o => (
+                    <button key={o.v} type="button" onClick={() => { setAttr('sistema', o.v); setAttr('espesor', ''); }}
                       className={cn('flex-1 px-2 py-2 rounded-lg border text-xs text-center transition-all',
-                        linea === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
+                        sistema === o.v ? 'border-sky-500 bg-sky-50 text-sky-800 font-semibold' : 'border-gray-200 text-black hover:border-sky-300')}>
                       {o.l}
                     </button>
                   ))}
                 </div>
               </FieldCard>
-              {linea === 'herrero' && (
+              {sistema === 'herrero' && (
                 <FieldCard title="Espesor (Herrero)" complete={Boolean(atributos.espesor)}>
                   <div className="flex gap-2">
                     {ESPESOR.map(e => (
@@ -733,7 +733,7 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
     Boolean(atributos.configuracion_especial),
     Boolean(atributos.vidrio_tipo),
     Boolean(atributos.diseno),
-    Boolean(atributos.linea),
+    Boolean(atributos.sistema),
     colorActual !== '',
     atributos.reja !== undefined,
     atributos.mosquitero !== undefined,
@@ -878,15 +878,15 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
         </>
       )}
 
-      {/* ── Línea y color ── */}
+      {/* ── Sistema y color ── */}
       {tv && (
         <>
-          <SectionDivider label="Línea y color" />
+          <SectionDivider label="Sistema y color" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FieldCard title="Línea" complete={Boolean(atributos.linea)}>
+            <FieldCard title="Sistema" complete={Boolean(atributos.sistema)}>
               <div className="flex flex-col gap-1.5">
-                {LINEA_VNT.map(o => (
-                  <button key={o.v} type="button" onClick={() => setAttr('linea', o.v)} className={btn(atributos.linea === o.v)}>
+                {SISTEMA_VNT.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('sistema', o.v)} className={btn(atributos.sistema === o.v)}>
                     {o.l}
                   </button>
                 ))}
@@ -993,7 +993,7 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
     Boolean(atributos.configuracion_especial),
     Boolean(atributos.vidrio_tipo),
     Boolean(atributos.diseno),
-    Boolean(atributos.linea),
+    Boolean(atributos.sistema),
     colorActual !== '',
     Boolean(atributos.marco_tipo),
     Boolean(atributos.instalacion),
@@ -1131,15 +1131,15 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
         </>
       )}
 
-      {/* Línea y color */}
+      {/* Sistema y color */}
       {tv && (
         <>
-          <SectionDivider label="Línea y color" />
+          <SectionDivider label="Sistema y color" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FieldCard title="Línea" complete={Boolean(atributos.linea)}>
+            <FieldCard title="Sistema" complete={Boolean(atributos.sistema)}>
               <div className="flex flex-col gap-1.5">
-                {LINEA_VNT.map(o => (
-                  <button key={o.v} type="button" onClick={() => setAttr('linea', o.v)} className={btn(atributos.linea === o.v)}>
+                {SISTEMA_VNT.map(o => (
+                  <button key={o.v} type="button" onClick={() => setAttr('sistema', o.v)} className={btn(atributos.sistema === o.v)}>
                     {o.l}
                   </button>
                 ))}
@@ -1344,6 +1344,8 @@ export function NuevoProducto() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [colores, setColores]         = useState<{ id: string; nombre: string; hex: string | null }[]>([]);
   const [materiales, setMateriales]   = useState<{ id: string; nombre: string }[]>([]);
+  // Línea COMERCIAL (marketing) — no confundir con `sistemas`, que es el sistema técnico.
+  const [lineas, setLineas]           = useState<{ id: string; nombre: string }[]>([]);
   const [categorias, setCategorias]   = useState<Categoria[]>([]);
   const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
   const [modelos, setModelos]         = useState<CatalogoModelo[]>([]);
@@ -1410,7 +1412,7 @@ export function NuevoProducto() {
     precio_manual:       false,
     en_salon:            false,
     categoria_id:        '',
-    nivel_comercial:     '' as '' | 'economica' | 'estandar' | 'premium' | 'alta_seguridad',
+    linea_id:            '',
     modelo_id:           '',
   });
   const [atributos, setAtributos] = useState<Atributos>({});
@@ -1499,7 +1501,8 @@ export function NuevoProducto() {
       api.get<Categoria[]>('/catalogo/categorias'),
       api.get<CatalogoModelo[]>('/catalogo/modelos'),
       api.get<{ id: string; nombre: string }[]>('/catalogo/materiales'),
-    ]).then(([ta, s, prov, col, cat, mod, mat]) => {
+      api.get<{ id: string; nombre: string }[]>('/catalogo/lineas'),
+    ]).then(([ta, s, prov, col, cat, mod, mat, lin]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setProveedores(prov);
@@ -1507,6 +1510,7 @@ export function NuevoProducto() {
       setCategorias(cat);
       setModelos(mod);
       setMateriales(mat);
+      setLineas(lin);
     });
 
     if (isEdit && id) {
@@ -1555,7 +1559,7 @@ export function NuevoProducto() {
           precio_manual:       data.precio_manual ?? false,
           en_salon:            data.en_salon ?? false,
           categoria_id:        data.categoria_id ?? '',
-          nivel_comercial:     data.nivel_comercial ?? '',
+          linea_id:            data.linea_id ?? '',
           modelo_id:           data.modelo_id ?? '',
         });
         if (data.atributos && typeof data.atributos === 'object') {
@@ -1766,7 +1770,7 @@ export function NuevoProducto() {
         imagen_url:       form.imagenes[0] || null,
         video_url:        form.video_url || null,
         categoria_id:     form.categoria_id || null,
-        nivel_comercial:  form.nivel_comercial || null,
+        linea_id:         form.linea_id || null,
         modelo_id:        form.modelo_id || null,
       };
   }
@@ -1897,12 +1901,12 @@ export function NuevoProducto() {
         </div>
       </div>
 
-      {/* Navegación en catálogo (árbol de categorías) + nivel comercial + modelo */}
+      {/* Navegación en catálogo (árbol de categorías) + línea comercial + modelo */}
       <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
         <SectionHeader icon={FolderTree} label="Navegación en catálogo (opcional)" />
         <div className="p-4 space-y-3">
           <div>
-            <label className={labelCls}>Categoría (Familia → Uso → Material → Línea)</label>
+            <label className={labelCls}>Categoría (árbol de navegación del catálogo)</label>
             {categorias.length === 0 ? (
               <p className="text-xs text-black italic">Sin categorías cargadas — configurables en Configuración → Categorías.</p>
             ) : (
@@ -1931,14 +1935,15 @@ export function NuevoProducto() {
           </div>
 
           <div>
-            <label className={labelCls}>Nivel comercial</label>
-            <select value={form.nivel_comercial} onChange={e => set('nivel_comercial', e.target.value)} className={inputCls}>
+            <label className={labelCls}>Línea</label>
+            <select value={form.linea_id} onChange={e => set('linea_id', e.target.value)} className={inputCls}>
               <option value="">Sin definir</option>
-              <option value="economica">Económica</option>
-              <option value="estandar">Estándar</option>
-              <option value="premium">Premium</option>
-              <option value="alta_seguridad">Alta seguridad</option>
+              {lineas.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
             </select>
+            <p className="text-xs text-black mt-1">
+              Clasificación comercial del producto — se administra en Configuración → Líneas.
+              No confundir con el sistema (perfiles y método de construcción).
+            </p>
           </div>
 
           <div>

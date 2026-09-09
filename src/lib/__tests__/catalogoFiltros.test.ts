@@ -76,10 +76,10 @@ describe('sortProductos — entrega más rápida', () => {
 
 describe('buildFacets', () => {
   const items = [
-    prod({ id: '1', color: 'blanco', nivel_comercial: 'premium', ancho: 100, alto: 200,
+    prod({ id: '1', color: 'blanco', linea: { id: 'l1', nombre: 'Premium' }, ancho: 100, alto: 200,
       proveedor: { id: 'pa', nombre: 'Alumar', plazo_entrega_dias: 7 },
       atributos: { uso: 'interior', premarco_incluido: true } } as unknown as Partial<Producto> & { id: string }),
-    prod({ id: '2', color: 'negro', nivel_comercial: 'estandar', ancho: 150, alto: 200,
+    prod({ id: '2', color: 'negro', linea: { id: 'l2', nombre: 'Estándar' }, ancho: 150, alto: 200,
       proveedor: { id: 'pb', nombre: 'Monpat', plazo_entrega_dias: null },
       atributos: { uso: 'exterior', premarco_incluido: false } } as unknown as Partial<Producto> & { id: string }),
   ];
@@ -94,9 +94,12 @@ describe('buildFacets', () => {
     expect(buildFacets(unoSolo).some(f => f.key === FACET_PROVEEDOR)).toBe(false);
   });
 
-  it('arma color, nivel y medida', () => {
+  // "__medida" salió de buildFacets cuando la medida pasó a ser el 4º paso de la
+  // búsqueda en cascada (catalogoCascada.ts) — el test seguía esperándola y estaba
+  // en rojo desde entonces.
+  it('arma color y línea', () => {
     const keys = buildFacets(items).map(f => f.key);
-    expect(keys).toEqual(expect.arrayContaining(['color', 'nivel_comercial', '__medida']));
+    expect(keys).toEqual(expect.arrayContaining(['color', 'linea']));
   });
 
   it('los booleanos de atributos se etiquetan Sí/No', () => {
@@ -120,7 +123,7 @@ describe('buildFacets', () => {
 });
 
 describe('productoPasaFacets', () => {
-  const p = prod({ id: '1', color: 'blanco', nivel_comercial: 'premium', ancho: 100, alto: 200,
+  const p = prod({ id: '1', color: 'blanco', linea: { id: 'l1', nombre: 'Premium' }, ancho: 100, alto: 200,
     proveedor: { id: 'pa', nombre: 'Alumar', plazo_entrega_dias: 7 },
     atributos: { uso: 'interior', premarco_incluido: true } } as unknown as Partial<Producto> & { id: string });
 
@@ -132,15 +135,15 @@ describe('productoPasaFacets', () => {
     expect(productoPasaFacets(p, { [FACET_PROVEEDOR]: ['pa'] })).toBe(true);
     expect(productoPasaFacets(p, { [FACET_PROVEEDOR]: ['pb'] })).toBe(false);
   });
-  it('filtra por color, nivel, medida y atributo booleano', () => {
+  it('filtra por color, línea y atributo booleano', () => {
     expect(productoPasaFacets(p, { color: ['blanco'] })).toBe(true);
-    expect(productoPasaFacets(p, { nivel_comercial: ['estandar'] })).toBe(false);
-    expect(productoPasaFacets(p, { __medida: ['100x200'] })).toBe(true);
+    expect(productoPasaFacets(p, { linea: ['l1'] })).toBe(true);
+    expect(productoPasaFacets(p, { linea: ['l2'] })).toBe(false);
     expect(productoPasaFacets(p, { 'attr:premarco_incluido': ['__true__'] })).toBe(true);
     expect(productoPasaFacets(p, { 'attr:premarco_incluido': ['__false__'] })).toBe(false);
   });
   it('varios filtros se combinan con AND', () => {
-    expect(productoPasaFacets(p, { color: ['blanco'], nivel_comercial: ['premium'] })).toBe(true);
-    expect(productoPasaFacets(p, { color: ['blanco'], nivel_comercial: ['estandar'] })).toBe(false);
+    expect(productoPasaFacets(p, { color: ['blanco'], linea: ['l1'] })).toBe(true);
+    expect(productoPasaFacets(p, { color: ['blanco'], linea: ['l2'] })).toBe(false);
   });
 });

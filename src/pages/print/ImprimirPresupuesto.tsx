@@ -404,7 +404,7 @@ export function ImprimirPresupuesto() {
 
                 const specs: Array<[string, string]> = [];
                 if (item.tipo_abertura_nombre) specs.push(['Tipo',    item.tipo_abertura_nombre]);
-                if (item.sistema_nombre)       specs.push(['Línea',   item.sistema_nombre]);
+                if (item.sistema_nombre)       specs.push(['Sistema', item.sistema_nombre]);
                 if (item.color)                specs.push(['Color',   item.color]);
                 if (item.vidrio)               specs.push(['Vidrio',  item.vidrio]);
                 const hojas = hojasNum ?? hojasConfig;

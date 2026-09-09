@@ -17,6 +17,9 @@ const withJoins = `
     CASE WHEN s.id IS NOT NULL
       THEN json_build_object('id', s.id, 'nombre', s.nombre)
       ELSE NULL END AS sistema,
+    CASE WHEN li.id IS NOT NULL
+      THEN json_build_object('id', li.id, 'nombre', li.nombre)
+      ELSE NULL END AS linea,
     CASE WHEN p.id IS NOT NULL
       THEN json_build_object('id', p.id, 'nombre', p.nombre, 'color', p.color, 'plazo_entrega_dias', p.plazo_entrega_dias)
       ELSE NULL END AS proveedor,
@@ -26,6 +29,7 @@ const withJoins = `
   FROM catalogo_productos cp
   LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
   LEFT JOIN sistemas s ON s.id = cp.sistema_id
+  LEFT JOIN lineas li ON li.id = cp.linea_id
   LEFT JOIN proveedores p ON p.id = cp.proveedor_id
   LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
 `;
@@ -58,6 +62,9 @@ productos.get('/', async (c) => {
       CASE WHEN s.id IS NOT NULL
         THEN json_build_object('id', s.id, 'nombre', s.nombre)
         ELSE NULL END AS sistema,
+      CASE WHEN li.id IS NOT NULL
+        THEN json_build_object('id', li.id, 'nombre', li.nombre)
+        ELSE NULL END AS linea,
       CASE WHEN p.id IS NOT NULL
         THEN json_build_object('id', p.id, 'nombre', p.nombre, 'color', p.color, 'plazo_entrega_dias', p.plazo_entrega_dias)
         ELSE NULL END AS proveedor,
@@ -67,11 +74,12 @@ productos.get('/', async (c) => {
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     LEFT JOIN sistemas s ON s.id = cp.sistema_id
+    LEFT JOIN lineas li ON li.id = cp.linea_id
     LEFT JOIN proveedores p ON p.id = cp.proveedor_id
     LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
     LEFT JOIN stock_movimientos m ON m.producto_id = cp.id
     ${where}
-    GROUP BY cp.id, ta.id, s.id, p.id, mo.id
+    GROUP BY cp.id, ta.id, s.id, li.id, p.id, mo.id
     ORDER BY cp.tipo, cp.nombre
   `, params);
   return c.json(rows);
@@ -152,7 +160,7 @@ productos.post('/', async (c) => {
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
        imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4,
        vidrio, premarco, accesorios, atributos, margen_tipo, promocion, imagenes, video_url, etiqueta,
-       proveedor_sku, margen_venta, precio_manual, en_salon, categoria_id, nivel_comercial, modelo_id, material)
+       proveedor_sku, margen_venta, precio_manual, en_salon, categoria_id, linea_id, modelo_id, material)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
     RETURNING *
   `, [
@@ -191,7 +199,7 @@ productos.post('/', async (c) => {
     b.precio_manual ?? false,
     b.en_salon ?? false,
     b.categoria_id || null,
-    b.nivel_comercial || null,
+    b.linea_id || null,
     b.modelo_id || null,
     b.material?.trim() || null,
   ]);
@@ -250,7 +258,7 @@ productos.put('/:id', async (c) => {
       precio_manual    = $33,
       en_salon         = $34,
       categoria_id     = $35,
-      nivel_comercial  = $36,
+      linea_id         = $36,
       modelo_id        = $37,
       material         = $38
     WHERE id = $39 RETURNING *
@@ -290,7 +298,7 @@ productos.put('/:id', async (c) => {
     b.precio_manual ?? false,
     b.en_salon ?? false,
     b.categoria_id || null,
-    b.nivel_comercial || null,
+    b.linea_id || null,
     b.modelo_id || null,
     b.material?.trim() || null,
     c.req.param('id'),
