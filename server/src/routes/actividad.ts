@@ -41,14 +41,29 @@ actividad.get('/', async (c) => {
   if (desde)      cond.push(`a.created_at >= ${p(desde)}::date`);
   if (hasta)      cond.push(`a.created_at < (${p(hasta)}::date + interval '1 day')`);
   if (texto) {
+    // Se busca en todo lo que el operador ve en pantalla, no solo en el número y el
+    // detalle: buscar "remito", "anular" o el nombre de quien lo hizo devolvía cero
+    // resultados y daba la sensación de que la sección estaba rota.
+    // El replace del guión bajo hace que "cambio estado" encuentre 'cambio_estado'.
     const t = p(`%${texto}%`);
-    cond.push(`(a.entidad_numero ILIKE ${t} OR a.detalle ILIKE ${t})`);
+    cond.push(`(
+      a.entidad_numero ILIKE ${t} OR
+      a.detalle ILIKE ${t} OR
+      a.entidad ILIKE ${t} OR
+      replace(a.accion, '_', ' ') ILIKE ${t} OR
+      COALESCE(u.nombre, a.usuario_nombre) ILIKE ${t}
+    )`);
   }
 
   const where = cond.length ? `WHERE ${cond.join(' AND ')}` : '';
 
+  // El JOIN a usuarios va también acá: el filtro de texto busca por nombre de
+  // operador, así que el COUNT tiene que ver las mismas columnas que el SELECT.
   const { rows: [{ total }] } = await db.query(
-    `SELECT COUNT(*)::int AS total FROM actividad_log a ${where}`, params
+    `SELECT COUNT(*)::int AS total
+     FROM actividad_log a
+     LEFT JOIN usuarios u ON u.id = a.usuario_id
+     ${where}`, params
   );
 
   const { rows } = await db.query(`

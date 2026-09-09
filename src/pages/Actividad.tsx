@@ -150,7 +150,7 @@ export function Actividad() {
             <label className="text-[11px] font-medium text-gray-600">Buscar</label>
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="N° o detalle..."
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="N°, operador, acción o detalle..."
                 className={cn(inputCls, 'w-full pl-7')} />
             </div>
           </div>
@@ -181,7 +181,19 @@ export function Actividad() {
       {loading ? (
         <div className="py-10 flex justify-center"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
       ) : eventos.length === 0 ? (
-        <p className="text-sm text-gray-600 text-center py-10">Sin actividad registrada para estos filtros.</p>
+        <div className="text-sm text-gray-600 text-center py-10 space-y-1">
+          {(usuarioId || entidad || desde || hasta || q) ? (
+            <p>Sin actividad para estos filtros.</p>
+          ) : (
+            <>
+              <p>Todavía no hay actividad registrada.</p>
+              <p className="text-xs">
+                Se registran las acciones sobre presupuestos, recibos y remitos
+                (crear, editar, cambiar de estado, anular) a medida que se hacen.
+              </p>
+            </>
+          )}
+        </div>
       ) : (
         <>
           <p className="text-xs text-gray-600">{total} {total === 1 ? 'movimiento' : 'movimientos'}</p>
