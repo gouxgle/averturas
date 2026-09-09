@@ -59,19 +59,100 @@ export function isPromoActiva(p: Pick<Producto, 'promocion'>): boolean {
 
 // ── Búsqueda por texto ────────────────────────────────────────────────────────
 
+/** Minúsculas y sin acentos, para que "celosia" encuentre "Celosía". */
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/** Un par de números de una misma expresión de medida, llevado a centímetros.
+ *
+ * El catálogo real mezcla las tres unidades — el nombre suele venir en metros
+ * ("Ventana 1,50x1,00"), el código en milímetros ("VEH-1500X600") y las columnas
+ * ancho/alto en centímetros. Se normaliza el PAR junto (no cada número suelto)
+ * porque ambos vienen de la misma expresión: "1500X600" es mm en los dos lados,
+ * no 150cm y 600cm. */
+function parEnCm(a: number, b: number): [number, number] {
+  if (a >= 1000 || b >= 1000) return [a / 10, b / 10];       // milímetros
+  if (a < 10 && b < 10)       return [a * 100, b * 100];     // metros
+  return [a < 10 ? a * 100 : a, b < 10 ? b * 100 : b];       // mezcla ("1,20x205")
+}
+
+const RE_PAR = /(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/g;
+const numero = (s: string) => parseFloat(s.replace(',', '.'));
+
+/** Todas las medidas del producto en cm, de las dos fuentes que existen:
+ *  las columnas ancho/alto y las que vienen escritas en el nombre o el código.
+ *  Se toman las dos porque no siempre coinciden: hay productos cargados como
+ *  "Ventiluz 1,20x0,40" con alto=400 en la columna. Buscando cualquiera de las
+ *  dos formas se lo tiene que encontrar igual. */
+function medidasDe(p: Producto): { pares: [number, number][]; valores: number[] } {
+  const pares: [number, number][] = [];
+  if (p.ancho != null && p.alto != null) pares.push(parEnCm(Number(p.ancho), Number(p.alto)));
+
+  const texto = `${p.nombre ?? ''} ${p.codigo ?? ''}`;
+  for (const m of texto.matchAll(RE_PAR)) pares.push(parEnCm(numero(m[1]), numero(m[2])));
+
+  const valores = pares.flat();
+  if (p.ancho != null) valores.push(Number(p.ancho));
+  if (p.alto  != null) valores.push(Number(p.alto));
+  return { pares, valores };
+}
+
+const CERCA = 1; // cm de tolerancia: "1,50x1,00" cargado como alto=99 igual matchea
+
 /**
- * Campos buscables: unión de los que usaban por separado la sección Productos
- * (nombre / código / tipo) y la galería del presupuesto (además sistema y las dos
- * características libres). Una sola búsqueda, la más completa de las dos.
+ * Búsqueda multi-criterio. Cada palabra de la consulta tiene que matchear en
+ * ALGÚN campo (AND entre palabras, OR entre campos), así se combinan criterios
+ * distintos en una sola caja: "ventana blanca 150x100", "herrero 0,80x2,00",
+ * "corrediza alumar".
+ *
+ * Las palabras que son una medida ("150x100", "1,50x1,00", "1500x1000") se
+ * comparan contra las medidas reales del producto en cm y en las dos
+ * orientaciones — no como texto, que era lo que hacía que el placeholder
+ * prometiera búsqueda por medida sin que funcionara.
  */
 export function productoMatchTexto(p: Producto, query: string): boolean {
-  const q = query.toLowerCase().trim();
+  // "120 x 100" y "120x100" son lo mismo: se pegan los separadores entre números.
+  const q = norm(query).trim().replace(/(\d)\s*[x×*]\s*(\d)/g, '$1x$2');
   if (!q) return true;
-  const campos = [
+
+  const atributos = Object.values(p.atributos ?? {})
+    .filter(v => typeof v === 'string' || typeof v === 'number')
+    .map(v => String(v).replace(/_/g, ' '));
+
+  const texto = norm([
     p.nombre, p.codigo, p.tipo_abertura?.nombre, p.sistema?.nombre, p.material,
-    p.modelo?.nombre, p.caracteristica_1, p.caracteristica_2,
-  ];
-  return campos.some(c => c?.toLowerCase().includes(q));
+    p.modelo?.nombre, p.linea?.nombre, p.proveedor?.nombre, p.color, p.vidrio,
+    p.caracteristica_1, p.caracteristica_2, p.caracteristica_3, p.caracteristica_4,
+    ...atributos,
+  ].filter(Boolean).join(' '));
+
+  let medidas: ReturnType<typeof medidasDe> | null = null;
+  const deMedidas = () => (medidas ??= medidasDe(p));
+
+  return q.split(/\s+/).every(token => {
+    if (texto.includes(token)) return true;
+    // Tolerancia de género/número: quien busca "puerta blanca" tiene que encontrar
+    // el producto cuyo color está cargado como "Blanco". Se recorta el plural y la
+    // vocal final, exigiendo una raíz de 4+ letras para no volverlo impreciso.
+    const raiz = token.replace(/s$/, '').replace(/[ao]$/, '');
+    if (raiz.length >= 4 && raiz !== token && texto.includes(raiz)) return true;
+
+    const par = token.match(/^(\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)$/);
+    if (par) {
+      const [a, b] = parEnCm(numero(par[1]), numero(par[2]));
+      return deMedidas().pares.some(([pa, pb]) =>
+        (Math.abs(pa - a) <= CERCA && Math.abs(pb - b) <= CERCA) ||
+        (Math.abs(pa - b) <= CERCA && Math.abs(pb - a) <= CERCA));
+    }
+
+    if (/^\d+(?:[.,]\d+)?$/.test(token)) {
+      const n = numero(token);
+      // Un número suelto puede venir en cualquiera de las tres unidades.
+      const candidatos = [n, n < 10 ? n * 100 : n, n >= 1000 ? n / 10 : n];
+      return deMedidas().valores.some(v => candidatos.some(c => Math.abs(v - c) <= CERCA));
+    }
+
+    return false;
+  });
 }
 
 // ── Ordenamiento ──────────────────────────────────────────────────────────────

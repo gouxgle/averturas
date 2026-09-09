@@ -32,6 +32,67 @@ describe('productoMatchTexto', () => {
   it('no matchea lo que no está', () => expect(productoMatchTexto(p, 'puerta')).toBe(false));
 });
 
+describe('productoMatchTexto — multi-criterio', () => {
+  // Producto calcado del catálogo real: nombre con la medida en metros y coma,
+  // código en milímetros, y las columnas ancho/alto en centímetros.
+  const vent = prod({
+    id: 'v', nombre: 'Vtna c/Celosía corrediza 1,50x1,00 cm, color blanco',
+    codigo: 'VTNA-CEL-1500x1000-BL', ancho: 150, alto: 99, color: 'Blanco',
+    material: 'Aluminio', tipo_abertura: { id: 't', nombre: 'Ventana' },
+    proveedor: { id: 'pa', nombre: 'Alumar' },
+    atributos: { sistema: 'herrero', tipo_ventana: 'corrediza' },
+  } as unknown as Partial<Producto> & { id: string });
+
+  const puerta = prod({
+    id: 'p', nombre: 'Puerta de Aluminio Herrero 0,80x2,00 cm, ciega',
+    codigo: '800X2000', ancho: 80, alto: 200, color: 'Blanco', material: 'Aluminio',
+    tipo_abertura: { id: 't2', nombre: 'Puerta' },
+  } as unknown as Partial<Producto> & { id: string });
+
+  it('nombre parcial', () => {
+    expect(productoMatchTexto(vent, 'celosia')).toBe(true);   // sin acento
+    expect(productoMatchTexto(vent, 'Celosía')).toBe(true);
+    expect(productoMatchTexto(vent, 'corred')).toBe(true);
+  });
+
+  it('medida en cualquiera de las tres unidades', () => {
+    for (const q of ['150x100', '1,50x1,00', '1500x1000', '150 x 100']) {
+      expect(productoMatchTexto(vent, q)).toBe(true);
+    }
+    for (const q of ['80x200', '0,80x2,00', '800x2000']) {
+      expect(productoMatchTexto(puerta, q)).toBe(true);
+    }
+  });
+
+  it('la medida matchea en las dos orientaciones', () => {
+    expect(productoMatchTexto(puerta, '200x80')).toBe(true);
+  });
+
+  it('una medida que no es la del producto no matchea', () => {
+    expect(productoMatchTexto(vent, '120x200')).toBe(false);
+    expect(productoMatchTexto(puerta, '90x200')).toBe(false);
+  });
+
+  it('un número suelto busca por ancho o alto', () => {
+    expect(productoMatchTexto(puerta, '80')).toBe(true);
+    expect(productoMatchTexto(puerta, '200')).toBe(true);
+    expect(productoMatchTexto(puerta, '333')).toBe(false);
+  });
+
+  it('tolera género y plural: "blanca" encuentra color "Blanco"', () => {
+    expect(productoMatchTexto(puerta, 'puerta blanca 80x200')).toBe(true);
+    expect(productoMatchTexto(vent, 'ventanas corredizas')).toBe(true);
+  });
+
+  it('combina criterios de campos distintos (AND entre palabras)', () => {
+    expect(productoMatchTexto(vent, 'ventana blanco 150x100')).toBe(true);
+    expect(productoMatchTexto(vent, 'herrero corrediza')).toBe(true);   // atributos
+    expect(productoMatchTexto(vent, 'alumar 150x100')).toBe(true);      // proveedor + medida
+    expect(productoMatchTexto(vent, 'puerta 150x100')).toBe(false);     // una palabra no da
+    expect(productoMatchTexto(vent, 'ventana 80x200')).toBe(false);     // la medida no da
+  });
+});
+
 describe('sortProductos', () => {
   const barato = prod({ id: 'a', nombre: 'B', precio_base: 100, stock_actual: 0 });
   const caro   = prod({ id: 'b', nombre: 'A', precio_base: 900, stock_actual: 5 });
