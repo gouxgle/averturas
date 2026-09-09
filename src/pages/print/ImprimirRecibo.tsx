@@ -403,7 +403,9 @@ export function ImprimirRecibo() {
         {/* Firma */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56, marginTop: 52 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ height: 52 }} />
+            <div style={{ height: 52, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+              <img src="/firma.png" alt="Firma" style={{ height: 44 }} />
+            </div>
             <div style={{ borderTop: '1px solid #999', paddingTop: 10, fontSize: 11, color: '#555' }}>
               Firma — {empresa?.nombre ?? 'Empresa'}
               {recibo.created_by_nombre ? ` (${recibo.created_by_nombre})` : ''}

@@ -83,6 +83,17 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     } catch { /* sin logo */ }
   }
 
+  // Firma de la empresa — PNG con fondo transparente (recortado del fondo del papel
+  // en la foto original) para que se vea como tinta real sobre el documento, no como
+  // un recuadro gris. Se embebe en base64: Puppeteer no tiene acceso de red al propio
+  // servidor, tiene que ser un archivo local igual que el logo.
+  let firmaTag = '';
+  try {
+    const firmaPath = path.join(process.cwd(), 'public', 'firma.png');
+    const firmaData = fs.readFileSync(firmaPath);
+    firmaTag = `<img src="data:image/png;base64,${firmaData.toString('base64')}" alt="Firma" style="height:38px;display:block;margin:0 auto;">`;
+  } catch { /* sin firma */ }
+
   const tieneItems = recibo.items && recibo.items.length > 0;
   const montoDescuento = Number(recibo.monto_descuento ?? 0);
   const descuentoPct   = Number(recibo.descuento_pct   ?? 0);
@@ -301,7 +312,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   <!-- Firma -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:20px;">
     <div style="text-align:center;">
-      <div style="height:32px;"></div>
+      <div style="height:32px;display:flex;align-items:flex-end;justify-content:center;">${firmaTag}</div>
       <div style="border-top:1px solid #999;padding-top:10px;font-size:11px;color:#555;">
         Firma &mdash; ${empresa.nombre}${recibo.created_by_nombre ? ` (${recibo.created_by_nombre})` : ''}
       </div>

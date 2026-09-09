@@ -691,14 +691,6 @@ export function ImprimirPresupuesto() {
           </div>
         </div>
 
-        {/* Firma de la empresa — evita firmar cada proforma a mano */}
-        <div style={{ margin: '14px 16px 0', textAlign: 'right' as const }}>
-          <img src="/firma.jpeg" alt="Firma" style={{ height: 50, display: 'inline-block' }} />
-          <div style={{ fontSize: 10, fontWeight: 700, color: NAVY, marginTop: 2 }}>
-            {empresa?.nombre ?? 'César Brítez Aberturas'}
-          </div>
-        </div>
-
         {/* ── FOOTER (barra navy oscura, igual que imagen) ───────────────── */}
         <div style={{
           marginTop: 16,
