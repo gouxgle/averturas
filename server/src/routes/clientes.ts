@@ -31,13 +31,30 @@ function clienteSearchSql(alias: string, search: string, params: unknown[]): str
   const clausulas = palabras.map(palabra => {
     params.push(`%${palabra}%`);
     const n = params.length;
+
+    // Teléfono y documento: se comparan NORMALIZADOS (solo dígitos), igual que hace
+    // /validar-telefono. Los números están guardados en formatos mezclados
+    // ("+5493704723063", "3704 723063"), así que comparar el texto tal cual hacía que
+    // el sistema avisara "este teléfono ya existe" y después ese mismo cliente no
+    // apareciera al buscarlo por ese número. Se usan los últimos 10 dígitos, que es
+    // lo que descarta el prefijo de país y el 0/15.
+    const digitos = palabra.replace(/\D/g, '');
+    let porNumero = `${alias}.telefono ILIKE $${n} OR ${alias}.documento_nro ILIKE $${n}`;
+    if (digitos.length >= 4) {
+      params.push(`%${digitos.slice(-10)}%`);
+      const d = params.length;
+      porNumero = `
+        regexp_replace(COALESCE(${alias}.telefono, ''), '[^0-9]', '', 'g')         LIKE $${d}
+        OR regexp_replace(COALESCE(${alias}.telefono_fijo, ''), '[^0-9]', '', 'g') LIKE $${d}
+        OR regexp_replace(COALESCE(${alias}.documento_nro, ''), '[^0-9]', '', 'g') LIKE $${d}`;
+    }
+
     // unaccent en los dos lados: "podologa" encuentra "Podóloga" y viceversa.
     return `(
       unaccent(${alias}.nombre)           ILIKE unaccent($${n})
       OR unaccent(${alias}.apellido)      ILIKE unaccent($${n})
       OR unaccent(${alias}.razon_social)  ILIKE unaccent($${n})
-      OR ${alias}.telefono                ILIKE $${n}
-      OR ${alias}.documento_nro           ILIKE $${n}
+      OR ${porNumero}
       OR unaccent(${alias}.email)         ILIKE unaccent($${n})
       OR unaccent(${alias}.localidad)     ILIKE unaccent($${n})
       OR unaccent(${alias}.direccion)     ILIKE unaccent($${n})
