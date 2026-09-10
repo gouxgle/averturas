@@ -35,15 +35,21 @@ function telNumeroMaxLen(prefijo: string): number {
   return Math.max(4, TEL_TOTAL_DIGITOS - prefijo.length);
 }
 
-// Combina apellido + nombre para el campo rápido
-function combinarNombre(apellido: string | null, nombre: string | null) {
-  return [apellido, nombre].filter(Boolean).join(' ');
+// Combina apellido + nombre para el campo rápido.
+//
+// Va con coma, que es el separador que entiende separarNombre() — y así como se
+// muestra el cliente en el resto del sistema. Unir con un espacio hacía que el
+// viaje de ida y vuelta perdiera datos: "Ruiz Diaz" + "Ana Liz" se mostraba como
+// "Ruiz Diaz Ana Liz" y al guardar volvía como apellido="Ruiz", nombre="Diaz Ana
+// Liz". Cada edición de un cliente con apellido compuesto le partía el apellido.
+export function combinarNombre(apellido: string | null, nombre: string | null) {
+  return [apellido, nombre].filter(Boolean).join(', ');
 }
 
 // Separa nombre completo en apellido + nombre.
 // Con coma: "Ruiz Diaz, Ana Liz" → apellido="Ruiz Diaz", nombre="Ana Liz"
 // Sin coma: "Lopez Diego" → apellido="Lopez", nombre="Diego"
-function separarNombre(completo: string): { apellido: string; nombre: string } {
+export function separarNombre(completo: string): { apellido: string; nombre: string } {
   const commaIdx = completo.indexOf(',');
   if (commaIdx !== -1) {
     return {
