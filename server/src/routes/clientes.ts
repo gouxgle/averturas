@@ -18,21 +18,30 @@ const LETRA_EXPR = (alias: string) =>
 // Lescano" sin que el segundo nombre rompa el match (antes exigía la frase completa
 // como substring literal, vía ILIKE '%Hugo Lescano%', que no matchea si hay algo en medio).
 function clienteSearchSql(alias: string, search: string, params: unknown[]): string {
-  const palabras = search.trim().split(/\s+/).filter(Boolean);
+  const palabras = search
+    .trim()
+    .split(/\s+/)
+    // La lista muestra al cliente como "Apellido, Nombre", así que es natural que el
+    // operador escriba la coma — pero la coma no está guardada (se arma al mostrar) y
+    // el término quedaba como "Garcia," sin matchear nada. Se saca la puntuación de
+    // los bordes; la de adentro queda (un email o un DNI con puntos siguen enteros).
+    .map(palabra => palabra.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter(Boolean);
   if (!palabras.length) return '';
   const clausulas = palabras.map(palabra => {
     params.push(`%${palabra}%`);
     const n = params.length;
+    // unaccent en los dos lados: "podologa" encuentra "Podóloga" y viceversa.
     return `(
-      ${alias}.nombre           ILIKE $${n}
-      OR ${alias}.apellido      ILIKE $${n}
-      OR ${alias}.razon_social  ILIKE $${n}
-      OR ${alias}.telefono      ILIKE $${n}
-      OR ${alias}.documento_nro ILIKE $${n}
-      OR ${alias}.email         ILIKE $${n}
-      OR ${alias}.localidad     ILIKE $${n}
-      OR ${alias}.direccion     ILIKE $${n}
-      OR ${alias}.notas         ILIKE $${n}
+      unaccent(${alias}.nombre)           ILIKE unaccent($${n})
+      OR unaccent(${alias}.apellido)      ILIKE unaccent($${n})
+      OR unaccent(${alias}.razon_social)  ILIKE unaccent($${n})
+      OR ${alias}.telefono                ILIKE $${n}
+      OR ${alias}.documento_nro           ILIKE $${n}
+      OR unaccent(${alias}.email)         ILIKE unaccent($${n})
+      OR unaccent(${alias}.localidad)     ILIKE unaccent($${n})
+      OR unaccent(${alias}.direccion)     ILIKE unaccent($${n})
+      OR unaccent(${alias}.notas)         ILIKE unaccent($${n})
     )`;
   });
   return `AND (${clausulas.join(' AND ')})`;
