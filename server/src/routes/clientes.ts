@@ -949,6 +949,12 @@ clientes.put('/:id', async (c) => {
 
   const { rows: [row] } = await db.query(`
     UPDATE clientes SET
+      -- Editar un contacto lo reactiva: si alguien se tomó el trabajo de
+      -- completarle los datos es porque hubo actividad real con él. Sin esto,
+      -- los leads importados (que entran inactivos) quedaban invisibles en el
+      -- listado aun después de cargarles nombre y apellido — el operador los
+      -- editaba y "desaparecían". Va como literal para no renumerar los $n.
+      activo          = true,
       tipo_persona    = $1,
       nombre          = $2,
       apellido        = $3,

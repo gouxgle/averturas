@@ -242,7 +242,10 @@ export function NuevoCliente() {
       );
       if (res.existe && res.cliente) {
         const n = res.cliente.razon_social ?? [res.cliente.apellido, res.cliente.nombre].filter(Boolean).join(', ');
-        setTelWarning(`Ya registrado: ${n}`);
+        // Un contacto inactivo (los leads importados entran así) no figura en el
+        // listado, así que decir solo "ya registrado" deja al operador buscando
+        // algo que no va a encontrar. Se aclara para que sepa qué está pasando.
+        setTelWarning(res.cliente.activo ? `Ya registrado: ${n}` : `Ya registrado (contacto inactivo): ${n}`);
         setTelDuplicado(res.cliente);
         setShowTelModal(true);
       } else {
@@ -1085,7 +1088,11 @@ export function NuevoCliente() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm">Este número ya está registrado</p>
-                <p className="text-[11px] text-gray-600">Revisá si es el mismo cliente antes de continuar</p>
+                <p className="text-[11px] text-gray-600">
+                  {telDuplicado.activo
+                    ? 'Revisá si es el mismo cliente antes de continuar'
+                    : 'Es un contacto inactivo, por eso no lo ves en el listado. Editalo y vuelve a aparecer.'}
+                </p>
               </div>
               <button onClick={() => setShowTelModal(false)}
                 className="p-1.5 hover:bg-white/60 rounded-lg transition-colors shrink-0">
