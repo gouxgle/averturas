@@ -103,9 +103,25 @@ echo "📥 Actualizando código..."
 # y quedar colgado esperando input que nunca llega por SSH no interactivo. Este
 # directorio es un espejo de deploy, nunca debería tener commits propios.
 export GIT_TERMINAL_PROMPT=0
+ANTES=\$(git rev-parse HEAD)
 git fetch origin main
 git reset --hard origin/main
+AHORA=\$(git rev-parse HEAD)
 echo "✅ Código actualizado → \$(git rev-parse --short HEAD)"
+
+# ¿Hace falta rebuildear? Solo si cambió algo que termina DENTRO de la imagen.
+# Las migraciones, el changelog y los .md no la tocan: supabase/ y uploads/ son
+# volúmenes montados desde el host. Un deploy de solo-changelog no tiene por qué
+# pagar un build completo.
+NECESITA_BUILD=1
+if [ "\$ANTES" = "\$AHORA" ]; then
+  # Nada nuevo: igual seguimos por si la imagen quedó a medias en un intento previo.
+  CAMBIOS=""
+else
+  CAMBIOS=\$(git diff --name-only "\$ANTES" "\$AHORA" \
+    | grep -vE '^(supabase/|tests/|docs?/|\.claude/|deploy.*\.sh$|.*\.md$|\.gitignore$)' || true)
+  if [ -z "\$CAMBIOS" ]; then NECESITA_BUILD=0; fi
+fi
 
 echo ""
 echo "🗄️  Verificando migraciones..."
@@ -134,20 +150,41 @@ done
 [ "\$PENDIENTES" -eq 0 ] && echo "  DB al día (\$(echo "\$APLICADAS" | grep -c .) migraciones)" || echo "  ✅ \$PENDIENTES migración(es) nueva(s)"
 
 echo ""
-echo "🔨 Rebuildeando..."
-docker compose build ${TEST_COMPOSE_SERVICE}
-
-echo ""
-echo "🚀 Reiniciando..."
-docker compose up -d --force-recreate ${TEST_COMPOSE_SERVICE}
-
-echo ""
-echo "⏳ Verificando..."
-sleep 4
-if docker exec ${TEST_APP_CONTAINER} wget -qO- http://localhost:3000 > /dev/null 2>&1; then
-  echo "✅ App OK"
+if [ "\$NECESITA_BUILD" -eq 0 ]; then
+  echo "🔨 Sin cambios de código — se saltea el build (solo migraciones/docs)"
 else
-  echo "⚠️  App tardando — revisá logs con: docker compose logs app -f"
+  echo "🔨 Rebuildeando..."
+  T0=\$(date +%s)
+  docker compose build ${TEST_COMPOSE_SERVICE}
+  echo "   build: \$(( \$(date +%s) - T0 ))s"
+
+  echo ""
+  echo "🚀 Reiniciando..."
+  # Sin --force-recreate: compose recrea solo si la imagen o la config cambiaron.
+  # Forzarlo siempre agregaba una recreación (y su corte de servicio) aun cuando
+  # el contenedor ya estaba corriendo exactamente la misma imagen.
+  docker compose up -d ${TEST_COMPOSE_SERVICE}
+
+  echo ""
+  echo "⏳ Verificando..."
+  # Antes: sleep 4 fijo + un solo intento. Si la app tardaba un segundo más
+  # imprimía "App tardando" con la app perfectamente sana (falsa alarma real),
+  # y si arrancaba en 1s igual esperaba los 4. Ahora se sondea y se corta apenas
+  # responde.
+  T0=\$(date +%s)
+  OK=0
+  for i in \$(seq 1 30); do
+    if docker exec ${TEST_APP_CONTAINER} wget -qO- -T2 http://localhost:3000 > /dev/null 2>&1; then
+      OK=1; break
+    fi
+    sleep 1
+  done
+  if [ "\$OK" -eq 1 ]; then
+    echo "✅ App OK (\$(( \$(date +%s) - T0 ))s)"
+  else
+    echo "⚠️  La app no respondió en 30s — revisá: docker compose logs app -f"
+    exit 1
+  fi
 fi
 
 echo ""

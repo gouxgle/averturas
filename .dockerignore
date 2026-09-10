@@ -9,3 +9,19 @@ data
 docker/supabase-selfhosted/volumes/db/data
 docker/supabase-selfhosted/volumes/storage
 .git
+
+# ── Nada de lo de abajo entra en la imagen ────────────────────────────────────
+# Todo esto viajaba al daemon y se hasheaba en CADA build. `uploads` solo (133MB
+# en test) era el 44% del contexto — y ni siquiera hace falta: el compose lo monta
+# como volumen desde el host, igual que supabase/migrations y docker/initdb.
+uploads
+supabase
+docker
+tests
+.claude
+.vscode
+*.md
+deploy*.sh
+playwright.config.ts
+eslint.config.js
+firma*.jpeg

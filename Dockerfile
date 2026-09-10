@@ -18,7 +18,13 @@ WORKDIR /app
 COPY --from=server-build /server/dist /tmp/.server-build-done
 COPY package.json package-lock.json* bun.lock* ./
 RUN npm install --legacy-peer-deps
-COPY . .
+# Se copia SOLO lo que vite necesita, en vez de `COPY . .`. Con el copiado
+# completo, cambiar un .md, un test o una migración invalidaba esta capa y
+# obligaba a rehacer el build del frontend aunque no se hubiera tocado una línea
+# de src/.
+COPY index.html vite.config.ts tsconfig*.json postcss.config.js tailwind.config.js ./
+COPY src ./src
+COPY public ./public
 ARG VITE_SENTRY_DSN
 ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 RUN NODE_OPTIONS="--max-old-space-size=512" npx vite build
