@@ -388,6 +388,37 @@ operaciones.get('/', async (c) => {
 // Una op así no necesita pedido al proveedor: se cumple directo desde stock.
 // Los ítems de servicio nunca se piden al proveedor (se resuelven con mano de obra) —
 // no cuentan como "pendientes", siempre se consideran resueltos a este efecto.
+// ¿Se entregó TODO lo de la operación? Antes el tablero miraba solo si existía
+// algún remito activo, así que una entrega parcial mandaba la operación entera a
+// "Entregadas" y lo pendiente desaparecía del circuito. Ahora se compara, ítem
+// por ítem, lo entregado contra lo vendido.
+//
+// Los remitos viejos no tienen el vínculo remito_items.operacion_item_id (se
+// agregó en 20260910000008 y el backfill no siempre puede resolverlo). Para esos
+// se mantiene el criterio anterior — remito activo = entregado — y así no
+// reaparecen operaciones históricas ya cerradas.
+const ENTREGA_COMPLETA = `(
+  EXISTS (SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado != 'cancelado')
+  AND (
+    EXISTS (
+      SELECT 1 FROM remitos r
+      JOIN remito_items ri ON ri.remito_id = r.id
+      WHERE r.operacion_id = o.id AND r.estado != 'cancelado'
+        AND ri.operacion_item_id IS NULL
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM operacion_items oi
+      WHERE oi.operacion_id = o.id
+        AND COALESCE((
+          SELECT SUM(ri.cantidad) FROM remito_items ri
+          JOIN remitos r2 ON r2.id = ri.remito_id
+          WHERE r2.operacion_id = o.id AND r2.estado != 'cancelado'
+            AND ri.operacion_item_id = oi.id
+        ), 0) < oi.cantidad
+    )
+  )
+)`;
+
 const STOCK_CUBRE_TODO = `(
   EXISTS (SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id)
   AND NOT EXISTS (
@@ -476,9 +507,7 @@ operaciones.get('/tablero', async (c) => {
         AND NOT EXISTS (
           SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado NOT IN ('cancelado', 'recibido')
         )
-        AND NOT EXISTS (
-          SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado != 'cancelado'
-        )
+        AND NOT ${ENTREGA_COMPLETA}
         AND (
           EXISTS (SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado = 'recibido')
           OR (o.estado = 'aprobado' AND ${STOCK_CUBRE_TODO})
@@ -490,7 +519,7 @@ operaciones.get('/tablero', async (c) => {
       WHERE o.estado NOT IN ('cancelado', 'rechazado')
         AND (
           o.estado = 'entregado'
-          OR EXISTS (SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado != 'cancelado')
+          OR ${ENTREGA_COMPLETA}
         )
       ORDER BY o.updated_at DESC LIMIT 50`),
 

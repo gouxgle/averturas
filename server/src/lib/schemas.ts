@@ -418,6 +418,9 @@ const RemitoItemSchema = z.object({
   precio_unitario: zPosNum.optional().nullable(),
   estado_producto: z.enum(['nuevo','usado','reparado']).optional().default('nuevo'),
   notas_item:      zText(500).optional(),
+  // Ítem del presupuesto que este renglón entrega — lo que permite saber qué
+  // queda pendiente cuando la entrega es parcial.
+  operacion_item_id: zUUID.optional().nullable(),
 });
 
 export const RemitoSchema = z.object({

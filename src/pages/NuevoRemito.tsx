@@ -25,6 +25,7 @@ interface Operacion {
 
 interface OpItem {
   id: string;
+  producto_id: string | null;
   descripcion: string;
   cantidad: number;
   precio_unitario: number;
@@ -65,6 +66,9 @@ interface Producto {
 
 interface RemitoItem {
   producto_id: string;
+  /** Ítem del presupuesto que este renglón entrega. Sin esto el sistema no puede
+   *  saber qué se entregó y qué queda pendiente en una entrega parcial. */
+  operacion_item_id?: string | null;
   descripcion: string;
   cantidad: number;
   precio_unitario: string;
@@ -107,7 +111,7 @@ const ESTADOS_PRODUCTO = [
 ] as const;
 
 function emptyItem(): RemitoItem {
-  return { producto_id: '', descripcion: '', cantidad: 1, precio_unitario: '', estado_producto: 'nuevo', notas_item: '' };
+  return { producto_id: '', operacion_item_id: null, descripcion: '', cantidad: 1, precio_unitario: '', estado_producto: 'nuevo', notas_item: '' };
 }
 
 function clienteLabel(c: Cliente) {
@@ -240,6 +244,7 @@ export function NuevoRemito() {
       setNotas(r.notas ?? '');
       const mappedItems = r.items.map(it => ({
         producto_id:     it.producto_id,
+        operacion_item_id: it.operacion_item_id ?? null,
         descripcion:     it.descripcion,
         cantidad:        it.cantidad,
         precio_unitario: it.precio_unitario != null ? String(it.precio_unitario) : '',
@@ -259,7 +264,11 @@ export function NuevoRemito() {
       const med = it.medida_ancho && it.medida_alto
         ? ` (${it.medida_ancho}×${it.medida_alto}m)` : '';
       return {
-        producto_id:    '',
+        // Se conservan las dos referencias del ítem original: el producto (sin él
+        // la emisión no descuenta stock) y el ítem del presupuesto (sin él no se
+        // puede calcular lo que queda pendiente de entregar).
+        producto_id:    it.producto_id ?? '',
+        operacion_item_id: it.id,
         descripcion:    it.descripcion + med,
         cantidad:       it.cantidad,
         precio_unitario: String(it.precio_unitario || ''),

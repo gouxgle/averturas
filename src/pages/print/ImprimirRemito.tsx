@@ -48,6 +48,9 @@ interface Empresa {
 }
 
 interface Item {
+  id?: string;
+  /** Solo en los ítems del remito: a qué renglón del presupuesto corresponden. */
+  operacion_item_id?: string | null;
   descripcion: string; cantidad: number; color: string | null;
   medida_ancho: number | null; medida_alto: number | null;
   vidrio: string | null; premarco: boolean; accesorios: string[];
@@ -129,7 +132,27 @@ export function ImprimirRemito() {
     </div>
   );
 
-  const displayItems: Item[] = opItems.length > 0 ? opItems : remito.items;
+  // Los ítems del REMITO son la verdad de lo que se entrega. Antes esto usaba los
+  // de la operación cuando existían, y en una entrega parcial el remito impreso
+  // terminaba listando mercadería que el cliente no estaba recibiendo.
+  //
+  // De la operación se toman solo los datos descriptivos que remito_items no
+  // guarda (medidas, color, vidrio, tipo, sistema, atributos, foto), buscando el
+  // ítem de origen por su id; si el renglón se cargó a mano, se muestra tal cual.
+  const displayItems: Item[] = remito.items.map(ri => {
+    const origen = ri.operacion_item_id
+      ? opItems.find(oi => oi.id === ri.operacion_item_id)
+      : undefined;
+    if (!origen) return ri;
+    return {
+      ...origen,
+      // Lo que el remito define manda: descripción, cantidad entregada y estado.
+      descripcion:     ri.descripcion,
+      cantidad:        ri.cantidad,
+      estado_producto: ri.estado_producto,
+      notas:           ri.notas ?? origen.notas,
+    };
+  });
   const cl = remito.cliente;
   const clienteNombre = cl.tipo_persona === 'juridica'
     ? (cl.razon_social ?? '—')

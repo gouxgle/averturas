@@ -485,16 +485,41 @@ remitos.post('/', async (c) => {
   const b = await validateBody(c, RemitoSchema);
   if (b instanceof Response) return b;
 
-  // Validar: operación no puede tener otro remito activo
+  // Entregas parciales: antes se rechazaba CUALQUIER segundo remito de la
+  // operación, así que entregar una parte dejaba el resto sin forma de
+  // entregarse nunca. Lo que hay que evitar es entregar dos veces el mismo
+  // ítem, no que haya dos remitos — así que ahora se valida por ítem.
   if (b.operacion_id) {
-    const { rows } = await db.query(
-      `SELECT numero FROM remitos WHERE operacion_id = $1 AND estado NOT IN ('cancelado') LIMIT 1`,
-      [b.operacion_id]
-    );
-    if (rows.length) {
-      return c.json({
-        error: `Esta operación ya tiene el remito ${(rows[0] as { numero: string }).numero} activo. No se puede generar otro.`
-      }, 409);
+    const { rows: yaEntregado } = await db.query(`
+      SELECT ri.operacion_item_id, SUM(ri.cantidad)::int AS entregado,
+             min(r.numero) AS remito
+      FROM remito_items ri
+      JOIN remitos r ON r.id = ri.remito_id
+      WHERE r.operacion_id = $1 AND r.estado != 'cancelado'
+        AND ri.operacion_item_id IS NOT NULL
+      GROUP BY ri.operacion_item_id
+    `, [b.operacion_id]);
+
+    if (yaEntregado.length) {
+      const { rows: opItems } = await db.query(
+        `SELECT id, cantidad, descripcion FROM operacion_items WHERE operacion_id = $1`,
+        [b.operacion_id]
+      );
+      const cant = new Map(opItems.map((o: { id: string; cantidad: number; descripcion: string }) => [o.id, o]));
+      const cubierto = new Map(yaEntregado.map((y: { operacion_item_id: string; entregado: number; remito: string }) => [y.operacion_item_id, y]));
+
+      for (const item of b.items) {
+        const oid = item.operacion_item_id;
+        if (!oid) continue;                       // renglón cargado a mano: no se valida
+        const ya = cubierto.get(oid);
+        const op = cant.get(oid);
+        if (!ya || !op) continue;
+        if (ya.entregado + (item.cantidad || 1) > op.cantidad) {
+          return c.json({
+            error: `"${op.descripcion}" ya fue entregado en el remito ${ya.remito} (${ya.entregado} de ${op.cantidad}). Sacalo de este remito o ajustá la cantidad.`
+          }, 409);
+        }
+      }
     }
   }
 
@@ -527,8 +552,8 @@ remitos.post('/', async (c) => {
     for (const item of b.items) {
       await client.query(`
         INSERT INTO remito_items
-          (remito_id, producto_id, descripcion, cantidad, precio_unitario, estado_producto, notas_item)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
+          (remito_id, producto_id, descripcion, cantidad, precio_unitario, estado_producto, notas_item, operacion_item_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       `, [
         remito.id,
         item.producto_id     || null,
@@ -537,6 +562,7 @@ remitos.post('/', async (c) => {
         item.precio_unitario ?? null,
         item.estado_producto || 'nuevo',
         item.notas_item      || null,
+        item.operacion_item_id || null,
       ]);
     }
 
@@ -595,8 +621,8 @@ remitos.put('/:id', async (c) => {
     for (const item of b.items ?? []) {
       await client.query(`
         INSERT INTO remito_items
-          (remito_id, producto_id, descripcion, cantidad, precio_unitario, estado_producto, notas_item)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
+          (remito_id, producto_id, descripcion, cantidad, precio_unitario, estado_producto, notas_item, operacion_item_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       `, [
         id,
         item.producto_id     || null,
@@ -605,6 +631,7 @@ remitos.put('/:id', async (c) => {
         item.precio_unitario ?? null,
         item.estado_producto || 'nuevo',
         item.notas_item      || null,
+        item.operacion_item_id || null,
       ]);
     }
 

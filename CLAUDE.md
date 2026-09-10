@@ -69,11 +69,16 @@ No agregar infraestructura o herramientas nuevas (perfiles docker-compose de des
 
 | Cambio | Verificación suficiente |
 |---|---|
-| Texto, label, copy, reordenar JSX, renombrar | `tsc --noEmit`. Nada más. |
+| Texto, label, copy, reordenar JSX, renombrar | Typecheck. Nada más — pero ojo con el comando, ver abajo. |
 | UI sin layout nuevo (colores, badges, campos de un form que ya existe) | `tsc` + `vite build` en contenedor liviano |
 | **Layout / responsive / pantalla nueva / modal anidado** | + screenshot Playwright (ver `tests/README.md`) |
 | Query, endpoint, migración, cualquier cosa con plata o stock | + verificación por SQL o API contra la DB local |
 
+- **⚠️ El typecheck del frontend NO es `tsc --noEmit`.** El `tsconfig.json` raíz tiene `"files": []` y delega en project references, así que `npx tsc --noEmit` revisa **cero** archivos de `src/` y sale con código 0 pase lo que pase — da una falsa sensación de verificado. Bug real (2026-09-10): se reportó "typecheck limpio" durante toda una sesión mientras había errores de tipo reales en `src/`. El comando correcto es **`npx tsc -b`**, y hay que correrlo **en contenedor** porque `node_modules` es de root y `tsc -b` necesita escribir el `.tsbuildinfo`:
+  ```bash
+  docker run --rm -v "$PWD":/w -w /w --entrypoint sh node:20-alpine -c 'npx tsc -b'
+  ```
+  El backend sí anda con `cd server && npx tsc -b` desde el host.
 - **El screenshot es la verificación cara** (spec + docker + login + acertar los selectores: 4-6 tool calls, y los selectores fallan seguido). Vale la pena solo cuando el riesgo es visual y el typecheck no lo puede ver. Para lógica, un `SELECT` o un `curl` responde lo mismo en un solo paso.
 - **No rebuildear Docker para ver un cambio de frontend.** El bundle servido no cambia el resultado de un typecheck. Rebuild solo si se tocó `server/` o si hace falta el screenshot.
 - **Una sola pasada de verificación al final**, no una por archivo tocado. Agrupar todas las ediciones relacionadas y verificar una vez.
