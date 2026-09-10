@@ -171,6 +171,9 @@ export function ImprimirRemito() {
           .no-print { display: none !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .doc { margin: 0 !important; min-height: 279mm !important; box-shadow: none !important; }
+          /* Ningún bloque se parte entre hojas: la zona de firma quedaba cortada
+             al borde y su aclaración caía en una segunda página. */
+          .doc > div { break-inside: avoid; page-break-inside: avoid; }
         }
         * { box-sizing: border-box; }
         body { font-family: Arial, 'Helvetica Neue', sans-serif; margin: 0; background: #d1d9e6; }
@@ -205,7 +208,7 @@ export function ImprimirRemito() {
             {/* Izquierda: logo + contacto */}
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-                <img src="/logo2.png" alt="Logo" style={{ height: 88, display: 'block' }}
+                <img src="/logo2.png" alt="Logo" style={{ height: 68, display: 'block' }}
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               </div>
               <div style={{ height: 1, background: '#e5e7eb', marginBottom: 8 }} />
@@ -472,7 +475,7 @@ export function ImprimirRemito() {
 
         {/* BARRA RESUMEN */}
         <div style={{
-          margin: '14px 16px 0',
+          margin: '9px 16px 0',
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
           border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden',
         }}>
@@ -483,12 +486,12 @@ export function ImprimirRemito() {
             { icon: '📷', title: 'Fotos referenciales',   desc: 'Las imágenes son ilustrativas. Los productos pueden variar ligeramente.' },
           ].map(({ icon, title, desc }, idx) => (
             <div key={title} style={{
-              padding: '10px 12px',
+              padding: '7px 12px',
               borderRight: idx < 3 ? '1px solid #e5e7eb' : undefined,
               background: idx % 2 === 0 ? 'white' : '#fafafa',
             }}>
-              <div style={{ fontSize: 18, marginBottom: 4 }}>{icon}</div>
-              <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.8, color: NAVY, marginBottom: 4 }}>
+              <div style={{ fontSize: 14, marginBottom: 2 }}>{icon}</div>
+              <div style={{ fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.8, color: NAVY, marginBottom: 2 }}>
                 {title}
               </div>
               <div style={{ fontSize: 9.5, color: '#6b7280', lineHeight: 1.4 }}>{desc}</div>
@@ -498,7 +501,7 @@ export function ImprimirRemito() {
 
         {/* SECCIÓN FIRMA + OBSERVACIONES + QR */}
         <div style={{
-          margin: '14px 16px 0',
+          margin: '9px 16px 0',
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
           border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden',
         }}>
@@ -508,7 +511,7 @@ export function ImprimirRemito() {
               Datos de Entrega
             </div>
             {[
-              'Entregado por:',
+              'Recibido por:',
               'DNI:',
               'Fecha:',
               'Hora:',
@@ -518,9 +521,32 @@ export function ImprimirRemito() {
                 <div style={{ flex: 1, borderBottom: '1px solid #9ca3af' }} />
               </div>
             ))}
-            {/* Firma receptor */}
-            <div style={{ marginTop: 8, paddingTop: 52, borderTop: '1px solid #9ca3af', textAlign: 'center', fontSize: 9, color: '#4b5563', fontWeight: 600 }}>
-              Recibió conforme — Firma y aclaración
+            {/* Firma del receptor — tiene que saltar a la vista dónde firmar */}
+            <div style={{ marginTop: 10 }}>
+              <div style={{
+                fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const,
+                letterSpacing: 1, color: NAVY, marginBottom: 4,
+              }}>
+                Firma del cliente
+              </div>
+              <div style={{
+                height: 62, border: `2px dashed ${NAVY}`, borderRadius: 6,
+                background: '#f8fafc',
+                display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 3,
+              }}>
+                <span style={{ fontSize: 8.5, color: '#94a3b8', fontStyle: 'italic' as const }}>
+                  Firmar aquí
+                </span>
+              </div>
+              <div style={{
+                textAlign: 'center' as const, fontSize: 10, fontWeight: 800,
+                color: NAVY, marginTop: 5, lineHeight: 1.3,
+              }}>
+                Recibí conforme
+                <div style={{ fontSize: 8.5, fontWeight: 600, color: '#4b5563' }}>
+                  Firma y aclaración
+                </div>
+              </div>
             </div>
           </div>
 
@@ -534,7 +560,7 @@ export function ImprimirRemito() {
                 {remito.recepcion_obs}
               </div>
             ) : (
-              <div style={{ height: 80, border: '1px dashed #d1d5db', borderRadius: 4, background: 'white' }} />
+              <div style={{ height: 62, border: '1px dashed #d1d5db', borderRadius: 4, background: 'white' }} />
             )}
           </div>
 
@@ -566,7 +592,7 @@ export function ImprimirRemito() {
 
         {/* TÉRMINOS Y CONDICIONES */}
         <div style={{
-          margin: '14px 16px 0', padding: '10px 14px',
+          margin: '9px 16px 0', padding: '7px 12px',
           border: '1px solid #e5e7eb', borderRadius: 8,
         }}>
           <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 4 }}>
@@ -580,8 +606,8 @@ export function ImprimirRemito() {
         </div>
 
         {/* Firma de la empresa — evita firmar cada remito a mano */}
-        <div style={{ margin: '14px 16px 0', textAlign: 'right' as const }}>
-          <img src="/firma.png" alt="Firma" style={{ height: 46, display: 'inline-block' }} />
+        <div style={{ margin: '9px 16px 0', textAlign: 'right' as const }}>
+          <img src="/firma.png" alt="Firma" style={{ height: 38, display: 'inline-block' }} />
           <div style={{ fontSize: 10, fontWeight: 700, color: NAVY, marginTop: 2 }}>
             {empresa?.nombre ?? 'César Brítez Aberturas'}
           </div>
