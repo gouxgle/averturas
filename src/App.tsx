@@ -40,6 +40,7 @@ const EstadoCuentaGlobal       = lazy(() => import('@/pages/EstadoCuentaGlobal')
 const CRM                      = lazy(() => import('@/pages/CRM').then(m => ({ default: m.CRM })));
 const ImportarClientes         = lazy(() => import('@/pages/ImportarClientes').then(m => ({ default: m.ImportarClientes })));
 const ImprimirPresupuesto      = lazy(() => import('@/pages/print/ImprimirPresupuesto').then(m => ({ default: m.ImprimirPresupuesto })));
+const ImprimirPresupuestoPublico = lazy(() => import('@/pages/print/ImprimirPresupuestoPublico').then(m => ({ default: m.ImprimirPresupuestoPublico })));
 const ImprimirRemito           = lazy(() => import('@/pages/print/ImprimirRemito').then(m => ({ default: m.ImprimirRemito })));
 const ImprimirRecibo           = lazy(() => import('@/pages/print/ImprimirRecibo').then(m => ({ default: m.ImprimirRecibo })));
 const FormularioCliente        = lazy(() => import('@/pages/print/FormularioCliente').then(m => ({ default: m.FormularioCliente })));
@@ -70,6 +71,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               {/* Rutas públicas — sin auth */}
               <Route path="/p/:token" element={<VistaPublicaPresupuesto />} />
+              <Route path="/p/:token/imprimir" element={<ImprimirPresupuestoPublico />} />
               <Route path="/r/:token" element={<VistaPublicaRemito />} />
               <Route element={<ProtectedRoute />}>
                 {/* Páginas de impresión — sin AppLayout */}

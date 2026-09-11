@@ -4,7 +4,10 @@ import {
   CheckCircle2, AlertTriangle, Clock, Loader2,
   Phone, Mail, MapPin, Package, Truck, Shield, X, ScrollText,
   MessageCircle, Pencil, ChevronRight, ArrowLeft, CalendarClock,
+  GitCompare, Download, ArrowUpCircle,
 } from 'lucide-react';
+import { ComparadorRevisiones } from '@/components/ComparadorRevisiones';
+import type { DiffSnapshot } from '@/lib/diffProforma';
 
 const NAVY  = '#031d49';
 const RED   = '#e31e24';
@@ -17,21 +20,29 @@ interface Empresa {
   instagram: string | null; terminos_url: string | null;
 }
 interface Item {
-  descripcion: string; cantidad: number; precio_unitario: number; precio_lista: number | null;
+  id?: string; orden?: number; descripcion: string; cantidad: number;
+  precio_unitario: number; precio_lista: number | null;
   precio_instalacion: number; incluye_instalacion: boolean; precio_total: number;
   medida_ancho: number | null; medida_alto: number | null; color: string | null;
+  vidrio?: string | null; premarco?: boolean | null; accesorios?: string[] | null;
+  notas?: string | null; tipo_item?: string | null;
+  tipo_abertura_id?: string | null; sistema_id?: string | null;
+  producto_id?: string | null; servicio_id?: string | null;
   tipo_abertura_nombre: string | null; sistema_nombre: string | null;
+  producto_nombre?: string | null;
   producto_imagen_url: string | null;
   calculo_url: string | null;
 }
+interface RevisionInfo { numero: number; enviada_at: string; es_ultima: boolean; aprobada_at: string | null; rechazada_at: string | null; }
+interface RevisionResumen { numero: number; token: string; enviada_at: string; }
 interface Presupuesto {
   id: string; numero: string; estado: string; forma_pago: string | null;
   forma_envio: string | null; costo_envio: number; tiempo_entrega: number | null;
   fecha_validez: string | null; notas: string | null; precio_total: number;
-  /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
-  modificaciones_cliente?: number;
-  /** Fecha de la última revisión pedida por el cliente. */
-  ultima_revision_cliente_at?: string | null;
+  /** Revisión (envío) que muestra este link — link único, congelado al enviarse. */
+  revision: RevisionInfo;
+  ultima_revision: RevisionResumen | null;
+  revisiones: RevisionResumen[];
   visita_tecnica?: { id: string; numero: string; cobro_estado: string; costo_cobrado: number | null } | null;
   aprobado_online_at: string | null; created_at: string;
   cliente: {
@@ -45,6 +56,7 @@ interface Presupuesto {
 }
 type Estado =
   | 'loading' | 'not_found' | 'error' | 'data'
+  | 'no_vigente'
   | 'menu'
   | 'form_mas_tiempo' | 'form_consulta' | 'form_llamada' | 'form_modificar'
   | 'respondiendo' | 'respondido'
@@ -184,6 +196,9 @@ export function VistaPublicaPresupuesto() {
   const [llamadaFecha, setLlamadaFecha]     = useState('');
   const [llamadaHorario, setLlamadaHorario] = useState('');
   const [respTipo, setRespTipo] = useState<'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null>(null);
+  const [ultimaTokenAviso, setUltimaTokenAviso] = useState<string | null>(null);
+  const [comparando, setComparando] = useState<{ a: DiffSnapshot; b: DiffSnapshot; labelA: string; labelB: string } | null>(null);
+  const [cargandoComparar, setCargandoComparar] = useState(false);
 
   useEffect(() => {
     if (!token) { setEstado('not_found'); return; }
@@ -193,6 +208,7 @@ export function VistaPublicaPresupuesto() {
         setPres(d);
         if (d.aprobado_online_at || d.estado === 'aprobado') setEstado('ya_aprobado');
         else if (d.estado === 'rechazado') setEstado('ya_rechazado');
+        else if (d.estado === 'cancelado') setEstado('no_vigente');
         else setEstado('data');
       })
       .catch(e => { setErrMsg(String(e)); setEstado('not_found'); });
@@ -201,12 +217,43 @@ export function VistaPublicaPresupuesto() {
   async function aprobar() {
     if (!token) return;
     setEstado('aprobando');
+    setUltimaTokenAviso(null);
     try {
       const r = await fetch(`/api/pub/presupuesto/${token}/aprobar`, { method: 'POST' });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? 'Error');
+      if (!r.ok) {
+        if (r.status === 409 && d.ultima_token) setUltimaTokenAviso(d.ultima_token);
+        throw new Error(d.error ?? 'Error');
+      }
       setEstado(d.ya_aprobado ? 'ya_aprobado' : 'aprobado');
     } catch (e) { setErrMsg(String(e)); setEstado('error'); }
+  }
+
+  // "Ver qué cambió": si estoy viendo la vigente, comparo contra la anterior; si
+  // estoy viendo una vieja, comparo contra la vigente (lo más útil en cada caso).
+  async function verQueCambio() {
+    if (!token || !pres) return;
+    const idx = pres.revisiones.findIndex(r => r.numero === pres.revision.numero);
+    const otra = pres.revision.es_ultima ? pres.revisiones[idx - 1] : pres.revisiones[pres.revisiones.length - 1];
+    if (!otra) return;
+    setCargandoComparar(true);
+    try {
+      const [otraData] = await Promise.all([
+        fetch(`/api/pub/presupuesto/${token}/revisiones/${otra.numero}`).then(r => r.json()),
+      ]);
+      const actual = pres as unknown as DiffSnapshot;
+      const anteriorEsA = otra.numero < pres.revision.numero;
+      setComparando({
+        a: anteriorEsA ? otraData.snapshot : actual,
+        b: anteriorEsA ? actual : otraData.snapshot,
+        labelA: `Rev. ${anteriorEsA ? otra.numero : pres.revision.numero}`,
+        labelB: `Rev. ${anteriorEsA ? pres.revision.numero : otra.numero}`,
+      });
+    } catch {
+      setErrMsg('No se pudo cargar la comparación');
+    } finally {
+      setCargandoComparar(false);
+    }
   }
 
   async function rechazar() {
@@ -273,7 +320,34 @@ export function VistaPublicaPresupuesto() {
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
         <AlertTriangle size={36} className="mx-auto mb-4 text-red-400" />
         <p className="text-sm text-gray-600">{errMsg}</p>
-        <button onClick={() => setEstado('data')} className="mt-4 text-sm text-blue-600 underline">Volver</button>
+        {ultimaTokenAviso ? (
+          <a href={`/p/${ultimaTokenAviso}`}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-xl"
+            style={{ background: NAVY }}>
+            <ArrowUpCircle size={14} /> Ver la propuesta actualizada
+          </a>
+        ) : (
+          <button onClick={() => setEstado('data')} className="mt-4 text-sm text-blue-600 underline">Volver</button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (estado === 'no_vigente') return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
+        <AlertTriangle size={36} className="mx-auto mb-4 text-gray-400" />
+        <h2 className="text-lg font-bold text-gray-800 mb-2">Esta propuesta ya no está vigente</h2>
+        <p className="text-sm text-gray-600">
+          {pres?.numero} fue cancelada. Si tenés dudas, comunicate directamente con nosotros.
+        </p>
+        {waLink(pres?.empresa?.telefono ?? null) && (
+          <a href={waLink(pres!.empresa.telefono)!} target="_blank" rel="noopener noreferrer"
+            className="mt-5 flex items-center justify-center gap-2 w-full py-3 text-white rounded-xl text-sm font-semibold"
+            style={{ background: '#25D366' }}>
+            <WaIcon /> Consultanos por WhatsApp
+          </a>
+        )}
       </div>
     </div>
   );
@@ -666,18 +740,11 @@ export function VistaPublicaPresupuesto() {
                   🚚 Entrega: {pres.tiempo_entrega} días hábiles
                 </div>
               )}
-              {/* Línea de revisión — siempre visible, mismo criterio y redacción
-                  que ImprimirPresupuesto.tsx. Solo cuenta ediciones a pedido del cliente. */}
+              {/* Línea de revisión — cada link muestra la revisión que se le envió,
+                  congelada; no el estado vivo de la operación. */}
               <div className="text-xs mt-0.5 text-gray-600">
-                {(pres.modificaciones_cliente ?? 0) > 0 ? (
-                  <>
-                    ✏️ <strong>Revisión N° {(pres.modificaciones_cliente ?? 0) + 1}</strong>
-                    {' — '}{pres.modificaciones_cliente} modificación{pres.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
-                    {pres.ultima_revision_cliente_at ? ` · ${fmtFecha(pres.ultima_revision_cliente_at)}` : ''}
-                  </>
-                ) : (
-                  <>✏️ <strong>Versión original</strong>{' — '}sin modificaciones a pedido del cliente</>
-                )}
+                ✏️ <strong>Revisión N° {pres.revision.numero}</strong>
+                {' — '}enviada el {fmtFecha(pres.revision.enviada_at)}
               </div>
             </div>
           </div>
@@ -685,6 +752,32 @@ export function VistaPublicaPresupuesto() {
           <div style={{ height: 4, background: NAVY }} />
           <div style={{ height: 1, background: '#3a5fad' }} />
         </div>
+
+        {/* ── Aviso de revisión no vigente ─────────────────────────────────── */}
+        {!pres.revision.es_ultima && pres.ultima_revision && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-3">
+            <div className="flex items-start gap-2">
+              <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-amber-800">
+                  Estás viendo la Rev. {pres.revision.numero} ({fmtFecha(pres.revision.enviada_at)}).
+                  Hay una propuesta más nueva: Rev. {pres.ultima_revision.numero} ({fmtFecha(pres.ultima_revision.enviada_at)}).
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <a href={`/p/${pres.ultima_revision.token}`}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+                    style={{ background: NAVY }}>
+                    <ArrowUpCircle size={13} /> Ver la propuesta vigente
+                  </a>
+                  <button onClick={verQueCambio} disabled={cargandoComparar}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 border border-amber-300 bg-white px-3 py-1.5 rounded-lg disabled:opacity-60">
+                    {cargandoComparar ? <Loader2 size={13} className="animate-spin" /> : <GitCompare size={13} />} Comparar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── CLIENTE + GRACIAS ─────────────────────────────────────────── */}
         <div className="bg-white grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
@@ -1005,46 +1098,68 @@ export function VistaPublicaPresupuesto() {
 
         {/* ── CTA ───────────────────────────────────────────────────────── */}
         <div className="bg-white mt-px px-5 py-6 rounded-b-2xl">
-          <h3 className="text-sm font-black text-gray-800 mb-0.5 uppercase tracking-wide">
-            ¿Querés avanzar con tu pedido?
-          </h3>
-          <p className="text-xs text-gray-600 mb-4">
-            Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
-          </p>
+          {pres.revision.es_ultima ? (
+            <>
+              <h3 className="text-sm font-black text-gray-800 mb-0.5 uppercase tracking-wide">
+                ¿Querés avanzar con tu pedido?
+              </h3>
+              <p className="text-xs text-gray-600 mb-4">
+                Aceptá la proforma y confirmá que leíste y aceptás los términos y condiciones de venta.
+              </p>
 
-          {vencido ? (
-            <div className="rounded-xl px-4 py-3 text-sm text-red-600 bg-red-50 border border-red-200 text-center font-medium">
-              Esta proforma venció. Solicitá una nueva cotización.
-            </div>
+              {vencido ? (
+                <div className="rounded-xl px-4 py-3 text-sm text-red-600 bg-red-50 border border-red-200 text-center font-medium">
+                  Esta proforma venció. Solicitá una nueva cotización.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {/* Nivel 1 — CTA principal, baja fricción al sí */}
+                  <button onClick={aprobar} disabled={estado === 'aprobando'}
+                    className="w-full py-4 rounded-xl text-white font-bold text-base flex flex-col items-center justify-center gap-0.5 disabled:opacity-60 transition-all"
+                    style={{ background: GREEN, boxShadow: '0 6px 18px rgba(22,163,74,0.32)' }}>
+                    <span className="flex items-center gap-2">
+                      {estado === 'aprobando'
+                        ? <Loader2 size={17} className="animate-spin" />
+                        : <CheckCircle2 size={17} />}
+                      {estado === 'aprobando' ? 'Procesando...' : 'QUIERO AVANZAR'}
+                    </span>
+                    <span className="text-green-200 text-xs font-normal">
+                      Acepto la proforma y los términos y condiciones
+                    </span>
+                  </button>
+
+                  {/* Nivel 2 — respuesta matizada, secundario pero visible */}
+                  <button onClick={() => setEstado('menu')}
+                    className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border-2 border-amber-400 bg-amber-50 text-amber-800 hover:border-amber-500 hover:bg-amber-100 transition-all">
+                    Todavía no / Tengo otra respuesta
+                    <ChevronRight size={16} className="text-amber-500" />
+                  </button>
+                </div>
+              )}
+
+              <p className="text-center text-xs text-gray-600 mt-3">
+                ¿Dudas? Elegí "Tengo otra respuesta" y contanos cómo seguir.
+              </p>
+            </>
           ) : (
-            <div className="flex flex-col gap-3">
-              {/* Nivel 1 — CTA principal, baja fricción al sí */}
-              <button onClick={aprobar} disabled={estado === 'aprobando'}
-                className="w-full py-4 rounded-xl text-white font-bold text-base flex flex-col items-center justify-center gap-0.5 disabled:opacity-60 transition-all"
-                style={{ background: GREEN, boxShadow: '0 6px 18px rgba(22,163,74,0.32)' }}>
-                <span className="flex items-center gap-2">
-                  {estado === 'aprobando'
-                    ? <Loader2 size={17} className="animate-spin" />
-                    : <CheckCircle2 size={17} />}
-                  {estado === 'aprobando' ? 'Procesando...' : 'QUIERO AVANZAR'}
-                </span>
-                <span className="text-green-200 text-xs font-normal">
-                  Acepto la proforma y los términos y condiciones
-                </span>
-              </button>
-
-              {/* Nivel 2 — respuesta matizada, secundario pero visible */}
-              <button onClick={() => setEstado('menu')}
-                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border-2 border-amber-400 bg-amber-50 text-amber-800 hover:border-amber-500 hover:bg-amber-100 transition-all">
-                Todavía no / Tengo otra respuesta
-                <ChevronRight size={16} className="text-amber-500" />
-              </button>
+            <div className="rounded-xl px-4 py-3 text-sm text-gray-600 bg-gray-50 border border-gray-200 text-center">
+              Esta es una revisión anterior. Para aprobar o responder, mirá la propuesta vigente (arriba).
             </div>
           )}
 
-          <p className="text-center text-xs text-gray-600 mt-3">
-            ¿Dudas? Elegí "Tengo otra respuesta" y contanos cómo seguir.
-          </p>
+          {/* Ver historial / descargar — siempre disponibles */}
+          <div className="flex flex-wrap justify-center gap-2 mt-4 pt-4 border-t border-gray-100">
+            {pres.revision.es_ultima && pres.revisiones.length > 1 && (
+              <button onClick={verQueCambio} disabled={cargandoComparar}
+                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-60">
+                {cargandoComparar ? <Loader2 size={13} className="animate-spin" /> : <GitCompare size={13} />} Ver qué cambió
+              </button>
+            )}
+            <a href={`/p/${token}/imprimir`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50">
+              <Download size={13} /> Descargar PDF
+            </a>
+          </div>
         </div>
 
         {/* ── FOOTER ────────────────────────────────────────────────────── */}
@@ -1146,6 +1261,14 @@ export function VistaPublicaPresupuesto() {
           </div>
         </div>
       </div>
+    )}
+
+    {comparando && (
+      <ComparadorRevisiones
+        a={comparando.a} b={comparando.b} labelA={comparando.labelA} labelB={comparando.labelB}
+        numero={pres?.numero}
+        onClose={() => setComparando(null)}
+      />
     )}
     </>
   );

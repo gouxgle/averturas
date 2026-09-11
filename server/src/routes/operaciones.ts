@@ -30,27 +30,74 @@ async function visitaPendiente(operacionId: string): Promise<string | null> {
   return vt?.numero ?? 'sin generar';
 }
 
-// Token de acceso público (link de aprobación) — se reutiliza mientras siga vigente,
-// para que compartir por varios canales (WhatsApp, email, "Compartir" del listado) no
-// invalide el link recién mandado por otro canal. Solo se genera uno nuevo si todavía
-// no había, o si el presupuesto estaba rechazado (reabrir = arranque limpio).
-async function obtenerOCrearToken(id: string, op: { estado: string; token_acceso: string | null }): Promise<string> {
-  const necesitaNuevo = !op.token_acceso || op.estado === 'rechazado';
-  const token = necesitaNuevo
-    ? ((typeof crypto !== 'undefined' && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`)
-    : op.token_acceso;
+// Revisión enviada: cada vez que se comparte la proforma (link / WhatsApp / email)
+// se congela un snapshot con su propio token único. Se reutiliza la última revisión
+// mientras el contenido no haya cambiado (detectado por hash, no por updated_at —
+// aprobar/rechazar/responder pisan esa columna), para que compartir por varios
+// canales no invalide el link recién mandado por otro. Un rechazo fuerza revisión
+// nueva aunque el contenido coincida (reabrir = arranque limpio).
+interface RevisionResult { token: string; revision: number; nueva: boolean }
 
-  const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
-  // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
-  await db.query(
-    `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
-       respuesta_cliente = NULL, respuesta_cliente_at = NULL
-     WHERE id = $3`,
-    [token, estadoNuevo, id]
-  );
-  return token as string;
+async function obtenerOCrearRevision(
+  id: string, userId: string | null | undefined, canal: string
+): Promise<RevisionResult> {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    // Lock de fila: evita que dos envíos simultáneos (WhatsApp + email desde el
+    // mismo panel) generen dos revisiones con el mismo número.
+    const { rows: [op] } = await client.query(
+      `SELECT estado FROM operaciones WHERE id = $1 FOR UPDATE`, [id]
+    );
+    if (!op) throw new Error('Operación no encontrada');
+
+    const { rows: [{ snapshot, hash }] } = await client.query(
+      `SELECT proforma_snapshot($1) AS snapshot, proforma_hash(proforma_snapshot($1)) AS hash`, [id]
+    );
+
+    const { rows: [ultima] } = await client.query(
+      `SELECT revision, token, contenido_hash FROM operacion_revisiones
+       WHERE operacion_id = $1 ORDER BY revision DESC LIMIT 1`, [id]
+    );
+
+    // Sobre un presupuesto ya cerrado (aprobado/cancelado) no se crea revisión
+    // nueva: se devuelve la última que ya existe (o se falla si nunca se envió).
+    if (!['presupuesto', 'enviado', 'rechazado'].includes(op.estado)) {
+      if (!ultima) throw new Error(`No se puede compartir un presupuesto en estado "${op.estado}"`);
+      await client.query('COMMIT');
+      return { token: ultima.token, revision: ultima.revision, nueva: false };
+    }
+
+    let resultado: RevisionResult;
+    if (ultima && ultima.contenido_hash === hash && op.estado !== 'rechazado') {
+      resultado = { token: ultima.token, revision: ultima.revision, nueva: false };
+    } else {
+      const nextRevision = (ultima?.revision ?? 0) + 1;
+      const { rows: [creada] } = await client.query(
+        `INSERT INTO operacion_revisiones (operacion_id, revision, snapshot, contenido_hash, enviada_por, canal)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING token, revision`,
+        [id, nextRevision, snapshot, hash, userId ?? null, canal]
+      );
+      resultado = { token: creada.token, revision: creada.revision, nueva: true };
+    }
+
+    const estadoNuevo = op.estado === 'rechazado' ? 'enviado' : op.estado;
+    // Reenviar la proforma cierra cualquier respuesta intermedia pendiente (ej. "pidió modificar")
+    await client.query(
+      `UPDATE operaciones SET token_acceso = $1, token_acceso_at = now(), estado = $2,
+         respuesta_cliente = NULL, respuesta_cliente_at = NULL
+       WHERE id = $3`,
+      [resultado.token, estadoNuevo, id]
+    );
+
+    await client.query('COMMIT');
+    return resultado;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // Mensaje de presupuesto/aprobación — misma plantilla (editable en Configuración)
@@ -746,21 +793,32 @@ operaciones.post('/:id/generar-link', async (c) => {
     return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente} antes de compartir este presupuesto` }, 409);
   }
 
-  const token = await obtenerOCrearToken(id, op);
+  let rev: RevisionResult;
+  try {
+    rev = await obtenerOCrearRevision(id, user?.id, 'link');
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'No se pudo generar el link' }, 409);
+  }
+  const { token, revision, nueva } = rev;
 
   // Interacción CRM automática
   const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
   db.query(
-    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
-     VALUES ($1, 'proforma_enviada', $2, $3)`,
-    [op.cliente_id, `Proforma ${proformaNumero} enviada por link de aprobación`, user?.id ?? null]
+    `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
+     VALUES ($1, $2, 'proforma_enviada', $3, $4)`,
+    [op.cliente_id, id, `Proforma ${proformaNumero} enviada por link de aprobación (Rev. ${revision})`, user?.id ?? null]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+  registrarActividad(c, {
+    entidad: 'presupuesto', entidad_id: id, entidad_numero: op.numero,
+    accion: 'enviar', detalle: `Link de aprobación generado — Rev. ${revision}${nueva ? '' : ' (mismo link, sin cambios)'}`,
+    meta: { revision, canal: 'link', nueva },
+  });
 
   if (!process.env.APP_URL) {
     console.error('[config] APP_URL no configurada — el link público puede no funcionar');
   }
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-  return c.json({ token, url: `${appUrl}/p/${token}` });
+  return c.json({ token, url: `${appUrl}/p/${token}`, revision, nueva });
 });
 
 // POST /:id/enviar-whatsapp — genera token y envía mensaje via Evolution API
@@ -799,7 +857,13 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     numero = `549${digits}`;
   }
 
-  const token = await obtenerOCrearToken(id, op);
+  let rev: RevisionResult;
+  try {
+    rev = await obtenerOCrearRevision(id, user?.id, 'whatsapp');
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'No se pudo generar el link' }, 409);
+  }
+  const { token, revision, nueva } = rev;
 
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const url = `${appUrl}/p/${token}`;
@@ -846,14 +910,19 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
 
   // Interacción CRM
   db.query(
-    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
-     VALUES ($1, 'proforma_enviada', $2, $3)`,
-    [op.cliente_id, `Proforma ${proformaNumero} enviada por WhatsApp (${numero})`, user?.id ?? null]
+    `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
+     VALUES ($1, $2, 'proforma_enviada', $3, $4)`,
+    [op.cliente_id, id, `Proforma ${proformaNumero} enviada por WhatsApp (${numero}) — Rev. ${revision}`, user?.id ?? null]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+  registrarActividad(c, {
+    entidad: 'presupuesto', entidad_id: id, entidad_numero: op.numero,
+    accion: 'enviar', detalle: `Enviada por WhatsApp — Rev. ${revision}${nueva ? '' : ' (mismo link, sin cambios)'}`,
+    meta: { revision, canal: 'whatsapp', nueva },
+  });
 
   await db.query(`UPDATE operaciones SET enviado_wa_at = now() WHERE id = $1`, [id]);
 
-  return c.json({ enviado: true, numero, url });
+  return c.json({ enviado: true, numero, url, revision, nueva });
 });
 
 // POST /:id/enviar-email — genera token y envía la proforma por email (Resend)
@@ -883,7 +952,13 @@ operaciones.post('/:id/enviar-email', async (c) => {
   const emailCliente: string | null = op.email;
   if (!emailCliente) return c.json({ error: 'El cliente no tiene email registrado' }, 422);
 
-  const token = await obtenerOCrearToken(id, op);
+  let rev: RevisionResult;
+  try {
+    rev = await obtenerOCrearRevision(id, user?.id, 'email');
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'No se pudo generar el link' }, 409);
+  }
+  const { token, revision, nueva } = rev;
 
   const appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const url = `${appUrl}/p/${token}`;
@@ -914,12 +989,17 @@ operaciones.post('/:id/enviar-email', async (c) => {
   }
 
   db.query(
-    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
-     VALUES ($1, 'proforma_enviada', $2, $3)`,
-    [op.cliente_id, `Proforma ${proformaNumero} enviada por email (${emailCliente})`, user?.id ?? null]
+    `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
+     VALUES ($1, $2, 'proforma_enviada', $3, $4)`,
+    [op.cliente_id, id, `Proforma ${proformaNumero} enviada por email (${emailCliente}) — Rev. ${revision}`, user?.id ?? null]
   ).catch(err => console.error('[crm] Error al registrar interacción:', err));
+  registrarActividad(c, {
+    entidad: 'presupuesto', entidad_id: id, entidad_numero: op.numero,
+    accion: 'enviar', detalle: `Enviada por email — Rev. ${revision}${nueva ? '' : ' (mismo link, sin cambios)'}`,
+    meta: { revision, canal: 'email', nueva },
+  });
 
-  return c.json({ enviado: true, email: emailCliente, url });
+  return c.json({ enviado: true, email: emailCliente, url, revision, nueva });
 });
 
 // POST /:id/avisar-cliente — avisa al cliente que su operación está lista para entrega
@@ -1175,7 +1255,7 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
 operaciones.get('/:id', async (c) => {
   const { id } = c.req.param();
 
-  const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }, versiones] = await Promise.all([
+  const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }, versiones, revisionVigente] = await Promise.all([
     db.query(`
       SELECT o.*,
         COALESCE((
@@ -1275,15 +1355,58 @@ operaciones.get('/:id', async (c) => {
              MAX(created_at) FILTER (WHERE origen = 'cliente') AS ultima_cliente_at
       FROM operacion_versiones WHERE operacion_id = $1
     `, [id]),
+    // Última revisión ENVIADA (link/WhatsApp/email) y si coincide con el estado vivo
+    // — si no coincide, se editó después del último envío y hay que reenviar.
+    db.query(`
+      SELECT revision, token, enviada_at,
+        (contenido_hash = proforma_hash(proforma_snapshot($1))) AS coincide_con_vivo
+      FROM operacion_revisiones WHERE operacion_id = $1
+      ORDER BY revision DESC LIMIT 1
+    `, [id]),
   ]);
 
   if (!op) return c.json({ error: 'Operación no encontrada' }, 404);
+  const rv = revisionVigente.rows[0];
   return c.json({
     ...op, items, historial, formas_pago_alternativas,
     version_count: versiones.rows[0]?.total ?? 0,
     modificaciones_cliente: versiones.rows[0]?.del_cliente ?? 0,
     ultima_revision_cliente_at: versiones.rows[0]?.ultima_cliente_at ?? null,
+    revision_vigente: rv
+      ? { numero: rv.revision, token: rv.token, enviada_at: rv.enviada_at, coincide_con_vivo: rv.coincide_con_vivo }
+      : null,
   });
+});
+
+// GET /:id/revisiones — historial de envíos al cliente (Rev. 1, 2, 3...). A
+// diferencia de /versiones (ediciones internas), acá cada fila es un snapshot
+// congelado en el momento de un envío — es lo que el cliente efectivamente vio
+// en cada link. Se usa en el panel (RevisionesEnviadas) para listar y comparar.
+operaciones.get('/:id/revisiones', async (c) => {
+  const { id } = c.req.param();
+  const { rows } = await db.query(`
+    SELECT r.id, r.revision, r.token, r.enviada_at, r.canal, r.aprobada_at, r.rechazada_at,
+      u.nombre AS enviada_por_nombre,
+      (r.snapshot->>'precio_total')::numeric AS precio_total
+    FROM operacion_revisiones r
+    LEFT JOIN usuarios u ON u.id = r.enviada_por
+    WHERE r.operacion_id = $1
+    ORDER BY r.revision DESC
+  `, [id]);
+  return c.json(rows);
+});
+
+// GET /:id/revisiones/:n — snapshot completo de una revisión puntual, para
+// reconstruir el PDF de esa versión (ImprimirPresupuesto?revision=N) o para
+// alimentar el comparador desde el panel.
+operaciones.get('/:id/revisiones/:n', async (c) => {
+  const { id, n } = c.req.param();
+  const { rows: [rev] } = await db.query(`
+    SELECT revision, enviada_at, snapshot FROM operacion_revisiones
+    WHERE operacion_id = $1 AND revision = $2
+  `, [id, n]);
+  if (!rev) return c.json({ error: 'Revisión no encontrada' }, 404);
+  return c.json(rev);
 });
 
 // GET /:id/versiones — historial de ediciones (v1, v2, v3...). Cada versión es el

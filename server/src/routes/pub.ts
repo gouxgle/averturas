@@ -35,137 +35,134 @@ async function fetchCtxEmail(operacionId: string) {
   return row ?? null;
 }
 
-// GET /pub/presupuesto/:token — datos públicos del presupuesto
+// Resuelve un token de REVISIÓN (no de operación): busca en operacion_revisiones
+// y trae junto el estado vivo de la operación + si es la última revisión enviada.
+// Todo el link público gira alrededor de esto — ver plan de versionado.
+interface RevisionRow {
+  revision_id: string; operacion_id: string; revision: number; token: string;
+  snapshot: Record<string, unknown>; contenido_hash: string;
+  enviada_at: string; aprobada_at: string | null; rechazada_at: string | null;
+  cliente_id: string; numero: string;
+  estado_actual: string; aprobado_online_at: string | null;
+  es_ultima: boolean;
+}
+async function buscarRevision(token: string): Promise<RevisionRow | null> {
+  const { rows: [row] } = await db.query(`
+    SELECT r.id AS revision_id, r.operacion_id, r.revision, r.token, r.snapshot, r.contenido_hash,
+      r.enviada_at, r.aprobada_at, r.rechazada_at,
+      o.cliente_id, o.numero, o.estado AS estado_actual, o.aprobado_online_at,
+      (r.revision = (SELECT MAX(revision) FROM operacion_revisiones WHERE operacion_id = r.operacion_id)) AS es_ultima
+    FROM operacion_revisiones r
+    JOIN operaciones o ON o.id = r.operacion_id
+    WHERE r.token = $1
+  `, [token]);
+  return row ?? null;
+}
+
+// GET /pub/presupuesto/:token — datos públicos de una revisión (link único por envío)
 pub.get('/presupuesto/:token', async (c) => {
   const { token } = c.req.param();
+  const rev = await buscarRevision(token);
+  if (!rev) return c.json({ error: 'Link inválido o expirado' }, 404);
 
-  const { rows: [op] } = await db.query(`
-    SELECT
-      o.id, o.numero, o.estado, o.tipo, o.forma_pago, o.forma_envio,
-      o.costo_envio, o.tiempo_entrega, o.fecha_validez, o.notas,
-      o.precio_total, o.aprobado_online_at, o.token_acceso_at, o.created_at,
-      -- Cuántas veces se rehízo la proforma a pedido del cliente. Solo las de
-      -- origen 'cliente': las correcciones internas no se le muestran.
-      (SELECT COUNT(*)::int FROM operacion_versiones ov
-        WHERE ov.operacion_id = o.id AND ov.origen = 'cliente') AS modificaciones_cliente,
-      -- Fecha de la última revisión pedida por el cliente (para la línea de revisión).
-      (SELECT MAX(ov.created_at) FROM operacion_versiones ov
-        WHERE ov.operacion_id = o.id AND ov.origen = 'cliente') AS ultima_revision_cliente_at,
-      -- Visita de relevamiento que originó este presupuesto, si fue cobrada: se le
-      -- muestra al cliente como aviso de que ese importe se toma a cuenta del total
-      -- (ver leyenda en el front). Mismo subquery que GET /operaciones/:id (uso interno).
-      (
-        SELECT json_build_object(
-          'id', vt.id, 'numero', vt.numero, 'cobro_estado', vt.cobro_estado,
-          'costo_cobrado', vt.costo_cobrado)
-        FROM visitas_tecnicas vt
-        WHERE vt.operacion_id = o.id
-        ORDER BY vt.created_at DESC LIMIT 1
-      ) AS visita_tecnica,
-      json_build_object(
-        'nombre',        cl.nombre,
-        'apellido',      cl.apellido,
-        'razon_social',  cl.razon_social,
-        'tipo_persona',  cl.tipo_persona,
-        'documento_nro', cl.documento_nro,
-        'telefono',      cl.telefono,
-        'email',         cl.email,
-        'direccion',     cl.direccion,
-        'localidad',     cl.localidad
-      ) AS cliente,
-      json_build_object(
-        'nombre',       e.nombre,
-        'cuit',         e.cuit,
-        'telefono',     e.telefono,
-        'email',        e.email,
-        'direccion',    e.direccion,
-        'logo_url',     e.logo_url,
-        'instagram',    e.instagram,
-        'terminos_url', e.terminos_url
-      ) AS empresa
-    FROM operaciones o
-    JOIN clientes cl ON cl.id = o.cliente_id
-    CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
-    WHERE o.token_acceso = $1
-      AND (o.token_expira_at IS NULL OR o.token_expira_at > now())
-  `, [token]);
+  const { rows: [empresa] } = await db.query(`
+    SELECT nombre, cuit, telefono, email, direccion, logo_url, instagram, terminos_url
+    FROM empresa LIMIT 1
+  `);
 
-  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
+  const { rows: revisiones } = await db.query(`
+    SELECT revision AS numero, token, enviada_at FROM operacion_revisiones
+    WHERE operacion_id = $1 ORDER BY revision ASC
+  `, [rev.operacion_id]);
+  const ultima = revisiones[revisiones.length - 1];
 
-  const { rows: items } = await db.query(`
-    SELECT
-      oi.descripcion, oi.cantidad, oi.precio_unitario, oi.precio_lista,
-      oi.precio_instalacion, oi.incluye_instalacion, oi.color,
-      oi.medida_ancho, oi.medida_alto, oi.calculo_url, oi.tipo_item,
-      ta.nombre AS tipo_abertura_nombre,
-      si.nombre AS sistema_nombre,
-      cs.nombre AS servicio_nombre,
-      cp.imagen_url AS producto_imagen_url,
-      (oi.precio_unitario * oi.cantidad
-        + CASE WHEN oi.incluye_instalacion THEN oi.precio_instalacion * oi.cantidad ELSE 0 END
-      ) AS precio_total
-    FROM operacion_items oi
-    LEFT JOIN tipos_abertura    ta ON ta.id = oi.tipo_abertura_id
-    LEFT JOIN sistemas          si ON si.id = oi.sistema_id
-    LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
-    LEFT JOIN catalogo_servicios cs ON cs.id = oi.servicio_id
-    WHERE oi.operacion_id = $1
-    ORDER BY oi.orden, oi.id
-  `, [op.id]);
+  return c.json({
+    ...rev.snapshot,
+    empresa,
+    // El estado se sirve VIVO — pisa el que trae el snapshot (congelado al enviar).
+    estado: rev.estado_actual,
+    aprobado_online_at: rev.aprobado_online_at,
+    revision: {
+      numero: rev.revision, enviada_at: rev.enviada_at, es_ultima: rev.es_ultima,
+      aprobada_at: rev.aprobada_at, rechazada_at: rev.rechazada_at,
+    },
+    ultima_revision: ultima ? { numero: ultima.numero, token: ultima.token, enviada_at: ultima.enviada_at } : null,
+    revisiones,
+  });
+});
 
-  const { rows: formas_pago_alternativas } = await db.query(`
-    SELECT nombre, descuento_pct FROM operacion_formas_pago
-    WHERE operacion_id = $1
-    ORDER BY orden
-  `, [op.id]);
+// GET /pub/presupuesto/:token/revisiones/:n — snapshot de otra revisión de la
+// MISMA operación, para el comparador del cliente. 404 si "n" es de otra operación.
+pub.get('/presupuesto/:token/revisiones/:n', async (c) => {
+  const { token, n } = c.req.param();
+  const rev = await buscarRevision(token);
+  if (!rev) return c.json({ error: 'Link inválido o expirado' }, 404);
 
-  return c.json({ ...op, items, formas_pago_alternativas });
+  const { rows: [otra] } = await db.query(`
+    SELECT revision, enviada_at, snapshot FROM operacion_revisiones
+    WHERE operacion_id = $1 AND revision = $2
+  `, [rev.operacion_id, n]);
+  if (!otra) return c.json({ error: 'Revisión no encontrada' }, 404);
+
+  return c.json(otra);
 });
 
 // POST /pub/presupuesto/:token/aprobar — aprobación por el cliente
 pub.post('/presupuesto/:token/aprobar', async (c) => {
   const { token } = c.req.param();
+  const rev = await buscarRevision(token);
+  if (!rev) return c.json({ error: 'Link inválido o expirado' }, 404);
 
-  const { rows: [op] } = await db.query(
-    `SELECT id, estado FROM operaciones
-     WHERE token_acceso = $1
-       AND (token_expira_at IS NULL OR token_expira_at > now())`,
-    [token]
-  );
-
-  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
-
-  if (op.estado === 'aprobado') {
+  if (rev.estado_actual === 'aprobado') {
     return c.json({ ok: true, ya_aprobado: true });
   }
 
-  if (!['presupuesto', 'enviado'].includes(op.estado)) {
-    return c.json({ error: `No se puede aprobar un presupuesto en estado "${op.estado}"` }, 400);
+  if (!rev.es_ultima) {
+    const { rows: [ultima] } = await db.query(
+      `SELECT token FROM operacion_revisiones WHERE operacion_id=$1 ORDER BY revision DESC LIMIT 1`,
+      [rev.operacion_id]
+    );
+    return c.json({ error: 'Hay una propuesta más nueva. Pedí el link actualizado.', ultima_token: ultima?.token }, 409);
+  }
+
+  if (!['presupuesto', 'enviado'].includes(rev.estado_actual)) {
+    return c.json({ error: `No se puede aprobar un presupuesto en estado "${rev.estado_actual}"` }, 400);
+  }
+
+  // El admin pudo haber editado sin reenviar: lo que el cliente ve (congelado en
+  // esta revisión) puede ya no coincidir con la operación viva. Sin este chequeo
+  // el cliente aprobaría algo que nunca llegó a ver.
+  const { rows: [{ hash: hashVivo }] } = await db.query(
+    `SELECT proforma_hash(proforma_snapshot($1)) AS hash`, [rev.operacion_id]
+  );
+  if (hashVivo !== rev.contenido_hash) {
+    return c.json({ error: 'Esta propuesta fue actualizada. Pedí el link nuevo antes de aprobar.' }, 409);
   }
 
   await db.query(
     `UPDATE operaciones
      SET estado = 'aprobado', aprobado_online_at = now(), notif_leida = false, updated_at = now()
      WHERE id = $1`,
-    [op.id]
+    [rev.operacion_id]
   );
+  await db.query(`UPDATE operacion_revisiones SET aprobada_at = now() WHERE id = $1`, [rev.revision_id]);
 
   // Reserva de stock: un movimiento 'reserva' por cada item con producto_id
   db.query(`
     SELECT oi.producto_id, oi.cantidad
     FROM operacion_items oi
     WHERE oi.operacion_id = $1 AND oi.producto_id IS NOT NULL AND oi.cantidad > 0
-  `, [op.id]).then(async ({ rows: items }) => {
+  `, [rev.operacion_id]).then(async ({ rows: items }) => {
     for (const item of items) {
       await db.query(`
         INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, operacion_id)
         VALUES ($1, 'reserva', $2, 'Proforma aprobada', $3)
-      `, [item.producto_id, -Math.abs(item.cantidad), op.id]);
+      `, [item.producto_id, -Math.abs(item.cantidad), rev.operacion_id]);
     }
   }).catch(err => console.error('[stock] Error al crear reserva:', err));
 
   // Emails (fire and forget)
-  fetchCtxEmail(op.id).then(ctx => {
+  fetchCtxEmail(rev.operacion_id).then(ctx => {
     if (!ctx) return;
     const clienteNombre = ctx.tipo_persona === 'juridica'
       ? (ctx.razon_social ?? '')
@@ -197,21 +194,23 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
   const { token } = c.req.param();
   const { motivo, comentario } = await c.req.json().catch(() => ({})) as any;
 
-  const { rows: [op] } = await db.query(
-    `SELECT id, estado, cliente_id, numero FROM operaciones
-     WHERE token_acceso = $1
-       AND (token_expira_at IS NULL OR token_expira_at > now())`,
-    [token]
-  );
+  const rev = await buscarRevision(token);
+  if (!rev) return c.json({ error: 'Link inválido o expirado' }, 404);
 
-  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
-
-  if (op.estado === 'aprobado') {
+  if (rev.estado_actual === 'aprobado') {
     return c.json({ error: 'Este presupuesto ya fue aprobado y no puede rechazarse' }, 400);
   }
 
-  if (op.estado === 'rechazado') {
+  if (rev.estado_actual === 'rechazado') {
     return c.json({ ok: true, ya_rechazado: true });
+  }
+
+  if (!rev.es_ultima) {
+    const { rows: [ultima] } = await db.query(
+      `SELECT token FROM operacion_revisiones WHERE operacion_id=$1 ORDER BY revision DESC LIMIT 1`,
+      [rev.operacion_id]
+    );
+    return c.json({ error: 'Hay una propuesta más nueva. Pedí el link actualizado.', ultima_token: ultima?.token }, 409);
   }
 
   await db.query(
@@ -221,23 +220,24 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
          comentario_rechazo = $2,
          updated_at         = now()
      WHERE id = $3`,
-    [motivo || null, comentario || null, op.id]
+    [motivo || null, comentario || null, rev.operacion_id]
   );
+  await db.query(`UPDATE operacion_revisiones SET rechazada_at = now() WHERE id = $1`, [rev.revision_id]);
 
   // Deja la devolución en el historial del cliente — sin esto, el motivo de
   // rechazo solo quedaba en la operación y no aparecía en el timeline.
-  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  const proformaNumero = rev.numero.replace(/^OP-/, 'PRO-');
   const partesRechazo: string[] = [`Rechazó la proforma ${proformaNumero}`];
   if (motivo)     partesRechazo.push(`Motivo: ${motivo}`);
   if (comentario) partesRechazo.push(`Comentario: ${comentario}`);
   db.query(
     `INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by)
      VALUES ($1, $2, 'respuesta_proforma', $3, NULL)`,
-    [op.cliente_id, op.id, partesRechazo.join('. ')]
+    [rev.cliente_id, rev.operacion_id, partesRechazo.join('. ')]
   ).catch(err => console.error('[crm] Error al registrar interacción de rechazo:', err));
 
   // Emails (fire and forget)
-  fetchCtxEmail(op.id).then(ctx => {
+  fetchCtxEmail(rev.operacion_id).then(ctx => {
     if (!ctx) return;
     const clienteNombre = ctx.tipo_persona === 'juridica'
       ? (ctx.razon_social ?? '')
@@ -297,17 +297,19 @@ pub.post('/presupuesto/:token/responder', async (c) => {
     return c.json({ error: 'Tipo de respuesta inválido' }, 400);
   }
 
-  const { rows: [op] } = await db.query(
-    `SELECT id, cliente_id, estado, numero FROM operaciones
-     WHERE token_acceso = $1
-       AND (token_expira_at IS NULL OR token_expira_at > now())`,
-    [token]
-  );
-
-  if (!op) return c.json({ error: 'Link inválido o expirado' }, 404);
-  if (['aprobado', 'rechazado', 'cancelado'].includes(op.estado)) {
-    return c.json({ error: `La proforma está en estado "${op.estado}" y no admite esta respuesta` }, 400);
+  const rev = await buscarRevision(token);
+  if (!rev) return c.json({ error: 'Link inválido o expirado' }, 404);
+  if (['aprobado', 'rechazado', 'cancelado'].includes(rev.estado_actual)) {
+    return c.json({ error: `La proforma está en estado "${rev.estado_actual}" y no admite esta respuesta` }, 400);
   }
+  if (!rev.es_ultima) {
+    const { rows: [ultima] } = await db.query(
+      `SELECT token FROM operacion_revisiones WHERE operacion_id=$1 ORDER BY revision DESC LIMIT 1`,
+      [rev.operacion_id]
+    );
+    return c.json({ error: 'Hay una propuesta más nueva. Pedí el link actualizado.', ultima_token: ultima?.token }, 409);
+  }
+  const op = { id: rev.operacion_id, cliente_id: rev.cliente_id };
 
   // Marca la intención sin tocar estado_operacion; enciende la campanita
   await db.query(
@@ -318,7 +320,7 @@ pub.post('/presupuesto/:token/responder', async (c) => {
   );
 
   // Descripción legible para la interacción (timeline del cliente)
-  const proformaNumero = (op.numero as string).replace(/^OP-/, 'PRO-');
+  const proformaNumero = rev.numero.replace(/^OP-/, 'PRO-');
   const partes: string[] = [`${RESPUESTA_LABEL[tipo]} — Proforma ${proformaNumero}`];
   if (motivo)              partes.push(`Motivo: ${motivo}`);
   if (cambios.length)      partes.push(`Cambios pedidos: ${cambios.join(', ')}`);

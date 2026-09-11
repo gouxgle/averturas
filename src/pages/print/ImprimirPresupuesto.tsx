@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Printer, X } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -58,7 +58,7 @@ const CONFIG_HOJAS_LABEL: Record<string, string> = {
   '2_hojas': '2 hojas', '3_hojas': '3 hojas', '4_hojas': '4 hojas',
 };
 
-interface Empresa {
+export interface Empresa {
   nombre: string; cuit: string | null; telefono: string | null;
   email: string | null; direccion: string | null; logo_url: string | null;
   instagram: string | null; terminos_url: string | null;
@@ -78,16 +78,15 @@ interface Item {
   calculo_url: string | null;
   tipo_item?: 'estandar' | 'a_medida' | 'servicio';
 }
-interface Operacion {
+export interface Operacion {
   id: string; numero: string; tipo: string; estado: string;
   forma_pago: string | null; tiempo_entrega: number | null;
   fecha_validez: string | null; notas: string | null;
   precio_total: number; created_at: string;
   forma_envio: string | null; costo_envio: number | null;
-  /** Ediciones hechas a pedido del cliente (no cuenta las correcciones internas). */
-  modificaciones_cliente?: number;
-  /** Fecha de la última revisión pedida por el cliente. */
-  ultima_revision_cliente_at?: string | null;
+  /** Última revisión ENVIADA al cliente y si coincide con el estado vivo —
+   *  presente solo cuando se carga el estado vivo (sin ?revision=N). */
+  revision_vigente?: { numero: number; enviada_at: string; coincide_con_vivo: boolean } | null;
   visita_tecnica?: { id: string; numero: string; cobro_estado: string; costo_cobrado: number | null } | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
@@ -96,6 +95,24 @@ interface Operacion {
   };
   items: Item[];
   formas_pago_alternativas?: { nombre: string; descuento_pct: number }[];
+}
+
+// Línea "Revisión" del encabezado — resuelve las tres variantes: se está viendo
+// exactamente lo último que se envió, se editó después de enviar (borrador), o
+// nunca se envió. Misma lógica para el PDF de una revisión vieja (?revision=N)
+// y para el estado vivo (revision_vigente que trae GET /operaciones/:id).
+type RevisionLinea =
+  | { tipo: 'enviada'; numero: number; fecha: string }
+  | { tipo: 'borrador_editado'; numero: number; fecha: string }
+  | { tipo: 'borrador_no_enviada' };
+
+function revisionLineaDe(op: Operacion, revisionFijada: { numero: number; enviada_at: string } | null): RevisionLinea {
+  if (revisionFijada) return { tipo: 'enviada', numero: revisionFijada.numero, fecha: revisionFijada.enviada_at };
+  const rv = op.revision_vigente;
+  if (!rv) return { tipo: 'borrador_no_enviada' };
+  return rv.coincide_con_vivo
+    ? { tipo: 'enviada', numero: rv.numero, fecha: rv.enviada_at }
+    : { tipo: 'borrador_editado', numero: rv.numero, fecha: rv.enviada_at };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -127,32 +144,16 @@ const tdStyle = (align: 'left'|'center'|'right' = 'left', top = true): React.CSS
   borderBottom: '1px solid #f0f0f0',
 });
 
-export function ImprimirPresupuesto() {
-  const { id } = useParams<{ id: string }>();
-  const [empresa, setEmpresa] = useState<Empresa | null>(null);
-  const [op, setOp]           = useState<Operacion | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!id) return;
-    Promise.all([
-      api.get<Empresa>('/empresa'),
-      api.get<Operacion>(`/operaciones/${id}`),
-    ]).then(([e, o]) => { setEmpresa(e); setOp(o); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [id]);
-
-  if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#aaa', fontFamily:'Arial' }}>
-      Cargando...
-    </div>
-  );
-  if (!op) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#aaa', fontFamily:'Arial' }}>
-      No encontrado
-    </div>
-  );
-
+// Render puro del documento — lo consumen el loader autenticado (ImprimirPresupuesto,
+// más abajo) y el loader público (ImprimirPresupuestoPublico.tsx), cada uno resolviendo
+// `op`/`empresa` a su manera (uno vía /operaciones/:id, el otro vía /pub/presupuesto/:token).
+// `revisionFijada` es la revisión que se está reconstruyendo (?revision=N o un link
+// público de una revisión vieja); si es null se usa `op.revision_vigente` (estado vivo).
+export function ProformaDocumento({ op, empresa, revisionFijada = null }: {
+  op: Operacion;
+  empresa: Empresa | null;
+  revisionFijada?: { numero: number; enviada_at: string } | null;
+}) {
   const c = op.cliente;
   const clienteNombre = c.tipo_persona === 'juridica'
     ? (c.razon_social ?? '—')
@@ -310,19 +311,20 @@ export function ImprimirPresupuesto() {
                   🚚 <span>Entrega: {op.tiempo_entrega} días hábiles</span>
                 </div>
               )}
-              {/* Línea de revisión — siempre visible. Solo cuenta las ediciones
-                  marcadas como pedido del cliente; las correcciones internas no. */}
+              {/* Línea de revisión — distingue lo que efectivamente se envió (y sigue
+                  vigente) de un borrador editado después del último envío. */}
               <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
                 ✏️ <span>
-                  {(op.modificaciones_cliente ?? 0) > 0 ? (
-                    <>
-                      <strong>Revisión N° {(op.modificaciones_cliente ?? 0) + 1}</strong>
-                      {' — '}{op.modificaciones_cliente} modificación{op.modificaciones_cliente !== 1 ? 'es' : ''} a pedido del cliente
-                      {op.ultima_revision_cliente_at ? ` · ${fmtFecha(op.ultima_revision_cliente_at)}` : ''}
-                    </>
-                  ) : (
-                    <><strong>Versión original</strong>{' — '}sin modificaciones a pedido del cliente</>
-                  )}
+                  {(() => {
+                    const rl = revisionLineaDe(op, revisionFijada);
+                    if (rl.tipo === 'enviada') return (
+                      <><strong>Revisión N° {rl.numero}</strong>{' — '}enviada el {fmtFecha(rl.fecha)}</>
+                    );
+                    if (rl.tipo === 'borrador_editado') return (
+                      <><strong style={{ color: RED }}>Borrador — cambios sin enviar</strong>{' — '}última enviada: Rev. {rl.numero} ({fmtFecha(rl.fecha)})</>
+                    );
+                    return <><strong>Borrador</strong>{' — '}todavía no se envió al cliente</>;
+                  })()}
                 </span>
               </div>
             </div>
@@ -712,4 +714,41 @@ export function ImprimirPresupuesto() {
       </div>
     </>
   );
+}
+
+// Loader autenticado: /imprimir/presupuesto/:id — estado vivo, o una revisión
+// puntual con ?revision=N (reconstruida desde el snapshot congelado al enviarla).
+export function ImprimirPresupuesto() {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const revisionParam = searchParams.get('revision');
+  const [empresa, setEmpresa]     = useState<Empresa | null>(null);
+  const [op, setOp]               = useState<Operacion | null>(null);
+  const [revisionFijada, setRevisionFijada] = useState<{ numero: number; enviada_at: string } | null>(null);
+  const [loading, setLoading]     = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    const opPromise = revisionParam
+      ? api.get<{ revision: number; enviada_at: string; snapshot: Operacion }>(`/operaciones/${id}/revisiones/${revisionParam}`)
+          .then(r => { setRevisionFijada({ numero: r.revision, enviada_at: r.enviada_at }); return r.snapshot; })
+      : api.get<Operacion>(`/operaciones/${id}`);
+    Promise.all([api.get<Empresa>('/empresa'), opPromise])
+      .then(([e, o]) => { setEmpresa(e); setOp(o); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [id, revisionParam]);
+
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#aaa', fontFamily:'Arial' }}>
+      Cargando...
+    </div>
+  );
+  if (!op) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#aaa', fontFamily:'Arial' }}>
+      No encontrado
+    </div>
+  );
+
+  return <ProformaDocumento op={op} empresa={empresa} revisionFijada={revisionFijada} />;
 }

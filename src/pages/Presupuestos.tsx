@@ -18,6 +18,7 @@ import { toastApiError } from '@/lib/apiError';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 import type { Oportunidad } from '@/components/oportunidades/types';
 import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
+import { RevisionesEnviadas } from '@/components/RevisionesEnviadas';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,9 @@ interface OpDetalle {
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; created_at: string; updated_at: string;
   forma_envio: string | null; costo_envio: number;
+  /** Última revisión ENVIADA al cliente y si coincide con el estado vivo — si no
+   *  coincide, se editó después del último envío y conviene reenviar. */
+  revision_vigente: { numero: number; token: string; enviada_at: string; coincide_con_vivo: boolean } | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
     tipo_persona: string; telefono: string | null; email: string | null;
@@ -295,6 +299,7 @@ function PresupuestoModal({
   const [cambiando, setCambiando]         = useState(false);
   const [resolviendo, setResolviendo]     = useState(false);
   const [linkUrl, setLinkUrl]             = useState<string | null>(null);
+  const [linkRevision, setLinkRevision]   = useState<{ numero: number; nueva: boolean } | null>(null);
   const [generandoLink, setGenerandoLink] = useState(false);
   const [enviandoWA, setEnviandoWA]       = useState(false);
   const [enviandoEmail, setEnviandoEmail] = useState(false);
@@ -455,8 +460,14 @@ function PresupuestoModal({
     }
     setGenerandoLink(true);
     try {
-      const { url } = await api.post<{ token: string; url: string }>(`/operaciones/${id}/generar-link`, {});
+      const { url, revision, nueva } = await api.post<{ token: string; url: string; revision: number; nueva: boolean }>(
+        `/operaciones/${id}/generar-link`, {}
+      );
       setLinkUrl(url);
+      setLinkRevision({ numero: revision, nueva });
+      onRefresh();
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo generar el link' });
     } finally { setGenerandoLink(false); }
   }
 
@@ -464,10 +475,11 @@ function PresupuestoModal({
     if (!op) return;
     setEnviandoWA(true);
     try {
-      const res = await api.post<{ enviado: boolean; numero: string; url: string }>(
+      const res = await api.post<{ enviado: boolean; numero: string; url: string; revision: number; nueva: boolean }>(
         `/operaciones/${id}/enviar-whatsapp`, {}
       );
       setLinkUrl(res.url);
+      setLinkRevision({ numero: res.revision, nueva: res.nueva });
       setOp(prev => prev ? { ...prev, enviado_wa_at: new Date().toISOString() } : prev);
       onRefresh();
       toast.success(`Mensaje enviado al ${res.numero}`);
@@ -482,10 +494,11 @@ function PresupuestoModal({
     if (!op) return;
     setEnviandoEmail(true);
     try {
-      const res = await api.post<{ enviado: boolean; email: string; url: string }>(
+      const res = await api.post<{ enviado: boolean; email: string; url: string; revision: number; nueva: boolean }>(
         `/operaciones/${id}/enviar-email`, {}
       );
       setLinkUrl(res.url);
+      setLinkRevision({ numero: res.revision, nueva: res.nueva });
       onRefresh();
       toast.success(`Presupuesto enviado a ${res.email}`);
     } catch (e) {
@@ -569,6 +582,12 @@ function PresupuestoModal({
                     {vtPendiente ? `Esperando relevamiento — ${vtPendiente.numero}` : 'Ítems pendientes de relevar'}
                   </span>
                 )}
+                {op?.revision_vigente && !op.revision_vigente.coincide_con_vivo && (
+                  <span title="Se editó después del último envío — el cliente todavía ve la versión anterior en su link"
+                    className="text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                    Editado después de la Rev. {op.revision_vigente.numero} — reenviar
+                  </span>
+                )}
               </div>
               {op && <p className="text-xs text-gray-600 mt-0.5">{formatDate(op.created_at)}</p>}
             </div>
@@ -621,7 +640,10 @@ function PresupuestoModal({
         {linkUrl && (
           <div className="mx-5 mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-2.5">
             <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
-              <Check size={12} className="text-emerald-600" /> Link de aprobación listo
+              <Check size={12} className="text-emerald-600" />
+              {linkRevision
+                ? `Link de aprobación listo — Rev. ${linkRevision.numero}${linkRevision.nueva ? '' : ' (mismo link, sin cambios)'}`
+                : 'Link de aprobación listo'}
             </p>
             {/* URL (solo referencia, sin copiar) */}
             <input readOnly value={linkUrl}
@@ -640,7 +662,9 @@ function PresupuestoModal({
                 {enviandoEmail ? 'Enviando...' : 'Enviar por email'}
               </button>
             )}
-            <p className="text-[10px] text-emerald-700 text-center">El link regenerado invalida el anterior</p>
+            <p className="text-[10px] text-emerald-700 text-center">
+              Si editás y volvés a compartir se genera un link nuevo — los anteriores siguen visibles para el cliente
+            </p>
           </div>
         )}
 
@@ -761,6 +785,7 @@ function PresupuestoModal({
               </div>
             </div>
 
+            <RevisionesEnviadas operacionId={op.id} numero={op.numero} />
             <VersionesPresupuesto operacionId={op.id} numero={op.numero} />
 
             <div className="px-5 py-4 space-y-2">
