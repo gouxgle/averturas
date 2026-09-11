@@ -175,6 +175,38 @@ export function VistaPublicaRemito() {
     no_conforme:       { icon: '✕', titulo: 'NO RECIBÍ CORRECTAMENTE',  subtitulo: 'Faltan productos o hay problemas',            bg: '#fef2f2', border: RED,       color: RED      },
   };
 
+  // Datos derivados por ítem, calculados una sola vez y usados tanto en las
+  // tarjetas de mobile como en la tabla de desktop (ver TABLA/TARJETAS ITEMS).
+  const filasItems = remito.items.map(item => {
+    const attr = item.producto_atributos ?? {};
+    const hojasNum = attr.hojas ? `${attr.hojas} hojas` : null;
+    const hojasConfig = attr.config_hojas ? (CONFIG_HOJAS_LABEL[attr.config_hojas as string] ?? String(attr.config_hojas)) : null;
+    const hojas = hojasNum ?? hojasConfig;
+    const mosquitero = attrBool(attr.mosquitero);
+    const reja = attrBool(attr.reja);
+    const diseno = attr.diseno ? String(attr.diseno) : null;
+
+    const detalle: string[] = [];
+    if (hojas)               detalle.push(hojas);
+    if (mosquitero !== null) detalle.push(`Mosquitero: ${mosquitero ? 'Sí' : 'No'}`);
+    if (reja === true)       detalle.push('Reja: Sí');
+    if (diseno)              detalle.push(`Diseño: ${diseno}`);
+    if (item.premarco)       detalle.push('Premarco');
+
+    const medida = (item.medida_ancho || item.medida_alto)
+      ? `${item.medida_ancho ?? '—'}×${item.medida_alto ?? '—'}`
+      : '—';
+
+    const estadoProd = item.estado_producto ?? 'nuevo';
+    const estadoBadge = estadoProd === 'nuevo'
+      ? { label: 'Nuevo', bg: '#dcfce7', color: GREEN }
+      : estadoProd === 'bueno'
+        ? { label: 'Bueno', bg: '#dbeafe', color: '#2563eb' }
+        : { label: 'C/detalles', bg: '#fef3c7', color: '#d97706' };
+
+    return { item, medida, detalle, estadoBadge };
+  });
+
   return (
     <div style={{ fontFamily: 'Segoe UI, Arial, sans-serif', background: '#f3f4f6', minHeight: '100vh', paddingBottom: 40 }}>
 
@@ -289,8 +321,47 @@ export function VistaPublicaRemito() {
           </div>
         </div>
 
-        {/* TABLA ITEMS */}
-        <div style={{ background: 'white', overflowX: 'auto' }}>
+        {/* TARJETAS ITEMS — mobile. Misma tabla de 8 columnas que en desktop no
+            entra en 375px sin scroll horizontal lateral dentro de una fila
+            microscópica; acá cada ítem es su propia tarjeta apilada. */}
+        <div className="sm:hidden" style={{ background: 'white' }}>
+          {filasItems.map(({ item, medida, detalle, estadoBadge }, i) => (
+            <div key={i} style={{
+              display: 'flex', gap: 10, padding: '12px 16px',
+              borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? 'white' : '#fafafa',
+            }}>
+              {item.producto_imagen_url ? (
+                <img src={item.producto_imagen_url} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', flexShrink: 0 }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <div style={{ width: 52, height: 52, background: '#f3f4f6', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🪟</div>
+              )}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{i + 1}. {item.descripcion}</div>
+                  <div style={{
+                    flexShrink: 0, padding: '3px 10px', background: estadoBadge.bg, color: estadoBadge.color,
+                    fontSize: 10, fontWeight: 700, borderRadius: 14, whiteSpace: 'nowrap',
+                  }}>{estadoBadge.label}</div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', marginTop: 4, fontSize: 11, color: '#6b7280' }}>
+                  <span><strong style={{ color: '#374151' }}>Cant:</strong> {item.cantidad}</span>
+                  {medida !== '—' && <span><strong style={{ color: '#374151' }}>Medida:</strong> {medida}m</span>}
+                  {item.color && <span><strong style={{ color: '#374151' }}>Color:</strong> {item.color}</span>}
+                  {item.tipo_abertura_nombre && <span>Tipo: {item.tipo_abertura_nombre}</span>}
+                  {item.sistema_nombre && <span>Sistema: {item.sistema_nombre}</span>}
+                  {item.vidrio && <span>Vidrio: {item.vidrio}</span>}
+                </div>
+                {detalle.length > 0 && (
+                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.5 }}>{detalle.join(' · ')}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* TABLA ITEMS — desktop */}
+        <div className="hidden sm:block" style={{ background: 'white', overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: NAVY }}>
@@ -306,70 +377,42 @@ export function VistaPublicaRemito() {
               </tr>
             </thead>
             <tbody>
-              {remito.items.map((item, i) => {
-                const attr = item.producto_atributos ?? {};
-                const hojasNum = attr.hojas ? `${attr.hojas} hojas` : null;
-                const hojasConfig = attr.config_hojas ? (CONFIG_HOJAS_LABEL[attr.config_hojas as string] ?? String(attr.config_hojas)) : null;
-                const hojas = hojasNum ?? hojasConfig;
-                const mosquitero = attrBool(attr.mosquitero);
-                const reja = attrBool(attr.reja);
-                const diseno = attr.diseno ? String(attr.diseno) : null;
-
-                const detalle: string[] = [];
-                if (hojas)              detalle.push(hojas);
-                if (mosquitero !== null) detalle.push(`Mosquitero: ${mosquitero ? 'Sí' : 'No'}`);
-                if (reja === true)       detalle.push('Reja: Sí');
-                if (diseno)             detalle.push(`Diseño: ${diseno}`);
-                if (item.premarco)      detalle.push('Premarco');
-
-                const medida = (item.medida_ancho || item.medida_alto)
-                  ? `${item.medida_ancho ?? '—'}×${item.medida_alto ?? '—'}`
-                  : '—';
-
-                const estadoProd = item.estado_producto ?? 'nuevo';
-                const estadoBadge = estadoProd === 'nuevo'
-                  ? { label: 'Nuevo', bg: '#dcfce7', color: GREEN }
-                  : estadoProd === 'bueno'
-                    ? { label: 'Bueno', bg: '#dbeafe', color: '#2563eb' }
-                    : { label: 'C/detalles', bg: '#fef3c7', color: '#d97706' };
-
-                return (
-                  <tr key={i} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? 'white' : '#fafafa' }}>
-                    <td style={{ padding: '10px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#9ca3af' }}>{i + 1}</td>
-                    <td style={{ padding: '8px 6px', textAlign: 'center' }}>
-                      {item.producto_imagen_url ? (
-                        <img src={item.producto_imagen_url} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', display: 'block', margin: '0 auto' }}
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <div style={{ width: 52, height: 52, background: '#f3f4f6', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto' }}>🪟</div>
-                      )}
-                    </td>
-                    <td style={{ padding: '10px 10px' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{item.descripcion}</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px 10px' }}>
-                        {item.tipo_abertura_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Tipo: {item.tipo_abertura_nombre}</span>}
-                        {item.sistema_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Sistema: {item.sistema_nombre}</span>}
-                        {item.vidrio && <span style={{ fontSize: 11, color: '#6b7280' }}>Vidrio: {item.vidrio}</span>}
-                      </div>
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#374151' }}>{item.cantidad}</td>
-                    <td style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: '#374151', fontWeight: 600 }}>{medida}</td>
-                    <td style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: '#374151' }}>{item.color ?? '—'}</td>
-                    <td style={{ padding: '10px' }}>
-                      {detalle.length > 0 ? detalle.map((d, di) => (
-                        <div key={di} style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>{d}</div>
-                      )) : <span style={{ fontSize: 11, color: '#d1d5db' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
-                      <div style={{
-                        display: 'inline-block', padding: '3px 12px',
-                        background: estadoBadge.bg, color: estadoBadge.color,
-                        fontSize: 11, fontWeight: 700, borderRadius: 14,
-                      }}>{estadoBadge.label}</div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filasItems.map(({ item, medida, detalle, estadoBadge }, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                  <td style={{ padding: '10px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#9ca3af' }}>{i + 1}</td>
+                  <td style={{ padding: '8px 6px', textAlign: 'center' }}>
+                    {item.producto_imagen_url ? (
+                      <img src={item.producto_imagen_url} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', display: 'block', margin: '0 auto' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    ) : (
+                      <div style={{ width: 52, height: 52, background: '#f3f4f6', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, margin: '0 auto' }}>🪟</div>
+                    )}
+                  </td>
+                  <td style={{ padding: '10px 10px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{item.descripcion}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px 10px' }}>
+                      {item.tipo_abertura_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Tipo: {item.tipo_abertura_nombre}</span>}
+                      {item.sistema_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Sistema: {item.sistema_nombre}</span>}
+                      {item.vidrio && <span style={{ fontSize: 11, color: '#6b7280' }}>Vidrio: {item.vidrio}</span>}
+                    </div>
+                  </td>
+                  <td style={{ padding: '10px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#374151' }}>{item.cantidad}</td>
+                  <td style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: '#374151', fontWeight: 600 }}>{medida}</td>
+                  <td style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: '#374151' }}>{item.color ?? '—'}</td>
+                  <td style={{ padding: '10px' }}>
+                    {detalle.length > 0 ? detalle.map((d, di) => (
+                      <div key={di} style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>{d}</div>
+                    )) : <span style={{ fontSize: 11, color: '#d1d5db' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <div style={{
+                      display: 'inline-block', padding: '3px 12px',
+                      background: estadoBadge.bg, color: estadoBadge.color,
+                      fontSize: 11, fontWeight: 700, borderRadius: 14,
+                    }}>{estadoBadge.label}</div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

@@ -422,42 +422,32 @@ pub.get('/remito/:token', async (c) => {
 
   if (!rem) return c.json({ error: 'Link inválido o expirado' }, 404);
 
-  // Items: usa operacion_items (con specs completos) si hay operacion_id, sino remito_items
-  let items: unknown[];
-  if (rem.operacion_id) {
-    const { rows } = await db.query(`
-      SELECT
-        oi.orden, oi.descripcion, oi.cantidad, oi.color,
-        oi.medida_ancho, oi.medida_alto, oi.vidrio, oi.premarco,
-        oi.accesorios, oi.notas,
-        cp.atributos AS producto_atributos,
-        ta.nombre AS tipo_abertura_nombre,
-        si.nombre AS sistema_nombre,
-        cp.imagen_url AS producto_imagen_url
-      FROM operacion_items oi
-      LEFT JOIN tipos_abertura     ta ON ta.id = oi.tipo_abertura_id
-      LEFT JOIN sistemas           si ON si.id = oi.sistema_id
-      LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
-      WHERE oi.operacion_id = $1
-      ORDER BY oi.orden, oi.id
-    `, [rem.operacion_id]);
-    items = rows;
-  } else {
-    const { rows } = await db.query(`
-      SELECT
-        ri.descripcion, ri.cantidad, ri.estado_producto, ri.notas_item AS notas,
-        NULL AS medida_ancho, NULL AS medida_alto, NULL AS color,
-        NULL AS vidrio, false AS premarco, '{}' AS accesorios,
-        NULL AS tipo_abertura_nombre, NULL AS sistema_nombre,
-        cp.imagen_url AS producto_imagen_url,
-        NULL AS producto_atributos
-      FROM remito_items ri
-      LEFT JOIN catalogo_productos cp ON cp.id = ri.producto_id
-      WHERE ri.remito_id = $1
-      ORDER BY ri.id
-    `, [rem.id]);
-    items = rows;
-  }
+  // Los ítems del REMITO son la verdad de lo que se entrega — no los de la
+  // operación entera. Antes esto listaba TODOS los ítems del presupuesto
+  // (con su cantidad original) cuando el remito tenía operacion_id, así que
+  // en una entrega parcial el cliente veía mercadería que no estaba
+  // recibiendo (mismo bug que ya se había corregido en ImprimirRemito.tsx,
+  // pero solo ahí — esta ruta pública se quedó con la versión vieja).
+  // De la operación se toman solo los datos descriptivos que remito_items no
+  // guarda (medidas, color, vidrio, tipo, sistema, atributos, foto), vía el
+  // ítem de origen (`operacion_item_id`); si el renglón se cargó a mano,
+  // `oi` no matchea y solo quedan los datos propios de remito_items.
+  const { rows: items } = await db.query(`
+    SELECT
+      ri.descripcion, ri.cantidad, ri.estado_producto, ri.notas_item AS notas,
+      oi.color, oi.medida_ancho, oi.medida_alto, oi.vidrio, oi.premarco, oi.accesorios,
+      ta.nombre AS tipo_abertura_nombre,
+      si.nombre AS sistema_nombre,
+      cp.atributos  AS producto_atributos,
+      cp.imagen_url AS producto_imagen_url
+    FROM remito_items ri
+    LEFT JOIN operacion_items    oi ON oi.id = ri.operacion_item_id
+    LEFT JOIN tipos_abertura     ta ON ta.id = oi.tipo_abertura_id
+    LEFT JOIN sistemas           si ON si.id = oi.sistema_id
+    LEFT JOIN catalogo_productos cp ON cp.id = COALESCE(oi.producto_id, ri.producto_id)
+    WHERE ri.remito_id = $1
+    ORDER BY ri.id
+  `, [rem.id]);
 
   return c.json({ ...rem, items });
 });

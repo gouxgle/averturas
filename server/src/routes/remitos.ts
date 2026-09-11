@@ -479,48 +479,59 @@ remitos.get('/:id', async (c) => {
   return c.json({ ...remito, items });
 });
 
+// Entregas parciales: antes se rechazaba CUALQUIER segundo remito de la
+// operación, así que entregar una parte dejaba el resto sin forma de
+// entregarse nunca. Lo que hay que evitar es entregar dos veces el mismo
+// ítem, no que haya dos remitos — así que se valida por ítem, sumando lo que
+// ya está en OTROS remitos no cancelados (`excluirRemitoId` es el propio
+// remito cuando se está editando, para no contarse a sí mismo).
+// "Ya está" y no "ya fue entregado": el otro remito puede seguir en borrador,
+// nunca salió del local, así que decir "entregado" sería mentirle al usuario.
+async function validarNoSobreEntrega(
+  operacionId: string, items: { operacion_item_id?: string | null; cantidad?: number }[], excluirRemitoId?: string
+): Promise<string | null> {
+  const { rows: yaCubierto } = await db.query(`
+    SELECT ri.operacion_item_id, SUM(ri.cantidad)::int AS cubierto,
+           min(r.numero) AS remito
+    FROM remito_items ri
+    JOIN remitos r ON r.id = ri.remito_id
+    WHERE r.operacion_id = $1 AND r.estado != 'cancelado'
+      AND ri.operacion_item_id IS NOT NULL
+      AND r.id != COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+    GROUP BY ri.operacion_item_id
+  `, [operacionId, excluirRemitoId ?? null]);
+
+  if (!yaCubierto.length) return null;
+
+  const { rows: opItems } = await db.query(
+    `SELECT id, cantidad, descripcion FROM operacion_items WHERE operacion_id = $1`,
+    [operacionId]
+  );
+  const cant = new Map(opItems.map((o: { id: string; cantidad: number; descripcion: string }) => [o.id, o]));
+  const cubierto = new Map(yaCubierto.map((y: { operacion_item_id: string; cubierto: number; remito: string }) => [y.operacion_item_id, y]));
+
+  for (const item of items) {
+    const oid = item.operacion_item_id;
+    if (!oid) continue;                       // renglón cargado a mano: no se valida
+    const ya = cubierto.get(oid);
+    const op = cant.get(oid);
+    if (!ya || !op) continue;
+    if (ya.cubierto + (item.cantidad || 1) > op.cantidad) {
+      return `"${op.descripcion}" ya está en el remito ${ya.remito} (${ya.cubierto} de ${op.cantidad}). Sacalo de este remito o ajustá la cantidad.`;
+    }
+  }
+  return null;
+}
+
 // POST / — crear en borrador
 remitos.post('/', async (c) => {
   const user = c.get('user');
   const b = await validateBody(c, RemitoSchema);
   if (b instanceof Response) return b;
 
-  // Entregas parciales: antes se rechazaba CUALQUIER segundo remito de la
-  // operación, así que entregar una parte dejaba el resto sin forma de
-  // entregarse nunca. Lo que hay que evitar es entregar dos veces el mismo
-  // ítem, no que haya dos remitos — así que ahora se valida por ítem.
   if (b.operacion_id) {
-    const { rows: yaEntregado } = await db.query(`
-      SELECT ri.operacion_item_id, SUM(ri.cantidad)::int AS entregado,
-             min(r.numero) AS remito
-      FROM remito_items ri
-      JOIN remitos r ON r.id = ri.remito_id
-      WHERE r.operacion_id = $1 AND r.estado != 'cancelado'
-        AND ri.operacion_item_id IS NOT NULL
-      GROUP BY ri.operacion_item_id
-    `, [b.operacion_id]);
-
-    if (yaEntregado.length) {
-      const { rows: opItems } = await db.query(
-        `SELECT id, cantidad, descripcion FROM operacion_items WHERE operacion_id = $1`,
-        [b.operacion_id]
-      );
-      const cant = new Map(opItems.map((o: { id: string; cantidad: number; descripcion: string }) => [o.id, o]));
-      const cubierto = new Map(yaEntregado.map((y: { operacion_item_id: string; entregado: number; remito: string }) => [y.operacion_item_id, y]));
-
-      for (const item of b.items) {
-        const oid = item.operacion_item_id;
-        if (!oid) continue;                       // renglón cargado a mano: no se valida
-        const ya = cubierto.get(oid);
-        const op = cant.get(oid);
-        if (!ya || !op) continue;
-        if (ya.entregado + (item.cantidad || 1) > op.cantidad) {
-          return c.json({
-            error: `"${op.descripcion}" ya fue entregado en el remito ${ya.remito} (${ya.entregado} de ${op.cantidad}). Sacalo de este remito o ajustá la cantidad.`
-          }, 409);
-        }
-      }
-    }
+    const error = await validarNoSobreEntrega(b.operacion_id, b.items);
+    if (error) return c.json({ error }, 409);
   }
 
   const numero = await nextNumero();
@@ -590,6 +601,11 @@ remitos.put('/:id', async (c) => {
   const { rows: [actual] } = await db.query(`SELECT estado FROM remitos WHERE id=$1`, [id]);
   if (!actual)                    return c.json({ error: 'Remito no encontrado' }, 404);
   if (actual.estado !== 'borrador') return c.json({ error: 'Solo se puede editar un remito en borrador' }, 409);
+
+  if (b.operacion_id) {
+    const error = await validarNoSobreEntrega(b.operacion_id, b.items ?? [], id);
+    if (error) return c.json({ error }, 409);
+  }
 
   const client = await db.connect();
   try {

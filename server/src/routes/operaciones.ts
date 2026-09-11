@@ -372,6 +372,38 @@ operaciones.post('/upload-calculo', async (c) => {
   return c.json({ url: `/uploads/calculos/${filename}` });
 });
 
+// Predicado SQL: ¿se entregó TODO lo de la operación? Antes el tablero (y este
+// mismo filtro `sin_remito`) miraban solo si existía algún remito activo, así
+// que una entrega parcial mandaba la operación entera a "Entregadas"/"ya tiene
+// remito" y lo pendiente desaparecía del circuito. Ahora se compara, ítem por
+// ítem, lo entregado contra lo vendido.
+//
+// Los remitos viejos no tienen el vínculo remito_items.operacion_item_id (se
+// agregó en 20260910000008 y el backfill no siempre puede resolverlo). Para esos
+// se mantiene el criterio anterior — remito activo = entregado — y así no
+// reaparecen operaciones históricas ya cerradas.
+const ENTREGA_COMPLETA = `(
+  EXISTS (SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado != 'cancelado')
+  AND (
+    EXISTS (
+      SELECT 1 FROM remitos r
+      JOIN remito_items ri ON ri.remito_id = r.id
+      WHERE r.operacion_id = o.id AND r.estado != 'cancelado'
+        AND ri.operacion_item_id IS NULL
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM operacion_items oi
+      WHERE oi.operacion_id = o.id
+        AND COALESCE((
+          SELECT SUM(ri.cantidad) FROM remito_items ri
+          JOIN remitos r2 ON r2.id = ri.remito_id
+          WHERE r2.operacion_id = o.id AND r2.estado != 'cancelado'
+            AND ri.operacion_item_id = oi.id
+        ), 0) < oi.cantidad
+    )
+  )
+)`;
+
 operaciones.get('/', async (c) => {
   const estado     = c.req.query('estado');
   const estados    = c.req.query('estados');    // comma-separated
@@ -401,13 +433,14 @@ operaciones.get('/', async (c) => {
     where += ` AND o.cliente_id = $${params.length}`;
   }
 
-  // Excluir operaciones que ya tienen un remito activo (no cancelado)
+  // Excluir operaciones ya entregadas del todo — no "que tengan cualquier
+  // remito", porque una entrega parcial también tiene un remito activo y
+  // necesita poder elegirse de nuevo para el remito que falta (ver
+  // ENTREGA_COMPLETA arriba; antes de este fix, la primera entrega parcial
+  // hacía desaparecer la operación de este selector para siempre).
   const sinRemito = c.req.query('sin_remito') === '1';
   if (sinRemito) {
-    where += ` AND NOT EXISTS (
-      SELECT 1 FROM remitos r
-      WHERE r.operacion_id = o.id AND r.estado NOT IN ('cancelado')
-    )`;
+    where += ` AND NOT ${ENTREGA_COMPLETA}`;
   }
 
   const { rows } = await db.query(`
@@ -429,42 +462,6 @@ operaciones.get('/', async (c) => {
 
   return c.json(rows);
 });
-
-// Predicado SQL: la operación `o` tiene TODOS sus ítems cubiertos por stock propio
-// (cada ítem con producto_id y stock_actual >= cantidad, y al menos 1 ítem).
-// Una op así no necesita pedido al proveedor: se cumple directo desde stock.
-// Los ítems de servicio nunca se piden al proveedor (se resuelven con mano de obra) —
-// no cuentan como "pendientes", siempre se consideran resueltos a este efecto.
-// ¿Se entregó TODO lo de la operación? Antes el tablero miraba solo si existía
-// algún remito activo, así que una entrega parcial mandaba la operación entera a
-// "Entregadas" y lo pendiente desaparecía del circuito. Ahora se compara, ítem
-// por ítem, lo entregado contra lo vendido.
-//
-// Los remitos viejos no tienen el vínculo remito_items.operacion_item_id (se
-// agregó en 20260910000008 y el backfill no siempre puede resolverlo). Para esos
-// se mantiene el criterio anterior — remito activo = entregado — y así no
-// reaparecen operaciones históricas ya cerradas.
-const ENTREGA_COMPLETA = `(
-  EXISTS (SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado != 'cancelado')
-  AND (
-    EXISTS (
-      SELECT 1 FROM remitos r
-      JOIN remito_items ri ON ri.remito_id = r.id
-      WHERE r.operacion_id = o.id AND r.estado != 'cancelado'
-        AND ri.operacion_item_id IS NULL
-    )
-    OR NOT EXISTS (
-      SELECT 1 FROM operacion_items oi
-      WHERE oi.operacion_id = o.id
-        AND COALESCE((
-          SELECT SUM(ri.cantidad) FROM remito_items ri
-          JOIN remitos r2 ON r2.id = ri.remito_id
-          WHERE r2.operacion_id = o.id AND r2.estado != 'cancelado'
-            AND ri.operacion_item_id = oi.id
-        ), 0) < oi.cantidad
-    )
-  )
-)`;
 
 const STOCK_CUBRE_TODO = `(
   EXISTS (SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id)
@@ -1327,7 +1324,15 @@ operaciones.get('/:id', async (c) => {
           (COALESCE(cp.stock_inicial,0) + COALESCE((
             SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
           ),0))::int
-          ELSE NULL END AS stock_actual
+          ELSE NULL END AS stock_actual,
+        -- Cuánto de este ítem ya salió en remitos no cancelados — lo que necesita
+        -- NuevoRemito.tsx para no volver a ofrecer la cantidad completa en una
+        -- segunda entrega parcial (ver ENTREGA_COMPLETA, mismo criterio).
+        COALESCE((
+          SELECT SUM(ri.cantidad) FROM remito_items ri
+          JOIN remitos r2 ON r2.id = ri.remito_id
+          WHERE r2.estado != 'cancelado' AND ri.operacion_item_id = oi.id
+        ), 0)::int AS cantidad_entregada
       FROM operacion_items oi
       LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = oi.sistema_id

@@ -1,0 +1,5 @@
+-- Changelog: Entregas parciales de remitos: corregidas de punta a punta
+INSERT INTO changelog_cambios (fecha, titulo, descripcion, categoria) VALUES
+  (CURRENT_DATE, 'Entregas parciales de remitos: corregidas de punta a punta', 'El selector de operación en Nuevo remito ocultaba cualquier operación que ya tuviera un remito, aunque fuera parcial — hacía imposible crear el remito con el resto de lo vendido. El link público que recibe el cliente mostraba todos los ítems del presupuesto con su cantidad original en vez de solo lo que va en ese remito. Y al editar un remito borrador no se validaba que la nueva cantidad no superara lo vendido. Ahora el panel de ítems muestra cuánto ya salió y cuánto queda pendiente por ítem, el link del cliente muestra exactamente lo que corresponde a ese envío, y la vista pública se ve en tarjetas en el celular en vez de una tabla angosta.', 'fix');
+
+INSERT INTO schema_migrations (filename) VALUES ('20260911000002_changelog_entregas_parciales_de_remitos_corregidas.sql') ON CONFLICT DO NOTHING;

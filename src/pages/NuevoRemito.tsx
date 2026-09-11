@@ -32,6 +32,9 @@ interface OpItem {
   medida_ancho: number | null;
   medida_alto: number | null;
   covered_by?: { pedido_id: string; pedido_numero: string } | null;
+  /** Cuánto de este ítem ya salió en OTROS remitos no cancelados — para no
+   *  volver a ofrecer la cantidad completa en una segunda entrega parcial. */
+  cantidad_entregada?: number;
 }
 
 interface Cliente {
@@ -207,8 +210,13 @@ export function NuevoRemito() {
       api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; total_descuentos: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
       api.get<Array<{ id: string; numero: string; estado: string; proveedor: { nombre: string } }>>(`/pedidos?operacion_id=${operacionId}`),
     ]).then(([op, peds]) => {
-      setOpItems(op.items ?? []);
-      setSelectedOp(new Set((op.items ?? []).map((_, i) => i)));
+      const itemsOp = op.items ?? [];
+      setOpItems(itemsOp);
+      // No preseleccionar lo que ya salió en otro remito — si no, la segunda
+      // entrega parcial vuelve a ofrecer la cantidad completa por defecto.
+      setSelectedOp(new Set(
+        itemsOp.flatMap((it, i) => (it.cantidad_entregada ?? 0) < it.cantidad ? [i] : [])
+      ));
       const saldo = Number(op.precio_total) - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0);
       setSaldoPendiente(saldo > 0.01 ? saldo : null);
       const sinRecibir = peds.filter(p => p.estado !== 'cancelado' && p.estado !== 'recibido');
@@ -263,6 +271,10 @@ export function NuevoRemito() {
     const nuevos: RemitoItem[] = seleccionados.map(it => {
       const med = it.medida_ancho && it.medida_alto
         ? ` (${it.medida_ancho}×${it.medida_alto}m)` : '';
+      // Si ya salió parte en otro remito, importar solo lo que falta — si no,
+      // una segunda entrega parcial vuelve a ofrecer la cantidad completa y el
+      // backend termina rechazándolo por sobre-entrega.
+      const pendiente = Math.max(1, it.cantidad - (it.cantidad_entregada ?? 0));
       return {
         // Se conservan las dos referencias del ítem original: el producto (sin él
         // la emisión no descuenta stock) y el ítem del presupuesto (sin él no se
@@ -270,7 +282,7 @@ export function NuevoRemito() {
         producto_id:    it.producto_id ?? '',
         operacion_item_id: it.id,
         descripcion:    it.descripcion + med,
-        cantidad:       it.cantidad,
+        cantidad:       pendiente,
         precio_unitario: String(it.precio_unitario || ''),
         estado_producto: 'nuevo',
         notas_item:     '',
@@ -623,66 +635,87 @@ export function NuevoRemito() {
                       <div className="flex items-center gap-2 text-xs text-gray-600 py-3">
                         <RefreshCw size={12} className="animate-spin" /> Cargando ítems...
                       </div>
-                    ) : opItems.length > 0 ? (
+                    ) : opItems.length > 0 ? (() => {
+                      const seleccionables = opItems.flatMap((it, i) =>
+                        (it.cantidad - (it.cantidad_entregada ?? 0)) > 0 ? [i] : []);
+                      return (
                       <div className="border border-gray-200 rounded-xl overflow-hidden">
                         {/* Header con seleccionar todos */}
                         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
                           <button
                             type="button"
                             onClick={() => {
-                              if (selectedOp.size === opItems.length) {
+                              if (selectedOp.size === seleccionables.length) {
                                 setSelectedOp(new Set());
                               } else {
-                                setSelectedOp(new Set(opItems.map((_, i) => i)));
+                                setSelectedOp(new Set(seleccionables));
                               }
                             }}
                             className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-teal-600 font-medium"
                           >
-                            {selectedOp.size === opItems.length
+                            {selectedOp.size === seleccionables.length
                               ? <CheckSquare size={13} className="text-teal-500" />
                               : <Square size={13} />
                             }
-                            {selectedOp.size === opItems.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                            {selectedOp.size === seleccionables.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
                           </button>
-                          <span className="text-[10px] text-gray-600">{selectedOp.size} de {opItems.length} seleccionados</span>
+                          <span className="text-[10px] text-gray-600">{selectedOp.size} de {seleccionables.length} seleccionados</span>
                         </div>
 
                         {/* Lista de ítems */}
-                        {opItems.map((it, i) => (
-                          <div
-                            key={i}
-                            onClick={() => setSelectedOp(prev => {
-                              const next = new Set(prev);
-                              next.has(i) ? next.delete(i) : next.add(i);
-                              return next;
-                            })}
-                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b border-gray-200 last:border-0 transition-colors ${
-                              selectedOp.has(i) ? 'bg-teal-50/60' : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            {selectedOp.has(i)
-                              ? <CheckSquare size={14} className="text-teal-500 shrink-0" />
-                              : <Square size={14} className="text-gray-600 shrink-0" />
-                            }
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-800 truncate">{it.descripcion}</p>
-                              {it.medida_ancho && it.medida_alto && (
-                                <p className="text-[10px] text-gray-600">{it.medida_ancho}×{it.medida_alto}m</p>
-                              )}
+                        {opItems.map((it, i) => {
+                          const entregado = it.cantidad_entregada ?? 0;
+                          const pendiente = it.cantidad - entregado;
+                          const agotado = pendiente <= 0;
+                          return (
+                            <div
+                              key={i}
+                              onClick={() => {
+                                if (agotado) return;
+                                setSelectedOp(prev => {
+                                  const next = new Set(prev);
+                                  next.has(i) ? next.delete(i) : next.add(i);
+                                  return next;
+                                });
+                              }}
+                              className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-200 last:border-0 transition-colors ${
+                                agotado ? 'opacity-50 cursor-not-allowed'
+                                  : `cursor-pointer ${selectedOp.has(i) ? 'bg-teal-50/60' : 'hover:bg-gray-50'}`
+                              }`}
+                            >
+                              {agotado
+                                ? <CheckSquare size={14} className="text-gray-600 shrink-0" />
+                                : selectedOp.has(i)
+                                  ? <CheckSquare size={14} className="text-teal-500 shrink-0" />
+                                  : <Square size={14} className="text-gray-600 shrink-0" />
+                              }
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-gray-800 truncate">{it.descripcion}</p>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                  {it.medida_ancho && it.medida_alto && (
+                                    <p className="text-[10px] text-gray-600">{it.medida_ancho}×{it.medida_alto}m</p>
+                                  )}
+                                  {agotado ? (
+                                    <span className="text-[10px] font-semibold text-emerald-600">Ya entregado ({entregado} de {it.cantidad})</span>
+                                  ) : entregado > 0 ? (
+                                    <span className="text-[10px] font-semibold text-amber-600">Entregado {entregado} de {it.cantidad} — pendiente {pendiente}</span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs font-semibold text-gray-700">×{agotado ? it.cantidad : pendiente}</p>
+                                {it.precio_unitario > 0 && (
+                                  <p className="text-[10px] text-gray-600">${Number(it.precio_unitario).toLocaleString('es-AR')}</p>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-xs font-semibold text-gray-700">×{it.cantidad}</p>
-                              {it.precio_unitario > 0 && (
-                                <p className="text-[10px] text-gray-600">${Number(it.precio_unitario).toLocaleString('es-AR')}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
                         {/* Botón importar */}
                         <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                           <p className="text-[10px] text-gray-600">
-                            {selectedOp.size === opItems.length ? 'Entrega total' : `Entrega parcial (${selectedOp.size} ítem${selectedOp.size !== 1 ? 's' : ''})`}
+                            {selectedOp.size === seleccionables.length ? 'Entrega total de lo pendiente' : `Entrega parcial (${selectedOp.size} ítem${selectedOp.size !== 1 ? 's' : ''})`}
                           </p>
                           <button
                             type="button"
@@ -694,7 +727,8 @@ export function NuevoRemito() {
                           </button>
                         </div>
                       </div>
-                    ) : (
+                      );
+                    })() : (
                       <p className="text-xs text-gray-600 italic">El presupuesto no tiene ítems</p>
                     )
                   )}
