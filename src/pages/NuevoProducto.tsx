@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
@@ -1333,9 +1333,14 @@ function MosquiteraAtributos({ atributos, setAttr, onColorChange, colorActual }:
 // ── Página principal ──────────────────────────────────────────
 export function NuevoProducto() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Nombre del producto del que se está sacando una copia (ver handleGuardarYDuplicar)
+  // — null cuando no se está en medio de un flujo de duplicado. Maneja el aviso que
+  // pide el usuario: dejar bien claro que se está trabajando sobre una copia.
+  const [copiaDeNombre, setCopiaDeNombre] = useState<string | null>(null);
 
   const [saving, setSaving]           = useState(false);
   const [uploadingImg, setUploadingImg] = useState(false);
@@ -1574,6 +1579,24 @@ export function NuevoProducto() {
     }
   }, [id, isEdit]);
 
+  // Duplicar desde la edición: handleGuardarYDuplicar ya creó la copia y navegó
+  // acá con los datos de la variante siguiente en location.state (ver más abajo).
+  // Depende de `location.key` (no de `[]`): react-router reusa la instancia de
+  // NuevoProducto al pasar de /productos/:id a /productos/nuevo porque ambas
+  // rutas cuelgan del mismo <Route> padre con el mismo componente — sin esto el
+  // efecto solo corre en el mount original (location.state todavía null) y la
+  // navegación posterior nunca lo vuelve a disparar.
+  useEffect(() => {
+    const state = location.state as {
+      duplicarForm?: typeof form; duplicarAtributos?: Atributos; duplicarNombreOriginal?: string;
+    } | null;
+    if (!state?.duplicarForm) return;
+    setForm(state.duplicarForm);
+    if (state.duplicarAtributos) setAtributos(state.duplicarAtributos);
+    setCopiaDeNombre(state.duplicarNombreOriginal ?? state.duplicarForm.nombre ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
+
   // "Otro..." se decide contra la lista configurable de materiales, que carga async
   // igual que el producto en edición (pueden resolver en cualquier orden). Solo actúa
   // con un material ya cargado: al elegir "Otro..." el campo queda vacío y este efecto
@@ -1799,7 +1822,15 @@ export function NuevoProducto() {
   // atributos, imágenes, precios...) por cada proveedor que también lo tiene, guarda
   // esta variante y deja el formulario tal cual — solo limpia proveedor/código/SKU,
   // que es lo único que cambia entre variantes. Siempre crea (POST), nunca pisa un
-  // producto existente — por eso solo se ofrece al cargar uno nuevo, no al editar.
+  // producto existente.
+  //
+  // Partiendo de una edición hace lo mismo (crea una copia con los datos actuales
+  // del formulario, incluidos cambios sin guardar) pero el producto que se estaba
+  // editando NO se toca — por eso no puede quedarse en la misma ruta /:id/editar:
+  // si el usuario después tocara "Guardar cambios" pisaría el original con el
+  // proveedor/código ya vacíos. Se navega a /productos/nuevo pasando el formulario
+  // por location.state (mismo patrón que CargarVisitaTecnica → NuevoPresupuesto)
+  // para que la copia siga el mismo flujo de alta que si hubiera arrancado ahí.
   async function handleGuardarYDuplicar() {
     if (!validarAntesDeGuardar()) return;
     setSaving(true);
@@ -1807,9 +1838,21 @@ export function NuevoProducto() {
       const payload = buildPayload();
       await api.post('/productos', payload);
       toast.success('Producto creado — elegí el proveedor y el código de la siguiente variante');
-      set('proveedor_id', '');
-      set('proveedor_sku', '');
-      set('codigo', '');
+      if (isEdit) {
+        navigate('/productos/nuevo', {
+          replace: true,
+          state: {
+            duplicarForm: { ...form, proveedor_id: '', proveedor_sku: '', codigo: '' },
+            duplicarAtributos: atributos,
+            duplicarNombreOriginal: form.nombre,
+          },
+        });
+      } else {
+        setCopiaDeNombre(form.nombre || null);
+        set('proveedor_id', '');
+        set('proveedor_sku', '');
+        set('codigo', '');
+      }
     } catch (e) {
       toastApiError(e, { fallback: 'Error al guardar el producto', labelCampo: campo => CAMPO_LABELS[campo] ?? campo });
     } finally {
@@ -1853,6 +1896,17 @@ export function NuevoProducto() {
           </button>
         </div>
       </div>
+
+      {/* Modo copia — bien visible arriba de todo mientras se completa la variante */}
+      {copiaDeNombre && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-violet-50 border border-violet-300 rounded-xl shadow-sm">
+          <Copy size={16} className="text-violet-600 shrink-0" />
+          <p className="text-sm text-violet-800">
+            <strong>Estás trabajando sobre una copia</strong> de "{copiaDeNombre}" — completá Proveedor y Código
+            para esta variante. El producto original no se modificó.
+          </p>
+        </div>
+      )}
 
       {/* Material — primer dato de la carga. Opciones configurables en Configuración → Materiales. */}
       <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
@@ -2687,24 +2741,34 @@ export function NuevoProducto() {
           className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-black hover:bg-gray-50">
           Cancelar
         </button>
-        {!isEdit && (
-          <button onClick={handleGuardarYDuplicar} disabled={saving}
-            title="Guarda este producto y deja los mismos datos cargados para agregar la variante del siguiente proveedor"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-60 rounded-lg text-sm font-semibold">
-            <Copy size={15} />
-            Guardar y cargar para otro proveedor
-          </button>
-        )}
+        <button onClick={handleGuardarYDuplicar} disabled={saving}
+          title={isEdit
+            ? 'Crea una copia de este producto con los datos actuales (incluidos cambios sin guardar) para cargar la variante de otro proveedor — este producto no se modifica'
+            : 'Guarda este producto y deja los mismos datos cargados para agregar la variante del siguiente proveedor'}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-60 rounded-lg text-sm font-semibold">
+          <Copy size={15} />
+          {isEdit ? 'Duplicar para otro proveedor' : 'Guardar y cargar para otro proveedor'}
+        </button>
         <button onClick={handleSave} disabled={saving}
           className="flex items-center justify-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold shadow-md">
           <Save size={15} />
           {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
         </button>
       </div>
-      {!isEdit && (
+      {copiaDeNombre ? (
+        <div className="flex items-start gap-2 -mt-2 px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-lg">
+          <Copy size={14} className="text-violet-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-violet-800">
+            <strong>Copia en progreso</strong> de "{copiaDeNombre}". Elegí Proveedor y Código para esta variante
+            y guardá — podés repetir "Guardar y cargar para otro proveedor" para sumar más variantes.
+          </p>
+        </div>
+      ) : (
         <p className="text-xs text-black -mt-2">
-          ¿El mismo producto lo tiene más de un proveedor? Usá "Guardar y cargar para otro proveedor" — guarda esta
-          variante y deja todo lo demás cargado, solo hay que cambiar Proveedor y Código.
+          ¿El mismo producto lo tiene más de un proveedor? Usá "{isEdit ? 'Duplicar para otro proveedor' : 'Guardar y cargar para otro proveedor'}"
+          {isEdit
+            ? ' — crea una copia de este producto (sin tocar el original) para cargar la variante de otro proveedor.'
+            : ' — guarda esta variante y deja todo lo demás cargado, solo hay que cambiar Proveedor y Código.'}
         </p>
       )}
 
