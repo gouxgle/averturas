@@ -202,7 +202,7 @@ export function ImprimirRemito() {
       <div className="doc max-w-[210mm] mx-auto mt-16 mb-8 shadow-xl" style={{ minHeight: '297mm', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── HEADER unificado ──────────────────────────────────────────── */}
-        <div style={{ padding: '22px 28px 18px', background: 'white' }}>
+        <div style={{ padding: '18px 28px 14px', background: 'white' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
 
             {/* Izquierda: logo + contacto */}
@@ -592,7 +592,7 @@ export function ImprimirRemito() {
 
         {/* TÉRMINOS Y CONDICIONES */}
         <div style={{
-          margin: '9px 16px 0', padding: '7px 12px',
+          margin: '6px 16px 0', padding: '6px 12px',
           border: '1px solid #e5e7eb', borderRadius: 8,
         }}>
           <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 4 }}>
@@ -606,8 +606,8 @@ export function ImprimirRemito() {
         </div>
 
         {/* Firma de la empresa — evita firmar cada remito a mano */}
-        <div style={{ margin: '9px 16px 0', textAlign: 'right' as const }}>
-          <img src="/firma.png" alt="Firma" style={{ height: 38, display: 'inline-block' }} />
+        <div style={{ margin: '6px 16px 0', textAlign: 'right' as const }}>
+          <img src="/firma.png" alt="Firma" style={{ height: 49, display: 'inline-block' }} />
           <div style={{ fontSize: 10, fontWeight: 700, color: NAVY, marginTop: 2 }}>
             {empresa?.nombre ?? 'César Brítez Aberturas'}
           </div>
@@ -616,7 +616,7 @@ export function ImprimirRemito() {
         {/* FOOTER unificado */}
         <div style={{
           marginTop: 'auto', background: 'white', borderTop: `2px solid ${NAVY}`,
-          padding: '10px 24px',
+          padding: '8px 24px',
           display: 'flex', justifyContent: 'center',
           flexWrap: 'wrap' as const, gap: '0 28px',
           fontSize: 10, color: NAVY, fontWeight: 600,
