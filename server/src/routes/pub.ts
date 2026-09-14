@@ -29,7 +29,7 @@ async function fetchCtxEmail(operacionId: string) {
       e.email    AS empresa_email
     FROM operaciones o
     JOIN clientes cl ON cl.id = o.cliente_id
-    CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
+    CROSS JOIN (SELECT * FROM empresa ORDER BY updated_at DESC LIMIT 1) e
     WHERE o.id = $1
   `, [operacionId]);
   return row ?? null;
@@ -67,7 +67,7 @@ pub.get('/presupuesto/:token', async (c) => {
 
   const { rows: [empresa] } = await db.query(`
     SELECT nombre, cuit, telefono, email, direccion, logo_url, instagram, terminos_url
-    FROM empresa LIMIT 1
+    FROM empresa ORDER BY updated_at DESC LIMIT 1
   `);
 
   const { rows: revisiones } = await db.query(`
@@ -416,7 +416,7 @@ pub.get('/remito/:token', async (c) => {
     FROM remitos r
     JOIN clientes cl ON cl.id = r.cliente_id
     LEFT JOIN operaciones op ON op.id = r.operacion_id
-    CROSS JOIN (SELECT * FROM empresa LIMIT 1) e
+    CROSS JOIN (SELECT * FROM empresa ORDER BY updated_at DESC LIMIT 1) e
     WHERE r.token_acceso = $1
   `, [token]);
 

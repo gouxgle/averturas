@@ -655,7 +655,7 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
       FROM recibo_items ri LEFT JOIN catalogo_productos p ON p.id = ri.producto_id
       WHERE ri.recibo_id = $1 ORDER BY ri.orden, ri.id
     `, [id]),
-    db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa LIMIT 1`),
+    db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa ORDER BY updated_at DESC LIMIT 1`),
   ]);
 
   if (!r) return c.json({ error: 'Recibo no encontrado' }, 404);

@@ -235,7 +235,7 @@ informes.get('/resumen', async (c) => {
     `, [desde, hasta]),
 
     // 13. Objetivo ventas mensual
-    db.query(`SELECT COALESCE(objetivo_ventas_mensual, 0)::numeric AS objetivo FROM empresa LIMIT 1`),
+    db.query(`SELECT COALESCE(objetivo_ventas_mensual, 0)::numeric AS objetivo FROM empresa ORDER BY updated_at DESC LIMIT 1`),
 
     // 14. Resumen descuentos del período
     db.query(`

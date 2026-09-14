@@ -536,7 +536,7 @@ clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
       WHERE cp.cliente_id = $1
       ORDER BY cp.fecha_vencimiento ASC, cp.created_at ASC
     `, [id]),
-    db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa LIMIT 1`),
+    db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa ORDER BY updated_at DESC LIMIT 1`),
   ]);
 
   if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
