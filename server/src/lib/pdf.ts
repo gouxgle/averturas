@@ -63,6 +63,8 @@ export interface ReciboPDF {
   cobrado_operacion: number;
   total_descuentos_operacion: number;
   compromiso: CompromisoPDF | null;
+  /** Última revisión enviada al cliente de la proforma vinculada, si tiene alguna. */
+  proforma_revision?: number | null;
 }
 
 function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
@@ -94,41 +96,27 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     firmaTag = `<img src="data:image/png;base64,${firmaData.toString('base64')}" alt="Firma" style="height:49px;display:block;margin:0 auto;">`;
   } catch { /* sin firma */ }
 
-  const tieneItems = recibo.items && recibo.items.length > 0;
   const montoDescuento = Number(recibo.monto_descuento ?? 0);
   const descuentoPct   = Number(recibo.descuento_pct   ?? 0);
   const montoLista     = Number(recibo.monto_lista     ?? recibo.monto_total);
   const totalDesc      = Number(recibo.total_descuentos_operacion ?? 0);
 
-  // Si los items suman mas que lo cobrado, el detalle describe QUE incluye el
-  // presupuesto (pago parcial), no el desglose de lo que se pago — hay que aclararlo
-  // o el cliente lee la tabla como si hubiera pagado esos importes.
-  // Mismo criterio que ImprimirRecibo.tsx: los dos disenos tienen que coincidir.
-  const totalItems = tieneItems ? recibo.items.reduce((s, i) => s + Number(i.monto), 0) : 0;
-  const detalleEsPresupuesto = tieneItems && totalItems > Number(recibo.monto_total) + 0.01;
-
-  const itemsHTML = tieneItems ? `
-    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;">${
-      detalleEsPresupuesto
-        ? `Detalle del presupuesto ${recibo.operacion?.numero ?? ''} (no es el desglose de este pago)`
-        : 'Detalle'
-    }</div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <thead>
-        <tr style="background:#f0f0f0;">
-          <th style="text-align:left;padding:7px 10px;font-size:11px;font-weight:600;color:#555;">Descripcion</th>
-          <th style="text-align:right;padding:7px 10px;font-size:11px;font-weight:600;color:#555;">Importe</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${recibo.items.map((item, i) => `
-          <tr style="background:${i % 2 === 0 ? 'white' : '#f8f9fa'};">
-            <td style="padding:7px 10px;font-size:13px;color:#333;border-bottom:1px solid #eee;">${item.descripcion}</td>
-            <td style="padding:7px 10px;font-size:13px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;">${fmt(Number(item.monto))}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+  // El recibo YA NO repite el desglose de productos del presupuesto (eso generaba
+  // confusion: una tabla de items que sumaba MAS que lo cobrado en un pago parcial,
+  // como si el cliente hubiera pagado esos importes). En su lugar referencia numero
+  // y revision de la proforma — el desglose se consulta ahi, no en el comprobante de
+  // pago. Mismo criterio que ImprimirRecibo.tsx: los dos disenos tienen que coincidir.
+  const proformaNumero = recibo.operacion?.numero ? recibo.operacion.numero.replace(/^OP-/, 'PRO-') : null;
+  const detalleProformaHTML = recibo.operacion ? `
+    <div style="margin-bottom:20px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Detalle de proforma</div>
+      <div style="font-size:13px;color:#333;">
+        <strong>${proformaNumero}</strong>${recibo.proforma_revision ? ` &mdash; Rev. ${recibo.proforma_revision}` : ''}
+      </div>
+      <div style="font-size:10.5px;color:#888;margin-top:4px;">
+        El detalle de productos y servicios esta en la proforma &mdash; este recibo certifica el pago, no lo repite.
+      </div>
+    </div>
   ` : '';
 
   // Detalle del relevamiento que se esta cobrando (sin acentos, igual que el resto del PDF server-side)
@@ -241,7 +229,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
       <div style="font-size:11px;color:#555;margin-top:10px;">
         <strong style="color:${NAVY};">Fecha:</strong> ${fmtFecha(recibo.fecha)}
       </div>
-      ${recibo.operacion ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. presupuesto: <strong style="color:${NAVY};">${recibo.operacion.numero}</strong></div>` : ''}
+      ${recibo.operacion ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. proforma: <strong style="color:${NAVY};">${proformaNumero}${recibo.proforma_revision ? ` (Rev. ${recibo.proforma_revision})` : ''}</strong></div>` : ''}
       ${recibo.remito    ? `<div style="font-size:11px;color:#555;margin-top:4px;">Ref. remito: <strong style="color:${NAVY};">${recibo.remito.numero}</strong></div>` : ''}
     </div>
   </div>
@@ -292,8 +280,8 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
   <!-- Visita tecnica -->
   ${visitaHTML}
 
-  <!-- Items -->
-  ${itemsHTML}
+  <!-- Detalle de proforma (referencia, sin desglose de items) -->
+  ${detalleProformaHTML}
 
   <!-- Bonificacion -->
   ${descuentoHTML}

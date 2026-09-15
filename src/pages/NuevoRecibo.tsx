@@ -320,12 +320,15 @@ export function NuevoRecibo() {
   // parcial" seleccionado el concepto arranca SIEMPRE con "Pago parcial", aunque el
   // monto tipeado alcance a cubrir el saldo — si no, escribir el importe completo
   // hacía que el concepto se contradijera con el modo elegido.
+  // "PRO-" y no "OP-": es el número que el cliente ve en la proforma. Usar el
+  // interno acá era justo la confusión que el recibo ahora evita repitiendo.
+  const proformaNumeroSel = operacionSel ? operacionSel.numero.replace(/^OP-/, 'PRO-') : '';
   const conceptoSugerido = operacionSel
     ? (tipoPago === 'total' && !huboCobrosPrevios
-        ? `Pago total presupuesto N° ${operacionSel.numero}`
+        ? `Pago total presupuesto N° ${proformaNumeroSel}`
         : cancelaSaldo
-          ? `Pago parcial — cancelación total de saldo presupuesto N° ${operacionSel.numero}`
-          : `Pago parcial presupuesto N° ${operacionSel.numero}`)
+          ? `Pago parcial — cancelación total de saldo presupuesto N° ${proformaNumeroSel}`
+          : `Pago parcial presupuesto N° ${proformaNumeroSel}`)
     : '';
 
   useEffect(() => {

@@ -42,6 +42,8 @@ interface ReciboData {
   descuento_pct:    number;
   monto_lista:      number;
   monto_descuento:  number;
+  /** Última revisión enviada al cliente de la proforma vinculada, si tiene alguna. */
+  proforma_revision: number | null;
 }
 
 const PAGO_LABEL: Record<string, string> = {
@@ -81,12 +83,11 @@ export function ImprimirRecibo() {
     ? (cl.razon_social ?? '—')
     : `${cl.apellido ?? ''} ${cl.nombre ?? ''}`.trim() || '—';
 
-  const tieneItems = recibo.items && recibo.items.length > 0;
-  // Si los ítems suman más que lo cobrado, el detalle describe QUÉ incluye el
-  // presupuesto (pago parcial), no el desglose de lo que se pagó. Sin aclararlo, un
-  // cliente puede leer la tabla como si hubiera pagado esos importes.
-  const totalItems = tieneItems ? recibo.items.reduce((s, i) => s + Number(i.monto), 0) : 0;
-  const detalleEsPresupuesto = tieneItems && totalItems > Number(recibo.monto_total) + 0.01;
+  // El recibo ya no repite el desglose de productos del presupuesto — eso generaba
+  // confusión: una tabla de ítems que sumaba MÁS que lo cobrado en un pago parcial,
+  // como si el cliente hubiera pagado esos importes. En su lugar referencia número
+  // y revisión de la proforma; el desglose se consulta ahí, no en el comprobante.
+  const proformaNumero = recibo.operacion?.numero.replace(/^OP-/, 'PRO-') ?? null;
 
   return (
     <>
@@ -169,7 +170,9 @@ export function ImprimirRecibo() {
               </div>
               {recibo.operacion && (
                 <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-                  🔗 Ref. presupuesto: <strong style={{ color: NAVY }}>{recibo.operacion.numero}</strong>
+                  🔗 Ref. proforma: <strong style={{ color: NAVY }}>
+                    {proformaNumero}{recibo.proforma_revision ? ` (Rev. ${recibo.proforma_revision})` : ''}
+                  </strong>
                 </div>
               )}
               {recibo.remito && (
@@ -276,35 +279,20 @@ export function ImprimirRecibo() {
           </div>
         )}
 
-        {/* Detalle de ítems si tiene */}
-        {tieneItems && (
-          <>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#555', marginBottom: 6 }}>
-            {detalleEsPresupuesto
-              ? `Detalle del presupuesto ${recibo.operacion?.numero ?? ''} (no es el desglose de este pago)`
-              : 'Detalle'}
+        {/* Detalle de proforma — referencia, no repite el desglose de ítems */}
+        {recibo.operacion && (
+          <div style={{ marginBottom: 20, padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 6, backgroundColor: '#f9fafb' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 4 }}>
+              Detalle de proforma
+            </div>
+            <div style={{ fontSize: 13, color: '#333' }}>
+              <strong>{proformaNumero}</strong>
+              {recibo.proforma_revision ? ` — Rev. ${recibo.proforma_revision}` : ''}
+            </div>
+            <div style={{ fontSize: 10.5, color: '#888', marginTop: 4 }}>
+              El detalle de productos y servicios está en la proforma — este recibo certifica el pago, no lo repite.
+            </div>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f0f0f0' }}>
-                <th style={{ textAlign: 'left', padding: '7px 10px', fontSize: 11, fontWeight: 600, color: '#555' }}>Descripción</th>
-                <th style={{ textAlign: 'right', padding: '7px 10px', fontSize: 11, fontWeight: 600, color: '#555' }}>Importe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recibo.items.map((item, i) => (
-                <tr key={item.id ?? i} style={{ backgroundColor: i % 2 === 0 ? 'white' : '#f8f9fa' }}>
-                  <td style={{ padding: '7px 10px', fontSize: 13, color: '#333', borderBottom: '1px solid #eee' }}>
-                    {item.descripcion}
-                  </td>
-                  <td style={{ padding: '7px 10px', fontSize: 13, textAlign: 'right', fontFamily: 'monospace', borderBottom: '1px solid #eee' }}>
-                    {fmt(Number(item.monto))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </>
         )}
 
         {/* Descuento aplicado */}

@@ -384,7 +384,10 @@ const RECIBO_DETALLE_SQL = `
     CASE WHEN vt.id IS NULL THEN NULL ELSE json_build_object(
       'id', vt.id, 'numero', vt.numero, 'fecha_visita', vt.fecha_visita,
       'cobro_estado', vt.cobro_estado) END AS visita_tecnica,
-    u.nombre AS created_by_nombre
+    u.nombre AS created_by_nombre,
+    -- Última revisión enviada al cliente de la proforma vinculada — el recibo ya
+    -- no repite el desglose de productos, solo referencia dónde consultarlo.
+    (SELECT MAX(revision) FROM operacion_revisiones WHERE operacion_id = r.operacion_id) AS proforma_revision
   FROM recibos r
   JOIN  clientes   cl ON cl.id = r.cliente_id
   LEFT JOIN operaciones op ON op.id = r.operacion_id
