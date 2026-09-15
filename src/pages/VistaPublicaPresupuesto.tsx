@@ -970,6 +970,15 @@ export function VistaPublicaPresupuesto() {
                   ya fue descontado del total de este presupuesto.
                 </div>
               )}
+              {/* Visita hecha sin cobrar: se explicita como bonificación para que el cliente
+                  vea el beneficio. 'pendiente' queda mudo a propósito — todavía puede cobrarse. */}
+              {pres.visita_tecnica?.cobro_estado === 'sin_cargo' && (
+                <div className="mt-2 px-2.5 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#ecfdf5', color: '#047857' }}>
+                  {Number(pres.visita_tecnica.costo_cobrado ?? 0) > 0
+                    ? <>Visita de relevamiento bonificada: su costo ({fmtM(Number(pres.visita_tecnica.costo_cobrado))}) no se cobró y no está incluido en este total.</>
+                    : <>Visita de relevamiento bonificada: se realizó sin cargo y no se suma a este total.</>}
+                </div>
+              )}
             </div>
             {/* Opción de pago siempre visible — se ofrece de entrada, sin depender de una
                 forma de pago elegida (la proforma ya no pregunta eso al cargarla). */}

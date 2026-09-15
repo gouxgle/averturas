@@ -566,6 +566,15 @@ export function ProformaDocumento({ op, empresa, revisionFijada = null }: {
                   ya fue descontado del total de este presupuesto.
                 </div>
               )}
+              {/* Visita hecha sin cobrar: se explicita como bonificación para que el cliente
+                  vea el beneficio. 'pendiente' queda mudo a propósito — todavía puede cobrarse. */}
+              {op.visita_tecnica?.cobro_estado === 'sin_cargo' && (
+                <div style={{ background: '#ecfdf5', color: '#047857', fontSize: 9.5, fontWeight: 600, borderRadius: 6, padding: '4px 8px', marginTop: 5, maxWidth: 260 }}>
+                  {Number(op.visita_tecnica.costo_cobrado ?? 0) > 0
+                    ? <>Visita de relevamiento bonificada: su costo ({fmtM(Number(op.visita_tecnica.costo_cobrado))}) no se cobró y no está incluido en este total.</>
+                    : <>Visita de relevamiento bonificada: se realizó sin cargo y no se suma a este total.</>}
+                </div>
+              )}
               {totalInstalacion > 0 && (
                 <div style={{ color: '#059669', fontSize: 10, fontWeight: 700, marginTop: 3 }}>
                   Incluye costo de traslado e instalación
