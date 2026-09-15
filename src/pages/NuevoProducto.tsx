@@ -122,7 +122,6 @@ const COLORES_PUERTA: Record<string, string[]> = {
   embutir:          ['Blanco', 'Negro', 'Natural'],
 };
 
-const VIDRIO_TIPO  = ['Transparente', 'Laminado', 'Doble vidrio (DVH)'];
 const VIDRIO_FMT   = ['Entero', '½ vidrio', '¼ vidrio'];
 const DISEÑO_HOJA  = ['Lisa', 'Repartida'];
 const CFG_ESTRUC   = ['Simple', 'Con lateral fijo'];
@@ -165,8 +164,6 @@ const CELOSIA_APERTURA = [
   { v: 'corrediza', l: 'Corrediza' },
   { v: 'de_abrir',  l: 'De abrir' },
 ];
-
-const VIDRIO_TIPO_VNT  = ['Transparente', 'Laminado', 'Doble vidrio'];
 
 const DISEÑO_VNT = [
   { v: 'entero',    l: 'Entero' },
@@ -296,12 +293,13 @@ function SectionDivider({ label }: { label: string }) {
 }
 
 // ── Sección puertas ───────────────────────────────────────────
-function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, colorActual }: {
+function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, colorActual, vidrios }: {
   atributos: Atributos;
   setAttr: (k: string, v: unknown) => void;
   onAnchoChange: (v: number | null) => void;
   onColorChange: (c: string) => void;
   colorActual: string;
+  vidrios: { id: string; nombre: string }[];
 }) {
   const tp          = atributos.tipo_puerta as string ?? '';
   const cfg         = atributos.config_hojas as string ?? '';
@@ -616,9 +614,9 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
               <>
                 <FieldCard title="Tipo de vidrio" complete={Boolean(atributos.vidrio_tipo)}>
                   <div className="flex flex-col gap-1.5">
-                    {VIDRIO_TIPO.map(v => (
-                      <button key={v} type="button" onClick={() => setAttr('vidrio_tipo', v)} className={btn(atributos.vidrio_tipo === v)}>
-                        {v}
+                    {vidrios.map(v => (
+                      <button key={v.id} type="button" onClick={() => setAttr('vidrio_tipo', v.nombre)} className={btn(atributos.vidrio_tipo === v.nombre)}>
+                        {v.nombre}
                       </button>
                     ))}
                   </div>
@@ -716,11 +714,12 @@ function PuertaAtributos({ atributos, setAttr, onAnchoChange, onColorChange, col
 }
 
 // ── Sección ventanas ─────────────────────────────────────────
-function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
+function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual, vidrios }: {
   atributos: Atributos;
   setAttr: (k: string, v: unknown) => void;
   onColorChange: (c: string) => void;
   colorActual: string;
+  vidrios: { id: string; nombre: string }[];
 }) {
   const tv          = atributos.tipo_ventana as string ?? '';
   const tieneHojas  = VENTANA_CON_HOJAS.has(tv);
@@ -858,9 +857,9 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
                 <p className="text-[10px] text-sky-600 font-semibold mb-2">Ventana con celosía: vidrio corredizo</p>
               )}
               <div className="flex flex-col gap-1.5">
-                {VIDRIO_TIPO_VNT.map(v => (
-                  <button key={v} type="button" onClick={() => setAttr('vidrio_tipo', v)} className={btn(atributos.vidrio_tipo === v)}>
-                    {v}
+                {vidrios.map(v => (
+                  <button key={v.id} type="button" onClick={() => setAttr('vidrio_tipo', v.nombre)} className={btn(atributos.vidrio_tipo === v.nombre)}>
+                    {v.nombre}
                   </button>
                 ))}
               </div>
@@ -977,11 +976,12 @@ function VentanaAtributos({ atributos, setAttr, onColorChange, colorActual }: {
 }
 
 // ── Sección puerta-balcón ─────────────────────────────────────
-function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual }: {
+function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual, vidrios }: {
   atributos: Atributos;
   setAttr: (k: string, v: unknown) => void;
   onColorChange: (c: string) => void;
   colorActual: string;
+  vidrios: { id: string; nombre: string }[];
 }) {
   const tv          = atributos.tipo_ventana as string ?? '';
   const tieneHojas  = VENTANA_CON_HOJAS.has(tv);
@@ -1111,9 +1111,9 @@ function PuertaBalconAtributos({ atributos, setAttr, onColorChange, colorActual 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldCard title="Tipo de vidrio" complete={Boolean(atributos.vidrio_tipo)}>
               <div className="flex flex-col gap-1.5">
-                {VIDRIO_TIPO_VNT.map(v => (
-                  <button key={v} type="button" onClick={() => setAttr('vidrio_tipo', v)} className={btn(atributos.vidrio_tipo === v)}>
-                    {v}
+                {vidrios.map(v => (
+                  <button key={v.id} type="button" onClick={() => setAttr('vidrio_tipo', v.nombre)} className={btn(atributos.vidrio_tipo === v.nombre)}>
+                    {v.nombre}
                   </button>
                 ))}
               </div>
@@ -1351,6 +1351,9 @@ export function NuevoProducto() {
   const [materiales, setMateriales]   = useState<{ id: string; nombre: string }[]>([]);
   // Línea COMERCIAL (marketing) — no confundir con `sistemas`, que es el sistema técnico.
   const [lineas, setLineas]           = useState<{ id: string; nombre: string }[]>([]);
+  // Tipo de vidrio — editable desde Configuración → Tipos de vidrio, reemplaza las
+  // 3 listas hardcodeadas que había antes (puerta/ventana/a medida).
+  const [vidrios, setVidrios]         = useState<{ id: string; nombre: string }[]>([]);
   const [categorias, setCategorias]   = useState<Categoria[]>([]);
   const [categoriaPath, setCategoriaPath] = useState<string[]>([]);
   const [modelos, setModelos]         = useState<CatalogoModelo[]>([]);
@@ -1507,7 +1510,8 @@ export function NuevoProducto() {
       api.get<CatalogoModelo[]>('/catalogo/modelos'),
       api.get<{ id: string; nombre: string }[]>('/catalogo/materiales'),
       api.get<{ id: string; nombre: string }[]>('/catalogo/lineas'),
-    ]).then(([ta, s, prov, col, cat, mod, mat, lin]) => {
+      api.get<{ id: string; nombre: string }[]>('/catalogo/vidrios'),
+    ]).then(([ta, s, prov, col, cat, mod, mat, lin, vid]) => {
       setTiposAbertura(ta);
       setSistemas(s);
       setProveedores(prov);
@@ -1516,6 +1520,7 @@ export function NuevoProducto() {
       setModelos(mod);
       setMateriales(mat);
       setLineas(lin);
+      setVidrios(vid);
     });
 
     if (isEdit && id) {
@@ -2096,6 +2101,7 @@ export function NuevoProducto() {
           onAnchoChange={v => set('ancho', v !== null ? String(v) : '')}
           onColorChange={c => set('color', c)}
           colorActual={form.color}
+          vidrios={vidrios}
         />
       )}
 
@@ -2140,6 +2146,7 @@ export function NuevoProducto() {
           setAttr={setAttr}
           onColorChange={c => set('color', c)}
           colorActual={form.color}
+          vidrios={vidrios}
         />
       )}
 
@@ -2150,6 +2157,7 @@ export function NuevoProducto() {
           setAttr={setAttr}
           onColorChange={c => set('color', c)}
           colorActual={form.color}
+          vidrios={vidrios}
         />
       )}
 
@@ -2310,8 +2318,8 @@ export function NuevoProducto() {
               <label className={labelCls}>Vidrio</label>
               <select value={form.vidrio} onChange={e => set('vidrio', e.target.value)} className={inputCls}>
                 <option value="">— Sin especificar —</option>
-                {['Transparente', 'Traslúcido', 'Laminado', 'DVH', 'Sin vidrio'].map(v =>
-                  <option key={v} value={v}>{v}</option>
+                {vidrios.map(v =>
+                  <option key={v.id} value={v.nombre}>{v.nombre}</option>
                 )}
               </select>
             </div>

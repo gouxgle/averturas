@@ -4,7 +4,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
 import {
-  TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, LineaSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
+  TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, LineaSchema, VidrioSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema, FormaPagoCatalogoSchema,
 } from '../lib/schemas.js';
 
@@ -376,6 +376,72 @@ catalogo.delete('/lineas/:id', async (c) => {
 
   const { rowCount } = await db.query(`DELETE FROM lineas WHERE id=$1`, [id]);
   if (!rowCount) return c.json({ error: 'No encontrado' }, 404);
+  return c.json({ ok: true });
+});
+
+// ── Tipo de vidrio (Transparente / Laminado / DVH / ...) ──────────────────────
+// Alimenta los selectores de "Tipo de vidrio" al cargar/editar un producto —
+// puertas y ventanas lo guardan en atributos->>'vidrio_tipo' (JSONB), los
+// productos a medida en catalogo_productos.vidrio (texto). Ambas columnas
+// siguen siendo texto libre, como /materiales — acá solo se administra la
+// lista de opciones sugeridas.
+
+catalogo.get('/vidrios', async (c) => {
+  const all = c.req.query('all') === '1';
+  const { rows } = await db.query(
+    `SELECT * FROM vidrios ${all ? '' : 'WHERE activo = true'} ORDER BY orden, nombre`
+  );
+  return c.json(rows);
+});
+
+catalogo.post('/vidrios', async (c) => {
+  const b = await validateBody(c, VidrioSchema);
+  if (b instanceof Response) return b;
+  const nombre = b.nombre.trim();
+  const dup = await db.query(`SELECT id FROM vidrios WHERE lower(nombre) = lower($1)`, [nombre]);
+  if (dup.rows.length) return c.json({ error: 'Ya existe un tipo de vidrio con ese nombre' }, 409);
+  const { rows } = await db.query(
+    `INSERT INTO vidrios (nombre, orden) VALUES ($1, $2) RETURNING *`,
+    [nombre, b.orden ?? 0]
+  );
+  return c.json(rows[0], 201);
+});
+
+catalogo.put('/vidrios/:id', async (c) => {
+  const b = await validateBody(c, VidrioSchema);
+  if (b instanceof Response) return b;
+  const { id } = c.req.param();
+  const nombre = b.nombre.trim();
+  const dup = await db.query(
+    `SELECT id FROM vidrios WHERE lower(nombre) = lower($1) AND id <> $2`, [nombre, id]
+  );
+  if (dup.rows.length) return c.json({ error: 'Ya existe un tipo de vidrio con ese nombre' }, 409);
+  const { rows } = await db.query(
+    `UPDATE vidrios SET nombre=$1, orden=$2, activo=$3 WHERE id=$4 RETURNING *`,
+    [nombre, b.orden ?? 0, b.activo ?? true, id]
+  );
+  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(rows[0]);
+});
+
+// DELETE /vidrios/:id — borra definitivamente si ningún producto lo usa (por
+// nombre, en cualquiera de las dos columnas donde puede haber quedado guardado).
+// Si está en uso, 409 — el usuario puede desactivarlo (PUT activo=false) para
+// sacarlo del alta sin tocar lo ya cargado.
+catalogo.delete('/vidrios/:id', async (c) => {
+  const { id } = c.req.param();
+  const vid = await db.query(`SELECT nombre FROM vidrios WHERE id=$1`, [id]);
+  if (!vid.rows[0]) return c.json({ error: 'No encontrado' }, 404);
+
+  const enUso = await db.query(
+    `SELECT 1 FROM catalogo_productos
+     WHERE lower(vidrio) = lower($1) OR lower(atributos->>'vidrio_tipo') = lower($1)
+     LIMIT 1`,
+    [vid.rows[0].nombre]
+  );
+  if (enUso.rows.length) return c.json({ error: 'Tipo de vidrio en uso por productos' }, 409);
+
+  await db.query(`DELETE FROM vidrios WHERE id=$1`, [id]);
   return c.json({ ok: true });
 });
 
