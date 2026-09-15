@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Package, ToggleLeft, ToggleRight, Tag, Store, Play,
+  Package, ToggleLeft, ToggleRight, Tag, Store, Play, Globe,
   Percent, ShoppingCart, Star, ThumbsUp, Sparkles, Loader2, Plus,
 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -154,6 +154,13 @@ export function TarjetaProductoMosaico({
           ) : producto.en_salon && (
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white leading-none shadow-md flex items-center gap-1">
               <Store size={8}/>En salón
+            </span>
+          )}
+          {/* Solo indicador: publicar/despublicar se hace desde el detalle o la edición,
+              para que no sea un click accidental sobre algo que es público. */}
+          {producto.publicado_web && (
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-sky-600 text-white leading-none shadow-md flex items-center gap-1">
+              <Globe size={8}/>En web
             </span>
           )}
         </div>

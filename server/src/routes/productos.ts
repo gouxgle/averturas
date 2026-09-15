@@ -146,11 +146,22 @@ function resolveImagenUrl(b: { imagen_url?: string | null; imagenes?: string[] }
   return b.imagen_url || null;
 }
 
+// Publicar en el catálogo web exige al menos una foto: una ficha sin imagen no sirve
+// de cara al cliente y quedaría como un hueco en la galería del sitio.
+const SIN_IMAGEN_MSG = 'No se puede publicar en el catálogo online sin al menos una imagen del producto';
+
+function tieneImagen(b: { imagen_url?: string | null; imagenes?: string[] }): boolean {
+  return resolveImagenUrl(b) !== null;
+}
+
 productos.post('/', async (c) => {
   const b = await c.req.json();
 
   if (b.en_salon && (b.stock_inicial ?? 0) < 1) {
     return c.json({ error: 'No se puede marcar "Exhibido en salón" sin al menos 1 unidad en stock' }, 422);
+  }
+  if (b.publicado_web && !tieneImagen(b)) {
+    return c.json({ error: SIN_IMAGEN_MSG }, 422);
   }
 
   const { rows: [row] } = await db.query(`
@@ -160,8 +171,9 @@ productos.post('/', async (c) => {
        codigo, color, stock_inicial, stock_minimo, proveedor_id,
        imagen_url, caracteristica_1, caracteristica_2, caracteristica_3, caracteristica_4,
        vidrio, premarco, accesorios, atributos, margen_tipo, promocion, imagenes, video_url, etiqueta,
-       proveedor_sku, margen_venta, precio_manual, en_salon, categoria_id, linea_id, modelo_id, material)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
+       proveedor_sku, margen_venta, precio_manual, en_salon, categoria_id, linea_id, modelo_id, material,
+       publicado_web, nombre_web)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40)
     RETURNING *
   `, [
     b.nombre?.trim(),
@@ -202,6 +214,8 @@ productos.post('/', async (c) => {
     b.linea_id || null,
     b.modelo_id || null,
     b.material?.trim() || null,
+    b.publicado_web ?? false,
+    b.nombre_web?.trim() || null,
   ]);
   return c.json(row, 201);
 });
@@ -218,6 +232,9 @@ productos.put('/:id', async (c) => {
     if (stockActual < 1) {
       return c.json({ error: 'No se puede marcar "Exhibido en salón" sin al menos 1 unidad en stock' }, 422);
     }
+  }
+  if (b.publicado_web && !tieneImagen(b)) {
+    return c.json({ error: SIN_IMAGEN_MSG }, 422);
   }
 
   const { rows: [row] } = await db.query(`
@@ -260,8 +277,10 @@ productos.put('/:id', async (c) => {
       categoria_id     = $35,
       linea_id         = $36,
       modelo_id        = $37,
-      material         = $38
-    WHERE id = $39 RETURNING *
+      material         = $38,
+      publicado_web    = $39,
+      nombre_web       = $40
+    WHERE id = $41 RETURNING *
   `, [
     b.nombre?.trim(),
     b.descripcion?.trim() || null,
@@ -301,6 +320,8 @@ productos.put('/:id', async (c) => {
     b.linea_id || null,
     b.modelo_id || null,
     b.material?.trim() || null,
+    b.publicado_web ?? false,
+    b.nombre_web?.trim() || null,
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
@@ -354,6 +375,27 @@ productos.patch('/:id/toggle-salon', async (c) => {
   const { rows: [row] } = await db.query(`
     UPDATE catalogo_productos SET en_salon = NOT en_salon
     WHERE id = $1 RETURNING id, en_salon
+  `, [id]);
+  return c.json(row);
+});
+
+// Publicar / despublicar en el catálogo del sitio web, sin entrar a editar el producto.
+// Mismo patrón que toggle-salon, pero la guarda es tener foto en vez de tener stock.
+productos.patch('/:id/toggle-web', async (c) => {
+  const { id } = c.req.param();
+
+  const { rows: [actual] } = await db.query(
+    `SELECT publicado_web, imagen_url, imagenes FROM catalogo_productos WHERE id = $1`, [id]
+  );
+  if (!actual) return c.json({ error: 'Producto no encontrado' }, 404);
+
+  if (!actual.publicado_web && !tieneImagen(actual)) {
+    return c.json({ error: SIN_IMAGEN_MSG }, 422);
+  }
+
+  const { rows: [row] } = await db.query(`
+    UPDATE catalogo_productos SET publicado_web = NOT publicado_web
+    WHERE id = $1 RETURNING id, publicado_web
   `, [id]);
   return c.json(row);
 });

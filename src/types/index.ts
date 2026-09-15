@@ -225,6 +225,10 @@ export interface Producto {
   precio_por_m2: boolean;
   activo: boolean;
   en_salon: boolean;
+  /** Opt-in explícito: se muestra en el catálogo público del sitio web. */
+  publicado_web: boolean;
+  /** Título de cara al cliente en la web. Si está vacío, la web usa `nombre`. */
+  nombre_web: string | null;
   codigo: string | null;
   color: string | null;
   /** Aluminio/PVC/Acero/... — primer filtro de la búsqueda en cascada. Texto libre. */

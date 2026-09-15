@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Layers, Package,
   X, Tag, CalendarDays, RefreshCw, Play,
-  Trash2, AlertTriangle, Store, DollarSign,
+  Trash2, AlertTriangle, Store, DollarSign, Globe,
   Shield, Truck, Headphones, Award, Factory,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,8 +29,9 @@ function lastDayOfMonth(): string {
 }
 // ── Modal de detalle ──────────────────────────────────────────────────────────
 
-export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDelete, onAgregar, zClass = 'z-50' }: {
+export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onToggleWeb, onDelete, onAgregar, zClass = 'z-50' }: {
   producto: Producto; onClose: () => void; onToggle?: () => void; onToggleSalon?: () => Promise<void>;
+  onToggleWeb?: () => Promise<void>;
   onDelete?: (id: string) => void; onAgregar?: () => void;
   /** Sube por encima de un modal contenedor (ver ModalCatalogoProductos). */
   zClass?: string;
@@ -40,6 +41,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
   const [eliminando, setEliminando]   = useState(false);
   const [dolarCompra, setDolarCompra] = useState<number | null>(null);
   const [togglingSalon, setTogglingSalon] = useState(false);
+  const [togglingWeb, setTogglingWeb]     = useState(false);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -54,6 +56,16 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
       await onToggleSalon();
     } finally {
       setTogglingSalon(false);
+    }
+  }
+
+  async function handleToggleWeb() {
+    if (!onToggleWeb || togglingWeb) return;
+    setTogglingWeb(true);
+    try {
+      await onToggleWeb();
+    } finally {
+      setTogglingWeb(false);
     }
   }
 
@@ -139,6 +151,22 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onDe
               ) : producto.en_salon && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 bg-emerald-100 text-emerald-700">
                   <Store size={9}/>En salón
+                </span>
+              )}
+              {onToggleWeb ? (
+                <button type="button" onClick={handleToggleWeb} disabled={togglingWeb}
+                  title={producto.publicado_web ? 'Quitar del catálogo online' : 'Publicar en el catálogo online'}
+                  className={cn(
+                    'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors disabled:opacity-60',
+                    producto.publicado_web
+                      ? 'bg-sky-100 text-sky-700 hover:bg-sky-200'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  )}>
+                  <Globe size={9}/>{togglingWeb ? 'Guardando...' : producto.publicado_web ? 'En web' : 'Publicar en web'}
+                </button>
+              ) : producto.publicado_web && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 bg-sky-100 text-sky-700">
+                  <Globe size={9}/>En web
                 </span>
               )}
               {!producto.activo && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">Inactivo</span>}
@@ -355,6 +383,25 @@ export function Productos() {
     if (selected?.id === id) setSelected(prev => prev ? { ...prev, stock_actual } : null);
   }
 
+  // Publicar / despublicar en el catálogo del sitio web desde el detalle, sin entrar a
+  // editar. El backend exige al menos una imagen; se avisa acá antes de que lo rechace.
+  async function toggleWebRapido(producto: Producto) {
+    const tieneImagen = (producto.imagenes?.length ?? 0) > 0 || !!producto.imagen_url;
+    if (!producto.publicado_web && !tieneImagen) {
+      toast.info('Sin imagen — cargá al menos una foto para publicarlo en la web');
+      return;
+    }
+    try {
+      const { publicado_web } = await api.patch<{ id: string; publicado_web: boolean }>(
+        `/productos/${producto.id}/toggle-web`
+      );
+      setProductos(prev => prev.map(p => p.id === producto.id ? { ...p, publicado_web } : p));
+      if (selected?.id === producto.id) setSelected(prev => prev ? { ...prev, publicado_web } : null);
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo actualizar' });
+    }
+  }
+
   async function aplicarToggleSalon(id: string) {
     try {
       const { en_salon } = await api.patch<{ id: string; en_salon: boolean }>(`/productos/${id}/toggle-salon`);
@@ -492,6 +539,7 @@ export function Productos() {
           onClose={() => setSelected(null)}
           onToggle={() => toggleActivo(selected)}
           onToggleSalon={() => toggleSalonRapido(selected)}
+          onToggleWeb={() => toggleWebRapido(selected)}
           onDelete={eliminarProducto}
         />
       )}

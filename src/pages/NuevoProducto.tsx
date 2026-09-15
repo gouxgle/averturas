@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Save, Upload, X, ImageIcon, Package, Tag,
   Ruler, DollarSign, FileText, Boxes, DoorOpen, AppWindow, Check,
-  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench, Layers, Copy,
+  Percent, CalendarDays, ToggleLeft, ToggleRight, Star, FolderTree, Plus, Wrench, Layers, Copy, Globe,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, disponibilidadVigente, DISPONIBILIDAD_VIGENCIA_DIAS } from '@/lib/utils';
@@ -1419,6 +1419,8 @@ export function NuevoProducto() {
     margen_venta:        '' as string,  // null en DB = heredado del tipo_abertura o proveedor
     precio_manual:       false,
     en_salon:            false,
+    publicado_web:       false,
+    nombre_web:          '',
     categoria_id:        '',
     linea_id:            '',
     modelo_id:           '',
@@ -1568,6 +1570,8 @@ export function NuevoProducto() {
           margen_venta:        data.margen_venta != null ? String(data.margen_venta) : '',
           precio_manual:       data.precio_manual ?? false,
           en_salon:            data.en_salon ?? false,
+          publicado_web:       data.publicado_web ?? false,
+          nombre_web:          data.nombre_web ?? '',
           categoria_id:        data.categoria_id ?? '',
           linea_id:            data.linea_id ?? '',
           modelo_id:           data.modelo_id ?? '',
@@ -1784,6 +1788,8 @@ export function NuevoProducto() {
         accesorios:       form.tipo !== 'estandar' ? form.accesorios : [],
         activo:           form.activo,
         en_salon:         form.en_salon,
+        publicado_web:    form.publicado_web,
+        nombre_web:       form.nombre_web.trim() || null,
         atributos:        (esPuerta || esVentana || esPuertaBalcon || esMosquitera) ? atributos : {},
         etiqueta:         form.etiqueta || null,
         margen_tipo:      form.margen_tipo || null,
@@ -2715,6 +2721,57 @@ export function NuevoProducto() {
               className={inputCls} />
             <p className="text-[10px] text-black mt-1">YouTube, Vimeo o URL directa de video. Se muestra en la galería de la tienda.</p>
           </div>
+
+        </div>
+      </div>
+
+      {/* Catálogo online — va justo después de las imágenes a propósito: publicar exige
+          al menos una foto, así que para cuando el usuario llega acá ya la cargó. */}
+      <div className="bg-white rounded-xl border border-gray-400 shadow-lg overflow-hidden">
+        <SectionHeader icon={Globe} label="Catálogo online" />
+        <div className="p-4 space-y-3">
+
+          <label className="flex items-start gap-2.5 cursor-pointer w-fit">
+            <div
+              className={cn('w-9 h-5 rounded-full transition-colors relative shrink-0 mt-0.5',
+                form.publicado_web ? 'bg-emerald-600' : 'bg-gray-200')}
+              onClick={() => {
+                if (!form.publicado_web && form.imagenes.length === 0) {
+                  toast.error('Agregá al menos una imagen antes de publicarlo en la web');
+                  return;
+                }
+                set('publicado_web', !form.publicado_web);
+              }}>
+              <div className={cn('absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                form.publicado_web ? 'translate-x-4' : 'translate-x-0.5')} />
+            </div>
+            <span>
+              <span className="text-xs font-medium text-black block">Publicar en catálogo online</span>
+              <span className="text-[10px] text-black">
+                Lo muestra en el catálogo público del sitio web. Los productos no publicados son invisibles para el sitio.
+              </span>
+            </span>
+          </label>
+
+          {form.publicado_web && (
+            <>
+              <div>
+                <label className={labelCls}>Nombre para la web (opcional)</label>
+                <input type="text" value={form.nombre_web}
+                  onChange={e => set('nombre_web', e.target.value)}
+                  placeholder={form.nombre.trim() || 'Si lo dejás vacío se usa el nombre interno'}
+                  className={inputCls} />
+                <p className="text-[10px] text-black mt-1">
+                  El nombre interno te sirve para buscar; este es el que ve el cliente. Vacío = se usa el interno.
+                </p>
+              </div>
+
+              <div className="rounded-lg px-3 py-2 text-[11px]" style={{ background: '#ecfdf5', color: '#047857' }}>
+                La web <strong>no muestra precios</strong>: publica la ficha, las fotos y las características,
+                con un botón para consultar. Tampoco se publican costos, proveedor, código interno ni stock.
+              </div>
+            </>
+          )}
 
         </div>
       </div>
