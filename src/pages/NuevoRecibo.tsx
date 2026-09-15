@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
 import {
   ArrowLeft, Save, Receipt, Users, Calendar, CreditCard,
-  RefreshCw, Check, X, Package, Gift, ImagePlus, Trash2,
+  RefreshCw, Check, X, Package, Gift, ImagePlus, Trash2, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -108,6 +108,9 @@ export function NuevoRecibo() {
   const [formaPago,   setFormaPago]   = useState('Contado');
   const [formaPagoAlternativaId, setFormaPagoAlternativaId] = useState('');
   const [referencia,  setReferencia]  = useState('');
+  // Pago combinado: vacío = un solo medio (el modo por defecto, sin cambios). Se llena
+  // recién cuando el usuario elige dividir el cobro entre varios medios.
+  const [pagos, setPagos] = useState<{ forma_pago: string; monto: string; referencia: string }[]>([]);
   const [concepto,    setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
   // El concepto se arma solo con el número del presupuesto (igual que la venta rápida
   // de mostrador), pero deja de tocarse apenas el usuario escribe el suyo o viene uno
@@ -162,9 +165,17 @@ export function NuevoRecibo() {
         setClienteId(data.cliente_id);
         setClienteSel(data.cliente);
         setOperacionId(data.operacion_id ?? '');
-        setFecha(data.fecha);
+        // La API devuelve la fecha como timestamp ISO ("2026-09-15T03:00:00.000Z") y
+        // <input type="date"> solo acepta YYYY-MM-DD: sin el recorte el campo quedaba
+        // vacío al editar cualquier recibo.
+        setFecha(String(data.fecha).slice(0, 10));
         setFormaPago(data.forma_pago);
         setReferencia(data.referencia_pago ?? '');
+        setPagos((data.pagos ?? []).map((p: { forma_pago: string; monto: number; referencia: string | null }) => ({
+          forma_pago: p.forma_pago,
+          monto:      String(p.monto),
+          referencia: p.referencia ?? '',
+        })));
         setConcepto(data.concepto ?? '');
         setNotas(data.notas ?? '');
         setComprobanteUrl(data.comprobante_url ?? '');
@@ -290,6 +301,49 @@ export function NuevoRecibo() {
   const esParcial = tipoPago === 'parcial';
   const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
   const esCuotas = formaPago === 'Tarjeta de crédito 3 cuotas sin interés';
+
+  // ── Pago combinado ────────────────────────────────────────
+  // Se considera combinado recién con 2 medios: con uno solo el recibo se guarda como
+  // siempre (forma_pago + referencia_pago), sin tocar el camino por defecto.
+  const combinado   = pagos.length > 1;
+  const sumaPagos   = pagos.reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
+  const restantePagos = Math.round((montoFinal - sumaPagos) * 100) / 100;
+
+  function dividirPago() {
+    // El primer medio arranca con lo que ya estaba elegido y el total del recibo;
+    // el usuario baja ese importe y el resto queda para el segundo medio.
+    setPagos([
+      { forma_pago: formaPago || FORMAS_PAGO[0], monto: montoFinal > 0 ? String(montoFinal) : '', referencia },
+      { forma_pago: '', monto: '', referencia: '' },
+    ]);
+  }
+
+  function setPago(i: number, campo: 'forma_pago' | 'monto' | 'referencia', valor: string) {
+    setPagos(prev => prev.map((p, idx) => idx === i ? { ...p, [campo]: valor } : p));
+  }
+
+  function agregarPago() {
+    setPagos(prev => [...prev, { forma_pago: '', monto: '', referencia: '' }]);
+  }
+
+  function quitarPago(i: number) {
+    setPagos(prev => {
+      const next = prev.filter((_, idx) => idx !== i);
+      // Al bajar a un solo medio se vuelve al modo simple, conservando lo elegido.
+      if (next.length <= 1) {
+        if (next[0]) { setFormaPago(next[0].forma_pago || formaPago); setReferencia(next[0].referencia); }
+        return [];
+      }
+      return next;
+    });
+  }
+
+  /** Completa el medio indicado con lo que falta para llegar al total del recibo. */
+  function completarConRestante(i: number) {
+    const otros = pagos.reduce((a, p, idx) => idx === i ? a : a + (parseFloat(p.monto) || 0), 0);
+    const falta = Math.round((montoFinal - otros) * 100) / 100;
+    if (falta > 0) setPago(i, 'monto', String(falta));
+  }
 
   // Atajos de vencimiento para el compromiso — se cuentan desde la fecha del recibo,
   // no desde hoy (se puede estar cargando un cobro de días atrás).
@@ -439,7 +493,23 @@ export function NuevoRecibo() {
   async function handleSave() {
     if (!clienteId)                { toast.error('Seleccioná un cliente'); return; }
     if (!operacionId)              { toast.error('Seleccioná el presupuesto'); return; }
-    if (!formaPago)                { toast.error('Seleccioná forma de pago'); return; }
+    if (!combinado && !formaPago)  { toast.error('Seleccioná forma de pago'); return; }
+    if (combinado) {
+      if (pagos.some(p => !p.forma_pago)) {
+        toast.error('Elegí la forma de pago de cada medio');
+        return;
+      }
+      if (pagos.some(p => !(parseFloat(p.monto) > 0))) {
+        toast.error('Cargá el monto de cada medio de pago');
+        return;
+      }
+      if (Math.abs(restantePagos) > 0.01) {
+        toast.error(restantePagos > 0
+          ? `Falta asignar ${formatCurrency(restantePagos)} entre los medios de pago`
+          : `Los medios de pago se pasan por ${formatCurrency(Math.abs(restantePagos))} del total del recibo`);
+        return;
+      }
+    }
     if (alternativasOfrecidas.length > 0 && !formaPagoAlternativaId) {
       toast.error('Elegí cuál de las formas de pago ofrecidas usó el cliente');
       return;
@@ -460,8 +530,17 @@ export function NuevoRecibo() {
       operacion_id:    operacionId || null,
       remito_id:       null,
       fecha,
-      forma_pago:      formaPago,
-      referencia_pago: referencia || null,
+      forma_pago:      combinado ? (pagos[0]?.forma_pago || formaPago) : formaPago,
+      referencia_pago: combinado ? null : (referencia || null),
+      // Solo se manda con 2 o más: el backend ignora un array de un elemento y guarda
+      // el recibo como simple.
+      pagos:           combinado
+        ? pagos.map(p => ({
+            forma_pago: p.forma_pago,
+            monto:      Math.round((parseFloat(p.monto) || 0) * 100) / 100,
+            referencia: p.referencia || null,
+          }))
+        : undefined,
       concepto:        concepto   || null,
       notas:           notas      || null,
       monto_total:     montoFinal,
@@ -639,7 +718,7 @@ export function NuevoRecibo() {
               <label className={labelCls}>Fecha *</label>
               <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} />
             </div>
-            {alternativasOfrecidas.length === 0 && (
+            {alternativasOfrecidas.length === 0 && !combinado && (
               <div>
                 <label className={labelCls}>Forma de pago *</label>
                 <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
@@ -670,11 +749,101 @@ export function NuevoRecibo() {
               </div>
             </div>
           )}
-          {formaPago === 'Transferencia' && (
+          {!combinado && formaPago === 'Transferencia' && (
             <div className="mt-3">
               <label className={labelCls}>N° de transferencia / CBU</label>
               <input value={referencia} onChange={e => setReferencia(e.target.value)}
                 placeholder="Referencia del pago" className={inputCls} />
+            </div>
+          )}
+
+          {/* ── Pago combinado ──────────────────────────────── */}
+          {!combinado ? (
+            <button type="button" onClick={dividirPago}
+              className="mt-3 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1">
+              <Plus size={13} /> Dividir en varios medios de pago
+            </button>
+          ) : (
+            <div className="mt-4 border border-gray-200 rounded-xl p-3 bg-gray-50/60">
+              <div className="flex items-center justify-between mb-2">
+                <label className={cn(labelCls, 'mb-0')}>Medios de pago *</label>
+                <button type="button" onClick={() => setPagos([])}
+                  className="text-[11px] text-gray-600 hover:text-gray-800 hover:underline">
+                  Volver a un solo medio
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {pagos.map((p, i) => (
+                  <div key={i} className="bg-white border border-gray-200 rounded-lg p-2.5">
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] font-bold text-gray-600 w-4 shrink-0 mt-2.5">{i + 1}</span>
+                      <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select value={p.forma_pago} onChange={e => setPago(i, 'forma_pago', e.target.value)}
+                          className={inputCls}>
+                          <option value="">Elegí el medio…</option>
+                          {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 min-w-0">
+                            <MontoInput value={p.monto} onChange={v => setPago(i, 'monto', v)}
+                              className={inputCls} placeholder="Monto" />
+                          </div>
+                          {Math.abs(restantePagos) > 0.01 && (
+                            <button type="button" onClick={() => completarConRestante(i)}
+                              title="Asignarle lo que falta para llegar al total"
+                              className="px-2 py-2 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 rounded-lg shrink-0">
+                              Resto
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {pagos.length > 2 && (
+                        <button type="button" onClick={() => quitarPago(i)} title="Quitar este medio"
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg shrink-0 mt-1">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {p.forma_pago === 'Transferencia' && (
+                      <input value={p.referencia} onChange={e => setPago(i, 'referencia', e.target.value)}
+                        placeholder="N° de transferencia / CBU (opcional)"
+                        className={cn(inputCls, 'mt-2 text-xs')} />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button type="button" onClick={agregarPago}
+                className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1">
+                <Plus size={13} /> Agregar otro medio
+              </button>
+
+              {/* Suma de los medios contra el total del recibo */}
+              <div className="mt-3 pt-2.5 border-t border-gray-200 space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Suma de los medios</span>
+                  <span className="font-bold text-gray-800 tabular-nums">{formatCurrency(sumaPagos)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Total del recibo</span>
+                  <span className="font-bold text-gray-800 tabular-nums">{formatCurrency(montoFinal)}</span>
+                </div>
+                {Math.abs(restantePagos) > 0.01 && (
+                  <div className={cn(
+                    'flex items-center justify-between text-xs font-semibold rounded-lg px-2.5 py-1.5 mt-1',
+                    restantePagos > 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                  )}>
+                    <span>{restantePagos > 0 ? 'Falta asignar' : 'Te pasaste por'}</span>
+                    <span className="tabular-nums">{formatCurrency(Math.abs(restantePagos))}</span>
+                  </div>
+                )}
+                {Math.abs(restantePagos) <= 0.01 && sumaPagos > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5 mt-1">
+                    <Check size={13} /> Los medios de pago cubren el total del recibo
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

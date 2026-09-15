@@ -107,6 +107,8 @@ interface TableroData {
 interface ReciboDetalle {
   id: string; numero: string; fecha: string; estado: 'emitido' | 'anulado';
   monto_total: number; forma_pago: string; referencia_pago: string | null;
+  /** Desglose cuando se cobró con varios medios. Vacío = un solo medio. */
+  pagos: { forma_pago: string; monto: number; referencia: string | null }[];
   comprobante_url: string | null;
   concepto: string | null; notas: string | null;
   motivo_anulacion: string | null;
@@ -422,14 +424,40 @@ function ReciboModal({ id, onClose, onAnulado }: {
                   {formatCurrency(Number(rec.monto_total))}
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Forma de pago</p>
-                <div className="flex items-center gap-1.5 justify-end">
-                  {(() => { const Icon = pagoIcon(rec.forma_pago); return <Icon size={13} className="text-gray-600" />; })()}
-                  <span className="text-sm font-semibold text-gray-800">{pagoLabel(rec.forma_pago)}</span>
+              {/* Con varios medios se listan con su monto y la suma; con uno solo
+                  se muestra igual que siempre. */}
+              {(rec.pagos?.length ?? 0) > 1 ? (
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Medios de pago</p>
+                  <div className="space-y-0.5">
+                    {rec.pagos.map((p, i) => {
+                      const Icon = pagoIcon(p.forma_pago);
+                      return (
+                        <div key={i} className="flex items-center gap-2 justify-end">
+                          <Icon size={12} className="text-gray-600 shrink-0" />
+                          <span className="text-xs text-gray-700">{pagoLabel(p.forma_pago)}</span>
+                          <span className="text-xs font-bold text-gray-900 tabular-nums">{formatCurrency(Number(p.monto))}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2 justify-end mt-1 pt-1 border-t border-gray-200">
+                    <span className="text-[10px] text-gray-600 uppercase tracking-wider">Total</span>
+                    <span className="text-sm font-bold text-gray-900 tabular-nums">
+                      {formatCurrency(rec.pagos.reduce((a, p) => a + Number(p.monto), 0))}
+                    </span>
+                  </div>
                 </div>
-                {rec.referencia_pago && <p className="text-xs text-gray-600 mt-0.5">Ref: {rec.referencia_pago}</p>}
-              </div>
+              ) : (
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Forma de pago</p>
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {(() => { const Icon = pagoIcon(rec.forma_pago); return <Icon size={13} className="text-gray-600" />; })()}
+                    <span className="text-sm font-semibold text-gray-800">{pagoLabel(rec.forma_pago)}</span>
+                  </div>
+                  {rec.referencia_pago && <p className="text-xs text-gray-600 mt-0.5">Ref: {rec.referencia_pago}</p>}
+                </div>
+              )}
             </div>
 
             {rec.comprobante_url && (

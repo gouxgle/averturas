@@ -22,6 +22,8 @@ interface Empresa {
 interface ReciboData {
   id: string; numero: string; fecha: string; estado: string;
   forma_pago: string; referencia_pago: string | null;
+  /** Desglose cuando se cobró con varios medios. Vacío = un solo medio (forma_pago). */
+  pagos: { forma_pago: string; monto: number; referencia: string | null }[];
   concepto: string | null; notas: string | null; monto_total: number;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
@@ -88,6 +90,9 @@ export function ImprimirRecibo() {
   // como si el cliente hubiera pagado esos importes. En su lugar referencia número
   // y revisión de la proforma; el desglose se consulta ahí, no en el comprobante.
   const proformaNumero = recibo.operacion?.numero.replace(/^OP-/, 'PRO-') ?? null;
+
+  const pagos      = recibo.pagos ?? [];
+  const totalPagos = pagos.reduce((a, p) => a + Number(p.monto), 0);
 
   return (
     <>
@@ -231,17 +236,51 @@ export function ImprimirRecibo() {
               {fmt(Number(recibo.monto_total))}
             </div>
           </div>
+          {/* Con un solo medio se imprime igual que siempre. Con varios se lista cada
+              uno con su monto y se cierra con la suma, para que quede claro que el
+              total del recibo es la suma de los medios. */}
           <div style={{ textAlign: 'right' }}>
-            <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Forma de pago
-            </div>
-            <div style={{ color: NAVY, fontSize: 14, fontWeight: 700, marginTop: 2 }}>
-              {PAGO_LABEL[recibo.forma_pago] ?? recibo.forma_pago}
-            </div>
-            {recibo.referencia_pago && (
-              <div style={{ color: '#555', fontSize: 11, marginTop: 2 }}>
-                Ref: {recibo.referencia_pago}
-              </div>
+            {pagos.length > 1 ? (
+              <>
+                <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Medios de pago
+                </div>
+                <table style={{ marginTop: 3, marginLeft: 'auto', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {pagos.map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ fontSize: 11.5, color: '#333', padding: '1px 0', textAlign: 'left' }}>
+                          {PAGO_LABEL[p.forma_pago] ?? p.forma_pago}
+                          {p.referencia && <span style={{ color: '#777' }}> · Ref: {p.referencia}</span>}
+                        </td>
+                        <td style={{ fontSize: 12, color: NAVY, fontWeight: 700, fontFamily: 'monospace', padding: '1px 0 1px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {fmt(Number(p.monto))}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td style={{ fontSize: 10.5, color: '#888', padding: '4px 0 0', textAlign: 'left', borderTop: '1px solid #d9d9d9' }}>Total</td>
+                      <td style={{ fontSize: 12.5, color: NAVY, fontWeight: 900, fontFamily: 'monospace', padding: '4px 0 0 14px', textAlign: 'right', borderTop: '1px solid #d9d9d9', whiteSpace: 'nowrap' }}>
+                        {fmt(totalPagos)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <>
+                <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Forma de pago
+                </div>
+                <div style={{ color: NAVY, fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                  {PAGO_LABEL[recibo.forma_pago] ?? recibo.forma_pago}
+                </div>
+                {recibo.referencia_pago && (
+                  <div style={{ color: '#555', fontSize: 11, marginTop: 2 }}>
+                    Ref: {recibo.referencia_pago}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

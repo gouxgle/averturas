@@ -222,15 +222,17 @@ informes.get('/resumen', async (c) => {
       LIMIT 5
     `, [desde, hasta]),
 
-    // 12. Métodos de pago cobrado
+    // 12. Métodos de pago cobrado — por la vista y no por recibos.forma_pago, para
+    //     que un recibo con pago combinado impute a cada medio lo que entró por él.
     db.query(`
       SELECT
-        forma_pago,
+        rpe.forma_pago,
         COUNT(*)::int AS cant,
-        COALESCE(SUM(monto_total), 0)::numeric AS monto_total
-      FROM recibos
-      WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
-      GROUP BY forma_pago
+        COALESCE(SUM(rpe.monto), 0)::numeric AS monto_total
+      FROM recibo_pagos_efectivos rpe
+      JOIN recibos r ON r.id = rpe.recibo_id
+      WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date
+      GROUP BY rpe.forma_pago
       ORDER BY monto_total DESC
     `, [desde, hasta]),
 

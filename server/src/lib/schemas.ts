@@ -126,6 +126,14 @@ const ReciboCompromisoSchema = z.object({
   descripcion:      zText(500).optional(),
 }).optional().nullable();
 
+// Un medio de pago dentro de un recibo combinado. Solo se manda cuando el cobro se
+// reparte entre 2 o más medios; con uno solo alcanza con forma_pago/referencia_pago.
+const ReciboPagoSchema = z.object({
+  forma_pago: z.string().min(1, 'Forma de pago requerida').max(150),
+  monto:      z.number().positive('El monto de cada medio de pago debe ser > 0'),
+  referencia: zText(200).optional().nullable(),
+});
+
 export const ReciboSchema = z.object({
   cliente_id:      zUUID,
   operacion_id:    zUUID.optional().nullable(),
@@ -138,6 +146,9 @@ export const ReciboSchema = z.object({
   concepto:        zText(500).optional(),
   notas:           zText(1000).optional(),
   items:           z.array(ReciboItemSchema).optional().default([]),
+  /** Desglose cuando el cobro se reparte entre varios medios. Con 0 o 1 entrada se
+   *  ignora y el recibo queda como uno simple. La suma se valida en la ruta. */
+  pagos:           z.array(ReciboPagoSchema).max(10).optional(),
   compromiso:      ReciboCompromisoSchema,
   descuento_pct:   z.number().min(0).max(100).optional().default(0),
   monto_lista:     z.number().min(0).optional().default(0),

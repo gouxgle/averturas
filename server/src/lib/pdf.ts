@@ -65,6 +65,8 @@ export interface ReciboPDF {
   compromiso: CompromisoPDF | null;
   /** Última revisión enviada al cliente de la proforma vinculada, si tiene alguna. */
   proforma_revision?: number | null;
+  /** Desglose cuando se cobró con varios medios. Vacío = un solo medio (forma_pago). */
+  pagos?: { forma_pago: string; monto: number; referencia: string | null }[] | null;
 }
 
 function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
@@ -118,6 +120,37 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
       </div>
     </div>
   ` : '';
+
+  // Forma(s) de pago. Con un solo medio se imprime igual que siempre; con varios se
+  // lista cada uno con su monto y se cierra con la suma, para que quede claro que el
+  // total del recibo es la suma de los medios y no un importe suelto.
+  const pagosLista = recibo.pagos ?? [];
+  const pagoCombinado = pagosLista.length > 1;
+  const pagosHTML = pagoCombinado ? `
+    <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Medios de pago</div>
+    <table style="margin-top:3px;margin-left:auto;border-collapse:collapse;">
+      ${pagosLista.map(p => `
+        <tr>
+          <td style="font-size:11.5px;color:#333;padding:1px 0;text-align:left;">
+            ${PAGO_LABEL[p.forma_pago] ?? p.forma_pago}${p.referencia ? `<span style="color:#777;"> &middot; Ref: ${p.referencia}</span>` : ''}
+          </td>
+          <td style="font-size:12px;color:${NAVY};font-weight:700;font-family:monospace;padding:1px 0 1px 14px;text-align:right;white-space:nowrap;">
+            ${fmt(Number(p.monto))}
+          </td>
+        </tr>
+      `).join('')}
+      <tr>
+        <td style="font-size:10.5px;color:#888;padding:4px 0 0;text-align:left;border-top:1px solid #d9d9d9;">Total</td>
+        <td style="font-size:12.5px;color:${NAVY};font-weight:900;font-family:monospace;padding:4px 0 0 14px;text-align:right;border-top:1px solid #d9d9d9;white-space:nowrap;">
+          ${fmt(pagosLista.reduce((a, p) => a + Number(p.monto), 0))}
+        </td>
+      </tr>
+    </table>
+  ` : `
+    <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Forma de pago</div>
+    <div style="color:${NAVY};font-size:14px;font-weight:700;margin-top:2px;">${PAGO_LABEL[recibo.forma_pago] ?? recibo.forma_pago}</div>
+    ${recibo.referencia_pago ? `<div style="color:#555;font-size:11px;margin-top:2px;">Ref: ${recibo.referencia_pago}</div>` : ''}
+  `;
 
   // Detalle del relevamiento que se esta cobrando (sin acentos, igual que el resto del PDF server-side)
   const vt = recibo.visita_tecnica;
@@ -263,9 +296,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
       <div style="color:${NAVY};font-size:28px;font-weight:900;font-family:monospace;margin-top:2px;">${fmt(Number(recibo.monto_total))}</div>
     </div>
     <div style="text-align:right;">
-      <div style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Forma de pago</div>
-      <div style="color:${NAVY};font-size:14px;font-weight:700;margin-top:2px;">${PAGO_LABEL[recibo.forma_pago] ?? recibo.forma_pago}</div>
-      ${recibo.referencia_pago ? `<div style="color:#555;font-size:11px;margin-top:2px;">Ref: ${recibo.referencia_pago}</div>` : ''}
+      ${pagosHTML}
     </div>
   </div>
 

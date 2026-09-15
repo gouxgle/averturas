@@ -11,6 +11,54 @@ import { registrarActividad } from '../lib/actividad.js';
 
 const recibos = new Hono();
 
+/** Valor que queda en recibos.forma_pago cuando el cobro se reparte entre varios
+ *  medios. No es un medio real: el desglose vive en recibo_pagos, y los informes de
+ *  caja leen la vista recibo_pagos_efectivos, no esta columna. Sirve para que todas
+ *  las pantallas que muestran una sola forma de pago digan algo sensato. */
+const FORMA_PAGO_COMBINADO = 'Pago combinado';
+
+type PagoEntrada = { forma_pago: string; monto: number; referencia?: string | null };
+
+/**
+ * Decide si el recibo es combinado y valida el desglose.
+ * Con 0 o 1 medio devuelve null: el recibo se guarda como simple, igual que siempre.
+ * Con 2 o más exige que los montos sumen exactamente el total del recibo.
+ */
+function normalizarPagos(
+  pagos: PagoEntrada[] | undefined,
+  montoTotal: number
+): { ok: true; pagos: PagoEntrada[] | null } | { ok: false; error: string } {
+  const lista = (pagos ?? []).filter(p => p && Number(p.monto) > 0);
+  if (lista.length < 2) return { ok: true, pagos: null };
+
+  const suma = lista.reduce((acc, p) => acc + Number(p.monto), 0);
+  // Tolerancia de un centavo por el redondeo de los decimales al repartir el total.
+  if (Math.abs(suma - Number(montoTotal)) > 0.01) {
+    return {
+      ok: false,
+      error: `Los medios de pago suman $${suma.toLocaleString('es-AR')} y el recibo es de $${Number(montoTotal).toLocaleString('es-AR')}. Tienen que coincidir.`,
+    };
+  }
+  return { ok: true, pagos: lista };
+}
+
+async function guardarPagos(
+  client: pkg.PoolClient,
+  reciboId: string,
+  pagos: PagoEntrada[] | null
+) {
+  await client.query('DELETE FROM recibo_pagos WHERE recibo_id = $1', [reciboId]);
+  if (!pagos) return;
+  for (let i = 0; i < pagos.length; i++) {
+    const p = pagos[i];
+    await client.query(
+      `INSERT INTO recibo_pagos (recibo_id, forma_pago, monto, referencia, orden)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [reciboId, p.forma_pago, Number(p.monto), p.referencia || null, i]
+    );
+  }
+}
+
 // ── Upload comprobante de pago (captura WhatsApp / MercadoPago) ────
 recibos.post('/upload-comprobante', async (c) => {
   const body = await c.req.formData();
@@ -182,17 +230,20 @@ recibos.get('/tablero', async (c) => {
     db.query(`
       SELECT
         CASE
-          WHEN LOWER(forma_pago) LIKE '%transfer%' THEN 'Transferencia'
-          WHEN LOWER(forma_pago) LIKE '%contado%' OR LOWER(forma_pago) LIKE '%efectivo%' THEN 'Efectivo'
-          WHEN LOWER(forma_pago) LIKE '%tarjeta%' OR LOWER(forma_pago) LIKE '%cuota%'
-            OR LOWER(forma_pago) LIKE '%débito%' OR LOWER(forma_pago) LIKE '%crédito%'
-            OR LOWER(forma_pago) LIKE '%mercado%' THEN 'Tarjeta / Digital'
+          WHEN LOWER(rpe.forma_pago) LIKE '%transfer%' THEN 'Transferencia'
+          WHEN LOWER(rpe.forma_pago) LIKE '%contado%' OR LOWER(rpe.forma_pago) LIKE '%efectivo%' THEN 'Efectivo'
+          WHEN LOWER(rpe.forma_pago) LIKE '%tarjeta%' OR LOWER(rpe.forma_pago) LIKE '%cuota%'
+            OR LOWER(rpe.forma_pago) LIKE '%débito%' OR LOWER(rpe.forma_pago) LIKE '%crédito%'
+            OR LOWER(rpe.forma_pago) LIKE '%mercado%' THEN 'Tarjeta / Digital'
           ELSE 'Otros'
         END AS grupo,
         COUNT(*)::int AS count,
-        SUM(monto_total)::numeric AS total
-      FROM recibos
-      WHERE estado = 'emitido' AND fecha >= $1::date
+        SUM(rpe.monto)::numeric AS total
+      -- Por la vista y no por recibos.forma_pago: un recibo con pago combinado
+      -- imputa a cada medio lo que realmente entró por ese medio.
+      FROM recibo_pagos_efectivos rpe
+      JOIN recibos r ON r.id = rpe.recibo_id
+      WHERE r.estado = 'emitido' AND r.fecha >= $1::date
       GROUP BY grupo
       ORDER BY total DESC
     `, [mesStr]),
@@ -387,7 +438,15 @@ const RECIBO_DETALLE_SQL = `
     u.nombre AS created_by_nombre,
     -- Última revisión enviada al cliente de la proforma vinculada — el recibo ya
     -- no repite el desglose de productos, solo referencia dónde consultarlo.
-    (SELECT MAX(revision) FROM operacion_revisiones WHERE operacion_id = r.operacion_id) AS proforma_revision
+    (SELECT MAX(revision) FROM operacion_revisiones WHERE operacion_id = r.operacion_id) AS proforma_revision,
+    -- Desglose de medios de pago. Array vacío cuando el recibo tiene un solo medio:
+    -- ese caso sigue leyéndose de r.forma_pago / r.referencia_pago.
+    COALESCE((
+      SELECT json_agg(json_build_object(
+               'forma_pago', rp.forma_pago, 'monto', rp.monto, 'referencia', rp.referencia)
+             ORDER BY rp.orden, rp.id)
+      FROM recibo_pagos rp WHERE rp.recibo_id = r.id
+    ), '[]'::json) AS pagos
   FROM recibos r
   JOIN  clientes   cl ON cl.id = r.cliente_id
   LEFT JOIN operaciones op ON op.id = r.operacion_id
@@ -452,6 +511,10 @@ recibos.post('/', async (c) => {
   const numero = await nextNumero();
   const items = b.items ?? [];
 
+  const norm = normalizarPagos(b.pagos, b.monto_total);
+  if (!norm.ok) return c.json({ error: norm.error }, 422);
+  const pagos = norm.pagos;
+
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
@@ -474,8 +537,9 @@ recibos.post('/', async (c) => {
       b.operacion_id    || null,
       b.remito_id       || null,
       b.monto_total,
-      b.forma_pago,
-      b.referencia_pago || null,
+      // Con pago combinado la columna guarda el resumen; el detalle va en recibo_pagos.
+      pagos ? FORMA_PAGO_COMBINADO : b.forma_pago,
+      pagos ? null : (b.referencia_pago || null),
       b.concepto        || null,
       b.notas           || null,
       user?.id          || null,
@@ -493,6 +557,8 @@ recibos.post('/', async (c) => {
         VALUES ($1,$2,$3,$4,$5,$6)
       `, [rec.id, it.descripcion, it.producto_id || null, it.cantidad ?? 1, parseFloat(String(it.monto)), i]);
     }
+
+    await guardarPagos(client, rec.id, pagos);
 
     // Compromiso de saldo (pago parcial)
     const comp = b.compromiso;
@@ -540,6 +606,10 @@ recibos.put('/:id', async (c) => {
   if (!existing)                      return c.json({ error: 'No encontrado' }, 404);
   if (existing.estado === 'anulado')  return c.json({ error: 'No se puede editar un recibo anulado' }, 400);
 
+  const normUpd = normalizarPagos(b.pagos, b.monto_total);
+  if (!normUpd.ok) return c.json({ error: normUpd.error }, 422);
+  const pagosUpd = normUpd.pagos;
+
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
@@ -561,8 +631,8 @@ recibos.put('/:id', async (c) => {
       b.operacion_id    || null,
       b.remito_id       || null,
       b.monto_total,
-      b.forma_pago,
-      b.referencia_pago || null,
+      pagosUpd ? FORMA_PAGO_COMBINADO : b.forma_pago,
+      pagosUpd ? null : (b.referencia_pago || null),
       b.concepto        || null,
       b.notas           || null,
       updDescuentoPct,
@@ -582,6 +652,8 @@ recibos.put('/:id', async (c) => {
         VALUES ($1,$2,$3,$4,$5,$6)
       `, [id, it.descripcion, it.producto_id || null, it.cantidad ?? 1, parseFloat(String(it.monto)), i]);
     }
+
+    await guardarPagos(client, id, pagosUpd);
 
     await client.query('COMMIT');
     registrarActividad(c, {

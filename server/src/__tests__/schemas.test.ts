@@ -197,6 +197,40 @@ describe('ReciboSchema', () => {
   it('rechaza cliente_id con formato inválido', () => {
     expect(ReciboSchema.safeParse({ ...baseRecibo, cliente_id: 'no-es-uuid' }).success).toBe(false);
   });
+
+  // Pago combinado — la suma contra monto_total se valida en la ruta (necesita el
+  // total); acá solo la forma de cada entrada.
+  it('acepta un desglose de medios de pago', () => {
+    const r = ReciboSchema.safeParse({
+      ...baseRecibo,
+      pagos: [
+        { forma_pago: 'Transferencia', monto: 60000, referencia: 'TR-1' },
+        { forma_pago: 'Contado', monto: 40000 },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('acepta un recibo sin desglose (modo por defecto)', () => {
+    const r = ReciboSchema.safeParse(baseRecibo);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.pagos).toBeUndefined();
+  });
+
+  it('rechaza un medio de pago con monto cero o negativo', () => {
+    expect(ReciboSchema.safeParse({
+      ...baseRecibo, pagos: [{ forma_pago: 'Contado', monto: 0 }],
+    }).success).toBe(false);
+    expect(ReciboSchema.safeParse({
+      ...baseRecibo, pagos: [{ forma_pago: 'Contado', monto: -100 }],
+    }).success).toBe(false);
+  });
+
+  it('rechaza un medio de pago sin forma_pago', () => {
+    expect(ReciboSchema.safeParse({
+      ...baseRecibo, pagos: [{ forma_pago: '', monto: 1000 }],
+    }).success).toBe(false);
+  });
 });
 
 // ── PedidoSchema ───────────────────────────────────────────────
