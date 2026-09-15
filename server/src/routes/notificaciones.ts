@@ -9,16 +9,22 @@ const notificaciones = new Hono();
 notificaciones.get('/', async (c) => {
   const { rows } = await db.query(`
     SELECT 'presupuesto' AS tipo, o.id, o.numero, o.aprobado_online_at, o.respuesta_cliente,
-      o.precio_total, GREATEST(o.aprobado_online_at, o.respuesta_cliente_at) AS evento_at,
-      NULL::text AS recepcion_estado, NULL::text AS recepcion_obs, NULL::text AS detalle,
-      NULL::jsonb AS data,
+      o.precio_total,
+      GREATEST(o.aprobado_online_at, o.respuesta_cliente_at, o.rechazado_online_at) AS evento_at,
+      NULL::text AS recepcion_estado, NULL::text AS recepcion_obs,
+      o.motivo_rechazo AS detalle,
+      jsonb_build_object(
+        'rechazado_online_at', o.rechazado_online_at,
+        'comentario_rechazo', o.comentario_rechazo) AS data,
       json_build_object(
         'nombre', cl.nombre, 'apellido', cl.apellido,
         'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona
       ) AS cliente
     FROM operaciones o
     JOIN clientes cl ON cl.id = o.cliente_id
-    WHERE (o.aprobado_online_at IS NOT NULL OR o.respuesta_cliente_at IS NOT NULL)
+    WHERE (o.aprobado_online_at IS NOT NULL
+        OR o.respuesta_cliente_at IS NOT NULL
+        OR o.rechazado_online_at IS NOT NULL)
       AND o.notif_leida = false
 
     UNION ALL
@@ -92,6 +98,27 @@ notificaciones.get('/', async (c) => {
     LIMIT 50
   `);
   return c.json(rows);
+});
+
+// PATCH /notificaciones/vista — marca UNA sola como leída.
+// La usa el aviso emergente al darle "Aceptar": si solo existiera "marcar todas",
+// aceptar un aviso borraría de la campanita los otros que todavía no se vieron.
+const MARCAR_UNA: Record<string, string> = {
+  presupuesto:        `UPDATE operaciones SET notif_leida = true WHERE id = $1`,
+  remito:             `UPDATE remitos SET notif_leida = true WHERE id = $1`,
+  oportunidad:        `UPDATE oportunidades SET notif_leida = true WHERE id = $1`,
+  entrega_dia_antes:  `UPDATE remitos SET recordatorio_dia_antes_visto = true WHERE id = $1`,
+  entrega_hora_antes: `UPDATE remitos SET recordatorio_hora_antes_visto = true WHERE id = $1`,
+};
+
+notificaciones.patch('/vista', async (c) => {
+  const b = await c.req.json().catch(() => ({}));
+  const tipo = typeof b?.tipo === 'string' ? b.tipo : '';
+  const id   = typeof b?.id === 'string' ? b.id : '';
+  const sql  = MARCAR_UNA[tipo];
+  if (!sql || !id) return c.json({ error: 'tipo o id inválido' }, 400);
+  await db.query(sql, [id]);
+  return c.json({ ok: true });
 });
 
 // PATCH /notificaciones/marcar-leidas — marca todas como leídas

@@ -147,8 +147,11 @@ const PRIO_CFG = {
 const ESTADO_COLOR: Record<string, string> = {
   presupuesto:   'bg-gray-100 text-gray-700',
   enviado:       'bg-blue-100 text-blue-700',
-  aprobado:      'bg-emerald-100 text-emerald-700',
-  rechazado:     'bg-red-100 text-red-700',
+  // Aprobado y rechazado van en sólido (no en pastel como el resto): son los dos
+  // estados que hay que poder cachar de un vistazo en una lista larga, y en pantallas
+  // de 1366x768 los tonos 100/700 se pierden.
+  aprobado:      'bg-emerald-600 text-white',
+  rechazado:     'bg-red-600 text-white',
   cancelado:     'bg-red-100 text-red-700',
   en_produccion: 'bg-amber-100 text-amber-700',
   listo:         'bg-teal-100 text-teal-700',
@@ -239,9 +242,9 @@ function fmtVencimiento(p: PresupuestoPanel): { text: string; color: string } | 
 }
 
 function borderColor(p: PresupuestoPanel): string {
-  if (p.estado === 'rechazado') return 'border-l-red-500';
+  if (p.estado === 'rechazado') return 'border-l-red-600';
   if (p.estado === 'cancelado') return 'border-l-gray-300';
-  if (p.estado === 'aprobado') return 'border-l-emerald-500';
+  if (p.estado === 'aprobado') return 'border-l-emerald-600';
   return PRIO_CFG[p.prioridad].border;
 }
 
@@ -1332,6 +1335,9 @@ export function Presupuestos() {
                   const canal  = p.ultimo_contacto_canal;
                   const prio   = PRIO_CFG[p.prioridad];
                   const isAprobadoOnline = !!p.aprobado_online_at;
+                  // Antes el fondo verde solo salía si la aprobación había sido online;
+                  // una aprobada a mano quedaba blanca como cualquier otra.
+                  const isAprobado = p.estado === 'aprobado';
                   const isRechazado = p.estado === 'rechazado';
 
                   const estadoBadge = !p.aprobado_online_at ? (
@@ -1408,8 +1414,12 @@ export function Presupuestos() {
                       className={cn(
                         'rounded-xl border border-gray-200 border-l-4 shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-gray-400 group',
                         borderColor(p),
-                        isAprobadoOnline && 'bg-emerald-50/60 border-emerald-200',
-                        isRechazado && !isAprobadoOnline && 'bg-red-50/50 border-red-200',
+                        // Aprobado/rechazado: franja lateral más gruesa y fondo con
+                        // cuerpo real. Los tonos 50 al 50-60% de opacidad que había
+                        // antes eran casi blancos en una pantalla de 1366x768.
+                        (isAprobado || isRechazado) && 'border-l-[7px]',
+                        isAprobado  && 'bg-emerald-100 border-emerald-300 hover:border-emerald-500',
+                        isRechazado && !isAprobado && 'bg-red-100 border-red-300 hover:border-red-500',
                       )}
                       onClick={() => abrirDetalle(p)}>
 

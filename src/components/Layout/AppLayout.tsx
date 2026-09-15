@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Toaster } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
+import { AvisosEmergentes } from '@/components/AvisosEmergentes';
 import { BuzonComentarios } from '@/components/BuzonComentarios';
 
 /** Marca de agua: el isologotipo 2×2 a muy baja opacidad */
@@ -170,6 +171,9 @@ export function AppLayout() {
       </div>
 
       <BuzonComentarios />
+
+      {/* Avisos que se quedan hasta que se los acepta (no bloquean la pantalla) */}
+      <AvisosEmergentes />
 
       <Toaster
         position="top-right"

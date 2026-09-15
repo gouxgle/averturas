@@ -218,6 +218,10 @@ pub.post('/presupuesto/:token/rechazar', async (c) => {
      SET estado = 'rechazado',
          motivo_rechazo     = $1,
          comentario_rechazo = $2,
+         rechazado_online_at = now(),
+         -- Sin esto el rechazo no llegaba a la campanita: /notificaciones filtra por
+         -- notif_leida = false, igual que la aprobación.
+         notif_leida        = false,
          updated_at         = now()
      WHERE id = $3`,
     [motivo || null, comentario || null, rev.operacion_id]

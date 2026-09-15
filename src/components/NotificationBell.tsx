@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck, XCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -14,13 +14,18 @@ interface Notif {
   recepcion_estado: 'con_observaciones' | 'no_conforme' | null;
   recepcion_obs: string | null;
   detalle: string | null;
-  data: { telefono: string | null; direccion_entrega: string | null } | null;
+  data: {
+    telefono?: string | null; direccion_entrega?: string | null;
+    /** Presente cuando el cliente rechazó la proforma desde el link público. */
+    rechazado_online_at?: string | null; comentario_rechazo?: string | null;
+  } | null;
   evento_at: string;
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
 }
 
 const OPORTUNIDAD_NOTIF = { texto: 'volvió la fecha de recontacto', color: '#f0abfc', bg: 'rgba(217,70,239,0.15)' };
 const ENTREGA_NOTIF = { color: '#c4b5fd', bg: 'rgba(139,92,246,0.15)' };
+const RECHAZO_NOTIF = { texto: 'rechazó la proforma', color: '#fca5a5', bg: 'rgba(248,113,113,0.18)' };
 
 const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
   remito:              () => '/remitos',
@@ -89,13 +94,9 @@ export function NotificationBell() {
             detail: { nuevas: nuevosPresupuestos }
           }));
         }
-        nuevosRemitos.forEach(n => {
-          const rm = n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
-          toast.warning(`Remito ${n.numero}${rm ? ` — ${rm.texto}` : ' con novedades en la recepción'}`, {
-            description: 'Revisalo en Remitos',
-            duration: 6000,
-          });
-        });
+        // Remitos y entregas-en-1-hora ya salen como aviso emergente persistente
+        // (AvisosEmergentes); un toast además sería el mismo mensaje dos veces.
+        void nuevosRemitos;
         nuevasOportunidades.forEach(n => {
           toast.info(`Oportunidad futura: ${nombreCliente(n.cliente)}`, {
             description: n.detalle ?? 'Llegó la fecha de recontacto',
@@ -108,12 +109,7 @@ export function NotificationBell() {
             duration: 6000,
           });
         });
-        nuevasEntregasHora.forEach(n => {
-          toast.warning(`Entrega en menos de 1 hora: ${nombreCliente(n.cliente)}`, {
-            description: n.detalle ? `Programada a las ${n.detalle}hs — ${n.numero}` : n.numero ?? '',
-            duration: 8000,
-          });
-        });
+        void nuevasEntregasHora;
         prevIdsRef.current = new Set(data.map(claveDe));
       }
     } catch {
@@ -121,13 +117,19 @@ export function NotificationBell() {
     }
   }, []);
 
-  // Poll cada 10s + recargar al volver al tab
+  // Poll cada 10s + recargar al volver al tab + al aceptar un aviso emergente
+  // (si no, el contador se queda con el aviso que ya se aceptó hasta el próximo poll).
   useEffect(() => {
     fetchNotifs();
     const t = setInterval(fetchNotifs, 10_000);
     function handleVisibility() { if (document.visibilityState === 'visible') fetchNotifs(); }
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', handleVisibility); };
+    window.addEventListener('notificaciones:cambiaron', fetchNotifs);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('notificaciones:cambiaron', fetchNotifs);
+    };
   }, [fetchNotifs]);
 
   // Cerrar al hacer click fuera
@@ -230,9 +232,10 @@ export function NotificationBell() {
                 const esEntregaHora = n.tipo === 'entrega_hora_antes';
                 const esEntrega = esEntregaDia || esEntregaHora;
                 const rm = esRemito && n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
-                const esRespuesta = !esRemito && !esOportunidad && !esEntrega && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
+                const esRechazo = !esRemito && !esOportunidad && !esEntrega && !n.aprobado_online_at && !!n.data?.rechazado_online_at;
+                const esRespuesta = !esRemito && !esOportunidad && !esEntrega && !esRechazo && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
                 const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
-                const acento = rm ?? rc ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null);
+                const acento = rm ?? rc ?? (esRechazo ? RECHAZO_NOTIF : null) ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null);
                 return (
                 <div
                   key={`${n.tipo}-${n.id}`}
@@ -246,6 +249,8 @@ export function NotificationBell() {
                     style={{ backgroundColor: acento ? acento.bg : 'rgba(34,197,94,0.15)' }}>
                     {rm
                       ? <AlertTriangle size={16} style={{ color: rm.color }} />
+                      : esRechazo
+                      ? <XCircle size={16} style={{ color: RECHAZO_NOTIF.color }} />
                       : esOportunidad
                       ? <Target size={16} style={{ color: OPORTUNIDAD_NOTIF.color }} />
                       : esEntrega
@@ -259,6 +264,7 @@ export function NotificationBell() {
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.88)' }}>
                       {rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>
+                       : esRechazo ? <>{RECHAZO_NOTIF.texto} <span className="font-mono" style={{ color: RECHAZO_NOTIF.color }}>{n.numero?.replace(/^OP-/, 'PRO-')}</span></>
                        : esOportunidad ? <>{OPORTUNIDAD_NOTIF.texto}</>
                        : esEntregaDia ? <>Entrega programada para mañana — <span className="font-mono" style={{ color: ENTREGA_NOTIF.color }}>{n.numero}</span></>
                        : esEntregaHora ? <>Entrega hoy {n.detalle ? `a las ${n.detalle}hs` : ''} — <span className="font-mono" style={{ color: ENTREGA_NOTIF.color }}>{n.numero}</span></>
