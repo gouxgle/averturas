@@ -1,865 +1,367 @@
 # Aberturas — CRM / ERP de gestión para local de aberturas
 
-## Descripción del negocio
-Local de venta e instalación de aberturas (ventanas, puertas, etc.).
-Maneja productos estándar (stock propio), productos a medida (fabricados por proveedor) y fabricación propia.
+Local de venta e instalación de aberturas (ventanas, puertas, etc.). Productos estándar (stock
+propio), a medida (fabricados por proveedor) y fabricación propia.
 Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 
-## Repositorio
-- GitHub: `git@github.com:gouxgle/averturas.git`
-- Rama principal: `main`
+- GitHub `git@github.com:gouxgle/averturas.git`, rama `main`.
+- Documentación larga que NO hace falta cada sesión: `docs/backups.md` (cron, rclone y su
+  historial de fallos), `docs/pedidos-rediseno-pendiente.md` (rediseño de pedidos a
+  proveedores, nada implementado, 9 definiciones abiertas), `docs/catalogo-web.md` (contrato
+  de datos para el sitio web público).
 
 ## Ambientes
-| Ambiente | URL | IP | Notas |
-|---|---|---|---|
-| **Local** | `http://localhost:3000` | — | Desarrollo |
-| **Test** | `http://aberturas.solucionesgps.com.ar` | `149.50.150.131` | Staging / pruebas — HTTP sin HTTPS |
-| **Prod** | `http://aberturas.cesarbritez.com.ar` | `179.43.120.103` | Producción cliente |
 
-- Test (149.50.150.131): HTTP sin HTTPS → `crypto.randomUUID()` necesita fallback
-- Compose en test: nombre `aberturas`, contenedor DB `aberturas-db`
-- Compose en prod: nombre `cesarbritez`, contenedor DB `aberturas-db`, proyecto en `/opt/docker/cesarbritez/aberturas/`, uploads montados en `/var/lib/docker-data/aberturas/uploads/` → `/app/uploads`
-- **`docker-compose.yml` de prod vive en `/opt/docker/cesarbritez/docker-compose.yml` (nivel arriba del repo, `COMPOSE_DIR` en `deploy.sh`) — comparte stack con `web`, `portainer`, Evolution API/Redis. NO es el `docker-compose.yml` del repo y `git pull` NO lo toca.** Cualquier env var nueva para `aberturas-app`/`aberturas-db` (ej. `TZ`) hay que agregarla ahí a mano por SSH — el archivo del repo solo sirve para local/test. Bug real (2026-07-25): se agregó `TZ` al compose del repo pensando que cubría prod; prod siguió en UTC hasta editar el compose real en el host.
-- **Timezone**: DB y app deben correr en `America/Argentina/Buenos_Aires` (Formosa, UTC-3, sin DST) — sin esto `CURRENT_DATE`/`DATE(created_at)` y fechas server-side (PDFs, WhatsApp) usan UTC, y algo creado entre ~21:00-23:59 hora local cae en el día UTC siguiente (aparece "de hoy" cuando fue "ayer"). Fijado vía `ALTER DATABASE postgres SET timezone TO '...'` (migración `20260725000003_timezone_argentina.sql`, DB) + env `TZ` (contenedor app, para Node/Puppeteer). En prod, `TZ` va en el compose del host (ver punto anterior), no alcanza con el del repo.
-- **Reverse proxy delante de la app — arquitectura distinta en cada ambiente, ninguna vive en este repo:**
-  - **Test**: contenedor Docker `nginx_proxy` (imagen `nginx:latest`), comparte VPS con Traccar/Stalwart/Evolution API/Portainer. Config en `/etc/nginx/conf.d/aberturas.conf` **dentro de ese contenedor** (`docker exec nginx_proxy cat ...`, no está en el filesystem del host). Reload: `docker exec nginx_proxy nginx -s reload` (no corta conexiones activas).
-  - **Prod**: nginx del **sistema** (systemd, no Docker) — `aberturas-app` y el resto de los contenedores solo publican en `127.0.0.1`, todo el tráfico externo entra por este nginx. Config en `/etc/nginx/sites-enabled/aberturas.conf` (managed by Certbot). Reload: `systemctl reload nginx` o `nginx -s reload` directo en el host.
-  - **Bug real (2026-08-30)**: en test, `aberturas.conf` no tenía `client_max_body_size` en ningún lado → default de nginx (1MB) rechazaba con **413** cualquier foto de cámara Android (~2-3MB+) *antes* de que el pedido llegara a `aberturas-app` — por eso no aparecía nada en `docker logs aberturas-app`, y por eso ningún fix de código del lado de la app podía arreglarlo. Se agregó `client_max_body_size 25m;` dentro del bloque `443 ssl` de `aberturas.conf` (solo ese bloque, no tocar `solucionesgps.conf`/`mail.conf`). **Prod ya tenía `client_max_body_size 20M;`** en su `aberturas.conf` desde antes — no hizo falta tocarlo. Si vuelve a aparecer un "Error al subir imagen" genérico (sin el mensaje específico que devuelve la app) después de una subida de archivo, sospechar primero de un rechazo del proxy (413/tamaño) antes de asumir que es un bug de código — revisar logs del proxy correspondiente al ambiente, no solo `docker logs aberturas-app`.
+| Ambiente | URL | Notas |
+|---|---|---|
+| Local | `http://localhost:3000` (contenedor) · `:5173`+`:3001` (nativo) | DB en `127.0.0.1:5434` |
+| Test | `http://aberturas.solucionesgps.com.ar` — `149.50.150.131:5889` | HTTP sin HTTPS; 1.9 GB RAM compartidos con ~11 contenedores ajenos; deploy en `/etc/docker/averturas` |
+| Prod | `https://aberturas.cesarbritez.com.ar` — `179.43.120.103:5912` | Repo en `/opt/docker/cesarbritez/aberturas`; **el compose real es `/opt/docker/cesarbritez/docker-compose.yml`, fuera del repo** — toda env var nueva para `aberturas-app`/`aberturas-db` va ahí a mano |
+
+- Reverse proxy: test = contenedor `nginx_proxy` (config dentro del contenedor en
+  `/etc/nginx/conf.d/aberturas.conf`, reload `docker exec nginx_proxy nginx -s reload`);
+  prod = nginx del sistema (`/etc/nginx/sites-enabled/aberturas.conf`, `systemctl reload nginx`).
+  Ambos con `client_max_body_size` ≥ 20M. Un "Error al subir imagen" genérico tras una subida
+  grande es 413 del proxy, no un bug de la app — mirar el log del proxy, no solo el de la app.
+- Timezone: DB y app en `America/Argentina/Buenos_Aires` (migración
+  `20260725000003_timezone_argentina.sql` + env `TZ`). En prod `TZ` va en el compose del host.
+- `APP_URL` obligatoria en test/prod: arma los links públicos (`/p/:token`) y el badge de
+  entorno (`GET /pub/entorno`, que en local no muestra nada).
 
 ## Cómo trabajar en este repo (para Claude) — velocidad de iteración
 
-El usuario prioriza explícitamente bajar los tiempos de desarrollo y **no quiere preguntas de
-confirmación al cierre** ("¿deployo?"): terminar el ciclo completo — código → verificación →
-commit → push → deploy a test y prod → verificación post-deploy — y reportar el resultado.
-Preguntar solo ante algo irreversible o ambiguo con impacto real distinto.
+El usuario prioriza bajar los tiempos y **no quiere preguntas de confirmación al cierre**
+("¿deployo?"): terminar el ciclo — código → verificación → commit → push → deploy a test y
+prod → verificación post-deploy — y reportar. Preguntar solo ante algo irreversible o
+ambiguo con impacto real distinto. Ante ambigüedad menor, decidir lo más consistente con el
+código y mencionarlo en el resumen.
 
-**1. No preguntar si se puede decidir razonablemente.** Ante ambigüedad menor (nombre de
-variable, texto de un label, ubicación de un botón, valor por defecto), tomar la decisión más
-consistente con el código y seguir — mencionarla en el resumen, no interrumpir.
-
-**2. Todo corre NATIVO en el host (desde 2026-09-16). Docker solo para la DB y el chequeo
-final pre-deploy.** `node_modules` era de root (instalado desde contenedores) y obligaba a
-correr cada typecheck/test/build/Playwright dentro de un contenedor nuevo — 10-30 s de
-arranque por verificación. Se arregló con `docker run --rm -v "$PWD":/w alpine chown -R
-1000:1000 /w/node_modules /w/server/node_modules` (Docker corre como root, no hace falta
-sudo). Si algún día vuelve a aparecer un `EACCES` en `node_modules`, es eso: repetir el chown,
-no volver a los contenedores.
+**Todo corre NATIVO en el host (Node 24). Docker solo para la DB y el chequeo final
+pre-deploy.** `node_modules` debe ser del usuario (`sistemas`); si aparece `EACCES` en
+`node_modules`, es que volvió a quedar de root: `docker run --rm -v "$PWD":/w alpine chown -R
+1000:1000 /w/node_modules /w/server/node_modules` (Docker corre como root, sin sudo).
 
 ```bash
-npm run typecheck        # tsc -b frontend — 1.4 s incremental (era 22 s)
+npm run typecheck        # tsc -b frontend — 1.4 s incremental
 npm run typecheck:all    # + backend
 npm run test:all         # vitest front (110) + back (59) — ~8 s
 npm run check            # typecheck:all + test:all
 npm run test:e2e         # Playwright nativo, Chrome del host, 54 tests en ~65 s
 npm run dev:api          # backend nativo en :3001 con recarga (tsx watch)
 npm run dev              # Vite en :5173, proxea /api y /uploads a :3001
-cd server && npm run migrate   # funciona a secas (lee server/.env)
+cd server && npm run migrate   # lee server/.env
 ```
 
-- **Backend nativo**: `server/.env` (ignorado por git) tiene `DATABASE_URL` a
-  `127.0.0.1:5434`, `PORT=3001`, `CHROMIUM_PATH=/usr/bin/google-chrome` (PDFs server-side
-  con puppeteer funcionan nativos). `index.ts` carga `dotenv/config` — en el contenedor es
-  no-op. `server/uploads` es un symlink a `../uploads` para que `serveStatic` (cwd=server/)
-  sirva las imágenes. Si falta el `.env`, recrearlo copiando `POSTGRES_PASSWORD`/`JWT_SECRET`
-  del `.env` raíz.
-- **Un cambio en `server/` ya NO necesita rebuild de Docker para probarse**: con `dev:api`
-  corriendo, `tsx watch` recarga solo. `curl localhost:3001/api/...` contra la DB local.
-- **Vite**: `API_URL=http://localhost:3000 npm run dev` apunta al contenedor en vez del
-  backend nativo.
-- **Playwright**: `playwright.config.ts` usa `channel: 'chrome'` (sin descargar navegadores)
-  y carga `tests/.env.e2e` solo. El login es por API + token inyectado con `addInitScript`,
-  **un solo login por corrida** en `tests/global-setup.ts` — cada worker logueándose por su
-  cuenta pisaba el rate limit global de `/api/auth/*` (10/min) y tiraba 30 de 54 tests en
-  429. No volver al login por formulario: 3-5 s por test y flake del `waitForURL` de 15 s.
-  Los tests apuntan a `:3000` (contenedor) por defecto; `E2E_BASE_URL=http://localhost:5173`
-  para correrlos contra Vite+backend nativo.
-- **El typecheck del frontend es `tsc -b`, NUNCA `tsc --noEmit`**: el `tsconfig.json` raíz
-  tiene `files: []` y `--noEmit` revisa cero archivos y sale 0 (bug real 2026-09-10). El
-  `.tsbuildinfo` vive en `node_modules/.tmp/` — por eso el chown importa: sin poder
-  escribirlo, `tsc -b` revisaba todo cada vez (22 s) y guardaba un buildinfo vacío de 4.5 KB.
-- **`docker compose build app` solo para el chequeo final antes de deployar** (el bundle
-  real que se sirve en `:3000`, o para un screenshot contra la imagen). Si reporta `COPY src`
+- **Backend nativo**: `server/.env` (ignorado por git; recrear copiando `POSTGRES_PASSWORD` y
+  `JWT_SECRET` del `.env` raíz) con `DATABASE_URL=postgres://postgres:...@127.0.0.1:5434/postgres`,
+  `PORT=3001`, `CHROMIUM_PATH=/usr/bin/google-chrome`, `LOGIN_RATE_LIMIT=500`, `TZ`. `index.ts`
+  carga `dotenv/config` (no-op en el contenedor). `server/uploads` es symlink a `../uploads`
+  para que `serveStatic` (cwd=`server/`) sirva las imágenes. PDFs con puppeteer funcionan
+  nativos. **Un cambio en `server/` no necesita rebuild para probarse.**
+- **Vite**: `API_URL=http://localhost:3000 npm run dev` apunta al contenedor.
+- **Playwright**: `channel: 'chrome'`, carga `tests/.env.e2e` solo, login por API con token
+  inyectado (`addInitScript`) y **un solo login por corrida** (`tests/global-setup.ts`) —
+  varios workers logueándose pisan el rate limit de `/api/auth/*` (10/min) y caen en 429. No
+  volver al login por formulario (3-5 s por test y flake del `waitForURL`). Apunta a `:3000`;
+  `E2E_BASE_URL=http://localhost:5173` para Vite+nativo. Usuario fijo `e2e@local.test` solo en
+  la DB local (ver `tests/README.md`). **Si un test crea recibos/operaciones, borrarlos al
+  final**: re-correr sobre la misma operación cambia el escenario.
+- **Typecheck frontend = `tsc -b`, NUNCA `tsc --noEmit`**: el `tsconfig.json` raíz tiene
+  `files: []` y `--noEmit` revisa cero archivos y sale 0. El `.tsbuildinfo` vive en
+  `node_modules/.tmp/`; si no es escribible, `tsc -b` revisa todo cada vez (22 s).
+- **`docker compose build app` solo para el chequeo final pre-deploy.** Si reporta `COPY src`
   como `CACHED` tras cambios reales, es un bug de caché ya visto: `--no-cache`.
-- **No agregar infraestructura nueva** (scripts, perfiles de compose, herramientas) sin que
-  se pida — el objetivo es optimizar lo que existe.
+- El clasificador de seguridad bloquea contraseñas literales en la línea de comandos:
+  `curl -d @archivo.json`, nunca `-d '{"password":...}'`.
+- No agregar infraestructura nueva (scripts, perfiles de compose, herramientas) sin que se pida.
 
-**3. Calibrar la verificación al tamaño del cambio.** Elegir UN nivel, no encadenarlos:
+**Calibrar la verificación al tamaño del cambio** — elegir UN nivel, una sola pasada al final:
 
 | Cambio | Verificación suficiente |
 |---|---|
-| Texto, label, copy, reordenar JSX, renombrar | `npm run typecheck` (1.4 s). Nada más. |
+| Texto, label, copy, reordenar JSX, renombrar | `npm run typecheck` |
 | UI sin layout nuevo (colores, badges, campos de un form existente) | `npm run typecheck` + `npx vite build` (3 s) |
-| **Layout / responsive / pantalla nueva / modal anidado** | + screenshot Playwright nativo (spec descartable `tests/_verify-*.spec.ts`, borrarlo después) |
-| Query, endpoint, migración, cualquier cosa con plata o stock | + `curl` contra el backend nativo o `SELECT` en la DB local |
+| Layout / responsive / pantalla nueva / modal anidado | + screenshot Playwright (spec descartable `tests/_verify-*.spec.ts`, borrarlo después); verificar **1366×768** (notebook del usuario) y 375px |
+| Query, endpoint, migración, cualquier cosa con plata o stock | + `curl` al backend nativo o `SELECT` en la DB local |
 
-- El screenshot sigue siendo la verificación cara por los selectores, no por el tiempo de
-  arranque. Para lógica, un `SELECT` o un `curl` responde lo mismo en un paso.
-- **Una sola pasada de verificación al final**, no una por archivo. No re-correr lo que ya
-  pasó.
-- Changelog (`npm run changelog:add`) obligatorio para cambios de comportamiento visibles.
-- **Datos de prueba**: usuario fijo `e2e@local.test` (ver `tests/README.md`), credenciales en
-  `tests/.env.e2e`. El clasificador de seguridad bloquea contraseñas literales en la línea de
-  comandos: `curl -d @archivo.json`, nunca `-d '{"password":...}'`. `LOGIN_RATE_LIMIT=500` en
-  local. **Si un test crea recibos/operaciones, borrarlos al final** — re-correr sobre la misma
-  operación cambia el escenario (bug de "fechas raras" del 2026-09-15 que era solo eso).
+Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add -- "Título"
+"Descripción" [feature|fix|mejora]` genera una migración `*_changelog_*.sql`; se aplica con
+`npm run migrate` y viaja sola a test/prod. No para refactors internos ni cambios de este archivo.
 
-**4. Infraestructura / SSH — reglas duras:**
-- Nunca envolver un comando destinado al usuario en un `echo`/tool call propio: va directo en
-  el texto de la respuesta.
-- Acceso nuevo a un servidor → pedir que agreguen la clave pública SSH (`~/.ssh/id_ed25519.pub`).
-  Nunca automatizar login por contraseña (el clasificador lo bloquea; es tiempo tirado).
-- Comandos "wizard" sobre credenciales/OAuth (`rclone config update/reconnect`) se cuelgan
-  esperando un navegador: editar el archivo de config directo.
-- Deploy: `bash deploy-env.sh test` (no interactivo) y `echo si | bash deploy-env.sh prod`
-  (pide confirmación por `read`). **Prod no hace backup solo**: antes de deployar,
-  `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
-  /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz` por SSH.
-  Prod está en `/opt/docker/cesarbritez/aberturas`, su compose real es
-  `/opt/docker/cesarbritez/docker-compose.yml` (fuera del repo).
+**Infra / SSH:**
+- Comandos para el usuario van en el texto de la respuesta, nunca dentro de un `echo`/tool call.
+- Acceso nuevo a un servidor → pedir que agreguen `~/.ssh/id_ed25519.pub`. Nunca automatizar
+  login por contraseña (el clasificador lo bloquea).
+- Wizards de credenciales/OAuth (`rclone config update/reconnect`) se cuelgan esperando un
+  navegador: editar el archivo de config directo.
+- **Deploy**: `bash deploy-env.sh test` (no interactivo; saltea build si solo cambiaron
+  migraciones/tests/docs) y `echo si | bash deploy-env.sh prod`. **Prod no hace backup solo**:
+  antes, por SSH, `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
+  /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz`. Si test se
+  cuelga durante un build, primero `free -h` / `swapon --show` (swap de 2 GB en `/swapfile`).
 
-## Stack técnico
+## Stack
 
-### Frontend
-- React 19 + TypeScript + Vite
-- Tailwind CSS (componentes propios, sin shadcn)
-- React Router v7, TanStack Query v5, React Hook Form, Zod
-- Sonner (toasts), Recharts (gráficos), Lucide React (íconos)
-- `src/lib/api.ts` — cliente HTTP propio (NO axios), retorna `T` directamente (sin wrapper `.data`)
-- Alias `@/` apunta a `src/`
+- **Frontend**: React 19 + TypeScript + Vite + Tailwind (componentes propios, sin shadcn), React
+  Router v7, TanStack Query v5, React Hook Form, Zod, Sonner, Recharts, Lucide. Alias `@/` →
+  `src/`. Cliente HTTP propio `src/lib/api.ts` (no axios): `api.get<T>(path)` devuelve `T`
+  directo, sin `.data`; query params con `?${new URLSearchParams(...)}`; token en
+  `sessionStorage` (`aberturas_token`) y header `Authorization`.
+- **Backend**: Hono v4 sobre Node (`@hono/node-server`), PostgreSQL con `pg` (pool directo, sin
+  ORM), JWT + bcryptjs, Zod (`server/src/lib/schemas.ts`) — salvo `productos.ts`, que valida
+  a mano. Un solo proceso sirve `/api/*` y el frontend estático desde `./public/`.
+  `/uploads/*` se sirve **sin auth** (imágenes de productos, comprobantes, firmas).
+- **Infra**: Dockerfile multi-stage (server-build → frontend-build → final con chromium para
+  PDFs). `.dockerignore` excluye `uploads/`, `supabase/`, `docker/`, `tests/` (son volúmenes).
+  El stage frontend copia solo lo que Vite necesita (no `COPY . .`). `COPY --from=server-build`
+  fuerza orden secuencial — no romperlo (test tiene poca RAM).
+- **Migraciones** en `supabase/migrations/YYYYMMDDNNNNNN_descripcion.sql`, cada una termina con
+  `INSERT INTO schema_migrations (filename) VALUES ('...') ON CONFLICT DO NOTHING;`.
+  `docker/initdb/01_schema.sh` las corre todas en una DB vacía (no tocarlo). Runner:
+  `npm run migrate` / `migrate:list` / `migrate:dry`, transacción por migración.
+- Generación de números correlativos (`OP-`, `REC-`, `REM-`, `PED-`, `VT-`, lotes): siempre
+  `MAX(SUBSTRING(numero FROM '(\d+)$')::int) + 1`, **nunca `COUNT(*)`** (regenera números
+  borrados → `duplicate key` → rollback silencioso).
+- `crypto.randomUUID()` no existe en HTTP (test): usar el fallback con `Math.random`.
+- `index.html` lleva `lang="es" translate="no"`: sin eso Chrome Android traduce, muta el DOM y
+  React 19 rompe con `insertBefore` (pantalla "Algo salió mal"). No cambiarlo.
 
-### Backend
-- Hono v4 sobre Node.js (`@hono/node-server`)
-- PostgreSQL con driver `pg` (pool directo, sin ORM)
-- JWT + bcryptjs para auth
-- Servicio único: sirve API en `/api/` y frontend estático desde `./public/`
-
-### Infraestructura
-- Docker Compose multi-stage: frontend-build → server-build → imagen final
-- `docker/initdb/01_schema.sh` — ejecuta todas las migraciones en orden al iniciar DB vacía
-- Migraciones en `supabase/migrations/` — naming: `YYYYMMDDNNNNNN_descripcion.sql`
-- Cada migración hace `INSERT INTO schema_migrations (filename)` al final
-- Uploads en `./uploads/` (montado como volumen)
-- Env var `APP_URL` requerida en producción para links públicos (ej: `http://149.50.150.131:3000`)
-
-## Estructura de archivos clave
+## Estructura
 
 ```
-Aberturas/
-├── src/
-│   ├── pages/                        # Una página por sección
-│   │   ├── Dashboard.tsx             # 5 indicadores accionables
-│   │   ├── Presupuestos.tsx          # Lista + modal detalle + Compartir
-│   │   ├── NuevoPresupuesto.tsx      # Crear/editar presupuesto
-│   │   ├── Operaciones.tsx           # Tablero kanban — 6 columnas
-│   │   ├── Recibos.tsx               # Lista + modal detalle con anulación
-│   │   ├── NuevoRecibo.tsx           # Crear/editar recibo (vinculado a op. aprobada)
-│   │   ├── Pedidos.tsx               # Lista de pedidos al proveedor (orden: created_at DESC)
-│   │   ├── NuevoPedido.tsx           # Crear pedido al proveedor
-│   │   ├── VentaRapida.tsx           # Venta rápida de mostrador (galería productos con stock)
-│   │   ├── VisitaTecnica.tsx         # Crear visita técnica (cliente + domicilio)
-│   │   ├── VisitasTecnicas.tsx       # Listado de visitas técnicas
-│   │   ├── CargarVisitaTecnica.tsx   # Cargar relevado (fotos, ítems, detalles) + avanzar a presupuesto
-│   │   ├── VistaPublicaPresupuesto.tsx  # Página pública /p/:token (sin auth) — aprobar o respuesta intermedia
-│   │   └── print/
-│   │       ├── ImprimirPresupuesto.tsx
-│   │       ├── ImprimirRecibo.tsx
-│   │       └── ImprimirVisitaTecnica.tsx  # PDF A4 formulario visita técnica (?visita_id=)
-│   ├── components/
-│   │   ├── Layout/
-│   │   │   ├── AppLayout.tsx         # Layout principal con Toaster
-│   │   │   └── Sidebar.tsx           # Nav lateral con NotificationBell
-│   │   ├── NotificationBell.tsx      # Campanita de notificaciones (polling 30s)
-│   │   ├── SectionHero.tsx           # Header de cada sección — responsive flex-col/row (ver Convenciones UI)
-│   │   └── CompactStatsBar.tsx       # Barra "Métricas" — scroll horizontal en mobile
-│   ├── lib/api.ts                    # Cliente HTTP
-│   ├── hooks/useAuth.ts
-│   └── App.tsx                       # Rutas React Router
-├── server/src/
-│   ├── routes/
-│   │   ├── pub.ts                    # Rutas PÚBLICAS sin auth (/pub/presupuesto/:token, incl. /responder)
-│   │   ├── notificaciones.ts         # GET/PATCH notificaciones de aprobación + respuesta_cliente
-│   │   ├── operaciones.ts            # POST /venta-rapida, /:id/generar-link, /:id/resolver-respuesta; tablero incluye pedido_fecha_entrega_est
-│   │   ├── visitasTecnicas.ts        # CRUD visitas técnicas + upload-imagen
-│   │   ├── pedidos.ts                # GET /tablero, CRUD; lista ordenada por created_at DESC
-│   │   ├── recibos.ts
-│   │   ├── dashboard.ts              # GET /indicadores (5 KPIs accionables)
-│   │   ├── oportunidades.ts          # Oportunidades futuras — CRUD + /resumen, /plantilla/:id, /:id/posponer, /:id/estado, /:id/contactar
-│   │   └── ...resto de rutas
-│   ├── middleware/auth.ts
-│   ├── db.ts
-│   └── index.ts                      # Registro de rutas (pub ANTES de authMiddleware)
-├── supabase/migrations/
-├── docker/initdb/01_schema.sh
-├── Dockerfile
-└── docker-compose.yml
+src/pages/          una página por sección (Dashboard, CRM, Presupuestos, NuevoPresupuesto,
+                    Operaciones (kanban), Remitos, Recibos, NuevoRecibo, Pedidos, NuevoPedido,
+                    VentaRapida, VisitaTecnica, VisitasTecnicas, CargarVisitaTecnica, Clientes,
+                    ClienteDetalle, Productos, NuevoProducto, Stock, Proveedores, EstadoCuenta,
+                    Reportes, Actividad, Novedades, Configuracion, VistaPublicaPresupuesto,
+                    VistaPublicaRemito) + print/ (ImprimirPresupuesto → ProformaDocumento,
+                    ImprimirPresupuestoPublico, ImprimirRecibo, ImprimirRemito,
+                    ImprimirVisitaTecnica, FormularioCliente)
+src/components/     Layout/{AppLayout,Sidebar}, NotificationBell, AvisosEmergentes,
+                    EntornoBanner, CentroAlertas, AlertaBackups, SectionHero, CompactStatsBar,
+                    ComparadorRevisiones, RevisionesEnviadas, VersionesPresupuesto,
+                    TarjetaProductoMosaico, catalogo/{ExploradorCatalogo,GridMosaico}, remitos/,
+                    oportunidades/, productos/
+src/lib/            api.ts, utils.ts, diffProforma.ts, catalogoFiltros.ts, catalogoCascada.ts,
+                    atributosPorTipo.ts, apiError.ts
+server/src/routes/  una ruta por módulo (ver tabla abajo); pub.ts = público sin auth
+server/src/lib/     pdf.ts (PDFs server-side con puppeteer), schemas.ts (Zod), validate.ts, whatsapp.ts,
+                    cotizacionDolar.ts, actividad.ts, oportunidades.ts, remitos.ts
+server/src/scripts/ migrate.ts, add-changelog.ts, optimizar-imagenes.ts
+supabase/migrations/ · docker/initdb/ · docs/ · tests/
 ```
-
-## Base de datos — tablas principales
-
-```
-usuarios            — roles: admin | vendedor | consulta
-empresa             — datos del local (nombre, CUIT, logo_url, etc.)
-tipos_abertura      — catálogo: Ventana, Puerta, etc.
-sistemas            — catálogo: PVC, aluminio, etc.
-colores             — catálogo de colores
-proveedores         — fabricantes, revendedores, importadores
-catalogo_productos  — productos (stock_inicial, stock_minimo, imagenes[], video_url)
-categorias_cliente
-clientes            — personas físicas y jurídicas
-interacciones       — historial CRM por cliente
-tareas              — seguimiento por cliente
-operaciones         — presupuestos/operaciones (ver campos clave abajo)
-operacion_items     — líneas de operación (tipo_abertura_id, sistema_id, sin precio_total columna)
-estados_historial   — auditoría de cambios de estado
-stock_lotes         — lotes de ingreso
-stock_movimientos   — movimientos de stock (cantidad signed)
-remitos             — remitos de entrega (operacion_id, estado: borrador|emitido|entregado|cancelado; fecha/hora_entrega_est + tarea_id + recordatorio_*_visto, ver "Programación de entregas")
-remito_items        — líneas de remito
-recibos             — cobros (vinculados a operacion_id, estado: emitido|anulado)
-recibo_items        — líneas de recibo
-compromisos_pago    — compromisos de saldo pendiente (fecha_vencimiento, estado: pendiente|cobrado|...)
-transportistas      — tabla maestra de empresas de transporte (nombre, activo); seeds: Andreani, OCA, Correo Argentino, transporte propio
-pedidos             — pedidos al proveedor (estado: pendiente|enviado|recibido|cancelado; fecha_entrega_est DATE; costo_envio NUMERIC; transportista_id UUID FK; es_stock_propio BOOLEAN → pedido para stock/salón propio, sin cliente ni operación)
-pedido_items        — líneas del pedido (descripcion, cantidad, costo_unitario, orden; operacion_item_id UUID nullable FK → vincula ítem con operación origen; es_reposicion BOOLEAN → ítem extra pedido igual habiendo stock)
-visitas_tecnicas    — relevamiento in situ (numero, cliente_id, estado: pendiente|relevada|convertida|cancelada, imagenes[], operacion_id nullable FK)
-visita_tecnica_items — ítems medidos in situ (ambiente, descripcion, ancho_mm, alto_mm — en MILÍMETROS, no metros; tipo_item: a_medida|servicio)
-catalogo_servicios  — servicios frecuentes (reparación, mantenimiento, cambio de piezas): nombre, descripcion, precio_base nullable, orden, activo
-oportunidades       — intención de compra postergada ("el año que viene cambio las ventanas"): cliente_id, motivo, fecha_recontacto, interes (alto|medio|bajo), probabilidad, estado (pendiente|contactada|convertida|descartada), origen (cliente|presupuesto|crm|publico), tarea_id (espejo en agenda)
-```
-
-### Campos clave en `operaciones`
-```sql
-estado            -- presupuesto|enviado|aprobado|en_produccion|listo|instalado|entregado|cancelado
-forma_pago        -- texto libre: 'Contado', 'Transferencia', 'Tarjeta de crédito 3 cuotas sin interés', etc.
-forma_envio       -- retiro_local|envio_bonificado|envio_destino|envio_empresa
-costo_envio       -- numeric (solo aplica si forma_envio = 'envio_empresa')
-token_acceso      -- UUID único para link público de aprobación (nullable)
-token_acceso_at   -- TIMESTAMPTZ cuando se generó el token
-aprobado_online_at -- TIMESTAMPTZ cuando el cliente aprobó desde el link
-notif_leida       -- BOOLEAN (false = notificación pendiente de leer en el sistema)
-respuesta_cliente     -- mas_tiempo|consulta|llamada|modificar|NULL — respuesta intermedia del link público (no cambia estado)
-respuesta_cliente_at  -- TIMESTAMPTZ de la respuesta intermedia
-es_venta_rapida       -- BOOLEAN — true si viene de POST /operaciones/venta-rapida (venta de mostrador)
-```
-`respuesta_cliente_detalle` NO es columna — se calcula en `GET /operaciones/:id` como subquery a la última `interaccion` tipo `respuesta_proforma` de esa operación (tiene el comentario/motivo real que escribió el cliente).
-
-### `operacion_items` — importante
-`precio_total` NO es columna directa. Calcularlo siempre:
-```sql
-precio_unitario * cantidad + CASE WHEN incluye_instalacion THEN precio_instalacion * cantidad ELSE 0 END
-```
-`tipo_abertura_nombre` y `sistema_nombre` tampoco son columnas — requieren JOIN:
-```sql
-LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
-LEFT JOIN sistemas        si ON si.id = oi.sistema_id
-```
-
-**Tres tipos de ítem** (`operacion_items.tipo_item`, columna real, ya no se infiere): `estandar` (del catálogo, `producto_id` seteado) | `a_medida` (fabricado/proveedor, medidas cargadas a mano, `calculo_url` de respaldo) | `servicio` (reparación/mantenimiento/cambio de piezas, opcionalmente `servicio_id` → `catalogo_servicios`). Un servicio no tiene `producto_id` ni medidas — antes de la columna explícita esto era indistinguible de un "a medida" sin completar (bug que motivó la migración).
-
-**Los ítems de servicio NUNCA requieren pedido al proveedor** — se excluyen explícitamente (`tipo_item != 'servicio'` o `OR tipo_item = 'servicio'` según el sentido de la condición) de: `STOCK_CUBRE_TODO` en `operaciones.ts`, `items_cubiertos`/`items_pendientes` en `pedidos.ts` (coverage y `/operaciones-disponibles`). Sin este filtro, una operación con un servicio nunca podría marcarse "lista para entregar" ni salir de la lista de "pendientes de pedido" — quedaría eternamente esperando un pedido que no tiene sentido.
-
-**Origen en visita técnica**: `visita_tecnica_items.tipo_item` (`a_medida|servicio`) se carga por ítem en `CargarVisitaTecnica.tsx` (toggle regla/llave) y se propaga tal cual al convertir a presupuesto — ver sección Visitas técnicas.
-
-### Tipos/enums PostgreSQL
-```sql
-app_role:         admin | vendedor | consulta
-tipo_operacion:   estandar | a_medida_proveedor | fabricacion_propia
-estado_operacion: presupuesto | enviado | aprobado | en_produccion | listo | instalado | entregado | cancelado
-```
-
-### Stock — fórmula clave
-```
-stock_actual = catalogo_productos.stock_inicial + SUM(stock_movimientos.cantidad)
-```
-Tipos de movimiento: `ingreso | egreso_remito | egreso_retiro | devolucion | ajuste`
-
-`en_salon` (BOOLEAN en `catalogo_productos`) = exhibido físicamente en el local y con stock verificado a mano. Validación backend: no se puede marcar `en_salon=true` si `stock_actual < 1` (POST/PUT productos, PATCH toggle-salon). Se auto-limpia (`en_salon=false`) cuando el stock llega a 0 tras una venta rápida o un remito emitido.
-**Contexto de negocio (2026-07-22)**: en prod, el stock de catálogo venía de una carga inicial no verificada (default 100 en casi todos). Se hizo un ajuste masivo (movimientos `ajuste`, motivo "Ajuste masivo: stock no verificado") llevando a 0 todo producto `en_salon=false` — el criterio real hoy es: **solo lo marcado `en_salon` tiene stock confiable**, todo lo demás está en 0 hasta que se verifique y cargue de nuevo.
-
-### Remitos — flujo de estados
-```
-borrador → emitido   (descuenta stock: crea movimientos egreso_remito)
-emitido  → entregado (registra fecha_entrega_real)
-*        → cancelado (si stock_descontado=true, revierte con movimiento devolucion)
-```
-
-### Recibos — reglas de negocio
-- Solo se generan sobre operaciones con `estado = 'aprobado'`
-- Formas de pago: `'Contado'` | `'Tarjeta de débito/crédito en 1 pago'` | `'Transferencia'` | `'Tarjeta de crédito 3 cuotas sin interés'`
-- Pago contado: habilita bonificación sobre precio de productos (no envío ni instalación)
-- Pago parcial: genera `compromisos_pago` con fecha de vencimiento
-- `cobrado_operacion` = suma de recibos emitidos para esa operación (calculado en GET /:id)
-
-## Rutas del backend (`/api/`)
-
-| Ruta | Archivo | Notas |
-|------|---------|-------|
-| `/pub/presupuesto/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle + POST aprobar + POST rechazar + `POST /responder` (respuesta intermedia) |
-| `/pub/remito/:token` | routes/pub.ts | **PÚBLICA** — sin auth, GET detalle remito + POST confirmar recepción |
-| `/auth` | routes/auth.ts | Pública — login, me |
-| `/clientes` | routes/clientes.ts | `/validar-dni` ANTES de `/:id` |
-| `/productos` | routes/productos.ts | CRUD con upload de imagen |
-| `/operaciones` | routes/operaciones.ts | `POST /venta-rapida` (venta mostrador); `POST /:id/generar-link`, `POST /:id/enviar-whatsapp`, `PATCH /:id/resolver-respuesta` — todas ANTES de `GET /:id` |
-| `/visitas-tecnicas` | routes/visitasTecnicas.ts | `POST /upload-imagen` ANTES de `GET /:id`; CRUD + fotos de relevamiento |
-| `/catalogo` | routes/catalogo.ts | tipos-abertura, sistemas, colores, servicios, categorias, proveedores |
-| `/dashboard` | routes/dashboard.ts | `GET /indicadores` devuelve 5 arrays accionables |
-| `/notificaciones` | routes/notificaciones.ts | `GET /` + `PATCH /marcar-leidas` — incluye respuesta_cliente, remitos con observaciones y oportunidades futuras vencidas |
-| `/interacciones` | routes/interacciones.ts | |
-| `/tareas` | routes/tareas.ts | `PATCH /:id/completar` — si tiene `operacion_id`, limpia `respuesta_cliente` de esa operación; si `tipo_accion='oportunidad'`, sincroniza el estado de la oportunidad vinculada |
-| `/oportunidades` | routes/oportunidades.ts | `/resumen`, `/plantilla/:id` ANTES de `/:id`; `PATCH /:id/posponer`, `PATCH /:id/estado`, `POST /:id/contactar` |
-| `/empresa` | routes/empresa.ts | |
-| `/usuarios` | routes/usuarios.ts | |
-| `/stock` | routes/stock.ts | `/alertas` y `/lotes` ANTES de `/:id` |
-| `/remitos` | routes/remitos.ts | `/conteos`, `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` ANTES de `/:id` |
-| `/recibos` | routes/recibos.ts | `/conteos` ANTES de `/:id` |
-| `/pedidos` | routes/pedidos.ts | `/tablero` y `/reporte-envios` ANTES de `/:id` |
-| `/transportistas` | routes/transportistas.ts | GET lista activos, POST crear, PATCH activar/desactivar |
-| `/estado-cuenta` | routes/estadoCuenta.ts | |
-
-**Crítico — Hono matchea en orden de registro:**
-- Rutas específicas (`/validar-dni`, `/conteos`, `/generar-link`, etc.) ANTES de `/:id`
-- Rutas públicas (`/pub`, `/auth`) registradas en `api` ANTES del bloque `apiAuth` con authMiddleware
 
 ## Rutas frontend (App.tsx)
 
-```
-/login                          — pública
-/p/:token                       — pública, sin ProtectedRoute → VistaPublicaPresupuesto
-/r/:token                       — pública, sin ProtectedRoute → VistaPublicaRemito
-/dashboard
-/presupuestos                   — lista + modal detalle (click en fila)
-/presupuestos/nuevo
-/presupuestos/:id/editar
-/presupuestos/visita-tecnica          — crear visita técnica (elegir/crear cliente)
-/presupuestos/visitas-tecnicas        — listado de visitas técnicas
-/presupuestos/visitas-tecnicas/:id    — cargar relevado + avanzar a presupuesto
-/ventas/rapida                  — venta rápida de mostrador
-/operaciones, /operaciones/:id, /operaciones/nueva
-/pedidos, /pedidos/nuevo, /pedidos/:id/editar
-/remitos, /remitos/nuevo, /remitos/:id/editar
-/recibos, /recibos/nuevo, /recibos/:id/editar
-/clientes, /clientes/:id, /clientes/nuevo, /clientes/:id/editar
-/productos, /productos/nuevo, /productos/:id
-/stock, /proveedores
-/estado-cuenta
-/imprimir/presupuesto/:id       — sin AppLayout, dentro de ProtectedRoute
-/imprimir/remito/:id
-/imprimir/recibo/:id
-/imprimir/visita-tecnica?visita_id=X  — formulario A4 (en blanco si pendiente, con datos si ya relevada)
-```
+Públicas (sin `ProtectedRoute`): `/login`, `/p/:token` (proforma), `/p/:token/imprimir` (PDF
+de la proforma), `/r/:token` (remito).
+Autenticadas: `/dashboard`, `/crm`, `/presupuestos[/nuevo|/:id/editar|/visita-tecnica|/visitas-tecnicas[/:id]]`,
+`/ventas/rapida`, `/operaciones[/nueva|/:id]`, `/remitos[/nuevo|/:id/editar]`,
+`/pedidos[/nuevo|/:id/editar]`, `/recibos[/nuevo|/:id/editar]`,
+`/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
+`/productos[/nuevo|/:id]`, `/stock`, `/proveedores[/:id/precios]`, `/reportes`, `/actividad`,
+`/novedades`, `/configuracion`. Impresión (sin AppLayout): `/imprimir/{presupuesto,remito,recibo}/:id`,
+`/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`.
 
-## Circuito comercial completo — Presupuesto → Cobro → Entrega
+Sidebar: Dashboard · **Comercial** (CRM, Venta rápida, Presupuestos, Visitas de Relevamiento
+de Datos, Operaciones, Remitos, Pedidos, Recibos, Clientes, Estado de Cuenta) · **Catálogo**
+(Productos, Existencias, Proveedores) · **Sistema** (Reportes, Actividad, Novedades,
+Configuración). Configuración tiene paneles para tipos de abertura, sistemas, colores,
+materiales, líneas, tipos de vidrio, categorías, modelos, servicios, formas de pago, empresa,
+usuarios, plantillas de WhatsApp y Backups (solo admin).
 
-### 1. Presupuesto
-- Estado flujo: `presupuesto → enviado → aprobado → en_produccion → listo → instalado → entregado | cancelado | rechazado`
-- Estado cobro (campo calculado, no columna): `sin_cobrar | seña | cobrado`
-  - Se calcula en `GET /operaciones/ventas-panel` (LATERAL join) y `GET /operaciones/:id` (subquery)
-  - `cobrado_total` = SUM(recibos.monto_total) WHERE operacion_id = o.id AND estado = 'emitido'
-  - Visible en Presupuestos.tsx: badge en fila (aprobados) + sección Cobranza en modal
+## Rutas backend (`/api/`)
 
-### 2. Recibos (cobro)
-- Solo sobre operaciones `estado = 'aprobado'`
-- Tipos: `pago total` (toma saldo automático) | `pago parcial` (monto manual)
-- Pago contado: habilita bonificación sobre precio de productos (no envío ni instalación)
-- `estado_cobro` en el recibo: `cobrado` (cubre total) | `parcial` (saldo pendiente) | `anulado`
-- Flujo ágil desde Presupuestos: botón "Registrar cobro" en modal → `/recibos/nuevo` pre-cargado
-- Flujo ágil desde Recibos: botón "Cobrar saldo" en filas parciales → `/recibos/nuevo?operacion_id=X&monto=Y&concepto=Cancelación de saldo`
+Montaje en `server/src/index.ts`: `/pub` y `/auth` en `api` **antes** de `apiAuth`
+(`authMiddleware`); rate limit 60/min en `/pub/*` y 10/min en `/auth/*` (en memoria, por
+proceso). **Hono matchea en orden de registro: rutas específicas siempre antes de `/:id`.**
 
-### 3. Compromisos de pago
-- Se crean automáticamente al guardar un recibo parcial (si el usuario activa la opción)
-- Campo: `compromisos_pago (monto, fecha_vencimiento, tipo, estado: pendiente|cobrado|cancelado)`
-- Se auto-cierran cuando `SUM(recibos.monto_total) >= operacion.precio_total`
-- **NO aparecen en la lista de Recibos** — solo se ven como indicador informativo en el sidebar de Recibos (Deudas por cliente, Próximos vencimientos) y en el modal del recibo parcial
-
-### 4. Remitos (entrega)
-- Solo se crean desde operaciones aprobadas
-- Estado: `borrador → emitido → entregado | cancelado`
-- Al emitir: descuenta stock (movimientos `egreso_remito`)
-- Al cancelar con stock descontado: revierte (movimiento `devolucion`)
-- Tienen link público (`/pub/remito/:token`) para que el cliente confirme recepción
-- Campo `recepcion_estado`: `conforme | con_observaciones | no_conforme`
-
-### Visibilidad del pago por pantalla
-
-| Pantalla | Dónde ver el pago |
+| Ruta | Notas |
 |---|---|
-| **Presupuestos** (lista) | Badge `○ Sin cobrar / ◑ Seña $X / ● Cobrado` en filas aprobadas |
-| **Presupuestos** (modal) | Sección "Cobranza" con barra de progreso + botón "Registrar cobro" |
-| **Recibos** (lista) | Filas con `estado_cobro: cobrado/parcial/anulado` + botón "Cobrar saldo" |
-| **Recibos** (modal) | Total cobrado + saldo + fecha compromiso |
-| **OperacionDetalle** | Panel lateral con recibos + totalCobrado + saldoPendiente |
-| **Remitos** | No muestra estado de pago (solo flujo de entrega) |
-
----
-
-## Visitas técnicas (relevamiento in situ → presupuesto)
-
-Entidad persistida con ciclo de vida propio, independiente de operaciones hasta que se convierte:
-
-1. **Crear** (`VisitaTecnica.tsx`, ruta `/presupuestos/visita-tecnica`): elegís/creás cliente (con domicilio) → `POST /visitas-tecnicas {cliente_id}` crea con `estado='pendiente'`, numeración `VT-YYYYMM-NNNN`.
-2. **Imprimir en blanco**: `/imprimir/visita-tecnica?visita_id=X` → PDF A4 con datos del cliente precargados y el resto en blanco para completar a mano en el sitio (planilla física: ambientes, medidas en mm, color/vidrio/instalación/abertura especial, croquis, observaciones).
-3. **Cargar relevado** (`CargarVisitaTecnica.tsx`, ruta `/presupuestos/visitas-tecnicas/:id`): `PUT /visitas-tecnicas/:id` guarda ítems medidos (mm), checkboxes de detalles, observaciones y **fotos de referencia** (subida vía `POST /visitas-tecnicas/upload-imagen`, mismo patrón que productos: sharp → webp 1920px). Al guardar con ≥1 ítem, pasa a `estado='relevada'`. Reimprimir ahora muestra los datos reales, no en blanco.
-4. **Avanzar a presupuesto**: botón en `CargarVisitaTecnica.tsx` arma `itemsPrecargados` (conversión **mm → m**, `÷1000`, único punto donde se convierte unidad) y navega a `/presupuestos/nuevo` con `navigate(path, { state: { itemsPrecargados, clienteId, visitaTecnicaId, imagenesVisita } })`. `NuevoPresupuesto.tsx` lee ese `location.state` (solo si `!isEdit`), activa modo "a medida", precarga cliente e ítems, y muestra las fotos de la visita en una barra de referencia arriba del formulario.
-5. Al guardar el presupuesto, si vino con `visita_tecnica_id`: `POST /operaciones` hace `UPDATE visitas_tecnicas SET operacion_id=$1, estado='convertida' WHERE estado != 'convertida'` — cierra el link. `DELETE /visitas-tecnicas/:id` y reediciones quedan bloqueadas una vez `convertida`.
-
-**Listado**: `VisitasTecnicas.tsx` (`/presupuestos/visitas-tecnicas`), filtro por estado, entrada propia en Sidebar (sección Comercial). El botón "Visita técnica" en Presupuestos.tsx apunta a este listado, no directo a crear.
-
-## Flujo de aprobación pública (link WhatsApp)
-
-1. Admin abre modal presupuesto → "Compartir" → llama `POST /operaciones/:id/generar-link`
-2. Backend genera UUID → guarda en `token_acceso` → devuelve `{ url: APP_URL/p/{token} }`
-3. Modal muestra link copiable + botón WhatsApp (`wa.me/?text=...` con mensaje pre-armado)
-4. Cliente abre `/p/{token}` → ve resumen → presiona "Aprobar"
-5. Frontend llama `POST /api/pub/presupuesto/{token}/aprobar`
-6. Backend: `estado='aprobado'`, `aprobado_online_at=now()`, `notif_leida=false`
-7. Sistema admin: campanita muestra badge rojo, fila en lista resaltada en verde
-
-### Re-aprobación tras rechazo
-Si el cliente rechazó y el admin edita y reenvía:
-- `POST /operaciones/:id/generar-link` y `POST /operaciones/:id/enviar-whatsapp`: si `estado='rechazado'` → automáticamente setea `estado='enviado'` junto con el nuevo token
-- Así el cliente abre el nuevo link y ve la vista normal de aprobación (no "ya rechazado")
-- `POST /pub/presupuesto/:token/aprobar` ya permite `estado='enviado'` → funciona sin cambios adicionales
-- `motivo_rechazo` y `comentario_rechazo` quedan en DB como historial (no se borran)
-
-### Respuesta intermedia del cliente (Fase 1 + Fase 2)
-El link público no es binario aceptar/rechazar. "Todavía no / Tengo otra respuesta" (botón amarillo, destacado) despliega 4 opciones: **Necesito más tiempo** / **Tengo una consulta** / **Quiero que me contacten** (antes "me llamen") / **Quiero modificar la propuesta**.
-
-- `POST /pub/presupuesto/:token/responder` — NO cambia `estado`, solo guarda `respuesta_cliente` + `respuesta_cliente_at`, crea una `interaccion` (tipo `respuesta_proforma`, con el motivo/comentario/cambios/horario real que escribió el cliente) y una `tarea` de seguimiento con fecha sugerida (`operacion_id` vinculado).
-- **Cierre del loop** (Fase 2) — `respuesta_cliente` se limpia solo (vuelve a NULL) por 3 caminos, cualquiera de los 3 sirve:
-  1. Admin reenvía la proforma: `POST /:id/generar-link` o `POST /:id/enviar-whatsapp` (reenviar = ya se hizo cargo del pedido de cambios).
-  2. Admin completa la tarea de seguimiento vinculada: `PATCH /tareas/:id/completar` con `operacion_id` seteado.
-  3. Admin marca manualmente "atendido": `PATCH /operaciones/:id/resolver-respuesta`.
-- Frontend: tab "Seguimiento" en Presupuestos.tsx (`respuesta_cliente IS NOT NULL AND estado NOT IN aprobado/rechazado`), banner celeste en el modal con el texto real del cliente (`respuesta_cliente_detalle`) + botones contextuales (Llamar si `tipo=llamada`, Editar y reenviar si `tipo=modificar`, Marcar atendido siempre).
-
-## Historial de versiones de un presupuesto (`operacion_versiones`)
-
-Cada vez que se edita un presupuesto (`PUT /operaciones/:id`, solo posible si `estado != 'aprobado'`), antes de pisar `operaciones`/`operacion_items`/`operacion_formas_pago` con los datos nuevos, se guarda un snapshot completo del estado **anterior** en `operacion_versiones` (`operacion_id, version, snapshot JSONB, created_by, created_at`). v1 = el estado justo antes de la primera edición; v2 = antes de la segunda; etc. **El estado vigente nunca aparece como una versión más** — se lee en vivo de `GET /operaciones/:id`, igual que siempre.
-
-- `GET /operaciones/:id/versiones` devuelve todas las versiones `ORDER BY version DESC`, cada una con su snapshot completo (no hay endpoint de detalle aparte — los presupuestos no son tan grandes como para justificar paginar esto).
-- Frontend: `src/components/VersionesPresupuesto.tsx`, montado en el modal de detalle de `Presupuestos.tsx` justo debajo de la lista de ítems. Colapsado por defecto, carga las versiones recién al expandir (`GET` lazy). Cada versión se puede expandir a su vez para ver sus ítems.
-- Es un snapshot JSONB de las filas completas (no un diff campo a campo) — simple y suficiente para "ver qué tenía antes", que es lo que se pidió. Si en algún momento se necesita resaltar específicamente qué cambió entre dos versiones, hay que agregar un diff sobre estos mismos snapshots, no cambiar el modelo de datos.
-- `ON DELETE CASCADE` desde `operaciones` — si se borra el presupuesto, se va su historial con él.
-
-## Centro de alertas (`src/components/CentroAlertas.tsx`)
-
-Sección destacada (roja/naranja, arriba de todo) al principio del Dashboard, para que lo programado no se pierda entre secciones dispersas. **No agrega ninguna fuente de datos nueva** — consume directo `GET /tareas/agenda` (`vencidas`+`hoy`), que ya es la agenda unificada: oportunidades futuras y entregas programadas ya llegan ahí como tareas espejo (`tipo_accion='oportunidad'`/`'entrega'`), junto con cualquier tarea manual del CRM (llamada, visita, cobranza, etc.). Botón "✓" por fila llama `PATCH /tareas/:id/completar` igual que la agenda del CRM. Si no hay nada pendiente, muestra un estado calmo ("Al día") en vez de alarmar sin motivo.
-
-## Notificaciones (NotificationBell)
-
-- Poll cada 10s a `GET /notificaciones` (+ al volver al tab)
-- Un UNION de 5 ramas, todas no leídas: `presupuesto` (`aprobado_online_at`/`respuesta_cliente_at`), `remito` (`recepcion_estado IN ('con_observaciones','no_conforme')`), `oportunidad` (oportunidad futura `pendiente` con `fecha_recontacto <= CURRENT_DATE`), `entrega_dia_antes` y `entrega_hora_antes` (ver "Programación de entregas" más abajo) — ordenadas por `evento_at` DESC. Todas comparten una columna `data JSONB` (NULL salvo en las 2 de entrega, que llevan `{telefono, direccion_entrega}` para los accesos rápidos)
-- `irANotif` es un mapa por `tipo` (`IR_A_NOTIF`), no un ternario — al agregar un 4º tipo, sumarlo ahí
-- Badge rojo en campanita sidebar (desktop) y top bar (mobile); ícono/color varía según `tipo`/`respuesta_cliente` (ver `RESP_NOTIF`/`OPORTUNIDAD_NOTIF` en NotificationBell.tsx)
-- `PATCH /notificaciones/marcar-leidas` → setea `notif_leida = true` para las 3 tablas
-- Presupuestos.tsx: filas con `aprobado_online_at` → fondo verde + borde izquierdo emerald + badge "Aprobado online"
-
-## Dashboard — indicadores accionables (`GET /dashboard/indicadores`)
-
-Devuelve 5 arrays:
-- `sin_confirmar` — operaciones con estado `presupuesto` o `enviado`
-- `sin_pago` — estado `aprobado` sin recibos emitidos vinculados
-- `pagados_no_entregados` — cobro total >= precio_total pero sin remito `entregado`
-- `compromisos_semana` — `compromisos_pago` pendientes en próximos 7 días
-- `stock_bajo` — `stock_actual <= stock_minimo` (solo productos con stock_minimo > 0)
-
-`GET /dashboard/resumen` (el que realmente consume `Dashboard.tsx`) trae, además de `stats` y los arrays de seguimiento comercial, `pedidos_atrasados` y `oportunidades_pendientes` (oportunidades futuras `pendiente` con `fecha_recontacto <= CURRENT_DATE`) — ambos alimentan tarjetas de "PRIORIDADES DE HOY" (grid `xl:grid-cols-6`). También trae `entregas_hoy` (remitos `emitido` con `fecha_entrega_est = CURRENT_DATE`, ordenados por hora) — **no** va dentro del grid de 6 tiles (ya tuvo bug de wrap a 1366×768, ver `feedback_aberturas_resolucion_1366` en memoria), es una card aparte debajo.
-
-## Oportunidades futuras (`oportunidades` + CRM → sección "Oportunidades futuras")
-
-Registra clientes que manifestaron intención de compra pero la postergaron ("el año que viene cambio las ventanas"). 5 campos: `motivo`, `fecha_recontacto`, `interes` (alto/medio/bajo), `probabilidad`, `observaciones`. Estados: `pendiente → contactada → convertida|descartada` (posponer NO es un estado, es cambiar `fecha_recontacto` + `veces_pospuesta+1`).
-
-- **No hay cron**: el aviso "llega solo" porque cada oportunidad `pendiente` tiene una tarea espejo real (`tareas.tipo_accion='oportunidad'`, `oportunidades.tarea_id`) que las queries existentes de agenda/tablero ya filtran por `vencimiento`.
-- **Sincronización bidireccional** en `server/src/lib/oportunidades.ts`: `sincronizarTarea` (oportunidad → tarea, idempotente, regenera la tarea si se borró), `sincronizarDesdeTarea` (tarea completada/reabierta → oportunidad `contactada`/`pendiente`), `completarTareaDeOportunidad` (al cerrar la oportunidad). Enganchado en `PATCH /tareas/:id/completar` (`routes/tareas.ts` y `routes/crm.ts`) — si `tipo_accion==='oportunidad'`, sincroniza en fire-and-forget.
-- **4 puntos de entrada**: ficha del cliente (`ClienteDetalle.tsx`, menú "Más acciones" + card de oportunidades abiertas), presupuesto rechazado o vencido (`Presupuestos.tsx`, banner inline en el modal de detalle), listado del CRM (`PanelOportunidades.tsx` en `CRM.tsx`), y respuesta pública "necesito más tiempo" (`pub.ts` `/responder`) — en este último caso la tarea de seguimiento generada ES DIRECTAMENTE la tarea espejo (`tipo_accion='oportunidad'`, `tarea_id` seteado en el INSERT) para no duplicar el aviso.
-- **Contacto rápido** (`AccionesContacto.tsx`): WhatsApp vía Evolution API con mensaje sugerido editable (plantilla `oportunidad_recontacto` en `mensajes_plantilla`, editable desde Configuración); Llamar/Email son links `tel:`/`mailto:` que además registran el contacto en background. Los 3 pasan la oportunidad a `contactada` vía `POST /oportunidades/:id/contactar`.
-- Fecha `DATE` de Postgres — igual que el resto del proyecto, usar `.slice(0,10)+'T12:00:00'` al formatear en el frontend.
-
-## Programación de entregas (`remitos` + recordatorios automáticos)
-
-El remito ya es la entidad que representa una entrega (`cliente_id`, `direccion_entrega`, `fecha_entrega_est`). Se le agregaron `hora_entrega_est TIME`, `tarea_id`, `recordatorio_dia_antes_visto` y `recordatorio_hora_antes_visto` (migración `20260812000001_remitos_programar_entrega.sql`). La columna `notas` se reusa como "observaciones de entrega" — no hay campo separado.
-
-- `PATCH /remitos/:id/programar-entrega` — único punto de escritura de estos campos (permite `estado IN ('borrador','emitido')`). Si `fecha_entrega_est`/`hora_entrega_est` cambian respecto al valor actual, resetea ambos `recordatorio_*_visto` a `false` — si no, una entrega reprogramada nunca vuelve a avisar (mismo riesgo que `oportunidades.notif_leida`, documentado ahí).
-- **Tarea espejo** (`tareas.tipo_accion='entrega'`, ya tenía ícono/badge en `CRM.tsx` desde junio pero nunca se usaba): `sincronizarTareaEntrega`/`completarTareaDeEntrega` en `server/src/lib/remitos.ts`, mismo patrón que `lib/oportunidades.ts`. Se completa (no se borra) al marcar el remito `entregado` o `cancelado` en `PATCH /remitos/:id/estado`.
-- **3 recordatorios, sin cron** (mismo mecanismo que oportunidades — evaluado contra `NOW()`/`CURRENT_DATE` en cada poll de 10s de `NotificationBell`):
-  1. Día antes → notificación `entrega_dia_antes` (`fecha_entrega_est = CURRENT_DATE + 1`).
-  2. Mismo día → `entregas_hoy` en `Dashboard.tsx` + tarea espejo en la agenda del CRM. Sin notificación puntual (persistencia, no evento).
-  3. Hora antes → notificación `entrega_hora_antes` (`(fecha_entrega_est + hora_entrega_est) BETWEEN NOW() AND NOW()+1h`), con `AccionesEntrega.tsx` inline (llamar / abrir ubicación / WhatsApp con plantilla `entrega_recordatorio`).
-- **Ubicación**: sin lat/lng ni geocoding — `AccionesEntrega.tsx` arma `https://www.google.com/maps/search/?api=1&query=<direccion_entrega>` al vuelo.
-- **`POST /remitos/:id/recordatorio-whatsapp`** marca `recordatorio_hora_antes_visto=true` al enviar con éxito (enviar el aviso cuenta como "ya visto").
-- UI: `ModalProgramarEntrega.tsx` (botón en `Remitos.tsx` por fila y en `NuevoRemito.tsx` en modo edición) llama al PATCH de arriba.
-
-## Pedidos a proveedores — rediseño pendiente (2026-08-16, NADA implementado)
-
-Diseño relevado contra el código real, para retomar cuando se cierren las definiciones pendientes de abajo. No crear las migraciones ni tocar código hasta entonces.
-
-**Problema:** cada venta confirmada dispara su propio pedido al proveedor. Con 3-4 proveedores para el mismo producto no hay forma de compararlos, y los pedidos salen atomizados en vez de agrupados. Algunos proveedores mandan lista de precios, otros no.
-
-**Decisiones ya tomadas (no reabrir):**
-- Agrupación: **cola de pendientes por proveedor**, sin corte horario automático — el operador arma y envía cuando quiere.
-- Multi-proveedor: **comparar y sugerir** el más barato, pero **elige el operador**.
-- Envío: **email y WhatsApp**, con canal preferido por proveedor pero elegible al enviar.
-- Precios sin lista: **aprender del precio real pagado** al recibir + **pegar texto** de WhatsApp/mail. El import CSV se mantiene para quien sí manda lista.
-
-**Hallazgos clave:**
-- `proveedor_precios` (`proveedor_id, sku, descripcion, precio, producto_id`, UNIQUE en `(proveedor_id,sku)`) **ya es la tabla multi-proveedor** — no hace falta tabla nueva, falta *usarla*: `producto_id` se llena 100% a mano hoy, sin ninguna vista de comparación.
-- `pedido_items.operacion_item_id` ya es por línea y nullable → un pedido consolidado multi-operación es viable casi sin tocar esquema. La fricción es que `pedidos.operacion_id` es escalar (precedente ya existe: `es_stock_propio` fuerza `operacion_id=NULL`, `pedidos.ts:244-245`).
-- La regla de "ítem cubierto" (no necesita pedido) está **duplicada 5 veces con 2 semánticas distintas** (`pedidos.ts` ×3, `operaciones.ts` ×2) — `items_cubiertos` es stock-aware, `items_en_pedido` no, pese al nombre parecido. Unificar esto en un `lib/coverage.ts` es el refactor habilitante antes de tocar nada más.
-- No hay historial de precios de proveedor — un aumento masivo mal aplicado no es reversible.
-- `email.ts` no soporta adjuntos (`sendMail` privado solo pasa from/to/subject/html) — agregar `attachments` es trivial, nodemailer ya lo soporta.
-- La plantilla WhatsApp `pedido_proveedor` en `mensajes_plantilla` ya existe; falta la de email.
-- `GET /catalogo/proveedor-precios` tiene `LIMIT 500` sin paginación — truncamiento silencioso.
-
-**Diseño por fases** (detalle completo, con SQL y rutas exactas, en el historial de esta sesión — pedir el plan completo si se retoma):
-- **Fase 0**: unificar la regla de cobertura en `lib/coverage.ts` (5 call sites) + arreglar el `LIMIT 500` y el `PUT /pedidos/:id` sin guard anti-duplicado. Sin esto, las fases siguientes se implementan 5 veces.
-- **Fase 1**: comparación multi-proveedor (`GET /catalogo/productos/:id/precios-proveedores`), conciliación asistida por SKU/descripción normalizada (siempre confirmada por el operador, nunca automática), historial de precios (`proveedor_precios_historial`).
-- **Fase 2**: `GET /pedidos/cola` agrupada por proveedor sugerido + `POST /pedidos` acepta ítems de varias operaciones (`es_consolidado=true`, `operacion_id=NULL`) + nuevo componente `ColaPedidos.tsx` como pestaña en `Pedidos.tsx`.
-- **Fase 3**: `generarPDFPedido()` (copiar patrón de `generarPDFRecibo`), envío por email o WhatsApp elegible, unificar `enviar-whatsapp` para usar `lib/whatsapp.ts` en vez de duplicar el fetch a Evolution.
-- **Fase 4**: aprender precio del `costo_unitario` real al recibir (`origen='recepcion'`) + endpoint para pegar texto libre de WhatsApp/mail y parsear candidatos a confirmar.
-
-**Definiciones pendientes antes de codear (bloqueantes primero):**
-1. ¿El pedido al proveedor debe llevar precios/SKU, o es deliberado que hoy no los lleve (WhatsApp actual solo manda descripción+cantidad)?
-2. Pedido consolidado (varios clientes): ¿cómo se prorratea el costo de envío entre operaciones?
-3. ¿Se puede cancelar solo el ítem de un cliente dentro de un pedido consolidado, o se cancela el pedido entero?
-4. ¿Existen productos con proveedor exclusivo que no deban entrar en la comparación?
-5. Conseguir 2-3 listas de precios reales de proveedores distintos (el parser CSV asume 3 columnas fijas y solo UTF-8).
-6. Conseguir 3-4 mensajes reales de WhatsApp con precios (para diseñar el parser de texto libre contra formatos reales, no inventados).
-7. Volumen real: cuántos proveedores, cuántos SKUs por lista (define si el `LIMIT 500` es urgente).
-8. Umbral de "precio desactualizado" (propuesto: 30 días) y de "antigüedad en la cola" (propuesto: ámbar >2 días, rojo >5) — a confirmar.
-9. Al aprender del precio pagado, ¿debe pisar un precio que vino de una lista formal, o solo pisar precios manuales/de otra recepción?
-
-**Bugs preexistentes encontrados al relevar** (no son de esta feature, quedan anotados): `POST /pedidos/:id/avisar-recepcion-cliente` es código muerto (su plantilla `recepcion_cliente` no existe en ninguna migración); `GET /pedidos/conteos` y `/reporte-envios` sin consumidor; `PedidoSchema.referencia_nro` nunca se lee; editar un pedido le hace perder `es_reposicion` a sus ítems (`NuevoPedido.tsx:421-428`); cancelar un pedido `recibido` no revierte el stock ingresado (asimétrico con remitos); `proveedores.costo_flete` es un nombre engañoso — se usa como porcentaje.
-
-## Sidebar — secciones y rutas
-
-```
-Dashboard         /dashboard
-Comercial:
-  Presupuestos    /presupuestos
-  Operaciones     /operaciones
-  Remitos         /remitos
-  Recibos         /recibos
-  Clientes        /clientes
-  Estado de Cuenta /estado-cuenta
-Catálogo:
-  Productos       /productos
-  Stock           /stock
-  Proveedores     /proveedores
-Sistema:
-  Reportes        /reportes
-  Configuración   /configuracion
-```
-
-## Convenciones de UI — diseño visual
-
-### Sistema de contraste (fondo/cards)
-- **Fondo app**: `#b8ccdf` (CSS var `--app-bg`, `src/index.css`) — azul claro. (Corregido 2026-08-30: se documentaba `#f0f4fb`, valor viejo que ya no coincide con el CSS real.)
-- **Cards principales — canónica**: `bg-white rounded-2xl border border-gray-400 shadow-lg p-4` — es la variante que domina el código (147 usos medidos vs. 32 de `border-gray-200 shadow-md`, que se documentaba antes por error). `index.css` tiene además un boost global de contraste (`main .rounded-2xl.border-gray-200 { border-color: #7ca6c8 }` y equivalentes para `shadow-md`/`shadow-lg`, ver más abajo) que reescribe bordes/sombras de cualquier `rounded-xl`/`rounded-2xl` — por eso `border-gray-400` (que ese boost no toca) + `shadow-lg` es la combinación con más contraste real disponible.
-- **Sección PRIORIDADES DE HOY**: contenedor `bg-gray-50 border-gray-200 shadow-md`, items internos `bg-white border-gray-200 shadow-sm` — items blancos sobre gris claro
-- **KPIs (NÚMEROS CLAVE)**: cada KPI en `bg-gray-50 border border-gray-200 rounded-xl p-3` — recuadro individual por métrica
-- **Regla general**: nunca usar `border-gray-100` ni `shadow-sm` solos — quedan invisibles contra `#b8ccdf`. Mínimo `border-gray-400 shadow-lg` para cards de sección (panel/contenedor); `border-gray-200` está bien para ítems individuales dentro de una lista (fila de tabla, card de producto en grilla) — ahí sí es la variante correcta, no confundir los dos niveles.
-- **`data-section="<clave>"` es obligatorio en el `<div>` raíz de toda página de sección** (`Dashboard`, `CRM`, `Presupuestos`, etc.). Sin él, el tinte de fondo (`index.css` "Section page background tint") y la franja de acento de 3px bajo `SectionHero` (`.section-hero::after`) no se pintan — quedan silenciosamente invisibles, sin error en consola. Claves válidas hoy (deben existir tokens `--accent-<clave>*` en `index.css` Y coincidir con `SECTION_COLORS` en `SectionHero.tsx`, los dos lugares tienen que estar sincronizados): `dashboard, crm, presupuestos, operaciones, remitos, pedidos, recibos, clientes, estado, productos, stock, proveedores, reportes, config, venta-rapida`. Bug real (2026-08-30): 4 páginas sin `data-section` (`VisitasTecnicas`, `VisitaTecnica`, `CargarVisitaTecnica`, `CRM`) y una con clave inexistente en ambos lados (`VentaRapida` declaraba `venta-rapida` pero esa sección no estaba en `index.css`) — todas se veían "de otro sistema" por esto, no por diferencias de spacing.
-
-### Responsive mobile — `SectionHero` y `CompactStatsBar`
-Estos 2 componentes compartidos se usan en casi todas las secciones (Dashboard, CRM, Presupuestos, Operaciones, Remitos, Pedidos, Recibos, Clientes, Estado de Cuenta, Productos, Stock, Proveedores, Reportes, Configuración). Si se tocan, verificar mobile (viewport ~390px) Y desktop (1366×768) antes de dar por cerrado — un bug ahí rompe visualmente toda la app.
-- **`SectionHero`**: estructura `flex flex-col sm:flex-row` — en mobile ícono+título ocupan su fila completa y las acciones (botones) bajan a una fila propia con `flex-wrap` debajo; en `sm:` (640px+) vuelven a la misma fila que el título, como el diseño original. **No** volver a poner icono+texto+acciones en un solo `flex-wrap` sin el `flex-col` — el título se aprieta y los botones se cortan/superponen (bug real detectado 2026-07-22).
-- **`CompactStatsBar`**: `overflow-x-auto` para scroll horizontal en mobile + fade a la derecha (`sm:hidden`) como pista visual de que hay más contenido. El div raíz **no** debe llevar `shrink-0` si su padre es un flex row (contradice el scroll).
-- **Safety-net global**: `html, body { overflow-x: hidden }` en `index.css` — evita que un overflow puntual futuro arrastre toda la página de costado.
-- Listas con tabla ancha (Presupuestos y similares) siguen con scroll horizontal propio en mobile (`overflow-x-auto` en el contenedor de la tabla) — funciona pero no es tarjetas apiladas; pendiente si se pide pulir más.
-
-## Convenciones de UI / Responsive
-
-El frontend es React + TypeScript + Vite + Tailwind.
-Tailwind es mobile-first: la clase sin prefijo es MÓVIL,
-`md:` y `lg:` agregan a medida que la pantalla crece.
-
-Reglas obligatorias:
-- Nunca usar anchos fijos (`w-[600px]`, `min-w-` sin justificación).
-  Usar `w-full` + `max-w-*`.
-- Grillas siempre escalonadas:
-  `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
-- Tablas de datos: en móvil se renderizan como tarjetas
-  (`md:hidden`), en desktop como `<table>` (`hidden md:table`).
-  Mismo componente, misma fuente de datos, dos presentaciones.
-  NO duplicar lógica ni crear componentes "Mobile" separados.
-- Botones e íconos táctiles: mínimo `h-11` (44px).
-- Inputs: `text-base` mínimo (evita zoom automático en iOS).
-- Modales: `w-full sm:max-w-lg` + `max-h-[90dvh] overflow-y-auto`.
-  Usar `dvh`, nunca `vh`.
-- Sidebar: off-canvas en móvil
-  (`-translate-x-full` / `translate-x-0`), fijo en `lg:` (implementación real en `AppLayout.tsx`/`Sidebar.tsx`).
-- Breakpoint de referencia para pruebas: 375px (iPhone SE).
-
-Prohibido: crear una versión "mobile" paralela de una vista.
-Una sola implementación responsive.
-
-## Convenciones de UI — badges y labels
-
-| Badge / label | Contexto | Condición |
-|---|---|---|
-| `Pago total` | Operaciones tablero, PagoBadge | `cobrado >= precio_total * 0.99` |
-| `Señado` | Operaciones tablero, PagoBadge | `cobrado > 0` |
-| `Envío total al proveedor` | Presupuestos lista | `items_en_pedido >= items_total` |
-| `Env. parcial proveedor` | Presupuestos lista | `items_en_pedido > 0 && < items_total` |
-| `llega hoy / llega mañana / llega el DD/MM` | Operaciones tablero col. `con_pedido` | `pedido_fecha_entrega_est` del pedido activo más reciente |
-| `Llega hoy` (emerald) / `Mañana` (sky) / `Demorado Xd` (red) | Pedidos lista col. fecha entrega | diff días vs hoy; solo en estados pendiente/enviado |
-| `Pendiente de Aprobación` | Presupuestos, Operaciones, Dashboard — ESTADO_LABEL | presupuesto sin aprobar (antes era "Borrador") |
-
-### Convención de ordenamiento en listas
-Todos los módulos: `ORDER BY created_at DESC` (más nuevos arriba). Excepción puntual documentada en el código.
-
-### Tablero Operaciones — columna `con_pedido`
-`baseSelect` incluye subquery `pedido_fecha_entrega_est` → pedido activo más reciente (excluye cancelado/recibido).
-Helper `fmtLlegada()` en Operaciones.tsx: diff ≤0 → "llega hoy", 1 → "llega mañana", N → "llega el DD/MM".
-
-## Patrones de código establecidos
-
-### Generación de `numero` — MAX, nunca COUNT
-Todos los generadores de número correlativo (`OP-`, `REC-`, `REM-`, `PED-`, lotes de stock, `VT-`) usan:
-```sql
-SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\d+)$')::int), 0) AS n FROM <tabla> WHERE numero LIKE $1
-```
-luego `n + 1`. **Nunca** `SELECT COUNT(*)`: si se borra una fila, `COUNT` sub-cuenta y regenera un número ya usado → `duplicate key` en el constraint único, y la transacción entera hace rollback (bug real: causó que una venta rápida pareciera "no hacer nada" — en realidad fallaba silenciosamente por esto). Ya corregido en `operaciones.ts`, `recibos.ts`, `remitos.ts`, `pedidos.ts`, `stock.ts` (lotes) y `visitasTecnicas.ts`.
-
-### API client (frontend)
-```typescript
-// CORRECTO — retorna T directamente
-const data = await api.get<Recibo[]>('/recibos');
-const item = await api.post<{ id: string }>('/recibos', body);
-api.patch('/notificaciones/marcar-leidas');   // sin body OK
-
-// MAL
-const { data } = await api.get('/recibos');          // ❌ no hay wrapper .data
-api.get('/recibos', { params: { search } });          // ❌ no acepta 2do arg
-// Query params correctos:
-api.get(`/recibos?${new URLSearchParams({ search })}`)  // ✅
-```
-
-### Modales de detalle (patrón Presupuestos/Recibos/Productos)
-- Lista: filas con `cursor-pointer onClick={() => setDetailId(op.id)}`
-- Modal como componente separado, recibe `id` y llama API interna
-- Header: número + estado badge + botones Editar/PDF/Compartir + X
-- Confirmación destructiva (anular/eliminar): pantalla roja dentro del mismo modal (NO `window.confirm`)
-
-### Selectores con búsqueda
-- Input con `onFocus`/`onBlur` (setTimeout 150ms para click)
-- Dropdown `z-30`, `onMouseDown` (no onClick) para evitar blur race
-- Badge de seleccionado con botón X para limpiar
-
-### Columnas DATE de PostgreSQL — comportamiento del driver `pg`
-`pg` v8.x con `pg-types` v2.x retorna columnas `DATE` (OID 1082) como **objetos JavaScript Date** (no strings). Al serializar con `c.json()`, los Date objects → `"YYYY-MMT03:00:00.000Z"` (hora TZ Argentina). Esto afecta TODAS las columnas DATE en todos los módulos.
-
-**Regla:** siempre usar el helper timezone-safe para formatear fechas:
-```typescript
-// Frontend (React):
-new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { ... })
-
-// Backend (PDF server-side, pdf.ts):
-const fmtFecha = (iso: string | Date | unknown) => {
-  const isoStr = iso instanceof Date ? iso.toISOString() : String(iso);
-  return new Date(isoStr.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { ... });
-};
-```
-
-**NO hacer:** `String(dateObj).slice(0, 10)` → da `"Thu Jul 10"` → Invalid Date.
-**NO hacer:** `new Date(dateStr)` directo sin slice → RangeError o día anterior por TZ offset.
-
-### fecha_validez en operaciones
-Viene de PostgreSQL tipo `date` como ISO string completo `"2026-05-22T00:00:00.000Z"`.
-Siempre usar `.slice(0, 10) + 'T12:00:00'` antes de formatear — de lo contrario RangeError en Intl.
-
-### Pedidos al proveedor — lógica de costo de envío
-
-Los pedidos son contra-reembolso: el transportista cobra la parte de envío (~10%) directamente al recibir; el proveedor solo recibe el costo de productos.
-
-- `pedidos.costo_envio` = monto que va al transporte (NO al proveedor)
-- `pedidos.monto_total` = subtotal_items + costo_envio (total desembolsado)
-- Al crear pedido: `costo_envio` se sugiere como 10% editable (estado `costoEnvioManual`)
-- Al marcar `recibido`: se registra el transportista real (`transportista_id`) y se puede ajustar `costo_envio_real` → backend recalcula `monto_total`
-
-**`WITH_PROVEEDOR` CTE** en `server/src/routes/pedidos.ts`: constante SQL reutilizada en todos los GET, incluye `LEFT JOIN transportistas t ON t.id = p.transportista_id` y campo `t.nombre AS transportista_nombre`.
-
-**Coverage de ítems — stock-aware** (GET /:id y GET /tablero): `items_total_op` y `items_cubiertos`. Un `operacion_item` cuenta como **cubierto** si (a) tiene un `pedido_item` NO reposición en pedido no cancelado, **O** (b) su producto tiene `stock_actual >= cantidad` (regla del negocio: si hay stock, no se pide, se cumple desde stock vía remito). Si `items_cubiertos < items_total_op` → banner "Completar pedido faltante". La misma lógica stock-aware está en `GET /operaciones-disponibles` (no sugiere operaciones cuyos ítems ya están todos en stock o pedidos).
-
-**Ítems de reposición** (`pedido_items.es_reposicion`): al armar el pedido desde una operación, un ítem con `stock_actual >= cantidad` viene DESmarcado (se cumple de stock). El usuario puede togglear "Pedir igual para reponer" → el ítem se pide como EXTRA para no dejar el salón sin producto (`en_salon`) o reponer stock. Ítem de reposición: `operacion_item_id = NULL` + `producto_id` seteado + `es_reposicion = true`. NO cuenta en coverage ni en el guard anti-duplicado (ambos filtran `es_reposicion = false` y los de reposición ya tienen `operacion_item_id` null). Al recibir el pedido entra a stock (ingreso por `producto_id`, ya cubierto). `stock_actual` por ítem viene de `GET /operaciones/:id` (columna agregada al subquery de items). Frontend: `NuevoPedido.tsx` badges "En stock (N)" (sky) / "Reposición" (violeta) + toggle.
-
-**Pedido para stock propio** (`pedidos.es_stock_propio`): pedido al proveedor que NO viene de un presupuesto — destino es la propia empresa (generar stock o exhibir en salón), sin cliente ni operación. Entrada: botón "Para stock propio" en Pedidos.tsx → `/pedidos/nuevo?destino=stock`. En ese modo `NuevoPedido.tsx` oculta el selector de operación y muestra: (a) buscador rápido de productos (`GET /productos?search=`) y (b) botón "Ver galería" → modal con grid de cards + filtro por tipo de abertura (`GET /catalogo/productos` + `/catalogo/tipos-abertura`), estilo galería de NuevoPresupuesto. Cada producto elegido agrega un ítem con `producto_id` (indispensable: al recibir ingresa a stock). No requiere pago/seña (es interno). Backend fuerza `operacion_id=NULL` cuando `es_stock_propio=true` (POST y PUT). Excluido de `para_preparar` en el tablero. Lista/detalle muestran badge "Stock propio" en lugar del cliente. `WITH_PROVEEDOR` expone la columna vía `p.*`.
-
-**Operación 100% cubierta por stock → lista para entregar sin pedido** (`STOCK_CUBRE_TODO` en operaciones.ts): predicado SQL = todos los `operacion_items` tienen `producto_id` y `stock_actual >= cantidad` (y al menos 1 ítem). Cuando una op `aprobado` cumple esto NO necesita pedido al proveedor: en `GET /tablero` sale de "Confirmadas" y entra a "Lista p/ entregar" (columna 4 amplía su condición: `pedido recibido` OR `aprobado + STOCK_CUBRE_TODO`, siempre sin remito activo ni pedido pendiente). `GET /:id` y el `baseSelect` del tablero exponen `stock_cubre_todo` (boolean). Presupuestos.tsx modal: banner sky "Todo en stock — lista para entregar / no necesitás pedido (hacé uno solo si querés reponer)" + botón "Registrar entrega (remito)" directo a `/remitos/nuevo?operacion_id=...`. El remito se crea desde la op aprobada sin pedido previo (ya soportado).
-
-**`GET /pedidos/reporte-envios`**: agrupa pedidos `recibido` por mes y transportista, devuelve totales. Registrar ANTES de `GET /:id` en el router.
-
-### Migraciones
-Al crear nueva migración:
-1. Crear `supabase/migrations/YYYYMMDDNNNNNN_nombre.sql` con el SQL
-2. Incluir al final: `INSERT INTO schema_migrations (filename) VALUES ('archivo.sql') ON CONFLICT DO NOTHING;`
-3. **No tocar `01_schema.sh`** — auto-descubre todos los .sql en orden
-4. Aplicar local: `cd server && npm run migrate`
-5. VM: `cd server && npm run migrate` (misma DB_URL del .env)
-
-**Comandos del runner:**
-```bash
-npm run migrate        # aplica pendientes
-npm run migrate:list   # muestra estado de todas las migraciones
-npm run migrate:dry    # preview sin ejecutar
-```
-
-**Cómo funciona:**
-- Lee `supabase/migrations/*.sql` en orden cronológico (por nombre)
-- Compara contra `schema_migrations` en DB
-- Aplica solo las pendientes, dentro de transacción por migración
-- Si una falla → rollback de esa sola, las anteriores ya aplicadas quedan
-
-### Changelog visible en /novedades — OBLIGATORIO tras cada feature/fix
-Tabla `changelog_cambios`, listado en `/novedades` (Sidebar → Sistema), leída en vivo desde la DB — sin paso de deploy aparte, viaja con el `npm run migrate` normal.
-
-**Tras terminar cualquier feature o fix visible para el usuario, generar la entrada ANTES de commitear:**
-```bash
-cd server && npm run changelog:add -- "Título corto" "Descripción opcional" [feature|fix|mejora]
-npm run migrate   # la aplica local
-```
-Esto crea `supabase/migrations/YYYYMMDDNNNNNN_changelog_<slug>.sql` (solo un INSERT, sin tocar schema) — se commitea junto con el resto de los archivos de la feature. Al hacer `git pull` + `npm run migrate` en test/prod, la entrada aparece sola en `/novedades`, no hace falta nada manual ahí.
-
-No generar entrada para: refactors internos sin efecto visible, fixes de typecheck/build, cambios de este mismo archivo (CLAUDE.md) o de memoria.
-
-### PDF generado en servidor (WhatsApp) vs PDF del navegador (print)
-Hay DOS rutas de generación de PDF para recibos:
-1. **Navegador**: `/imprimir/recibo/:id` → `ImprimirRecibo.tsx` → `window.print()` (browser CSS)
-2. **Servidor**: `POST /recibos/:id/whatsapp-pdf` → Puppeteer → `server/src/lib/pdf.ts` → `generarPDFRecibo()`
-
-Ambas deben mantener el mismo diseño. Si se actualiza el diseño en `ImprimirRecibo.tsx`, replicar los cambios en `pdf.ts`.
-
-`generarPDFRecibo()` recibe: `{ ...r, items, cobrado_operacion, total_descuentos_operacion, compromiso }`.
-- `r` incluye columnas directas de `recibos`: `monto_descuento`, `descuento_pct`, `monto_lista`.
-- `total_descuentos_operacion`: calculado aparte en la ruta WA (SUM de monto_descuento de todos los recibos emitidos).
-
-### Saldo de operación — fórmula correcta
-```
-saldo_real = precio_total - cobrado_operacion - total_descuentos_operacion
-```
-`cobrado_operacion` = SUM(monto_total) de recibos emitidos para esa operación (lo que pagó en efectivo/transferencia).
-`total_descuentos_operacion` = SUM(monto_descuento) de recibos emitidos (bonificación = no es deuda).
-**NO restar solo `cobrado_operacion`** — la bonificación NO es saldo deudor.
-
-### Flujo pedido → operación → kanban
-Cuando un pedido pasa a `recibido` y todos los pedidos de la operación están `recibido/cancelado`:
-- Backend (`PATCH /pedidos/:id/estado`): actualiza `operaciones.estado = 'listo'`
-- Solo avanza si estado actual no es ya `listo/instalado/entregado/cancelado/rechazado`
-- Tablero kanban: `listo` queda en columna `listas_entregar` (query verifica `pedido recibido + sin remito activo`)
-- Columna `listas_entregar` muestra botón "Avisar al cliente" → Evolution API
-
-### WhatsApp — Evolution API (no wa.me)
-Todos los envíos de WhatsApp usan Evolution API, NO `window.open('https://wa.me/...')`.
-Env vars requeridas: `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`.
-Normalización número Argentina: `549XXXXXXXXXX` (código país 54 + 9 + celular sin 0).
-
-### Kanban Operaciones — colores por columna
-Cada columna tiene su propio color (slate/green/amber/teal/blue/red).
-Las cards (`TCard`) usan `COL_CARD_BG[col]` para el fondo — mismo color que el header de la columna.
-No usar `bg-white` genérico para cards del kanban.
-
-### Dashboard — widget de pronóstico del tiempo
-Componente `WeatherWidget` en `Dashboard.tsx`:
-- API: Open-Meteo (gratuita, sin API key) — Formosa AR: lat -26.18, lon -58.18
-- Muestra: temperatura actual + emoji WMO + descripción (clic para ver semana)
-- Posición: columna central del header (`flex-1 flex justify-center`), entre el bloque saludo/fecha y los botones de la derecha — NO debajo del saludo
-- Diseño: `border-2 border-sky-300 bg-gradient-to-r from-sky-50 to-blue-50 shadow-md`, emoji `text-3xl`, temp `text-xl font-black text-sky-700`
-
-## Backups (solo prod)
-
-Backup diario automático de `aberturas-db`, corre **en el host de prod** (179.43.120.103, cesarbritez), fuera de Docker — no en la app:
-- Cron `0 3 * * *` → `/usr/local/bin/backup-dbs.sh` (root, no versionado en el repo)
-- `pg_dump` (via `docker exec aberturas-db`) → gzip → `/var/lib/docker-data/backups/*.sql.gz` (retención 7 días)
-- `rclone copy` a Google Drive (`gdrive:backups-sistemas/aberturas/`)
-- Log en texto plano: `/var/log/backup-aberturas.log`
-- El script usa `set -e`: si `rclone` falla (ej. token OAuth vencido), aborta antes de loguear "Backup completado" y antes de limpiar retención — el `.sql.gz` local igual queda creado (pg_dump ya corrió bien), solo no sube a Drive.
-- **Gotcha real, ya pasó DOS veces (2026-07-23 y de nuevo 2026-08-18)**: token OAuth de rclone expira (`invalid_grant`), y como el script usa `set -e` el `pg_dump` local sigue funcionando perfecto pero la subida a Drive falla en silencio — nadie se entera hasta revisar Drive a mano (la 2ª vez fueron 13 días sin subir nada, detectado por el usuario, no por el sistema).
-  - **Causa del vencimiento en sí — no resuelta, no es el modo "Testing"**: se descartó que el proyecto OAuth de Google Cloud estuviera en "Testing" (se confirmó "En producción" el 2026-08-18). La causa real del `invalid_grant` sigue sin confirmarse — candidatos: revocación manual desde myaccount.google.com → Seguridad → Acceso de terceros, o un cambio de contraseña de la cuenta de Google (invalida todos los refresh tokens existentes). Si vuelve a pasar, revisar esa página antes de asumir que es el mismo bug de siempre.
-  - **Fix aplicado (2026-08-18)**: `rclone authorize "drive" --drive-scope drive.file` corrido por el usuario en su máquina (tiene navegador) → el JSON de token resultante se pisó a mano en `token = ` dentro de `[gdrive]` en `/root/.config/rclone/rclone.conf` del server, vía `python3 -c "re.subn(...)"` (NO usar `rclone config update gdrive token '...'`: para remotos OAuth dispara el wizard interactivo completo y se queda colgado esperando un browser — hay que editar el archivo directo).
-  - **Recaída real, causada por ese mismo fix (2026-08-19/20)**: `rclone authorize "drive" --drive-scope drive.file`, corrido SIN indicar client-id/secret, generó el token contra el **client-id compartido de rclone** (el genérico), no contra el propio ya configurado en `[gdrive]` (`228679654151-...`). El `access_token` funcionó igual mientras estuvo vigente (~1h, por eso la prueba manual del 18/8 salió bien), pero al primer intento de refresh automático (cron del 19/8) Google lo rechazó: `unauthorized_client` — un error distinto a `invalid_grant`, señal de que es OTRO problema, no el mismo reincidiendo. **Fix correcto**: pasar el client-id/secret como argumentos posicionales (no `--client-id`/`--client-secret`, esos flags no existen en `rclone authorize` — lo confirma su `--help`): `rclone authorize "drive" <client_id> <client_secret> --drive-scope drive.file`. Verificado esta vez forzando el refresh de entrada (se edita el campo `expiry` del JSON a una fecha pasada antes de aplicarlo, así el primer `rclone lsd gdrive:` ya tiene que renovar) — con `-vv` debe aparecer `Token refresh successful` y el `rclone.conf` debe actualizar su mtime solo. No dar el fix por bueno solo con un `lsd` exitoso inmediato: eso únicamente prueba el access_token corriente, no el camino de renovación, que es exactamente donde falló las dos veces.
-  - **Efecto secundario real del scope `drive.file` al reautorizar**: la app "olvida" la carpeta `backups-sistemas/aberturas/` creada en la autorización anterior (16 jun) y el script crea una carpeta **nueva con el mismo nombre** en la raíz del Drive en vez de reusar la vieja — quedaron dos carpetas `backups-sistemas`, fusionadas a mano por el usuario (mover contenido de la vieja a la nueva + borrar la vieja). **Va a volver a pasar en la próxima reautorización** — decisión explícita del usuario (2026-08-18): mantener `drive.file` (scope acotado, más seguro) en vez de pasar a `drive` (scope completo, evitaría la duplicación pero le da a rclone acceso técnico a todo el Drive). Si se repite: mismo pasos, fusionar carpetas a mano de nuevo.
-- **Trampa al probar a mano**: el script `backup-dbs.sh` no escribe su propio log — es el cron el que lo redirige (`>> /var/log/backup-aberturas.log 2>&1`). Correrlo manualmente por SSH sin esa redirección (`/usr/local/bin/backup-dbs.sh` a secas) hace un backup real y válido, pero **no queda registrado** en el log que lee el panel — pasó dos veces (18/8 y 20/8), cada vez dejando el panel mostrando "última falla" durante horas después de un fix ya funcionando. Para probar a mano, correr siempre con la misma redirección: `/usr/local/bin/backup-dbs.sh >> /var/log/backup-aberturas.log 2>&1`.
-- **Mitigado (2026-08-18)**: `AlertaBackups.tsx` en el Dashboard (solo admin, ver abajo) — para que la próxima vez que el token venza se note el mismo día en vez de 13 días después. Esto no evita que el token venza, solo evita que la falla pase desapercibida.
-
-**Monitoreo — Configuración → Backups** (`src/pages/Configuracion.tsx` `PanelBackups` + `server/src/routes/backups.ts`, endpoint `GET /backups`, solo admin):
-- Parsea el log existente por bloques (`Iniciando backup` → éxito si aparece `Backup completado:`, si no busca línea de error de `pg_dump` o de rclone) — **no requiere tocar el script** del host.
-- `docker-compose.yml` monta 2 paths del host **solo lectura** en el contenedor `app`: `/var/lib/docker-data/backups:/app/backup-data:ro` y `/var/log/backup-aberturas.log:/app/backup-log/backup-aberturas.log:ro`. Esos paths solo existen en prod — en local/test el mount queda vacío (Docker crea un directorio vacío si el archivo/carpeta no existe en el host) y el endpoint devuelve `disponible:false` sin romper.
-- **Gotcha real (2026-08-18)**: esos 2 mounts estaban documentados acá arriba como si existieran, pero **nunca se habían agregado de verdad** al `docker-compose.yml` real de prod (`/opt/docker/cesarbritez/docker-compose.yml`, fuera del repo — el servicio `aberturas-app` solo tenía montado `uploads`). Resultado: el panel siempre devolvía `disponible:false` en prod, no solo en local/test como se esperaba. Agregados a mano + `docker compose up -d --force-recreate aberturas-app` para aplicar (hay backups con timestamp del compose file en esa misma carpeta, `docker-compose.yml.bak-*`, antes de cada edición manual). Si se vuelve a tocar ese compose file, verificar que estos 2 mounts sigan estando.
-- Muestra: días desde el último éxito, fallos en los últimos 7 días, historial de corridas (con el error puntual si falló), y archivos `.sql.gz` disponibles localmente (fallback aunque no hayan subido a Drive).
-- **`src/components/AlertaBackups.tsx`** (Dashboard, solo `user.rol === 'admin'`, silenciosa si está todo bien): reusa el mismo `GET /backups` — si `dias_desde_ultimo_exitoso >= 2`, banner rojo arriba de todo con el error puntual de la última corrida y link a Configuración. No duplica lógica del backend, solo le da visibilidad proactiva a un cálculo que ya existía.
-- No hay botón de "ejecutar ahora": la app no tiene acceso al socket de Docker ni al script del host, es solo lectura/visualización.
-
-## Problemas conocidos y soluciones
-
-### crypto.randomUUID() falla en HTTP
-VM en HTTP → `crypto.randomUUID()` no disponible. Usar fallback:
-```typescript
-const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
-  ? crypto.randomUUID()
-  : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-```
-
-### initdb solo corre en DB vacía
-`docker-entrypoint-initdb.d/` solo ejecuta si `data/db/` está vacío.
-VM con DB existente: migraciones nuevas aplicar manualmente.
-
-### Hono route ordering
-Rutas específicas ANTES de `/:id`. Error silencioso si no: la específica matchea el param.
-
-### React render crash → pantalla en blanco
-React 18 prod: excepción en render sin error boundary → desmonta árbol silenciosamente → pantalla blanca.
-Agregar `.catch()` en todos los useEffect que hacen fetch y setear estado de error.
-
-### operacion_items — columnas calculadas vs reales
-`precio_total`, `tipo_abertura_nombre`, `sistema_nombre` NO son columnas reales.
-En queries SQL de rutas públicas o nuevas: calcular/JOIN explícitamente.
-
-`atributos` tampoco existe en `operacion_items` — está en `catalogo_productos`. Siempre usar `cp.atributos` con JOIN:
-```sql
-LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id
--- luego: cp.atributos AS producto_atributos
-```
-
-**Miniatura de ítem — `producto_imagen_url` vs `calculo_url`**: en las 3 vistas de proforma (`ImprimirPresupuesto.tsx`, `VistaPublicaPresupuesto.tsx`, y el editor `NuevoPresupuesto.tsx`), la miniatura del ítem debe hacer fallback `producto_imagen_url || calculo_url` — los ítems "a medida" no tienen `producto_id` (por eso `producto_imagen_url` es null) pero sí pueden tener una imagen ilustrativa subida a `calculo_url` (pegar/arrastrar en el modal de ítem, endpoint `POST /operaciones/upload-calculo`). Bug real (2026-07-23): el endpoint público `GET /pub/presupuesto/:token` no incluía `oi.calculo_url` en el SELECT y ninguna de las 2 vistas de proforma tenía el fallback — la imagen se guardaba bien pero nunca se veía en la proforma (ni la pública ni el PDF).
-
-### Google Translate crash en Android — `lang` y `translate`
-`index.html` tiene `lang="es" translate="no"`. Crítico: si se cambia a `lang="en"`, Chrome Android ofrece traducir → Google Translate muta text nodes del DOM → React 19 no puede hacer `insertBefore` → ErrorBoundary "Algo salió mal". No revertir este atributo.
+| `/pub/presupuesto/:token` | GET (snapshot de la revisión + `empresa` viva), `/revisiones/:n`, POST `/aprobar` (solo última revisión y hash vigente, si no 409), `/rechazar` (setea `rechazado_online_at` + `notif_leida=false`), `/responder` |
+| `/pub/remito/:token` | GET + POST `/confirmar` |
+| `/pub/entorno` | sin token: `test`/`produccion`/`local` según `APP_URL` |
+| `/auth` | login, me |
+| `/clientes` | `/validar-dni` antes de `/:id`; `/:id/enviar-estado-cuenta-whatsapp` genera PDF |
+| `/productos` | CRUD (sin Zod), `/upload-imagen`, `PATCH /:id/toggle`, `/toggle-salon`, `/toggle-web`, `/disponibilidad`, `/renovar-validez-precios` |
+| `/operaciones` | `POST /venta-rapida`, `/:id/generar-link`, `/:id/enviar-whatsapp`, `/:id/enviar-email`, `PATCH /:id/resolver-respuesta`, `GET /:id/revisiones[/:n]`, `/:id/versiones`, `/ventas-panel`, `/tablero` — todo antes de `GET /:id` |
+| `/catalogo` | tipos-abertura, sistemas, colores, materiales, lineas, vidrios, categorias, modelos, servicios, formas-pago, proveedores, proveedor-precios; `GET /productos` (solo activos) |
+| `/notificaciones` | `GET /` (5 fuentes), `PATCH /vista` (una sola: `{tipo,id}`), `PATCH /marcar-leidas` (todas) |
+| `/recibos` | `/conteos`, `/tablero` antes de `/:id`; `POST /:id/enviar-whatsapp` (PDF server-side) |
+| `/remitos` | `/conteos`, `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` antes de `/:id` |
+| `/pedidos` | `/tablero`, `/reporte-envios`, `/operaciones-disponibles` antes de `/:id` |
+| `/visitas-tecnicas` | `/upload-imagen` antes de `/:id`; `PATCH /:id/cobrar`, `/sin-cargo`, `/bonificar`, `/costo-externo` |
+| `/oportunidades` | `/resumen`, `/plantilla/:id` antes de `/:id`; `PATCH /:id/posponer`, `/:id/estado`, `POST /:id/contactar` |
+| `/tareas` | `PATCH /:id/completar` limpia `respuesta_cliente` de la operación vinculada y sincroniza oportunidad/entrega espejo |
+| `/stock` | `/alertas`, `/lotes` antes de `/:id` |
+| otros | `/dashboard` (`/resumen`, `/indicadores`), `/interacciones`, `/empresa`, `/usuarios`, `/transportistas`, `/estado-cuenta`, `/informes`, `/crm`, `/configuracion`, `/localidades`, `/backups` (admin), `/comentarios`, `/changelog`, `/actividad` |
+
+## Base de datos
+
+Tablas: `usuarios` (roles `admin|vendedor|consulta`), `empresa` (**siempre `ORDER BY
+updated_at DESC LIMIT 1`** — hay más de una fila en prod), `tipos_abertura`, `sistemas`,
+`colores`, `materiales`, `lineas`, `vidrios`, `categorias`, `catalogo_modelos`, `proveedores`,
+`proveedor_precios`, `catalogo_productos`, `clientes`, `interacciones`, `tareas`, `operaciones`,
+`operacion_items`, `operacion_formas_pago`, `operacion_versiones`, `operacion_revisiones`,
+`estados_historial`, `stock_lotes`, `stock_movimientos`, `remitos`, `remito_items`, `recibos`,
+`recibo_items`, `recibo_pagos`, `compromisos_pago`, `transportistas`, `pedidos`, `pedido_items`,
+`visitas_tecnicas`, `visita_tecnica_items`, `catalogo_servicios`, `oportunidades`,
+`mensajes_plantilla`, `changelog_cambios`, `schema_migrations`. Vista `catalogo_web` + rol
+`web_catalogo` (ver `docs/catalogo-web.md`).
+
+Enums: `app_role`, `tipo_operacion` (`estandar|a_medida_proveedor|fabricacion_propia`),
+`estado_operacion` (`presupuesto|enviado|aprobado|en_produccion|listo|instalado|entregado|cancelado`;
+`rechazado` también existe como valor).
+
+**`operaciones`** — campos clave: `estado`, `forma_pago` (texto libre), `forma_envio`
+(`retiro_local|envio_bonificado|envio_destino|envio_empresa`), `costo_envio`, `token_acceso`
+(espejo del token de la última revisión), `aprobado_online_at`, `rechazado_online_at`,
+`respuesta_cliente` (`mas_tiempo|consulta|llamada|modificar`) + `respuesta_cliente_at`,
+`notif_leida`, `motivo_rechazo`, `comentario_rechazo`, `es_venta_rapida`, `fecha_validez`.
+`respuesta_cliente_detalle` no es columna: subquery a la última `interaccion` tipo
+`respuesta_proforma`.
+
+**`operacion_items`** — `precio_total`, `tipo_abertura_nombre`, `sistema_nombre`, `atributos`
+**no son columnas**: calcular `precio_unitario*cantidad + CASE WHEN incluye_instalacion THEN
+precio_instalacion*cantidad ELSE 0 END`, JOIN a `tipos_abertura`/`sistemas`, y `atributos`
+viene de `catalogo_productos` (JOIN por `producto_id`). `tipo_item`: `estandar` (con
+`producto_id`) | `a_medida` (medidas a mano, `calculo_url` como imagen ilustrativa) |
+`servicio` (opcional `servicio_id`). **Los servicios nunca requieren pedido al proveedor**
+(excluidos en `STOCK_CUBRE_TODO`, `items_cubiertos`, `/operaciones-disponibles`). Miniatura de
+ítem en proformas: `producto_imagen_url || calculo_url`.
+
+**`catalogo_productos`** — mezcla datos públicos con críticos (`costo_base`, `margen_venta`,
+`margen_tipo`, `precio_manual`, `proveedor_id`, `proveedor_sku`, `codigo`, `stock_*`). Flags:
+`activo` (no discontinuado, DEFAULT true), `en_salon` (exhibido con stock verificado; backend
+rechaza `true` con `stock_actual < 1` y lo auto-limpia al llegar a 0), `publicado_web` (opt-in
+al catálogo del sitio, DEFAULT false, exige imagen) + `nombre_web`. `atributos` JSONB por
+familia (puerta / ventana / puerta-balcón / mosquitera, detectada por nombre); `imagenes[]`
+(la [0] es la principal, `imagen_url` la espeja), `promocion` JSONB, `etiqueta`
+(`mas_vendido|recomendado|nuevo`), `material`/`vidrio`/`color` texto libre alimentado por las
+tablas de catálogo (sin FK), `linea_id` (FK). Stock: `stock_actual = stock_inicial +
+SUM(stock_movimientos.cantidad)`; tipos `ingreso|egreso_remito|egreso_retiro|devolucion|ajuste`.
+Contexto real: solo lo `en_salon` tiene stock confiable, el resto está en 0 desde un ajuste
+masivo (2026-07).
+
+**Fechas**: `pg` devuelve columnas `DATE` como `Date` → serializan `"YYYY-MM-DDT03:00:00.000Z"`.
+Formatear siempre con `new Date(iso.slice(0,10)+'T12:00:00')`; nunca `String(d).slice(0,10)`
+ni `new Date(iso)` directo.
+
+## Circuito comercial
+
+**Presupuesto** (`operaciones`). Estado de cobro calculado (`sin_cobrar|seña|cobrado`) en
+`GET /operaciones/ventas-panel` y `GET /:id`; `cobrado_total = SUM(recibos.monto_total)
+emitidos`. Cada edición (`PUT`, solo si no está aprobado) guarda el estado **anterior** en
+`operacion_versiones` (auditoría interna, con costos). Cada **envío** (link/WhatsApp/email)
+congela una **revisión** en `operacion_revisiones` con token propio y snapshot **sin costos**
+(`proforma_snapshot()`/`proforma_hash()` en SQL); se reutiliza si el contenido no cambió,
+`rechazado` + reenvío fuerza revisión nueva y vuelve el estado a `enviado`. El cliente solo
+puede aprobar/rechazar/responder la última revisión y solo si coincide con el estado vivo (409
+si no). Links viejos siguen abiertos con aviso de "hay una más nueva" y comparador
+(`src/lib/diffProforma.ts`). PDF de cualquier revisión: `/imprimir/presupuesto/:id?revision=N`.
+La proforma numera como `PRO-` (reemplazo visual de `OP-`). Si la visita de relevamiento
+vinculada quedó `sin_cargo`, la proforma lo aclara como bonificada.
+
+**Respuesta intermedia** del link (`POST /pub/.../responder`): no cambia `estado`, guarda
+`respuesta_cliente`, crea `interaccion` + `tarea` de seguimiento. Se limpia al reenviar, al
+completar la tarea (`PATCH /tareas/:id/completar`) o con `PATCH /operaciones/:id/resolver-respuesta`.
+Tab "Seguimiento" en Presupuestos.
+
+**Recibos** — solo sobre operaciones `aprobado`. `total` (toma el saldo) o `parcial` (monto a
+mano). **Medios combinados**: filas en `recibo_pagos` solo cuando hay ≥2 medios (deben sumar
+`monto_total`, 422 si no); `recibos.forma_pago` queda `"Pago combinado"`; los informes de caja
+leen la vista `recibo_pagos_efectivos`, nunca `forma_pago`. En parcial + combinado el total ES
+la suma de los medios. Bonificación: `descuento_pct` sobre productos (no instalación ni
+envío); `monto_lista - monto_descuento = monto_total`. **Saldo real = precio_total -
+cobrado - total_descuentos** (la bonificación no es deuda). Parcial genera `compromisos_pago`
+(se auto-cierran en `cerrarCompromisosSiSaldado`). El PDF del recibo no lista productos: solo
+"Detalle de proforma PRO-xxxxx — Rev. N". Concepto sugerido usa `PRO-`.
+
+**Remitos** — `borrador → emitido` (descuenta stock: `egreso_remito`) `→ entregado |
+cancelado` (revierte con `devolucion`). Link público para confirmar recepción
+(`recepcion_estado: conforme|con_observaciones|no_conforme`). Programación de entrega
+(`fecha/hora_entrega_est`, tarea espejo `tipo_accion='entrega'`, recordatorios día antes /
+hora antes evaluados en cada poll, `recordatorio_*_visto` se resetea al reprogramar).
+Entregas parciales soportadas.
+
+**Pedidos a proveedor** — contra-reembolso: `costo_envio` va al transporte, `monto_total =
+items + costo_envio`. Coverage stock-aware (`items_cubiertos`): un ítem está cubierto si tiene
+`pedido_item` no-reposición en pedido no cancelado **o** hay stock ≥ cantidad. `es_reposicion`
+= pedir igual habiendo stock (no cuenta en coverage). `es_stock_propio` = pedido sin cliente
+(`operacion_id=NULL`). Al marcar `recibido` y no quedar pedidos activos → `operaciones.estado='listo'`.
+Operación 100% en stock (`STOCK_CUBRE_TODO`) va directo a "Lista p/ entregar" sin pedido.
+Rediseño pendiente (cola por proveedor, comparación multi-proveedor): `docs/pedidos-rediseno-pendiente.md`.
+
+**Visitas de relevamiento** — `VT-YYYYMM-NNNN`, `pendiente → relevada → convertida |
+cancelada`. Al crear se elige cobrar o no: `cobro_estado` `cobrada` (recibo emitido) |
+`sin_cargo` | `pendiente` (solo tras anular el recibo) | `bonificada` (el recibo se acreditó al
+presupuesto como pago a cuenta). Ítems en **milímetros**; se convierten a metros (÷1000) solo
+al "Avanzar a presupuesto" (`navigate` con `state`). Al guardar el presupuesto queda `convertida`.
+
+**Venta rápida** (`POST /operaciones/venta-rapida`) — mostrador, galería con stock.
+
+**Oportunidades futuras** — intención postergada; tarea espejo `tipo_accion='oportunidad'`
+sincronizada en ambos sentidos (`server/src/lib/oportunidades.ts`). Sin cron: la agenda ya
+filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencido, CRM, y
+"necesito más tiempo" del link público.
+
+## Notificaciones y avisos
+
+- `GET /notificaciones`: UNION de 5 fuentes no leídas — `presupuesto` (aprobación online,
+  **rechazo online**, respuesta del cliente), `remito` (recepción con observaciones/no
+  conforme), `oportunidad` (fecha de recontacto vencida), `entrega_dia_antes`,
+  `entrega_hora_antes`. `data` JSONB lleva `{telefono, direccion_entrega}` en entregas y
+  `{rechazado_online_at, comentario_rechazo}` en rechazos.
+- `NotificationBell` (header, poll cada **10 s** + al volver al tab + evento
+  `notificaciones:cambiaron`): contador, panel, "marcar leídas" (todas).
+- `AvisosEmergentes` (mismo poll): tarjeta abajo a la derecha **que no se va sola** hasta
+  "Aceptar" (marca esa sola vía `PATCH /notificaciones/vista`) o "Ver". No bloquea
+  (`pointer-events-none` en el contenedor). Emergen presupuesto, remito y entrega-hora-antes;
+  oportunidad y entrega-mañana solo como toast. No duplicar con toasts.
+- `EntornoBanner`: franja + badge `TEST`/`PRODUCCIÓN` en `top-2 right-14` (a la izquierda de
+  la campanita; en `right-2` la tapaba).
+- Dashboard: `CentroAlertas` (agenda `GET /tareas/agenda`), tarjetas "Prioridades de hoy"
+  (`GET /dashboard/resumen`), `entregas_hoy` como card aparte (no dentro del grid de 6 — wrap
+  a 1366×768), `AlertaBackups` (admin, si el último backup exitoso tiene ≥2 días).
+- WhatsApp: siempre Evolution API (`EVOLUTION_API_URL/KEY/INSTANCE`), nunca `wa.me`;
+  números `549XXXXXXXXXX`. Plantillas editables en `mensajes_plantilla`.
+- PDFs: dos implementaciones que deben mantenerse iguales — navegador (`src/pages/print/*`,
+  `window.print()`) y servidor (`server/src/lib/pdf.ts`, puppeteer, para WhatsApp). Para
+  verificar el server-side sin enviar nada: llamar `generarPDF*()` directo con `tsx`. Firma
+  digital: 56px en recibo, 49px en remito. Ante dudas de paginación, contar `/Type /Pages
+  ... /Count N` en los bytes del PDF, no medir el DOM.
+
+## Convenciones de UI
+
+- Fondo app `#b8ccdf` (`--app-bg`). Card de sección canónica: `bg-white rounded-2xl border
+  border-gray-400 shadow-lg p-4`. Nunca `border-gray-100`/`shadow-sm` solos (invisibles);
+  `border-gray-200` está bien para ítems dentro de una lista.
+- **`data-section="<clave>"` obligatorio en el `<div>` raíz de cada página de sección**
+  (tinte de fondo y franja bajo `SectionHero`); claves = `SECTION_COLORS` en `SectionHero.tsx`
+  y tokens `--accent-<clave>` en `index.css`, deben coincidir.
+- `SectionHero`: `flex flex-col sm:flex-row` (acciones bajan a fila propia en mobile).
+  `CompactStatsBar`: `overflow-x-auto`, sin `shrink-0`. Si se tocan, verificar 390px y 1366×768.
+- Mobile-first Tailwind: sin anchos fijos, grillas `grid-cols-1 sm:grid-cols-2 lg:...`, tablas
+  como tarjetas en mobile y `<table>` en desktop **en el mismo componente**, botones `h-11`,
+  inputs `text-base`, modales `w-full sm:max-w-lg max-h-[90dvh]` (`dvh`, nunca `vh`).
+  Prohibido crear vistas "mobile" paralelas.
+- Estados en Presupuestos: `aprobado`/`rechazado` en sólido (`emerald-600`/`red-600` con
+  texto blanco), fondo `-100`, franja lateral 7px — los pastel no se ven a 1366×768.
+- Labels: `Pendiente de Aprobación` (no "Borrador"); `Pago total` si `cobrado >= 99%`,
+  `Señado` si `> 0`; `Envío total/parcial al proveedor`; `llega hoy/mañana/el DD/MM`.
+- Modales de detalle: componente aparte que recibe `id`, header con número + estado + acciones
+  + X, confirmación destructiva como pantalla roja dentro del modal (no `window.confirm`).
+- Selectores con búsqueda: `onMouseDown` en el dropdown (no `onClick`) para evitar el race con
+  `onBlur`.
+- Kanban Operaciones: cada columna con su color, cards con `COL_CARD_BG[col]`.
+- Listas: `ORDER BY created_at DESC` salvo excepción documentada en el código.
+- Errores en render sin boundary → pantalla en blanco: todo `useEffect` con fetch lleva `.catch()`.
 
 ## Comandos frecuentes
 
 ```bash
-# Rebuild solo app (sin tocar DB)
-docker compose build app && docker compose up -d --force-recreate app
-
-# Migraciones
-cd server && npm run migrate        # aplica pendientes
-cd server && npm run migrate:list   # ver estado de todas
-cd server && npm run migrate:dry    # preview sin ejecutar
-
-# Ver logs en tiempo real
-docker compose logs app -f --tail=30
-
-# Conectar a DB
-docker compose exec db psql -U postgres -d postgres
-
-# Tests
-cd server && npm test     # backend (schemas, rate limiter)
-npm test                  # frontend (utils)
-```
-
-## VM de producción — deploy
-
-```bash
-git pull origin main
-# Aplicar migraciones nuevas manualmente
-docker compose exec -T db psql -U postgres -d postgres -f /migrations/ARCHIVO.sql
-# Rebuild
-docker compose build app && docker compose up -d --force-recreate app
-```
-
-Variables de entorno requeridas en `.env`:
-```
-POSTGRES_PASSWORD=...
-JWT_SECRET=...
-APP_URL=http://149.50.150.131:3000   # o dominio público — usado en links de aprobación
-APP_PORT=3000
+docker compose exec db psql -U postgres -d postgres          # DB local
+docker compose logs app -f --tail=30                          # logs del contenedor
+docker compose build app && docker compose up -d --force-recreate app   # solo pre-deploy
+bash deploy-env.sh test    /    echo si | bash deploy-env.sh prod
 ```
