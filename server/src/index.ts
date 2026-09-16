@@ -67,7 +67,17 @@ app.use('*', cors({
   // configurado (local sin .env), se mantiene el comportamiento anterior.
   origin: origenesPermitidos.length === 0
     ? '*'
-    : (origin) => (origenesPermitidos.includes(origin) ? origin : null),
+    : (origin, c) => {
+        if (origenesPermitidos.includes(origin)) return origin;
+        // Mismo host que el que atiende la petición (detrás de nginx, el Host
+        // es el dominio público): es el propio sitio aunque APP_URL esté mal
+        // escrita o cambie el esquema http/https.
+        try {
+          const host = c.req.header('x-forwarded-host') ?? c.req.header('host');
+          if (host && new URL(origin).host === host) return origin;
+        } catch { /* Origin malformado */ }
+        return null;
+      },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
