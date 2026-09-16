@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
+import { sqlStockCubreTodo, sqlItemsTotal, sqlItemsEnPedidoInclReposicion } from '../lib/coverage.js';
 import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
 import { sendProformaCompartida } from '../email.js';
@@ -463,18 +464,7 @@ operaciones.get('/', async (c) => {
   return c.json(rows);
 });
 
-const STOCK_CUBRE_TODO = `(
-  EXISTS (SELECT 1 FROM operacion_items oi WHERE oi.operacion_id = o.id)
-  AND NOT EXISTS (
-    SELECT 1 FROM operacion_items oi
-    WHERE oi.operacion_id = o.id
-      AND oi.tipo_item != 'servicio'
-      AND NOT (oi.producto_id IS NOT NULL AND
-        (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
-         + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
-        ) >= oi.cantidad)
-  )
-)`;
+const STOCK_CUBRE_TODO = sqlStockCubreTodo('o.id');
 
 operaciones.get('/tablero', async (c) => {
   const lunes = new Date();
@@ -683,14 +673,8 @@ operaciones.get('/ventas-panel', async (c) => {
         END AS estado_cobro,
         COALESCE(ped.tiene_pedido, false) AS tiene_pedido,
         ped.pedido_estado,
-        (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = o.id) AS items_total,
-        (SELECT COUNT(*)::int FROM operacion_items oi
-         WHERE oi.operacion_id = o.id
-           AND EXISTS (
-             SELECT 1 FROM pedido_items pi JOIN pedidos p2 ON p2.id = pi.pedido_id
-             WHERE pi.operacion_item_id = oi.id AND p2.estado != 'cancelado'
-           )
-        ) AS items_en_pedido,
+        ${sqlItemsTotal('o.id')} AS items_total,
+        ${sqlItemsEnPedidoInclReposicion('o.id')} AS items_en_pedido,
         (SELECT COUNT(*)::int FROM operacion_versiones ov WHERE ov.operacion_id = o.id) AS version_count
       FROM operaciones o
       JOIN clientes c ON c.id = o.cliente_id

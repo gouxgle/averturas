@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { sqlItemsTotal, sqlItemsCubiertos, sqlItemsPendientes } from '../lib/coverage.js';
 import { validateBody } from '../lib/validate.js';
 import { PedidoSchema, PedidoEstadoSchema } from '../lib/schemas.js';
 
@@ -74,25 +75,10 @@ pedidos.get('/tablero', async (c) => {
           ELSE NULL END AS operacion,
         items_agg.items_resumen,
         (CASE WHEN p.operacion_id IS NOT NULL
-          THEN (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = p.operacion_id)
+          THEN ${sqlItemsTotal('p.operacion_id')}
           ELSE NULL END) AS items_total_op,
         (CASE WHEN p.operacion_id IS NOT NULL
-          THEN (SELECT COUNT(*)::int FROM operacion_items oi
-                WHERE oi.operacion_id = p.operacion_id
-                  AND (
-                    EXISTS (
-                      SELECT 1 FROM pedido_items pi2
-                      JOIN pedidos p2 ON p2.id = pi2.pedido_id
-                      WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
-                    )
-                    -- o se cumple desde stock (regla: si hay stock suficiente no se pide al proveedor)
-                    OR (oi.producto_id IS NOT NULL AND
-                        (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
-                         + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
-                        ) >= oi.cantidad)
-                    -- o es un servicio: nunca se pide al proveedor, se resuelve con mano de obra
-                    OR oi.tipo_item = 'servicio'
-                  ))
+          THEN ${sqlItemsCubiertos('p.operacion_id')}
           ELSE NULL END) AS items_cubiertos
       FROM pedidos p
       JOIN  proveedores prov ON prov.id = p.proveedor_id
@@ -331,21 +317,8 @@ pedidos.get('/operaciones-disponibles', async (c) => {
         SELECT COUNT(*)::int FROM pedidos p
         WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
       ) AS pedidos_activos,
-      (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = o.id) AS items_total,
-      (
-        SELECT COUNT(*)::int FROM operacion_items oi
-        WHERE oi.operacion_id = o.id
-          AND oi.tipo_item != 'servicio'
-          AND NOT EXISTS (
-            SELECT 1 FROM pedido_items pi
-            JOIN pedidos p ON p.id = pi.pedido_id
-            WHERE pi.operacion_item_id = oi.id AND p.estado != 'cancelado' AND pi.es_reposicion = false
-          )
-          AND NOT (oi.producto_id IS NOT NULL AND
-            (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
-             + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
-            ) >= oi.cantidad)
-      ) AS items_pendientes
+      ${sqlItemsTotal('o.id')} AS items_total,
+      ${sqlItemsPendientes('o.id')} AS items_pendientes
     FROM operaciones o
     LEFT JOIN clientes c ON c.id = o.cliente_id
     WHERE o.estado IN ('aprobado', 'en_produccion', 'listo')
@@ -576,25 +549,10 @@ pedidos.get('/:id', async (c) => {
     db.query(`
       SELECT
         (CASE WHEN p.operacion_id IS NOT NULL
-          THEN (SELECT COUNT(*)::int FROM operacion_items oi WHERE oi.operacion_id = p.operacion_id)
+          THEN ${sqlItemsTotal('p.operacion_id')}
           ELSE NULL END) AS items_total_op,
         (CASE WHEN p.operacion_id IS NOT NULL
-          THEN (SELECT COUNT(*)::int FROM operacion_items oi
-                WHERE oi.operacion_id = p.operacion_id
-                  AND (
-                    EXISTS (
-                      SELECT 1 FROM pedido_items pi2
-                      JOIN pedidos p2 ON p2.id = pi2.pedido_id
-                      WHERE pi2.operacion_item_id = oi.id AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
-                    )
-                    -- o se cumple desde stock (regla: si hay stock suficiente no se pide al proveedor)
-                    OR (oi.producto_id IS NOT NULL AND
-                        (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id),0)
-                         + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id),0)
-                        ) >= oi.cantidad)
-                    -- o es un servicio: nunca se pide al proveedor, se resuelve con mano de obra
-                    OR oi.tipo_item = 'servicio'
-                  ))
+          THEN ${sqlItemsCubiertos('p.operacion_id')}
           ELSE NULL END) AS items_cubiertos
       FROM pedidos p WHERE p.id = $1
     `, [id]),

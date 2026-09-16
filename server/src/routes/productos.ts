@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
+import { validateBody } from '../lib/validate.js';
+import { ProductoSchema } from '../lib/schemas.js';
 
 const productos = new Hono();
 
@@ -141,7 +143,7 @@ productos.post('/upload-imagen', async (c) => {
   return c.json({ url: `/uploads/productos/${filename}` });
 });
 
-function resolveImagenUrl(b: { imagen_url?: string | null; imagenes?: string[] }): string | null {
+function resolveImagenUrl(b: { imagen_url?: string | null; imagenes?: string[] | null }): string | null {
   if (Array.isArray(b.imagenes) && b.imagenes.length > 0) return b.imagenes[0];
   return b.imagen_url || null;
 }
@@ -150,12 +152,13 @@ function resolveImagenUrl(b: { imagen_url?: string | null; imagenes?: string[] }
 // de cara al cliente y quedaría como un hueco en la galería del sitio.
 const SIN_IMAGEN_MSG = 'No se puede publicar en el catálogo online sin al menos una imagen del producto';
 
-function tieneImagen(b: { imagen_url?: string | null; imagenes?: string[] }): boolean {
+function tieneImagen(b: { imagen_url?: string | null; imagenes?: string[] | null }): boolean {
   return resolveImagenUrl(b) !== null;
 }
 
 productos.post('/', async (c) => {
-  const b = await c.req.json();
+  const b = await validateBody(c, ProductoSchema);
+  if (b instanceof Response) return b;
 
   if (b.en_salon && (b.stock_inicial ?? 0) < 1) {
     return c.json({ error: 'No se puede marcar "Exhibido en salón" sin al menos 1 unidad en stock' }, 422);
@@ -207,7 +210,7 @@ productos.post('/', async (c) => {
     b.video_url || null,
     b.etiqueta || null,
     b.proveedor_sku?.trim() || null,
-    b.margen_venta != null ? parseFloat(b.margen_venta) : null,
+    b.margen_venta ?? null,
     b.precio_manual ?? false,
     b.en_salon ?? false,
     b.categoria_id || null,
@@ -221,7 +224,8 @@ productos.post('/', async (c) => {
 });
 
 productos.put('/:id', async (c) => {
-  const b = await c.req.json();
+  const b = await validateBody(c, ProductoSchema);
+  if (b instanceof Response) return b;
 
   if (b.en_salon) {
     const { rows: [mov] } = await db.query(
@@ -313,7 +317,7 @@ productos.put('/:id', async (c) => {
     b.video_url || null,
     b.etiqueta || null,
     b.proveedor_sku?.trim() || null,
-    b.margen_venta != null ? parseFloat(b.margen_venta) : null,
+    b.margen_venta ?? null,
     b.precio_manual ?? false,
     b.en_salon ?? false,
     b.categoria_id || null,

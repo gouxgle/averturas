@@ -7,6 +7,7 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
 import { readFileSync, existsSync } from 'node:fs';
 
 import pubRoutes              from './routes/pub.js';
@@ -43,10 +44,48 @@ import { rateLimit }     from './middleware/rateLimit.js';
 
 const app = new Hono();
 
+// ── CORS ──────────────────────────────────────────────────────
+// Antes: origin '*' en TODA la API, incluida la autenticada (FRONTEND_URL nunca se
+// definió en ningún ambiente). El frontend se sirve desde el mismo proceso, así
+// que ninguna llamada de la app es cross-origin y esto no le cambia nada; solo
+// deja de aceptar peticiones desde cualquier sitio ajeno. Orígenes permitidos:
+// APP_URL (test/prod), FRONTEND_URL y ORIGENES_EXTRA si se definen (coma-separados,
+// p.ej. para el sitio web público), y en desarrollo Vite (:5173) y :3000/:3001.
+const origenesPermitidos = [
+  process.env.APP_URL,
+  process.env.FRONTEND_URL,
+  ...(process.env.ORIGENES_EXTRA ?? '').split(','),
+  ...(process.env.NODE_ENV === 'production' ? [] : [
+    'http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001',
+    'http://127.0.0.1:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001',
+  ]),
+].map(o => (o ?? '').trim().replace(/\/+$/, '')).filter(Boolean);
+
 app.use('*', cors({
-  origin: process.env.FRONTEND_URL ?? '*',
+  // Con origin como función, Hono devuelve el header solo si el origen coincide;
+  // una petición same-origin no trae Origin y no pasa por acá. Si no hay ninguno
+  // configurado (local sin .env), se mantiene el comportamiento anterior.
+  origin: origenesPermitidos.length === 0
+    ? '*'
+    : (origin) => (origenesPermitidos.includes(origin) ? origin : null),
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// ── Cabeceras de seguridad ────────────────────────────────────
+// Antes no había ninguna (solo las ponía el nginx del sitio web, no el del
+// sistema). Se dejan afuera a propósito: CSP (rompería estilos inline, imágenes
+// data: de los PDFs y Sentry sin un trabajo aparte), COEP/COOP/CORP (las
+// imágenes de /uploads se van a servir cross-origin al sitio web) y HSTS lo pone
+// nginx en prod (test es HTTP y el header se ignora igual).
+app.use('*', secureHeaders({
+  contentSecurityPolicy: undefined,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false,
+  strictTransportSecurity: false,
+  xFrameOptions: 'SAMEORIGIN',
+  referrerPolicy: 'strict-origin-when-cross-origin',
 }));
 
 // ── Rutas públicas ────────────────────────────────────────────

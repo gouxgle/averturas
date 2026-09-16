@@ -309,8 +309,15 @@ export function VistaPublicaPresupuesto() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
         <AlertTriangle size={36} className="mx-auto mb-4 text-red-400" />
-        <h2 className="text-lg font-bold text-gray-800 mb-2">Link inválido</h2>
-        <p className="text-sm text-gray-600">{errMsg || 'Este presupuesto no existe o el link es incorrecto.'}</p>
+        <h2 className="text-lg font-bold text-gray-800 mb-2">Este link ya no está disponible</h2>
+        {/* Los links públicos vencen a los 90 días del envío (PUB_LINK_DIAS en el
+            backend). Antes decía "Link inválido" con el texto crudo del error — para
+            el cliente eso suena a que algo se rompió, cuando lo único que tiene que
+            hacer es pedir uno nuevo. */}
+        <p className="text-sm text-gray-600">
+          Los links de las proformas tienen una vigencia limitada. Si te interesa esta propuesta,
+          pedinos que te la volvamos a enviar y vas a recibir un link nuevo.
+        </p>
       </div>
     </div>
   );

@@ -528,3 +528,64 @@ export const UsuarioSchema = z.object({
   rol:      z.enum(['admin','vendedor','consulta']),
   activo:   z.boolean().optional(),
 });
+
+// ── Productos ─────────────────────────────────────────────────────────────────
+// productos.ts era el único CRUD que leía c.req.json() crudo. El schema es
+// deliberadamente permisivo en tipos (coerce en numéricos, nullish en casi todo)
+// porque el frontend manda null/'' según el campo — el objetivo es rechazar basura
+// (nombre vacío, tipo inexistente, precio negativo, arrays donde va un string), no
+// cambiar qué acepta la app. Los campos derivados (imagen_url ← imagenes[0]) se
+// siguen calculando en la ruta.
+const numOpt = z.coerce.number().finite().nullish();
+const strOpt = z.string().max(2000).nullish();
+const uuidOpt = z.string().uuid().nullish().or(z.literal('').transform(() => null));
+
+export const ProductoSchema = z.object({
+  nombre:           z.string().trim().min(1, 'El nombre es obligatorio').max(300),
+  descripcion:      strOpt,
+  tipo:             z.enum(['estandar', 'a_medida_proveedor', 'fabricacion_propia']),
+  tipo_abertura_id: uuidOpt,
+  sistema_id:       uuidOpt,
+  material:         strOpt,
+  color:            strOpt,
+  ancho:            numOpt,
+  alto:             numOpt,
+  stock_inicial:    z.coerce.number().int().nullish(),
+  stock_minimo:     z.coerce.number().int().min(0).nullish(),
+  proveedor_id:     uuidOpt,
+  proveedor_sku:    strOpt,
+  margen_venta:     numOpt,
+  precio_manual:    z.boolean().nullish(),
+  costo_base:       z.coerce.number().min(0).nullish(),
+  precio_base:      z.coerce.number().min(0).nullish(),
+  precio_por_m2:    z.boolean().nullish(),
+  codigo:           strOpt,
+  caracteristica_1: strOpt,
+  caracteristica_2: strOpt,
+  caracteristica_3: strOpt,
+  caracteristica_4: strOpt,
+  vidrio:           strOpt,
+  premarco:         z.boolean().nullish(),
+  accesorios:       z.array(z.string()).nullish(),
+  activo:           z.boolean().nullish(),
+  en_salon:         z.boolean().nullish(),
+  publicado_web:    z.boolean().nullish(),
+  nombre_web:       strOpt,
+  atributos:        z.record(z.string(), z.unknown()).nullish(),
+  etiqueta:         z.enum(['mas_vendido', 'recomendado', 'nuevo']).nullish().or(z.literal('').transform(() => null)),
+  margen_tipo:      z.enum(['bajo', 'medio', 'alto']).nullish().or(z.literal('').transform(() => null)),
+  promocion:        z.object({
+    activo:        z.boolean(),
+    fecha_inicio:  z.string().nullish(),
+    fecha_fin:     z.string().nullish(),
+    precio_oferta: numOpt,
+    auto_renovar:  z.boolean().nullish(),
+  }).nullish(),
+  imagenes:         z.array(z.string()).nullish(),
+  imagen_url:       strOpt,
+  video_url:        strOpt,
+  categoria_id:     uuidOpt,
+  linea_id:         uuidOpt,
+  modelo_id:        uuidOpt,
+});
+export type ProductoInput = z.infer<typeof ProductoSchema>;

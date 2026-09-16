@@ -69,8 +69,10 @@ cd server && npm run migrate   # lee server/.env
 - **Typecheck frontend = `tsc -b`, NUNCA `tsc --noEmit`**: el `tsconfig.json` raíz tiene
   `files: []` y `--noEmit` revisa cero archivos y sale 0. El `.tsbuildinfo` vive en
   `node_modules/.tmp/`; si no es escribible, `tsc -b` revisa todo cada vez (22 s).
-- **`docker compose build app` solo para el chequeo final pre-deploy.** Si reporta `COPY src`
-  como `CACHED` tras cambios reales, es un bug de caché ya visto: `--no-cache`.
+- **`docker compose build app` solo para el chequeo final pre-deploy.** El Dockerfile recibe
+  `SRC_HASH`/`SERVER_HASH` (hash del árbol git) como cache-buster — el deploy los pasa, así
+  una `COPY src` nunca queda `CACHED` con código viejo. Si se buildea a mano sin los args y
+  algo parece no reflejarse: `--no-cache`.
 - El clasificador de seguridad bloquea contraseñas literales en la línea de comandos:
   `curl -d @archivo.json`, nunca `-d '{"password":...}'`.
 - No agregar infraestructura nueva (scripts, perfiles de compose, herramientas) sin que se pida.
@@ -94,8 +96,10 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
   login por contraseña (el clasificador lo bloquea).
 - Wizards de credenciales/OAuth (`rclone config update/reconnect`) se cuelgan esperando un
   navegador: editar el archivo de config directo.
-- **Deploy**: `bash deploy-env.sh test` (no interactivo; saltea build si solo cambiaron
-  migraciones/tests/docs) y `echo si | bash deploy-env.sh prod`. **Prod no hace backup solo**:
+- **Deploy**: `bash deploy-env.sh test` **buildea la imagen acá y la transfiere** (~440 MB
+  gzip, ~2 min): el servidor de test no tiene RAM para buildear. Saltea build si solo
+  cambiaron migraciones/tests/docs. `DEPLOY_BUILD_REMOTO=1` fuerza el build viejo en el
+  servidor. Prod: `echo si | bash deploy-env.sh prod` (su `deploy.sh` sigue buildeando allá). **Prod no hace backup solo**:
   antes, por SSH, `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
   /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz`. Si test se
   cuelga durante un build, primero `free -h` / `swapon --show` (swap de 2 GB en `/swapfile`).
@@ -108,9 +112,22 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
   directo, sin `.data`; query params con `?${new URLSearchParams(...)}`; token en
   `sessionStorage` (`aberturas_token`) y header `Authorization`.
 - **Backend**: Hono v4 sobre Node (`@hono/node-server`), PostgreSQL con `pg` (pool directo, sin
-  ORM), JWT + bcryptjs, Zod (`server/src/lib/schemas.ts`) — salvo `productos.ts`, que valida
-  a mano. Un solo proceso sirve `/api/*` y el frontend estático desde `./public/`.
+  ORM), JWT + bcryptjs, Zod en todos los bodies (`server/src/lib/schemas.ts`, incl.
+  `ProductoSchema`). Un solo proceso sirve `/api/*` y el frontend estático desde `./public/`.
   `/uploads/*` se sirve **sin auth** (imágenes de productos, comprobantes, firmas).
+  - **CORS** acotado a `APP_URL` + `FRONTEND_URL` + `ORIGENES_EXTRA` (coma-separados; agregar
+    ahí el sitio web si algún día llama a la API) y, fuera de producción, localhost. Nada de la
+    app es cross-origin, así que esto no afecta al sistema.
+  - **Cabeceras de seguridad** con `hono/secure-headers` (X-Frame-Options SAMEORIGIN, nosniff,
+    Referrer-Policy). Sin CSP ni COEP/COOP/CORP a propósito (romperían PDFs inline y las
+    imágenes cross-origin al sitio); HSTS lo pone nginx en prod.
+  - **Links públicos vencen a los 90 días** del envío (`PUB_LINK_DIAS`), tanto proformas
+    (`operacion_revisiones.enviada_at`) como remitos (`token_acceso_at`). Vencido → 404
+    "Link inválido o expirado" y la página pública pide que lo vuelvan a enviar.
+  - **Regla de cobertura de ítems** (¿está en pedido? ¿hay stock? ¿es servicio?) vive SOLO en
+    `server/src/lib/coverage.ts` (`sqlItemsCubiertos`, `sqlItemsPendientes`,
+    `sqlStockCubreTodo`, `sqlItemsEnPedidoInclReposicion` — esta última es la variante del
+    panel de ventas que sí cuenta reposiciones). No volver a copiar el SQL en las rutas.
 - **Infra**: Dockerfile multi-stage (server-build → frontend-build → final con chromium para
   PDFs). `.dockerignore` excluye `uploads/`, `supabase/`, `docker/`, `tests/` (son volúmenes).
   El stage frontend copia solo lo que Vite necesita (no `COPY . .`). `COPY --from=server-build`

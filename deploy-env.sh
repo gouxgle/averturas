@@ -91,107 +91,121 @@ if [ "$ENV" = "prod" ]; then
 
 elif [ "$ENV" = "test" ]; then
 
+  # ── Build LOCAL + transferencia de la imagen ──────────────────────────────
+  # El servidor de test tiene 1.9 GB de RAM compartidos con ~11 contenedores
+  # ajenos: buildear ahí colgaba la VPS entera (hasta sshd). Ahora la imagen se
+  # construye acá, con el mismo Dockerfile, y viaja ya armada (~440 MB gzip,
+  # ~2 min). El servidor solo la carga y la arranca. Fallback al build remoto:
+  #   DEPLOY_BUILD_REMOTO=1 bash deploy-env.sh test
+  REMOTE_HEAD=$(ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
+    "cd ${TEST_DIR} && git rev-parse HEAD" 2>/dev/null || echo "")
+  LOCAL_HEAD=$(git rev-parse HEAD)
+  NECESITA_BUILD=1
+  if [ -n "$REMOTE_HEAD" ] && [ "$REMOTE_HEAD" != "$LOCAL_HEAD" ]; then
+    CAMBIOS=$(git diff --name-only "$REMOTE_HEAD" "$LOCAL_HEAD" 2>/dev/null \
+      | grep -vE '^(supabase/|tests/|docs?/|\.claude/|deploy.*\.sh$|.*\.md$|\.gitignore$)' || true)
+    [ -z "$CAMBIOS" ] && NECESITA_BUILD=0
+  fi
+
+  SUBIR_IMAGEN=0
+  if [ "$NECESITA_BUILD" -eq 1 ] && [ "${DEPLOY_BUILD_REMOTO:-0}" != "1" ]; then
+    echo -e "${BOLD}🔨 Build local de la imagen para test...${NC}"
+    # El DSN de Sentry se hornea en el bundle del frontend: se toma el del .env
+    # del servidor para que la imagen sea idéntica a la que se buildearía allá.
+    TEST_DSN=$(ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
+      "grep '^VITE_SENTRY_DSN=' ${TEST_DIR}/.env | cut -d= -f2-" 2>/dev/null || echo "")
+    T0=$(date +%s)
+    docker build -t aberturas-app:deploy-test \
+      --build-arg "VITE_SENTRY_DSN=${TEST_DSN}" \
+      --build-arg "SRC_HASH=$(git rev-parse HEAD:src)" \
+      --build-arg "SERVER_HASH=$(git rev-parse HEAD:server/src)" \
+      . | tail -3
+    echo -e "   build local: $(( $(date +%s) - T0 ))s"
+    # La imagen queda etiquetada con el commit: el post-deploy lo verifica.
+    docker image inspect aberturas-app:deploy-test > /dev/null
+
+    echo -e "${BOLD}📦 Transfiriendo imagen a test...${NC}"
+    T0=$(date +%s)
+    docker save aberturas-app:deploy-test | gzip -1 | \
+      ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" "gunzip | docker load" | tail -1
+    echo -e "   transferencia: $(( $(date +%s) - T0 ))s"
+    SUBIR_IMAGEN=1
+  fi
+
   echo -e "${BOLD}🧪 Ejecutando deploy en TEST (${TEST_HOST})...${NC}"
   echo "────────────────────────────────────────"
-  ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" bash << REMOTE
+  ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
+    "SUBIR_IMAGEN=${SUBIR_IMAGEN} NECESITA_BUILD=${NECESITA_BUILD} BUILD_REMOTO=${DEPLOY_BUILD_REMOTO:-0} bash -s" << 'REMOTE'
 set -e
-cd "${TEST_DIR}"
+cd /etc/docker/averturas
 
 echo "📥 Actualizando código..."
-# fetch + reset (no "pull"/merge): si el directorio de deploy divergió de origin
-# por el motivo que sea, "git pull" puede abrir un editor para un merge commit
-# y quedar colgado esperando input que nunca llega por SSH no interactivo. Este
-# directorio es un espejo de deploy, nunca debería tener commits propios.
 export GIT_TERMINAL_PROMPT=0
-ANTES=\$(git rev-parse HEAD)
 git fetch origin main
 git reset --hard origin/main
-AHORA=\$(git rev-parse HEAD)
-echo "✅ Código actualizado → \$(git rev-parse --short HEAD)"
-
-# ¿Hace falta rebuildear? Solo si cambió algo que termina DENTRO de la imagen.
-# Las migraciones, el changelog y los .md no la tocan: supabase/ y uploads/ son
-# volúmenes montados desde el host. Un deploy de solo-changelog no tiene por qué
-# pagar un build completo.
-NECESITA_BUILD=1
-if [ "\$ANTES" = "\$AHORA" ]; then
-  # Nada nuevo: igual seguimos por si la imagen quedó a medias en un intento previo.
-  CAMBIOS=""
-else
-  CAMBIOS=\$(git diff --name-only "\$ANTES" "\$AHORA" \
-    | grep -vE '^(supabase/|tests/|docs?/|\.claude/|deploy.*\.sh$|.*\.md$|\.gitignore$)' || true)
-  if [ -z "\$CAMBIOS" ]; then NECESITA_BUILD=0; fi
-fi
+echo "✅ Código actualizado → $(git rev-parse --short HEAD)"
 
 echo ""
 echo "🗄️  Verificando migraciones..."
-docker exec -i ${TEST_DB_CONTAINER} psql -U postgres -d postgres > /dev/null <<'SQL'
+docker exec -i aberturas-db psql -U postgres -d postgres > /dev/null <<'SQL'
 CREATE TABLE IF NOT EXISTS schema_migrations (
   filename   TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 SQL
-
-# Una sola consulta para traer las ya aplicadas, en vez de un "docker exec" por
-# cada archivo — con 100+ migraciones eso eran 100+ round-trips en cada deploy
-# aunque no hubiera nada nuevo para aplicar.
-APLICADAS=\$(docker exec ${TEST_DB_CONTAINER} psql -U postgres -d postgres -tAc "SELECT filename FROM schema_migrations;")
-
+APLICADAS=$(docker exec aberturas-db psql -U postgres -d postgres -tAc "SELECT filename FROM schema_migrations;")
 PENDIENTES=0
-for file in \$(ls "${TEST_DIR}/supabase/migrations/"*.sql | sort); do
-  filename=\$(basename "\$file")
-  if ! echo "\$APLICADAS" | grep -qFx "\$filename"; then
-    echo "  ⏳ \$filename — aplicando..."
-    docker exec -i ${TEST_DB_CONTAINER} psql -U postgres -d postgres < "\$file"
-    echo "  ✅ \$filename"
-    PENDIENTES=\$((PENDIENTES + 1))
+for file in $(ls supabase/migrations/*.sql | sort); do
+  filename=$(basename "$file")
+  if ! echo "$APLICADAS" | grep -qFx "$filename"; then
+    echo "  ⏳ $filename — aplicando..."
+    docker exec -i aberturas-db psql -U postgres -d postgres < "$file"
+    echo "  ✅ $filename"
+    PENDIENTES=$((PENDIENTES + 1))
   fi
 done
-[ "\$PENDIENTES" -eq 0 ] && echo "  DB al día (\$(echo "\$APLICADAS" | grep -c .) migraciones)" || echo "  ✅ \$PENDIENTES migración(es) nueva(s)"
+[ "$PENDIENTES" -eq 0 ] && echo "  DB al día ($(echo "$APLICADAS" | grep -c .) migraciones)" || echo "  ✅ $PENDIENTES migración(es) nueva(s)"
 
 echo ""
-if [ "\$NECESITA_BUILD" -eq 0 ]; then
+if [ "$NECESITA_BUILD" -eq 0 ]; then
   echo "🔨 Sin cambios de código — se saltea el build (solo migraciones/docs)"
 else
-  echo "🔨 Rebuildeando..."
-  T0=\$(date +%s)
-  docker compose build ${TEST_COMPOSE_SERVICE}
-  echo "   build: \$(( \$(date +%s) - T0 ))s"
-
-  echo ""
-  echo "🚀 Reiniciando..."
-  # Sin --force-recreate: compose recrea solo si la imagen o la config cambiaron.
-  # Forzarlo siempre agregaba una recreación (y su corte de servicio) aun cuando
-  # el contenedor ya estaba corriendo exactamente la misma imagen.
-  docker compose up -d ${TEST_COMPOSE_SERVICE}
+  if [ "$SUBIR_IMAGEN" -eq 1 ]; then
+    echo "🔨 Usando la imagen buildeada localmente"
+    docker tag aberturas-app:deploy-test aberturas-app:latest
+    docker rmi aberturas-app:deploy-test > /dev/null 2>&1 || true
+    docker compose up -d --no-build app
+  else
+    echo "🔨 Rebuildeando en el servidor (DEPLOY_BUILD_REMOTO=1)..."
+    T0=$(date +%s)
+    docker compose build app
+    echo "   build: $(( $(date +%s) - T0 ))s"
+    docker compose up -d app
+  fi
 
   echo ""
   echo "⏳ Verificando..."
-  # Antes: sleep 4 fijo + un solo intento. Si la app tardaba un segundo más
-  # imprimía "App tardando" con la app perfectamente sana (falsa alarma real),
-  # y si arrancaba en 1s igual esperaba los 4. Ahora se sondea y se corta apenas
-  # responde.
-  T0=\$(date +%s)
+  T0=$(date +%s)
   OK=0
-  for i in \$(seq 1 30); do
-    if docker exec ${TEST_APP_CONTAINER} wget -qO- -T2 http://localhost:3000 > /dev/null 2>&1; then
+  for i in $(seq 1 30); do
+    if docker exec aberturas-app wget -qO- -T2 http://localhost:3000 > /dev/null 2>&1; then
       OK=1; break
     fi
     sleep 1
   done
-  if [ "\$OK" -eq 1 ]; then
-    echo "✅ App OK (\$(( \$(date +%s) - T0 ))s)"
+  if [ "$OK" -eq 1 ]; then
+    echo "✅ App OK ($(( $(date +%s) - T0 ))s)"
   else
     echo "⚠️  La app no respondió en 30s — revisá: docker compose logs app -f"
     exit 1
   fi
+  docker image prune -f > /dev/null 2>&1 || true
 fi
 
 echo ""
 echo "════════════════════════════"
 echo "✅ Deploy test completo"
-echo "Versión: \$(git rev-parse --short HEAD)"
-echo "URL: http://${TEST_HOST}:3000"
+echo "Versión: $(git rev-parse --short HEAD)"
 echo "════════════════════════════"
 REMOTE
 

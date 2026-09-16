@@ -4,6 +4,12 @@ FROM node:20-alpine AS server-build
 WORKDIR /server
 COPY server/package.json ./
 RUN npm install
+# Cache-buster explícito: deploy-env.sh pasa el hash del árbol git de server/. Si
+# cambió, la primera USA del ARG (este RUN) invalida la caché de todo lo que sigue,
+# así la COPY de abajo nunca puede quedar "CACHED" con código viejo (bug real,
+# visto varias veces). Sin el arg (build a mano, prod) queda vacío y no afecta.
+ARG SERVER_HASH=
+RUN echo "server@${SERVER_HASH}" > /dev/null
 COPY server/ .
 RUN NODE_OPTIONS="--max-old-space-size=512" npm run build
 
@@ -23,6 +29,8 @@ RUN npm install --legacy-peer-deps
 # obligaba a rehacer el build del frontend aunque no se hubiera tocado una línea
 # de src/.
 COPY index.html vite.config.ts tsconfig*.json postcss.config.js tailwind.config.js ./
+ARG SRC_HASH=
+RUN echo "src@${SRC_HASH}" > /dev/null
 COPY src ./src
 COPY public ./public
 ARG VITE_SENTRY_DSN

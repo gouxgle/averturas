@@ -101,7 +101,7 @@ export function VistaPublicaRemito() {
         setLoading(false);
         if (r.recepcion_estado) setFlow('confirmado');
       })
-      .catch(() => { setError('Link inválido o expirado.'); setLoading(false); });
+      .catch(() => { setError('Este link ya no está disponible. Los links de remitos tienen una vigencia limitada — pedinos que te lo volvamos a enviar.'); setLoading(false); });
   }, [token]);
 
   async function confirmarConforme() {

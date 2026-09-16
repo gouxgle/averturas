@@ -46,6 +46,12 @@ interface RevisionRow {
   estado_actual: string; aprobado_online_at: string | null;
   es_ultima: boolean;
 }
+// Vigencia de un link público, en días desde que se envió. Los tokens no vencían
+// nunca: una proforma mandada por WhatsApp en marzo seguía abriéndose (y se podía
+// aprobar) en diciembre. Configurable por entorno con PUB_LINK_DIAS.
+const PUB_LINK_DIAS = Number(process.env.PUB_LINK_DIAS) > 0 ? Number(process.env.PUB_LINK_DIAS) : 90;
+const LINK_VIGENTE_SQL = (col: string) => `${col} > now() - make_interval(days => ${PUB_LINK_DIAS})`;
+
 async function buscarRevision(token: string): Promise<RevisionRow | null> {
   const { rows: [row] } = await db.query(`
     SELECT r.id AS revision_id, r.operacion_id, r.revision, r.token, r.snapshot, r.contenido_hash,
@@ -54,7 +60,7 @@ async function buscarRevision(token: string): Promise<RevisionRow | null> {
       (r.revision = (SELECT MAX(revision) FROM operacion_revisiones WHERE operacion_id = r.operacion_id)) AS es_ultima
     FROM operacion_revisiones r
     JOIN operaciones o ON o.id = r.operacion_id
-    WHERE r.token = $1
+    WHERE r.token = $1 AND ${LINK_VIGENTE_SQL('r.enviada_at')}
   `, [token]);
   return row ?? null;
 }
@@ -421,7 +427,7 @@ pub.get('/remito/:token', async (c) => {
     JOIN clientes cl ON cl.id = r.cliente_id
     LEFT JOIN operaciones op ON op.id = r.operacion_id
     CROSS JOIN (SELECT * FROM empresa ORDER BY updated_at DESC LIMIT 1) e
-    WHERE r.token_acceso = $1
+    WHERE r.token_acceso = $1 AND ${LINK_VIGENTE_SQL('COALESCE(r.token_acceso_at, r.created_at)')}
   `, [token]);
 
   if (!rem) return c.json({ error: 'Link inválido o expirado' }, 404);
@@ -467,7 +473,7 @@ pub.post('/remito/:token/confirmar', async (c) => {
   }
 
   const { rows: [rem] } = await db.query(
-    `SELECT id, recepcion_estado FROM remitos WHERE token_acceso = $1`, [token]
+    `SELECT id, recepcion_estado FROM remitos r WHERE r.token_acceso = $1 AND ${LINK_VIGENTE_SQL('COALESCE(r.token_acceso_at, r.created_at)')}`, [token]
   );
   if (!rem) return c.json({ error: 'Link inválido' }, 404);
 
