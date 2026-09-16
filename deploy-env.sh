@@ -132,36 +132,41 @@ elif [ "$ENV" = "test" ]; then
     docker image inspect aberturas-app:deploy-test > /dev/null
 
     echo -e "${BOLD}📦 Transfiriendo imagen a test...${NC}"
-    # rsync sobre un .tar sin comprimir, contra el .tar del deploy anterior que
-    # queda en el servidor: el algoritmo delta manda solo los bloques que cambiaron
-    # (las capas base — node, chromium, node_modules — son idénticas entre deploys),
-    # --partial --inplace lo hace reanudable si se corta, y ServerAliveInterval
-    # evita el "Broken pipe" en transferencias largas (pasó: 55 min y se cayó).
-    # Antes: `docker save | gzip | ssh docker load`, 440 MB enteros cada vez y sin
-    # reanudación.
+    # Subida REANUDABLE sin herramientas extra (no hay rsync en esta máquina y no
+    # hay sudo): el .tar.gz se manda con `tail -c +offset | ssh 'cat >>'`, y si la
+    # conexión se corta (pasó: 55 min y Broken pipe) el siguiente intento sigue
+    # desde el byte donde quedó. Al final se compara el SHA-256 en ambos lados
+    # antes de cargar nada. El archivo remoto lleva el commit en el nombre para
+    # nunca reanudar sobre los restos de otra imagen.
     T0=$(date +%s)
-    IMG_TAR="$(mktemp -d)/aberturas-app.tar"
-    docker save aberturas-app:deploy-test -o "$IMG_TAR"
-    echo "   tar local: $(du -h "$IMG_TAR" | cut -f1)"
-    RSYNC_OK=0
-    for intento in 1 2 3; do
-      if rsync -a --partial --inplace --compress-level=1 -z --info=progress2 \
-           -e "ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p ${TEST_PORT}" \
-           "$IMG_TAR" "${TEST_USER}@${TEST_HOST}:/var/tmp/aberturas-app.tar" 2>&1 | tail -1; then
-        RSYNC_OK=1; break
-      fi
-      echo "   rsync cortado (intento $intento) — reanudando..."
-      sleep 5
+    IMG_DIR=$(mktemp -d); IMG_GZ="$IMG_DIR/img.tar.gz"
+    docker save aberturas-app:deploy-test | gzip -1 > "$IMG_GZ"
+    LOCAL_SIZE=$(stat -c %s "$IMG_GZ"); LOCAL_SHA=$(sha256sum "$IMG_GZ" | cut -d' ' -f1)
+    REMOTE_GZ="/var/tmp/aberturas-app-${LOCAL_HEAD:0:12}.tar.gz"
+    SSH_T="ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p ${TEST_PORT} ${TEST_USER}@${TEST_HOST}"
+    echo "   imagen comprimida: $(( LOCAL_SIZE / 1048576 )) MB"
+    SUBIDA_OK=0
+    for intento in 1 2 3 4 5; do
+      REMOTE_SIZE=$($SSH_T "stat -c %s '$REMOTE_GZ' 2>/dev/null || echo 0")
+      if [ "$REMOTE_SIZE" -gt "$LOCAL_SIZE" ]; then $SSH_T "rm -f '$REMOTE_GZ'"; REMOTE_SIZE=0; fi
+      if [ "$REMOTE_SIZE" -eq "$LOCAL_SIZE" ]; then SUBIDA_OK=1; break; fi
+      [ "$intento" -gt 1 ] && echo "   reanudando desde $(( REMOTE_SIZE / 1048576 )) MB (intento $intento)..."
+      tail -c +$(( REMOTE_SIZE + 1 )) "$IMG_GZ" | $SSH_T "cat >> '$REMOTE_GZ'" || true
+      sleep 3
     done
-    rm -rf "$(dirname "$IMG_TAR")"
-    if [ "$RSYNC_OK" -ne 1 ]; then
-      echo -e "${RED}❌ No se pudo transferir la imagen. El servidor NO fue tocado.${NC}"
+    if [ "$SUBIDA_OK" -eq 1 ]; then
+      REMOTE_SHA=$($SSH_T "sha256sum '$REMOTE_GZ' | cut -d' ' -f1")
+      [ "$REMOTE_SHA" = "$LOCAL_SHA" ] || SUBIDA_OK=0
+    fi
+    rm -rf "$IMG_DIR"
+    if [ "$SUBIDA_OK" -ne 1 ]; then
+      echo -e "${RED}❌ No se pudo transferir la imagen íntegra. El servidor NO fue tocado.${NC}"
+      $SSH_T "rm -f '$REMOTE_GZ'" || true
       exit 1
     fi
-    echo -e "   transferencia: $(( $(date +%s) - T0 ))s"
+    echo -e "   transferencia: $(( $(date +%s) - T0 ))s · SHA-256 verificado"
     echo -e "${BOLD}📥 Cargando imagen en test...${NC}"
-    ssh -o BatchMode=yes -o ServerAliveInterval=15 -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
-      "docker load -i /var/tmp/aberturas-app.tar | tail -1 && docker image inspect aberturas-app:deploy-test > /dev/null" \
+    $SSH_T "gunzip -c '$REMOTE_GZ' | docker load | tail -1 && docker image inspect aberturas-app:deploy-test > /dev/null && rm -f /var/tmp/aberturas-app-*.tar.gz /var/tmp/aberturas-app.tar" \
       || { echo -e "${RED}❌ docker load falló en el servidor. El contenedor NO fue tocado.${NC}"; exit 1; }
     SUBIR_IMAGEN=1
   fi
