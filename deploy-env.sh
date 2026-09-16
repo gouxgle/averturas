@@ -8,6 +8,7 @@
 # ============================================================
 
 set -e
+set -o pipefail
 
 # ── Config entornos ──────────────────────────────────────────
 TEST_HOST="149.50.150.131"
@@ -125,10 +126,37 @@ elif [ "$ENV" = "test" ]; then
     docker image inspect aberturas-app:deploy-test > /dev/null
 
     echo -e "${BOLD}📦 Transfiriendo imagen a test...${NC}"
+    # rsync sobre un .tar sin comprimir, contra el .tar del deploy anterior que
+    # queda en el servidor: el algoritmo delta manda solo los bloques que cambiaron
+    # (las capas base — node, chromium, node_modules — son idénticas entre deploys),
+    # --partial --inplace lo hace reanudable si se corta, y ServerAliveInterval
+    # evita el "Broken pipe" en transferencias largas (pasó: 55 min y se cayó).
+    # Antes: `docker save | gzip | ssh docker load`, 440 MB enteros cada vez y sin
+    # reanudación.
     T0=$(date +%s)
-    docker save aberturas-app:deploy-test | gzip -1 | \
-      ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" "gunzip | docker load" | tail -1
+    IMG_TAR="$(mktemp -d)/aberturas-app.tar"
+    docker save aberturas-app:deploy-test -o "$IMG_TAR"
+    echo "   tar local: $(du -h "$IMG_TAR" | cut -f1)"
+    RSYNC_OK=0
+    for intento in 1 2 3; do
+      if rsync -a --partial --inplace --compress-level=1 -z --info=progress2 \
+           -e "ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -p ${TEST_PORT}" \
+           "$IMG_TAR" "${TEST_USER}@${TEST_HOST}:/var/tmp/aberturas-app.tar" 2>&1 | tail -1; then
+        RSYNC_OK=1; break
+      fi
+      echo "   rsync cortado (intento $intento) — reanudando..."
+      sleep 5
+    done
+    rm -rf "$(dirname "$IMG_TAR")"
+    if [ "$RSYNC_OK" -ne 1 ]; then
+      echo -e "${RED}❌ No se pudo transferir la imagen. El servidor NO fue tocado.${NC}"
+      exit 1
+    fi
     echo -e "   transferencia: $(( $(date +%s) - T0 ))s"
+    echo -e "${BOLD}📥 Cargando imagen en test...${NC}"
+    ssh -o BatchMode=yes -o ServerAliveInterval=15 -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
+      "docker load -i /var/tmp/aberturas-app.tar | tail -1 && docker image inspect aberturas-app:deploy-test > /dev/null" \
+      || { echo -e "${RED}❌ docker load falló en el servidor. El contenedor NO fue tocado.${NC}"; exit 1; }
     SUBIR_IMAGEN=1
   fi
 
