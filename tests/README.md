@@ -28,14 +28,22 @@ comandos: el clasificador de seguridad bloquea comandos con contraseñas literal
 ## Correr los tests
 
 ```bash
-docker run --rm --network host -v "$PWD":/w -w /w --env-file tests/.env.e2e \
-  mcr.microsoft.com/playwright:v1.62.1-noble npx playwright test --workers=1
+npm run test:e2e                      # todo, 3 breakpoints, nativo (~65 s)
+npm run test:e2e -- --project=1440px  # un solo breakpoint
+npm run test:e2e -- -g 'Productos'    # filtrar por nombre
 ```
 
-Filtrar una ruta: agregar `-g 'Productos'`.
+Corre **nativo** con el Google Chrome del host (`channel: 'chrome'` en
+`playwright.config.ts`): no descarga navegadores ni necesita el contenedor de
+Playwright. Las credenciales se cargan solas desde `tests/.env.e2e`.
 
-El rate limit de login está en 500 intentos en local (`LOGIN_RATE_LIMIT` en `.env`),
-así que ya no hace falta reiniciar el contenedor a mitad de una corrida.
+El login es por API con el token inyectado en `sessionStorage` (`tests/auth.ts`),
+**una sola vez por corrida** (`tests/global-setup.ts`): con varios workers
+logueándose cada uno se pasaba el rate limit global de `/api/auth/*` (10/min) y
+caían la mitad de los tests en 429. No volver al login por formulario.
+
+Por defecto apuntan a `http://localhost:3000` (el contenedor). Para probar contra
+Vite + backend nativo: `E2E_BASE_URL=http://localhost:5173 npm run test:e2e`.
 
 ## Cuándo vale la pena sacar screenshots
 

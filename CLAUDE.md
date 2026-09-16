@@ -28,72 +28,94 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 
 ## Cómo trabajar en este repo (para Claude) — velocidad de iteración
 
-El usuario prioriza explícitamente bajar los tiempos de desarrollo. Dos reglas fijas:
+El usuario prioriza explícitamente bajar los tiempos de desarrollo y **no quiere preguntas de
+confirmación al cierre** ("¿deployo?"): terminar el ciclo completo — código → verificación →
+commit → push → deploy a test y prod → verificación post-deploy — y reportar el resultado.
+Preguntar solo ante algo irreversible o ambiguo con impacto real distinto.
 
-**1. No preguntar si se puede decidir razonablemente.** Ante ambigüedad menor (nombre de variable, texto de un label, ubicación exacta de un botón, valor por defecto), tomar la decisión más consistente con el resto del código y seguir — mencionarla en el resumen final, no interrumpir con una pregunta. Reservar las preguntas para lo que de verdad es irreversible, ambiguo entre opciones con impacto real distinto, o afecta datos de producción.
+**1. No preguntar si se puede decidir razonablemente.** Ante ambigüedad menor (nombre de
+variable, texto de un label, ubicación de un botón, valor por defecto), tomar la decisión más
+consistente con el código y seguir — mencionarla en el resumen, no interrumpir.
 
-**2. Para ver cambios de frontend: dev server con hot reload, no rebuild.**
+**2. Todo corre NATIVO en el host (desde 2026-09-16). Docker solo para la DB y el chequeo
+final pre-deploy.** `node_modules` era de root (instalado desde contenedores) y obligaba a
+correr cada typecheck/test/build/Playwright dentro de un contenedor nuevo — 10-30 s de
+arranque por verificación. Se arregló con `docker run --rm -v "$PWD":/w alpine chown -R
+1000:1000 /w/node_modules /w/server/node_modules` (Docker corre como root, no hace falta
+sudo). Si algún día vuelve a aparecer un `EACCES` en `node_modules`, es eso: repetir el chown,
+no volver a los contenedores.
 
 ```bash
-npm run dev:docker      # http://localhost:5173 — recarga sola al guardar
+npm run typecheck        # tsc -b frontend — 1.4 s incremental (era 22 s)
+npm run typecheck:all    # + backend
+npm run test:all         # vitest front (110) + back (59) — ~8 s
+npm run check            # typecheck:all + test:all
+npm run test:e2e         # Playwright nativo, Chrome del host, 54 tests en ~65 s
+npm run dev:api          # backend nativo en :3001 con recarga (tsx watch)
+npm run dev              # Vite en :5173, proxea /api y /uploads a :3001
+cd server && npm run migrate   # funciona a secas (lee server/.env)
 ```
 
-Levanta Vite dentro de un `node:20-alpine` con `--network host`, y su proxy manda
-`/api` al backend que ya corre en `localhost:3000`. **Arranca en ~300 ms y aplica
-cada cambio al instante**, contra los ~50 s de `docker compose build app` +
-`--force-recreate`.
+- **Backend nativo**: `server/.env` (ignorado por git) tiene `DATABASE_URL` a
+  `127.0.0.1:5434`, `PORT=3001`, `CHROMIUM_PATH=/usr/bin/google-chrome` (PDFs server-side
+  con puppeteer funcionan nativos). `index.ts` carga `dotenv/config` — en el contenedor es
+  no-op. `server/uploads` es un symlink a `../uploads` para que `serveStatic` (cwd=server/)
+  sirva las imágenes. Si falta el `.env`, recrearlo copiando `POSTGRES_PASSWORD`/`JWT_SECRET`
+  del `.env` raíz.
+- **Un cambio en `server/` ya NO necesita rebuild de Docker para probarse**: con `dev:api`
+  corriendo, `tsx watch` recarga solo. `curl localhost:3001/api/...` contra la DB local.
+- **Vite**: `API_URL=http://localhost:3000 npm run dev` apunta al contenedor en vez del
+  backend nativo.
+- **Playwright**: `playwright.config.ts` usa `channel: 'chrome'` (sin descargar navegadores)
+  y carga `tests/.env.e2e` solo. El login es por API + token inyectado con `addInitScript`,
+  **un solo login por corrida** en `tests/global-setup.ts` — cada worker logueándose por su
+  cuenta pisaba el rate limit global de `/api/auth/*` (10/min) y tiraba 30 de 54 tests en
+  429. No volver al login por formulario: 3-5 s por test y flake del `waitForURL` de 15 s.
+  Los tests apuntan a `:3000` (contenedor) por defecto; `E2E_BASE_URL=http://localhost:5173`
+  para correrlos contra Vite+backend nativo.
+- **El typecheck del frontend es `tsc -b`, NUNCA `tsc --noEmit`**: el `tsconfig.json` raíz
+  tiene `files: []` y `--noEmit` revisa cero archivos y sale 0 (bug real 2026-09-10). El
+  `.tsbuildinfo` vive en `node_modules/.tmp/` — por eso el chown importa: sin poder
+  escribirlo, `tsc -b` revisaba todo cada vez (22 s) y guardaba un buildinfo vacío de 4.5 KB.
+- **`docker compose build app` solo para el chequeo final antes de deployar** (el bundle
+  real que se sirve en `:3000`, o para un screenshot contra la imagen). Si reporta `COPY src`
+  como `CACHED` tras cambios reales, es un bug de caché ya visto: `--no-cache`.
+- **No agregar infraestructura nueva** (scripts, perfiles de compose, herramientas) sin que
+  se pida — el objetivo es optimizar lo que existe.
 
-- Corre en contenedor y no en el host porque **`node_modules` es de root** (todo se
-  instaló desde contenedores) y `vite` en el host muere con `EACCES` al escribir
-  `node_modules/.vite-temp`. Por eso `npm run dev` a secas **no funciona en esta
-  máquina** — usar siempre `dev:docker`. Si algún día se arregla el dueño de
-  `node_modules` (`chown -R`, necesita sudo), `npm run dev` vuelve a servir.
-- **Solo sirve para frontend.** Si se toca `server/`, hay que rebuildear igual: el
-  dev server no compila el backend, solo lo proxea.
-- El puerto 3000 sigue sirviendo el frontend *compilado*. Para verificar el bundle
-  real (o sacar screenshots con Playwright, que apunta a :3000) sí hace falta el
-  rebuild.
-
-**2b. No reconstruir la imagen Docker completa después de cada edición.**
-- **Cambios solo de frontend** (sin tocar rutas/lógica de servidor): verificar con `npx vite build` en un contenedor liviano (`node_modules` del host ya está cacheado vía bind mount, no hace falta reinstalar) y grepear el bundle de `dist/assets/*.js` buscando el texto/clase esperada. **No** correr `docker compose build app` ni redeployar — nada observable en runtime cambió.
-- **Cambios de backend**: agrupar varias ediciones relacionadas y hacer un solo ciclo `tsc -b` → `docker compose build app` → `docker compose up -d --force-recreate app` → verificar (curl/DB) al final, no uno por archivo tocado.
-- El rebuild completo + verificación contra la app corriendo se reserva para lo que realmente lo necesita: endpoints nuevos, condiciones de carrera, cambios de esquema/migración, flujos con estado. Para retoques visuales, texto, o reordenar JSX, el typecheck ya alcanza.
-- Si `docker compose build app` no refleja un archivo recién editado (hash/mtime del bundle sin cambiar), no asumir que está bien — es un bug de caché ya visto en este repo. Confirmar antes de deployar.
-- **Deploy optimizado (2026-09-10) — no revertir estas tres cosas:** (a) `.dockerignore` excluye `uploads/`, `supabase/`, `docker/` y `tests/` — los tres primeros son **volúmenes montados desde el host** (ver `docker-compose.yml`), la imagen nunca los usó; `uploads` solo eran 133MB (44% del contexto) que se hasheaban en cada build. (b) El stage `frontend-build` copia **solo lo que vite necesita** (`index.html`, configs, `src/`, `public/`), no `COPY . .` — con el copiado completo, tocar un `.md` o una migración invalidaba la capa y rehacía el build de vite. (c) `deploy-env.sh` compara el diff entre el HEAD viejo y el nuevo y **saltea build + recreación** si solo cambiaron migraciones, tests o docs. Medido en test: build sin cambios pasó de **78s a 3s**, y un deploy con cambios reales de código completo en **43s**.
-- El `Dockerfile` tiene un bug de fondo ya corregido (2026-08-10): BuildKit corre `server-build` y `frontend-build` en paralelo por defecto pese al comentario que dice lo contrario — si se toca el `Dockerfile`, no romper la dependencia `COPY --from=server-build` que fuerza el orden secuencial (necesario en el servidor de test, con poca RAM).
-- **Servidor de test (149.50.150.131) — 1.9GB RAM, 2 vCPU, comparte la VPS con ~11 contenedores ajenos al proyecto** (Traccar, Stalwart, Evolution API, Portainer, etc.). Sin memoria de sobra, `docker compose build` puede colgar la VPS entera (hasta `sshd` deja de responder) — no es un bug del build, es falta de margen. Fijado (2026-08-13) activando un swapfile de 2GB ya existente en el disco pero nunca habilitado (`swapon /swapfile` + entrada en `/etc/fstab`). Si vuelve a colgarse: verificar primero `free -h`/`swapon --show` por SSH antes de tocar el `Dockerfile` — la causa casi siempre es esto, no el código.
-
-No agregar infraestructura o herramientas nuevas (perfiles docker-compose de desarrollo, scripts, etc.) sin que se pida explícitamente — el objetivo es optimizar el proceso existente, no sumarle piezas. (El `dev:docker` del punto 2 es la única excepción vigente, pedida el 2026-09-02.)
-
-**3. Calibrar la verificación al tamaño del cambio.** Esta es la regla que más tiempo ahorra o desperdicia. Elegir UN nivel y no encadenarlos "por las dudas":
+**3. Calibrar la verificación al tamaño del cambio.** Elegir UN nivel, no encadenarlos:
 
 | Cambio | Verificación suficiente |
 |---|---|
-| Texto, label, copy, reordenar JSX, renombrar | Typecheck. Nada más — pero ojo con el comando, ver abajo. |
-| UI sin layout nuevo (colores, badges, campos de un form que ya existe) | `tsc` + `vite build` en contenedor liviano |
-| **Layout / responsive / pantalla nueva / modal anidado** | + screenshot Playwright (ver `tests/README.md`) |
-| Query, endpoint, migración, cualquier cosa con plata o stock | + verificación por SQL o API contra la DB local |
+| Texto, label, copy, reordenar JSX, renombrar | `npm run typecheck` (1.4 s). Nada más. |
+| UI sin layout nuevo (colores, badges, campos de un form existente) | `npm run typecheck` + `npx vite build` (3 s) |
+| **Layout / responsive / pantalla nueva / modal anidado** | + screenshot Playwright nativo (spec descartable `tests/_verify-*.spec.ts`, borrarlo después) |
+| Query, endpoint, migración, cualquier cosa con plata o stock | + `curl` contra el backend nativo o `SELECT` en la DB local |
 
-- **⚠️ El typecheck del frontend NO es `tsc --noEmit`.** El `tsconfig.json` raíz tiene `"files": []` y delega en project references, así que `npx tsc --noEmit` revisa **cero** archivos de `src/` y sale con código 0 pase lo que pase — da una falsa sensación de verificado. Bug real (2026-09-10): se reportó "typecheck limpio" durante toda una sesión mientras había errores de tipo reales en `src/`. El comando correcto es **`npx tsc -b`**, y hay que correrlo **en contenedor** porque `node_modules` es de root y `tsc -b` necesita escribir el `.tsbuildinfo`:
-  ```bash
-  docker run --rm -v "$PWD":/w -w /w --entrypoint sh node:20-alpine -c 'npx tsc -b'
-  ```
-  El backend sí anda con `cd server && npx tsc -b` desde el host.
-- **El screenshot es la verificación cara** (spec + docker + login + acertar los selectores: 4-6 tool calls, y los selectores fallan seguido). Vale la pena solo cuando el riesgo es visual y el typecheck no lo puede ver. Para lógica, un `SELECT` o un `curl` responde lo mismo en un solo paso.
-- **No rebuildear Docker para ver un cambio de frontend.** El bundle servido no cambia el resultado de un typecheck. Rebuild solo si se tocó `server/` o si hace falta el screenshot.
-- **Una sola pasada de verificación al final**, no una por archivo tocado. Agrupar todas las ediciones relacionadas y verificar una vez.
-- **No re-correr lo que ya pasó.** Si `tsc` y los tests dieron verde y después solo se tocaron comentarios o strings, no repetirlos.
-- Changelog (`npm run changelog:add`) sigue obligatorio para cambios de comportamiento visibles — no para renames puros sin efecto funcional.
+- El screenshot sigue siendo la verificación cara por los selectores, no por el tiempo de
+  arranque. Para lógica, un `SELECT` o un `curl` responde lo mismo en un paso.
+- **Una sola pasada de verificación al final**, no una por archivo. No re-correr lo que ya
+  pasó.
+- Changelog (`npm run changelog:add`) obligatorio para cambios de comportamiento visibles.
+- **Datos de prueba**: usuario fijo `e2e@local.test` (ver `tests/README.md`), credenciales en
+  `tests/.env.e2e`. El clasificador de seguridad bloquea contraseñas literales en la línea de
+  comandos: `curl -d @archivo.json`, nunca `-d '{"password":...}'`. `LOGIN_RATE_LIMIT=500` en
+  local. **Si un test crea recibos/operaciones, borrarlos al final** — re-correr sobre la misma
+  operación cambia el escenario (bug de "fechas raras" del 2026-09-15 que era solo eso).
 
-**3b. Datos de prueba: usar el usuario fijo, no crear uno por tarea.** La DB local tiene `e2e@local.test` permanente (ver `tests/README.md`). Crear un usuario descartable con `bcrypt.hashSync` + INSERT + DELETE en cada tarea era puro overhead. Las credenciales van por `tests/.env.e2e` con `--env-file`: **el clasificador de seguridad bloquea cualquier comando con una contraseña literal en la línea de comandos** — pasa lo mismo con `curl -d '{"password":"..."}'`, que hay que reemplazar por `curl -d @archivo.json`.
-
-**3c. El rate limit de login ya no es un problema en local.** `LOGIN_RATE_LIMIT=500` en el `.env` local (default 5/15min si no está definida, que es lo que queda en test/prod). Antes había que reiniciar el contenedor a mitad de una corrida de tests.
-
-**4. Depuración de infraestructura / SSH — reglas duras (2026-08-18, tras una sesión con demasiadas vueltas):**
-- **Nunca envolver un comando destinado al usuario dentro de un `echo`/tool call propio.** Si el usuario tiene que correr algo en su propia terminal, va directo en el texto de la respuesta (bloque de código markdown), nunca ejecutado ni "impreso" por una herramienta — eso generó confusión real (el usuario copiaba el `echo` de afuera, que no hacía nada).
-- **Acceso nuevo a un servidor → pedir que agreguen la clave pública SSH ya en uso** (`~/.ssh/id_ed25519.pub`) a `authorized_keys`. Nunca intentar automatizar un login por contraseña (pty, `sshpass`, `expect`, `pexpect`) — no solo es fragil, en este entorno el clasificador de seguridad lo bloquea. Es tiempo tirado, ir directo a la clave.
-- **Comandos de "wizard" interactivo sobre credenciales/OAuth** (`rclone config update` sobre un remoto OAuth, `rclone config reconnect`, similares) **pueden disparar un flujo interactivo colgado esperando un navegador** en vez de aplicar un cambio puntual. Para actualizar un solo campo (ej. un token), preferir editar el archivo de config directo (con un script chico que reemplace la línea puntual) en vez de comandos que puedan abrir un wizard.
-- Antes de tocar producción, confirmar el paso concreto (qué se edita, qué se reinicia) — pero una vez confirmado el enfoque, ejecutar la secuencia completa sin pedir permiso de nuevo en cada paso intermedio.
+**4. Infraestructura / SSH — reglas duras:**
+- Nunca envolver un comando destinado al usuario en un `echo`/tool call propio: va directo en
+  el texto de la respuesta.
+- Acceso nuevo a un servidor → pedir que agreguen la clave pública SSH (`~/.ssh/id_ed25519.pub`).
+  Nunca automatizar login por contraseña (el clasificador lo bloquea; es tiempo tirado).
+- Comandos "wizard" sobre credenciales/OAuth (`rclone config update/reconnect`) se cuelgan
+  esperando un navegador: editar el archivo de config directo.
+- Deploy: `bash deploy-env.sh test` (no interactivo) y `echo si | bash deploy-env.sh prod`
+  (pide confirmación por `read`). **Prod no hace backup solo**: antes de deployar,
+  `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
+  /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz` por SSH.
+  Prod está en `/opt/docker/cesarbritez/aberturas`, su compose real es
+  `/opt/docker/cesarbritez/docker-compose.yml` (fuera del repo).
 
 ## Stack técnico
 
