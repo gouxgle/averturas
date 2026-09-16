@@ -98,8 +98,13 @@ elif [ "$ENV" = "test" ]; then
   # construye acá, con el mismo Dockerfile, y viaja ya armada (~440 MB gzip,
   # ~2 min). El servidor solo la carga y la arranca. Fallback al build remoto:
   #   DEPLOY_BUILD_REMOTO=1 bash deploy-env.sh test
+  # Se compara contra el commit horneado en la imagen que ESTÁ CORRIENDO (label
+  # git.sha), no contra el git del servidor: un deploy que falló después del
+  # `git reset` deja el git actualizado y el contenedor viejo, y el siguiente
+  # intento creía que no había nada que buildear (pasó). Imagen sin label
+  # (anterior a esto) → se buildea.
   REMOTE_HEAD=$(ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
-    "cd ${TEST_DIR} && git rev-parse HEAD" 2>/dev/null || echo "")
+    "docker inspect ${TEST_APP_CONTAINER} --format '{{index .Config.Labels \"git.sha\"}}'" 2>/dev/null || echo "")
   LOCAL_HEAD=$(git rev-parse HEAD)
   NECESITA_BUILD=1
   if [ -n "$REMOTE_HEAD" ] && [ "$REMOTE_HEAD" != "$LOCAL_HEAD" ]; then
@@ -117,6 +122,7 @@ elif [ "$ENV" = "test" ]; then
       "grep '^VITE_SENTRY_DSN=' ${TEST_DIR}/.env | cut -d= -f2-" 2>/dev/null || echo "")
     T0=$(date +%s)
     docker build -t aberturas-app:deploy-test \
+      --label "git.sha=${LOCAL_HEAD}" \
       --build-arg "VITE_SENTRY_DSN=${TEST_DSN}" \
       --build-arg "SRC_HASH=$(git rev-parse HEAD:src)" \
       --build-arg "SERVER_HASH=$(git rev-parse HEAD:server/src)" \
@@ -222,7 +228,7 @@ else
     sleep 1
   done
   if [ "$OK" -eq 1 ]; then
-    echo "✅ App OK ($(( $(date +%s) - T0 ))s)"
+    echo "✅ App OK ($(( $(date +%s) - T0 ))s) · imagen git.sha=$(docker inspect aberturas-app --format '{{index .Config.Labels "git.sha"}}' | cut -c1-7)"
   else
     echo "⚠️  La app no respondió en 30s — revisá: docker compose logs app -f"
     exit 1
