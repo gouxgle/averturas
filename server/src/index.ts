@@ -1,4 +1,8 @@
-import './instrument.js'; // Sentry — debe ser el primer import
+// Carga server/.env cuando el backend corre nativo en el host (npm run dev). En el
+// contenedor no existe ese archivo y las env vars vienen del compose — dotenv nunca
+// pisa una variable ya definida, así que ahí es un no-op.
+import 'dotenv/config';
+import './instrument.js'; // Sentry — primer import después de dotenv (lee SENTRY_DSN)
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';

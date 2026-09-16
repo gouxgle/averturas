@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:docker": "docker run --rm -it --network host -v \"$PWD\":/w -w /w node:20-alpine npx vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -b",
+    "typecheck:all": "tsc -b && npm --prefix server run typecheck",
+    "test:all": "vitest run && npm --prefix server test",
+    "check": "npm run typecheck:all && npm run test:all",
+    "dev:api": "npm --prefix server run dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -18,8 +18,11 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Backend nativo (npm run dev:api → :3001) por defecto; API_URL lo cambia,
+    // p.ej. API_URL=http://localhost:3000 para apuntar al contenedor.
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api':     process.env.API_URL ?? 'http://localhost:3001',
+      '/uploads': process.env.API_URL ?? 'http://localhost:3001',
     },
   },
 })

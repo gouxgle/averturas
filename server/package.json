@@ -11,7 +11,8 @@
     "migrate": "tsx src/scripts/migrate.ts",
     "migrate:list": "tsx src/scripts/migrate.ts --list",
     "migrate:dry": "tsx src/scripts/migrate.ts --dry",
-    "changelog:add": "tsx src/scripts/add-changelog.ts"
+    "changelog:add": "tsx src/scripts/add-changelog.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

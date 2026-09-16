@@ -61,6 +61,8 @@ docker/supabase-selfhosted/.env
 
 # Archivos locales / importaciones
 uploads/
+# symlink → ../uploads para que el backend nativo (cwd=server/) sirva /uploads/*
+server/uploads
 *.csv
 import_*.sql
 contacts*.csv
