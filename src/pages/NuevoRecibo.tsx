@@ -293,21 +293,31 @@ export function NuevoRecibo() {
     ? Math.max(0, totalConBonif - cobradoOp)
     : saldoOp;
 
-  // ── Monto final del recibo ────────────────────────────────
-  const montoFinal = tipoPago === 'total'
-    ? saldoEfectivo
-    : (parseFloat(montoParcial) || 0);
-
-  const esParcial = tipoPago === 'parcial';
-  const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
-  const esCuotas = formaPago === 'Tarjeta de crédito 3 cuotas sin interés';
-
   // ── Pago combinado ────────────────────────────────────────
   // Se considera combinado recién con 2 medios: con uno solo el recibo se guarda como
   // siempre (forma_pago + referencia_pago), sin tocar el camino por defecto.
   const combinado   = pagos.length > 1;
   const sumaPagos   = pagos.reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
-  const restantePagos = Math.round((montoFinal - sumaPagos) * 100) / 100;
+
+  // ── Monto final del recibo ────────────────────────────────
+  // Pago parcial + varios medios: el total ES la suma de los renglones. Antes salía
+  // del campo "Monto a cobrar", un input aparte que nada obligaba a completar — el
+  // usuario cargaba $500.000 + $300.000 en los medios y el total mostraba $0 (bug
+  // real en prod, OP-00134). En pago total el objetivo sigue siendo el saldo, y los
+  // medios tienen que cerrar contra él.
+  const montoFinal = tipoPago === 'total'
+    ? saldoEfectivo
+    : combinado ? sumaPagos : (parseFloat(montoParcial) || 0);
+
+  const esParcial = tipoPago === 'parcial';
+  const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
+  const esCuotas = formaPago === 'Tarjeta de crédito 3 cuotas sin interés';
+
+  // Solo hay "resto por asignar" cuando el total viene de afuera (pago total). En
+  // parcial combinado la suma de los medios define el total, así que siempre cierra.
+  const restantePagos = tipoPago === 'total'
+    ? Math.round((montoFinal - sumaPagos) * 100) / 100
+    : 0;
 
   function dividirPago() {
     // El primer medio arranca con lo que ya estaba elegido y el total del recibo;
@@ -401,6 +411,13 @@ export function NuevoRecibo() {
   }));
 
   // ── Helpers bonificación ──────────────────────────────────
+  // 12.67 se muestra como "12.67", 10 como "10" — antes el pie redondeaba a entero
+  // ("13%") y el desglose a un decimal ("12.7%"): tres cifras distintas para el
+  // mismo porcentaje en la misma pantalla.
+  function fmtPct(p: number): string {
+    return String(Math.round(p * 10000) / 100);
+  }
+
   function resetBonificacion() {
     setBonPct(0);
     setBonCustom('');
@@ -559,7 +576,7 @@ export function NuevoRecibo() {
         monto:             Math.round(saldoTrasRecibo * 100) / 100,
         fecha_vencimiento: compromisoFecha,
         tipo:              compromisoTipo,
-        descripcion:       `Saldo pendiente — ${operacionSel?.numero ?? ''}${pctActual > 0 ? ` (bonif. ${(pctActual * 100).toFixed(0)}%)` : ''}`,
+        descripcion:       `Saldo pendiente — ${operacionSel?.numero ?? ''}${pctActual > 0 ? ` (bonif. ${String(Math.round(pctActual * 10000) / 100)}%)` : ''}`,
       };
     }
 
@@ -953,7 +970,7 @@ export function NuevoRecibo() {
                   <span className="font-medium">{formatCurrency(montoProductos)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-emerald-600 font-semibold">
-                  <span>Descuento {(pctActual * 100 % 1 === 0 ? (pctActual * 100).toFixed(0) : (pctActual * 100).toFixed(1))}%</span>
+                  <span>Descuento {fmtPct(pctActual)}%</span>
                   <span>− {formatCurrency(descuentoMonto)}</span>
                 </div>
                 {montoInstalacion > 0 && (
@@ -1025,7 +1042,7 @@ export function NuevoRecibo() {
                 </span>
                 {pctActual > 0 && (
                   <span className="text-[10px] text-violet-600 font-medium">
-                    incl. {(pctActual * 100 % 1 === 0 ? (pctActual * 100).toFixed(0) : (pctActual * 100).toFixed(1))}% desc.
+                    incl. {fmtPct(pctActual)}% desc.
                   </span>
                 )}
               </button>
@@ -1055,15 +1072,25 @@ export function NuevoRecibo() {
             {tipoPago === 'parcial' && (
               <div>
                 <label className={labelCls}>Monto a cobrar *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600 font-medium">$</span>
-                  <MontoInput
-                    value={montoParcial}
-                    onChange={setMontoParcial}
-                    placeholder="0,00"
-                    className={cn(inputCls, 'pl-7 font-mono text-base font-semibold')}
-                  />
-                </div>
+                {combinado ? (
+                  // Con varios medios el monto es la suma de los renglones de arriba:
+                  // un input aparte acá era una segunda fuente de verdad que podía
+                  // quedar en cero mientras los medios tenían plata cargada.
+                  <div className={cn(inputCls, 'pl-3 font-mono text-base font-semibold bg-gray-50 flex items-center justify-between')}>
+                    <span>{formatCurrency(montoFinal)}</span>
+                    <span className="text-[11px] font-sans font-normal text-gray-600">suma de los medios de pago</span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-600 font-medium">$</span>
+                    <MontoInput
+                      value={montoParcial}
+                      onChange={setMontoParcial}
+                      placeholder="0,00"
+                      className={cn(inputCls, 'pl-7 font-mono text-base font-semibold')}
+                    />
+                  </div>
+                )}
                 {montoFinal > saldoEfectivo + 0.01 && (
                   <p className="text-xs text-amber-600 mt-1.5">
                     El monto supera el saldo ({formatCurrency(saldoEfectivo)}). Verificá si es seña anticipada.
@@ -1257,7 +1284,7 @@ export function NuevoRecibo() {
               {/* Bonificación info */}
               {pctActual > 0 && aplicaBonificacion && montoFinal > 0 && (
                 <p className="text-xs text-violet-600 mt-1.5 font-medium">
-                  Bonificación {(pctActual * 100).toFixed(0)}% aplicada
+                  Bonificación {fmtPct(pctActual)}% aplicada
                   {descuentoMonto > 0 ? ` · ahorro ${formatCurrency(descuentoMonto)}` : ''}
                 </p>
               )}
