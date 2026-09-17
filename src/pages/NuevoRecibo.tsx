@@ -326,13 +326,34 @@ export function NuevoRecibo() {
     : 0;
 
   function dividirPago() {
-    // El primer medio arranca con lo que ya estaba elegido y el total del recibo;
-    // el usuario baja ese importe y el resto queda para el segundo medio.
+    // El primer medio conserva la forma de pago ya elegida. El importe arranca
+    // VACÍO en pago total: antes se precargaba con el saldo completo y, apenas se
+    // escribía el segundo monto, la suma se pasaba y saltaba "Te pasaste por $X"
+    // sin que el operador hubiera hecho nada mal. En parcial se conserva el monto
+    // que ya estaba (ahí la suma define el total, no hay contra qué pasarse).
     setPagos([
-      { forma_pago: formaPago || FORMAS_PAGO[0], monto: montoFinal > 0 ? String(montoFinal) : '', referencia },
+      { forma_pago: formaPago || FORMAS_PAGO[0], monto: tipoPago === 'parcial' && montoFinal > 0 ? String(montoFinal) : '', referencia },
       { forma_pago: '', monto: '', referencia: '' },
     ]);
   }
+
+  // Si los medios cerraban exacto contra el saldo y el saldo cambia (típico: se
+  // aplica la bonificación DESPUÉS de cargar los medios, porque esa sección viene
+  // más abajo), se ajusta el último medio por la diferencia en vez de dejar un
+  // "Te pasaste por $X" que el operador no provocó.
+  const montoFinalPrevio = useRef(montoFinal);
+  useEffect(() => {
+    const prev = montoFinalPrevio.current;
+    montoFinalPrevio.current = montoFinal;
+    if (tipoPago !== 'total' || !combinado || prev === montoFinal) return;
+    const suma = pagos.reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
+    if (Math.abs(suma - prev) > 0.01) return;            // no cerraba antes: no tocar
+    const i = pagos.length - 1;
+    const nuevo = Math.round(((parseFloat(pagos[i].monto) || 0) + (montoFinal - prev)) * 100) / 100;
+    if (nuevo <= 0) return;                               // no forzar un medio en cero o negativo
+    setPagos(ps => ps.map((p, idx) => idx === i ? { ...p, monto: String(nuevo) } : p));
+    toast.info(`Se ajustó el medio ${i + 1} a ${formatCurrency(nuevo)} para que los medios sigan cerrando contra el nuevo saldo`);
+  }, [montoFinal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function setPago(i: number, campo: 'forma_pago' | 'monto' | 'referencia', valor: string) {
     setPagos(prev => prev.map((p, idx) => idx === i ? { ...p, [campo]: valor } : p));
@@ -356,9 +377,12 @@ export function NuevoRecibo() {
 
   /** Completa el medio indicado con lo que falta para llegar al total del recibo. */
   function completarConRestante(i: number) {
+    // Deja el renglón i en lo que falta para cerrar (sube o BAJA el monto: si los
+    // demás ya superan el total, avisa en vez de poner un negativo).
     const otros = pagos.reduce((a, p, idx) => idx === i ? a : a + (parseFloat(p.monto) || 0), 0);
     const falta = Math.round((montoFinal - otros) * 100) / 100;
     if (falta > 0) setPago(i, 'monto', String(falta));
+    else toast.error(`Los otros medios ya suman ${formatCurrency(otros)}, más que el saldo (${formatCurrency(montoFinal)}). Bajá alguno de esos.`);
   }
 
   // Atajos de vencimiento para el compromiso — se cuentan desde la fecha del recibo,
@@ -923,11 +947,17 @@ export function NuevoRecibo() {
                     </div>
                     {Math.abs(restantePagos) > 0.01 && (
                       <div className={cn(
-                        'flex items-center justify-between text-xs font-semibold rounded-lg px-2.5 py-1.5 mt-1',
+                        'text-xs font-semibold rounded-lg px-2.5 py-1.5 mt-1',
                         restantePagos > 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
                       )}>
-                        <span>{restantePagos > 0 ? 'Falta asignar' : 'Te pasaste por'}</span>
-                        <span className="tabular-nums">{formatCurrency(Math.abs(restantePagos))}</span>
+                        <div className="flex items-center justify-between">
+                          <span>{restantePagos > 0 ? 'Falta asignar' : 'Los medios se pasan por'}</span>
+                          <span className="tabular-nums">{formatCurrency(Math.abs(restantePagos))}</span>
+                        </div>
+                        <div className="font-normal mt-0.5 opacity-90">
+                          Suman {formatCurrency(sumaPagos)} y el saldo a cancelar es {formatCurrency(montoFinal)}.
+                          {restantePagos < 0 && ' Bajá alguno de los montos, o usá el botón «Resto» del renglón que quieras ajustar.'}
+                        </div>
                       </div>
                     )}
                     {Math.abs(restantePagos) <= 0.01 && sumaPagos > 0 && (
