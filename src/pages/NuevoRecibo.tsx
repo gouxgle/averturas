@@ -413,6 +413,32 @@ export function NuevoRecibo() {
     setConcepto(conceptoSugerido);
   }, [conceptoSugerido, conceptoManual, isEdit]);
 
+  // Cambiar entre total y parcial invalida cualquier concepto escrito antes (un
+  // "Pago total" tipeado o autocompletado por el navegador no puede quedar sobre
+  // un recibo parcial). Se vuelve a la sugerencia; si el operador quiere otro
+  // texto, lo edita después de elegir el tipo.
+  const tipoPagoPrevio = useRef(tipoPago);
+  useEffect(() => {
+    if (tipoPagoPrevio.current !== tipoPago) {
+      tipoPagoPrevio.current = tipoPago;
+      if (!isEdit && !urlConcepto) setConceptoManual(false);
+    }
+  }, [tipoPago, isEdit, urlConcepto]);
+
+  // Contradicción entre lo que dice el concepto y el tipo de recibo — se avisa
+  // debajo del campo y se frena el guardado.
+  const conceptoContradice = (() => {
+    const c = concepto.toLowerCase();
+    if (!tipoPago || !c.trim()) return null;
+    if (tipoPago === 'parcial' && !cancelaSaldo && /pago total|cancelaci[oó]n total/.test(c)) {
+      return 'El concepto dice "pago total" pero este recibo es un pago parcial.';
+    }
+    if (tipoPago === 'total' && /parcial|se[ñn]a|a cuenta|anticipo/.test(c)) {
+      return 'El concepto dice "parcial / seña" pero este recibo cancela el total.';
+    }
+    return null;
+  })();
+
   // Ítems del presupuesto, para que el recibo detalle qué se está cobrando. Suman
   // exactamente `operaciones.precio_total` (el trigger recalcular_totales_operacion
   // no incluye el envío, así que no hay que sumarlo acá).
@@ -552,6 +578,11 @@ export function NuevoRecibo() {
       return;
     }
     if (montoFinal <= 0)           { toast.error('El monto debe ser mayor a 0'); return; }
+    if (conceptoContradice) {
+      toast.error(`${conceptoContradice} Corregilo o usá el sugerido.`);
+      document.getElementById('concepto-recibo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     if (esParcial && hayQueComprometer && crearCompromiso && !compromisoFecha) {
       toast.error('Ingresá la fecha estimada de cancelación del saldo');
       return;
@@ -1323,15 +1354,38 @@ export function NuevoRecibo() {
             <div>
               <label className={labelCls}>Concepto</label>
               <input
+                id="concepto-recibo"
                 list="conceptos-list"
+                autoComplete="off"
                 value={concepto}
                 onChange={e => { setConcepto(e.target.value); setConceptoManual(true); }}
-                placeholder="Seleccioná o escribí el concepto..."
-                className={inputCls}
+                placeholder={tipoPago ? 'Seleccioná o escribí el concepto...' : 'Se completa solo al elegir pago total o parcial'}
+                className={cn(inputCls, conceptoContradice && 'border-red-400 ring-2 ring-red-100')}
               />
               <datalist id="conceptos-list">
-                {CONCEPTOS_PREDEFINIDOS.map(c => <option key={c} value={c} />)}
+                {CONCEPTOS_PREDEFINIDOS
+                  // Solo las opciones coherentes con el tipo de recibo.
+                  .filter(c => tipoPago !== 'total' || !/parcial|seña|a cuenta/i.test(c))
+                  .map(c => <option key={c} value={c} />)}
               </datalist>
+              {conceptoContradice && (
+                <div className="mt-1.5 flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <span className="flex-1">{conceptoContradice}</span>
+                  {conceptoSugerido && (
+                    <button type="button" onClick={() => { setConcepto(conceptoSugerido); setConceptoManual(false); }}
+                      className="shrink-0 font-bold underline hover:no-underline">
+                      Usar el sugerido
+                    </button>
+                  )}
+                </div>
+              )}
+              {!conceptoContradice && conceptoManual && conceptoSugerido && concepto !== conceptoSugerido && !isEdit && (
+                <button type="button" onClick={() => { setConcepto(conceptoSugerido); setConceptoManual(false); }}
+                  className="mt-1 text-[11px] text-blue-600 hover:underline">
+                  Usar el concepto sugerido: "{conceptoSugerido}"
+                </button>
+              )}
             </div>
             <div>
               <label className={labelCls}>Notas internas</label>
