@@ -117,7 +117,8 @@ export function NuevoRecibo() {
   // por URL (ej. "Cancelación de saldo" desde el botón "Cobrar saldo" de Recibos).
   const [conceptoManual, setConceptoManual] = useState(Boolean(urlConcepto));
   const [notas,       setNotas]       = useState('');
-  const [comprobanteUrl,     setComprobanteUrl]     = useState('');
+  // Varios comprobantes: con medios combinados hay una captura por cada pago.
+  const [comprobantes,       setComprobantes]       = useState<string[]>([]);
   const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
   // "Pago total" toma saldo automático; "parcial" pide monto manual
@@ -181,7 +182,7 @@ export function NuevoRecibo() {
         })));
         setConcepto(data.concepto ?? '');
         setNotas(data.notas ?? '');
-        setComprobanteUrl(data.comprobante_url ?? '');
+        setComprobantes(Array.isArray(data.comprobantes) && data.comprobantes.length ? data.comprobantes : (data.comprobante_url ? [data.comprobante_url] : []));
         setTipoPago('parcial');
         setMontoParcial(String(data.monto_total));
         setConceptoManual(true);
@@ -496,7 +497,7 @@ export function NuevoRecibo() {
       });
       if (!res.ok) throw new Error('Error al subir comprobante');
       const { url } = await res.json();
-      setComprobanteUrl(url);
+      setComprobantes(prev => [...prev, url]);
       toast.success('Comprobante adjuntado');
     } catch {
       toast.error('No se pudo subir el comprobante');
@@ -512,10 +513,12 @@ export function NuevoRecibo() {
     if (file) { e.preventDefault(); subirComprobante(file); }
   }
 
-  function handleDropComprobante(e: React.DragEvent) {
+  async function handleDropComprobante(e: React.DragEvent) {
     e.preventDefault();
-    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
-    if (file) subirComprobante(file);
+    // Se pueden soltar varias capturas de una: se suben en orden.
+    for (const file of Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))) {
+      await subirComprobante(file);
+    }
   }
 
   // ── Guardar ───────────────────────────────────────────────
@@ -584,7 +587,8 @@ export function NuevoRecibo() {
       descuento_pct:   descPct,
       monto_lista:     listaTotal,
       monto_descuento: descMonto,
-      comprobante_url: comprobanteUrl || null,
+      comprobantes,
+      comprobante_url: comprobantes[0] || null,
       forma_pago_alternativa_id: formaPagoAlternativaId || null,
     };
 
@@ -916,49 +920,60 @@ export function NuevoRecibo() {
             </div>
           )}
 
-          {/* Comprobante de pago — transferencia o link de MercadoPago */}
+          {/* Comprobantes de pago — uno por cada transferencia / captura. Con medios
+              combinados suele haber más de uno. */}
           <div className="mt-3">
-            <label className={labelCls}>Comprobante de pago</label>
-            {comprobanteUrl ? (
-              <div className="flex items-center gap-3 border border-gray-200 rounded-xl p-2">
-                <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                  <img src={comprobanteUrl} alt="Comprobante" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
-                </a>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-600">Comprobante adjuntado</p>
-                  <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline">Ver completo</a>
-                </div>
-                <button type="button" onClick={() => setComprobanteUrl('')}
-                  className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors shrink-0" title="Quitar">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ) : (
-              <div
-                tabIndex={0}
-                onPaste={handlePasteComprobante}
-                onDrop={handleDropComprobante}
-                onDragOver={e => e.preventDefault()}
-                onClick={() => comprobanteInputRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-xl py-4 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-300"
-              >
-                {uploadingComprobante ? (
-                  <RefreshCw size={18} className="text-gray-600 animate-spin" />
-                ) : (
-                  <ImagePlus size={18} className="text-gray-600" />
-                )}
-                <p className="text-xs text-gray-600 text-center">
-                  Hacé click y pegá (Ctrl+V) la captura de WhatsApp, o arrastrala acá
-                </p>
-                <input
-                  ref={comprobanteInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) subirComprobante(f); e.target.value = ''; }}
-                />
+            <label className={labelCls}>
+              Comprobantes de pago
+              {comprobantes.length > 0 && <span className="ml-1.5 text-gray-500 normal-case tracking-normal">({comprobantes.length})</span>}
+            </label>
+            {comprobantes.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {comprobantes.map((url, i) => (
+                  <div key={url + i} className="relative group w-20 h-20 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 shrink-0">
+                    <a href={url} target="_blank" rel="noopener noreferrer" title="Ver completo">
+                      <img src={url} alt={`Comprobante ${i + 1}`} className="w-full h-full object-cover" />
+                    </a>
+                    <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 bg-black/60 text-white rounded font-semibold leading-none">{i + 1}</span>
+                    <button type="button" onClick={() => setComprobantes(prev => prev.filter((_, j) => j !== i))}
+                      title="Quitar este comprobante"
+                      className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
+            <div
+              tabIndex={0}
+              onPaste={handlePasteComprobante}
+              onDrop={handleDropComprobante}
+              onDragOver={e => e.preventDefault()}
+              onClick={() => comprobanteInputRef.current?.click()}
+              className={cn(
+                'flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-300',
+                comprobantes.length > 0 ? 'py-2.5' : 'py-4',
+              )}
+            >
+              {uploadingComprobante ? (
+                <RefreshCw size={18} className="text-gray-600 animate-spin" />
+              ) : (
+                <ImagePlus size={18} className="text-gray-600" />
+              )}
+              <p className="text-xs text-gray-600 text-center">
+                {comprobantes.length > 0
+                  ? 'Agregar otro comprobante — pegá (Ctrl+V), arrastrá o hacé click'
+                  : 'Hacé click y pegá (Ctrl+V) la captura de WhatsApp, o arrastrala acá'}
+              </p>
+              <input
+                ref={comprobanteInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={async e => { for (const f of Array.from(e.target.files ?? [])) await subirComprobante(f); e.target.value = ''; }}
+              />
+            </div>
           </div>
         </SectionCard>
       )}

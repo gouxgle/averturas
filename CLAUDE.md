@@ -303,7 +303,7 @@ la suma de los medios. Bonificación: `descuento_pct` sobre productos (no instal
 envío); `monto_lista - monto_descuento = monto_total`. **Saldo real = precio_total -
 cobrado - total_descuentos** (la bonificación no es deuda). Parcial genera `compromisos_pago`
 (se auto-cierran en `cerrarCompromisosSiSaldado`). El PDF del recibo no lista productos: solo
-"Detalle de proforma PRO-xxxxx — Rev. N". Concepto sugerido usa `PRO-`.
+"Detalle de proforma PRO-xxxxx — Rev. N". Concepto sugerido usa `PRO-` y, en parcial, incluye saldo y compromiso. **Comprobantes**: `recibos.comprobantes` JSONB (array de URLs, varios por recibo — uno por cada pago combinado); `comprobante_url` espeja el `[0]`, como `imagenes`/`imagen_url` en productos.
 
 **Remitos** — `borrador → emitido` (descuenta stock: `egreso_remito`) `→ entregado |
 cancelado` (revierte con `devolucion`). Link público para confirmar recepción

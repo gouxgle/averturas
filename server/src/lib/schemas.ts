@@ -154,6 +154,7 @@ export const ReciboSchema = z.object({
   monto_lista:     z.number().min(0).optional().default(0),
   monto_descuento: z.number().min(0).optional().default(0),
   comprobante_url: zText(300).optional().nullable(),
+  comprobantes:    z.array(z.string().max(300)).max(10).optional(),
 });
 
 // ── Pedidos al proveedor ───────────────────────────────────────

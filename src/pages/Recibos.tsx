@@ -110,6 +110,7 @@ interface ReciboDetalle {
   /** Desglose cuando se cobró con varios medios. Vacío = un solo medio. */
   pagos: { forma_pago: string; monto: number; referencia: string | null }[];
   comprobante_url: string | null;
+  comprobantes?: string[] | null;
   concepto: string | null; notas: string | null;
   motivo_anulacion: string | null;
   cliente: {
@@ -481,15 +482,28 @@ function ReciboModal({ id, onClose, onAnulado }: {
               )}
             </div>
 
-            {rec.comprobante_url && (
-              <div className="px-5 py-3 border-t border-gray-200">
-                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">Comprobante de pago</p>
-                <a href={rec.comprobante_url} target="_blank" rel="noopener noreferrer" className="inline-block">
-                  <img src={rec.comprobante_url} alt="Comprobante de pago"
-                    className="max-h-40 rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
-                </a>
-              </div>
-            )}
+            {(() => {
+              const lista = rec.comprobantes?.length ? rec.comprobantes : (rec.comprobante_url ? [rec.comprobante_url] : []);
+              if (lista.length === 0) return null;
+              return (
+                <div className="px-5 py-3 border-t border-gray-200">
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                    Comprobante{lista.length > 1 ? `s de pago (${lista.length})` : ' de pago'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {lista.map((url, i) => (
+                      <a key={url + i} href={url} target="_blank" rel="noopener noreferrer" className="inline-block relative" title={`Comprobante ${i + 1} — ver completo`}>
+                        <img src={url} alt={`Comprobante de pago ${i + 1}`}
+                          className="max-h-40 rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
+                        {lista.length > 1 && (
+                          <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 bg-black/60 text-white rounded font-semibold leading-none">{i + 1}</span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {rec.concepto && (
               <div className="px-5 py-3">

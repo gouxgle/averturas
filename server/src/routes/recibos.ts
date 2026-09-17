@@ -502,6 +502,14 @@ recibos.get('/:id', async (c) => {
   return c.json({ ...r, items, compromiso, cobrado_operacion, total_descuentos_operacion });
 });
 
+// Comprobantes: acepta el array nuevo o el campo viejo; comprobante_url espeja el primero.
+function resolverComprobantes(b: { comprobantes?: string[]; comprobante_url?: string | null }) {
+  const lista = Array.isArray(b.comprobantes)
+    ? b.comprobantes.filter(u => typeof u === 'string' && u.trim())
+    : (b.comprobante_url ? [b.comprobante_url] : []);
+  return { lista, primero: lista[0] ?? null };
+}
+
 // POST / — crear recibo
 recibos.post('/', async (c) => {
   const user = c.get('user');
@@ -514,6 +522,7 @@ recibos.post('/', async (c) => {
   const norm = normalizarPagos(b.pagos, b.monto_total);
   if (!norm.ok) return c.json({ error: norm.error }, 422);
   const pagos = norm.pagos;
+  const comprobantes = resolverComprobantes(b);
 
   const client: pkg.PoolClient = await db.connect();
   try {
@@ -527,8 +536,8 @@ recibos.post('/', async (c) => {
         (numero, fecha, cliente_id, operacion_id, remito_id, monto_total,
          forma_pago, referencia_pago, concepto, notas, created_by,
          descuento_pct, monto_lista, monto_descuento, comprobante_url,
-         forma_pago_alternativa_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         forma_pago_alternativa_id, comprobantes)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING *
     `, [
       numero,
@@ -546,8 +555,9 @@ recibos.post('/', async (c) => {
       descuentoPct,
       montoLista,
       montoDescuento,
-      b.comprobante_url || null,
+      comprobantes.primero,
       b.forma_pago_alternativa_id || null,
+      JSON.stringify(comprobantes.lista),
     ]);
 
     for (let i = 0; i < items.length; i++) {
@@ -609,6 +619,7 @@ recibos.put('/:id', async (c) => {
   const normUpd = normalizarPagos(b.pagos, b.monto_total);
   if (!normUpd.ok) return c.json({ error: normUpd.error }, 422);
   const pagosUpd = normUpd.pagos;
+  const comprobantesUpd = resolverComprobantes(b);
 
   const client: pkg.PoolClient = await db.connect();
   try {
@@ -624,6 +635,7 @@ recibos.put('/:id', async (c) => {
         concepto = $7, notas = $8,
         descuento_pct = $9, monto_lista = $10, monto_descuento = $11,
         comprobante_url = $12, forma_pago_alternativa_id = $13,
+        comprobantes = $15,
         updated_at = now()
       WHERE id = $14 RETURNING *
     `, [
@@ -638,9 +650,10 @@ recibos.put('/:id', async (c) => {
       updDescuentoPct,
       updMontoLista,
       updMontoDescuento,
-      b.comprobante_url || null,
+      comprobantesUpd.primero,
       b.forma_pago_alternativa_id || null,
       id,
+      JSON.stringify(comprobantesUpd.lista),
     ]);
 
     await client.query('DELETE FROM recibo_items WHERE recibo_id=$1', [id]);
