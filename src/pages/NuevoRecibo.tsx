@@ -6,7 +6,7 @@ import {
   RefreshCw, Check, X, Package, Gift, ImagePlus, Trash2, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
@@ -392,12 +392,19 @@ export function NuevoRecibo() {
   // "PRO-" y no "OP-": es el número que el cliente ve en la proforma. Usar el
   // interno acá era justo la confusión que el recibo ahora evita repitiendo.
   const proformaNumeroSel = operacionSel ? operacionSel.numero.replace(/^OP-/, 'PRO-') : '';
-  const conceptoSugerido = operacionSel
+  // Sugerencia de concepto. Sigue al tipo de pago: mientras no se eligió, no se
+  // sugiere nada (antes caía en un texto que no correspondía). En parcial con saldo
+  // dice explícitamente que es parcial, cuánto queda y, si se registra compromiso,
+  // cuándo se comprometió a cancelarlo — así el comprobante lo deja por escrito.
+  const compromisoEnConcepto = !isEdit && esParcial && hayQueComprometer && crearCompromiso && compromisoFecha
+    ? ` · compromiso de pago: ${formatCurrency(saldoTrasRecibo)} el ${formatDate(compromisoFecha + 'T12:00:00')}${({ cheque: ' (cheque diferido)', efectivo_futuro: ' (efectivo diferido)', transferencia: ' (transferencia diferida)' } as Record<string, string>)[compromisoTipo] ?? ''}`
+    : '';
+  const conceptoSugerido = operacionSel && tipoPago
     ? (tipoPago === 'total' && !huboCobrosPrevios
         ? `Pago total presupuesto N° ${proformaNumeroSel}`
         : cancelaSaldo
-          ? `Pago parcial — cancelación total de saldo presupuesto N° ${proformaNumeroSel}`
-          : `Pago parcial presupuesto N° ${proformaNumeroSel}`)
+          ? `Cancelación total de saldo presupuesto N° ${proformaNumeroSel}`
+          : `Pago parcial correspondiente al presupuesto N° ${proformaNumeroSel} — saldo pendiente ${formatCurrency(saldoTrasRecibo)}${compromisoEnConcepto}`)
     : '';
 
   useEffect(() => {
