@@ -714,8 +714,8 @@ export function NuevoRecibo() {
                 ))}
               </select>
 
-              {operacionSel && (
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {operacionSel && (<>
+                <div className={cn('mt-3 grid grid-cols-1 gap-2', descuentosOp > 0 ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3')}>
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
                     <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Total presupuesto</p>
                     <p className="text-sm font-bold text-gray-800">{formatCurrency(totalPresupuesto)}</p>
@@ -724,6 +724,14 @@ export function NuevoRecibo() {
                     <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Ya cobrado</p>
                     <p className="text-sm font-bold text-emerald-700">{formatCurrency(cobradoOp)}</p>
                   </div>
+                  {/* Sin este dato la cuenta parecía no cerrar: total − cobrado ≠ saldo, porque
+                      la bonificación otorgada en recibos anteriores tampoco es deuda. */}
+                  {descuentosOp > 0 && (
+                    <div className="bg-violet-50 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Bonificado</p>
+                      <p className="text-sm font-bold text-violet-700">{formatCurrency(descuentosOp)}</p>
+                    </div>
+                  )}
                   <div className={cn('rounded-xl p-3 text-center', saldoOp <= 0 ? 'bg-gray-100' : 'bg-amber-50')}>
                     <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Saldo pendiente</p>
                     <p className={cn('text-sm font-bold', saldoOp <= 0 ? 'text-gray-600' : 'text-amber-700')}>
@@ -731,7 +739,16 @@ export function NuevoRecibo() {
                     </p>
                   </div>
                 </div>
-              )}
+                {descuentosOp > 0 && (
+                  <p className="text-[11px] text-gray-600 mt-2">
+                    {formatCurrency(totalPresupuesto)} − {formatCurrency(cobradoOp)} cobrados − {formatCurrency(descuentosOp)} bonificados
+                    = <strong>{formatCurrency(saldoOp)}</strong>{saldoOp <= 0 ? ' · la operación ya está totalmente cancelada.' : '.'}
+                  </p>
+                )}
+                {saldoOp <= 0 && descuentosOp === 0 && cobradoOp > 0 && (
+                  <p className="text-[11px] text-gray-600 mt-2">La operación ya está totalmente cancelada.</p>
+                )}
+              </>)}
             </>
           )}
         </SectionCard>
