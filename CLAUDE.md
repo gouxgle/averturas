@@ -31,10 +31,13 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 ## Cómo trabajar en este repo (para Claude) — velocidad de iteración
 
 El usuario prioriza bajar los tiempos y **no quiere preguntas de confirmación al cierre**
-("¿deployo?"): terminar el ciclo — código → verificación → commit → push → deploy a test y
-prod → verificación post-deploy — y reportar. Preguntar solo ante algo irreversible o
-ambiguo con impacto real distinto. Ante ambigüedad menor, decidir lo más consistente con el
-código y mencionarlo en el resumen.
+("¿deployo?"): terminar el ciclo — código → verificación → commit → push → **deploy a test**
+→ verificación post-deploy → rebuild del `:3000` local — y reportar. **PROD NUNCA se deploya
+automáticamente**: lo hace el usuario cuando decide, después de probar en test (regla del
+2026-09-17). El reporte final cierra siempre con el estado: commit · GitHub · test ✅ · prod ⏳
+pendiente (`echo si | bash deploy-env.sh prod`, con backup previo). Preguntar solo ante algo
+irreversible o ambiguo con impacto real distinto. Ante ambigüedad menor, decidir lo más
+consistente con el código y mencionarlo en el resumen.
 
 **Todo corre NATIVO en el host (Node 24). Docker solo para la DB y el chequeo final
 pre-deploy.** `node_modules` debe ser del usuario (`sistemas`); si aparece `EACCES` en
@@ -104,7 +107,8 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
 - **Deploy**: `bash deploy-env.sh test` **buildea la imagen acá y la transfiere** (~440 MB
   gzip, ~2 min): el servidor de test no tiene RAM para buildear. Saltea build si solo
   cambiaron migraciones/tests/docs. `DEPLOY_BUILD_REMOTO=1` fuerza el build viejo en el
-  servidor. Prod: `echo si | bash deploy-env.sh prod` (su `deploy.sh` sigue buildeando allá). **Prod no hace backup solo**:
+  servidor. **Prod solo a pedido explícito del usuario**: `echo si | bash deploy-env.sh prod`
+  (su `deploy.sh` sigue buildeando allá). **Prod no hace backup solo**:
   antes, por SSH, `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
   /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz`. Si test se
   cuelga durante un build, primero `free -h` / `swapon --show` (swap de 2 GB en `/swapfile`).
