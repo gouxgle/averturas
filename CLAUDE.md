@@ -121,9 +121,12 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
   - **Cabeceras de seguridad** con `hono/secure-headers` (X-Frame-Options SAMEORIGIN, nosniff,
     Referrer-Policy). Sin CSP ni COEP/COOP/CORP a propósito (romperían PDFs inline y las
     imágenes cross-origin al sitio); HSTS lo pone nginx en prod.
-  - **Links públicos vencen a los 90 días** del envío (`PUB_LINK_DIAS`), tanto proformas
-    (`operacion_revisiones.enviada_at`) como remitos (`token_acceso_at`). Vencido → 404
-    "Link inválido o expirado" y la página pública pide que lo vuelvan a enviar.
+  - **Links públicos vencen a los 30 días** del envío (`PUB_LINK_DIAS`; decisión de negocio
+    2026-09-17), tanto proformas (`operacion_revisiones.enviada_at`) como remitos
+    (`token_acceso_at`). Vencido → 404 y la página pública pide que lo vuelvan a enviar.
+    Cada apertura del link se registra (`primera_vista_at`/`ultima_vista_at`/`vistas` en
+    revisiones, `link_*` en remitos) y se muestra como "Visto hace X" / "Sin abrir" en
+    Presupuestos (fila, modal y revisiones) y Remitos.
   - **Regla de cobertura de ítems** (¿está en pedido? ¿hay stock? ¿es servicio?) vive SOLO en
     `server/src/lib/coverage.ts` (`sqlItemsCubiertos`, `sqlItemsPendientes`,
     `sqlStockCubreTodo`, `sqlItemsEnPedidoInclReposicion` — esta última es la variante del
@@ -285,7 +288,10 @@ completar la tarea (`PATCH /tareas/:id/completar`) o con `PATCH /operaciones/:id
 Tab "Seguimiento" en Presupuestos.
 
 **Recibos** — solo sobre operaciones `aprobado`. `total` (toma el saldo) o `parcial` (monto a
-mano). **Medios combinados**: filas en `recibo_pagos` solo cuando hay ≥2 medios (deben sumar
+mano); **sin preselección**: el formulario obliga a elegir (antes "total" venía marcado y los
+recibos salían por el saldo completo por olvido). Enviar por WhatsApp = siempre
+`POST /recibos/:id/enviar-whatsapp` (PDF adjunto): desde el diálogo al crear, desde el modal
+de detalle y desde la lista — nunca `/clientes/:id/enviar-mensaje-whatsapp` (texto solo). **Medios combinados**: filas en `recibo_pagos` solo cuando hay ≥2 medios (deben sumar
 `monto_total`, 422 si no); `recibos.forma_pago` queda `"Pago combinado"`; los informes de caja
 leen la vista `recibo_pagos_efectivos`, nunca `forma_pago`. En parcial + combinado el total ES
 la suma de los medios. Bonificación: `descuento_pct` sobre productos (no instalación ni
@@ -371,6 +377,9 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 - Selectores con búsqueda: `onMouseDown` en el dropdown (no `onClick`) para evitar el race con
   `onBlur`.
 - Kanban Operaciones: cada columna con su color, cards con `COL_CARD_BG[col]`.
+- Color de proveedor: hex libre (`<input type="color">`) o clave de la paleta vieja; los
+  estilos (badge tenue / banda sólida) se calculan del hex en `coloresProveedor.ts`
+  (`badgeStyle`/`solidStyle`, por `style`, nunca clases Tailwind dinámicas).
 - Listas: `ORDER BY created_at DESC` salvo excepción documentada en el código.
 - Errores en render sin boundary → pantalla en blanco: todo `useEffect` con fetch lleva `.catch()`.
 

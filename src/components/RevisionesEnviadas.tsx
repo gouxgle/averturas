@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { History, ChevronDown, ChevronRight, Loader2, Copy, Printer, GitCompare } from 'lucide-react';
+import { History, ChevronDown, ChevronRight, Loader2, Copy, Printer, GitCompare, Eye, EyeOff } from 'lucide-react';
+import { haceCuanto } from '@/lib/utils';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -16,6 +17,9 @@ interface Revision {
   rechazada_at: string | null;
   enviada_por_nombre: string | null;
   precio_total: number;
+  primera_vista_at: string | null;
+  ultima_vista_at: string | null;
+  vistas: number;
 }
 
 const CANAL_LABEL: Record<string, string> = {
@@ -108,6 +112,14 @@ export function RevisionesEnviadas({ operacionId, numero = '' }: { operacionId: 
                         {formatDate(r.enviada_at)} · {CANAL_LABEL[r.canal ?? ''] ?? r.canal ?? '—'}
                         {r.enviada_por_nombre ? ` · ${r.enviada_por_nombre}` : ''}
                       </span>
+                      {r.vistas > 0
+                        ? <span title={`Abierto por el cliente ${r.vistas} vez${r.vistas !== 1 ? 'es' : ''} · primera: ${formatDate(r.primera_vista_at!)}`}
+                            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 shrink-0">
+                            <Eye size={9} /> Visto {haceCuanto(r.ultima_vista_at ?? r.primera_vista_at!)}
+                          </span>
+                        : <span className="inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
+                            <EyeOff size={9} /> Sin abrir
+                          </span>}
                     </div>
                     <span className="text-xs font-semibold text-gray-700 shrink-0">{formatCurrency(Number(r.precio_total))}</span>
                   </div>

@@ -9,9 +9,11 @@ import {
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
   Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler, Target,
+  Eye, EyeOff,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { haceCuanto } from '@/lib/utils';
 import type { EstadoOperacion } from '@/types';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
@@ -42,6 +44,9 @@ interface PresupuestoPanel {
   fecha_validez: string | null;
   aprobado_online_at: string | null;
   link_enviado: boolean;
+  /** Primera apertura del último link enviado (null = el cliente no lo abrió). */
+  link_visto_at: string | null;
+  link_vistas: number | null;
   enviado_wa_at: string | null;
   pendiente_envio: boolean;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
@@ -114,7 +119,10 @@ interface OpDetalle {
   forma_envio: string | null; costo_envio: number;
   /** Última revisión ENVIADA al cliente y si coincide con el estado vivo — si no
    *  coincide, se editó después del último envío y conviene reenviar. */
-  revision_vigente: { numero: number; token: string; enviada_at: string; coincide_con_vivo: boolean } | null;
+  revision_vigente: {
+    numero: number; token: string; enviada_at: string; coincide_con_vivo: boolean;
+    primera_vista_at: string | null; ultima_vista_at: string | null; vistas: number;
+  } | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
     tipo_persona: string; telefono: string | null; email: string | null;
@@ -584,6 +592,17 @@ function PresupuestoModal({
                   <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                     {vtPendiente ? `Esperando relevamiento — ${vtPendiente.numero}` : 'Ítems pendientes de relevar'}
                   </span>
+                )}
+                {op?.revision_vigente && ['presupuesto', 'enviado'].includes(op.estado) && (
+                  op.revision_vigente.primera_vista_at
+                    ? <span title={`Abierto por primera vez el ${formatDate(op.revision_vigente.primera_vista_at)} · ${op.revision_vigente.vistas} apertura${op.revision_vigente.vistas !== 1 ? 's' : ''}`}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                        <Eye size={12} /> El cliente lo vio {haceCuanto(op.revision_vigente.ultima_vista_at ?? op.revision_vigente.primera_vista_at)}
+                      </span>
+                    : <span title="El link de la última revisión todavía no fue abierto"
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-gray-50 text-gray-600 border border-gray-200">
+                        <EyeOff size={12} /> Todavía no lo abrió
+                      </span>
                 )}
                 {op?.revision_vigente && !op.revision_vigente.coincide_con_vivo && (
                   <span title="Se editó después del último envío — el cliente todavía ve la versión anterior en su link"
@@ -1451,6 +1470,18 @@ export function Presupuestos() {
                           <div className="flex items-center gap-1.5 mt-1 ml-[30px] flex-wrap">
                             {p.cliente.telefono && <span className="text-[10px] text-gray-600">{p.cliente.telefono}</span>}
                             {canal && <span className={cn('text-[10px] font-medium', canalColor(canal))}>{canalLabel(canal)}</span>}
+                            {/* ¿El cliente abrió el link? Solo tiene sentido mientras la proforma espera respuesta. */}
+                            {p.link_enviado && ['presupuesto', 'enviado'].includes(p.estado) && (
+                              p.link_visto_at
+                                ? <span title={`El cliente abrió el link ${p.link_vistas && p.link_vistas > 1 ? `${p.link_vistas} veces` : ''} — última vez ${haceCuanto(p.link_visto_at)}`}
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
+                                    <Eye size={10} /> Visto {haceCuanto(p.link_visto_at)}
+                                  </span>
+                                : <span title="El link fue enviado pero el cliente todavía no lo abrió"
+                                    className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                    <EyeOff size={10} /> Sin abrir
+                                  </span>
+                            )}
                             {pedidoBadge}
                           </div>
                         </div>

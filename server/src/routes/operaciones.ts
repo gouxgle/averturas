@@ -638,6 +638,11 @@ operaciones.get('/ventas-panel', async (c) => {
         o.id, o.numero, o.tipo, o.estado, o.precio_total::numeric,
         o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo,
         (o.token_acceso IS NOT NULL) AS link_enviado,
+        -- Si el cliente abrió el último link enviado (y cuándo): "ya lo vio".
+        (SELECT r.primera_vista_at FROM operacion_revisiones r
+          WHERE r.operacion_id = o.id ORDER BY r.revision DESC LIMIT 1) AS link_visto_at,
+        (SELECT r.vistas FROM operacion_revisiones r
+          WHERE r.operacion_id = o.id ORDER BY r.revision DESC LIMIT 1) AS link_vistas,
         o.enviado_wa_at,
         o.respuesta_cliente, o.respuesta_cliente_at,
         (o.enviado_wa_at IS NULL AND o.estado IN ('presupuesto','enviado')) AS pendiente_envio,
@@ -1347,7 +1352,7 @@ operaciones.get('/:id', async (c) => {
     // Última revisión ENVIADA (link/WhatsApp/email) y si coincide con el estado vivo
     // — si no coincide, se editó después del último envío y hay que reenviar.
     db.query(`
-      SELECT revision, token, enviada_at,
+      SELECT revision, token, enviada_at, primera_vista_at, ultima_vista_at, vistas,
         (contenido_hash = proforma_hash(proforma_snapshot($1))) AS coincide_con_vivo
       FROM operacion_revisiones WHERE operacion_id = $1
       ORDER BY revision DESC LIMIT 1
@@ -1362,7 +1367,8 @@ operaciones.get('/:id', async (c) => {
     modificaciones_cliente: versiones.rows[0]?.del_cliente ?? 0,
     ultima_revision_cliente_at: versiones.rows[0]?.ultima_cliente_at ?? null,
     revision_vigente: rv
-      ? { numero: rv.revision, token: rv.token, enviada_at: rv.enviada_at, coincide_con_vivo: rv.coincide_con_vivo }
+      ? { numero: rv.revision, token: rv.token, enviada_at: rv.enviada_at, coincide_con_vivo: rv.coincide_con_vivo,
+          primera_vista_at: rv.primera_vista_at, ultima_vista_at: rv.ultima_vista_at, vistas: rv.vistas }
       : null,
   });
 });
@@ -1375,6 +1381,7 @@ operaciones.get('/:id/revisiones', async (c) => {
   const { id } = c.req.param();
   const { rows } = await db.query(`
     SELECT r.id, r.revision, r.token, r.enviada_at, r.canal, r.aprobada_at, r.rechazada_at,
+      r.primera_vista_at, r.ultima_vista_at, r.vistas,
       u.nombre AS enviada_por_nombre,
       (r.snapshot->>'precio_total')::numeric AS precio_total
     FROM operacion_revisiones r

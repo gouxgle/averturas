@@ -46,10 +46,11 @@ interface RevisionRow {
   estado_actual: string; aprobado_online_at: string | null;
   es_ultima: boolean;
 }
-// Vigencia de un link público, en días desde que se envió. Los tokens no vencían
-// nunca: una proforma mandada por WhatsApp en marzo seguía abriéndose (y se podía
-// aprobar) en diciembre. Configurable por entorno con PUB_LINK_DIAS.
-const PUB_LINK_DIAS = Number(process.env.PUB_LINK_DIAS) > 0 ? Number(process.env.PUB_LINK_DIAS) : 90;
+// Vigencia de un link público, en días desde que se envió (30 por decisión del
+// negocio, 2026-09-17). Los tokens no vencían nunca: una proforma mandada por
+// WhatsApp en marzo seguía abriéndose (y se podía aprobar) en diciembre.
+// Configurable por entorno con PUB_LINK_DIAS.
+const PUB_LINK_DIAS = Number(process.env.PUB_LINK_DIAS) > 0 ? Number(process.env.PUB_LINK_DIAS) : 30;
 const LINK_VIGENTE_SQL = (col: string) => `${col} > now() - make_interval(days => ${PUB_LINK_DIAS})`;
 
 async function buscarRevision(token: string): Promise<RevisionRow | null> {
@@ -70,6 +71,14 @@ pub.get('/presupuesto/:token', async (c) => {
   const { token } = c.req.param();
   const rev = await buscarRevision(token);
   if (!rev) return c.json({ error: 'Link inválido o expirado' }, 404);
+
+  // Registrar la apertura (fire-and-forget): primera vez, última vez y contador.
+  // Es lo que le dice al vendedor "ya lo vio" antes de llamar.
+  db.query(
+    `UPDATE operacion_revisiones
+     SET primera_vista_at = COALESCE(primera_vista_at, now()), ultima_vista_at = now(), vistas = vistas + 1
+     WHERE id = $1`, [rev.revision_id]
+  ).catch(err => console.error('[pub] registrar vista proforma:', err));
 
   const { rows: [empresa] } = await db.query(`
     SELECT nombre, cuit, telefono, email, direccion, logo_url, instagram, terminos_url
@@ -431,6 +440,12 @@ pub.get('/remito/:token', async (c) => {
   `, [token]);
 
   if (!rem) return c.json({ error: 'Link inválido o expirado' }, 404);
+
+  db.query(
+    `UPDATE remitos
+     SET link_primera_vista_at = COALESCE(link_primera_vista_at, now()), link_ultima_vista_at = now(), link_vistas = link_vistas + 1
+     WHERE id = $1`, [rem.id]
+  ).catch(err => console.error('[pub] registrar vista remito:', err));
 
   // Los ítems del REMITO son la verdad de lo que se entrega — no los de la
   // operación entera. Antes esto listaba TODOS los ítems del presupuesto

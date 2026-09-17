@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 // Color identificatorio por proveedor: permite reconocer de un vistazo de qué
 // proveedor es cada producto en el catálogo, la galería de venta rápida, stock y
 // los buscadores de producto.
@@ -23,9 +24,53 @@ export interface ColorProveedor {
    * sin perder distinción entre matices.
    */
   solid: string;
+  /**
+   * Versiones por `style` de badge y banda, calculadas a partir del hex. Son las
+   * que usan los componentes desde 2026-09-17: el color ya no viene solo de la
+   * paleta fija, el operador puede elegir cualquier hex con el selector, y una
+   * clase Tailwind no se puede armar dinámicamente para un color arbitrario.
+   */
+  badgeStyle: CSSProperties;
+  solidStyle: CSSProperties;
 }
 
-export const COLORES_PROVEEDOR: readonly ColorProveedor[] = [
+// ── Color arbitrario → tonos legibles ────────────────────────────────────────
+function hexToHsl(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h /= 6;
+  return [h, sat, l];
+}
+function hslToHex(h: number, s: number, l: number): string {
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * c).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+/** Tono oscuro del mismo matiz (equivalente al `-700` de Tailwind): legible con blanco encima. */
+function tonoOscuro(hex: string): string {
+  const [h, s] = hexToHsl(hex);
+  return hslToHex(h, Math.max(s, 0.35), 0.32);
+}
+export function estilosDesdeHex(hex: string): Pick<ColorProveedor, 'badgeStyle' | 'solidStyle'> {
+  const oscuro = tonoOscuro(hex);
+  return {
+    badgeStyle: { backgroundColor: `${hex}1f`, color: oscuro, borderColor: `${hex}66` },
+    solidStyle: { backgroundColor: oscuro, color: '#ffffff' },
+  };
+}
+export const ES_HEX = /^#[0-9a-fA-F]{6}$/;
+
+const PALETA_BASE: readonly Omit<ColorProveedor, 'badgeStyle' | 'solidStyle'>[] = [
   { key: 'violeta',   label: 'Violeta',  hex: '#8b5cf6', badge: 'bg-violet-100 text-violet-700 border-violet-200',    solid: 'bg-violet-700 text-white' },
   { key: 'celeste',   label: 'Celeste',  hex: '#0ea5e9', badge: 'bg-sky-100 text-sky-700 border-sky-200',             solid: 'bg-sky-700 text-white' },
   { key: 'esmeralda', label: 'Esmeralda',hex: '#10b981', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', solid: 'bg-emerald-700 text-white' },
@@ -39,6 +84,8 @@ export const COLORES_PROVEEDOR: readonly ColorProveedor[] = [
   { key: 'cian',      label: 'Cian',     hex: '#06b6d4', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200',          solid: 'bg-cyan-700 text-white' },
   { key: 'pizarra',   label: 'Pizarra',  hex: '#64748b', badge: 'bg-slate-100 text-slate-700 border-slate-200',       solid: 'bg-slate-700 text-white' },
 ];
+
+export const COLORES_PROVEEDOR: readonly ColorProveedor[] = PALETA_BASE.map(c => ({ ...c, ...estilosDesdeHex(c.hex) }));
 
 /** Claves válidas — el backend valida contra esta misma lista (ver schemas.ts). */
 export const CLAVES_COLOR_PROVEEDOR = COLORES_PROVEEDOR.map(c => c.key);
@@ -68,6 +115,11 @@ export function colorProveedor(prov?: ProveedorConColor | null): ColorProveedor 
   if (prov.color) {
     const elegido = COLORES_PROVEEDOR.find(c => c.key === prov.color);
     if (elegido) return elegido;
+    // Hex libre elegido con el selector de color.
+    if (ES_HEX.test(prov.color)) {
+      const hex = prov.color.toLowerCase();
+      return { key: hex, label: hex, hex, badge: '', solid: '', ...estilosDesdeHex(hex) };
+    }
   }
   return colorDerivado(prov.id);
 }

@@ -386,7 +386,10 @@ export const CLAVES_COLOR_PROVEEDOR = [
 
 export const ProveedorSchema = z.object({
   nombre:             z.string().min(1, 'Nombre requerido').max(200),
-  color:              z.enum(CLAVES_COLOR_PROVEEDOR).optional().nullable(),
+  // Clave de la paleta vieja (compatibilidad con lo ya guardado) o un hex libre
+  // '#rrggbb' elegido con el selector de color (2026-09-17).
+  color:              z.union([z.enum(CLAVES_COLOR_PROVEEDOR), z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color inválido')])
+                        .optional().nullable(),
   tipo:               z.enum(['Fabricante','Revendedor','Importador']).optional().nullable(),
   contacto:           zText(120).optional(),
   telefono:           zPhone,

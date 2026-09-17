@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
 import {
-  ArrowLeft, Save, Receipt, Users, Calendar, CreditCard,
+  ArrowLeft, Save, Receipt, Users, Calendar, CreditCard, AlertTriangle,
   RefreshCw, Check, X, Package, Gift, ImagePlus, Trash2, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -121,7 +121,10 @@ export function NuevoRecibo() {
   const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
   // "Pago total" toma saldo automático; "parcial" pide monto manual
-  const [tipoPago,     setTipoPago]     = useState<'total' | 'parcial'>(urlMonto ? 'parcial' : 'total');
+  // Sin preselección a propósito (2026-09-17): con "total" marcado por defecto, el
+  // operador cargaba todo, se olvidaba de elegir "parcial" y el recibo salía por el
+  // saldo completo — y después costaba encontrar el error. Ahora hay que elegir.
+  const [tipoPago,     setTipoPago]     = useState<'total' | 'parcial' | null>(urlMonto ? 'parcial' : null);
   const [montoParcial, setMontoParcial] = useState(urlMonto ?? '');
 
   // ── Bonificación ──────────────────────────────────────────
@@ -307,7 +310,9 @@ export function NuevoRecibo() {
   // medios tienen que cerrar contra él.
   const montoFinal = tipoPago === 'total'
     ? saldoEfectivo
-    : combinado ? sumaPagos : (parseFloat(montoParcial) || 0);
+    : tipoPago === 'parcial'
+      ? (combinado ? sumaPagos : (parseFloat(montoParcial) || 0))
+      : 0;
 
   const esParcial = tipoPago === 'parcial';
   const saldoTrasRecibo = Math.max(0, saldoEfectivo - montoFinal);
@@ -529,6 +534,11 @@ export function NuevoRecibo() {
     }
     if (alternativasOfrecidas.length > 0 && !formaPagoAlternativaId) {
       toast.error('Elegí cuál de las formas de pago ofrecidas usó el cliente');
+      return;
+    }
+    if (!tipoPago) {
+      toast.error('Elegí si es PAGO TOTAL o PAGO PARCIAL antes de crear el recibo');
+      document.getElementById('tipo-pago')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (montoFinal <= 0)           { toast.error('El monto debe ser mayor a 0'); return; }
@@ -1018,6 +1028,19 @@ export function NuevoRecibo() {
         <SectionCard title="Monto a cobrar" icon={CreditCard}>
           <div className="space-y-4">
 
+            {!tipoPago && (
+              <div id="tipo-pago" className="flex items-start gap-2.5 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3 animate-pulse">
+                <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">¿Es un pago total o parcial?</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Elegí una opción. <strong>Total</strong> cancela todo el saldo ({formatCurrency(saldoEfectivo)});
+                    <strong> parcial</strong> es una seña o pago a cuenta y te pide el monto.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Radio: Pago total / Pago parcial */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
@@ -1025,8 +1048,8 @@ export function NuevoRecibo() {
                 className={cn(
                   'relative flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
                   tipoPago === 'total'
-                    ? 'border-emerald-500 bg-emerald-50'
-                    : 'border-gray-200 hover:border-emerald-300',
+                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+                    : !tipoPago ? 'border-amber-300 border-dashed hover:border-emerald-400' : 'border-gray-200 hover:border-emerald-300',
                 )}
               >
                 {tipoPago === 'total' && (
@@ -1040,6 +1063,7 @@ export function NuevoRecibo() {
                 <span className={cn('text-lg font-bold', tipoPago === 'total' ? 'text-emerald-800' : 'text-gray-700')}>
                   {formatCurrency(saldoEfectivo)}
                 </span>
+                <span className="text-[11px] text-gray-600">Cancela todo el saldo — no queda deuda</span>
                 {pctActual > 0 && (
                   <span className="text-[10px] text-violet-600 font-medium">
                     incl. {fmtPct(pctActual)}% desc.
@@ -1052,8 +1076,8 @@ export function NuevoRecibo() {
                 className={cn(
                   'relative flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
                   tipoPago === 'parcial'
-                    ? 'border-amber-400 bg-amber-50'
-                    : 'border-gray-200 hover:border-amber-300',
+                    ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-200'
+                    : !tipoPago ? 'border-amber-300 border-dashed hover:border-amber-400' : 'border-gray-200 hover:border-amber-300',
                 )}
               >
                 {tipoPago === 'parcial' && (
@@ -1064,7 +1088,10 @@ export function NuevoRecibo() {
                 <span className={cn('text-sm font-bold', tipoPago === 'parcial' ? 'text-amber-700' : 'text-gray-600')}>
                   Pago parcial
                 </span>
-                <span className="text-xs text-gray-600">Indicar monto</span>
+                <span className={cn('text-lg font-bold', tipoPago === 'parcial' ? 'text-amber-800' : 'text-gray-700')}>
+                  Seña / a cuenta
+                </span>
+                <span className="text-[11px] text-gray-600">Vos indicás el monto — queda saldo pendiente</span>
               </button>
             </div>
 
@@ -1271,6 +1298,21 @@ export function NuevoRecibo() {
                   : '$ —'
                 }
               </p>
+              {/* Qué tipo de recibo se va a emitir, dicho con todas las letras al lado del
+                  botón de crear — es la última oportunidad de notar un "total" por error. */}
+              {!tipoPago ? (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
+                  <AlertTriangle size={13} /> Falta elegir pago total o parcial
+                </p>
+              ) : tipoPago === 'total' ? (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1">
+                  <Check size={13} /> PAGO TOTAL — cancela todo el saldo
+                </p>
+              ) : (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
+                  PAGO PARCIAL — queda saldo pendiente de {formatCurrency(saldoTrasRecibo)}
+                </p>
+              )}
 
               {/* Cuotas info */}
               {esCuotas && montoFinal > 0 && (

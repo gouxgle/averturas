@@ -255,6 +255,15 @@ function ReciboModal({ id, onClose, onAnulado }: {
   const [confirmando, setConfirmando] = useState(false);
   const [motivoSel, setMotivoSel]     = useState('');
   const [motivoLibre, setMotivoLibre] = useState('');
+  const [enviandoWa, setEnviandoWa]   = useState(false);
+  const [waEnviado, setWaEnviado]     = useState(false);
+
+  async function handleWhatsApp() {
+    if (enviandoWa) return;
+    setEnviandoWa(true);
+    try { if (await enviarReciboWhatsApp(id)) setWaEnviado(true); }
+    finally { setEnviandoWa(false); }
+  }
 
   useEffect(() => {
     setLoading(true); setError(null);
@@ -374,6 +383,18 @@ function ReciboModal({ id, onClose, onAnulado }: {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg font-medium">
                   <Printer size={13} /> PDF
                 </button>
+                {/* Compartir: faltaba en el detalle — solo se podía enviar al crear el recibo. */}
+                {esEmitido && rec.cliente.telefono && (
+                  <button onClick={handleWhatsApp} disabled={enviandoWa}
+                    title={`Enviar el recibo en PDF por WhatsApp a ${rec.cliente.telefono}`}
+                    className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-lg font-medium disabled:opacity-60',
+                      waEnviado ? 'bg-green-600 text-white border-green-600' : 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200')}>
+                    {enviandoWa
+                      ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
+                      : <MessageCircle size={13} />}
+                    {waEnviado ? 'Enviado' : 'WhatsApp'}
+                  </button>
+                )}
               </>
             )}
             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -552,6 +573,20 @@ function ReciboModal({ id, onClose, onAnulado }: {
   );
 }
 
+// Envía el recibo por WhatsApp CON el PDF adjunto (POST /recibos/:id/enviar-whatsapp,
+// el mismo endpoint que usa el diálogo al crear el recibo). Antes la lista mandaba un
+// texto suelto por /clientes/:id/enviar-mensaje-whatsapp — sin el comprobante.
+async function enviarReciboWhatsApp(reciboId: string): Promise<boolean> {
+  try {
+    const res = await api.post<{ enviado: boolean; numero: string }>(`/recibos/${reciboId}/enviar-whatsapp`, {});
+    toast.success(`Recibo enviado por WhatsApp al ${res.numero}`);
+    return true;
+  } catch (e) {
+    toastApiError(e, { fallback: 'No se pudo enviar el recibo por WhatsApp' });
+    return false;
+  }
+}
+
 // ── Página principal ─────────────────────────────────────────────
 
 const PER_PAGE = 10;
@@ -568,16 +603,10 @@ export function Recibos() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
 
-  async function enviarMensajeWa(clienteId: string, mensaje: string) {
-    setEnviandoWaIds(s => new Set(s).add(clienteId));
-    try {
-      await api.post(`/clientes/${clienteId}/enviar-mensaje-whatsapp`, { mensaje });
-      toast.success('Mensaje enviado por WhatsApp');
-    } catch (e) {
-      toastApiError(e, { fallback: 'Error al enviar WhatsApp' });
-    } finally {
-      setEnviandoWaIds(s => { const n = new Set(s); n.delete(clienteId); return n; });
-    }
+  async function enviarWa(reciboId: string) {
+    setEnviandoWaIds(s => new Set(s).add(reciboId));
+    try { await enviarReciboWhatsApp(reciboId); }
+    finally { setEnviandoWaIds(s => { const n = new Set(s); n.delete(reciboId); return n; }); }
   }
 
   const cargar = useCallback(async () => {
@@ -777,7 +806,6 @@ export function Recibos() {
                 {paginated.map(fila => {
                   const ec = fila.estado_cobro as EstadoCobro;
                   const FPIcon = pagoIcon(fila.forma_pago);
-                  const waMsg = `Hola, te contactamos por el recibo ${fila.numero} por ${formatCurrency(fila.monto_total)}.`;
 
                   return (
                     <div key={fila.id}
@@ -835,12 +863,12 @@ export function Recibos() {
                             {formatCurrency(fila.monto_total)}
                           </span>
                           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                            {fila.cliente_telefono && (
+                            {fila.cliente_telefono && ec !== 'anulado' && (
                               <button
-                                onClick={() => enviarMensajeWa(fila.cliente_id, waMsg)}
-                                disabled={enviandoWaIds.has(fila.cliente_id)}
-                                className="p-2.5 sm:p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar WhatsApp">
-                                {enviandoWaIds.has(fila.cliente_id)
+                                onClick={() => enviarWa(fila.id)}
+                                disabled={enviandoWaIds.has(fila.id)}
+                                className="p-2.5 sm:p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-60 transition-colors" title="Enviar recibo (PDF) por WhatsApp">
+                                {enviandoWaIds.has(fila.id)
                                   ? <span className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin inline-block" />
                                   : <MessageCircle size={13} />}
                               </button>

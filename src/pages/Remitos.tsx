@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
+import { haceCuanto } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
@@ -33,6 +34,8 @@ interface Remito {
   cliente: RCliente & { telefono: string | null };
   operacion: { id: string; numero: string } | null;
   token_acceso: string | null;
+  link_primera_vista_at?: string | null;
+  link_vistas?: number | null;
   recepcion_estado: 'conforme' | 'con_observaciones' | 'no_conforme' | null;
   recepcion_at: string | null;
   recepcion_obs: string | null;
@@ -686,6 +689,14 @@ export function Remitos() {
                                 <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', badge.cls)}>{badge.label}</span>
                                 {r.recepcion_estado === 'conforme' && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">✓ Confirmado</span>
+                                )}
+                                {/* Link enviado y todavía sin respuesta: ¿lo abrió? */}
+                                {r.token_acceso && !r.recepcion_estado && r.estado === 'emitido' && (
+                                  r.link_primera_vista_at
+                                    ? <span title={`El cliente abrió el link — ${haceCuanto(r.link_primera_vista_at)}`}
+                                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">👁 Visto {haceCuanto(r.link_primera_vista_at)}</span>
+                                    : <span title="Link enviado, el cliente todavía no lo abrió"
+                                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">Sin abrir</span>
                                 )}
                                 {r.recepcion_estado && r.recepcion_estado !== 'conforme' && RECEPCION_BADGE[r.recepcion_estado] && (
                                   <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', RECEPCION_BADGE[r.recepcion_estado].cls)}>

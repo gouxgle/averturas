@@ -56,3 +56,15 @@ export function disponibilidadVigente(fechaIso: string | null | undefined): bool
   if (!fechaIso) return false;
   return diasCalendarioAR(fechaIso) <= DISPONIBILIDAD_VIGENCIA_DIAS;
 }
+
+/** "hace 5 min" / "hace 3 h" / "hace 2 días" — para señalizar aperturas de links, etc. */
+export function haceCuanto(iso: string | Date): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1)  return 'recién';
+  if (min < 60) return `hace ${min} min`;
+  const hs = Math.floor(min / 60);
+  if (hs < 24)  return `hace ${hs} h`;
+  const ds = Math.floor(hs / 24);
+  return `hace ${ds} día${ds !== 1 ? 's' : ''}`;
+}

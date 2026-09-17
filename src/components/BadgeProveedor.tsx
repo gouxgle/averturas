@@ -22,9 +22,9 @@ export function BadgeProveedor({ proveedor, size = 'sm', className }: BadgeProve
       className={cn(
         'inline-flex items-center gap-1 rounded border font-medium leading-none max-w-full',
         size === 'xs' ? 'text-[9px] px-1 py-0.5' : 'text-[9px] px-1.5 py-0.5',
-        color.badge,
         className,
       )}
+      style={color.badgeStyle}
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color.hex }} />
       <span className="truncate">{proveedor.nombre}</span>
@@ -60,7 +60,7 @@ export function BandaProveedor({
     : `Proveedor: ${proveedor.nombre}`;
 
   return (
-    <div title={title} className={cn('flex items-center gap-1.5 px-2.5 py-1 shrink-0', color.solid, className)}>
+    <div title={title} className={cn('flex items-center gap-1.5 px-2.5 py-1 shrink-0', className)} style={color.solidStyle}>
       <Factory size={11} className="shrink-0 opacity-90" />
       <span className="text-[10px] font-bold uppercase tracking-wide truncate">{proveedor.nombre}</span>
       {plazoDias != null && (

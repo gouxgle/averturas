@@ -10,7 +10,7 @@ import { SectionHero } from '@/components/SectionHero';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { COLORES_PROVEEDOR, colorProveedor } from '@/lib/coloresProveedor';
+import { colorProveedor } from '@/lib/coloresProveedor';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Proveedor {
@@ -327,30 +327,47 @@ function ModalProveedor({
               Se muestra en cada producto de este proveedor para reconocerlo de un vistazo.
               Si no elegís ninguno, se usa uno automático.
             </p>
-            <div className="flex flex-wrap gap-2">
-              {COLORES_PROVEEDOR.map(col => {
-                // En edición sin color elegido se resalta el automático (para que se
-                // vea cuál está usando hoy); en alta nueva no hay id, no se resalta nada.
-                const activo = form.color
-                  ? form.color === col.key
-                  : proveedorId ? colorProveedor({ id: proveedorId })?.key === col.key : false;
-                return (
-                  <button key={col.key} type="button" title={col.label}
-                    onClick={() => set('color', form.color === col.key ? null : col.key)}
-                    className={cn(
-                      'w-9 h-9 rounded-full border-2 transition-all',
-                      activo ? 'border-gray-700 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105',
+            {(() => {
+              // Color efectivo hoy: el elegido (clave vieja o hex) o el automático.
+              const actual = colorProveedor({ id: proveedorId ?? 'nuevo', color: form.color });
+              const hexActual = actual?.hex ?? '#64748b';
+              return (
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Paleta completa del sistema: el operador elige el color que quiera. */}
+                  <label className="relative w-12 h-12 rounded-xl border-2 border-white shadow-md cursor-pointer overflow-hidden shrink-0"
+                    style={{ backgroundColor: hexActual }} title="Elegir color">
+                    <input type="color" value={hexActual}
+                      onChange={e => set('color', e.target.value.toLowerCase())}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  </label>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {form.color ? 'Color elegido' : 'Color automático'}
+                      <span className="ml-2 font-mono text-xs text-gray-600">{hexActual}</span>
+                    </p>
+                    <p className="text-[11px] text-gray-600">
+                      Tocá el cuadrado para abrir la paleta y elegir cualquier color.
+                    </p>
+                    {form.color && (
+                      <button type="button" onClick={() => set('color', null)}
+                        className="mt-1 text-[11px] font-semibold text-gray-600 hover:text-red-600 hover:underline">
+                        Volver al automático
+                      </button>
                     )}
-                    style={{ backgroundColor: col.hex }}
-                  />
-                );
-              })}
-            </div>
-            {!form.color && (
-              <p className="text-[11px] text-gray-600 mt-2">
-                Sin elegir — se usa el color automático (resaltado arriba). Tocá uno para fijarlo.
-              </p>
-            )}
+                  </div>
+                  {/* Vista previa de cómo se ve en una tarjeta y en un badge */}
+                  <div className="flex flex-col gap-1.5 ml-auto">
+                    <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded" style={actual?.solidStyle}>
+                      {form.nombre || 'Proveedor'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded border text-[9px] font-medium px-1.5 py-0.5 self-start" style={actual?.badgeStyle}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hexActual }} />
+                      {form.nombre || 'Proveedor'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Logística */}

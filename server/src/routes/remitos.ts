@@ -91,6 +91,7 @@ remitos.get('/tablero', async (c) => {
         r.nro_seguimiento, r.direccion_entrega, r.fecha_emision,
         r.fecha_entrega_est, r.fecha_entrega_real, r.notas, r.stock_descontado,
         r.token_acceso, r.recepcion_estado, r.recepcion_at, r.recepcion_obs,
+        r.link_primera_vista_at, r.link_vistas,
         json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
           'telefono', c.telefono) AS cliente,
