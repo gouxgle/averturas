@@ -863,28 +863,46 @@ export function NuevoRecibo() {
                 <Plus size={13} /> Agregar otro medio
               </button>
 
-              {/* Suma de los medios contra el total del recibo */}
+              {/* Suma de los medios. Qué se muestra depende del tipo de pago:
+                  - total: los medios tienen que cerrar contra el saldo → se compara.
+                  - parcial: la suma ES el monto del recibo, no hay contra qué comparar —
+                    mostrar "total / cubren el total" era circular y confundía.
+                  - sin elegir: no hay total definido todavía. */}
               <div className="mt-3 pt-2.5 border-t border-gray-200 space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Suma de los medios</span>
                   <span className="font-bold text-gray-800 tabular-nums">{formatCurrency(sumaPagos)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Total del recibo</span>
-                  <span className="font-bold text-gray-800 tabular-nums">{formatCurrency(montoFinal)}</span>
-                </div>
-                {Math.abs(restantePagos) > 0.01 && (
-                  <div className={cn(
-                    'flex items-center justify-between text-xs font-semibold rounded-lg px-2.5 py-1.5 mt-1',
-                    restantePagos > 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
-                  )}>
-                    <span>{restantePagos > 0 ? 'Falta asignar' : 'Te pasaste por'}</span>
-                    <span className="tabular-nums">{formatCurrency(Math.abs(restantePagos))}</span>
+                {tipoPago === 'total' && (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Saldo a cancelar (pago total)</span>
+                      <span className="font-bold text-gray-800 tabular-nums">{formatCurrency(montoFinal)}</span>
+                    </div>
+                    {Math.abs(restantePagos) > 0.01 && (
+                      <div className={cn(
+                        'flex items-center justify-between text-xs font-semibold rounded-lg px-2.5 py-1.5 mt-1',
+                        restantePagos > 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                      )}>
+                        <span>{restantePagos > 0 ? 'Falta asignar' : 'Te pasaste por'}</span>
+                        <span className="tabular-nums">{formatCurrency(Math.abs(restantePagos))}</span>
+                      </div>
+                    )}
+                    {Math.abs(restantePagos) <= 0.01 && sumaPagos > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5 mt-1">
+                        <Check size={13} /> Los medios cubren el saldo completo
+                      </div>
+                    )}
+                  </>
+                )}
+                {tipoPago === 'parcial' && sumaPagos > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-1">
+                    Pago parcial: el recibo se emite por {formatCurrency(sumaPagos)} y queda saldo de {formatCurrency(saldoTrasRecibo)}
                   </div>
                 )}
-                {Math.abs(restantePagos) <= 0.01 && sumaPagos > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5 mt-1">
-                    <Check size={13} /> Los medios de pago cubren el total del recibo
+                {!tipoPago && (
+                  <div className="text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg px-2.5 py-1.5 mt-1">
+                    Elegí abajo si es pago total o parcial para saber si esta suma cierra.
                   </div>
                 )}
               </div>

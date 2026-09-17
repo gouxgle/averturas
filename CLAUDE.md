@@ -69,6 +69,11 @@ cd server && npm run migrate   # lee server/.env
 - **Typecheck frontend = `tsc -b`, NUNCA `tsc --noEmit`**: el `tsconfig.json` raíz tiene
   `files: []` y `--noEmit` revisa cero archivos y sale 0. El `.tsbuildinfo` vive en
   `node_modules/.tmp/`; si no es escribible, `tsc -b` revisa todo cada vez (22 s).
+- **El usuario prueba en `:3000` (contenedor local).** Después de cada commit con cambios de
+  código, reconstruir esa imagen o va a ver código viejo (pasó 2026-09-17: reportó un
+  "bug" sobre una imagen de 34 h atrás). Los builds para test usan otra etiqueta
+  (`deploy-test`) y NO actualizan `:3000`. Comando:
+  `docker build -t aberturas-app:latest --build-arg SRC_HASH=$(git rev-parse HEAD:src) --build-arg SERVER_HASH=$(git rev-parse HEAD:server/src) --build-arg VITE_SENTRY_DSN="$(grep ^VITE_SENTRY_DSN= .env | cut -d= -f2-)" . && docker compose up -d app`
 - **`docker compose build app` solo para el chequeo final pre-deploy.** El Dockerfile recibe
   `SRC_HASH`/`SERVER_HASH` (hash del árbol git) como cache-buster — el deploy los pasa, así
   una `COPY src` nunca queda `CACHED` con código viejo. Si se buildea a mano sin los args y
