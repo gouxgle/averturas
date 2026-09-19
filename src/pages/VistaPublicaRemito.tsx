@@ -212,40 +212,65 @@ export function VistaPublicaRemito() {
 
       {/* HEADER */}
       <div style={{ background: 'white', padding: '20px 24px 16px', maxWidth: 860, margin: '0 auto 0', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <img src="/logochico.png" alt="Logo" style={{ height: 36 }}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              <div style={{ color: NAVY, fontSize: 18, fontWeight: 900, lineHeight: 1.1 }}>{emp.nombre}</div>
+        {/* Mismo encabezado que el PDF (ImprimirRemito.tsx): logo grande centrado con
+            línea divisoria, datos de la empresa en una fila separados por «|»,
+            separador vertical y el título grande "REMITO / de Entrega". Antes la vista
+            pública tenía su propio diseño (logo chico + nombre + datos apilados) y el
+            cliente veía dos marcas distintas según abriera el link o el PDF. */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+              <img src="/logo2.png" alt={emp.nombre} style={{ height: 68, display: 'block', maxWidth: '100%' }}
+                onError={e => {
+                  // Sin el logo grande, degradar al chico + nombre (como hacía antes).
+                  const img = e.target as HTMLImageElement;
+                  if (!img.src.endsWith('/logochico.png')) { img.src = '/logochico.png'; img.style.height = '36px'; }
+                  else img.style.display = 'none';
+                }} />
             </div>
-            {emp.cuit     && <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>🪪 CUIT: {emp.cuit}</div>}
-            {emp.telefono && <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>📞 {emp.telefono}</div>}
-            {emp.email    && <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>✉️ {emp.email}</div>}
-            {emp.direccion && <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 1 }}>📍 {emp.direccion}</div>}
-            {emp.instagram && <div style={{ fontSize: 11, color: '#6b7280' }}>📷 Instagram: {emp.instagram}</div>}
+            <div style={{ height: 1, background: '#e5e7eb', marginBottom: 8 }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px 0', fontSize: 10.5, color: '#555', marginBottom: 4 }}>
+              {emp.cuit && (
+                <><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>🪪 CUIT: {emp.cuit}</span>
+                {(emp.telefono || emp.email) && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}</>
+              )}
+              {emp.telefono && (
+                <><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>📞 {emp.telefono}</span>
+                {emp.email && <span style={{ color: '#ccc', margin: '0 10px' }}>|</span>}</>
+              )}
+              {emp.email && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>✉️ {emp.email}</span>}
+            </div>
+            {emp.direccion && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#555' }}>
+                📍 {emp.direccion}
+              </div>
+            )}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: NAVY, fontSize: 22, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Remito de Entrega
+
+          {/* Separador vertical (se oculta cuando el layout envuelve en pantallas angostas) */}
+          <div className="hidden sm:block" style={{ width: 1, background: '#d1d5db', alignSelf: 'stretch', margin: '4px 0' }} />
+
+          <div style={{ textAlign: 'right', minWidth: 170 }}>
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: NAVY, fontSize: 36, fontWeight: 900, letterSpacing: 2, lineHeight: 1, textTransform: 'uppercase' }}>
+              Remito
             </div>
-            <div style={{
-              display: 'inline-block', background: NAVY, color: 'white',
-              fontWeight: 800, fontSize: 14, padding: '4px 16px', borderRadius: 6, marginTop: 4,
-            }}>
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: NAVY, fontSize: 13, fontWeight: 700, marginTop: 4, letterSpacing: 0.5 }}>
+              de Entrega
+            </div>
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: NAVY, fontWeight: 800, fontSize: 15, marginTop: 8 }}>
               N°: {remito.numero}
             </div>
-            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
-              📅 Fecha de emisión: {fmtFecha(remito.fecha_emision)}
+            <div style={{ fontSize: 11, color: '#555', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+              📅 <span><strong style={{ color: NAVY }}>Emisión:</strong> {fmtFecha(remito.fecha_emision)}</span>
             </div>
             {remito.fecha_entrega_est && (
-              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                📋 Fecha pactada: {fmtFecha(remito.fecha_entrega_est)}
+              <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                📋 <span><strong style={{ color: NAVY }}>Fecha pactada:</strong> {fmtFecha(remito.fecha_entrega_est)}</span>
               </div>
             )}
             {proformaNumero && (
-              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                🔗 Relacionado a Proforma: <strong style={{ color: NAVY }}>{proformaNumero}</strong>
+              <div style={{ fontSize: 11, color: '#555', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                🔗 <span>Proforma: <strong style={{ color: NAVY }}>{proformaNumero}</strong></span>
               </div>
             )}
             {flow === 'confirmado' && remito.recepcion_estado ? (
@@ -579,11 +604,11 @@ export function VistaPublicaRemito() {
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER — mismo que el PDF: línea azul sobre blanco, texto en azul */}
         <div style={{
-          background: NAVY, padding: '14px 24px',
-          display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0 28px',
-          fontSize: 11, color: '#bfdbfe',
+          background: 'white', borderTop: `2px solid ${NAVY}`, padding: '10px 24px',
+          display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '4px 28px',
+          fontSize: 11, color: NAVY, fontWeight: 600,
         }}>
           {emp.telefono  && <span>📞 {emp.telefono}</span>}
           {emp.email     && <span>✉ {emp.email}</span>}
