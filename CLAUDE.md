@@ -6,9 +6,26 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 
 - GitHub `git@github.com:gouxgle/averturas.git`, rama `main`.
 - Documentación larga que NO hace falta cada sesión: `docs/backups.md` (cron, rclone y su
-  historial de fallos), `docs/pedidos-rediseno-pendiente.md` (rediseño de pedidos a
-  proveedores, nada implementado, 9 definiciones abiertas), `docs/catalogo-web.md` (contrato
-  de datos para el sitio web público).
+  historial de fallos), `docs/compras-plan.md` (plan completo del módulo Compras y
+  Proveedores — ver "Pendientes" abajo), `docs/pedidos-rediseno-pendiente.md` (diseño
+  anterior de pedidos, superado por `compras-plan.md`; queda por las ideas descartadas),
+  `docs/catalogo-web.md` (contrato de datos para el sitio web público).
+
+## Pendientes y estado al 2026-09-21 (leer al empezar una sesión)
+
+- **Módulo "Compras y Proveedores"** — plan escrito en `docs/compras-plan.md` (copia de
+  `~/.claude/plans/snazzy-dreaming-lobster.md`) y resumen ejecutivo publicado en
+  https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt. **El usuario NO lo aprobó todavía**
+  ("lo revisaré en detalle y no avanzaremos aún"): no tocar código del módulo hasta que lo
+  apruebe. Cuando apruebe: Etapa 1 (SC → PC → comparativa → OC) primero, una etapa por
+  commit, cada una deployada a test y usable sola. Decisiones ya cerradas: OC = tabla
+  `pedidos` extendida (nuevas `OC-`, viejas `PED-` intactas), una OC puede consolidar varias
+  solicitudes de distintos clientes, precios neto + IVA % por línea comparados por total
+  final, 4 estados independientes (logística/calidad/finanzas/docs), `deuda_actual` pasa a
+  derivarse de `proveedor_cc_movimientos` (etapa 3).
+- **Prod atrasado respecto a test**: prod está en `5be8dbd`; en GitHub y test están además
+  `bfe0bcd` (solo docs) y `6e18888` (vista pública del remito con el encabezado/pie del PDF).
+  Deploy a prod solo cuando el usuario lo pida (backup previo + `echo si | bash deploy-env.sh prod`).
 
 ## Ambientes
 
@@ -322,7 +339,8 @@ items + costo_envio`. Coverage stock-aware (`items_cubiertos`): un ítem está c
 = pedir igual habiendo stock (no cuenta en coverage). `es_stock_propio` = pedido sin cliente
 (`operacion_id=NULL`). Al marcar `recibido` y no quedar pedidos activos → `operaciones.estado='listo'`.
 Operación 100% en stock (`STOCK_CUBRE_TODO`) va directo a "Lista p/ entregar" sin pedido.
-Rediseño pendiente (cola por proveedor, comparación multi-proveedor): `docs/pedidos-rediseno-pendiente.md`.
+Evolución planificada a "Compras y Proveedores" (SC → PC → OC → recepción por ítem → reclamos →
+cuenta corriente): `docs/compras-plan.md`, pendiente de aprobación — ver "Pendientes" arriba.
 
 **Visitas de relevamiento** — `VT-YYYYMM-NNNN`, `pendiente → relevada → convertida |
 cancelada`. Al crear se elige cobrar o no: `cobro_estado` `cobrada` (recibo emitido) |
