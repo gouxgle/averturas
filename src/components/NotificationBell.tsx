@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck, XCircle } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck, XCircle, CalendarClock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 
 interface Notif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada';
   id: string; numero: string | null; precio_total: number | null;
   aprobado_online_at: string | null;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
@@ -16,6 +16,8 @@ interface Notif {
   detalle: string | null;
   data: {
     telefono?: string | null; direccion_entrega?: string | null;
+    /** Compras demoradas: datos del proveedor y el atraso. */
+    proveedor?: string | null; dias_demora?: number; estado_logistica?: string;
     /** Presente cuando el cliente rechazó la proforma desde el link público. */
     rechazado_online_at?: string | null; comentario_rechazo?: string | null;
   } | null;
@@ -26,6 +28,7 @@ interface Notif {
 const OPORTUNIDAD_NOTIF = { texto: 'volvió la fecha de recontacto', color: '#f0abfc', bg: 'rgba(217,70,239,0.15)' };
 const ENTREGA_NOTIF = { color: '#c4b5fd', bg: 'rgba(139,92,246,0.15)' };
 const RECHAZO_NOTIF = { texto: 'rechazó la proforma', color: '#fca5a5', bg: 'rgba(248,113,113,0.18)' };
+const DEMORA_NOTIF = { color: '#fdba74', bg: 'rgba(249,115,22,0.18)' };
 
 const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
   remito:              () => '/remitos',
@@ -33,6 +36,7 @@ const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
   presupuesto:         n  => `/presupuestos?id=${n.id}`,
   entrega_dia_antes:   () => '/remitos',
   entrega_hora_antes:  () => '/remitos',
+  compra_demorada:     n  => `/compras?tab=ordenes&oc=${n.id}`,
 };
 
 const RESP_NOTIF: Record<string, { texto: string; color: string; bg: string }> = {
@@ -226,6 +230,7 @@ export function NotificationBell() {
               </div>
             ) : (
               notifs.map(n => {
+                const esDemora = n.tipo === 'compra_demorada';
                 const esRemito = n.tipo === 'remito';
                 const esOportunidad = n.tipo === 'oportunidad';
                 const esEntregaDia = n.tipo === 'entrega_dia_antes';
@@ -235,7 +240,7 @@ export function NotificationBell() {
                 const esRechazo = !esRemito && !esOportunidad && !esEntrega && !n.aprobado_online_at && !!n.data?.rechazado_online_at;
                 const esRespuesta = !esRemito && !esOportunidad && !esEntrega && !esRechazo && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
                 const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
-                const acento = rm ?? rc ?? (esRechazo ? RECHAZO_NOTIF : null) ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null);
+                const acento = rm ?? rc ?? (esRechazo ? RECHAZO_NOTIF : null) ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null) ?? (esDemora ? DEMORA_NOTIF : null);
                 return (
                 <div
                   key={`${n.tipo}-${n.id}`}
@@ -247,7 +252,9 @@ export function NotificationBell() {
                   {/* Icono */}
                   <div className="mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                     style={{ backgroundColor: acento ? acento.bg : 'rgba(34,197,94,0.15)' }}>
-                    {rm
+                    {esDemora
+                      ? <CalendarClock size={16} style={{ color: DEMORA_NOTIF.color }} />
+                      : rm
                       ? <AlertTriangle size={16} style={{ color: rm.color }} />
                       : esRechazo
                       ? <XCircle size={16} style={{ color: RECHAZO_NOTIF.color }} />
@@ -260,10 +267,11 @@ export function NotificationBell() {
                   {/* Texto */}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-white leading-snug">
-                      {nombreCliente(n.cliente)}
+                      {esDemora ? (n.data?.proveedor ?? nombreCliente(n.cliente)) : nombreCliente(n.cliente)}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                      {rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>
+                      {esDemora ? <>no entregó — <span className="font-mono" style={{ color: DEMORA_NOTIF.color }}>{n.numero}</span> · {n.data?.dias_demora} día{n.data?.dias_demora === 1 ? '' : 's'} de atraso</>
+                       : rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>
                        : esRechazo ? <>{RECHAZO_NOTIF.texto} <span className="font-mono" style={{ color: RECHAZO_NOTIF.color }}>{n.numero?.replace(/^OP-/, 'PRO-')}</span></>
                        : esOportunidad ? <>{OPORTUNIDAD_NOTIF.texto}</>
                        : esEntregaDia ? <>Entrega programada para mañana — <span className="font-mono" style={{ color: ENTREGA_NOTIF.color }}>{n.numero}</span></>
@@ -282,8 +290,8 @@ export function NotificationBell() {
                       </p>
                     )}
                     <div className="flex items-center gap-2 mt-1">
-                      {!acento && (
-                        <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
+                      {(!acento || esDemora) && (
+                        <span className="text-[11px] font-bold tabular-nums" style={{ color: esDemora ? DEMORA_NOTIF.color : '#34d399' }}>
                           {formatCurrency(Number(n.precio_total))}
                         </span>
                       )}

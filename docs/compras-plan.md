@@ -1,12 +1,22 @@
 # Módulo Compras y Proveedores — evolución de "Pedidos al proveedor"
 
-> **Estado (2026-09-22): Etapa 1 IMPLEMENTADA y deployada a test** (aprobada por el usuario
-> el 2026-09-21). Etapas 2 y 3 pendientes; arrancar cada una desde este plan. Resumen
-> ejecutivo: https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt. Desvíos de la etapa 1 respecto
-> al plan: `registrarDoc`/`compras_documentos` quedan para la etapa 3 (los adjuntos van en el
-> JSONB de cada fila); se agregaron `compras_solicitud_items.costo_referencia`/`proveedor_sku`
-> y `compras_cotizacion_proveedores.iva_pct`; los PDFs de PC/OC se abren por `GET .../pdf`
-> (fetch con token → blob) y hay `GET .../mensaje` para previsualizar el texto antes de enviar.
+> **Estado (2026-09-22): Etapas 1 y 2 IMPLEMENTADAS y deployadas a test.** Etapa 3 pendiente;
+> arrancarla desde este plan. Resumen ejecutivo:
+> https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt.
+>
+> Desvíos de la etapa 1: `registrarDoc`/`compras_documentos` quedan para la etapa 3 (los
+> adjuntos van en el JSONB de cada fila); columnas extra `compras_solicitud_items.costo_referencia`
+> /`proveedor_sku` e `compras_cotizacion_proveedores.iva_pct`; los PDFs se abren por
+> `GET .../pdf` (fetch con token → blob) y hay `GET .../mensaje` para previsualizar el texto.
+>
+> Desvíos de la etapa 2: la recepción se decide con `recalcularRecepcionOC()`, que cuenta como
+> saldado lo cubierto por un reclamo cerrado (el plan solo lo preveía para el cierre de la
+> etapa 3, pero sin eso un ítem que llegó roto y se repuso dejaba la OC en `recibida_parcial`
+> para siempre). Se agregó `GET /compras/recepciones` (lista global para la pestaña) y una
+> recepción sintética por cada OC histórica ya recibida, para que los acumulados por ítem
+> cuadren con el stock que ya se había ingresado. Un ítem con `producto_id` y cantidad
+> conforme decimal se rechaza (422) porque `stock_movimientos.cantidad` es INT. Los avisos de
+> demora emergen **de a uno por vez** (apilados tapaban los botones de los modales).
 >
 > Original en `~/.claude/plans/snazzy-dreaming-lobster.md`; este archivo es la copia versionada.
 

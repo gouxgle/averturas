@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   PackageCheck, Edit, FileText, MessageCircle, Mail, Send, Truck, Package, CheckCircle, AlertTriangle, Phone, Users,
-  ClipboardList, Scale, X, Eye, Save, Plus, ShieldCheck, Wallet, FolderOpen, Ban,
+  ClipboardList, Scale, X, Eye, Save, Plus, ShieldCheck, Wallet, FolderOpen, Ban, Check, MessageSquarePlus,
+  CalendarClock, ChevronRight, History,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -12,12 +13,13 @@ import { MontoInput } from '@/components/MontoInput';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
 import type { AbrirDetalle } from './Compras';
 import {
-  ESTADO_LOGISTICA, IVA_OPCIONES, fmtFecha, fmtCantidad, fmtMoneda, nombreCliente, haceCuanto, abrirPdf, calcularTotalesForm,
-  type OrdenDetalle as OC, type MedioEnvio,
+  ESTADO_LOGISTICA, ESTADO_INCIDENCIA, TIMELINE_LOGISTICA, SIGUIENTE_LOGISTICA, IVA_OPCIONES,
+  fmtFecha, fmtCantidad, fmtMoneda, nombreCliente, haceCuanto, abrirPdf, calcularTotalesForm,
+  type OrdenDetalle as OC, type MedioEnvio, type EstadoLogistica, type Seguimiento, type Recepcion, type Incidencia,
 } from './tipos';
 import { ModalShell, Cargando, Badge, Seccion, FichaTecnica, AdjuntosGrid, DropzoneAdjuntos, ConfirmacionRoja, inpCls, lblCls, btnPrimario, btnSecundario, btnPeligro } from './ui';
+import { ModalRecepcion, type ResultadoRecepcion } from './ModalRecepcion';
 
-interface Transportista { id: string; nombre: string }
 interface LineaEdit { id: string; cantidad: string; precio: string; desc: string; iva: number }
 
 export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; onClose: () => void; onChanged: () => void; abrir: AbrirDetalle }) {
@@ -25,7 +27,20 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
   const [oc, setOc] = useState<OC | null>(null);
   const [loading, setLoading] = useState(true);
   const [ocupado, setOcupado] = useState(false);
-  const [panel, setPanel] = useState<null | 'cancelar' | 'recepcion'>(null);
+  const [panel, setPanel] = useState<null | 'cancelar' | 'confirmacion' | 'seguimiento'>(null);
+  const [recibiendo, setRecibiendo] = useState(false);
+  const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
+  const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
+  const [reclamos, setReclamos] = useState<Incidencia[]>([]);
+  const [verBitacora, setVerBitacora] = useState(false);
+  // confirmación
+  const [confPrecio, setConfPrecio] = useState(true);
+  const [confCaract, setConfCaract] = useState(true);
+  const [confFecha, setConfFecha] = useState('');
+  // seguimiento
+  const [segRespuesta, setSegRespuesta] = useState('');
+  const [segFecha, setSegFecha] = useState('');
+  const [segObs, setSegObs] = useState('');
   const [editando, setEditando] = useState(false);
   const [msgPreview, setMsgPreview] = useState<{ medio: MedioEnvio; mensaje: string } | null>(null);
   // edición (borrador)
@@ -36,11 +51,6 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
   const [fechaProm, setFechaProm] = useState('');
   const [notas, setNotas] = useState('');
   const [adjuntos, setAdjuntos] = useState<string[]>([]);
-  // recepción (flujo legacy, se reemplaza por recepción por ítem en la etapa 2)
-  const [transportistas, setTransportistas] = useState<Transportista[]>([]);
-  const [fechaRecepcion, setFechaRecepcion] = useState(new Date().toISOString().slice(0, 10));
-  const [transportistaId, setTransportistaId] = useState('');
-  const [costoReal, setCostoReal] = useState('');
 
   const cargar = useCallback(async () => {
     try {
@@ -49,15 +59,20 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
       setLineas(d.items.map(i => ({ id: i.id, cantidad: String(Number(i.cantidad)), precio: String(Number(i.precio_unitario_neto)), desc: String(Number(i.descuento_pct)), iva: Number(i.iva_pct) })));
       setFlete(String(Number(d.costo_envio))); setFormaPago(d.forma_pago ?? ''); setContacto(d.contacto_proveedor ?? '');
       setFechaProm(d.fecha_prometida ? d.fecha_prometida.slice(0, 10) : ''); setNotas(d.notas ?? ''); setAdjuntos(d.adjuntos ?? []);
-      setTransportistaId(d.transportista_id ?? '');
     } catch { toast.error('Error al cargar la orden'); onClose(); }
     finally { setLoading(false); }
   }, [id, onClose]);
 
-  useEffect(() => { cargar(); }, [cargar]);
-  useEffect(() => {
-    if (panel === 'recepcion' && transportistas.length === 0) api.get<Transportista[]>('/transportistas').then(setTransportistas).catch(() => {});
-  }, [panel, transportistas.length]);
+  const cargarHistorial = useCallback(async () => {
+    const [seg, recs, incs] = await Promise.all([
+      api.get<Seguimiento[]>(`/compras/ordenes/${id}/seguimientos`).catch(() => []),
+      api.get<Recepcion[]>(`/compras/ordenes/${id}/recepciones`).catch(() => []),
+      api.get<Incidencia[]>(`/compras/incidencias?estado=todas&pedido_id=${id}`).catch(() => []),
+    ]);
+    setSeguimientos(seg); setRecepciones(recs); setReclamos(incs);
+  }, [id]);
+
+  useEffect(() => { cargar(); cargarHistorial(); }, [cargar, cargarHistorial]);
 
   const totEdit = useMemo(() => calcularTotalesForm(lineas.map(l => ({
     cantidad: parseFloat(l.cantidad) || 0, precio: parseFloat(l.precio) || 0, desc: parseFloat(l.desc) || 0, iva: l.iva,
@@ -70,6 +85,10 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
   const borrador = oc.estado_logistica === 'borrador';
   const legacyPed = oc.numero.startsWith('PED-');
   const enCurso = !['borrador', 'recibida', 'cerrada', 'cancelada'].includes(oc.estado_logistica);
+  // Sigue esperando mercadería: incluye la parcial (falta una entrega o una reposición)
+  const esperandoMercaderia = enCurso;
+  const siguiente = SIGUIENTE_LOGISTICA[oc.estado_logistica];
+  const reclamosAbiertos = reclamos.filter(r => r.estado !== 'resuelta' && r.estado !== 'rechazada');
   const terminal = ['recibida', 'cerrada', 'cancelada'].includes(oc.estado_logistica);
   const faltantes = oc.operacion_id && oc.items_total_op !== null && oc.items_cubiertos !== null ? oc.items_total_op - oc.items_cubiertos : 0;
   const clientes = [...new Map(oc.origenes.filter(o => o.cliente).map(o => [o.cliente!.id, o])).values()];
@@ -115,6 +134,52 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
     finally { setOcupado(false); }
   }
 
+  async function cambiarLogistica(estado: EstadoLogistica, observaciones?: string) {
+    setOcupado(true);
+    try {
+      await api.patch(`/compras/ordenes/${id}/estado-logistica`, { estado_logistica: estado, observaciones });
+      toast.success(`Orden: ${ESTADO_LOGISTICA[estado].label.toLowerCase()}`);
+      onChanged(); await Promise.all([cargar(), cargarHistorial()]);
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo cambiar el estado' }); }
+    finally { setOcupado(false); }
+  }
+
+  async function registrarConfirmacion() {
+    setOcupado(true);
+    try {
+      await api.post(`/compras/ordenes/${id}/confirmacion`, {
+        confirmacion_recepcion: true, confirmacion_precio: confPrecio, confirmacion_caracteristicas: confCaract,
+        fecha_prometida: confFecha || null, contacto: contacto.trim() || undefined,
+      });
+      toast.success('Confirmación registrada');
+      setPanel(null); onChanged(); await Promise.all([cargar(), cargarHistorial()]);
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo registrar la confirmación' }); }
+    finally { setOcupado(false); }
+  }
+
+  async function registrarSeguimientoUI() {
+    setOcupado(true);
+    try {
+      await api.post(`/compras/ordenes/${id}/seguimientos`, {
+        respuesta_proveedor: segRespuesta.trim() || undefined,
+        nueva_fecha_prometida: segFecha || null,
+        observaciones: segObs.trim() || undefined,
+      });
+      toast.success('Contacto registrado');
+      setSegRespuesta(''); setSegFecha(''); setSegObs('');
+      setPanel(null); setVerBitacora(true); onChanged(); await Promise.all([cargar(), cargarHistorial()]);
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo registrar el contacto' }); }
+    finally { setOcupado(false); }
+  }
+
+  /** Al cerrar la recepción: si quedaron ítems con problema, se abre el primer reclamo. */
+  async function alRecibir(r: ResultadoRecepcion) {
+    setRecibiendo(false);
+    onChanged();
+    await Promise.all([cargar(), cargarHistorial()]);
+    if (r.incidencias.length > 0) abrir('rec', r.incidencias[0].id);
+  }
+
   const franja = (icon: React.ReactNode, titulo: string, valor: string, cls: string) => (
     <div className={cn('rounded-xl border p-2.5 flex items-center gap-2 min-w-0', cls)}>
       <span className="shrink-0 opacity-80">{icon}</span>
@@ -152,7 +217,10 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
       {/* Cuatro franjas de estado (en la etapa 1 solo Logística cambia) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {franja(<Truck size={14} />, 'Logística', est.label, oc.demorada ? 'bg-red-50 border-red-200 text-red-800' : est.cls)}
-        {franja(<ShieldCheck size={14} />, 'Calidad', '—', 'bg-gray-50 border-gray-200 text-gray-500')}
+        {franja(<ShieldCheck size={14} />, 'Calidad',
+          reclamos.length === 0 ? 'Sin reclamos' : reclamosAbiertos.length > 0 ? `${reclamosAbiertos.length} abierto${reclamosAbiertos.length === 1 ? '' : 's'}` : 'Resueltos',
+          reclamos.length === 0 ? 'bg-gray-50 border-gray-200 text-gray-500'
+            : reclamosAbiertos.length > 0 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800')}
         {franja(<Wallet size={14} />, 'Finanzas', '—', 'bg-gray-50 border-gray-200 text-gray-500')}
         {franja(<FolderOpen size={14} />, 'Documentación', '—', 'bg-gray-50 border-gray-200 text-gray-500')}
       </div>
@@ -313,6 +381,134 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
         </Seccion>
       )}
 
+      {/* Línea de tiempo de la logística */}
+      {!borrador && oc.estado_logistica !== 'cancelada' && (
+        <Seccion titulo="Cómo viene">
+          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+            {TIMELINE_LOGISTICA.map((et, i) => {
+              const idxActual = TIMELINE_LOGISTICA.indexOf(oc.estado_logistica);
+              // Los estados fuera de la línea (demorado, parcial, en_preparacion…) se ubican
+              // por el hito más cercano ya alcanzado.
+              const idxEfectivo = idxActual >= 0 ? idxActual
+                : oc.estado_logistica === 'recibida_parcial' ? TIMELINE_LOGISTICA.indexOf('en_transito')
+                : oc.estado_logistica === 'terminado' ? TIMELINE_LOGISTICA.indexOf('en_fabricacion')
+                : oc.estado_logistica === 'en_preparacion' ? TIMELINE_LOGISTICA.indexOf('confirmada')
+                : oc.estado_logistica === 'demorado' ? TIMELINE_LOGISTICA.indexOf('confirmada')
+                : oc.estado_logistica === 'cerrada' ? TIMELINE_LOGISTICA.length - 1 : 0;
+              const hecho = i <= idxEfectivo;
+              const actual = i === idxEfectivo;
+              return (
+                <div key={et} className="flex items-center gap-1 shrink-0">
+                  <div className={cn('flex items-center gap-1.5 px-2.5 h-8 rounded-full border text-[11px] font-semibold whitespace-nowrap',
+                    actual ? (oc.demorada ? 'bg-red-600 text-white border-red-600' : 'bg-lime-600 text-white border-lime-600')
+                      : hecho ? 'bg-lime-50 text-lime-800 border-lime-200' : 'bg-white text-gray-400 border-gray-200')}>
+                    {hecho && !actual && <Check size={11} />}
+                    {ESTADO_LOGISTICA[et].label}
+                  </div>
+                  {i < TIMELINE_LOGISTICA.length - 1 && <span className={cn('w-3 h-px', hecho ? 'bg-lime-300' : 'bg-gray-200')} />}
+                </div>
+              );
+            })}
+          </div>
+          {!TIMELINE_LOGISTICA.includes(oc.estado_logistica) && (
+            <p className="text-[11px] text-gray-600 mt-1.5">Estado actual: <strong>{ESTADO_LOGISTICA[oc.estado_logistica].label}</strong>.</p>
+          )}
+        </Seccion>
+      )}
+
+      {/* Entregas recibidas */}
+      {recepciones.length > 0 && (
+        <Seccion titulo={`Entregas (${recepciones.length})`}>
+          <div className="space-y-2">
+            {recepciones.map(r => {
+              const conProblema = r.items.filter(i => Number(i.cantidad_problema) > 0);
+              return (
+                <div key={r.id} className="border border-gray-200 rounded-xl p-3">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span className="text-xs font-bold text-gray-900">Entrega {r.numero_secuencia}</span>
+                    <span className="text-[11px] text-gray-600">{fmtFecha(r.fecha)}</span>
+                    {r.remito_proveedor_nro && <span className="text-[11px] text-gray-600">· remito {r.remito_proveedor_nro}</span>}
+                    {r.transportista_nombre && <span className="text-[11px] text-gray-600">· {r.transportista_nombre}</span>}
+                    {conProblema.length > 0 && <Badge label={`${conProblema.length} con problema`} cls="bg-amber-100 text-amber-800" />}
+                  </div>
+                  <div className="space-y-1">
+                    {r.items.map(i => {
+                      const prob = Number(i.cantidad_problema);
+                      return (
+                        <div key={i.id} className="flex items-center gap-2 text-[11px]">
+                          {i.no_recibido ? <X size={11} className="text-gray-500 shrink-0" />
+                            : prob > 0 ? <AlertTriangle size={11} className="text-amber-600 shrink-0" />
+                            : <Check size={11} className="text-emerald-600 shrink-0" />}
+                          <span className="flex-1 min-w-0 truncate text-gray-800">{i.descripcion}</span>
+                          <span className="text-gray-600 shrink-0 tabular-nums">
+                            {i.no_recibido ? 'no vino' : <>{fmtCantidad(i.cantidad_conforme, i.unidad)} conforme{prob > 0 ? ` · ${fmtCantidad(prob, i.unidad)} con problema` : ''}</>}
+                          </span>
+                          {i.incidencia && (
+                            <button onClick={() => abrir('rec', i.incidencia!.id)} className="text-[10px] font-mono text-red-700 bg-red-50 border border-red-200 rounded-full px-1.5 hover:bg-red-100 shrink-0">{i.incidencia.numero}</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {r.notas && <p className="text-[11px] text-gray-600 italic mt-1">{r.notas}</p>}
+                  {r.adjuntos?.length > 0 && <div className="mt-1.5"><AdjuntosGrid urls={r.adjuntos} size="sm" /></div>}
+                </div>
+              );
+            })}
+          </div>
+        </Seccion>
+      )}
+
+      {/* Reclamos */}
+      {reclamos.length > 0 && (
+        <Seccion titulo={`Reclamos (${reclamos.length})`}>
+          <div className="space-y-1.5">
+            {reclamos.map(r => {
+              const est = ESTADO_INCIDENCIA[r.estado];
+              return (
+                <button key={r.id} onClick={() => abrir('rec', r.id)}
+                  className={cn('w-full flex items-center gap-2 p-2.5 rounded-xl border border-l-4 text-left hover:bg-gray-50 min-h-11', est.border, 'border-gray-200')}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-mono text-gray-700">{r.numero}</span>
+                      <Badge label={est.label} cls={est.cls} />
+                      <span className="text-xs font-semibold text-gray-900 truncate">{r.item_descripcion}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-600">{fmtCantidad(r.cantidad_afectada, r.item_unidad)} afectada · {r.descripcion || 'sin detalle'}</p>
+                  </div>
+                  <ChevronRight size={14} className="text-gray-400 shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </Seccion>
+      )}
+
+      {/* Bitácora */}
+      {seguimientos.length > 0 && (
+        <div>
+          <button onClick={() => setVerBitacora(v => !v)} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-600 hover:text-gray-900 min-h-11 sm:min-h-0">
+            <History size={13} /> Seguimiento ({seguimientos.length}) {verBitacora ? '▾' : '▸'}
+          </button>
+          {verBitacora && (
+            <div className="mt-2 space-y-1.5 border-l-2 border-gray-200 pl-3">
+              {seguimientos.map(sg => (
+                <div key={sg.id} className="text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800">{fmtFecha(sg.fecha)}</span>
+                    {sg.estado_logistica_nuevo && <Badge label={ESTADO_LOGISTICA[sg.estado_logistica_nuevo].label} cls="bg-gray-100 text-gray-700" />}
+                    {sg.usuario_nombre && <span className="text-[10px] text-gray-500">{sg.usuario_nombre}</span>}
+                  </div>
+                  {sg.respuesta_proveedor && <p className="text-gray-700 italic">"{sg.respuesta_proveedor}"</p>}
+                  {sg.observaciones && <p className="text-gray-600">{sg.observaciones}</p>}
+                  {sg.nueva_fecha_prometida && <p className="text-sky-700">Nueva fecha: {fmtFecha(sg.nueva_fecha_prometida)}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {faltantes > 0 && oc.estado_logistica !== 'cancelada' && (
         <div className="p-3 bg-orange-50 rounded-xl border border-orange-200 flex items-start gap-3">
           <AlertTriangle size={16} className="text-orange-500 mt-0.5 shrink-0" />
@@ -338,10 +534,36 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
               <button onClick={() => setPanel('cancelar')} disabled={ocupado} className={btnPeligro}><Ban size={14} /> Cancelar orden</button>
             </div>
           )}
-          {enCurso && (
-            <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-gray-200">
-              <button onClick={() => setPanel('recepcion')} disabled={ocupado} className={cn(btnPrimario, 'flex-1 bg-emerald-600 hover:bg-emerald-700')}><CheckCircle size={15} /> Registrar recepción</button>
-              <button onClick={() => setPanel('cancelar')} disabled={ocupado} className={btnPeligro}>Cancelar</button>
+          {esperandoMercaderia && (
+            <div className="pt-3 border-t border-gray-200 space-y-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button onClick={() => setRecibiendo(true)} disabled={ocupado} className={cn(btnPrimario, 'flex-1 bg-emerald-600 hover:bg-emerald-700')}>
+                  <PackageCheck size={15} /> {recepciones.length > 0 ? 'Registrar otra entrega' : 'Registrar recepción'}
+                </button>
+                {oc.estado_logistica === 'enviada' && (
+                  <button onClick={() => { setConfFecha(oc.fecha_prometida ? oc.fecha_prometida.slice(0, 10) : ''); setPanel('confirmacion'); }} disabled={ocupado} className={btnSecundario}>
+                    <Check size={14} /> Registrar confirmación
+                  </button>
+                )}
+                {siguiente && (
+                  <button onClick={() => cambiarLogistica(siguiente.estado)} disabled={ocupado} className={btnSecundario}>
+                    <ChevronRight size={14} /> {siguiente.label}
+                  </button>
+                )}
+                <button onClick={() => setPanel('seguimiento')} disabled={ocupado} className={btnSecundario}>
+                  <MessageSquarePlus size={14} /> Registrar contacto
+                </button>
+                <button onClick={() => setPanel('cancelar')} disabled={ocupado} className={btnPeligro}>Cancelar</button>
+              </div>
+              {oc.demorada && (
+                <div className="p-3 rounded-xl border border-red-200 bg-red-50 flex items-start gap-2">
+                  <CalendarClock size={16} className="text-red-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-800">Demorada {oc.dias_demora} día{oc.dias_demora === 1 ? '' : 's'}</p>
+                    <p className="text-xs text-red-700">La fecha prometida era el {fmtFecha(oc.fecha_prometida ?? oc.fecha_entrega_est)}. Llamá al proveedor y registrá qué te dijo con "Registrar contacto".</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {oc.estado_logistica === 'recibida' && oc.operacion && (
@@ -357,30 +579,59 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
       )}
 
       {panel === 'cancelar' && (
-        <ConfirmacionRoja titulo="¿Cancelar esta orden de compra?" texto={oc.estado_logistica === 'recibida' ? 'La orden ya fue recibida: el stock ingresado NO se revierte en esta etapa.' : 'Los ítems de la solicitud quedan liberados para volver a comprarse.'}
+        <ConfirmacionRoja titulo="¿Cancelar esta orden de compra?"
+          texto={recepciones.length > 0
+            ? 'Esta orden ya recibió mercadería: el stock que había ingresado se devuelve automáticamente.'
+            : 'Los ítems de la solicitud quedan liberados para volver a comprarse.'}
           labelConfirmar="Sí, cancelar" cargando={ocupado} onConfirmar={() => cambiarEstadoLegacy('cancelado')} onCancelar={() => setPanel(null)} />
       )}
 
-      {panel === 'recepcion' && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
-          <p className="text-sm font-bold text-emerald-900">Registrar recepción</p>
-          <p className="text-xs text-emerald-800">Ingresa a stock la cantidad pedida de cada ítem con producto de catálogo. La recepción ítem por ítem (parciales, faltantes, reclamos) llega en la etapa 2.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div><label className={lblCls}>Fecha</label><input type="date" value={fechaRecepcion} onChange={e => setFechaRecepcion(e.target.value)} className={inpCls} /></div>
-            <div><label className={lblCls}>Transportista</label>
-              <select value={transportistaId} onChange={e => setTransportistaId(e.target.value)} className={inpCls}>
-                <option value="">Sin especificar</option>
-                {transportistas.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
-            </div>
-            <div><label className={lblCls}>Flete real</label><MontoInput value={costoReal} onChange={setCostoReal} className={inpCls} placeholder={String(Number(oc.costo_envio))} /></div>
+      {panel === 'confirmacion' && (
+        <div className="p-4 bg-sky-50 border border-sky-200 rounded-xl space-y-3">
+          <p className="text-sm font-bold text-sky-900">El proveedor confirmó la orden</p>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-sky-900 min-h-11 sm:min-h-0">
+              <input type="checkbox" checked={confPrecio} onChange={e => setConfPrecio(e.target.checked)} className="w-4 h-4 accent-sky-600" />
+              Confirmó el precio
+            </label>
+            <label className="flex items-center gap-2 text-sm text-sky-900 min-h-11 sm:min-h-0">
+              <input type="checkbox" checked={confCaract} onChange={e => setConfCaract(e.target.checked)} className="w-4 h-4 accent-sky-600" />
+              Confirmó medidas y características
+            </label>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className={lblCls}>Fecha de entrega prometida</label><input type="date" value={confFecha} onChange={e => setConfFecha(e.target.value)} className={inpCls} /></div>
+            <div><label className={lblCls}>Contacto</label><input value={contacto} onChange={e => setContacto(e.target.value)} className={inpCls} placeholder="Con quién hablaste" /></div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => cambiarEstadoLegacy('recibido', { fecha_recepcion: fechaRecepcion, ...(transportistaId ? { transportista_id: transportistaId } : {}), ...(costoReal ? { costo_envio_real: parseFloat(costoReal) } : {}) })}
-              disabled={ocupado} className={cn(btnPrimario, 'flex-1 bg-emerald-600 hover:bg-emerald-700')}>Confirmar recepción</button>
+            <button onClick={registrarConfirmacion} disabled={ocupado} className={cn(btnPrimario, 'flex-1 bg-sky-600 hover:bg-sky-700')}>{ocupado ? 'Guardando…' : 'Guardar confirmación'}</button>
             <button onClick={() => setPanel(null)} disabled={ocupado} className={btnSecundario}>Volver</button>
           </div>
         </div>
+      )}
+
+      {panel === 'seguimiento' && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+          <p className="text-sm font-bold text-amber-900">¿Qué te dijo el proveedor?</p>
+          <div><label className={lblCls}>Respuesta</label>
+            <textarea value={segRespuesta} onChange={e => setSegRespuesta(e.target.value)} rows={2} className={inpCls} placeholder="Ej: sale el jueves, está en pintura" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className={lblCls}>Nueva fecha prometida</label><input type="date" value={segFecha} onChange={e => setSegFecha(e.target.value)} className={inpCls} /></div>
+            <div><label className={lblCls}>Observaciones internas</label><input value={segObs} onChange={e => setSegObs(e.target.value)} className={inpCls} /></div>
+          </div>
+          {segFecha && <p className="text-[11px] text-amber-800">Con la fecha nueva la orden deja de figurar como demorada.</p>}
+          <div className="flex gap-2">
+            <button onClick={registrarSeguimientoUI} disabled={ocupado || (!segRespuesta.trim() && !segObs.trim() && !segFecha)} className={cn(btnPrimario, 'flex-1 bg-amber-600 hover:bg-amber-700')}>
+              {ocupado ? 'Guardando…' : 'Guardar contacto'}
+            </button>
+            <button onClick={() => setPanel(null)} disabled={ocupado} className={btnSecundario}>Volver</button>
+          </div>
+        </div>
+      )}
+
+      {recibiendo && (
+        <ModalRecepcion orden={oc} onClose={() => setRecibiendo(false)} onHecho={alRecibir} />
       )}
 
       {msgPreview && (

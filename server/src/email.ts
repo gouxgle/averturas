@@ -387,3 +387,27 @@ export async function sendCompra(p: EmailCompraParams): Promise<boolean> {
     attachments: [{ filename: p.pdfNombre, content: p.pdf, contentType: 'application/pdf' }],
   });
 }
+
+interface EmailReclamoParams {
+  to: string; asunto: string; mensaje: string; fotos: string[];
+  empresaNombre: string; empresaTelefono: string | null;
+}
+
+/** Reclamo al proveedor: el texto y las fotos como links (no se adjuntan binarios). */
+export async function sendReclamo(p: EmailReclamoParams): Promise<boolean> {
+  const base = (process.env.APP_URL ?? '').replace(/\/+$/, '');
+  const links = p.fotos.map(u => (u.startsWith('http') ? u : `${base}${u}`)).filter(u => u.startsWith('http'));
+  const content = `
+    <tr>
+      <td style="padding:36px 32px;">
+        <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.7;">${escapeHtml(p.mensaje).replace(/\*([^*]+)\*/g, '<strong>$1</strong>').split('\n').join('<br/>')}</p>
+        ${links.length ? `
+          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;font-weight:700;">Fotos del problema</p>
+          <ul style="margin:0 0 20px;padding-left:18px;">
+            ${links.map((u, i) => `<li style="margin-bottom:4px;"><a href="${u}" style="color:${NAVY};font-size:13px;">Foto ${i + 1}</a></li>`).join('')}
+          </ul>` : ''}
+        ${p.empresaTelefono ? `<p style="margin:0;font-size:13px;color:#9ca3af;">¿Consultas? Escribinos por WhatsApp al <strong>${escapeHtml(p.empresaTelefono)}</strong></p>` : ''}
+      </td>
+    </tr>`;
+  return sendMail({ to: p.to, subject: p.asunto, html: baseLayout(p.empresaNombre, content), fromNombre: p.empresaNombre });
+}

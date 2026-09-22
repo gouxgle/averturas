@@ -63,7 +63,9 @@ export function ModalShell({ icon, iconCls, titulo, subtitulo, badges, acciones,
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
           {children}
         </div>
-        {pie && <div className="shrink-0 border-t border-gray-200 p-3 sm:p-4 bg-gray-50 rounded-b-2xl">{pie}</div>}
+        {/* pl-14 en mobile: el buzón de comentarios es `fixed bottom-4 left-4` y flota por
+            encima de todo (mismo criterio que ModalCatalogoProductos) */}
+        {pie && <div className="shrink-0 border-t border-gray-200 p-3 sm:p-4 pl-16 sm:pl-4 bg-gray-50 rounded-b-2xl">{pie}</div>}
       </div>
     </div>
   );

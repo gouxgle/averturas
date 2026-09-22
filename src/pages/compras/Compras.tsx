@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Plus, ClipboardList, Scale, PackageCheck, Zap, Layers } from 'lucide-react';
+import { ShoppingCart, Plus, ClipboardList, Scale, PackageCheck, Zap, Layers, Truck, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -11,13 +11,16 @@ import { fmtMoneda, type TableroCompras } from './tipos';
 import { TabSolicitudes } from './TabSolicitudes';
 import { TabCotizaciones } from './TabCotizaciones';
 import { TabOrdenes } from './TabOrdenes';
+import { TabRecepciones } from './TabRecepciones';
+import { TabReclamos } from './TabReclamos';
 import { DetalleSolicitud } from './DetalleSolicitud';
 import { DetalleCotizacion } from './DetalleCotizacion';
 import { DetalleOrden } from './DetalleOrden';
+import { DetalleIncidencia } from './DetalleIncidencia';
 import { ModalConsolidar } from './ModalConsolidar';
 
-type Tab = 'solicitudes' | 'cotizaciones' | 'ordenes';
-export type AbrirDetalle = (tipo: 'sc' | 'pc' | 'oc', id: string) => void;
+type Tab = 'solicitudes' | 'cotizaciones' | 'ordenes' | 'recepciones' | 'reclamos';
+export type AbrirDetalle = (tipo: 'sc' | 'pc' | 'oc' | 'rec', id: string) => void;
 
 // Página del módulo Compras: SC → PC → OC en tres pestañas. Los modales de detalle se
 // abren por query param (?sc= / ?pc= / ?oc=) para poder linkear desde otras pantallas
@@ -29,6 +32,7 @@ export default function Compras() {
   const scId = params.get('sc');
   const pcId = params.get('pc');
   const ocId = params.get('oc');
+  const recId = params.get('rec');
 
   const [tablero, setTablero] = useState<TableroCompras | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -46,22 +50,22 @@ export default function Compras() {
 
   const setTab = (t: Tab) => {
     const p = new URLSearchParams(params);
-    p.set('tab', t); p.delete('sc'); p.delete('pc'); p.delete('oc');
+    p.set('tab', t); p.delete('sc'); p.delete('pc'); p.delete('oc'); p.delete('rec');
     setParams(p, { replace: true });
   };
 
   // Abrir un detalle también cambia a su pestaña (SC → su PC → su OC navegan entre sí)
   const abrir: AbrirDetalle = useCallback((tipo, id) => {
     const p = new URLSearchParams(params);
-    p.delete('sc'); p.delete('pc'); p.delete('oc');
-    p.set('tab', { sc: 'solicitudes', pc: 'cotizaciones', oc: 'ordenes' }[tipo]);
+    p.delete('sc'); p.delete('pc'); p.delete('oc'); p.delete('rec');
+    p.set('tab', { sc: 'solicitudes', pc: 'cotizaciones', oc: 'ordenes', rec: 'reclamos' }[tipo]);
     p.set(tipo, id);
     setParams(p);
   }, [params, setParams]);
 
   const cerrarDetalle = useCallback(() => {
     const p = new URLSearchParams(params);
-    p.delete('sc'); p.delete('pc'); p.delete('oc');
+    p.delete('sc'); p.delete('pc'); p.delete('oc'); p.delete('rec');
     setParams(p, { replace: true });
   }, [params, setParams]);
 
@@ -70,6 +74,8 @@ export default function Compras() {
     { value: 'solicitudes',  label: 'Solicitudes',  icon: ClipboardList, count: s?.sc_abiertas, dot: 'bg-amber-400' },
     { value: 'cotizaciones', label: 'Cotizaciones', icon: Scale,         count: s?.pc_abiertas, dot: 'bg-sky-400' },
     { value: 'ordenes',      label: 'Órdenes',      icon: PackageCheck,  count: s?.oc_activas,  dot: s?.oc_demoradas ? 'bg-red-500' : 'bg-emerald-500' },
+    { value: 'recepciones',  label: 'Recepciones',  icon: Truck,         count: s?.oc_por_recibir, dot: 'bg-teal-400' },
+    { value: 'reclamos',     label: 'Reclamos',     icon: AlertTriangle, count: s?.reclamos_abiertos, dot: 'bg-red-500' },
   ];
 
   return (
@@ -103,6 +109,7 @@ export default function Compras() {
           { value: s.pc_esperando, label: 'cotizaciones esperando respuesta', color: '#60a5fa' },
           { value: s.oc_en_curso,  label: 'órdenes en curso',        color: '#a3e635' },
           { value: s.oc_demoradas, label: 'demoradas',               color: s.oc_demoradas ? '#f87171' : '#ffffff' },
+          { value: s.reclamos_abiertos, label: 'reclamos abiertos',   color: s.reclamos_abiertos ? '#fb923c' : '#ffffff' },
           { value: fmtMoneda(s.valor_en_curso), label: 'en compras activas', color: '#ffffff' },
         ]} />
       )}
@@ -133,10 +140,13 @@ export default function Compras() {
       {tab === 'solicitudes'  && <TabSolicitudes  abrir={abrir} refresh={refresh} />}
       {tab === 'cotizaciones' && <TabCotizaciones abrir={abrir} refresh={refresh} />}
       {tab === 'ordenes'      && <TabOrdenes      abrir={abrir} refresh={refresh} tablero={tablero} />}
+      {tab === 'recepciones'  && <TabRecepciones  abrir={abrir} refresh={refresh} />}
+      {tab === 'reclamos'     && <TabReclamos     abrir={abrir} refresh={refresh} />}
 
       {scId && <DetalleSolicitud id={scId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}
       {pcId && <DetalleCotizacion id={pcId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}
       {ocId && <DetalleOrden id={ocId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}
+      {recId && <DetalleIncidencia id={recId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}
       {consolidar && <ModalConsolidar onClose={() => setConsolidar(false)} onCreated={(id) => { setConsolidar(false); recargar(); abrir('oc', id); }} />}
     </div>
   );

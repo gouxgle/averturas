@@ -9,6 +9,11 @@ import { db } from '../db.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
+/** Fila de pg: se lee por clave dinámica (columnas de `pedido_items`, `pedidos`, …). */
+type Fila = Record<string, unknown>;
+
+const num = (v: unknown) => Number(v ?? 0);
+
 // ── Numeración ────────────────────────────────────────────────────────────────
 
 export type PrefijoCompra = 'SC' | 'PC' | 'OC' | 'REC';
@@ -481,4 +486,324 @@ export function resumenEspecificaciones(e: Record<string, unknown> | null | unde
   if (typeof e.herrajes === 'string' && e.herrajes) partes.push(`herrajes: ${hum(e.herrajes)}`);
   if (Array.isArray(e.accesorios) && e.accesorios.length) partes.push((e.accesorios as string[]).join(', '));
   return partes.join(' · ');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Etapa 2 — logística, recepción por ítem, reclamos
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Transiciones válidas de `estado_logistica`. Misma idea que la tabla de
+ * `pedidos.ts` para el estado legacy, pero con el detalle del circuito real del
+ * proveedor. `recibida_parcial`/`recibida` las decide la recepción, no el usuario.
+ */
+export const TRANSICIONES_LOGISTICA: Record<EstadoLogistica, EstadoLogistica[]> = {
+  borrador:         ['enviada', 'cancelada'],
+  enviada:          ['confirmada', 'en_preparacion', 'en_fabricacion', 'demorado', 'cancelada'],
+  confirmada:       ['en_preparacion', 'en_fabricacion', 'terminado', 'listo_despacho', 'en_transito', 'demorado', 'cancelada'],
+  en_preparacion:   ['en_fabricacion', 'terminado', 'listo_despacho', 'en_transito', 'demorado', 'cancelada'],
+  en_fabricacion:   ['terminado', 'listo_despacho', 'en_transito', 'demorado', 'cancelada'],
+  terminado:        ['listo_despacho', 'en_transito', 'demorado', 'cancelada'],
+  listo_despacho:   ['en_transito', 'demorado', 'cancelada'],
+  en_transito:      ['demorado', 'cancelada'],
+  demorado:         ['confirmada', 'en_preparacion', 'en_fabricacion', 'terminado', 'listo_despacho', 'en_transito', 'cancelada'],
+  recibida_parcial: ['demorado', 'cancelada'],
+  recibida:         ['cerrada', 'cancelada'],
+  cerrada:          [],
+  cancelada:        [],
+};
+
+/** Estados en los que la OC ya no espera mercadería. */
+export const LOGISTICA_TERMINAL: EstadoLogistica[] = ['recibida', 'cerrada', 'cancelada'];
+
+/** Etiqueta corta para bitácora y mensajes (el frontend tiene su propio mapa). */
+export const LOGISTICA_LABEL: Record<EstadoLogistica, string> = {
+  borrador: 'Borrador', enviada: 'Enviada al proveedor', confirmada: 'Confirmada',
+  en_preparacion: 'En preparación', en_fabricacion: 'En fabricación', terminado: 'Terminado',
+  listo_despacho: 'Listo para despacho', en_transito: 'En tránsito', demorado: 'Demorado',
+  recibida_parcial: 'Recibida parcial', recibida: 'Recibida', cerrada: 'Cerrada', cancelada: 'Cancelada',
+};
+
+/** Anota un movimiento en la bitácora de la OC. */
+export async function registrarSeguimiento(client: Queryable, p: {
+  pedido_id: string;
+  tipo: 'envio' | 'confirmacion' | 'estado' | 'seguimiento' | 'demora' | 'nota' | 'recepcion' | 'reclamo';
+  estado_logistica_nuevo?: string | null;
+  respuesta_proveedor?: string | null;
+  nueva_fecha_prometida?: string | null;
+  observaciones?: string | null;
+  created_by?: string | null;
+}): Promise<void> {
+  await client.query(`
+    INSERT INTO compras_seguimientos
+      (pedido_id, tipo, estado_logistica_nuevo, respuesta_proveedor, nueva_fecha_prometida, observaciones, created_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7)
+  `, [p.pedido_id, p.tipo, p.estado_logistica_nuevo ?? null, p.respuesta_proveedor ?? null,
+    p.nueva_fecha_prometida ?? null, p.observaciones ?? null, p.created_by ?? null]);
+}
+
+/**
+ * Si la operación no tiene más OC activas, queda lista para entregar. Era la regla
+ * inline de `pedidos.ts`; ahora la comparten el flujo viejo y las recepciones.
+ */
+export async function marcarOperacionListoSiCorresponde(client: Queryable, operacionId: string | null, pedidoId: string): Promise<void> {
+  if (!operacionId) return;
+  const { rows: [row] } = await client.query(`
+    SELECT COUNT(*)::int AS pendientes FROM pedidos
+    WHERE operacion_id = $1 AND id <> $2 AND estado NOT IN ('cancelado', 'recibido')
+  `, [operacionId, pedidoId]);
+  if (row.pendientes === 0) {
+    await client.query(`
+      UPDATE operaciones SET estado = 'listo', updated_at = now()
+      WHERE id = $1 AND estado NOT IN ('listo', 'instalado', 'entregado', 'cancelado', 'rechazado')
+    `, [operacionId]);
+  }
+}
+
+/** `estado_calidad` de la OC según sus incidencias (sin reclamos / abiertas / resueltas). */
+export async function recalcularEstadoCalidad(client: Queryable, pedidoId: string): Promise<void> {
+  const { rows: [r] } = await client.query(`
+    SELECT COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE estado NOT IN ('resuelta','rechazada'))::int AS abiertas
+    FROM compras_incidencias WHERE pedido_id = $1
+  `, [pedidoId]);
+  const estado = r.total === 0 ? 'sin_reclamos' : r.abiertas > 0 ? 'reclamo_pendiente' : 'resuelto';
+  await client.query(`UPDATE pedidos SET estado_calidad = $2, updated_at = now() WHERE id = $1 AND estado_calidad <> $2`, [pedidoId, estado]);
+}
+
+/**
+ * Recalcula `estado_item` de cada línea y el estado de recepción de la OC.
+ *
+ * Un ítem está completo cuando lo conforme cubre lo pedido **o** cuando lo que faltó
+ * quedó saldado por un reclamo ya cerrado: la reposición llegó (y se contabilizó en su
+ * propia línea), o se acordó descuento / nota de crédito / rechazo. Sin esto, el ítem
+ * que llegó roto quedaba "parcial" para siempre y la OC nunca pasaba a `recibida`.
+ *
+ * Devuelve el estado de recepción resultante, o null si todavía no se recibió nada.
+ */
+export async function recalcularRecepcionOC(client: Queryable, pedidoId: string): Promise<EstadoLogistica | null> {
+  const { rows } = await client.query(`
+    SELECT pi.id, pi.cantidad, pi.cantidad_recibida, pi.cantidad_conforme, pi.estado_item,
+      pi.es_reposicion_reclamo,
+      COALESCE((SELECT SUM(inc.cantidad_afectada) FROM compras_incidencias inc
+                WHERE inc.pedido_item_id = pi.id AND inc.estado IN ('resuelta','rechazada')), 0) AS cubierto_por_reclamos
+    FROM pedido_items pi WHERE pi.pedido_id = $1
+  `, [pedidoId]);
+
+  let pendientes = 0, vivos = 0, conMovimiento = 0;
+  for (const r of rows as Fila[]) {
+    if (r.estado_item === 'cancelado') continue;
+    const pedida    = num(r.cantidad);
+    const conforme  = num(r.cantidad_conforme);
+    const recibida  = num(r.cantidad_recibida);
+    const saldado   = conforme + num(r.cubierto_por_reclamos);
+    const completo  = saldado + 0.001 >= pedida;
+    const estado    = completo ? 'recibido' : recibida > 0 ? 'parcial' : 'pendiente';
+    if (estado !== r.estado_item) {
+      await client.query(`UPDATE pedido_items SET estado_item = $2 WHERE id = $1`, [r.id, estado]);
+    }
+    if (recibida > 0) conMovimiento++;
+    // Las líneas de reposición no deciden si la OC está completa: son el remedio de otra
+    if (r.es_reposicion_reclamo) continue;
+    vivos++;
+    if (!completo) pendientes++;
+  }
+
+  if (conMovimiento === 0) return null;
+  return vivos > 0 && pendientes === 0 ? 'recibida' : 'recibida_parcial';
+}
+
+export interface RecepcionItemInput {
+  pedido_item_id: string;
+  cantidad_recibida?: number;
+  cantidad_conforme?: number;
+  cantidad_problema?: number;
+  no_recibido?: boolean;
+  observaciones?: string | null;
+  /** Datos del reclamo cuando la UI ya sabe qué pasó (si no, la incidencia nace 'otro'). */
+  incidencia_tipo?: string | null;
+  incidencia_descripcion?: string | null;
+  incidencia_adjuntos?: string[];
+}
+
+export interface RecepcionInput {
+  fecha?: string | null;
+  remito_proveedor_nro?: string | null;
+  transportista_id?: string | null;
+  costo_envio_real?: number | null;
+  adjuntos?: string[];
+  notas?: string | null;
+  items: RecepcionItemInput[];
+}
+
+export class ErrorRecepcion extends Error {
+  constructor(public status: 404 | 409 | 422, message: string) { super(message); }
+}
+
+/**
+ * ÚNICO camino de ingreso a stock del módulo (lo usan `/compras/.../recepciones` y el
+ * flujo viejo `PATCH /pedidos/:id/estado recibido`).
+ *
+ * Por cada ítem: valida que lo recibido acumulado no supere lo pedido, ingresa a
+ * `stock_movimientos` **solo la cantidad conforme** (antes se ingresaba la cantidad
+ * pedida entera al marcar "recibido"), actualiza acumulados y `estado_item`, y crea
+ * una incidencia `abierta` por cada ítem con problema. Después decide
+ * `recibida_parcial` / `recibida`, sincroniza el estado legacy, cierra las incidencias
+ * cuyo ítem de reposición llegó conforme y deja la operación lista si corresponde.
+ */
+export async function crearRecepcion(client: Queryable, pedidoId: string, b: RecepcionInput, userId: string | null): Promise<{
+  recepcion_id: string; numero_secuencia: number; estado_logistica: EstadoLogistica; incidencias: { id: string; numero: string; pedido_item_id: string }[];
+}> {
+  const { rows: [pedido] } = await client.query(
+    `SELECT * FROM pedidos WHERE id = $1 FOR UPDATE`, [pedidoId]);
+  if (!pedido) throw new ErrorRecepcion(404, 'Orden no encontrada');
+  if (['cancelada'].includes(pedido.estado_logistica)) throw new ErrorRecepcion(409, 'La orden está cancelada');
+  if (['cerrada'].includes(pedido.estado_logistica)) throw new ErrorRecepcion(409, 'La orden ya está cerrada');
+  if (pedido.estado_logistica === 'borrador') throw new ErrorRecepcion(409, 'Enviá la orden al proveedor antes de registrar la recepción');
+  if (!b.items?.length) throw new ErrorRecepcion(422, 'Marcá al menos un ítem recibido');
+
+  const { rows: itemsOC } = await client.query(
+    `SELECT * FROM pedido_items WHERE pedido_id = $1 FOR UPDATE`, [pedidoId]);
+  const porId = new Map((itemsOC as Fila[]).map(i => [String(i.id), i]));
+
+  // Validación previa: nada se escribe si un renglón no cierra
+  for (const it of b.items) {
+    const pi = porId.get(it.pedido_item_id);
+    if (!pi) throw new ErrorRecepcion(422, 'Hay ítems que no pertenecen a esta orden');
+    const recibida = num(it.cantidad_recibida);
+    const conforme = num(it.cantidad_conforme);
+    const problema = num(it.cantidad_problema);
+    if (recibida < 0 || conforme < 0 || problema < 0) throw new ErrorRecepcion(422, 'Las cantidades no pueden ser negativas');
+    if (Math.abs(conforme + problema - recibida) > 0.001) {
+      throw new ErrorRecepcion(422, `En "${pi.descripcion}" lo conforme (${conforme}) más lo que tiene problema (${problema}) tiene que dar lo recibido (${recibida})`);
+    }
+    const yaRecibida = num(pi.cantidad_recibida);
+    if (yaRecibida + recibida > num(pi.cantidad) + 0.001) {
+      throw new ErrorRecepcion(422, `En "${pi.descripcion}" estás recibiendo ${recibida} y ya había ${yaRecibida} de ${num(pi.cantidad)} pedidas`);
+    }
+    // `stock_movimientos.cantidad` es INT en todo el sistema: un decimal se redondearía
+    // en silencio y dejaría el stock mal. Los productos de catálogo se cuentan por unidad;
+    // lo que va en metros/m2 (perfiles, vidrios) no tiene producto_id y no toca stock.
+    if (pi.producto_id && !Number.isInteger(conforme)) {
+      throw new ErrorRecepcion(422, `"${pi.descripcion}" es un producto de catálogo: la cantidad conforme tiene que ser un número entero de unidades (recibiste ${conforme})`);
+    }
+  }
+
+  const { rows: [seq] } = await client.query(
+    `SELECT COALESCE(MAX(numero_secuencia), 0) + 1 AS n FROM compras_recepciones WHERE pedido_id = $1`, [pedidoId]);
+  const numeroSecuencia = Number(seq.n);
+
+  const { rows: [recepcion] } = await client.query(`
+    INSERT INTO compras_recepciones
+      (pedido_id, numero_secuencia, fecha, remito_proveedor_nro, transportista_id, costo_envio_real, adjuntos, notas, created_by)
+    VALUES ($1,$2,COALESCE($3::date, CURRENT_DATE),$4,$5,$6,$7,$8,$9)
+    RETURNING *
+  `, [pedidoId, numeroSecuencia, b.fecha ?? null, b.remito_proveedor_nro ?? null, b.transportista_id ?? null,
+    b.costo_envio_real ?? null, JSON.stringify(b.adjuntos ?? []), b.notas ?? null, userId]);
+
+  const incidencias: { id: string; numero: string; pedido_item_id: string }[] = [];
+
+  for (const it of b.items) {
+    const pi = porId.get(it.pedido_item_id)!;
+    const recibida = num(it.cantidad_recibida);
+    const conforme = num(it.cantidad_conforme);
+    const problema = num(it.cantidad_problema);
+    const noRecibido = !!it.no_recibido;
+
+    const { rows: [ri] } = await client.query(`
+      INSERT INTO compras_recepcion_items
+        (recepcion_id, pedido_item_id, cantidad_recibida, cantidad_conforme, cantidad_problema, no_recibido, observaciones)
+      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
+    `, [recepcion.id, pi.id, recibida, conforme, problema, noRecibido, it.observaciones ?? null]);
+
+    // Stock: SOLO lo conforme, y solo si el ítem tiene producto de catálogo
+    if (conforme > 0 && pi.producto_id) {
+      await client.query(`
+        INSERT INTO stock_movimientos
+          (producto_id, tipo, cantidad, costo_unitario, motivo, operacion_id, referencia_nro, created_by)
+        VALUES ($1, 'ingreso', $2, $3, $4, $5, $6, $7)
+      `, [pi.producto_id, Math.abs(conforme), num(pi.precio_unitario_neto) || num(pi.costo_unitario) || null,
+        `Recepción de compra (${numeroSecuencia === 1 ? 'entrega' : `entrega ${numeroSecuencia}`})`,
+        pedido.operacion_id ?? null, pedido.numero, userId]);
+    }
+
+    // Acumulados de la línea; `estado_item` lo decide recalcularRecepcionOC() al final,
+    // que además tiene en cuenta lo saldado por reclamos cerrados.
+    await client.query(`
+      UPDATE pedido_items SET cantidad_recibida = $2, cantidad_conforme = $3, cantidad_problema = $4
+      WHERE id = $1
+    `, [pi.id, num(pi.cantidad_recibida) + recibida, num(pi.cantidad_conforme) + conforme, num(pi.cantidad_problema) + problema]);
+
+    if (problema > 0) {
+      const numero = await nextNumeroCompra(client, 'REC');
+      const { rows: [inc] } = await client.query(`
+        INSERT INTO compras_incidencias
+          (numero, pedido_id, pedido_item_id, recepcion_item_id, tipo, cantidad_afectada, descripcion, adjuntos, created_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, numero
+      `, [numero, pedidoId, pi.id, ri.id, it.incidencia_tipo || 'otro', problema,
+        it.incidencia_descripcion ?? it.observaciones ?? null, JSON.stringify(it.incidencia_adjuntos ?? []), userId]);
+      incidencias.push({ id: inc.id, numero: inc.numero, pedido_item_id: String(pi.id) });
+    }
+  }
+
+  // Una incidencia con reposición se cierra sola cuando su ítem de reposición llegó
+  // conforme (se compara contra las cantidades, no contra estado_item: ese se recalcula
+  // después y dependería del orden).
+  await client.query(`
+    UPDATE compras_incidencias inc SET estado = 'resuelta', resuelta_at = now(), updated_at = now()
+    FROM pedido_items rep
+    WHERE rep.id = inc.reposicion_pedido_item_id AND inc.pedido_id = $1
+      AND inc.estado = 'en_reposicion' AND rep.cantidad_conforme + 0.001 >= rep.cantidad
+  `, [pedidoId]);
+
+  // Flete real: reemplaza el estimado y recalcula el total (igual que el flujo viejo)
+  if (b.costo_envio_real != null) {
+    await client.query(`UPDATE pedidos SET costo_envio = $2 WHERE id = $1`, [pedidoId, b.costo_envio_real]);
+    await recalcularTotalesOC(client, pedidoId);
+  }
+
+  const nuevoLogistica = (await recalcularRecepcionOC(client, pedidoId)) ?? 'recibida_parcial';
+  const todoRecibido = nuevoLogistica === 'recibida';
+
+  await client.query(`
+    UPDATE pedidos SET estado_logistica = $2, fecha_recepcion = COALESCE($3::date, CURRENT_DATE),
+      transportista_id = COALESCE($4::uuid, transportista_id), updated_at = now()
+    WHERE id = $1
+  `, [pedidoId, nuevoLogistica, b.fecha ?? null, b.transportista_id ?? null]);
+  await sincronizarEstadoLegacy(client, pedidoId);
+  await recalcularEstadoCalidad(client, pedidoId);
+
+  await registrarSeguimiento(client, {
+    pedido_id: pedidoId, tipo: 'recepcion', estado_logistica_nuevo: nuevoLogistica,
+    observaciones: `Entrega ${numeroSecuencia}${b.remito_proveedor_nro ? ` · remito ${b.remito_proveedor_nro}` : ''}` +
+      (incidencias.length ? ` · ${incidencias.length} ítem${incidencias.length === 1 ? '' : 's'} con problema` : ''),
+    created_by: userId,
+  });
+
+  if (todoRecibido) await marcarOperacionListoSiCorresponde(client, pedido.operacion_id, pedidoId);
+
+  return { recepcion_id: recepcion.id, numero_secuencia: numeroSecuencia, estado_logistica: nuevoLogistica, incidencias };
+}
+
+/**
+ * Cancelar una OC que ya recibió mercadería devuelve al stock lo que había ingresado
+ * (movimientos `devolucion`). Antes el ingreso al recibir no tenía contrapartida al
+ * cancelar: el stock quedaba inflado.
+ */
+export async function revertirStockDeRecepciones(client: Queryable, pedidoId: string, userId: string | null): Promise<number> {
+  const { rows } = await client.query(`
+    SELECT pi.id, pi.producto_id, pi.descripcion, pi.cantidad_conforme, pi.precio_unitario_neto, pi.costo_unitario,
+      p.numero, p.operacion_id
+    FROM pedido_items pi JOIN pedidos p ON p.id = pi.pedido_id
+    WHERE pi.pedido_id = $1 AND pi.producto_id IS NOT NULL AND pi.cantidad_conforme > 0
+  `, [pedidoId]);
+  for (const r of rows as Fila[]) {
+    await client.query(`
+      INSERT INTO stock_movimientos
+        (producto_id, tipo, cantidad, costo_unitario, motivo, operacion_id, referencia_nro, created_by)
+      VALUES ($1, 'devolucion', $2, $3, 'Cancelación de orden de compra recibida', $4, $5, $6)
+    `, [r.producto_id, -Math.abs(num(r.cantidad_conforme)), num(r.precio_unitario_neto) || num(r.costo_unitario) || null,
+      r.operacion_id ?? null, r.numero, userId]);
+  }
+  return rows.length;
 }

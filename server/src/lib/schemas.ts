@@ -355,6 +355,94 @@ export const OrdenEditarSchema = z.object({
   })).optional(),
 });
 
+// ── Compras etapa 2: logística, recepción, reclamos ───────────────────────────
+export const ESTADOS_LOGISTICA = [
+  'borrador', 'enviada', 'confirmada', 'en_preparacion', 'en_fabricacion', 'terminado',
+  'listo_despacho', 'en_transito', 'demorado', 'recibida_parcial', 'recibida', 'cerrada', 'cancelada',
+] as const;
+export const TIPOS_INCIDENCIA = [
+  'producto_faltante', 'medida_incorrecta', 'color_incorrecto', 'vidrio_roto', 'vidrio_rayado',
+  'perfil_golpeado', 'perfil_rayado', 'herraje_faltante', 'herraje_incorrecto',
+  'producto_incompleto', 'error_fabricacion', 'otro',
+] as const;
+export const SOLUCIONES_INCIDENCIA = [
+  'reposicion_total', 'reposicion_parcial', 'cambio_vidrio', 'envio_herraje', 'reparacion',
+  'descuento', 'nota_credito', 'devolucion', 'rechazado',
+] as const;
+
+export const ConfirmacionOrdenSchema = z.object({
+  confirmacion_recepcion:       z.boolean().optional().default(true),
+  confirmacion_precio:          z.boolean().optional().default(false),
+  confirmacion_caracteristicas: z.boolean().optional().default(false),
+  fecha_prometida:              zFecha.optional().nullable(),
+  contacto:                     zText(200).optional(),
+  observaciones:                zText(2000).optional(),
+});
+
+export const EstadoLogisticaSchema = z.object({
+  estado_logistica: z.enum(ESTADOS_LOGISTICA),
+  observaciones:    zText(2000).optional(),
+});
+
+export const SeguimientoSchema = z.object({
+  tipo:                  z.enum(['seguimiento', 'nota', 'demora']).optional().default('seguimiento'),
+  respuesta_proveedor:   zText(2000).optional(),
+  nueva_fecha_prometida: zFecha.optional().nullable(),
+  observaciones:         zText(2000).optional(),
+}).superRefine((b, ctx) => {
+  if (!b.respuesta_proveedor?.trim() && !b.observaciones?.trim() && !b.nueva_fecha_prometida) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['observaciones'], message: 'Contá qué te dijo el proveedor o poné una fecha nueva' });
+  }
+});
+
+const RecepcionItemSchema = z.object({
+  pedido_item_id:         zUUID,
+  cantidad_recibida:      zPosNum.optional().default(0),
+  cantidad_conforme:      zPosNum.optional().default(0),
+  cantidad_problema:      zPosNum.optional().default(0),
+  no_recibido:            z.boolean().optional().default(false),
+  observaciones:          zText(1000).optional(),
+  incidencia_tipo:        z.enum(TIPOS_INCIDENCIA).optional().nullable(),
+  incidencia_descripcion: zText(2000).optional(),
+  incidencia_adjuntos:    z.array(z.string().max(300)).max(20).optional(),
+});
+
+export const RecepcionSchema = z.object({
+  fecha:                zFecha.optional().nullable(),
+  remito_proveedor_nro: zText(100).optional(),
+  transportista_id:     zUUID.optional().nullable(),
+  costo_envio_real:     zPosNum.optional().nullable(),
+  adjuntos:             zAdjuntos.optional().default([]),
+  notas:                zText(2000).optional(),
+  items:                z.array(RecepcionItemSchema).min(1, 'Marcá al menos un ítem'),
+}).superRefine((b, ctx) => {
+  const algo = b.items.some(i => (i.cantidad_recibida ?? 0) > 0 || i.no_recibido);
+  if (!algo) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['items'], message: 'No marcaste ninguna cantidad recibida' });
+});
+
+export const IncidenciaEditarSchema = z.object({
+  tipo:              z.enum(TIPOS_INCIDENCIA).optional(),
+  cantidad_afectada: z.number().positive().optional(),
+  descripcion:       zText(2000).optional(),
+  adjuntos:          z.array(z.string().max(300)).max(20).optional(),
+});
+
+export const IncidenciaReclamarSchema = z.object({
+  medio:   z.enum(MEDIOS_ENVIO_COMPRA),
+  mensaje: zText(4000).optional(),
+});
+
+export const IncidenciaRespuestaSchema = z.object({
+  respuesta_proveedor: zText(2000).optional(),
+  solucion:            z.enum(SOLUCIONES_INCIDENCIA),
+  solucion_detalle:    zText(2000).optional(),
+  monto_descuento:     zPosNum.optional().nullable(),
+}).superRefine((b, ctx) => {
+  if ((b.solucion === 'descuento' || b.solucion === 'nota_credito') && !b.monto_descuento) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['monto_descuento'], message: 'Indicá el monto del descuento / nota de crédito' });
+  }
+});
+
 export const EnviarCompraSchema = z.object({
   medio:        z.enum(MEDIOS_ENVIO_COMPRA),
   proveedor_id: zUUID.optional(),

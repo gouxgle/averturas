@@ -3,7 +3,10 @@ import { db } from '../db.js';
 import { sqlItemsTotal, sqlItemsCubiertos, sqlItemsPendientes } from '../lib/coverage.js';
 import { validateBody } from '../lib/validate.js';
 import { PedidoSchema, PedidoEstadoSchema } from '../lib/schemas.js';
-import { nextNumeroCompra, crearSolicitudImplicita, estadoLogisticaDesdeLegacy } from '../lib/compras.js';
+import {
+  nextNumeroCompra, crearSolicitudImplicita, estadoLogisticaDesdeLegacy, crearRecepcion,
+  revertirStockDeRecepciones, registrarSeguimiento, ErrorRecepcion,
+} from '../lib/compras.js';
 
 // Flujo "corto" de pedidos al proveedor (desde una operación o para stock propio). Sigue
 // vigente porque lo consumen Presupuestos, NuevoRecibo, NuevoRemito y Operaciones; el
@@ -653,9 +656,10 @@ pedidos.patch('/:id/estado', async (c) => {
 
   const { rows: [pedido] } = await db.query(
     `SELECT p.*, json_agg(
-       json_build_object('producto_id', pi.producto_id, 'cantidad', pi.cantidad,
+       json_build_object('id', pi.id, 'producto_id', pi.producto_id, 'cantidad', pi.cantidad,
                          'descripcion', pi.descripcion, 'costo_unitario', pi.costo_unitario)
-     ) AS items
+       ORDER BY pi.orden
+     ) FILTER (WHERE pi.id IS NOT NULL) AS items
      FROM pedidos p
      LEFT JOIN pedido_items pi ON pi.pedido_id = p.id
      WHERE p.id = $1
@@ -672,69 +676,24 @@ pedidos.patch('/:id/estado', async (c) => {
   try {
     await client.query('BEGIN');
 
-    // enviado → recibido: ingresar stock por cada item con producto_id
     if (nuevoEstado === 'recibido') {
-      const items = (pedido.items as {
-        producto_id: string | null; cantidad: number;
-        descripcion: string; costo_unitario: number;
-      }[]).filter(i => i.producto_id);
-
-      for (const item of items) {
-        await client.query(`
-          INSERT INTO stock_movimientos
-            (producto_id, tipo, cantidad, costo_unitario, motivo,
-             operacion_id, referencia_nro, created_by)
-          VALUES ($1, 'ingreso', $2, $3, 'Recepción de pedido', $4, $5, $6)
-        `, [
-          item.producto_id,
-          Math.abs(item.cantidad),
-          item.costo_unitario || null,
-          pedido.operacion_id || null,
-          pedido.numero,
-          user?.id || null,
-        ]);
-      }
-    }
-
-    const fechaRecepcionFinal = nuevoEstado === 'recibido'
-      ? (fecha_recepcion || new Date().toISOString().split('T')[0])
-      : null;
-
-    if (nuevoEstado === 'recibido') {
-      // Actualizar transportista y costo de envío real si se proporcionaron
-      const costoReal = typeof costo_envio_real === 'number' ? costo_envio_real : null;
-      await client.query(`
-        UPDATE pedidos SET
-          estado          = $1,
-          estado_logistica = $6,
-          fecha_recepcion = COALESCE($2::date, fecha_recepcion),
-          transportista_id = COALESCE($3::uuid, transportista_id),
-          costo_envio     = CASE WHEN $4::numeric IS NOT NULL THEN $4::numeric ELSE costo_envio END,
-          monto_total     = CASE WHEN $4::numeric IS NOT NULL
-                              THEN (monto_total - costo_envio) + $4::numeric
-                              ELSE monto_total END,
-          total           = CASE WHEN $4::numeric IS NOT NULL
-                              THEN (total - costo_envio) + $4::numeric
-                              ELSE total END,
-          updated_at      = now()
-        WHERE id = $5
-      `, [nuevoEstado, fechaRecepcionFinal, transportista_id ?? null, costoReal, id, estadoLogisticaDesdeLegacy(nuevoEstado)]);
-
-      // Si todos los pedidos de la operación quedaron recibidos/cancelados → listo para entregar
-      if (pedido.operacion_id) {
-        const { rows: [countRow] } = await client.query(`
-          SELECT COUNT(*) AS pendientes
-          FROM pedidos
-          WHERE operacion_id = $1 AND id != $2 AND estado NOT IN ('cancelado', 'recibido')
-        `, [pedido.operacion_id, id]);
-
-        if (parseInt(countRow.pendientes) === 0) {
-          await client.query(`
-            UPDATE operaciones SET estado = 'listo', updated_at = now()
-            WHERE id = $1 AND estado NOT IN ('listo', 'instalado', 'entregado', 'cancelado', 'rechazado')
-          `, [pedido.operacion_id]);
-        }
-      }
+      // Un solo camino de ingreso a stock (ver lib/compras.ts): este flujo corto registra
+      // una recepción completa, todo conforme, con la cantidad pedida de cada ítem.
+      const items = (pedido.items as { id: string; cantidad: number }[])
+        .filter(i => i.id)
+        .map(i => ({
+          pedido_item_id: i.id,
+          cantidad_recibida: Number(i.cantidad),
+          cantidad_conforme: Number(i.cantidad),
+          cantidad_problema: 0,
+        }));
+      await crearRecepcion(client, id, {
+        fecha: fecha_recepcion ?? null,
+        transportista_id: transportista_id ?? null,
+        costo_envio_real: typeof costo_envio_real === 'number' ? costo_envio_real : null,
+        notas: 'Recepción completa (flujo rápido)',
+        items,
+      }, user?.id ?? null);
     } else {
       await client.query(`
         UPDATE pedidos SET
@@ -744,7 +703,18 @@ pedidos.patch('/:id/estado', async (c) => {
           fecha_recepcion = COALESCE($2::date, fecha_recepcion),
           updated_at = now()
         WHERE id = $3
-      `, [nuevoEstado, fechaRecepcionFinal, id, estadoLogisticaDesdeLegacy(nuevoEstado)]);
+      `, [nuevoEstado, null, id, estadoLogisticaDesdeLegacy(nuevoEstado)]);
+
+      if (nuevoEstado === 'cancelado') {
+        // Devuelve al stock lo que esta orden ya había ingresado
+        await revertirStockDeRecepciones(client, id, user?.id ?? null);
+      }
+      await registrarSeguimiento(client, {
+        pedido_id: id, tipo: nuevoEstado === 'enviado' ? 'envio' : 'estado',
+        estado_logistica_nuevo: estadoLogisticaDesdeLegacy(nuevoEstado),
+        observaciones: nuevoEstado === 'enviado' ? 'Marcada como enviada' : 'Orden cancelada',
+        created_by: user?.id ?? null,
+      });
     }
 
     await client.query('COMMIT');
@@ -752,6 +722,7 @@ pedidos.patch('/:id/estado', async (c) => {
     return c.json(updated);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err instanceof ErrorRecepcion) return c.json({ error: err.message }, err.status);
     throw err;
   } finally {
     client.release();

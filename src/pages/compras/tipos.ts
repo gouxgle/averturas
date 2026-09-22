@@ -187,6 +187,7 @@ export interface OrdenItem {
   especificaciones: Especificaciones;
   proveedor_sku: string | null;
   es_reposicion: boolean;
+  es_reposicion_reclamo: boolean;
   solicitud_item_id: string | null;
   solicitud_id: string | null;
   solicitud_numero: string | null;
@@ -245,10 +246,99 @@ export interface OrdenDetalle extends OrdenRow {
   items: OrdenItem[];
 }
 
+// ── Etapa 2: seguimiento, recepciones, reclamos ───────────────────────────────
+
+export type TipoSeguimiento = 'envio' | 'confirmacion' | 'estado' | 'seguimiento' | 'demora' | 'nota' | 'recepcion' | 'reclamo';
+
+export interface Seguimiento {
+  id: string;
+  pedido_id: string;
+  fecha: string;
+  tipo: TipoSeguimiento;
+  estado_logistica_nuevo: EstadoLogistica | null;
+  respuesta_proveedor: string | null;
+  nueva_fecha_prometida: string | null;
+  observaciones: string | null;
+  usuario_nombre: string | null;
+  created_at: string;
+}
+
+export interface RecepcionItem {
+  id: string;
+  pedido_item_id: string;
+  descripcion: string;
+  unidad: string;
+  cantidad_pedida: number | string;
+  cantidad_recibida: number | string;
+  cantidad_conforme: number | string;
+  cantidad_problema: number | string;
+  no_recibido: boolean;
+  observaciones: string | null;
+  incidencia: { id: string; numero: string; estado: EstadoIncidencia } | null;
+}
+
+export interface Recepcion {
+  id: string;
+  pedido_id: string;
+  numero_secuencia: number;
+  fecha: string;
+  remito_proveedor_nro: string | null;
+  transportista_id: string | null;
+  transportista_nombre: string | null;
+  costo_envio_real: number | string | null;
+  adjuntos: string[];
+  notas: string | null;
+  usuario_nombre: string | null;
+  created_at: string;
+  items: RecepcionItem[];
+}
+
+export type EstadoIncidencia = 'abierta' | 'reclamada' | 'respondida' | 'en_reposicion' | 'resuelta' | 'rechazada';
+export type TipoIncidencia =
+  | 'producto_faltante' | 'medida_incorrecta' | 'color_incorrecto' | 'vidrio_roto' | 'vidrio_rayado'
+  | 'perfil_golpeado' | 'perfil_rayado' | 'herraje_faltante' | 'herraje_incorrecto'
+  | 'producto_incompleto' | 'error_fabricacion' | 'otro';
+export type SolucionIncidencia =
+  | 'reposicion_total' | 'reposicion_parcial' | 'cambio_vidrio' | 'envio_herraje' | 'reparacion'
+  | 'descuento' | 'nota_credito' | 'devolucion' | 'rechazado';
+
+export interface Incidencia {
+  id: string;
+  numero: string;
+  pedido_id: string;
+  pedido_item_id: string;
+  recepcion_item_id: string | null;
+  tipo: TipoIncidencia;
+  cantidad_afectada: number | string;
+  descripcion: string | null;
+  adjuntos: string[];
+  estado: EstadoIncidencia;
+  reclamada_at: string | null;
+  reclamada_medio: MedioEnvio | null;
+  respuesta_proveedor: string | null;
+  respondida_at: string | null;
+  solucion: SolucionIncidencia | null;
+  solucion_detalle: string | null;
+  monto_descuento: number | string | null;
+  reposicion_pedido_item_id: string | null;
+  resuelta_at: string | null;
+  created_at: string;
+  item_descripcion: string;
+  item_unidad: string;
+  item_cantidad: number | string;
+  item_especificaciones: Especificaciones | null;
+  orden: { id: string; numero: string; estado_logistica: EstadoLogistica; fecha_pedido: string };
+  proveedor: ProveedorMin;
+  operacion: { id: string; numero: string; cliente: ClienteMin } | null;
+  reposicion: { id: string; descripcion: string; cantidad: number | string; estado_item: string; cantidad_conforme: number | string } | null;
+  usuario_nombre: string | null;
+}
+
 export interface TableroCompras {
   stats: {
     sc_abiertas: number; pc_abiertas: number; pc_esperando: number; oc_en_curso: number; oc_borrador: number;
     oc_demoradas: number; oc_activas: number; valor_en_curso: number;
+    oc_por_recibir: number; reclamos_abiertos: number; reclamos_sin_reclamar: number;
   };
   esperando_recepcion: { id: string; numero: string; fecha_prometida: string | null; fecha_entrega_est: string | null; estado_logistica: EstadoLogistica; proveedor: { nombre: string; telefono: string | null }; operacion: { numero: string; cliente: ClienteMin } | null }[];
   para_preparar: { id: string; numero: string; fecha_recepcion: string | null; proveedor: { nombre: string }; operacion: { id: string; numero: string; cliente: ClienteMin } | null }[];
@@ -328,6 +418,51 @@ export const DISPONIBILIDAD_LABEL: Record<Disponibilidad, string> = {
   a_fabricar: 'A fabricar',
   parcial:    'Parcial',
   sin_stock:  'Sin stock',
+};
+
+export const ESTADO_INCIDENCIA: Record<EstadoIncidencia, { label: string; cls: string; border: string }> = {
+  abierta:       { label: 'Sin reclamar',   cls: 'bg-red-100 text-red-700 border-red-200',           border: 'border-l-red-500' },
+  reclamada:     { label: 'Reclamado',      cls: 'bg-amber-100 text-amber-800 border-amber-200',     border: 'border-l-amber-500' },
+  respondida:    { label: 'Respondió',      cls: 'bg-sky-100 text-sky-800 border-sky-200',           border: 'border-l-sky-500' },
+  en_reposicion: { label: 'En reposición',  cls: 'bg-indigo-100 text-indigo-800 border-indigo-200',  border: 'border-l-indigo-500' },
+  resuelta:      { label: 'Resuelto',       cls: 'bg-emerald-100 text-emerald-800 border-emerald-200', border: 'border-l-emerald-500' },
+  rechazada:     { label: 'Rechazado',      cls: 'bg-gray-100 text-gray-700 border-gray-200',        border: 'border-l-gray-400' },
+};
+
+export const TIPO_INCIDENCIA_LABEL: Record<TipoIncidencia, string> = {
+  producto_faltante: 'Producto faltante', medida_incorrecta: 'Medida incorrecta',
+  color_incorrecto: 'Color incorrecto', vidrio_roto: 'Vidrio roto', vidrio_rayado: 'Vidrio rayado',
+  perfil_golpeado: 'Perfil golpeado', perfil_rayado: 'Perfil rayado',
+  herraje_faltante: 'Herraje faltante', herraje_incorrecto: 'Herraje incorrecto',
+  producto_incompleto: 'Producto incompleto', error_fabricacion: 'Error de fabricación', otro: 'Otro',
+};
+
+export const SOLUCION_LABEL: Record<SolucionIncidencia, { label: string; ayuda: string }> = {
+  reposicion_total:   { label: 'Repone todo',            ayuda: 'Manda de nuevo la cantidad afectada. Se agrega a la orden como ítem de reposición, sin costo.' },
+  reposicion_parcial: { label: 'Repone una parte',       ayuda: 'Manda parte de lo afectado. Se agrega como ítem de reposición, sin costo.' },
+  cambio_vidrio:      { label: 'Cambia el vidrio',       ayuda: 'Manda el vidrio de repuesto. Se agrega como ítem de reposición, sin costo.' },
+  envio_herraje:      { label: 'Manda el herraje',       ayuda: 'Manda el herraje faltante. Se agrega como ítem de reposición, sin costo.' },
+  reparacion:         { label: 'Lo repara acá',          ayuda: 'Se arregla en el taller o en la obra: el reclamo queda resuelto, sin mercadería en camino.' },
+  descuento:          { label: 'Hace un descuento',      ayuda: 'Descuenta el importe de la factura. El reclamo queda resuelto (el asiento en la cuenta corriente llega en la próxima etapa).' },
+  nota_credito:       { label: 'Emite nota de crédito',  ayuda: 'Emite una nota de crédito por el importe. El reclamo queda resuelto.' },
+  devolucion:         { label: 'Devolvemos la mercadería', ayuda: 'Se le devuelve lo afectado. El reclamo queda resuelto.' },
+  rechazado:          { label: 'No se hace cargo',       ayuda: 'El proveedor rechaza el reclamo: queda cerrado como rechazado.' },
+};
+
+/** Etapas visibles de la línea de tiempo de una OC (las excepciones no entran). */
+export const TIMELINE_LOGISTICA: EstadoLogistica[] = [
+  'borrador', 'enviada', 'confirmada', 'en_fabricacion', 'listo_despacho', 'en_transito', 'recibida',
+];
+
+/** Próximo paso sugerido según el estado actual (botón contextual del detalle). */
+export const SIGUIENTE_LOGISTICA: Partial<Record<EstadoLogistica, { estado: EstadoLogistica; label: string }>> = {
+  enviada:        { estado: 'confirmada',     label: 'Registrar confirmación' },
+  confirmada:     { estado: 'en_fabricacion', label: 'Marcar en fabricación' },
+  en_preparacion: { estado: 'listo_despacho', label: 'Marcar listo para despacho' },
+  en_fabricacion: { estado: 'terminado',      label: 'Marcar terminado' },
+  terminado:      { estado: 'listo_despacho', label: 'Marcar listo para despacho' },
+  listo_despacho: { estado: 'en_transito',    label: 'Marcar en camino' },
+  demorado:       { estado: 'en_transito',    label: 'Marcar en camino' },
 };
 
 export const UNIDAD_LABEL: Record<string, string> = { u: 'u', m: 'm', m2: 'm²', kg: 'kg' };

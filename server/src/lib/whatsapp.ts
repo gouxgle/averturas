@@ -88,3 +88,32 @@ export async function enviarWhatsappPdf(
 
   return { ok: true, numero };
 }
+
+/**
+ * Envía una imagen ya subida (URL de /uploads) como mensaje aparte. Evolution manda
+ * un archivo por request, así que las fotos de un reclamo van de a una después del
+ * texto. `APP_URL` tiene que estar definida: el proveedor abre la imagen desde afuera.
+ */
+export async function enviarImagenWhatsapp(telefono: string, url: string, caption: string): Promise<EnvioWhatsappResultado> {
+  const numero = normalizarNumeroAR(telefono);
+  const evoUrl  = process.env.EVOLUTION_API_URL;
+  const evoKey  = process.env.EVOLUTION_API_KEY;
+  const evoInst = process.env.EVOLUTION_INSTANCE;
+  if (!evoUrl || !evoKey || !evoInst)
+    return { ok: false, error: 'Evolution API no configurada (faltan env vars)', status: 500 };
+
+  const base = (process.env.APP_URL ?? '').replace(/\/+$/, '');
+  const media = url.startsWith('http') ? url : `${base}${url}`;
+  if (!media.startsWith('http')) return { ok: false, error: 'APP_URL no configurada: no se pueden mandar las fotos', status: 500 };
+
+  const resp = await fetch(`${evoUrl}/message/sendMedia/${evoInst}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
+    body: JSON.stringify({ number: numero, mediatype: 'image', media, caption }),
+  });
+  if (!resp.ok) {
+    console.error('[whatsapp-imagen] Evolution API error:', resp.status, await resp.text().catch(() => ''));
+    return { ok: false, error: `Error al enviar la imagen (${resp.status})`, status: 502 };
+  }
+  return { ok: true, numero };
+}

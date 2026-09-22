@@ -94,6 +94,34 @@ notificaciones.get('/', async (c) => {
       AND (r.fecha_entrega_est + r.hora_entrega_est)::timestamptz BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
       AND r.recordatorio_hora_antes_visto = false
 
+    UNION ALL
+
+    -- Compras: OC con la fecha prometida vencida y todavía esperando mercadería.
+    -- No hace falta cron: la demora se calcula al leer (fecha_prometida < hoy) y el
+    -- flag demora_notif_leida se resetea cuando el proveedor da una fecha nueva.
+    SELECT 'compra_demorada' AS tipo, p.id, p.numero, NULL::timestamptz, NULL::text,
+      p.total AS precio_total,
+      (p.fecha_prometida + TIME '09:00')::timestamptz AS evento_at,
+      NULL::text AS recepcion_estado, NULL::text AS recepcion_obs,
+      (CURRENT_DATE - p.fecha_prometida)::text AS detalle,
+      jsonb_build_object(
+        'proveedor', prov.nombre, 'telefono', prov.telefono,
+        'dias_demora', (CURRENT_DATE - p.fecha_prometida)::int,
+        'estado_logistica', p.estado_logistica) AS data,
+      CASE WHEN cl.id IS NOT NULL
+        THEN json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
+               'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona)
+        ELSE json_build_object('nombre', prov.nombre, 'apellido', NULL,
+               'razon_social', NULL, 'tipo_persona', 'fisica') END AS cliente
+    FROM pedidos p
+    JOIN proveedores prov ON prov.id = p.proveedor_id
+    LEFT JOIN operaciones o ON o.id = p.operacion_id
+    LEFT JOIN clientes cl ON cl.id = o.cliente_id
+    WHERE p.fecha_prometida IS NOT NULL
+      AND p.fecha_prometida < CURRENT_DATE
+      AND p.estado_logistica NOT IN ('borrador', 'recibida', 'cerrada', 'cancelada')
+      AND p.demora_notif_leida = false
+
     ORDER BY evento_at DESC
     LIMIT 50
   `);
@@ -109,6 +137,7 @@ const MARCAR_UNA: Record<string, string> = {
   oportunidad:        `UPDATE oportunidades SET notif_leida = true WHERE id = $1`,
   entrega_dia_antes:  `UPDATE remitos SET recordatorio_dia_antes_visto = true WHERE id = $1`,
   entrega_hora_antes: `UPDATE remitos SET recordatorio_hora_antes_visto = true WHERE id = $1`,
+  compra_demorada:    `UPDATE pedidos SET demora_notif_leida = true WHERE id = $1`,
 };
 
 notificaciones.patch('/vista', async (c) => {
@@ -144,6 +173,12 @@ notificaciones.patch('/marcar-leidas', async (c) => {
      WHERE estado = 'emitido' AND hora_entrega_est IS NOT NULL
        AND (fecha_entrega_est + hora_entrega_est)::timestamptz BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
        AND recordatorio_hora_antes_visto = false`
+  );
+  await db.query(
+    `UPDATE pedidos SET demora_notif_leida = true
+     WHERE fecha_prometida IS NOT NULL AND fecha_prometida < CURRENT_DATE
+       AND estado_logistica NOT IN ('borrador','recibida','cerrada','cancelada')
+       AND demora_notif_leida = false`
   );
   return c.json({ ok: true });
 });

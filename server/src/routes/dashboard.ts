@@ -327,8 +327,9 @@ dashboard.get('/resumen', async (c) => {
     `),
 
     db.query(`
-      SELECT p.id, p.numero, p.estado, p.fecha_entrega_est, p.monto_total,
-        (CURRENT_DATE - p.fecha_entrega_est)::int AS dias_atraso,
+      SELECT p.id, p.numero, p.estado, COALESCE(p.fecha_prometida, p.fecha_entrega_est) AS fecha_entrega_est,
+        p.monto_total, p.estado_logistica,
+        (CURRENT_DATE - COALESCE(p.fecha_prometida, p.fecha_entrega_est))::int AS dias_atraso,
         json_build_object('id', prov.id, 'nombre', prov.nombre) AS proveedor,
         CASE WHEN o.id IS NOT NULL THEN
           json_build_object('id', o.id, 'numero', o.numero,
@@ -339,10 +340,10 @@ dashboard.get('/resumen', async (c) => {
       JOIN proveedores prov ON prov.id = p.proveedor_id
       LEFT JOIN operaciones o ON o.id = p.operacion_id
       LEFT JOIN clientes cl ON cl.id = o.cliente_id
-      WHERE p.estado IN ('pendiente','enviado')
-        AND p.fecha_entrega_est IS NOT NULL
-        AND p.fecha_entrega_est < CURRENT_DATE
-      ORDER BY p.fecha_entrega_est ASC
+      WHERE p.estado_logistica NOT IN ('borrador','recibida','cerrada','cancelada')
+        AND COALESCE(p.fecha_prometida, p.fecha_entrega_est) IS NOT NULL
+        AND COALESCE(p.fecha_prometida, p.fecha_entrega_est) < CURRENT_DATE
+      ORDER BY COALESCE(p.fecha_prometida, p.fecha_entrega_est) ASC
       LIMIT 20
     `),
 

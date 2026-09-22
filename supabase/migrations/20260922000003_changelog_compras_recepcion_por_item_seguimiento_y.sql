@@ -1,0 +1,5 @@
+-- Changelog: Compras: recepción por ítem, seguimiento y reclamos al proveedor
+INSERT INTO changelog_cambios (fecha, titulo, descripcion, categoria) VALUES
+  (CURRENT_DATE, 'Compras: recepción por ítem, seguimiento y reclamos al proveedor', 'Al recibir mercadería ahora se marca ítem por ítem: llegó bien, llegó con problema o no vino. Entra a stock SOLO lo que llegó conforme (antes entraba la cantidad pedida entera). Lo que llega con problema abre un reclamo (REC-) con fotos, que se manda al proveedor por WhatsApp o email; si repone, se agrega el ítem de reposición sin costo y el reclamo se cierra solo cuando llega. La orden muestra en qué anda (confirmada, en fabricación, en camino), se registra qué dijo el proveedor en cada llamado, y si se pasa de la fecha prometida el sistema avisa solo. Cancelar una orden ya recibida devuelve el stock.', 'feature');
+
+INSERT INTO schema_migrations (filename) VALUES ('20260922000003_changelog_compras_recepcion_por_item_seguimiento_y.sql') ON CONFLICT DO NOTHING;

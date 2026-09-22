@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell,
+  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ import { formatCurrency, cn } from '@/lib/utils';
  */
 
 export interface AvisoNotif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada';
   id: string;
   numero: string | null;
   precio_total: number | null;
@@ -119,6 +119,16 @@ export function presentar(n: AvisoNotif): Presentacion {
     };
   }
 
+  if (n.tipo === 'compra_demorada') {
+    const dias = Number(n.data?.dias_demora ?? 0);
+    return {
+      titulo: 'Compra demorada',
+      detalle: `${n.data?.proveedor ?? 'El proveedor'} no entregó ${n.numero ?? ''} — ${dias} día${dias === 1 ? '' : 's'} de atraso.`,
+      cita: null, tono: 'ambar', Icono: CalendarClock,
+      ruta: `/compras?tab=ordenes&oc=${n.id}`, prioridad: 1,
+    };
+  }
+
   if (n.tipo === 'entrega_hora_antes') {
     return {
       titulo: 'Entrega en menos de 1 hora',
@@ -139,6 +149,7 @@ const EMERGE: Record<AvisoNotif['tipo'], boolean> = {
   presupuesto:        true,   // aprobación, rechazo y devoluciones del cliente
   remito:             true,   // el cliente objetó la entrega
   entrega_hora_antes: true,
+  compra_demorada:    true,   // el proveedor se pasó de la fecha prometida
   oportunidad:        false,
   entrega_dia_antes:  false,
 };
@@ -157,9 +168,18 @@ export function AvisosEmergentes() {
       const data = await api.get<AvisoNotif[]>('/notificaciones', { silent: true });
       setCola(prev => {
         const yaEnCola = new Set(prev.map(clave));
-        const nuevos = data.filter(n =>
+        let nuevos = data.filter(n =>
           EMERGE[n.tipo] && !yaEnCola.has(clave(n)) && !vistosRef.current.has(clave(n))
         );
+        // Las compras demoradas se acumulan (cada OC vencida es una): de a una por vez, si
+        // no tapan media pantalla —y los botones de cualquier modal abierto— con la misma
+        // novedad repetida. Al aceptar una, la siguiente aparece en el próximo poll.
+        if (prev.some(n => n.tipo === 'compra_demorada')) {
+          nuevos = nuevos.filter(n => n.tipo !== 'compra_demorada');
+        } else {
+          const demoras = nuevos.filter(n => n.tipo === 'compra_demorada');
+          nuevos = nuevos.filter(n => n.tipo !== 'compra_demorada').concat(demoras.slice(0, 1));
+        }
         if (nuevos.length === 0) return prev;
         const orden = (n: AvisoNotif) => presentar(n).prioridad;
         return [...prev, ...nuevos].sort((a, b) => orden(a) - orden(b));

@@ -17,17 +17,22 @@ import { validateBody } from '../lib/validate.js';
 import {
   SolicitudCompraSchema, SolicitudEstadoSchema, CotizacionCrearSchema, CotizacionRespuestaSchema,
   CotizacionAdjudicarSchema, CotizacionCerrarSchema, OrdenDirectaSchema, OrdenConsolidarSchema,
-  OrdenEditarSchema, EnviarCompraSchema,
+  OrdenEditarSchema, EnviarCompraSchema, ConfirmacionOrdenSchema, EstadoLogisticaSchema,
+  SeguimientoSchema, RecepcionSchema, IncidenciaEditarSchema, IncidenciaReclamarSchema,
+  IncidenciaRespuestaSchema,
 } from '../lib/schemas.js';
 import {
   nextNumeroCompra, armarItemDesde, calcularTotales, recalcularTotalesOC, sincronizarEstadoLegacy,
   recalcularEstadoSolicitud, empresaActual, resumenEspecificaciones,
+  TRANSICIONES_LOGISTICA, LOGISTICA_TERMINAL, LOGISTICA_LABEL, registrarSeguimiento, crearRecepcion,
+  recalcularEstadoCalidad, recalcularRecepcionOC, revertirStockDeRecepciones, marcarOperacionListoSiCorresponde,
+  ErrorRecepcion, type EstadoLogistica,
 } from '../lib/compras.js';
 import { sqlItemsTotal, sqlItemsPendientes, sqlItemsCubiertos } from '../lib/coverage.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { generarPDFCompra, type CompraPDF, type CompraItemPDF } from '../lib/pdf.js';
-import { enviarWhatsappPdf } from '../lib/whatsapp.js';
-import { sendCompra, emailDisponible } from '../email.js';
+import { enviarWhatsappPdf, enviarWhatsapp, enviarImagenWhatsapp } from '../lib/whatsapp.js';
+import { sendCompra, sendReclamo, emailDisponible } from '../email.js';
 
 const compras = new Hono();
 
@@ -74,6 +79,8 @@ class ErrorNegocio extends Error {
 
 function manejarErrorNegocio(c: Context, err: unknown) {
   if (err instanceof ErrorNegocio) return c.json({ error: err.message }, err.status);
+  // crearRecepcion() vive en lib/ y tiene su propio tipo de error de negocio
+  if (err instanceof ErrorRecepcion) return c.json({ error: err.message }, err.status);
   throw err;
 }
 
@@ -236,7 +243,10 @@ compras.get('/tablero', async (c) => {
         (SELECT COUNT(*)::int FROM pedidos WHERE fecha_prometida < CURRENT_DATE
            AND estado_logistica NOT IN ('borrador','recibida','cerrada','cancelada')) AS oc_demoradas,
         (SELECT COUNT(*)::int FROM pedidos WHERE estado_logistica NOT IN ('recibida','cerrada','cancelada')) AS oc_activas,
-        (SELECT COALESCE(SUM(total), 0)::numeric FROM pedidos WHERE estado_logistica NOT IN ('recibida','cerrada','cancelada')) AS valor_en_curso
+        (SELECT COALESCE(SUM(total), 0)::numeric FROM pedidos WHERE estado_logistica NOT IN ('recibida','cerrada','cancelada')) AS valor_en_curso,
+        (SELECT COUNT(*)::int FROM pedidos WHERE estado_logistica IN ('enviada','confirmada','en_preparacion','en_fabricacion','terminado','listo_despacho','en_transito','demorado','recibida_parcial')) AS oc_por_recibir,
+        (SELECT COUNT(*)::int FROM compras_incidencias WHERE estado NOT IN ('resuelta','rechazada')) AS reclamos_abiertos,
+        (SELECT COUNT(*)::int FROM compras_incidencias WHERE estado = 'abierta') AS reclamos_sin_reclamar
     `),
     db.query(`
       SELECT p.id, p.numero, p.fecha_prometida, p.fecha_entrega_est, p.estado_logistica,
@@ -676,7 +686,7 @@ compras.get('/cotizaciones/:id/pdf', async (c) => {
 });
 
 /** Mensaje al proveedor desde `mensajes_plantilla` (con fallback) y el detalle de ítems. */
-async function mensajeCompra(clave: 'compra_cotizacion' | 'compra_orden', vars: Record<string, string>, fallback: string) {
+async function mensajeCompra(clave: 'compra_cotizacion' | 'compra_orden' | 'compra_reclamo', vars: Record<string, string>, fallback: string) {
   const { rows: [tpl] } = await db.query(`SELECT contenido FROM mensajes_plantilla WHERE clave = $1`, [clave]);
   let texto: string = tpl?.contenido || fallback;
   for (const [k, v] of Object.entries(vars)) texto = texto.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
@@ -1209,6 +1219,458 @@ compras.post('/ordenes/:id/enviar', async (c) => {
     registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: r.oc.numero, accion: 'enviar',
       detalle: `Orden enviada a ${r.oc.proveedor.nombre} por ${b.medio}` });
     return c.json({ enviado: true, mensaje, orden: await cargarOrden(id) });
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Etapa 2 — confirmación, seguimiento, recepción por ítem, reclamos
+// ═════════════════════════════════════════════════════════════════════════════
+
+const SEGUIMIENTOS_SQL = `
+  SELECT sg.*, u.nombre AS usuario_nombre
+  FROM compras_seguimientos sg
+  LEFT JOIN usuarios u ON u.id = sg.created_by
+  WHERE sg.pedido_id = $1
+  ORDER BY sg.created_at DESC
+`;
+
+const RECEPCIONES_SQL = `
+  SELECT r.*, t.nombre AS transportista_nombre, u.nombre AS usuario_nombre,
+    (SELECT COALESCE(json_agg(json_build_object(
+        'id', ri.id, 'pedido_item_id', ri.pedido_item_id, 'descripcion', pi.descripcion,
+        'unidad', pi.unidad, 'cantidad_pedida', pi.cantidad,
+        'cantidad_recibida', ri.cantidad_recibida, 'cantidad_conforme', ri.cantidad_conforme,
+        'cantidad_problema', ri.cantidad_problema, 'no_recibido', ri.no_recibido,
+        'observaciones', ri.observaciones,
+        'incidencia', (SELECT json_build_object('id', inc.id, 'numero', inc.numero, 'estado', inc.estado)
+                         FROM compras_incidencias inc WHERE inc.recepcion_item_id = ri.id LIMIT 1)
+      ) ORDER BY pi.orden), '[]'::json)
+     FROM compras_recepcion_items ri JOIN pedido_items pi ON pi.id = ri.pedido_item_id
+     WHERE ri.recepcion_id = r.id) AS items
+  FROM compras_recepciones r
+  LEFT JOIN transportistas t ON t.id = r.transportista_id
+  LEFT JOIN usuarios u ON u.id = r.created_by
+`;
+
+const INCIDENCIA_SQL = `
+  SELECT inc.*,
+    pi.descripcion AS item_descripcion, pi.unidad AS item_unidad, pi.cantidad AS item_cantidad,
+    pi.especificaciones AS item_especificaciones,
+    json_build_object('id', p.id, 'numero', p.numero, 'estado_logistica', p.estado_logistica,
+      'fecha_pedido', p.fecha_pedido) AS orden,
+    ${PROVEEDOR_JSON('prov')} AS proveedor,
+    CASE WHEN o.id IS NOT NULL THEN json_build_object('id', o.id, 'numero', o.numero, 'cliente', ${CLIENTE_JSON('c')}) ELSE NULL END AS operacion,
+    CASE WHEN rep.id IS NOT NULL THEN json_build_object('id', rep.id, 'descripcion', rep.descripcion,
+      'cantidad', rep.cantidad, 'estado_item', rep.estado_item, 'cantidad_conforme', rep.cantidad_conforme) ELSE NULL END AS reposicion,
+    u.nombre AS usuario_nombre
+  FROM compras_incidencias inc
+  JOIN pedidos p ON p.id = inc.pedido_id
+  JOIN proveedores prov ON prov.id = p.proveedor_id
+  JOIN pedido_items pi ON pi.id = inc.pedido_item_id
+  LEFT JOIN pedido_items rep ON rep.id = inc.reposicion_pedido_item_id
+  LEFT JOIN operaciones o ON o.id = p.operacion_id
+  LEFT JOIN clientes c ON c.id = o.cliente_id
+  LEFT JOIN usuarios u ON u.id = inc.created_by
+`;
+
+const INCIDENCIA_TIPO_LABEL: Record<string, string> = {
+  producto_faltante: 'Producto faltante', medida_incorrecta: 'Medida incorrecta',
+  color_incorrecto: 'Color incorrecto', vidrio_roto: 'Vidrio roto', vidrio_rayado: 'Vidrio rayado',
+  perfil_golpeado: 'Perfil golpeado', perfil_rayado: 'Perfil rayado',
+  herraje_faltante: 'Herraje faltante', herraje_incorrecto: 'Herraje incorrecto',
+  producto_incompleto: 'Producto incompleto', error_fabricacion: 'Error de fabricación', otro: 'Otro',
+};
+
+/** Soluciones que implican que el proveedor manda mercadería de nuevo. */
+const SOLUCION_CON_MERCADERIA = ['reposicion_total', 'reposicion_parcial', 'cambio_vidrio', 'envio_herraje'];
+
+// ── Confirmación del proveedor ────────────────────────────────────────────────
+
+compras.post('/ordenes/:id/confirmacion', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, ConfirmacionOrdenSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [oc] } = await client.query(`SELECT * FROM pedidos WHERE id = $1 FOR UPDATE`, [id]);
+      if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+      if (oc.estado_logistica === 'borrador') throw new ErrorNegocio(409, 'Enviá la orden antes de registrar la confirmación');
+      if (LOGISTICA_TERMINAL.includes(oc.estado_logistica)) throw new ErrorNegocio(409, `La orden está ${LOGISTICA_LABEL[oc.estado_logistica as EstadoLogistica].toLowerCase()}`);
+
+      await client.query(`
+        UPDATE pedidos SET
+          confirmacion_recepcion_at = CASE WHEN $2 THEN now() ELSE confirmacion_recepcion_at END,
+          confirmacion_precio = $3, confirmacion_caracteristicas = $4,
+          fecha_prometida = COALESCE($5::date, fecha_prometida),
+          fecha_entrega_est = COALESCE($5::date, fecha_entrega_est),
+          contacto_proveedor = COALESCE($6, contacto_proveedor),
+          -- Una fecha nueva vuelve a habilitar el aviso de demora
+          demora_notif_leida = CASE WHEN $5::text IS NOT NULL THEN false ELSE demora_notif_leida END,
+          estado_logistica = CASE WHEN estado_logistica IN ('enviada','demorado') THEN 'confirmada' ELSE estado_logistica END,
+          updated_at = now()
+        WHERE id = $1
+      `, [id, b.confirmacion_recepcion, b.confirmacion_precio, b.confirmacion_caracteristicas,
+        b.fecha_prometida ?? null, b.contacto ?? null]);
+      await sincronizarEstadoLegacy(client, id);
+      await registrarSeguimiento(client, {
+        pedido_id: id, tipo: 'confirmacion', estado_logistica_nuevo: 'confirmada',
+        nueva_fecha_prometida: b.fecha_prometida ?? null,
+        observaciones: [
+          b.confirmacion_recepcion ? 'confirmó recepción' : null,
+          b.confirmacion_precio ? 'precio ok' : null,
+          b.confirmacion_caracteristicas ? 'características ok' : null,
+          b.observaciones ?? null,
+        ].filter(Boolean).join(' · ') || null,
+        created_by: user?.id ?? null,
+      });
+      registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: oc.numero, accion: 'confirmar',
+        detalle: `Confirmación del proveedor${b.fecha_prometida ? ` · entrega ${fmtFechaAR(b.fecha_prometida)}` : ''}` });
+    });
+    return c.json(await cargarOrden(id));
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// ── Estado de logística ───────────────────────────────────────────────────────
+
+compras.patch('/ordenes/:id/estado-logistica', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, EstadoLogisticaSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [oc] } = await client.query(`SELECT * FROM pedidos WHERE id = $1 FOR UPDATE`, [id]);
+      if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+      const actual = oc.estado_logistica as EstadoLogistica;
+      if (actual === b.estado_logistica) return;
+      if (['recibida_parcial', 'recibida'].includes(b.estado_logistica)) {
+        throw new ErrorNegocio(409, 'El estado de recepción lo decide la recepción de mercadería, no se elige a mano');
+      }
+      if (!TRANSICIONES_LOGISTICA[actual]?.includes(b.estado_logistica as EstadoLogistica)) {
+        throw new ErrorNegocio(409, `No se puede pasar de "${LOGISTICA_LABEL[actual]}" a "${LOGISTICA_LABEL[b.estado_logistica as EstadoLogistica]}"`);
+      }
+      await client.query(`UPDATE pedidos SET estado_logistica = $2, updated_at = now() WHERE id = $1`, [id, b.estado_logistica]);
+      await sincronizarEstadoLegacy(client, id);
+      // Cancelar una OC que ya recibió mercadería devuelve ese stock (mov. `devolucion`)
+      if (b.estado_logistica === 'cancelada') {
+        await revertirStockDeRecepciones(client, id, user?.id ?? null);
+      }
+      await registrarSeguimiento(client, {
+        pedido_id: id, tipo: 'estado', estado_logistica_nuevo: b.estado_logistica,
+        observaciones: b.observaciones ?? null, created_by: user?.id ?? null,
+      });
+      registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: oc.numero, accion: 'cambio_estado',
+        detalle: `Logística: ${LOGISTICA_LABEL[actual]} → ${LOGISTICA_LABEL[b.estado_logistica as EstadoLogistica]}` });
+    });
+    return c.json(await cargarOrden(id));
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// ── Seguimiento (bitácora) ────────────────────────────────────────────────────
+
+compras.get('/ordenes/:id/seguimientos', async (c) => {
+  const { rows } = await db.query(SEGUIMIENTOS_SQL, [c.req.param('id')]);
+  return c.json(rows);
+});
+
+compras.post('/ordenes/:id/seguimientos', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, SeguimientoSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [oc] } = await client.query(`SELECT numero, estado_logistica FROM pedidos WHERE id = $1 FOR UPDATE`, [id]);
+      if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+      await registrarSeguimiento(client, {
+        pedido_id: id, tipo: b.tipo, respuesta_proveedor: b.respuesta_proveedor ?? null,
+        nueva_fecha_prometida: b.nueva_fecha_prometida ?? null, observaciones: b.observaciones ?? null,
+        created_by: user?.id ?? null,
+      });
+      // Una fecha nueva saca la OC de "demorado" y vuelve a habilitar el aviso
+      if (b.nueva_fecha_prometida) {
+        await client.query(`
+          UPDATE pedidos SET fecha_prometida = $2::date, fecha_entrega_est = $2::date, demora_notif_leida = false,
+            estado_logistica = CASE WHEN estado_logistica = 'demorado' THEN 'confirmada' ELSE estado_logistica END,
+            updated_at = now()
+          WHERE id = $1`, [id, b.nueva_fecha_prometida]);
+        await sincronizarEstadoLegacy(client, id);
+      }
+      registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: oc.numero, accion: 'seguimiento',
+        detalle: b.respuesta_proveedor ?? b.observaciones ?? 'Contacto con el proveedor' });
+    });
+    const [{ rows: seg }, orden] = await Promise.all([db.query(SEGUIMIENTOS_SQL, [id]), cargarOrden(id)]);
+    return c.json({ seguimientos: seg, orden });
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+/** Marca el aviso de demora como visto (la campanita y el emergente lo usan). */
+compras.patch('/ordenes/:id/demora-vista', async (c) => {
+  await db.query(`UPDATE pedidos SET demora_notif_leida = true WHERE id = $1`, [c.req.param('id')]);
+  return c.json({ ok: true });
+});
+
+// ── Recepciones ───────────────────────────────────────────────────────────────
+
+// GET /recepciones — todas las entregas (pestaña Recepciones), con su OC y cliente
+compras.get('/recepciones', async (c) => {
+  const search = c.req.query('search') ?? '';
+  const soloParciales = c.req.query('parciales') === 'true';
+  const params: unknown[] = [];
+  let where = 'WHERE 1=1';
+  if (soloParciales) where += ` AND p.estado_logistica = 'recibida_parcial'`;
+  if (search.trim()) {
+    params.push(`%${search.trim()}%`);
+    where += ` AND (p.numero ILIKE $${params.length} OR prov.nombre ILIKE $${params.length}
+      OR r.remito_proveedor_nro ILIKE $${params.length} OR o.numero ILIKE $${params.length}
+      OR c.nombre ILIKE $${params.length} OR c.apellido ILIKE $${params.length} OR c.razon_social ILIKE $${params.length})`;
+  }
+  const { rows } = await db.query(`
+    SELECT r.*, t.nombre AS transportista_nombre, u.nombre AS usuario_nombre,
+      json_build_object('id', p.id, 'numero', p.numero, 'estado_logistica', p.estado_logistica) AS orden,
+      ${PROVEEDOR_JSON('prov')} AS proveedor,
+      CASE WHEN o.id IS NOT NULL THEN json_build_object('id', o.id, 'numero', o.numero, 'cliente', ${CLIENTE_JSON('c')}) ELSE NULL END AS operacion,
+      (SELECT COALESCE(json_agg(json_build_object(
+          'id', ri.id, 'pedido_item_id', ri.pedido_item_id, 'descripcion', pi.descripcion,
+          'unidad', pi.unidad, 'cantidad_pedida', pi.cantidad,
+          'cantidad_recibida', ri.cantidad_recibida, 'cantidad_conforme', ri.cantidad_conforme,
+          'cantidad_problema', ri.cantidad_problema, 'no_recibido', ri.no_recibido,
+          'observaciones', ri.observaciones,
+          'incidencia', (SELECT json_build_object('id', inc.id, 'numero', inc.numero, 'estado', inc.estado)
+                           FROM compras_incidencias inc WHERE inc.recepcion_item_id = ri.id LIMIT 1)
+        ) ORDER BY pi.orden), '[]'::json)
+       FROM compras_recepcion_items ri JOIN pedido_items pi ON pi.id = ri.pedido_item_id
+       WHERE ri.recepcion_id = r.id) AS items
+    FROM compras_recepciones r
+    JOIN pedidos p ON p.id = r.pedido_id
+    JOIN proveedores prov ON prov.id = p.proveedor_id
+    LEFT JOIN transportistas t ON t.id = r.transportista_id
+    LEFT JOIN usuarios u ON u.id = r.created_by
+    LEFT JOIN operaciones o ON o.id = p.operacion_id
+    LEFT JOIN clientes c ON c.id = o.cliente_id
+    ${where}
+    ORDER BY r.fecha DESC, r.created_at DESC
+    LIMIT 300
+  `, params);
+  return c.json(rows);
+});
+
+compras.get('/ordenes/:id/recepciones', async (c) => {
+  const { rows } = await db.query(`${RECEPCIONES_SQL} WHERE r.pedido_id = $1 ORDER BY r.numero_secuencia`, [c.req.param('id')]);
+  return c.json(rows);
+});
+
+compras.post('/ordenes/:id/recepciones', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, RecepcionSchema);
+  if (b instanceof Response) return b;
+  try {
+    const r = await enTransaccion(client => crearRecepcion(client, id, b, user?.id ?? null));
+    const { rows: [oc] } = await db.query(`SELECT numero FROM pedidos WHERE id = $1`, [id]);
+    registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: oc?.numero, accion: 'recibir',
+      detalle: `Entrega ${r.numero_secuencia} · ${LOGISTICA_LABEL[r.estado_logistica]}` +
+        (r.incidencias.length ? ` · ${r.incidencias.length} reclamo${r.incidencias.length === 1 ? '' : 's'} abierto${r.incidencias.length === 1 ? '' : 's'}` : '') });
+    return c.json({ ...r, orden: await cargarOrden(id) }, 201);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// ── Incidencias / reclamos ────────────────────────────────────────────────────
+
+compras.get('/incidencias', async (c) => {
+  const estado = c.req.query('estado') ?? '';
+  const proveedorId = c.req.query('proveedor_id') ?? '';
+  const pedidoId = c.req.query('pedido_id') ?? '';
+  const search = c.req.query('search') ?? '';
+  const params: unknown[] = [];
+  let where = 'WHERE 1=1';
+  if (estado === 'abiertas')      where += ` AND inc.estado NOT IN ('resuelta','rechazada')`;
+  else if (estado === 'cerradas') where += ` AND inc.estado IN ('resuelta','rechazada')`;
+  else if (estado && estado !== 'todas') { params.push(estado); where += ` AND inc.estado = $${params.length}`; }
+  if (proveedorId) { params.push(proveedorId); where += ` AND p.proveedor_id = $${params.length}`; }
+  if (pedidoId)    { params.push(pedidoId);    where += ` AND inc.pedido_id = $${params.length}`; }
+  if (search.trim()) {
+    params.push(`%${search.trim()}%`);
+    where += ` AND (inc.numero ILIKE $${params.length} OR p.numero ILIKE $${params.length}
+      OR prov.nombre ILIKE $${params.length} OR pi.descripcion ILIKE $${params.length})`;
+  }
+  const { rows } = await db.query(`${INCIDENCIA_SQL} ${where} ORDER BY inc.created_at DESC LIMIT 300`, params);
+  return c.json(rows);
+});
+
+compras.get('/incidencias/:id', async (c) => {
+  const { rows: [inc] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [c.req.param('id')]);
+  if (!inc) return c.json({ error: 'Reclamo no encontrado' }, 404);
+  return c.json(inc);
+});
+
+compras.put('/incidencias/:id', async (c) => {
+  const { id } = c.req.param();
+  const b = await validateBody(c, IncidenciaEditarSchema);
+  if (b instanceof Response) return b;
+  const { rows: [inc] } = await db.query(`SELECT * FROM compras_incidencias WHERE id = $1`, [id]);
+  if (!inc) return c.json({ error: 'Reclamo no encontrado' }, 404);
+  if (['resuelta', 'rechazada'].includes(inc.estado)) return c.json({ error: 'El reclamo ya está cerrado' }, 409);
+  await db.query(`
+    UPDATE compras_incidencias SET tipo = COALESCE($2, tipo), cantidad_afectada = COALESCE($3, cantidad_afectada),
+      descripcion = COALESCE($4, descripcion), adjuntos = COALESCE($5::jsonb, adjuntos), updated_at = now()
+    WHERE id = $1
+  `, [id, b.tipo ?? null, b.cantidad_afectada ?? null, b.descripcion ?? null, b.adjuntos ? JSON.stringify(b.adjuntos) : null]);
+  const { rows: [row] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [id]);
+  return c.json(row);
+});
+
+/** Texto del reclamo (se previsualiza antes de mandarlo, igual que PC y OC). */
+async function mensajeReclamo(inc: Row) {
+  const detalle = [
+    `Ítem: ${inc.item_descripcion}`,
+    `Problema: ${INCIDENCIA_TIPO_LABEL[inc.tipo] ?? inc.tipo}`,
+    `Cantidad afectada: ${Number(inc.cantidad_afectada)}`,
+  ].join('\n');
+  return mensajeCompra('compra_reclamo', {
+    numero: inc.numero, numero_oc: inc.orden.numero, detalle, descripcion: inc.descripcion ?? '',
+  }, `Hola! Te escribimos por un problema con la orden *{{numero_oc}}*.\n\nReclamo *{{numero}}*\n{{detalle}}\n\n{{descripcion}}\n\nPor favor confirmanos cómo lo resolvemos. ¡Gracias!`);
+}
+
+compras.get('/incidencias/:id/mensaje', async (c) => {
+  const { rows: [inc] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [c.req.param('id')]);
+  if (!inc) return c.json({ error: 'Reclamo no encontrado' }, 404);
+  return c.json({ mensaje: await mensajeReclamo(inc) });
+});
+
+compras.post('/incidencias/:id/reclamar', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, IncidenciaReclamarSchema);
+  if (b instanceof Response) return b;
+  try {
+    const { rows: [inc] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [id]);
+    if (!inc) throw new ErrorNegocio(404, 'Reclamo no encontrado');
+    if (['resuelta', 'rechazada'].includes(inc.estado)) throw new ErrorNegocio(409, 'El reclamo ya está cerrado');
+
+    const mensaje = b.mensaje || await mensajeReclamo(inc);
+    if (b.medio === 'whatsapp') {
+      if (!inc.proveedor.telefono) throw new ErrorNegocio(422, 'El proveedor no tiene teléfono registrado');
+      const envio = await enviarWhatsapp(inc.proveedor.telefono, mensaje);
+      if (!envio.ok) throw new ErrorNegocio(envio.status as 422, envio.error);
+      // Las fotos van como mensajes aparte (Evolution manda una imagen por request)
+      for (const url of (inc.adjuntos as string[] ?? [])) {
+        if (/\.pdf($|\?)/i.test(url)) continue;
+        await enviarImagenWhatsapp(inc.proveedor.telefono, url, `${inc.numero} — ${inc.item_descripcion}`).catch(() => {});
+      }
+    } else if (b.medio === 'email') {
+      if (!inc.proveedor.email) throw new ErrorNegocio(422, 'El proveedor no tiene email registrado');
+      if (!emailDisponible()) throw new ErrorNegocio(422, 'El envío por email no está configurado (SMTP). Usá WhatsApp o marcá como reclamado.');
+      const empresa = await empresaActual();
+      await sendReclamo({
+        to: inc.proveedor.email, asunto: `Reclamo ${inc.numero} — orden ${inc.orden.numero}`,
+        mensaje, fotos: (inc.adjuntos as string[] ?? []),
+        empresaNombre: empresa.nombre, empresaTelefono: empresa.telefono,
+      });
+    }
+
+    await enTransaccion(async (client) => {
+      await client.query(`
+        UPDATE compras_incidencias SET estado = CASE WHEN estado = 'abierta' THEN 'reclamada' ELSE estado END,
+          reclamada_at = now(), reclamada_medio = $2, updated_at = now()
+        WHERE id = $1`, [id, b.medio]);
+      await registrarSeguimiento(client, {
+        pedido_id: inc.pedido_id, tipo: 'reclamo',
+        observaciones: `Reclamo ${inc.numero} enviado a ${inc.proveedor.nombre} por ${b.medio === 'manual' ? 'otro medio' : b.medio}`,
+        created_by: user?.id ?? null,
+      });
+      await recalcularEstadoCalidad(client, inc.pedido_id);
+    });
+    registrarActividad(c, { entidad: 'compra', entidad_id: inc.pedido_id, entidad_numero: inc.numero, accion: 'reclamar',
+      detalle: `${INCIDENCIA_TIPO_LABEL[inc.tipo] ?? inc.tipo} — ${inc.item_descripcion}` });
+    const { rows: [row] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [id]);
+    return c.json({ enviado: b.medio !== 'manual', mensaje, incidencia: row });
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+compras.post('/incidencias/:id/respuesta', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, IncidenciaRespuestaSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [inc] } = await client.query(
+        `SELECT inc.*, pi.descripcion AS item_descripcion, pi.producto_id, pi.operacion_item_id, pi.unidad,
+           pi.especificaciones, pi.proveedor_sku
+         FROM compras_incidencias inc JOIN pedido_items pi ON pi.id = inc.pedido_item_id
+         WHERE inc.id = $1 FOR UPDATE OF inc`, [id]);
+      if (!inc) throw new ErrorNegocio(404, 'Reclamo no encontrado');
+      if (['resuelta', 'rechazada'].includes(inc.estado)) throw new ErrorNegocio(409, 'El reclamo ya está cerrado');
+
+      let reposicionId: string | null = inc.reposicion_pedido_item_id;
+      let estado: string;
+
+      if (SOLUCION_CON_MERCADERIA.includes(b.solucion)) {
+        if (!reposicionId) {
+          // Ítem de reposición en la misma OC: cantidad afectada, precio 0 (no se paga de
+          // nuevo) y marcado para que no cuente en la cobertura de la operación.
+          const { rows: [ord] } = await client.query(
+            `SELECT COALESCE(MAX(orden), 0) + 1 AS n FROM pedido_items WHERE pedido_id = $1`, [inc.pedido_id]);
+          const { rows: [rep] } = await client.query(`
+            INSERT INTO pedido_items
+              (pedido_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion,
+               especificaciones, unidad, proveedor_sku, precio_unitario_neto, descuento_pct, iva_pct, es_reposicion_reclamo)
+            VALUES ($1,$2,$3,$4,0,$5,false,$6,$7,$8,0,0,0,true)
+            RETURNING id
+          `, [inc.pedido_id, inc.producto_id ?? null, `Reposición ${inc.numero} — ${inc.item_descripcion}`,
+            inc.cantidad_afectada, ord.n, JSON.stringify(inc.especificaciones ?? {}), inc.unidad ?? 'u', inc.proveedor_sku ?? null]);
+          reposicionId = rep.id;
+        }
+        estado = 'en_reposicion';
+        // La OC vuelve a esperar mercadería
+        await client.query(`
+          UPDATE pedidos SET estado_logistica = CASE WHEN estado_logistica IN ('recibida','recibida_parcial')
+            THEN 'recibida_parcial' ELSE estado_logistica END, updated_at = now() WHERE id = $1`, [inc.pedido_id]);
+        await sincronizarEstadoLegacy(client, inc.pedido_id);
+      } else if (b.solucion === 'rechazado') {
+        estado = 'rechazada';
+      } else {
+        // descuento / nota de crédito / reparación / devolución: no hay mercadería en camino.
+        // El asiento en la cuenta corriente llega en la etapa 3; acá queda el monto.
+        estado = 'resuelta';
+      }
+
+      await client.query(`
+        UPDATE compras_incidencias SET
+          respuesta_proveedor = $2, respondida_at = now(), solucion = $3, solucion_detalle = $4,
+          monto_descuento = $5, reposicion_pedido_item_id = $6, estado = $7,
+          resuelta_at = CASE WHEN $7 IN ('resuelta','rechazada') THEN now() ELSE NULL END, updated_at = now()
+        WHERE id = $1
+      `, [id, b.respuesta_proveedor ?? null, b.solucion, b.solucion_detalle ?? null,
+        b.monto_descuento ?? null, reposicionId, estado]);
+
+      await recalcularEstadoCalidad(client, inc.pedido_id);
+      // Un reclamo cerrado sin mercadería (descuento, nota de crédito, rechazo) también
+      // salda la línea: la OC puede quedar completa aunque el ítem llegó con problema.
+      if (estado === 'resuelta' || estado === 'rechazada') {
+        const nuevo = await recalcularRecepcionOC(client, inc.pedido_id);
+        if (nuevo) {
+          await client.query(`UPDATE pedidos SET estado_logistica = $2, updated_at = now() WHERE id = $1
+            AND estado_logistica IN ('recibida','recibida_parcial')`, [inc.pedido_id, nuevo]);
+          await sincronizarEstadoLegacy(client, inc.pedido_id);
+          if (nuevo === 'recibida') {
+            const { rows: [p2] } = await client.query(`SELECT operacion_id FROM pedidos WHERE id = $1`, [inc.pedido_id]);
+            await marcarOperacionListoSiCorresponde(client, p2?.operacion_id ?? null, inc.pedido_id);
+          }
+        }
+      }
+      await registrarSeguimiento(client, {
+        pedido_id: inc.pedido_id, tipo: 'reclamo', respuesta_proveedor: b.respuesta_proveedor ?? null,
+        observaciones: `Reclamo ${inc.numero}: ${b.solucion.replace(/_/g, ' ')}`, created_by: user?.id ?? null,
+      });
+      registrarActividad(c, { entidad: 'compra', entidad_id: inc.pedido_id, entidad_numero: inc.numero, accion: 'responder_reclamo',
+        detalle: `${b.solucion.replace(/_/g, ' ')}${b.monto_descuento ? ` · ${fmtMonto(Number(b.monto_descuento))}` : ''}` });
+    });
+    const { rows: [row] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [id]);
+    return c.json(row);
   } catch (err) { return manejarErrorNegocio(c, err); }
 });
 

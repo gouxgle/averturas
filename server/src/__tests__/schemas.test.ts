@@ -16,6 +16,14 @@ import {
   EnviarCompraSchema,
   ORIGENES_COMPRA,
   TIPOS_PRODUCTO_COMPRA,
+  RecepcionSchema,
+  SeguimientoSchema,
+  EstadoLogisticaSchema,
+  ConfirmacionOrdenSchema,
+  IncidenciaRespuestaSchema,
+  IncidenciaReclamarSchema,
+  TIPOS_INCIDENCIA,
+  SOLUCIONES_INCIDENCIA,
 } from '../lib/schemas.js';
 
 // ── LoginSchema ────────────────────────────────────────────────
@@ -453,6 +461,138 @@ describe('EnviarCompraSchema', () => {
 
   it('rechaza medio inválido', () => {
     expect(EnviarCompraSchema.safeParse({ medio: 'paloma' }).success).toBe(false);
+  });
+});
+
+// ── Compras etapa 2: recepción ─────────────────────────────────
+describe('RecepcionSchema', () => {
+  const item = { pedido_item_id: UUID_B, cantidad_recibida: 2, cantidad_conforme: 2 };
+
+  it('acepta una recepción completa', () => {
+    const r = RecepcionSchema.safeParse({ items: [item] });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.items[0].cantidad_problema).toBe(0);
+      expect(r.data.items[0].no_recibido).toBe(false);
+    }
+  });
+
+  it('acepta una recepción parcial con problema y reclamo', () => {
+    const r = RecepcionSchema.safeParse({
+      fecha: '2026-09-22', remito_proveedor_nro: 'R-1',
+      items: [{ pedido_item_id: UUID_B, cantidad_recibida: 3, cantidad_conforme: 2, cantidad_problema: 1,
+        incidencia_tipo: 'vidrio_roto', incidencia_descripcion: 'rajado', incidencia_adjuntos: ['/uploads/compras/a.webp'] }],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('acepta marcar un ítem como no recibido', () => {
+    expect(RecepcionSchema.safeParse({ items: [{ pedido_item_id: UUID_B, no_recibido: true }] }).success).toBe(true);
+  });
+
+  it('rechaza una recepción sin nada marcado', () => {
+    const r = RecepcionSchema.safeParse({ items: [{ pedido_item_id: UUID_B, cantidad_recibida: 0 }] });
+    expect(r.success).toBe(false);
+  });
+
+  it('rechaza sin ítems', () => {
+    expect(RecepcionSchema.safeParse({ items: [] }).success).toBe(false);
+  });
+
+  it('rechaza cantidades negativas', () => {
+    expect(RecepcionSchema.safeParse({ items: [{ ...item, cantidad_conforme: -1 }] }).success).toBe(false);
+  });
+
+  it('rechaza un tipo de problema inventado', () => {
+    expect(RecepcionSchema.safeParse({ items: [{ ...item, incidencia_tipo: 'se_perdio' }] }).success).toBe(false);
+  });
+
+  it('acepta cantidades decimales (perfiles en metros)', () => {
+    expect(RecepcionSchema.safeParse({ items: [{ pedido_item_id: UUID_B, cantidad_recibida: 2.5, cantidad_conforme: 2.5 }] }).success).toBe(true);
+  });
+});
+
+// ── Compras etapa 2: logística y seguimiento ───────────────────
+describe('EstadoLogisticaSchema', () => {
+  it.each(['enviada', 'confirmada', 'en_fabricacion', 'en_transito', 'demorado', 'cancelada'])('acepta "%s"', (estado_logistica) => {
+    expect(EstadoLogisticaSchema.safeParse({ estado_logistica }).success).toBe(true);
+  });
+
+  it('rechaza un estado inventado', () => {
+    expect(EstadoLogisticaSchema.safeParse({ estado_logistica: 'en_camino' }).success).toBe(false);
+  });
+});
+
+describe('SeguimientoSchema', () => {
+  it('acepta una respuesta del proveedor', () => {
+    const r = SeguimientoSchema.safeParse({ respuesta_proveedor: 'Sale el jueves' });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.tipo).toBe('seguimiento');
+  });
+
+  it('acepta solo una fecha nueva', () => {
+    expect(SeguimientoSchema.safeParse({ nueva_fecha_prometida: '2026-10-12' }).success).toBe(true);
+  });
+
+  it('rechaza un seguimiento vacío', () => {
+    expect(SeguimientoSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('rechaza fecha mal formada', () => {
+    expect(SeguimientoSchema.safeParse({ nueva_fecha_prometida: '12/10/2026' }).success).toBe(false);
+  });
+});
+
+describe('ConfirmacionOrdenSchema', () => {
+  it('acepta la confirmación con defaults', () => {
+    const r = ConfirmacionOrdenSchema.safeParse({});
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.confirmacion_recepcion).toBe(true);
+  });
+
+  it('acepta fecha prometida', () => {
+    expect(ConfirmacionOrdenSchema.safeParse({ fecha_prometida: '2026-10-05', contacto: 'Juan' }).success).toBe(true);
+  });
+});
+
+// ── Compras etapa 2: reclamos ──────────────────────────────────
+describe('IncidenciaRespuestaSchema', () => {
+  it.each(SOLUCIONES_INCIDENCIA.filter(s => s !== 'descuento' && s !== 'nota_credito'))('acepta solución "%s" sin monto', (solucion) => {
+    expect(IncidenciaRespuestaSchema.safeParse({ solucion }).success).toBe(true);
+  });
+
+  it('exige monto en un descuento', () => {
+    const r = IncidenciaRespuestaSchema.safeParse({ solucion: 'descuento' });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].path).toEqual(['monto_descuento']);
+  });
+
+  it('exige monto en una nota de crédito', () => {
+    expect(IncidenciaRespuestaSchema.safeParse({ solucion: 'nota_credito' }).success).toBe(false);
+    expect(IncidenciaRespuestaSchema.safeParse({ solucion: 'nota_credito', monto_descuento: 5000 }).success).toBe(true);
+  });
+
+  it('rechaza una solución inventada', () => {
+    expect(IncidenciaRespuestaSchema.safeParse({ solucion: 'lo_regalan' }).success).toBe(false);
+  });
+
+  it('rechaza sin solución', () => {
+    expect(IncidenciaRespuestaSchema.safeParse({ respuesta_proveedor: 'ya te aviso' }).success).toBe(false);
+  });
+});
+
+describe('IncidenciaReclamarSchema', () => {
+  it.each(['whatsapp', 'email', 'manual'])('acepta medio "%s"', (medio) => {
+    expect(IncidenciaReclamarSchema.safeParse({ medio }).success).toBe(true);
+  });
+
+  it('rechaza sin medio', () => {
+    expect(IncidenciaReclamarSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('tiene los 12 tipos de problema esperados', () => {
+    expect(TIPOS_INCIDENCIA).toHaveLength(12);
+    expect(TIPOS_INCIDENCIA).toContain('vidrio_roto');
   });
 });
 
