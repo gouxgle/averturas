@@ -8,6 +8,14 @@ import {
   EstadoOperacionSchema,
   PedidoEstadoSchema,
   ProveedorSchema,
+  SolicitudCompraSchema,
+  CotizacionCrearSchema,
+  CotizacionRespuestaSchema,
+  OrdenDirectaSchema,
+  OrdenConsolidarSchema,
+  EnviarCompraSchema,
+  ORIGENES_COMPRA,
+  TIPOS_PRODUCTO_COMPRA,
 } from '../lib/schemas.js';
 
 // ── LoginSchema ────────────────────────────────────────────────
@@ -273,6 +281,178 @@ describe('PedidoEstadoSchema', () => {
 
   it('rechaza estado inválido', () => {
     expect(PedidoEstadoSchema.safeParse({ estado: 'procesando' }).success).toBe(false);
+  });
+});
+
+// ── Compras: SolicitudCompraSchema ─────────────────────────────
+const UUID_A = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+const UUID_B = '9b2e7c1a-2f3d-4e5f-8a6b-7c8d9e0f1a2b';
+const UUID_C = '0f1e2d3c-4b5a-4978-8765-4321fedcba98';
+
+describe('SolicitudCompraSchema', () => {
+  const base = {
+    origen: 'venta',
+    operacion_id: UUID_A,
+    tipo_producto: 'abertura_medida',
+    items: [{ descripcion: 'Ventana corrediza', cantidad: 2, especificaciones: { ancho_m: 1.2, alto_m: 1.5, color: 'Blanco' } }],
+  };
+
+  it('acepta solicitud válida y aplica defaults', () => {
+    const r = SolicitudCompraSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.items[0].unidad).toBe('u');
+      expect(r.data.adjuntos).toEqual([]);
+    }
+  });
+
+  it.each(ORIGENES_COMPRA)('acepta origen "%s"', (origen) => {
+    expect(SolicitudCompraSchema.safeParse({ ...base, origen }).success).toBe(true);
+  });
+
+  it.each(TIPOS_PRODUCTO_COMPRA)('acepta tipo_producto "%s"', (tipo_producto) => {
+    expect(SolicitudCompraSchema.safeParse({ ...base, tipo_producto }).success).toBe(true);
+  });
+
+  it('rechaza origen inválido', () => {
+    expect(SolicitudCompraSchema.safeParse({ ...base, origen: 'capricho' }).success).toBe(false);
+  });
+
+  it('rechaza sin ítems', () => {
+    expect(SolicitudCompraSchema.safeParse({ ...base, items: [] }).success).toBe(false);
+  });
+
+  it('rechaza cantidad 0', () => {
+    expect(SolicitudCompraSchema.safeParse({ ...base, items: [{ descripcion: 'X', cantidad: 0 }] }).success).toBe(false);
+  });
+
+  it('acepta cantidad decimal (perfiles en metros)', () => {
+    const r = SolicitudCompraSchema.safeParse({ ...base, tipo_producto: 'perfil',
+      items: [{ descripcion: 'Perfil 6 m', cantidad: 2.5, unidad: 'm', especificaciones: { largo_mm: 6000 } }] });
+    expect(r.success).toBe(true);
+  });
+
+  it('rechaza unidad inválida', () => {
+    expect(SolicitudCompraSchema.safeParse({ ...base, items: [{ descripcion: 'X', cantidad: 1, unidad: 'cajas' }] }).success).toBe(false);
+  });
+
+  it('rechaza medida no numérica en la ficha de una abertura', () => {
+    const r = SolicitudCompraSchema.safeParse({ ...base, items: [{ descripcion: 'X', cantidad: 1, especificaciones: { ancho_m: 'uno veinte' } }] });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].path).toEqual(['items', 0, 'especificaciones', 'ancho_m']);
+  });
+
+  it('rechaza espesor negativo en un vidrio', () => {
+    const r = SolicitudCompraSchema.safeParse({ ...base, tipo_producto: 'vidrio', items: [{ descripcion: 'DVH', cantidad: 1, especificaciones: { espesor_mm: -4 } }] });
+    expect(r.success).toBe(false);
+  });
+
+  it('ignora claves de ficha que no aplican al tipo (no valida ancho_m en un herraje)', () => {
+    const r = SolicitudCompraSchema.safeParse({ ...base, tipo_producto: 'herraje_accesorio', items: [{ descripcion: 'Cerradura', cantidad: 1, especificaciones: { ancho_m: 'n/a', marca: 'X' } }] });
+    expect(r.success).toBe(true);
+  });
+});
+
+// ── Compras: CotizacionCrearSchema ─────────────────────────────
+describe('CotizacionCrearSchema', () => {
+  const base = { solicitud_id: UUID_A, item_ids: [UUID_B], proveedor_ids: [UUID_C] };
+
+  it('acepta cotización válida', () => {
+    expect(CotizacionCrearSchema.safeParse(base).success).toBe(true);
+  });
+
+  it('rechaza sin proveedores', () => {
+    expect(CotizacionCrearSchema.safeParse({ ...base, proveedor_ids: [] }).success).toBe(false);
+  });
+
+  it('rechaza sin ítems', () => {
+    expect(CotizacionCrearSchema.safeParse({ ...base, item_ids: [] }).success).toBe(false);
+  });
+
+  it('rechaza fecha límite mal formada', () => {
+    expect(CotizacionCrearSchema.safeParse({ ...base, fecha_limite: '25/09/2026' }).success).toBe(false);
+  });
+});
+
+// ── Compras: CotizacionRespuestaSchema ─────────────────────────
+describe('CotizacionRespuestaSchema', () => {
+  it('acepta respuesta con solo total de cabecera', () => {
+    const r = CotizacionRespuestaSchema.safeParse({ subtotal_neto: 100000, iva_pct: 21, flete: 5000, plazo_dias: 15 });
+    expect(r.success).toBe(true);
+  });
+
+  it('acepta respuesta con precios por ítem y sin cabecera', () => {
+    const r = CotizacionRespuestaSchema.safeParse({ items: [{ solicitud_item_id: UUID_B, precio_unitario_neto: 45000 }] });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.items?.[0].iva_pct).toBe(21);
+      expect(r.data.items?.[0].descuento_pct).toBe(0);
+    }
+  });
+
+  it('rechaza respuesta vacía (ni total ni ítems)', () => {
+    expect(CotizacionRespuestaSchema.safeParse({ plazo_dias: 10 }).success).toBe(false);
+  });
+
+  it('acepta "sin respuesta" sin montos', () => {
+    expect(CotizacionRespuestaSchema.safeParse({ sin_respuesta: true }).success).toBe(true);
+  });
+
+  it.each([0, 10.5, 21, 27])('acepta IVA %s%%', (iva_pct) => {
+    expect(CotizacionRespuestaSchema.safeParse({ subtotal_neto: 1000, iva_pct }).success).toBe(true);
+  });
+
+  it.each([5, 19, 100])('rechaza IVA %s%%', (iva_pct) => {
+    expect(CotizacionRespuestaSchema.safeParse({ subtotal_neto: 1000, iva_pct }).success).toBe(false);
+  });
+
+  it('rechaza neto negativo', () => {
+    expect(CotizacionRespuestaSchema.safeParse({ subtotal_neto: -1 }).success).toBe(false);
+  });
+
+  it('rechaza descuento por ítem mayor a 100%', () => {
+    expect(CotizacionRespuestaSchema.safeParse({ items: [{ solicitud_item_id: UUID_B, precio_unitario_neto: 100, descuento_pct: 120 }] }).success).toBe(false);
+  });
+
+  it('rechaza disponibilidad inválida', () => {
+    expect(CotizacionRespuestaSchema.safeParse({ subtotal_neto: 100, disponibilidad: 'quizas' }).success).toBe(false);
+  });
+});
+
+// ── Compras: órdenes ───────────────────────────────────────────
+describe('OrdenDirectaSchema / OrdenConsolidarSchema', () => {
+  const items = [{ solicitud_item_id: UUID_B, precio_unitario_neto: 1000, iva_pct: 21 }];
+
+  it('acepta orden directa válida', () => {
+    const r = OrdenDirectaSchema.safeParse({ solicitud_id: UUID_A, proveedor_id: UUID_C, items });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.costo_envio).toBe(0);
+  });
+
+  it('rechaza orden directa sin solicitud', () => {
+    expect(OrdenDirectaSchema.safeParse({ proveedor_id: UUID_C, items }).success).toBe(false);
+  });
+
+  it('acepta consolidada sin solicitud (varias SC)', () => {
+    expect(OrdenConsolidarSchema.safeParse({ proveedor_id: UUID_C, items }).success).toBe(true);
+  });
+
+  it('rechaza sin ítems', () => {
+    expect(OrdenConsolidarSchema.safeParse({ proveedor_id: UUID_C, items: [] }).success).toBe(false);
+  });
+
+  it('rechaza flete negativo', () => {
+    expect(OrdenConsolidarSchema.safeParse({ proveedor_id: UUID_C, items, costo_envio: -10 }).success).toBe(false);
+  });
+});
+
+describe('EnviarCompraSchema', () => {
+  it.each(['whatsapp', 'email', 'manual'])('acepta medio "%s"', (medio) => {
+    expect(EnviarCompraSchema.safeParse({ medio }).success).toBe(true);
+  });
+
+  it('rechaza medio inválido', () => {
+    expect(EnviarCompraSchema.safeParse({ medio: 'paloma' }).success).toBe(false);
   });
 });
 

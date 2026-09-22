@@ -3,7 +3,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ClienteSchema } from '../lib/schemas.js';
 import { generarPDFEstadoCuenta, type EstadoCuentaPDF, type EmpresaPDF } from '../lib/pdf.js';
-import { enviarWhatsapp } from '../lib/whatsapp.js';
+import { enviarWhatsapp, enviarWhatsappPdf } from '../lib/whatsapp.js';
 
 const clientes = new Hono();
 
@@ -581,20 +581,6 @@ clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
     return { ...e, saldo: saldoAcum };
   });
 
-  // Normalizar teléfono
-  const digits = cliente.telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
-
-  const evoUrl  = process.env.EVOLUTION_API_URL;
-  const evoKey  = process.env.EVOLUTION_API_KEY;
-  const evoInst = process.env.EVOLUTION_INSTANCE;
-  if (!evoUrl || !evoKey || !evoInst)
-    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
-
   const empresa: EmpresaPDF = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
   const pdfData: EstadoCuentaPDF = {
     cliente: {
@@ -609,7 +595,6 @@ clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
   };
 
   const pdfBuffer = await generarPDFEstadoCuenta(pdfData, empresa);
-  const base64 = pdfBuffer.toString('base64');
 
   const clienteNombreStr = cliente.tipo_persona === 'juridica'
     ? (cliente.razon_social ?? 'estimado/a')
@@ -621,30 +606,10 @@ clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
     ? `Hola ${clienteNombreStr}, adjuntamos tu estado de cuenta al ${new Date().toLocaleDateString('es-AR')}. Tu cuenta está al día. ¡Muchas gracias!`
     : `Hola ${clienteNombreStr}, adjuntamos tu estado de cuenta al ${new Date().toLocaleDateString('es-AR')}. Saldo pendiente: ${Number(saldo).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 })}. Ante cualquier consulta, estamos a disposición.`;
 
-  const resp = await fetch(`${evoUrl}/message/sendMedia/${evoInst}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
-    body: JSON.stringify({
-      number: numero,
-      mediatype: 'document',
-      mimetype: 'application/pdf',
-      media: base64,
-      fileName: `EstadoCuenta-${clienteNombreStr.replace(/\s+/g, '-')}.pdf`,
-      caption,
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    console.error('[whatsapp-estado-cuenta] Evolution API error:', resp.status, errText);
-    try {
-      const errJson = JSON.parse(errText);
-      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
-      const noExiste = msgs.find(m => m.exists === false);
-      if (noExiste) return c.json({ error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp.` }, 422);
-    } catch { /* no JSON */ }
-    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
-  }
+  // Helper compartido (recibos, Compras): normaliza el número y maneja los errores de Evolution
+  const envio = await enviarWhatsappPdf(cliente.telefono, pdfBuffer, `EstadoCuenta-${clienteNombreStr.replace(/\s+/g, '-')}.pdf`, caption);
+  if (!envio.ok) return c.json({ error: envio.error }, envio.status as 422 | 500 | 502);
+  const numero = envio.numero;
 
   db.query(
     `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,

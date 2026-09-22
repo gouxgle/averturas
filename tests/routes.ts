@@ -9,7 +9,7 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Visitas de Relevamiento de Datos',   path: '/presupuestos/visitas-tecnicas' },
   { label: 'Operaciones',                        path: '/operaciones' },
   { label: 'Remitos',                            path: '/remitos' },
-  { label: 'Pedidos',                            path: '/pedidos' },
+  { label: 'Compras',                            path: '/compras' },
   { label: 'Recibos',                            path: '/recibos' },
   { label: 'Clientes',                           path: '/clientes' },
   { label: 'Estado de Cuenta',                   path: '/estado-cuenta' },

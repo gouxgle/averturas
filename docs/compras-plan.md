@@ -1,12 +1,12 @@
 # Módulo Compras y Proveedores — evolución de "Pedidos al proveedor"
 
-> **Estado (2026-09-21): PLAN GUARDADO, NO APROBADO. No implementar hasta que el usuario lo
-> apruebe explícitamente.** Instrucción textual: "guarda el plan lo revisare en detalle y no
-> avanzaremos aun". Resumen ejecutivo publicado como artifact:
-> https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt (página "Circuito de Compras": hoy vs.
-> después, diagrama, 3 etapas, decisiones, fuera de alcance). Cuando el usuario apruebe,
-> empezar por la Etapa 1 y seguir el ciclo del repo (código → check → commit → push → deploy a
-> test → rebuild :3000 → reporte; prod nunca automático).
+> **Estado (2026-09-22): Etapa 1 IMPLEMENTADA y deployada a test** (aprobada por el usuario
+> el 2026-09-21). Etapas 2 y 3 pendientes; arrancar cada una desde este plan. Resumen
+> ejecutivo: https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt. Desvíos de la etapa 1 respecto
+> al plan: `registrarDoc`/`compras_documentos` quedan para la etapa 3 (los adjuntos van en el
+> JSONB de cada fila); se agregaron `compras_solicitud_items.costo_referencia`/`proveedor_sku`
+> y `compras_cotizacion_proveedores.iva_pct`; los PDFs de PC/OC se abren por `GET .../pdf`
+> (fetch con token → blob) y hay `GET .../mensaje` para previsualizar el texto antes de enviar.
 >
 > Original en `~/.claude/plans/snazzy-dreaming-lobster.md`; este archivo es la copia versionada.
 

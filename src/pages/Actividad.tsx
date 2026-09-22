@@ -27,6 +27,7 @@ const ENTIDAD_LABEL: Record<string, string> = {
   presupuesto: 'Presupuesto',
   recibo: 'Recibo',
   remito: 'Remito',
+  compra: 'Compra',
 };
 
 const ACCION_CFG: Record<string, { label: string; cls: string }> = {
@@ -40,6 +41,13 @@ const ACCION_CFG: Record<string, { label: string; cls: string }> = {
   eliminar:      { label: 'Eliminó',        cls: 'bg-red-100 text-red-600' },
   venta_rapida:  { label: 'Venta rápida',   cls: 'bg-emerald-100 text-emerald-700' },
   extender_validez: { label: 'Extendió validez', cls: 'bg-sky-100 text-sky-700' },
+  crear_solicitud:      { label: 'Solicitud',        cls: 'bg-amber-100 text-amber-700' },
+  pedir_cotizacion:     { label: 'Pidió cotización', cls: 'bg-sky-100 text-sky-700' },
+  enviar:               { label: 'Envió',            cls: 'bg-sky-100 text-sky-700' },
+  responder_cotizacion: { label: 'Cargó respuesta',  cls: 'bg-indigo-100 text-indigo-700' },
+  adjudicar:            { label: 'Adjudicó',         cls: 'bg-emerald-100 text-emerald-700' },
+  cerrar_cotizacion:    { label: 'Cerró cotización', cls: 'bg-gray-100 text-gray-600' },
+  crear_oc:             { label: 'Orden de compra',  cls: 'bg-lime-100 text-lime-700' },
 };
 
 function accionCfg(a: string) {
@@ -51,6 +59,7 @@ const ENTIDAD_FILTROS: { v: string; l: string }[] = [
   { v: 'presupuesto', l: 'Presupuestos' },
   { v: 'recibo', l: 'Recibos' },
   { v: 'remito', l: 'Remitos' },
+  { v: 'compra', l: 'Compras' },
 ];
 
 const PAGE = 50;

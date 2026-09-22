@@ -11,21 +11,20 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
   anterior de pedidos, superado por `compras-plan.md`; queda por las ideas descartadas),
   `docs/catalogo-web.md` (contrato de datos para el sitio web público).
 
-## Pendientes y estado al 2026-09-21 (leer al empezar una sesión)
+## Pendientes y estado al 2026-09-22 (leer al empezar una sesión)
 
-- **Módulo "Compras y Proveedores"** — plan escrito en `docs/compras-plan.md` (copia de
-  `~/.claude/plans/snazzy-dreaming-lobster.md`) y resumen ejecutivo publicado en
-  https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt. **El usuario NO lo aprobó todavía**
-  ("lo revisaré en detalle y no avanzaremos aún"): no tocar código del módulo hasta que lo
-  apruebe. Cuando apruebe: Etapa 1 (SC → PC → comparativa → OC) primero, una etapa por
-  commit, cada una deployada a test y usable sola. Decisiones ya cerradas: OC = tabla
-  `pedidos` extendida (nuevas `OC-`, viejas `PED-` intactas), una OC puede consolidar varias
-  solicitudes de distintos clientes, precios neto + IVA % por línea comparados por total
-  final, 4 estados independientes (logística/calidad/finanzas/docs), `deuda_actual` pasa a
-  derivarse de `proveedor_cc_movimientos` (etapa 3).
+- **Módulo "Compras y Proveedores"** — plan completo en `docs/compras-plan.md`. **Etapa 1 hecha
+  y en test** (commit de 2026-09-22): SC → PC → comparativa → OC, `/compras` reemplaza a
+  `/pedidos`, PDF + envío WhatsApp/email de PC y OC, consolidación multi-cliente, flujo viejo
+  intacto bajo `/compras/oc/*` (crea SC implícita). **Faltan Etapa 2** (confirmación,
+  seguimiento, demora automática, recepción por ítem con stock por conforme, reclamos `REC-`)
+  y **Etapa 3** (documentos, facturas, control económico, cuenta corriente con
+  `proveedor_cc_movimientos`, pagos, cierre por 4 estados). Arrancar cada etapa desde el plan;
+  una etapa = un commit deployado a test. Ver sección "Compras" más abajo.
 - **Prod atrasado respecto a test**: prod está en `5be8dbd`; en GitHub y test están además
-  `bfe0bcd` (solo docs) y `6e18888` (vista pública del remito con el encabezado/pie del PDF).
-  Deploy a prod solo cuando el usuario lo pida (backup previo + `echo si | bash deploy-env.sh prod`).
+  `bfe0bcd`, `6e18888`, `eeef084` y la Etapa 1 de Compras (migración grande: tablas
+  `compras_*` + columnas en `pedidos`/`pedido_items`). Deploy a prod solo cuando el usuario lo
+  pida (backup previo + `echo si | bash deploy-env.sh prod`).
 
 ## Ambientes
 
@@ -176,7 +175,8 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
 
 ```
 src/pages/          una página por sección (Dashboard, CRM, Presupuestos, NuevoPresupuesto,
-                    Operaciones (kanban), Remitos, Recibos, NuevoRecibo, Pedidos, NuevoPedido,
+                    Operaciones (kanban), Remitos, Recibos, NuevoRecibo, NuevoPedido (flujo
+                    viejo de OC), compras/ (Compras + pestañas + detalles + NuevaSolicitud),
                     VentaRapida, VisitaTecnica, VisitasTecnicas, CargarVisitaTecnica, Clientes,
                     ClienteDetalle, Productos, NuevoProducto, Stock, Proveedores, EstadoCuenta,
                     Reportes, Actividad, Novedades, Configuracion, VistaPublicaPresupuesto,
@@ -192,7 +192,8 @@ src/lib/            api.ts, utils.ts, diffProforma.ts, catalogoFiltros.ts, catal
                     atributosPorTipo.ts, apiError.ts
 server/src/routes/  una ruta por módulo (ver tabla abajo); pub.ts = público sin auth
 server/src/lib/     pdf.ts (PDFs server-side con puppeteer), schemas.ts (Zod), validate.ts, whatsapp.ts,
-                    cotizacionDolar.ts, actividad.ts, oportunidades.ts, remitos.ts
+                    cotizacionDolar.ts, actividad.ts, oportunidades.ts, remitos.ts, compras.ts
+                    (numeración SC/PC/OC, estado legacy, totales, autocompletado de ítems)
 server/src/scripts/ migrate.ts, add-changelog.ts, optimizar-imagenes.ts
 supabase/migrations/ · docker/initdb/ · docs/ · tests/
 ```
@@ -203,14 +204,16 @@ Públicas (sin `ProtectedRoute`): `/login`, `/p/:token` (proforma), `/p/:token/i
 de la proforma), `/r/:token` (remito).
 Autenticadas: `/dashboard`, `/crm`, `/presupuestos[/nuevo|/:id/editar|/visita-tecnica|/visitas-tecnicas[/:id]]`,
 `/ventas/rapida`, `/operaciones[/nueva|/:id]`, `/remitos[/nuevo|/:id/editar]`,
-`/pedidos[/nuevo|/:id/editar]`, `/recibos[/nuevo|/:id/editar]`,
+`/compras[?tab=solicitudes|cotizaciones|ordenes&sc=|pc=|oc=]`, `/compras/nueva-solicitud`,
+`/compras/solicitudes/:id/editar`, `/compras/oc[/nueva|/:id/editar]` (flujo viejo; `/pedidos*`
+redirige acá), `/recibos[/nuevo|/:id/editar]`,
 `/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
 `/productos[/nuevo|/:id]`, `/stock`, `/proveedores[/:id/precios]`, `/reportes`, `/actividad`,
 `/novedades`, `/configuracion`. Impresión (sin AppLayout): `/imprimir/{presupuesto,remito,recibo}/:id`,
 `/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`.
 
 Sidebar: Dashboard · **Comercial** (CRM, Venta rápida, Presupuestos, Visitas de Relevamiento
-de Datos, Operaciones, Remitos, Pedidos, Recibos, Clientes, Estado de Cuenta) · **Catálogo**
+de Datos, Operaciones, Remitos, Compras, Recibos, Clientes, Estado de Cuenta) · **Catálogo**
 (Productos, Existencias, Proveedores) · **Sistema** (Reportes, Actividad, Novedades,
 Configuración). Configuración tiene paneles para tipos de abertura, sistemas, colores,
 materiales, líneas, tipos de vidrio, categorías, modelos, servicios, formas de pago, empresa,
@@ -235,7 +238,8 @@ proceso). **Hono matchea en orden de registro: rutas específicas siempre antes 
 | `/notificaciones` | `GET /` (5 fuentes), `PATCH /vista` (una sola: `{tipo,id}`), `PATCH /marcar-leidas` (todas) |
 | `/recibos` | `/conteos`, `/tablero` antes de `/:id`; `POST /:id/enviar-whatsapp` (PDF server-side) |
 | `/remitos` | `/conteos`, `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` antes de `/:id` |
-| `/pedidos` | `/tablero`, `/reporte-envios`, `/operaciones-disponibles` antes de `/:id` |
+| `/pedidos` | flujo viejo de OC: `/tablero`, `/reporte-envios`, `/operaciones-disponibles` antes de `/:id`; `POST /` numera `OC-` y crea la SC implícita; `PATCH /:id/estado` sincroniza `estado_logistica` |
+| `/compras` | `/tablero`, `/adjuntos` (upload imagen→webp o PDF a `uploads/compras`), `/solicitudes[/pendientes-desde-operaciones|/items-pendientes|/preparar|/:id|/:id/estado]`, `/cotizaciones[/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/proveedores/:pid/respuesta|/:id/comparativa|/:id/adjudicar|/:id/cerrar]`, `/ordenes[/directa|/consolidar|/:id|/:id/pdf|/:id/mensaje|/:id/enviar]` — rutas específicas antes de `/:id` |
 | `/visitas-tecnicas` | `/upload-imagen` antes de `/:id`; `PATCH /:id/cobrar`, `/sin-cargo`, `/bonificar`, `/costo-externo` |
 | `/oportunidades` | `/resumen`, `/plantilla/:id` antes de `/:id`; `PATCH /:id/posponer`, `/:id/estado`, `POST /:id/contactar` |
 | `/tareas` | `PATCH /:id/completar` limpia `respuesta_cliente` de la operación vinculada y sincroniza oportunidad/entrega espejo |
@@ -250,7 +254,9 @@ updated_at DESC LIMIT 1`** — hay más de una fila en prod), `tipos_abertura`, 
 `proveedor_precios`, `catalogo_productos`, `clientes`, `interacciones`, `tareas`, `operaciones`,
 `operacion_items`, `operacion_formas_pago`, `operacion_versiones`, `operacion_revisiones`,
 `estados_historial`, `stock_lotes`, `stock_movimientos`, `remitos`, `remito_items`, `recibos`,
-`recibo_items`, `recibo_pagos`, `compromisos_pago`, `transportistas`, `pedidos`, `pedido_items`,
+`recibo_items`, `recibo_pagos`, `compromisos_pago`, `transportistas`, `pedidos` (= OC), `pedido_items`,
+`compras_solicitudes`, `compras_solicitud_items`, `compras_cotizaciones`, `compras_cotizacion_items`,
+`compras_cotizacion_proveedores`, `compras_cotizacion_respuesta_items`,
 `visitas_tecnicas`, `visita_tecnica_items`, `catalogo_servicios`, `oportunidades`,
 `mensajes_plantilla`, `changelog_cambios`, `schema_migrations`. Vista `catalogo_web` + rol
 `web_catalogo` (ver `docs/catalogo-web.md`).
@@ -339,8 +345,27 @@ items + costo_envio`. Coverage stock-aware (`items_cubiertos`): un ítem está c
 = pedir igual habiendo stock (no cuenta en coverage). `es_stock_propio` = pedido sin cliente
 (`operacion_id=NULL`). Al marcar `recibido` y no quedar pedidos activos → `operaciones.estado='listo'`.
 Operación 100% en stock (`STOCK_CUBRE_TODO`) va directo a "Lista p/ entregar" sin pedido.
-Evolución planificada a "Compras y Proveedores" (SC → PC → OC → recepción por ítem → reclamos →
-cuenta corriente): `docs/compras-plan.md`, pendiente de aprobación — ver "Pendientes" arriba.
+
+**Compras (Etapa 1, 2026-09-22)** — `docs/compras-plan.md`. La **OC es la tabla `pedidos`
+extendida** (las nuevas se numeran `OC-`, las viejas `PED-` quedan intactas): `estado`
+legacy lo escribe SOLO `sincronizarEstadoLegacy()` (`lib/compras.ts`) a partir de
+`estado_logistica` (borrador→pendiente, enviada…recibida_parcial→enviado, recibida/cerrada→
+recibido, cancelada→cancelado); el flujo viejo (`PATCH /pedidos/:id/estado`) hace la inversa.
+`monto_total` es espejo de `total` y `costo_unitario` de `precio_unitario_neto` (los PED-
+históricos tienen `iva_pct = 0`). Circuito: **SC** (`compras_solicitudes`, ítems con
+`especificaciones` JSONB autocompletadas desde `operacion_items`+`catalogo_productos.atributos`,
+`visita_tecnica_items` o el catálogo — `armarItemDesde()`) → **PC** opcional
+(`compras_cotizaciones`, una fila por proveedor en `compras_cotizacion_proveedores`, respuesta
+por total o por ítem, comparativa por **total final** = neto − desc + IVA + flete) →
+**OC** (`crearOrden()` en `routes/compras.ts`: directa, adjudicada o consolidada de varias
+SC/clientes con `es_consolidada` y `operacion_id = NULL`; flete prorrateado por neto al leer,
+no se guarda). Precios neto + IVA % por línea (`calcularTotales()`), IVA ∈ {0, 10.5, 21, 27}.
+`POST /pedidos` (flujo viejo) sigue funcionando y crea la SC implícita `con_oc`. PDFs
+`generarPDFCompra()` (`renderPDF()` compartido en `pdf.ts`); envío con `enviarWhatsappPdf()` /
+`sendCompra()`; plantillas `compra_cotizacion` y `compra_orden`. Frontend en
+`src/pages/compras/` (`tipos.ts` + `ui.tsx` compartidos; modales por query param). En la
+etapa 1 la recepción sigue siendo la legacy (todo-o-nada) desde `DetalleOrden`; las franjas
+Calidad/Finanzas/Docs muestran "—" hasta las etapas 2 y 3.
 
 **Visitas de relevamiento** — `VT-YYYYMM-NNNN`, `pendiente → relevada → convertida |
 cancelada`. Al crear se elige cobrar o no: `cobro_estado` `cobrada` (recibo emitido) |

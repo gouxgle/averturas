@@ -187,6 +187,181 @@ export const PedidoEstadoSchema = z.object({
   costo_envio_real: z.number().min(0).optional().nullable(),
 });
 
+// ── Compras: SC → PC → OC (docs/compras-plan.md) ──────────────────────────────
+const zFecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)');
+const zAdjuntos = z.array(z.string().max(300)).max(20);
+
+export const ORIGENES_COMPRA = [
+  'venta', 'proforma', 'orden_trabajo', 'reposicion_stock',
+  'produccion_propia', 'faltante', 'garantia', 'reposicion_falla',
+] as const;
+export const TIPOS_PRODUCTO_COMPRA = [
+  'abertura_estandar', 'abertura_medida', 'perfil', 'vidrio', 'herraje_accesorio', 'otro',
+] as const;
+export const UNIDADES_COMPRA = ['u', 'm', 'm2', 'kg'] as const;
+export const IVA_PCTS = [0, 10.5, 21, 27] as const;
+export const DISPONIBILIDADES_COMPRA = ['inmediata', 'a_fabricar', 'parcial', 'sin_stock'] as const;
+export const MEDIOS_ENVIO_COMPRA = ['whatsapp', 'email', 'manual'] as const;
+
+const zIvaPct = z.number().refine(v => (IVA_PCTS as readonly number[]).includes(v), 'IVA debe ser 0, 10.5, 21 o 27');
+const zDescPct = z.number().min(0).max(100);
+
+// Claves esperadas de la ficha técnica según el tipo de producto (se valida que las que
+// vengan tengan el tipo correcto; ninguna es obligatoria porque el origen puede no tenerla).
+const ESPEC_NUM: Record<string, string[]> = {
+  abertura_estandar: ['ancho_m', 'alto_m'],
+  abertura_medida:   ['ancho_m', 'alto_m'],
+  perfil:            ['largo_mm', 'cantidad_barras'],
+  vidrio:            ['espesor_mm', 'ancho_mm', 'alto_mm', 'cantidad'],
+  herraje_accesorio: [],
+  otro:              [],
+};
+
+export const SolicitudItemSchema = z.object({
+  operacion_item_id:      zUUID.optional().nullable(),
+  visita_tecnica_item_id: zUUID.optional().nullable(),
+  producto_id:            zUUID.optional().nullable(),
+  descripcion:            z.string().trim().min(1, 'Descripción requerida').max(500),
+  cantidad:               z.number().positive('La cantidad debe ser mayor a 0'),
+  unidad:                 z.enum(UNIDADES_COMPRA).optional().default('u'),
+  especificaciones:       z.record(z.string(), z.unknown()).optional().default({}),
+  adjuntos:               zAdjuntos.optional().default([]),
+  observaciones:          zText(1000).optional(),
+});
+
+export const SolicitudCompraSchema = z.object({
+  origen:                z.enum(ORIGENES_COMPRA),
+  operacion_id:          zUUID.optional().nullable(),
+  visita_tecnica_id:     zUUID.optional().nullable(),
+  cliente_id:            zUUID.optional().nullable(),
+  obra:                  zText(200).optional(),
+  tipo_producto:         z.enum(TIPOS_PRODUCTO_COMPRA),
+  fecha_necesaria:       zFecha.optional().nullable(),
+  observaciones:         zText(2000).optional(),
+  adjuntos:              zAdjuntos.optional().default([]),
+  proveedor_sugerido_id: zUUID.optional().nullable(),
+  items:                 z.array(SolicitudItemSchema).min(1, 'Se requiere al menos 1 ítem'),
+}).superRefine((b, ctx) => {
+  const numericas = ESPEC_NUM[b.tipo_producto] ?? [];
+  b.items.forEach((it, i) => {
+    for (const k of numericas) {
+      const v = it.especificaciones[k];
+      if (v !== undefined && v !== null && v !== '' && (typeof v !== 'number' || !(v > 0))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['items', i, 'especificaciones', k],
+          message: `${k} debe ser un número mayor a 0`,
+        });
+      }
+    }
+  });
+});
+
+export const SolicitudEstadoSchema = z.object({
+  estado: z.enum(['cancelada', 'cerrada', 'abierta']),
+  motivo: zText(500).optional(),
+});
+
+export const CotizacionCrearSchema = z.object({
+  solicitud_id:  zUUID,
+  item_ids:      z.array(zUUID).min(1, 'Elegí al menos un ítem'),
+  proveedor_ids: z.array(zUUID).min(1, 'Elegí al menos un proveedor'),
+  fecha_limite:  zFecha.optional().nullable(),
+  observaciones: zText(2000).optional(),
+});
+
+const CotizacionRespuestaItemSchema = z.object({
+  solicitud_item_id:    zUUID,
+  precio_unitario_neto: zPosNum,
+  descuento_pct:        zDescPct.optional().default(0),
+  iva_pct:              zIvaPct.optional().default(21),
+  plazo_dias:           z.number().int().min(0).optional().nullable(),
+  disponibilidad:       z.enum(DISPONIBILIDADES_COMPRA).optional().nullable(),
+  observaciones:        zText(500).optional(),
+});
+
+export const CotizacionRespuestaSchema = z.object({
+  subtotal_neto:   zPosNum.optional(),
+  descuento_monto: zPosNum.optional().default(0),
+  iva_pct:         zIvaPct.optional().default(21),
+  iva_monto:       zPosNum.optional(),
+  flete:           zPosNum.optional().default(0),
+  plazo_dias:      z.number().int().min(0).optional().nullable(),
+  disponibilidad:  z.enum(DISPONIBILIDADES_COMPRA).optional().nullable(),
+  forma_pago:      zText(200).optional(),
+  validez_hasta:   zFecha.optional().nullable(),
+  observaciones:   zText(2000).optional(),
+  archivo_url:     zText(300).optional(),
+  adjuntos:        zAdjuntos.optional(),
+  sin_respuesta:   z.boolean().optional().default(false),
+  items:           z.array(CotizacionRespuestaItemSchema).optional(),
+}).superRefine((b, ctx) => {
+  if (b.sin_respuesta) return;
+  if ((!b.items || b.items.length === 0) && b.subtotal_neto === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['subtotal_neto'], message: 'Cargá el total neto o los precios por ítem' });
+  }
+});
+
+export const CotizacionAdjudicarSchema = z.object({
+  proveedor_id:    zUUID,
+  fecha_prometida: zFecha.optional().nullable(),
+  notas:           zText(2000).optional(),
+});
+
+export const CotizacionCerrarSchema = z.object({
+  motivo: z.string().trim().min(1, 'Indicá el motivo').max(500),
+});
+
+const OrdenItemPrecioSchema = z.object({
+  solicitud_item_id:    zUUID,
+  cantidad:             z.number().positive().optional(),
+  precio_unitario_neto: zPosNum.optional().default(0),
+  descuento_pct:        zDescPct.optional().default(0),
+  iva_pct:              zIvaPct.optional().default(21),
+  proveedor_sku:        zText(100).optional(),
+});
+
+const OrdenCabeceraSchema = {
+  proveedor_id:       zUUID,
+  costo_envio:        zPosNum.optional().default(0),
+  forma_pago:         zText(200).optional(),
+  contacto_proveedor: zText(200).optional(),
+  fecha_prometida:    zFecha.optional().nullable(),
+  notas:              zText(2000).optional(),
+  items:              z.array(OrdenItemPrecioSchema).min(1, 'Elegí al menos un ítem'),
+};
+
+export const OrdenDirectaSchema = z.object({
+  solicitud_id: zUUID,
+  ...OrdenCabeceraSchema,
+});
+
+export const OrdenConsolidarSchema = z.object(OrdenCabeceraSchema);
+
+export const OrdenEditarSchema = z.object({
+  costo_envio:        zPosNum.optional(),
+  forma_pago:         zText(200).optional(),
+  contacto_proveedor: zText(200).optional(),
+  fecha_prometida:    zFecha.optional().nullable(),
+  notas:              zText(2000).optional(),
+  adjuntos:           zAdjuntos.optional(),
+  items: z.array(z.object({
+    id:                   zUUID,
+    cantidad:             z.number().positive().optional(),
+    precio_unitario_neto: zPosNum.optional(),
+    descuento_pct:        zDescPct.optional(),
+    iva_pct:              zIvaPct.optional(),
+    proveedor_sku:        zText(100).optional(),
+  })).optional(),
+});
+
+export const EnviarCompraSchema = z.object({
+  medio:        z.enum(MEDIOS_ENVIO_COMPRA),
+  proveedor_id: zUUID.optional(),
+  contacto:     zText(200).optional(),
+  mensaje:      zText(4000).optional(),
+});
+
 // ── Visitas técnicas ──────────────────────────────────────────
 export const VisitaTecnicaCrearSchema = z.object({
   cliente_id:      zUUID,

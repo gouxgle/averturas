@@ -20,19 +20,31 @@ function getTransporter(): nodemailer.Transporter | null {
   return _transporter;
 }
 
-async function sendMail(p: { to: string; subject: string; html: string; fromNombre: string; replyTo?: string }) {
+export interface AdjuntoMail { filename: string; content: Buffer; contentType?: string }
+
+async function sendMail(p: {
+  to: string; subject: string; html: string; fromNombre: string; replyTo?: string;
+  attachments?: AdjuntoMail[];
+}): Promise<boolean> {
   const transporter = getTransporter();
-  if (!transporter) return;
+  if (!transporter) return false;
   const info = await transporter.sendMail({
     from:    `"${p.fromNombre}" <${process.env.SMTP_USER}>`,
     to:      p.to,
     replyTo: process.env.SMTP_REPLY_TO || p.replyTo || undefined,
     subject: p.subject,
     html:    p.html,
+    attachments: p.attachments,
   });
   console.log('[email] Enviado:', JSON.stringify({
     to: p.to, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected, response: info.response,
   }));
+  return true;
+}
+
+/** Hay SMTP configurado (si no, los envíos por email no hacen nada). */
+export function emailDisponible(): boolean {
+  return !!(process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
 const NAVY  = '#031d49';
@@ -340,5 +352,38 @@ export async function sendEmpresaRechazo(p: EmailEmpresaRechazoParams) {
     subject: `❌ ${p.clienteNombre} rechazó la proforma ${p.proformaNumero}`,
     html:    baseLayout(p.empresaNombre, content),
     fromNombre: p.empresaNombre,
+  });
+}
+
+// ── Compras: PC / OC al proveedor con el PDF adjunto ─────────────────────────
+
+interface EmailCompraParams {
+  to: string;
+  asunto: string;
+  /** Mismo texto que WhatsApp (plantilla), con *negrita* estilo WA. */
+  mensaje: string;
+  pdf: Buffer;
+  pdfNombre: string;
+  empresaNombre: string;
+  empresaTelefono: string | null;
+}
+
+/** Devuelve false si no hay SMTP configurado (el llamador decide qué decirle al usuario). */
+export async function sendCompra(p: EmailCompraParams): Promise<boolean> {
+  const content = `
+    <tr>
+      <td style="padding:36px 32px;">
+        <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.7;">${escapeHtml(p.mensaje).replace(/\*([^*]+)\*/g, '<strong>$1</strong>').split('\n').join('<br/>')}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Adjuntamos el detalle en PDF (<strong>${escapeHtml(p.pdfNombre)}</strong>).</p>
+        ${p.empresaTelefono ? `<p style="margin:16px 0 0;font-size:13px;color:#9ca3af;">¿Consultas? Escribinos por WhatsApp al <strong>${escapeHtml(p.empresaTelefono)}</strong></p>` : ''}
+      </td>
+    </tr>`;
+
+  return sendMail({
+    to:      p.to,
+    subject: p.asunto,
+    html:    baseLayout(p.empresaNombre, content),
+    fromNombre: p.empresaNombre,
+    attachments: [{ filename: p.pdfNombre, content: p.pdf, contentType: 'application/pdf' }],
   });
 }

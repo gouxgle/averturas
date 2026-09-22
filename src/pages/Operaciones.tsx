@@ -193,7 +193,7 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
 
       {col === 'confirmadas' && (
         <Link
-          to={`/pedidos/nuevo?operacion_id=${op.id}`}
+          to={`/compras/nueva-solicitud?operacion_id=${op.id}`}
           onClick={e => e.stopPropagation()}
           className="mt-2 flex items-center justify-center gap-1 w-full text-[10px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg py-1 transition-colors"
         >
@@ -431,7 +431,7 @@ export function Operaciones() {
               <div className="space-y-2">
                 {[
                   { icon: FileText,     label: 'Ver presupuestos',  href: '/presupuestos',      color: 'text-slate-600 bg-slate-50 border-slate-200' },
-                  { icon: ShoppingCart, label: 'Ver pedidos',       href: '/pedidos',            color: 'text-amber-600 bg-amber-50 border-amber-200' },
+                  { icon: ShoppingCart, label: 'Ver pedidos',       href: '/compras?tab=ordenes',            color: 'text-amber-600 bg-amber-50 border-amber-200' },
                   { icon: Truck,        label: 'Ver remitos',       href: '/remitos',            color: 'text-teal-600 bg-teal-50 border-teal-200' },
                   { icon: Package,      label: 'Nueva operación',   href: '/operaciones/nueva',  color: 'text-orange-600 bg-orange-50 border-orange-200' },
                 ].map(({ icon: Icon, label, href, color }) => (

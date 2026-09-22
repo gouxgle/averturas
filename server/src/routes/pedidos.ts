@@ -3,18 +3,14 @@ import { db } from '../db.js';
 import { sqlItemsTotal, sqlItemsCubiertos, sqlItemsPendientes } from '../lib/coverage.js';
 import { validateBody } from '../lib/validate.js';
 import { PedidoSchema, PedidoEstadoSchema } from '../lib/schemas.js';
+import { nextNumeroCompra, crearSolicitudImplicita, estadoLogisticaDesdeLegacy } from '../lib/compras.js';
 
+// Flujo "corto" de pedidos al proveedor (desde una operación o para stock propio). Sigue
+// vigente porque lo consumen Presupuestos, NuevoRecibo, NuevoRemito y Operaciones; el
+// módulo Compras (routes/compras.ts) es la evolución: SC → PC → OC sobre la misma tabla.
+// Desde la etapa 1 las OC nuevas se numeran OC- y dejan una solicitud implícita (SC)
+// para que la trazabilidad sea completa también por este camino.
 const pedidos = new Hono();
-
-async function nextNumero(): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
-  const { rows } = await db.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM pedidos WHERE numero LIKE $1`,
-    [`PED-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `PED-${ym}-${String(n).padStart(4, '0')}`;
-}
 
 const WITH_PROVEEDOR = `
   SELECT p.*,
@@ -216,7 +212,6 @@ pedidos.post('/', async (c) => {
   if (!b.proveedor_id)    return c.json({ error: 'proveedor_id requerido' }, 400);
   if (!b.items?.length)   return c.json({ error: 'items requeridos' }, 400);
 
-  const numero = await nextNumero();
   const montoItems = (b.items as { costo_unitario: number; cantidad: number }[])
     .reduce((acc, i) => acc + (parseFloat(String(i.costo_unitario)) || 0) * (i.cantidad || 1), 0);
   const costoEnvio = typeof b.costo_envio === 'number' ? b.costo_envio : Math.round(montoItems * 0.10);
@@ -230,11 +225,20 @@ pedidos.post('/', async (c) => {
     const esStockPropio = !!b.es_stock_propio;
     const operacionId   = esStockPropio ? null : (b.operacion_id || null);
 
+    // Solicitud implícita: el camino corto también queda trazado en Compras (SC ya con_oc)
+    const sc = await crearSolicitudImplicita(client, {
+      operacion_id: operacionId, es_stock_propio: esStockPropio, proveedor_id: b.proveedor_id,
+      fecha_necesaria: b.fecha_entrega_est || null, notas: b.notas || null, created_by: user?.id || null,
+      items: b.items.map(i => ({ operacion_item_id: i.es_reposicion ? null : i.operacion_item_id, producto_id: i.producto_id, descripcion: i.descripcion, cantidad: i.cantidad || 1 })),
+    });
+
+    const numero = await nextNumeroCompra(client, 'OC');
+    // Los costos del flujo viejo son finales (sin IVA discriminado): neto = costo, IVA 0.
     const { rows: [pedido] } = await client.query(`
       INSERT INTO pedidos
-        (numero, proveedor_id, operacion_id, es_stock_propio, estado, fecha_pedido,
-         fecha_entrega_est, monto_total, costo_envio, notas, created_by)
-      VALUES ($1,$2,$3,$4,'pendiente',$5,$6,$7,$8,$9,$10)
+        (numero, proveedor_id, operacion_id, es_stock_propio, estado, estado_logistica, fecha_pedido,
+         fecha_entrega_est, fecha_prometida, monto_total, subtotal_neto, total, costo_envio, notas, created_by, solicitud_id)
+      VALUES ($1,$2,$3,$4,'pendiente','borrador',$5,$6,$6,$7,$8,$7,$9,$10,$11,$12)
       RETURNING *
     `, [
       numero,
@@ -244,9 +248,11 @@ pedidos.post('/', async (c) => {
       b.fecha_pedido        || new Date().toISOString().split('T')[0],
       b.fecha_entrega_est   || null,
       montoTotal,
+      montoItems,
       costoEnvio,
       b.notas               || null,
       user?.id              || null,
+      sc.solicitud_id,
     ]);
 
     for (const [idx, item] of (b.items as {
@@ -275,8 +281,9 @@ pedidos.post('/', async (c) => {
 
       await client.query(`
         INSERT INTO pedido_items
-          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion,
+           solicitud_item_id, precio_unitario_neto, iva_pct)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$6,0)
       `, [
         pedido.id,
         opItemId,
@@ -286,6 +293,7 @@ pedidos.post('/', async (c) => {
         parseFloat(String(item.costo_unitario)) || 0,
         idx,
         item.es_reposicion     || false,
+        sc.item_ids[idx]       ?? null,
       ]);
     }
 
@@ -326,20 +334,7 @@ pedidos.get('/operaciones-disponibles', async (c) => {
         SELECT SUM(r2.monto_total) FROM recibos r2
         WHERE r2.operacion_id = o.id AND r2.estado = 'emitido'
       ), 0) > 0
-      AND EXISTS (
-        SELECT 1 FROM operacion_items oi2
-        WHERE oi2.operacion_id = o.id
-          AND oi2.tipo_item != 'servicio'
-          AND NOT EXISTS (
-            SELECT 1 FROM pedido_items pi2
-            JOIN pedidos p2 ON p2.id = pi2.pedido_id
-            WHERE pi2.operacion_item_id = oi2.id AND p2.estado != 'cancelado' AND pi2.es_reposicion = false
-          )
-          AND NOT (oi2.producto_id IS NOT NULL AND
-            (COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi2.producto_id),0)
-             + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi2.producto_id),0)
-            ) >= oi2.cantidad)
-      )
+      AND ${sqlItemsPendientes('o.id')} > 0
     ORDER BY o.created_at DESC
     LIMIT 50
   `);
@@ -580,11 +575,12 @@ pedidos.put('/:id', async (c) => {
     await client.query('BEGIN');
 
     const esStockPropioEdit = !!b.es_stock_propio;
+    // Espejos del módulo Compras: total/subtotal_neto/fecha_prometida (costos finales, IVA 0)
     await client.query(`
       UPDATE pedidos SET
         proveedor_id     = $1, operacion_id   = $2,
-        fecha_pedido     = $3, fecha_entrega_est = $4,
-        monto_total      = $5, costo_envio    = $6,
+        fecha_pedido     = $3, fecha_entrega_est = $4, fecha_prometida = $4,
+        monto_total      = $5, total = $5, subtotal_neto = $10, costo_envio    = $6,
         notas            = $7, es_stock_propio = $8, updated_at = now()
       WHERE id = $9
     `, [
@@ -597,6 +593,7 @@ pedidos.put('/:id', async (c) => {
       b.notas             || null,
       esStockPropioEdit,
       id,
+      montoItemsEdit,
     ]);
 
     await client.query(`DELETE FROM pedido_items WHERE pedido_id=$1`, [id]);
@@ -604,8 +601,9 @@ pedidos.put('/:id', async (c) => {
       const opItemId = item.es_reposicion ? null : (item.operacion_item_id || null);
       await client.query(`
         INSERT INTO pedido_items
-          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion,
+           precio_unitario_neto, iva_pct)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$6,0)
       `, [
         id,
         opItemId,
@@ -617,6 +615,15 @@ pedidos.put('/:id', async (c) => {
         item.es_reposicion     || false,
       ]);
     }
+
+    // Re-vincular con la solicitud implícita por ítem de operación / producto (los ids se regeneraron)
+    await client.query(`
+      UPDATE pedido_items pi SET solicitud_item_id = si.id
+      FROM pedidos p JOIN compras_solicitud_items si ON si.solicitud_id = p.solicitud_id
+      WHERE pi.pedido_id = p.id AND p.id = $1 AND pi.es_reposicion = false
+        AND ((pi.operacion_item_id IS NOT NULL AND pi.operacion_item_id = si.operacion_item_id)
+          OR (pi.operacion_item_id IS NULL AND pi.producto_id IS NOT NULL AND pi.producto_id = si.producto_id))
+    `, [id]);
 
     await client.query('COMMIT');
     const { rows: [updated] } = await db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]);
@@ -699,15 +706,19 @@ pedidos.patch('/:id/estado', async (c) => {
       await client.query(`
         UPDATE pedidos SET
           estado          = $1,
+          estado_logistica = $6,
           fecha_recepcion = COALESCE($2::date, fecha_recepcion),
           transportista_id = COALESCE($3::uuid, transportista_id),
           costo_envio     = CASE WHEN $4::numeric IS NOT NULL THEN $4::numeric ELSE costo_envio END,
           monto_total     = CASE WHEN $4::numeric IS NOT NULL
                               THEN (monto_total - costo_envio) + $4::numeric
                               ELSE monto_total END,
+          total           = CASE WHEN $4::numeric IS NOT NULL
+                              THEN (total - costo_envio) + $4::numeric
+                              ELSE total END,
           updated_at      = now()
         WHERE id = $5
-      `, [nuevoEstado, fechaRecepcionFinal, transportista_id ?? null, costoReal, id]);
+      `, [nuevoEstado, fechaRecepcionFinal, transportista_id ?? null, costoReal, id, estadoLogisticaDesdeLegacy(nuevoEstado)]);
 
       // Si todos los pedidos de la operación quedaron recibidos/cancelados → listo para entregar
       if (pedido.operacion_id) {
@@ -728,10 +739,12 @@ pedidos.patch('/:id/estado', async (c) => {
       await client.query(`
         UPDATE pedidos SET
           estado = $1,
+          estado_logistica = $4,
+          enviada_at = CASE WHEN $1 = 'enviado' AND enviada_at IS NULL THEN now() ELSE enviada_at END,
           fecha_recepcion = COALESCE($2::date, fecha_recepcion),
           updated_at = now()
         WHERE id = $3
-      `, [nuevoEstado, fechaRecepcionFinal, id]);
+      `, [nuevoEstado, fechaRecepcionFinal, id, estadoLogisticaDesdeLegacy(nuevoEstado)]);
     }
 
     await client.query('COMMIT');

@@ -625,7 +625,7 @@ function PresupuestoModal({
                 )}
                 {/* El crédito de la visita técnica no es seña del cliente: no habilita comprarle al proveedor */}
                 {esAprobado && Number(op.cobrado_total) - Number(op.credito_visita ?? 0) > 0.01 && (
-                  <button onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                  <button onClick={() => { onClose(); navigate(`/compras/nueva-solicitud?operacion_id=${op.id}`); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-lime-50 hover:bg-lime-100 text-lime-700 border border-lime-200 rounded-lg font-medium transition-colors">
                     <ShoppingCart size={13} />
                     {pedidos.filter(p => p.estado !== 'cancelado').length > 0 ? 'Otro pedido' : 'Pedido al proveedor'}
@@ -919,7 +919,7 @@ function PresupuestoModal({
                         <Truck size={13} /> Registrar entrega (remito)
                       </button>
                       <button
-                        onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                        onClick={() => { onClose(); navigate(`/compras/nueva-solicitud?operacion_id=${op.id}`); }}
                         className="w-full text-[11px] text-sky-600 hover:underline font-semibold mt-1.5"
                       >
                         Reponer stock igual →
@@ -928,7 +928,7 @@ function PresupuestoModal({
                   )}
                   {cobrado - creditoVisita > 0.01 && !todosItemsEnviados && !op.stock_cubre_todo && (
                     <button
-                      onClick={() => { onClose(); navigate(`/pedidos/nuevo?operacion_id=${op.id}`); }}
+                      onClick={() => { onClose(); navigate(`/compras/nueva-solicitud?operacion_id=${op.id}`); }}
                       className="w-full flex items-center justify-center gap-2 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-xl text-xs font-semibold transition-colors mt-1"
                     >
                       <ShoppingCart size={13} />

@@ -7,6 +7,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ReciboSchema } from '../lib/schemas.js';
 import { generarPDFRecibo } from '../lib/pdf.js';
+import { enviarWhatsappPdf, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
 
 const recibos = new Hono();
@@ -776,24 +777,11 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
     total_descuentos_operacion = Number(tot?.total_desc ?? 0);
   }
 
-  // Normalizar número
-  const digits = r.cliente.telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
-
-  const evoUrl  = process.env.EVOLUTION_API_URL;
-  const evoKey  = process.env.EVOLUTION_API_KEY;
-  const evoInst = process.env.EVOLUTION_INSTANCE;
-  if (!evoUrl || !evoKey || !evoInst)
-    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
+  const numero = normalizarNumeroAR(r.cliente.telefono);
 
   // Generar PDF
   const empresa = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
   const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion, total_descuentos_operacion, compromiso }, empresa);
-  const base64 = pdfBuffer.toString('base64');
 
   const nombre = r.cliente.tipo_persona === 'juridica'
     ? (r.cliente.razon_social ?? 'estimado/a')
@@ -811,31 +799,9 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
         .replace(/\{\{monto\}\}/g, monto)
     : `Hola ${nombre}, adjuntamos el comprobante de pago recibo *N° ${r.numero}* por *${monto}*. ¡Muchas gracias! 🏠`;
 
-  // Enviar PDF como documento
-  const resp = await fetch(`${evoUrl}/message/sendMedia/${evoInst}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
-    body: JSON.stringify({
-      number: numero,
-      mediatype: 'document',
-      mimetype: 'application/pdf',
-      media: base64,
-      fileName: `Recibo-${r.numero}.pdf`,
-      caption,
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    console.error('[whatsapp-recibo] Evolution API error:', resp.status, errText);
-    try {
-      const errJson = JSON.parse(errText);
-      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
-      const noExiste = msgs.find(m => m.exists === false);
-      if (noExiste) return c.json({ error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp.` }, 422);
-    } catch { /* no JSON */ }
-    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
-  }
+  // Enviar PDF como documento (helper compartido con estado de cuenta y Compras)
+  const envio = await enviarWhatsappPdf(r.cliente.telefono, pdfBuffer, `Recibo-${r.numero}.pdf`, caption);
+  if (!envio.ok) return c.json({ error: envio.error }, envio.status as 422 | 500 | 502);
 
   db.query(
     `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'whatsapp', $2, $3)`,

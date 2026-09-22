@@ -622,7 +622,7 @@ export default function NuevoPedido() {
       if (isEdit && id) {
         await api.put(`/pedidos/${id}`, payload);
         toast.success('Pedido actualizado');
-        navigate('/pedidos');
+        navigate(`/compras?oc=${id}`);
       } else {
         const { id: newId, numero } = await api.post<{ id: string; numero: string }>('/pedidos', payload);
         setSavedId(newId);
@@ -691,7 +691,7 @@ export default function NuevoPedido() {
               </button>
             )}
             <button
-              onClick={() => navigate('/pedidos')}
+              onClick={() => navigate('/compras?tab=ordenes')}
               className="flex items-center justify-center gap-2 w-full bg-lime-500 text-white font-semibold py-3 rounded-xl hover:bg-lime-600 transition-colors"
             >
               Ver pedidos
@@ -764,7 +764,7 @@ export default function NuevoPedido() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => navigate('/pedidos')}
+          onClick={() => navigate('/compras?tab=ordenes')}
           className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
         >
           <ArrowLeft size={18} />
@@ -1312,7 +1312,7 @@ export default function NuevoPedido() {
               {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear pedido'}
             </button>
             <button
-              onClick={() => navigate('/pedidos')}
+              onClick={() => navigate('/compras?tab=ordenes')}
               className="sm:w-32 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancelar

@@ -1513,7 +1513,7 @@ export function NuevoRecibo() {
               : [presupuestoDetalle.cliente.apellido, presupuestoDetalle.cliente.nombre].filter(Boolean).join(' ') || undefined
           ) : undefined}
           clienteTelefono={presupuestoDetalle?.cliente.telefono ?? undefined}
-          pedidoProveedorUrl={operacionId && !tienePedido ? `/pedidos/nuevo?operacion_id=${operacionId}` : undefined}
+          pedidoProveedorUrl={operacionId && !tienePedido ? `/compras/nueva-solicitud?operacion_id=${operacionId}` : undefined}
         />
       )}
     </div>

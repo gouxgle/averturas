@@ -16,6 +16,38 @@ const fmtFecha = (iso: string | Date | unknown) => {
   } catch { return String(iso); }
 };
 
+/**
+ * Renderiza un HTML a PDF A4 con el Chromium del sistema. Compartido por todos los
+ * generadores (antes cada uno lanzaba su propio browser con los mismos parámetros).
+ */
+async function renderPDF(html: string): Promise<Buffer> {
+  const executablePath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium-browser';
+  const browser = await puppeteer.launch({
+    executablePath,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    headless: true,
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '12mm', right: '18mm', bottom: '12mm', left: '18mm' },
+    });
+    return Buffer.from(pdfBuffer);
+  } finally {
+    await browser.close();
+  }
+}
+
+/** Logo embebido en base64 (Puppeteer no tiene red hacia el propio servidor). */
+function logoDataURI(archivo: 'logo2.png' | 'logochico.png'): string | null {
+  try {
+    return `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(), 'public', archivo)).toString('base64')}`;
+  } catch { return null; }
+}
+
 const PAGO_LABEL: Record<string, string> = {
   efectivo:        'Efectivo',
   transferencia:   'Transferencia bancaria',
@@ -555,50 +587,186 @@ function buildEstadoCuentaHTML(data: EstadoCuentaPDF, empresa: EmpresaPDF): stri
 }
 
 export async function generarPDFEstadoCuenta(data: EstadoCuentaPDF, empresa: EmpresaPDF): Promise<Buffer> {
-  const html = buildEstadoCuentaHTML(data, empresa);
-  const executablePath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium-browser';
-  const browser = await puppeteer.launch({
-    executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-    headless: true,
-  });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '12mm', right: '18mm', bottom: '12mm', left: '18mm' },
-    });
-    return Buffer.from(pdfBuffer);
-  } finally {
-    await browser.close();
-  }
+  return renderPDF(buildEstadoCuentaHTML(data, empresa));
 }
 
 // ─── Recibo PDF ───────────────────────────────────────────────────────────────
 
 export async function generarPDFRecibo(recibo: ReciboPDF, empresa: EmpresaPDF): Promise<Buffer> {
-  const html = buildHTML(recibo, empresa);
+  return renderPDF(buildHTML(recibo, empresa));
+}
 
-  const executablePath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium-browser';
+// ─── Compras: Pedido de cotización (PC) y Orden de compra (OC) ───────────────
 
-  const browser = await puppeteer.launch({
-    executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-    headless: true,
-  });
+export interface CompraItemPDF {
+  descripcion: string;
+  /** Texto corto de la ficha técnica (ver resumenEspecificaciones en lib/compras.ts). */
+  especificaciones: string | null;
+  cantidad: number;
+  unidad: string;
+  /** Cliente / obra de origen (OC consolidada). */
+  referencia?: string | null;
+  proveedor_sku?: string | null;
+  // Solo OC:
+  precio_unitario_neto?: number | null;
+  descuento_pct?: number | null;
+  iva_pct?: number | null;
+}
 
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '12mm', right: '18mm', bottom: '12mm', left: '18mm' },
-    });
-    return Buffer.from(pdfBuffer);
-  } finally {
-    await browser.close();
-  }
+export interface CompraPDF {
+  tipo: 'cotizacion' | 'orden';
+  numero: string;
+  fecha: string | Date;
+  proveedor: { nombre: string; contacto: string | null; telefono: string | null; email: string | null; direccion?: string | null };
+  items: CompraItemPDF[];
+  /** PC: fecha límite para responder. OC: fecha prometida de entrega. */
+  fecha_clave: string | Date | null;
+  forma_pago?: string | null;
+  observaciones?: string | null;
+  /** SC / PC / operación de referencia, para el pie ("Ref.: SC-202609-0001"). */
+  referencias?: string[];
+  totales?: { subtotal_neto: number; descuento_monto: number; iva_monto: number; flete: number; total: number } | null;
+}
+
+const fmtCant = (n: number, unidad: string) => {
+  const v = Number(n);
+  const s = Number.isInteger(v) ? String(v) : v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return unidad && unidad !== 'u' ? `${s} ${unidad}` : s;
+};
+
+const esc = (s: unknown) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function buildCompraHTML(d: CompraPDF, empresa: EmpresaPDF): string {
+  const esOrden = d.tipo === 'orden';
+  const titulo  = esOrden ? 'Orden de compra' : 'Pedido de cotizaci&oacute;n';
+  const logo    = logoDataURI('logo2.png') ?? logoDataURI('logochico.png');
+  const logoTag = logo ? `<img src="${logo}" alt="Logo" style="height:64px;display:block;">` : '';
+
+  const contactParts = [
+    empresa.cuit ? `CUIT: ${esc(empresa.cuit)}` : null,
+    empresa.telefono ? `Tel: ${esc(empresa.telefono)}` : null,
+    empresa.email ? esc(empresa.email) : null,
+  ].filter(Boolean).join(' &nbsp;|&nbsp; ');
+
+  const th = (t: string, right = false) =>
+    `<th style="text-align:${right ? 'right' : 'left'};padding:6px 8px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid ${NAVY};">${t}</th>`;
+  const td = (t: string, right = false, extra = '') =>
+    `<td style="text-align:${right ? 'right' : 'left'};padding:7px 8px;font-size:11.5px;color:#222;border-bottom:1px solid #e5e7eb;vertical-align:top;${extra}">${t}</td>`;
+
+  const filas = d.items.map((it, i) => {
+    const pu    = Number(it.precio_unitario_neto ?? 0);
+    const cant  = Number(it.cantidad);
+    const dPct  = Number(it.descuento_pct ?? 0);
+    const iPct  = Number(it.iva_pct ?? 0);
+    const neto  = cant * pu * (1 - dPct / 100);
+    const desc  = `<div style="font-weight:600;">${esc(it.descripcion)}</div>`
+      + (it.especificaciones ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${esc(it.especificaciones)}</div>` : '')
+      + (it.referencia ? `<div style="font-size:10px;color:#6b7280;margin-top:2px;">Ref.: ${esc(it.referencia)}</div>` : '')
+      + (it.proveedor_sku ? `<div style="font-size:10px;color:#6b7280;margin-top:1px;">C&oacute;d. proveedor: ${esc(it.proveedor_sku)}</div>` : '');
+    return `<tr>
+      ${td(String(i + 1), false, 'color:#888;width:22px;')}
+      ${td(desc)}
+      ${td(fmtCant(cant, it.unidad), true, 'white-space:nowrap;font-weight:600;')}
+      ${esOrden ? td(fmt(pu), true, 'white-space:nowrap;font-family:monospace;') : ''}
+      ${esOrden ? td(dPct ? `${dPct}%` : '&mdash;', true) : ''}
+      ${esOrden ? td(`${iPct}%`, true) : ''}
+      ${esOrden ? td(fmt(neto), true, 'white-space:nowrap;font-family:monospace;font-weight:600;') : ''}
+    </tr>`;
+  }).join('');
+
+  const t = d.totales;
+  const totalesHTML = esOrden && t ? `
+    <table style="margin-left:auto;margin-top:10px;border-collapse:collapse;min-width:260px;">
+      <tr><td style="padding:3px 10px;font-size:11px;color:#555;">Subtotal neto</td><td style="padding:3px 0;font-size:11.5px;text-align:right;font-family:monospace;">${fmt(t.subtotal_neto)}</td></tr>
+      ${t.descuento_monto > 0 ? `<tr><td style="padding:3px 10px;font-size:11px;color:#555;">Descuento</td><td style="padding:3px 0;font-size:11.5px;text-align:right;font-family:monospace;color:#b45309;">&minus; ${fmt(t.descuento_monto)}</td></tr>` : ''}
+      <tr><td style="padding:3px 10px;font-size:11px;color:#555;">IVA</td><td style="padding:3px 0;font-size:11.5px;text-align:right;font-family:monospace;">${fmt(t.iva_monto)}</td></tr>
+      ${t.flete > 0 ? `<tr><td style="padding:3px 10px;font-size:11px;color:#555;">Flete</td><td style="padding:3px 0;font-size:11.5px;text-align:right;font-family:monospace;">${fmt(t.flete)}</td></tr>` : ''}
+      <tr><td style="padding:6px 10px 3px;font-size:12px;font-weight:800;color:${NAVY};border-top:2px solid ${NAVY};">TOTAL</td><td style="padding:6px 0 3px;font-size:14px;text-align:right;font-family:monospace;font-weight:900;color:${NAVY};border-top:2px solid ${NAVY};">${fmt(t.total)}</td></tr>
+    </table>` : '';
+
+  const fechaClaveLabel = esOrden ? 'Entrega prometida' : 'Responder antes del';
+  const condiciones = [
+    d.fecha_clave ? `<div><span style="color:#888;">${fechaClaveLabel}:</span> <strong>${fmtFecha(d.fecha_clave)}</strong></div>` : '',
+    d.forma_pago  ? `<div><span style="color:#888;">Forma de pago:</span> <strong>${esc(d.forma_pago)}</strong></div>` : '',
+  ].filter(Boolean).join('');
+
+  const pedidoTexto = esOrden
+    ? 'Por favor confirmar recepci&oacute;n de esta orden, precio, caracter&iacute;sticas y plazo de entrega.'
+    : 'Solicitamos cotizar los &iacute;tems detallados indicando precio unitario neto, IVA, plazo de entrega, disponibilidad, forma de pago y validez de la oferta.';
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, 'Helvetica Neue', sans-serif; background: white; color: #333; }
+  tr { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<div style="max-width:750px;margin:0 auto;padding:14px 20px;background:white;min-height:273mm;display:flex;flex-direction:column;">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:12px;">
+    <div style="flex:1;">
+      <div style="display:flex;justify-content:center;margin-bottom:10px;">${logoTag}</div>
+      <div style="height:1px;background:#e5e7eb;margin-bottom:8px;"></div>
+      <div style="font-size:10.5px;color:#555;">${contactParts}</div>
+      ${empresa.direccion ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${esc(empresa.direccion)}</div>` : ''}
+    </div>
+    <div style="width:1px;background:#d1d5db;align-self:stretch;margin:4px 0;"></div>
+    <div style="text-align:right;min-width:210px;">
+      <div style="color:${RED};font-size:${esOrden ? 30 : 24}px;font-weight:900;letter-spacing:1px;line-height:1.05;text-transform:uppercase;font-family:Georgia,serif;">${titulo}</div>
+      <div style="color:${NAVY};font-weight:800;font-size:16px;margin-top:8px;">${esc(d.numero)}</div>
+      <div style="font-size:11px;color:#555;margin-top:10px;"><strong style="color:${NAVY};">Fecha:</strong> ${fmtFecha(d.fecha)}</div>
+      ${(d.referencias ?? []).length ? `<div style="font-size:10.5px;color:#555;margin-top:4px;">Ref.: ${d.referencias!.map(esc).join(' &middot; ')}</div>` : ''}
+    </div>
+  </div>
+
+  <div style="height:4px;background:${NAVY};"></div>
+  <div style="height:1px;background:#3a5fad;margin-bottom:14px;"></div>
+
+  <div style="background:#f8f9fa;border-radius:8px;padding:8px 12px;margin-bottom:14px;border-left:4px solid ${NAVY};">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Proveedor</div>
+    <div style="font-size:15px;font-weight:700;color:#1a1a1a;">${esc(d.proveedor.nombre)}</div>
+    <div style="display:flex;gap:18px;font-size:11px;color:#555;margin-top:2px;flex-wrap:wrap;">
+      ${d.proveedor.contacto ? `<span>At.: ${esc(d.proveedor.contacto)}</span>` : ''}
+      ${d.proveedor.telefono ? `<span>Tel: ${esc(d.proveedor.telefono)}</span>` : ''}
+      ${d.proveedor.email    ? `<span>${esc(d.proveedor.email)}</span>` : ''}
+    </div>
+  </div>
+
+  <p style="font-size:11.5px;color:#444;margin-bottom:10px;">${pedidoTexto}</p>
+
+  <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
+    <thead><tr>
+      ${th('#')}${th('Detalle')}${th('Cant.', true)}
+      ${esOrden ? th('P. unit. neto', true) + th('Desc.', true) + th('IVA', true) + th('Neto', true) : ''}
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+
+  ${totalesHTML}
+
+  ${condiciones ? `<div style="margin-top:14px;display:flex;gap:30px;flex-wrap:wrap;font-size:11.5px;color:#333;">${condiciones}</div>` : ''}
+
+  ${d.observaciones ? `
+    <div style="border:1px solid #ddd;border-radius:6px;padding:8px 12px;margin-top:14px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:3px;">Observaciones</div>
+      <div style="font-size:11.5px;color:#444;white-space:pre-wrap;">${esc(d.observaciones)}</div>
+    </div>` : ''}
+
+  <div style="margin-top:auto;background:${NAVY};padding:10px 24px;display:flex;justify-content:center;flex-wrap:wrap;gap:0 28px;font-size:10px;color:#bfdbfe;">
+    ${empresa.telefono  ? `<span>&#128222; ${esc(empresa.telefono)}</span>` : ''}
+    ${empresa.email     ? `<span>&#9993; ${esc(empresa.email)}</span>` : ''}
+    ${empresa.direccion ? `<span>&#128205; ${esc(empresa.direccion)}</span>` : ''}
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+export async function generarPDFCompra(data: CompraPDF, empresa: EmpresaPDF): Promise<Buffer> {
+  return renderPDF(buildCompraHTML(data, empresa));
 }

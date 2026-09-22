@@ -16,7 +16,7 @@ type HelpSection = {
   tip?: string;
 };
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
-export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito';
+export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras';
 
 // ── Contenido de ayuda ────────────────────────────────────────────────────────
 
@@ -200,6 +200,68 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { label: 'reserva', value: 'Reserva al aprobar presupuesto con producto de stock' },
           { label: 'ajuste', value: 'Corrección manual de inventario' },
         ],
+      },
+    ],
+  },
+
+  compras: {
+    label: 'Compras',
+    color: 'text-lime-700',
+    sections: [
+      {
+        id: 'circuito',
+        emoji: '🛒',
+        title: 'El circuito de una compra',
+        intro: 'Cada compra deja su historia completa: qué se necesitó, a quién se cotizó, qué se eligió y qué se pidió.',
+        steps: [
+          { text: 'Solicitud (SC-): qué hace falta y para quién. Se arma sola desde una venta, un relevamiento o el catálogo.' },
+          { text: 'Cotización (PC-): opcional. Se invita a uno o varios proveedores, se cargan sus respuestas y se comparan.' },
+          { text: 'Orden de compra (OC-): lo que se le pide al proveedor, con precios neto + IVA y flete. Se envía en PDF por WhatsApp o email.' },
+          { text: 'Recepción: al llegar la mercadería se registra y el stock ingresa (por ítem, con reclamos, en la próxima etapa).' },
+        ],
+        tip: 'Una compra normal es: solicitud → orden → recibir. La cotización y la comparativa aparecen solo cuando las necesitás.',
+      },
+      {
+        id: 'solicitud',
+        emoji: '📝',
+        title: 'Crear una solicitud',
+        steps: [
+          { text: 'Compras → Nueva solicitud → elegir el origen (venta, relevamiento, reposición de stock, producción propia…)' },
+          { text: 'Los ítems se autocompletan con su ficha técnica (medidas, color, vidrio, apertura, herrajes)' },
+          { text: 'Revisar cantidades y fichas, adjuntar fotos o planos' },
+          { text: '"¿Cómo seguimos?": pedir cotización, comprar directo o solo guardar' },
+        ],
+        tip: 'Desde un presupuesto aprobado o el kanban, "Pedido al proveedor" ya trae la solicitud armada con lo que falta comprar.',
+      },
+      {
+        id: 'cotizacion',
+        emoji: '⚖️',
+        title: 'Cotizar y comparar',
+        steps: [
+          { text: 'Enviar el pedido de cotización a cada proveedor (PDF por WhatsApp/email, o marcar "ya enviada")' },
+          { text: 'Cargar la respuesta: un solo total, o precio por ítem. Neto, descuento, IVA, flete, plazo, forma de pago, validez.' },
+          { text: 'La comparativa marca en verde el mejor valor de cada columna y el menor costo final' },
+          { text: '"Elegir" genera la orden de compra con los precios cotizados; "Cerrar sin comprar" libera los ítems' },
+        ],
+        warning: 'Se compara por TOTAL FINAL (neto − descuento + IVA + flete). Un neto más barato con IVA 21% puede salir más caro que otro con 10,5%.',
+      },
+      {
+        id: 'orden',
+        emoji: '📦',
+        title: 'Orden de compra',
+        table: [
+          { label: 'Borrador', value: 'Se puede editar precios, flete y condiciones', color: 'bg-amber-100 text-amber-800' },
+          { label: 'Enviada', value: 'El proveedor la recibió (WhatsApp / email / marcada a mano)', color: 'bg-sky-100 text-sky-800' },
+          { label: 'Recibida', value: 'Mercadería ingresada al stock; se puede armar el remito', color: 'bg-emerald-100 text-emerald-800' },
+          { label: 'Cancelada', value: 'Los ítems de la solicitud vuelven a quedar pendientes', color: 'bg-gray-100 text-gray-700' },
+        ],
+        tip: '"Consolidar" arma una sola orden con ítems de varios clientes al mismo proveedor: cada ítem sabe de quién es y el flete se prorratea por monto.',
+      },
+      {
+        id: 'legado',
+        emoji: '🕘',
+        title: 'Los pedidos PED- anteriores',
+        intro: 'Los pedidos viejos siguen en la pestaña Órdenes tal cual estaban. "Pedido rápido" es el formulario de siempre; ahora también deja una solicitud para que todo quede trazado.',
       },
     ],
   },

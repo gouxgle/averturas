@@ -34,7 +34,8 @@ const Remitos                  = lazy(() => import('@/pages/Remitos').then(m => 
 const NuevoRemito              = lazy(() => import('@/pages/NuevoRemito').then(m => ({ default: m.NuevoRemito })));
 const Recibos                  = lazy(() => import('@/pages/Recibos').then(m => ({ default: m.Recibos })));
 const NuevoRecibo              = lazy(() => import('@/pages/NuevoRecibo').then(m => ({ default: m.NuevoRecibo })));
-const Pedidos                  = lazy(() => import('@/pages/Pedidos'));
+const Compras                  = lazy(() => import('@/pages/compras/Compras'));
+const NuevaSolicitud           = lazy(() => import('@/pages/compras/NuevaSolicitud'));
 const NuevoPedido              = lazy(() => import('@/pages/NuevoPedido'));
 const EstadoCuentaGlobal       = lazy(() => import('@/pages/EstadoCuentaGlobal').then(m => ({ default: m.EstadoCuentaGlobal })));
 const CRM                      = lazy(() => import('@/pages/CRM').then(m => ({ default: m.CRM })));
@@ -51,6 +52,15 @@ const VistaPublicaRemito       = lazy(() => import('@/pages/VistaPublicaRemito')
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
 });
+
+// Compatibilidad con links viejos (/pedidos/nuevo?operacion_id=…) — conservan la query.
+function RedirigirPedidoNuevo() {
+  return <Navigate to={`/compras/oc/nueva${window.location.search}`} replace />;
+}
+function RedirigirPedidoEditar() {
+  const id = window.location.pathname.split('/')[2];
+  return <Navigate to={`/compras/oc/${id}/editar`} replace />;
+}
 
 function PageLoader() {
   return (
@@ -109,9 +119,15 @@ export default function App() {
                   <Route path="/remitos" element={<Remitos />} />
                   <Route path="/remitos/nuevo" element={<NuevoRemito />} />
                   <Route path="/remitos/:id/editar" element={<NuevoRemito />} />
-                  <Route path="/pedidos" element={<Pedidos />} />
-                  <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
-                  <Route path="/pedidos/:id/editar" element={<NuevoPedido />} />
+                  {/* Compras (SC → PC → OC). /pedidos* redirige: el flujo viejo vive en /compras/oc/* */}
+                  <Route path="/compras" element={<Compras />} />
+                  <Route path="/compras/nueva-solicitud" element={<NuevaSolicitud />} />
+                  <Route path="/compras/solicitudes/:id/editar" element={<NuevaSolicitud />} />
+                  <Route path="/compras/oc/nueva" element={<NuevoPedido />} />
+                  <Route path="/compras/oc/:id/editar" element={<NuevoPedido />} />
+                  <Route path="/pedidos" element={<Navigate to="/compras?tab=ordenes" replace />} />
+                  <Route path="/pedidos/nuevo" element={<RedirigirPedidoNuevo />} />
+                  <Route path="/pedidos/:id/editar" element={<RedirigirPedidoEditar />} />
                   <Route path="/recibos" element={<Recibos />} />
                   <Route path="/recibos/nuevo" element={<NuevoRecibo />} />
                   <Route path="/recibos/:id/editar" element={<NuevoRecibo />} />
