@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Plus, ClipboardList, Scale, PackageCheck, Zap, Layers, Truck, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Plus, ClipboardList, Scale, PackageCheck, Zap, Layers, Truck, AlertTriangle, Wallet } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -13,13 +13,14 @@ import { TabCotizaciones } from './TabCotizaciones';
 import { TabOrdenes } from './TabOrdenes';
 import { TabRecepciones } from './TabRecepciones';
 import { TabReclamos } from './TabReclamos';
+import { TabCuentaCorriente } from './TabCuentaCorriente';
 import { DetalleSolicitud } from './DetalleSolicitud';
 import { DetalleCotizacion } from './DetalleCotizacion';
 import { DetalleOrden } from './DetalleOrden';
 import { DetalleIncidencia } from './DetalleIncidencia';
 import { ModalConsolidar } from './ModalConsolidar';
 
-type Tab = 'solicitudes' | 'cotizaciones' | 'ordenes' | 'recepciones' | 'reclamos';
+type Tab = 'solicitudes' | 'cotizaciones' | 'ordenes' | 'recepciones' | 'reclamos' | 'cuenta';
 export type AbrirDetalle = (tipo: 'sc' | 'pc' | 'oc' | 'rec', id: string) => void;
 
 // Página del módulo Compras: SC → PC → OC en tres pestañas. Los modales de detalle se
@@ -76,6 +77,7 @@ export default function Compras() {
     { value: 'ordenes',      label: 'Órdenes',      icon: PackageCheck,  count: s?.oc_activas,  dot: s?.oc_demoradas ? 'bg-red-500' : 'bg-emerald-500' },
     { value: 'recepciones',  label: 'Recepciones',  icon: Truck,         count: s?.oc_por_recibir, dot: 'bg-teal-400' },
     { value: 'reclamos',     label: 'Reclamos',     icon: AlertTriangle, count: s?.reclamos_abiertos, dot: 'bg-red-500' },
+    { value: 'cuenta',       label: 'Cuenta corriente', icon: Wallet,    count: s?.oc_a_pagar,        dot: 'bg-amber-400' },
   ];
 
   return (
@@ -103,14 +105,16 @@ export default function Compras() {
         </>}
       />
 
+      {/* Seis métricas con etiquetas cortas: a 1366px la barra no scrollea y se leen
+          todas de un vistazo (ver CLAUDE.md, resolución de trabajo). */}
       {s && (
         <CompactStatsBar items={[
-          { value: s.sc_abiertas,  label: 'solicitudes abiertas',   color: '#fbbf24' },
-          { value: s.pc_esperando, label: 'cotizaciones esperando respuesta', color: '#60a5fa' },
-          { value: s.oc_en_curso,  label: 'órdenes en curso',        color: '#a3e635' },
-          { value: s.oc_demoradas, label: 'demoradas',               color: s.oc_demoradas ? '#f87171' : '#ffffff' },
-          { value: s.reclamos_abiertos, label: 'reclamos abiertos',   color: s.reclamos_abiertos ? '#fb923c' : '#ffffff' },
-          { value: fmtMoneda(s.valor_en_curso), label: 'en compras activas', color: '#ffffff' },
+          { value: s.sc_abiertas,  label: 'solicitudes',       color: '#fbbf24' },
+          { value: s.pc_esperando, label: 'esperando cotización', color: '#60a5fa' },
+          { value: s.oc_en_curso,  label: 'órdenes en curso',  color: '#a3e635' },
+          { value: s.oc_demoradas, label: 'demoradas',         color: s.oc_demoradas ? '#f87171' : '#ffffff' },
+          { value: s.reclamos_abiertos, label: 'reclamos',     color: s.reclamos_abiertos ? '#fb923c' : '#ffffff' },
+          { value: fmtMoneda(s.deuda_proveedores), label: 'a pagar', color: s.deuda_proveedores ? '#fbbf24' : '#ffffff' },
         ]} />
       )}
 
@@ -142,6 +146,7 @@ export default function Compras() {
       {tab === 'ordenes'      && <TabOrdenes      abrir={abrir} refresh={refresh} tablero={tablero} />}
       {tab === 'recepciones'  && <TabRecepciones  abrir={abrir} refresh={refresh} />}
       {tab === 'reclamos'     && <TabReclamos     abrir={abrir} refresh={refresh} />}
+      {tab === 'cuenta'       && <TabCuentaCorriente abrir={abrir} refresh={refresh} onChanged={recargar} />}
 
       {scId && <DetalleSolicitud id={scId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}
       {pcId && <DetalleCotizacion id={pcId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}

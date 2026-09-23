@@ -756,6 +756,21 @@ export async function crearRecepcion(client: Queryable, pedidoId: string, b: Rec
       AND inc.estado = 'en_reposicion' AND rep.cantidad_conforme + 0.001 >= rep.cantidad
   `, [pedidoId]);
 
+  // Reflejo en la carpeta digital: el remito y las fotos del reclamo quedan archivados
+  // sin que nadie los vuelva a subir (idempotente por url).
+  await registrarDocs(client, b.adjuntos, {
+    pedido_id: pedidoId, tipo: 'remito',
+    nombre: b.remito_proveedor_nro ? `Remito ${b.remito_proveedor_nro}` : `Remito de entrega ${numeroSecuencia}`,
+    numero: b.remito_proveedor_nro ?? null, fecha: b.fecha ?? null, origen_id: recepcion.id, created_by: userId,
+  });
+  for (const it of b.items) {
+    if (!it.incidencia_adjuntos?.length) continue;
+    await registrarDocs(client, it.incidencia_adjuntos, {
+      pedido_id: pedidoId, tipo: 'foto_incidencia', nombre: 'Foto del problema',
+      fecha: b.fecha ?? null, created_by: userId,
+    });
+  }
+
   // Flete real: reemplaza el estimado y recalcula el total (igual que el flujo viejo)
   if (b.costo_envio_real != null) {
     await client.query(`UPDATE pedidos SET costo_envio = $2 WHERE id = $1`, [pedidoId, b.costo_envio_real]);
@@ -780,7 +795,27 @@ export async function crearRecepcion(client: Queryable, pedidoId: string, b: Rec
     created_by: userId,
   });
 
-  if (todoRecibido) await marcarOperacionListoSiCorresponde(client, pedido.operacion_id, pedidoId);
+  if (todoRecibido) {
+    await marcarOperacionListoSiCorresponde(client, pedido.operacion_id, pedidoId);
+    // Proveedores que no facturan (`factura_al_recibir`): la compra se asienta en la cuenta
+    // corriente al recibir, porque no va a llegar ninguna factura que la dispare. Una sola vez.
+    const { rows: [prov] } = await client.query(
+      `SELECT factura_al_recibir FROM proveedores WHERE id = $1`, [pedido.proveedor_id]);
+    if (prov?.factura_al_recibir) {
+      const { rows: [ya] } = await client.query(
+        `SELECT 1 FROM proveedor_cc_movimientos WHERE pedido_id = $1 AND tipo = 'compra' LIMIT 1`, [pedidoId]);
+      if (!ya) {
+        const { rows: [oc] } = await client.query(`SELECT total FROM pedidos WHERE id = $1`, [pedidoId]);
+        await asentarMovimiento(client, {
+          proveedor_id: pedido.proveedor_id, tipo: 'compra', monto: num(oc?.total),
+          fecha: b.fecha ?? null, pedido_id: pedidoId,
+          concepto: `Compra ${pedido.numero} (proveedor sin factura)`, created_by: userId,
+        });
+      }
+    }
+    await recalcularEstadoFinanzas(client, pedidoId);
+    await actualizarCierreTotal(client, pedidoId);
+  }
 
   return { recepcion_id: recepcion.id, numero_secuencia: numeroSecuencia, estado_logistica: nuevoLogistica, incidencias };
 }
@@ -806,4 +841,209 @@ export async function revertirStockDeRecepciones(client: Queryable, pedidoId: st
       r.operacion_id ?? null, r.numero, userId]);
   }
   return rows.length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Etapa 3 — documentos, facturas, cuenta corriente, pagos, cierre
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export type TipoDocumento =
+  | 'cotizacion' | 'orden_compra' | 'remito' | 'factura' | 'nota_credito' | 'nota_debito'
+  | 'comprobante_pago' | 'foto_incidencia' | 'otro';
+
+/**
+ * Guarda un archivo en la carpeta digital de la OC. Es idempotente por (pedido_id, url):
+ * los adjuntos cargados en la cotización, la recepción, un reclamo o un pago se reflejan
+ * acá automáticamente, sin que nadie tenga que subirlos dos veces.
+ */
+export async function registrarDoc(client: Queryable, d: {
+  pedido_id: string;
+  tipo: TipoDocumento;
+  url: string;
+  nombre?: string | null;
+  numero?: string | null;
+  fecha?: string | null;
+  monto?: number | null;
+  origen_id?: string | null;
+  notas?: string | null;
+  created_by?: string | null;
+}): Promise<void> {
+  if (!d.url) return;
+  await client.query(`
+    INSERT INTO compras_documentos (pedido_id, tipo, url, nombre, numero, fecha, monto, origen_id, notas, created_by)
+    VALUES ($1,$2,$3,$4,$5,COALESCE($6::date, CURRENT_DATE),$7,$8,$9,$10)
+    ON CONFLICT (pedido_id, url) DO UPDATE SET
+      tipo = EXCLUDED.tipo, nombre = COALESCE(EXCLUDED.nombre, compras_documentos.nombre),
+      numero = COALESCE(EXCLUDED.numero, compras_documentos.numero),
+      monto = COALESCE(EXCLUDED.monto, compras_documentos.monto)
+  `, [d.pedido_id, d.tipo, d.url, d.nombre ?? null, d.numero ?? null, d.fecha ?? null,
+    d.monto ?? null, d.origen_id ?? null, d.notas ?? null, d.created_by ?? null]);
+  await recalcularEstadoDocs(client, d.pedido_id);
+}
+
+/** Varios adjuntos del mismo origen (fotos de un reclamo, comprobantes de un pago). */
+export async function registrarDocs(client: Queryable, urls: string[] | null | undefined, base: Omit<Parameters<typeof registrarDoc>[1], 'url'>): Promise<void> {
+  for (const url of urls ?? []) await registrarDoc(client, { ...base, url });
+}
+
+/**
+ * La carpeta está completa cuando están la OC, la factura y —si hubo recepción— el remito.
+ * Es lo mínimo para poder archivar la compra sin tener que buscar papeles después.
+ */
+export async function recalcularEstadoDocs(client: Queryable, pedidoId: string): Promise<'completa' | 'incompleta'> {
+  const { rows: [r] } = await client.query(`
+    SELECT
+      EXISTS (SELECT 1 FROM compras_documentos d WHERE d.pedido_id = $1 AND d.tipo = 'orden_compra') AS tiene_oc,
+      EXISTS (SELECT 1 FROM compras_facturas f WHERE f.pedido_id = $1) AS tiene_factura,
+      EXISTS (SELECT 1 FROM compras_recepciones r WHERE r.pedido_id = $1) AS hubo_recepcion,
+      EXISTS (SELECT 1 FROM compras_documentos d WHERE d.pedido_id = $1 AND d.tipo = 'remito') AS tiene_remito
+  `, [pedidoId]);
+  const completa = r.tiene_oc && r.tiene_factura && (!r.hubo_recepcion || r.tiene_remito);
+  const estado = completa ? 'completa' : 'incompleta';
+  await client.query(`UPDATE pedidos SET estado_docs = $2, updated_at = now() WHERE id = $1 AND estado_docs <> $2`, [pedidoId, estado]);
+  return estado;
+}
+
+// ── Cuenta corriente ──────────────────────────────────────────────────────────
+
+export type TipoMovimientoCC = 'saldo_inicial' | 'compra' | 'debito' | 'pago' | 'credito' | 'anticipo' | 'ajuste';
+
+/**
+ * ÚNICO lugar que escribe el libro mayor del proveedor. Convención: monto positivo
+ * aumenta lo que le debemos (compra, débito), negativo lo reduce (pago, crédito,
+ * anticipo). Ninguna ruta escribe `proveedor_cc_movimientos` directamente.
+ */
+export async function asentarMovimiento(client: Queryable, m: {
+  proveedor_id: string;
+  tipo: TipoMovimientoCC;
+  monto: number;
+  fecha?: string | null;
+  pedido_id?: string | null;
+  factura_id?: string | null;
+  pago_id?: string | null;
+  nota_id?: string | null;
+  incidencia_id?: string | null;
+  concepto?: string | null;
+  created_by?: string | null;
+}): Promise<string> {
+  // Los tipos que reducen la deuda se guardan siempre en negativo, venga como venga
+  const reduce = ['pago', 'credito', 'anticipo'].includes(m.tipo);
+  const monto = reduce ? -Math.abs(m.monto) : m.monto;
+  const { rows: [row] } = await client.query(`
+    INSERT INTO proveedor_cc_movimientos
+      (proveedor_id, fecha, tipo, monto, pedido_id, factura_id, pago_id, nota_id, incidencia_id, concepto, created_by)
+    VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING id
+  `, [m.proveedor_id, m.fecha ?? null, m.tipo, monto, m.pedido_id ?? null, m.factura_id ?? null,
+    m.pago_id ?? null, m.nota_id ?? null, m.incidencia_id ?? null, m.concepto ?? null, m.created_by ?? null]);
+  return row.id;
+}
+
+export interface SaldoOC {
+  facturado: number;
+  pagado: number;
+  creditos: number;
+  /** Lo que todavía se le debe por esta OC. */
+  saldo: number;
+  orden: number;
+  cotizado: number;
+}
+
+/** Números del control económico de una OC: cotizado / orden / facturado y su saldo. */
+export async function saldoDeOC(client: Queryable, pedidoId: string): Promise<SaldoOC> {
+  const { rows: [r] } = await client.query(`
+    SELECT
+      p.total::numeric AS orden,
+      COALESCE((SELECT cp.total FROM compras_cotizacion_proveedores cp WHERE cp.id = p.cotizacion_proveedor_id), 0)::numeric AS cotizado,
+      COALESCE((SELECT SUM(f.total) FROM compras_facturas f WHERE f.pedido_id = p.id), 0)::numeric AS facturado,
+      COALESCE((SELECT SUM(a.monto) FROM proveedor_pago_aplicaciones a WHERE a.pedido_id = p.id), 0)::numeric AS pagado,
+      COALESCE((SELECT SUM(n.monto) FROM proveedor_notas n WHERE n.pedido_id = p.id AND n.tipo = 'credito'), 0)::numeric AS creditos
+    FROM pedidos p WHERE p.id = $1
+  `, [pedidoId]);
+  const facturado = num(r?.facturado);
+  const pagado = num(r?.pagado);
+  const creditos = num(r?.creditos);
+  return {
+    orden: num(r?.orden), cotizado: num(r?.cotizado), facturado, pagado, creditos,
+    saldo: Math.round((facturado - pagado - creditos) * 100) / 100,
+  };
+}
+
+/**
+ * `estado_finanzas` de la OC. `con_credito` es el caso en que se pagó o acreditó de más
+ * (una nota de crédito posterior al pago): queda saldo a favor contra esa compra.
+ */
+export async function recalcularEstadoFinanzas(client: Queryable, pedidoId: string): Promise<string> {
+  const s = await saldoDeOC(client, pedidoId);
+  let estado: string;
+  if (s.facturado <= 0) estado = 'sin_factura';
+  else if (s.saldo <= -0.01) estado = 'con_credito';
+  else if (s.saldo <= 0.01) estado = 'pagada';
+  else if (s.pagado + s.creditos > 0.01) estado = 'pago_parcial';
+  else estado = 'pendiente';
+  await client.query(`UPDATE pedidos SET estado_finanzas = $2, updated_at = now() WHERE id = $1 AND estado_finanzas <> $2`, [pedidoId, estado]);
+  return estado;
+}
+
+// ── Cierre de la compra ───────────────────────────────────────────────────────
+
+export interface ChecklistCierre {
+  puede_cerrar: boolean;
+  cerrada_totalmente: boolean;
+  items: { clave: string; label: string; ok: boolean; detalle?: string }[];
+}
+
+/**
+ * Qué falta para cerrar la compra. El cierre logístico (`cerrada`) pide mercadería
+ * completa, sin reclamos abiertos y el control hecho; el sello "cerrada totalmente"
+ * suma saldo 0 y la carpeta de documentos completa.
+ */
+export async function checklistCierre(client: Queryable, pedidoId: string): Promise<ChecklistCierre> {
+  const [{ rows: [p] }, saldo] = await Promise.all([
+    client.query(`
+      SELECT p.*,
+        (SELECT COUNT(*)::int FROM pedido_items pi WHERE pi.pedido_id = p.id
+           AND pi.estado_item NOT IN ('recibido','cancelado')) AS items_pendientes,
+        (SELECT COUNT(*)::int FROM compras_incidencias i WHERE i.pedido_id = p.id
+           AND i.estado NOT IN ('resuelta','rechazada')) AS reclamos_abiertos
+      FROM pedidos p WHERE p.id = $1
+    `, [pedidoId]),
+    saldoDeOC(client, pedidoId),
+  ]);
+  if (!p) return { puede_cerrar: false, cerrada_totalmente: false, items: [] };
+
+  const recibida = ['recibida', 'cerrada'].includes(p.estado_logistica);
+  const items = [
+    { clave: 'mercaderia', label: 'Mercadería recibida completa', ok: recibida && p.items_pendientes === 0,
+      detalle: p.items_pendientes > 0 ? `${p.items_pendientes} ítem(s) sin recibir` : undefined },
+    { clave: 'reclamos', label: 'Sin reclamos abiertos', ok: p.reclamos_abiertos === 0,
+      detalle: p.reclamos_abiertos > 0 ? `${p.reclamos_abiertos} reclamo(s) pendiente(s)` : undefined },
+    { clave: 'control', label: 'Control realizado', ok: !!p.control_realizado_at },
+    { clave: 'factura', label: 'Factura cargada', ok: saldo.facturado > 0 },
+    { clave: 'saldo', label: 'Saldo en cero', ok: Math.abs(saldo.saldo) <= 0.01,
+      detalle: Math.abs(saldo.saldo) > 0.01 ? `Falta pagar ${saldo.saldo.toFixed(2)}` : undefined },
+    { clave: 'docs', label: 'Documentación completa', ok: p.estado_docs === 'completa' },
+  ];
+  const puede_cerrar = items.filter(i => ['mercaderia', 'reclamos', 'control'].includes(i.clave)).every(i => i.ok);
+  const cerrada_totalmente = items.every(i => i.ok);
+  return { puede_cerrar, cerrada_totalmente, items };
+}
+
+/**
+ * Pone el sello "cerrada totalmente" cuando ya no queda nada pendiente (mercadería,
+ * reclamos, control, factura, saldo y documentos). Se llama después de cada pago,
+ * factura, nota o documento nuevo: el cierre no depende de que alguien se acuerde.
+ */
+export async function actualizarCierreTotal(client: Queryable, pedidoId: string): Promise<boolean> {
+  const chk = await checklistCierre(client, pedidoId);
+  if (chk.cerrada_totalmente) {
+    await client.query(
+      `UPDATE pedidos SET cerrada_totalmente_at = COALESCE(cerrada_totalmente_at, now()), updated_at = now() WHERE id = $1`,
+      [pedidoId]);
+  } else {
+    await client.query(
+      `UPDATE pedidos SET cerrada_totalmente_at = NULL, updated_at = now() WHERE id = $1 AND cerrada_totalmente_at IS NOT NULL`,
+      [pedidoId]);
+  }
+  return chk.cerrada_totalmente;
 }

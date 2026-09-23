@@ -13,12 +13,13 @@ import { MontoInput } from '@/components/MontoInput';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
 import type { AbrirDetalle } from './Compras';
 import {
-  ESTADO_LOGISTICA, ESTADO_INCIDENCIA, TIMELINE_LOGISTICA, SIGUIENTE_LOGISTICA, IVA_OPCIONES,
+  ESTADO_LOGISTICA, ESTADO_INCIDENCIA, ESTADO_FINANZAS, TIMELINE_LOGISTICA, SIGUIENTE_LOGISTICA, IVA_OPCIONES,
   fmtFecha, fmtCantidad, fmtMoneda, nombreCliente, haceCuanto, abrirPdf, calcularTotalesForm,
   type OrdenDetalle as OC, type MedioEnvio, type EstadoLogistica, type Seguimiento, type Recepcion, type Incidencia,
 } from './tipos';
 import { ModalShell, Cargando, Badge, Seccion, FichaTecnica, AdjuntosGrid, DropzoneAdjuntos, ConfirmacionRoja, inpCls, lblCls, btnPrimario, btnSecundario, btnPeligro } from './ui';
 import { ModalRecepcion, type ResultadoRecepcion } from './ModalRecepcion';
+import { PanelEconomico } from './PanelEconomico';
 
 interface LineaEdit { id: string; cantidad: string; precio: string; desc: string; iva: number }
 
@@ -200,6 +201,7 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
         {oc.demorada && <Badge label={`Demorada ${oc.dias_demora}d`} cls="bg-red-600 text-white" />}
         {oc.es_consolidada && <Badge label="Consolidada" cls="bg-violet-100 text-violet-800" />}
         {oc.es_stock_propio && <Badge label="Stock propio" cls="bg-sky-100 text-sky-800" />}
+        {oc.cerrada_totalmente_at && <Badge label="Cerrada totalmente" cls="bg-emerald-600 text-white" />}
       </>}
       acciones={<>
         <button onClick={() => abrirPdf(`/compras/ordenes/${id}/pdf`).catch(e => toast.error(e.message))} className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg hover:bg-gray-100 text-gray-600 flex items-center justify-center" title="Ver PDF">
@@ -221,8 +223,10 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
           reclamos.length === 0 ? 'Sin reclamos' : reclamosAbiertos.length > 0 ? `${reclamosAbiertos.length} abierto${reclamosAbiertos.length === 1 ? '' : 's'}` : 'Resueltos',
           reclamos.length === 0 ? 'bg-gray-50 border-gray-200 text-gray-500'
             : reclamosAbiertos.length > 0 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800')}
-        {franja(<Wallet size={14} />, 'Finanzas', '—', 'bg-gray-50 border-gray-200 text-gray-500')}
-        {franja(<FolderOpen size={14} />, 'Documentación', '—', 'bg-gray-50 border-gray-200 text-gray-500')}
+        {franja(<Wallet size={14} />, 'Finanzas', ESTADO_FINANZAS[oc.estado_finanzas].label, ESTADO_FINANZAS[oc.estado_finanzas].cls)}
+        {franja(<FolderOpen size={14} />, 'Documentación',
+          oc.estado_docs === 'completa' ? 'Completa' : 'Incompleta',
+          oc.estado_docs === 'completa' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-gray-50 border-gray-200 text-gray-500')}
       </div>
 
       {/* Proveedor + destino */}
@@ -508,6 +512,9 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
           )}
         </div>
       )}
+
+      {/* Plata y papeles (etapa 3) — solo cuando la orden ya salió del borrador */}
+      {!borrador && <PanelEconomico oc={oc} onChanged={() => { onChanged(); cargar(); }} />}
 
       {faltantes > 0 && oc.estado_logistica !== 'cancelada' && (
         <div className="p-3 bg-orange-50 rounded-xl border border-orange-200 flex items-start gap-3">

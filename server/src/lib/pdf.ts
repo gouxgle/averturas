@@ -770,3 +770,155 @@ function buildCompraHTML(d: CompraPDF, empresa: EmpresaPDF): string {
 export async function generarPDFCompra(data: CompraPDF, empresa: EmpresaPDF): Promise<Buffer> {
   return renderPDF(buildCompraHTML(data, empresa));
 }
+
+// ─── Estado de cuenta del proveedor ──────────────────────────────────────────
+
+export interface EstadoCuentaProveedorPDF {
+  proveedor: {
+    nombre: string; cuit?: string | null; telefono: string | null; email: string | null;
+    contacto?: string | null; direccion?: string | null; localidad?: string | null;
+  };
+  periodo: { desde: string | null; hasta: string | null };
+  saldo_inicial: number;
+  movimientos: Array<{
+    fecha: string | Date; tipo: string; concepto: string | null; monto: number;
+    saldo_acumulado: number; pedido_numero?: string | null; factura_numero?: string | null;
+  }>;
+  totales: { compras: number; debitos: number; pagos: number; creditos: number; saldo_final: number };
+}
+
+const CC_TIPO_LABEL: Record<string, string> = {
+  saldo_inicial: 'Saldo inicial', compra: 'Compra', debito: 'Nota de debito',
+  pago: 'Pago', credito: 'Nota de credito', anticipo: 'Anticipo', ajuste: 'Ajuste',
+};
+
+function buildEstadoCuentaProveedorHTML(d: EstadoCuentaProveedorPDF, empresa: EmpresaPDF): string {
+  const logo = logoDataURI('logochico.png');
+  const logoTag = logo ? `<img src="${logo}" alt="Logo" style="height:34px;margin-right:10px;">` : '';
+  const hoy = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const { compras, debitos, pagos, creditos, saldo_final } = d.totales;
+  const saldado = Math.abs(saldo_final) <= 0.01;
+  const aFavor = saldo_final < -0.01;
+  const saldoColor = saldado ? '#059669' : aFavor ? '#0369a1' : '#d97706';
+  const esc2 = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const periodo = d.periodo.desde || d.periodo.hasta
+    ? `${d.periodo.desde ? `del ${fmtFecha(d.periodo.desde)}` : ''}${d.periodo.hasta ? ` al ${fmtFecha(d.periodo.hasta)}` : ''}`.trim()
+    : 'todos los movimientos';
+
+  const filas = d.movimientos.map((m, i) => {
+    const aumenta = m.monto > 0;
+    // El concepto ya suele traer el número de la factura: no repetirlo al lado
+    const concepto = String(m.concepto ?? '');
+    const ref = [m.pedido_numero, m.factura_numero]
+      .filter(v => v && !concepto.includes(String(v))).join(' · ');
+    return `
+      <tr style="background:${i % 2 === 0 ? 'white' : '#f8f9fa'};">
+        <td style="padding:6px 8px;font-size:11px;color:#555;border-bottom:1px solid #eee;white-space:nowrap;">${fmtFecha(m.fecha)}</td>
+        <td style="padding:6px 8px;font-size:11px;font-weight:600;color:#1a1a1a;border-bottom:1px solid #eee;">${esc2(CC_TIPO_LABEL[m.tipo] ?? m.tipo)}</td>
+        <td style="padding:6px 8px;font-size:11px;color:#555;border-bottom:1px solid #eee;">
+          ${esc2(m.concepto)}${ref ? `<span style="color:#888;"> &middot; ${esc2(ref)}</span>` : ''}
+        </td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;">${aumenta ? fmt(m.monto) : ''}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;color:#059669;">${aumenta ? '' : fmt(Math.abs(m.monto))}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;font-weight:700;border-bottom:1px solid #eee;">${fmt(m.saldo_acumulado)}</td>
+      </tr>`;
+  }).join('');
+
+  const footerParts = [empresa.nombre, empresa.cuit ? `CUIT ${empresa.cuit}` : null,
+    empresa.telefono ? `Tel: ${empresa.telefono}` : null, empresa.email, empresa.direccion].filter(Boolean).join(' · ');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8">
+<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: Arial, sans-serif; background: white; color: #333; } tr { page-break-inside: avoid; }</style>
+</head>
+<body>
+<div style="max-width:750px;margin:0 auto;padding:24px 32px;background:white;min-height:268mm;">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        ${logoTag}<div style="color:${NAVY};font-size:15px;font-weight:900;">${esc2(empresa.nombre)}</div>
+      </div>
+      ${empresa.cuit     ? `<div style="color:#555;font-size:11px;">CUIT: ${esc2(empresa.cuit)}</div>` : ''}
+      ${empresa.telefono ? `<div style="color:#555;font-size:11px;">Tel: ${esc2(empresa.telefono)}</div>` : ''}
+      ${empresa.email    ? `<div style="color:#555;font-size:11px;">${esc2(empresa.email)}</div>` : ''}
+    </div>
+    <div style="text-align:right;">
+      <div style="color:${NAVY};font-size:20px;font-weight:900;letter-spacing:1px;">CUENTA CORRIENTE</div>
+      <div style="color:#666;font-size:11px;margin-top:4px;">Proveedor &middot; ${esc2(periodo)}</div>
+      <div style="color:#666;font-size:11px;">Generado: ${hoy}</div>
+    </div>
+  </div>
+
+  <div style="background:${NAVY};height:2px;margin-bottom:20px;"></div>
+
+  <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:20px;border-left:4px solid ${NAVY};">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Proveedor</div>
+    <div style="font-size:15px;font-weight:700;color:#1a1a1a;">${esc2(d.proveedor.nombre)}</div>
+    <div style="display:flex;gap:18px;font-size:11px;color:#555;margin-top:2px;flex-wrap:wrap;">
+      ${d.proveedor.cuit     ? `<span>CUIT: ${esc2(d.proveedor.cuit)}</span>` : ''}
+      ${d.proveedor.contacto ? `<span>At.: ${esc2(d.proveedor.contacto)}</span>` : ''}
+      ${d.proveedor.telefono ? `<span>Tel: ${esc2(d.proveedor.telefono)}</span>` : ''}
+      ${d.proveedor.email    ? `<span>${esc2(d.proveedor.email)}</span>` : ''}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px 14px;border:1px solid #e5e7eb;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Compras + debitos</div>
+      <div style="font-size:17px;font-weight:900;color:#1a1a1a;font-family:monospace;">${fmt(compras + debitos)}</div>
+    </div>
+    <div style="background:#f0fdf4;border-radius:8px;padding:12px 14px;border:1px solid #bbf7d0;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">Pagos + creditos</div>
+      <div style="font-size:17px;font-weight:900;color:#059669;font-family:monospace;">${fmt(pagos + creditos)}</div>
+    </div>
+    <div style="background:${saldado ? '#f0fdf4' : aFavor ? '#eff6ff' : '#fffbeb'};border-radius:8px;padding:12px 14px;border:1px solid ${saldado ? '#bbf7d0' : aFavor ? '#bfdbfe' : '#fde68a'};">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">${aFavor ? 'Saldo a favor' : 'Saldo adeudado'}</div>
+      <div style="font-size:17px;font-weight:900;color:${saldoColor};font-family:monospace;">${fmt(Math.abs(saldo_final))}</div>
+      <div style="font-size:10px;color:${saldoColor};margin-top:2px;">${saldado ? 'Cuenta al dia' : aFavor ? 'A nuestro favor' : 'Pendiente de pago'}</div>
+    </div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+    <thead>
+      <tr style="background:#f0f0f0;">
+        <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:#555;">Fecha</th>
+        <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:#555;">Tipo</th>
+        <th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:600;color:#555;">Concepto</th>
+        <th style="text-align:right;padding:6px 8px;font-size:10px;font-weight:600;color:#555;">Debe</th>
+        <th style="text-align:right;padding:6px 8px;font-size:10px;font-weight:600;color:#555;">Haber</th>
+        <th style="text-align:right;padding:6px 8px;font-size:10px;font-weight:600;color:#555;">Saldo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fafafa;">
+        <td colspan="5" style="padding:6px 8px;font-size:11px;font-weight:600;color:#555;border-bottom:1px solid #eee;">Saldo anterior</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;font-weight:700;border-bottom:1px solid #eee;">${fmt(d.saldo_inicial)}</td>
+      </tr>
+      ${filas}
+    </tbody>
+    <tfoot>
+      <tr style="background:#f0f0f0;">
+        <td colspan="3" style="padding:6px 8px;font-size:11px;font-weight:700;color:#555;">TOTALES</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;font-weight:700;">${fmt(compras + debitos)}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:monospace;font-weight:700;color:#059669;">${fmt(pagos + creditos)}</td>
+        <td style="padding:6px 8px;font-size:12px;text-align:right;font-family:monospace;font-weight:900;color:${saldoColor};">${fmt(saldo_final)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div style="font-size:10px;color:#888;">Saldo positivo = pendiente de pago al proveedor. Saldo negativo = saldo a nuestro favor.</div>
+
+  <div style="border-top:2px solid ${RED};margin-top:28px;padding-top:12px;text-align:center;font-size:10px;color:#999;">
+    ${esc2(footerParts)}
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+export async function generarPDFEstadoCuentaProveedor(data: EstadoCuentaProveedorPDF, empresa: EmpresaPDF): Promise<Buffer> {
+  return renderPDF(buildEstadoCuentaProveedorHTML(data, empresa));
+}

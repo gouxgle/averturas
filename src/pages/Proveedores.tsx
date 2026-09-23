@@ -23,6 +23,8 @@ interface Proveedor {
   costo_flete: number;
   calificacion: number | null;
   deuda_actual: number;
+  /** Saldo real del libro mayor (`proveedor_saldos`). `deuda_actual` quedó como legado. */
+  saldo_cc: number | string;
   es_principal: boolean;
   margen_venta: number;
   /** Clave de la paleta identificatoria; null = color automático derivado del id. */
@@ -52,7 +54,7 @@ interface TableroData {
   compras_por_rubro: { rubro: string; total_compras: number; cant_lotes: number }[];
 }
 
-type FormData = Omit<Proveedor, 'id' | 'activo' | 'created_at' | 'lotes_count_6m' | 'compras_monto_6m' | 'lotes_count_30d' | 'ultima_compra_fecha' | 'dias_sin_compra' | 'pedidos_pendientes'>;
+type FormData = Omit<Proveedor, 'id' | 'activo' | 'created_at' | 'saldo_cc' | 'lotes_count_6m' | 'compras_monto_6m' | 'lotes_count_30d' | 'ultima_compra_fecha' | 'dias_sin_compra' | 'pedidos_pendientes'>;
 
 type FiltroTab = 'todos' | 'principales' | 'con_deuda' | 'mas_usados' | 'sin_actividad';
 
@@ -168,7 +170,7 @@ function StarRating({ value, onChange, size = 14 }: { value: number | null; onCh
 
 // ── ModalProveedor ────────────────────────────────────────────
 function ModalProveedor({
-  initial, title, onSave, onClose, proveedorId
+  initial, title, onSave, onClose, proveedorId, saldoCC = null
 }: {
   initial: FormData;
   title: string;
@@ -176,6 +178,8 @@ function ModalProveedor({
   onClose: () => void;
   /** Solo en edición: se usa para previsualizar el color automático derivado del id. */
   proveedorId?: string;
+  /** Saldo del libro mayor (solo lectura; null en alta). */
+  saldoCC?: number | string | null;
 }) {
   const [form, setForm] = useState<FormData>(initial);
   const [saving, setSaving] = useState(false);
@@ -411,9 +415,16 @@ function ModalProveedor({
                 </div>
               </div>
               <div>
-                <label className={lbl}>Deuda actual ($)</label>
-                <input type="number" min="0" value={form.deuda_actual ?? ''} onChange={e => set('deuda_actual', parseFloat(e.target.value) || 0)}
-                  className={inp('deuda_actual')} placeholder="0" />
+                <label className={lbl}>Saldo en cuenta corriente</label>
+                {/* Ya no se tipea: sale del libro mayor (facturas, pagos y notas). */}
+                <div className="flex items-center gap-2 h-[42px]">
+                  <span className={cn('text-base font-bold tabular-nums',
+                    Number(saldoCC) > 0.01 ? 'text-red-600' : Number(saldoCC) < -0.01 ? 'text-sky-700' : 'text-emerald-600')}>
+                    {saldoCC === null ? '—' : fmtMonto(Math.abs(Number(saldoCC)))}
+                  </span>
+                  <a href="/compras?tab=cuenta" className="text-[11px] font-semibold text-lime-700 hover:underline">Ver estado de cuenta</a>
+                </div>
+                <p className="text-[10px] text-gray-500">Se calcula solo con las facturas, pagos y notas cargadas en Compras.</p>
               </div>
               <div>
                 <label className={lbl}>Margen de venta (%) <span className="text-gray-600 font-normal">— fallback</span></label>
@@ -534,9 +545,9 @@ function ProveedorRow({
 
         {/* Deuda */}
         <div className="text-right">
-          {prov.deuda_actual > 0 ? (
+          {Number(prov.saldo_cc) > 0.01 ? (
             <>
-              <p className="text-sm font-bold text-red-600">{fmtMonto(prov.deuda_actual)}</p>
+              <p className="text-sm font-bold text-red-600">{fmtMonto(Number(prov.saldo_cc))}</p>
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Pendiente</span>
             </>
           ) : (
@@ -688,7 +699,7 @@ export function Proveedores() {
     if (soloActivos) list = list.filter(p => p.activo);
 
     if (filtro === 'principales')   list = list.filter(p => p.es_principal);
-    if (filtro === 'con_deuda')     list = list.filter(p => p.deuda_actual > 0);
+    if (filtro === 'con_deuda')     list = list.filter(p => Number(p.saldo_cc) > 0.01);
     if (filtro === 'mas_usados')    list = [...list].sort((a, b) => b.lotes_count_6m - a.lotes_count_6m).filter(p => p.lotes_count_6m > 0);
     if (filtro === 'sin_actividad') list = list.filter(p => p.dias_sin_compra > 90);
 
@@ -714,7 +725,7 @@ export function Proveedores() {
   const FILTROS: { key: FiltroTab; label: string; count: number }[] = [
     { key: 'todos',        label: 'Todos',          count: (tablero?.proveedores ?? []).filter(p => p.activo).length },
     { key: 'principales',  label: 'Principales',    count: (tablero?.proveedores ?? []).filter(p => p.activo && p.es_principal).length },
-    { key: 'con_deuda',    label: 'Con deuda',      count: (tablero?.proveedores ?? []).filter(p => p.activo && p.deuda_actual > 0).length },
+    { key: 'con_deuda',    label: 'Con deuda',      count: (tablero?.proveedores ?? []).filter(p => p.activo && Number(p.saldo_cc) > 0.01).length },
     { key: 'mas_usados',   label: 'Más usados',     count: (tablero?.proveedores ?? []).filter(p => p.activo && p.lotes_count_6m > 0).length },
     { key: 'sin_actividad',label: 'Sin actividad',  count: (tablero?.proveedores ?? []).filter(p => p.activo && p.dias_sin_compra > 90).length },
   ];
@@ -1035,7 +1046,7 @@ export function Proveedores() {
             <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <DollarSign size={12} /> Deudas a pagar
             </p>
-            {(tablero?.proveedores ?? []).filter(p => p.deuda_actual > 0).length === 0 ? (
+            {(tablero?.proveedores ?? []).filter(p => Number(p.saldo_cc) > 0.01).length === 0 ? (
               <div className="flex items-center gap-2 py-6 justify-center">
                 <Check size={20} className="text-emerald-400" />
                 <p className="text-sm text-gray-600">Sin deudas pendientes</p>
@@ -1043,8 +1054,8 @@ export function Proveedores() {
             ) : (
               <div className="space-y-2">
                 {(tablero?.proveedores ?? [])
-                  .filter(p => p.deuda_actual > 0)
-                  .sort((a, b) => b.deuda_actual - a.deuda_actual)
+                  .filter(p => Number(p.saldo_cc) > 0.01)
+                  .sort((a, b) => Number(b.saldo_cc) - Number(a.saldo_cc))
                   .slice(0, 5)
                   .map(p => (
                     <div key={p.id} className="flex items-center gap-3">
@@ -1054,7 +1065,7 @@ export function Proveedores() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-gray-800 truncate">{p.nombre}</p>
                       </div>
-                      <span className="text-sm font-bold text-red-600 flex-shrink-0">{fmtMonto(p.deuda_actual)}</span>
+                      <span className="text-sm font-bold text-red-600 flex-shrink-0">{fmtMonto(Number(p.saldo_cc))}</span>
                       <button onClick={() => setModal(p.id)}
                         className="p-1 hover:bg-gray-100 rounded-md flex-shrink-0">
                         <Pencil size={11} className="text-gray-600" />
@@ -1071,6 +1082,7 @@ export function Proveedores() {
       {modal && (
         <ModalProveedor
           title={modal === 'nuevo' ? 'Nuevo proveedor' : `Editar: ${editingProv?.nombre ?? ''}`}
+          saldoCC={editingProv ? editingProv.saldo_cc : null}
           initial={modal === 'nuevo' ? emptyForm() : {
             nombre:             editingProv?.nombre ?? '',
             tipo:               editingProv?.tipo ?? null,

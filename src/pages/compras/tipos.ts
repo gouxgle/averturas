@@ -240,6 +240,8 @@ export interface OrdenRow {
   items_cubiertos: number | null;
   demorada: boolean;
   dias_demora: number;
+  cerrada_totalmente_at: string | null;
+  control_realizado_at: string | null;
 }
 
 export interface OrdenDetalle extends OrdenRow {
@@ -339,9 +341,143 @@ export interface TableroCompras {
     sc_abiertas: number; pc_abiertas: number; pc_esperando: number; oc_en_curso: number; oc_borrador: number;
     oc_demoradas: number; oc_activas: number; valor_en_curso: number;
     oc_por_recibir: number; reclamos_abiertos: number; reclamos_sin_reclamar: number;
+    oc_a_pagar: number; deuda_proveedores: number;
   };
   esperando_recepcion: { id: string; numero: string; fecha_prometida: string | null; fecha_entrega_est: string | null; estado_logistica: EstadoLogistica; proveedor: { nombre: string; telefono: string | null }; operacion: { numero: string; cliente: ClienteMin } | null }[];
   para_preparar: { id: string; numero: string; fecha_recepcion: string | null; proveedor: { nombre: string }; operacion: { id: string; numero: string; cliente: ClienteMin } | null }[];
+}
+
+// ── Etapa 3: documentos, facturas, cuenta corriente ───────────────────────────
+
+export type TipoDocumento =
+  | 'cotizacion' | 'orden_compra' | 'remito' | 'factura' | 'nota_credito' | 'nota_debito'
+  | 'comprobante_pago' | 'foto_incidencia' | 'otro';
+export type MotivoDiferencia = 'flete' | 'aumento' | 'iva' | 'adicional' | 'error' | 'otro';
+export type MedioPagoProveedor = 'transferencia' | 'efectivo' | 'cheque' | 'otro';
+export type TipoMovimientoCC = 'saldo_inicial' | 'compra' | 'debito' | 'pago' | 'credito' | 'anticipo' | 'ajuste';
+
+export interface DocumentoCompra {
+  id: string;
+  pedido_id: string;
+  tipo: TipoDocumento;
+  url: string;
+  nombre: string | null;
+  numero: string | null;
+  fecha: string | null;
+  monto: number | string | null;
+  origen_id: string | null;
+  notas: string | null;
+  usuario_nombre: string | null;
+  created_at: string;
+}
+
+export interface FacturaCompra {
+  id: string;
+  proveedor_id: string;
+  pedido_id: string | null;
+  numero: string;
+  fecha: string;
+  subtotal_neto: number | string;
+  iva_monto: number | string;
+  total: number | string;
+  url: string | null;
+  diferencia_vs_oc: number | string;
+  diferencia_motivo: MotivoDiferencia | null;
+  diferencia_obs: string | null;
+  usuario_nombre?: string | null;
+  created_at: string;
+}
+
+export interface PagoProveedor {
+  id: string;
+  proveedor_id: string;
+  proveedor?: ProveedorMin;
+  fecha: string;
+  importe: number | string;
+  medio: MedioPagoProveedor;
+  nro_operacion: string | null;
+  comprobantes: string[];
+  observacion: string | null;
+  usuario_nombre: string | null;
+  aplicado: number | string;
+  sin_aplicar: number | string;
+  aplicaciones: { pedido_id: string; numero: string; monto: number | string }[];
+  created_at: string;
+  /** Solo en el control económico de una OC. */
+  monto_aplicado?: number | string;
+}
+
+export interface NotaProveedor {
+  id: string;
+  proveedor_id: string;
+  tipo: 'credito' | 'debito';
+  pedido_id: string | null;
+  incidencia_id: string | null;
+  numero: string | null;
+  fecha: string;
+  monto: number | string;
+  url: string | null;
+  concepto: string | null;
+}
+
+export interface ControlEconomico {
+  cotizado: number;
+  orden: number;
+  facturado: number;
+  pagado: number;
+  creditos: number;
+  saldo: number;
+  estado_finanzas: OrdenRow['estado_finanzas'];
+  estado_docs: OrdenRow['estado_docs'];
+  cerrada_totalmente_at: string | null;
+  control_realizado_at: string | null;
+  facturas: FacturaCompra[];
+  pagos: PagoProveedor[];
+  notas: NotaProveedor[];
+}
+
+export interface ChecklistCierre {
+  puede_cerrar: boolean;
+  cerrada_totalmente: boolean;
+  items: { clave: string; label: string; ok: boolean; detalle?: string }[];
+}
+
+export interface MovimientoCC {
+  id: string;
+  fecha: string;
+  tipo: TipoMovimientoCC;
+  monto: number;
+  concepto: string | null;
+  pedido_id: string | null;
+  pedido_numero: string | null;
+  factura_numero: string | null;
+  pago_medio: MedioPagoProveedor | null;
+  nro_operacion: string | null;
+  usuario_nombre: string | null;
+  saldo_acumulado: number;
+}
+
+export interface EstadoCuentaProveedor {
+  proveedor: ProveedorMin & { cuit?: string | null; direccion?: string | null; localidad?: string | null };
+  saldo_inicial: number;
+  movimientos: MovimientoCC[];
+  totales: {
+    compras: number; debitos: number; pagos: number; creditos: number; anticipos: number;
+    saldo_final: number; saldo_actual: number;
+  };
+}
+
+export interface ProveedorSaldo {
+  id: string;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  contacto: string | null;
+  color: string | null;
+  activo: boolean;
+  saldo: number | string;
+  ultimo_movimiento: string | null;
+  ordenes_impagas: number;
 }
 
 // ── Etiquetas ─────────────────────────────────────────────────────────────────
@@ -463,6 +599,42 @@ export const SIGUIENTE_LOGISTICA: Partial<Record<EstadoLogistica, { estado: Esta
   terminado:      { estado: 'listo_despacho', label: 'Marcar listo para despacho' },
   listo_despacho: { estado: 'en_transito',    label: 'Marcar en camino' },
   demorado:       { estado: 'en_transito',    label: 'Marcar en camino' },
+};
+
+export const ESTADO_FINANZAS: Record<OrdenRow['estado_finanzas'], { label: string; cls: string }> = {
+  sin_factura:  { label: 'Sin factura',  cls: 'bg-gray-50 border-gray-200 text-gray-500' },
+  pendiente:    { label: 'A pagar',      cls: 'bg-amber-50 border-amber-200 text-amber-800' },
+  pago_parcial: { label: 'Pago parcial', cls: 'bg-sky-50 border-sky-200 text-sky-800' },
+  pagada:       { label: 'Pagada',       cls: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
+  con_credito:  { label: 'Saldo a favor', cls: 'bg-indigo-50 border-indigo-200 text-indigo-800' },
+};
+
+export const TIPO_DOC_LABEL: Record<TipoDocumento, string> = {
+  cotizacion: 'Cotización', orden_compra: 'Orden de compra', remito: 'Remito',
+  factura: 'Factura', nota_credito: 'Nota de crédito', nota_debito: 'Nota de débito',
+  comprobante_pago: 'Comprobante de pago', foto_incidencia: 'Foto de reclamo', otro: 'Otro',
+};
+
+/** Los que decide la carpeta "completa" (el resto son extras). */
+export const DOCS_REQUERIDOS: TipoDocumento[] = ['orden_compra', 'factura', 'remito'];
+
+export const MOTIVO_DIFERENCIA_LABEL: Record<MotivoDiferencia, string> = {
+  flete: 'Flete no previsto', aumento: 'Aumento de precio', iva: 'Diferencia de IVA',
+  adicional: 'Ítem adicional', error: 'Error de facturación', otro: 'Otro',
+};
+
+export const MEDIO_PAGO_LABEL: Record<MedioPagoProveedor, string> = {
+  transferencia: 'Transferencia', efectivo: 'Efectivo', cheque: 'Cheque', otro: 'Otro',
+};
+
+export const TIPO_CC_LABEL: Record<TipoMovimientoCC, { label: string; cls: string }> = {
+  saldo_inicial: { label: 'Saldo inicial', cls: 'bg-gray-100 text-gray-700' },
+  compra:        { label: 'Compra',        cls: 'bg-amber-100 text-amber-800' },
+  debito:        { label: 'Nota de débito', cls: 'bg-amber-100 text-amber-800' },
+  pago:          { label: 'Pago',          cls: 'bg-emerald-100 text-emerald-800' },
+  credito:       { label: 'Nota de crédito', cls: 'bg-emerald-100 text-emerald-800' },
+  anticipo:      { label: 'Anticipo',      cls: 'bg-sky-100 text-sky-800' },
+  ajuste:        { label: 'Ajuste',        cls: 'bg-violet-100 text-violet-800' },
 };
 
 export const UNIDAD_LABEL: Record<string, string> = { u: 'u', m: 'm', m2: 'm²', kg: 'kg' };

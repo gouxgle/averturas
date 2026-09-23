@@ -24,6 +24,13 @@ import {
   IncidenciaReclamarSchema,
   TIPOS_INCIDENCIA,
   SOLUCIONES_INCIDENCIA,
+  FacturaCompraSchema,
+  PagoProveedorSchema,
+  AplicarPagoSchema,
+  NotaProveedorSchema,
+  DocumentoCompraSchema,
+  MOTIVOS_DIFERENCIA,
+  MEDIOS_PAGO_PROVEEDOR,
 } from '../lib/schemas.js';
 
 // ── LoginSchema ────────────────────────────────────────────────
@@ -593,6 +600,126 @@ describe('IncidenciaReclamarSchema', () => {
   it('tiene los 12 tipos de problema esperados', () => {
     expect(TIPOS_INCIDENCIA).toHaveLength(12);
     expect(TIPOS_INCIDENCIA).toContain('vidrio_roto');
+  });
+});
+
+// ── Compras etapa 3: facturas ──────────────────────────────────
+describe('FacturaCompraSchema', () => {
+  const base = { proveedor_id: UUID_A, numero: 'A-0001-00001234', total: 121000 };
+
+  it('acepta una factura mínima', () => {
+    const r = FacturaCompraSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) { expect(r.data.subtotal_neto).toBe(0); expect(r.data.iva_monto).toBe(0); }
+  });
+
+  it('acepta factura vinculada a una orden con desglose', () => {
+    expect(FacturaCompraSchema.safeParse({ ...base, pedido_id: UUID_B, subtotal_neto: 100000, iva_monto: 21000,
+      fecha: '2026-09-23', url: '/uploads/compras/f.pdf' }).success).toBe(true);
+  });
+
+  it('rechaza total 0 o negativo', () => {
+    expect(FacturaCompraSchema.safeParse({ ...base, total: 0 }).success).toBe(false);
+    expect(FacturaCompraSchema.safeParse({ ...base, total: -1 }).success).toBe(false);
+  });
+
+  it('rechaza sin número', () => {
+    expect(FacturaCompraSchema.safeParse({ ...base, numero: '   ' }).success).toBe(false);
+  });
+
+  it.each(MOTIVOS_DIFERENCIA)('acepta motivo de diferencia "%s"', (diferencia_motivo) => {
+    expect(FacturaCompraSchema.safeParse({ ...base, diferencia_motivo }).success).toBe(true);
+  });
+
+  it('rechaza un motivo inventado', () => {
+    expect(FacturaCompraSchema.safeParse({ ...base, diferencia_motivo: 'porque_si' }).success).toBe(false);
+  });
+});
+
+// ── Compras etapa 3: pagos ─────────────────────────────────────
+describe('PagoProveedorSchema', () => {
+  const base = { proveedor_id: UUID_A, importe: 50000 };
+
+  it('acepta un pago sin aplicar (queda como saldo a favor)', () => {
+    const r = PagoProveedorSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) { expect(r.data.medio).toBe('transferencia'); expect(r.data.aplicaciones).toEqual([]); }
+  });
+
+  it('acepta un pago repartido entre dos órdenes', () => {
+    expect(PagoProveedorSchema.safeParse({ ...base, importe: 100,
+      aplicaciones: [{ pedido_id: UUID_B, monto: 60 }, { pedido_id: UUID_C, monto: 40 }] }).success).toBe(true);
+  });
+
+  it('rechaza aplicar más de lo que se paga', () => {
+    const r = PagoProveedorSchema.safeParse({ ...base, importe: 100, aplicaciones: [{ pedido_id: UUID_B, monto: 150 }] });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].path).toEqual(['aplicaciones']);
+  });
+
+  it('acepta aplicar menos (el resto queda a favor)', () => {
+    expect(PagoProveedorSchema.safeParse({ ...base, importe: 100, aplicaciones: [{ pedido_id: UUID_B, monto: 30 }] }).success).toBe(true);
+  });
+
+  it('rechaza importe 0', () => {
+    expect(PagoProveedorSchema.safeParse({ ...base, importe: 0 }).success).toBe(false);
+  });
+
+  it.each(MEDIOS_PAGO_PROVEEDOR)('acepta medio "%s"', (medio) => {
+    expect(PagoProveedorSchema.safeParse({ ...base, medio }).success).toBe(true);
+  });
+
+  it('rechaza un medio inventado', () => {
+    expect(PagoProveedorSchema.safeParse({ ...base, medio: 'trueque' }).success).toBe(false);
+  });
+});
+
+describe('AplicarPagoSchema', () => {
+  it('acepta aplicar a una orden', () => {
+    expect(AplicarPagoSchema.safeParse({ aplicaciones: [{ pedido_id: UUID_B, monto: 100 }] }).success).toBe(true);
+  });
+
+  it('rechaza una lista vacía', () => {
+    expect(AplicarPagoSchema.safeParse({ aplicaciones: [] }).success).toBe(false);
+  });
+
+  it('rechaza monto negativo', () => {
+    expect(AplicarPagoSchema.safeParse({ aplicaciones: [{ pedido_id: UUID_B, monto: -5 }] }).success).toBe(false);
+  });
+});
+
+// ── Compras etapa 3: notas y documentos ────────────────────────
+describe('NotaProveedorSchema', () => {
+  const base = { proveedor_id: UUID_A, tipo: 'credito' as const, monto: 15000 };
+
+  it('acepta nota de crédito vinculada a un reclamo', () => {
+    expect(NotaProveedorSchema.safeParse({ ...base, pedido_id: UUID_B, incidencia_id: UUID_C, numero: 'NC-1' }).success).toBe(true);
+  });
+
+  it('acepta nota de débito', () => {
+    expect(NotaProveedorSchema.safeParse({ ...base, tipo: 'debito' }).success).toBe(true);
+  });
+
+  it('rechaza un tipo inventado', () => {
+    expect(NotaProveedorSchema.safeParse({ ...base, tipo: 'ajuste' }).success).toBe(false);
+  });
+
+  it('rechaza monto 0', () => {
+    expect(NotaProveedorSchema.safeParse({ ...base, monto: 0 }).success).toBe(false);
+  });
+});
+
+describe('DocumentoCompraSchema', () => {
+  it('acepta un documento con tipo y url', () => {
+    expect(DocumentoCompraSchema.safeParse({ tipo: 'remito', url: '/uploads/compras/r.pdf' }).success).toBe(true);
+  });
+
+  it('rechaza sin url', () => {
+    expect(DocumentoCompraSchema.safeParse({ tipo: 'remito', url: '' }).success).toBe(false);
+  });
+
+  it('rechaza un tipo de documento inventado', () => {
+    expect(DocumentoCompraSchema.safeParse({ tipo: 'recibo_sueldo', url: '/x.pdf' }).success).toBe(false);
   });
 });
 

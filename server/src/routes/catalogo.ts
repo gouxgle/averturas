@@ -547,7 +547,11 @@ catalogo.get('/categorias-cliente', async (c) => {
 // GET /proveedores/tablero — panel de gestión con métricas de compras
 catalogo.get('/proveedores/tablero', async (c) => {
   const [provResult, comprasResult, rubroResult, movResult, pedidosPendResult] = await Promise.all([
-    db.query(`SELECT * FROM proveedores ORDER BY nombre`),
+    // `deuda_actual` ya no es la fuente del saldo: viene del libro mayor (etapa 3 de
+    // Compras). La columna queda por compatibilidad pero no se lee ni se escribe.
+    db.query(`SELECT p.*, COALESCE(s.saldo, 0)::numeric AS saldo_cc
+              FROM proveedores p LEFT JOIN proveedor_saldos s ON s.proveedor_id = p.id
+              ORDER BY p.nombre`),
 
     db.query(`
       SELECT
@@ -613,7 +617,8 @@ catalogo.get('/proveedores/tablero', async (c) => {
   });
 
   const activos      = proveedores.filter(p => p.activo);
-  const deuda_total  = activos.reduce((s, p) => s + Number(p.deuda_actual ?? 0), 0);
+  // Solo los saldos a pagar suman a la deuda; los saldos a favor no la reducen
+  const deuda_total  = activos.reduce((s, p) => s + Math.max(0, Number(p.saldo_cc ?? 0)), 0);
   const con_plazo    = activos.filter(p => p.plazo_entrega_dias);
   const prom_plazo   = con_plazo.length > 0
     ? Math.round(con_plazo.reduce((s, p) => s + Number(p.plazo_entrega_dias), 0) / con_plazo.length * 10) / 10
@@ -640,7 +645,7 @@ catalogo.get('/proveedores/tablero', async (c) => {
   };
 
   const alertas = {
-    con_deuda:      activos.filter(p => Number(p.deuda_actual) > 0).sort((a, b) => Number(b.deuda_actual) - Number(a.deuda_actual)).slice(0, 3),
+    con_deuda:      activos.filter(p => Number(p.saldo_cc) > 0).sort((a, b) => Number(b.saldo_cc) - Number(a.saldo_cc)).slice(0, 3),
     sin_actividad:  activos.filter(p => p.dias_sin_compra > 90).slice(0, 3),
     baja_calif:     activos.filter(p => p.calificacion && Number(p.calificacion) <= 2).slice(0, 3),
   };
@@ -655,7 +660,9 @@ catalogo.get('/proveedores/tablero', async (c) => {
 catalogo.get('/proveedores', async (c) => {
   const all = c.req.query('all') === '1';
   const { rows } = await db.query(
-    `SELECT * FROM proveedores ${all ? '' : 'WHERE activo = true'} ORDER BY nombre`
+    `SELECT p.*, COALESCE(s.saldo, 0)::numeric AS saldo_cc
+     FROM proveedores p LEFT JOIN proveedor_saldos s ON s.proveedor_id = p.id
+     ${all ? '' : 'WHERE p.activo = true'} ORDER BY p.nombre`
   );
   return c.json(rows);
 });
@@ -667,7 +674,7 @@ catalogo.post('/proveedores', async (c) => {
     `INSERT INTO proveedores
        (nombre, tipo, contacto, telefono, email, cuit, direccion, localidad, provincia,
         web, materiales, notas, forma_entrega, plazo_entrega_dias, costo_flete,
-        calificacion, deuda_actual, es_principal, margen_venta, color)
+        calificacion, es_principal, margen_venta, color, factura_al_recibir)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      RETURNING *`,
     [
@@ -680,17 +687,20 @@ catalogo.post('/proveedores', async (c) => {
       b.plazo_entrega_dias ?? null,
       b.costo_flete     ?? 0,
       b.calificacion    ?? null,
-      b.deuda_actual    ?? 0,
       b.es_principal    ?? false,
       b.margen_venta    ?? 0,
       b.color           ?? null,
+      b.factura_al_recibir ?? false,
     ]
   );
   return c.json(rows[0], 201);
 });
 
 catalogo.get('/proveedores/:id', async (c) => {
-  const { rows: [prov] } = await db.query(`SELECT * FROM proveedores WHERE id=$1`, [c.req.param('id')]);
+  const { rows: [prov] } = await db.query(
+    `SELECT p.*, COALESCE(s.saldo, 0)::numeric AS saldo_cc
+     FROM proveedores p LEFT JOIN proveedor_saldos s ON s.proveedor_id = p.id WHERE p.id = $1`,
+    [c.req.param('id')]);
   if (!prov) return c.json({ error: 'Proveedor no encontrado' }, 404);
   return c.json(prov);
 });
@@ -703,8 +713,8 @@ catalogo.put('/proveedores/:id', async (c) => {
      SET nombre=$1, tipo=$2, contacto=$3, telefono=$4, email=$5, cuit=$6,
          direccion=$7, localidad=$8, provincia=$9, web=$10, materiales=$11,
          notas=$12, activo=$13, forma_entrega=$14, plazo_entrega_dias=$15,
-         costo_flete=$16, calificacion=$17, deuda_actual=$18, es_principal=$19,
-         margen_venta=$20, color=$21
+         costo_flete=$16, calificacion=$17, es_principal=$18,
+         margen_venta=$19, color=$20, factura_al_recibir=$21
      WHERE id=$22 RETURNING *`,
     [
       b.nombre?.trim(), b.tipo || null, b.contacto || null, b.telefono || null,
@@ -716,10 +726,10 @@ catalogo.put('/proveedores/:id', async (c) => {
       b.plazo_entrega_dias  ?? null,
       b.costo_flete         ?? 0,
       b.calificacion        ?? null,
-      b.deuda_actual        ?? 0,
       b.es_principal        ?? false,
       b.margen_venta        ?? 0,
       b.color               ?? null,
+      b.factura_al_recibir  ?? false,
       c.req.param('id'),
     ]
   );

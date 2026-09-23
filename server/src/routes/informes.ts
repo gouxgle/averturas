@@ -201,7 +201,10 @@ informes.get('/resumen', async (c) => {
     db.query(`
       SELECT
         COALESCE(SUM(sm.cantidad * COALESCE(sm.costo_unitario, 0)), 0)::numeric AS compras_periodo,
-        (SELECT COALESCE(SUM(deuda_actual), 0)::numeric FROM proveedores WHERE activo = true) AS deuda_proveedores
+        -- Deuda real del libro mayor (etapa 3 de Compras); los saldos a favor no restan
+        (SELECT COALESCE(SUM(GREATEST(s.saldo, 0)), 0)::numeric
+           FROM proveedor_saldos s JOIN proveedores p2 ON p2.id = s.proveedor_id
+           WHERE p2.activo = true) AS deuda_proveedores
       FROM stock_lotes l
       JOIN stock_movimientos sm ON sm.lote_id = l.id AND sm.tipo = 'ingreso'
       WHERE l.fecha_ingreso::date BETWEEN $1::date AND $2::date

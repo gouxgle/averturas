@@ -1,22 +1,29 @@
 # Módulo Compras y Proveedores — evolución de "Pedidos al proveedor"
 
-> **Estado (2026-09-22): Etapas 1 y 2 IMPLEMENTADAS y deployadas a test.** Etapa 3 pendiente;
-> arrancarla desde este plan. Resumen ejecutivo:
+> **Estado (2026-09-23): las TRES etapas están implementadas y deployadas a test.** El
+> detalle técnico vigente vive en `CLAUDE.md` (sección "Compras"); este plan queda como el
+> diseño original y el registro de por qué cada cosa es como es. Resumen ejecutivo:
 > https://claude.ai/artifact/Mfzm55KzNmeRSaNBHBxmZt.
 >
-> Desvíos de la etapa 1: `registrarDoc`/`compras_documentos` quedan para la etapa 3 (los
-> adjuntos van en el JSONB de cada fila); columnas extra `compras_solicitud_items.costo_referencia`
-> /`proveedor_sku` e `compras_cotizacion_proveedores.iva_pct`; los PDFs se abren por
-> `GET .../pdf` (fetch con token → blob) y hay `GET .../mensaje` para previsualizar el texto.
+> Desvíos de la etapa 1: `registrarDoc`/`compras_documentos` se hicieron en la etapa 3;
+> columnas extra `compras_solicitud_items.costo_referencia`/`proveedor_sku` e
+> `compras_cotizacion_proveedores.iva_pct`; PDFs por `GET .../pdf` y `GET .../mensaje` para
+> previsualizar el texto antes de enviarlo.
 >
 > Desvíos de la etapa 2: la recepción se decide con `recalcularRecepcionOC()`, que cuenta como
-> saldado lo cubierto por un reclamo cerrado (el plan solo lo preveía para el cierre de la
-> etapa 3, pero sin eso un ítem que llegó roto y se repuso dejaba la OC en `recibida_parcial`
-> para siempre). Se agregó `GET /compras/recepciones` (lista global para la pestaña) y una
-> recepción sintética por cada OC histórica ya recibida, para que los acumulados por ítem
-> cuadren con el stock que ya se había ingresado. Un ítem con `producto_id` y cantidad
-> conforme decimal se rechaza (422) porque `stock_movimientos.cantidad` es INT. Los avisos de
-> demora emergen **de a uno por vez** (apilados tapaban los botones de los modales).
+> saldado lo cubierto por un reclamo cerrado (sin eso un ítem repuesto dejaba la OC en
+> `recibida_parcial` para siempre). Se agregó `GET /compras/recepciones` y una recepción
+> sintética por cada OC histórica recibida. Cantidad conforme decimal en un ítem con
+> `producto_id` → 422 (`stock_movimientos.cantidad` es INT). Los avisos de demora emergen de a
+> uno por vez.
+>
+> Desvíos de la etapa 3: se agregó `proveedor_notas` (el plan las asentaba directo en el libro
+> mayor, pero hacían falta como comprobante con número y archivo) y `proveedores.factura_al_recibir`.
+> El PDF de la OC se guarda en `uploads/compras/` al enviarla, así la carpeta tiene el documento
+> real que recibió el proveedor y no uno regenerado después. Borrar una factura borra su asiento
+> (la cuenta corriente no puede quedar con una compra sin comprobante). El cierre distingue
+> "cerrada" (mercadería + reclamos + control) de "cerrada totalmente" (además factura, saldo 0 y
+> documentación), y `actualizarCierreTotal()` lo mantiene solo.
 >
 > Original en `~/.claude/plans/snazzy-dreaming-lobster.md`; este archivo es la copia versionada.
 

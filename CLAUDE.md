@@ -11,18 +11,20 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
   anterior de pedidos, superado por `compras-plan.md`; queda por las ideas descartadas),
   `docs/catalogo-web.md` (contrato de datos para el sitio web público).
 
-## Pendientes y estado al 2026-09-22 (leer al empezar una sesión)
+## Pendientes y estado al 2026-09-23 (leer al empezar una sesión)
 
-- **Módulo "Compras y Proveedores"** — plan completo en `docs/compras-plan.md`. **Etapas 1 y 2
-  hechas y en test**: SC → PC → comparativa → OC (etapa 1) y confirmación / seguimiento /
-  demora automática / recepción por ítem / reclamos `REC-` (etapa 2). **Falta la Etapa 3**
-  (documentos, facturas, control económico, cuenta corriente con `proveedor_cc_movimientos`,
-  pagos, cierre por 4 estados; las franjas Finanzas y Documentación de la OC muestran "—"
-  hasta entonces). Arrancarla desde el plan; una etapa = un commit deployado a test.
+- **Módulo "Compras y Proveedores" — COMPLETO** (`docs/compras-plan.md`, las 3 etapas hechas y
+  en test): SC → PC → comparativa → OC (1), confirmación / seguimiento / demora automática /
+  recepción por ítem / reclamos `REC-` (2), y facturas / cuenta corriente / pagos / cierre (3).
+  Lo que quedó explícitamente fuera de alcance: cola automática por proveedor, aprender precios
+  al recibir, parser de WhatsApp, historial de `proveedor_precios`, exclusividad de proveedores
+  por producto y upload de video.
 - **Prod atrasado respecto a test**: prod está en `5be8dbd`; en GitHub y test están además
-  `bfe0bcd`, `6e18888`, `eeef084` y las etapas 1 y 2 de Compras (migraciones grandes: tablas
-  `compras_*` + columnas en `pedidos`/`pedido_items`). Deploy a prod solo cuando el usuario lo
-  pida (backup previo + `echo si | bash deploy-env.sh prod`).
+  `bfe0bcd`, `6e18888`, `eeef084` y las tres etapas de Compras (migraciones grandes: tablas
+  `compras_*`, `proveedor_*` y columnas nuevas en `pedidos`/`pedido_items`/`proveedores`).
+  **Antes de ir a prod**: correr el `SELECT` de control de la migración de saldos (ver abajo)
+  y revisar el módulo entero en test. Deploy solo cuando el usuario lo pida (backup previo +
+  `echo si | bash deploy-env.sh prod`).
 
 ## Ambientes
 
@@ -174,8 +176,8 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
 ```
 src/pages/          una página por sección (Dashboard, CRM, Presupuestos, NuevoPresupuesto,
                     Operaciones (kanban), Remitos, Recibos, NuevoRecibo, NuevoPedido (flujo
-                    viejo de OC), compras/ (Compras + 5 pestañas + detalles SC/PC/OC/REC +
-                    NuevaSolicitud + ModalRecepcion + ModalConsolidar),
+                    viejo de OC), compras/ (Compras + 6 pestañas + detalles SC/PC/OC/REC +
+                    NuevaSolicitud + ModalRecepcion/Consolidar/Pago + PanelEconomico),
                     VentaRapida, VisitaTecnica, VisitasTecnicas, CargarVisitaTecnica, Clientes,
                     ClienteDetalle, Productos, NuevoProducto, Stock, Proveedores, EstadoCuenta,
                     Reportes, Actividad, Novedades, Configuracion, VistaPublicaPresupuesto,
@@ -238,7 +240,7 @@ proceso). **Hono matchea en orden de registro: rutas específicas siempre antes 
 | `/recibos` | `/conteos`, `/tablero` antes de `/:id`; `POST /:id/enviar-whatsapp` (PDF server-side) |
 | `/remitos` | `/conteos`, `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` antes de `/:id` |
 | `/pedidos` | flujo viejo de OC: `/tablero`, `/reporte-envios`, `/operaciones-disponibles` antes de `/:id`; `POST /` numera `OC-` y crea la SC implícita; `PATCH /:id/estado` sincroniza `estado_logistica` |
-| `/compras` | `/tablero`, `/adjuntos` (upload imagen→webp o PDF a `uploads/compras`), `/solicitudes[/pendientes-desde-operaciones|/items-pendientes|/preparar|/:id|/:id/estado]`, `/cotizaciones[/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/proveedores/:pid/respuesta|/:id/comparativa|/:id/adjudicar|/:id/cerrar]`, `/ordenes[/directa|/consolidar|/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/confirmacion|/:id/estado-logistica|/:id/seguimientos|/:id/recepciones|/:id/demora-vista]`, `/recepciones`, `/incidencias[/:id|/:id/mensaje|/:id/reclamar|/:id/respuesta]` — rutas específicas antes de `/:id` |
+| `/compras` | `/tablero`, `/adjuntos` (upload imagen→webp o PDF a `uploads/compras`), `/solicitudes[/pendientes-desde-operaciones|/items-pendientes|/preparar|/:id|/:id/estado]`, `/cotizaciones[/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/proveedores/:pid/respuesta|/:id/comparativa|/:id/adjudicar|/:id/cerrar]`, `/ordenes[/directa|/consolidar|/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/confirmacion|/:id/estado-logistica|/:id/seguimientos|/:id/recepciones|/:id/demora-vista|/:id/documentos|/:id/control-economico|/:id/cierre|/:id/cerrar]`, `/recepciones`, `/incidencias[/:id|/:id/mensaje|/:id/reclamar|/:id/respuesta]`, `/facturas`, `/pagos[/:id/aplicar]`, `/notas`, `/cuenta-corriente`, `/proveedores/:id/estado-cuenta[/pdf|/enviar-whatsapp]` — rutas específicas antes de `/:id` |
 | `/visitas-tecnicas` | `/upload-imagen` antes de `/:id`; `PATCH /:id/cobrar`, `/sin-cargo`, `/bonificar`, `/costo-externo` |
 | `/oportunidades` | `/resumen`, `/plantilla/:id` antes de `/:id`; `PATCH /:id/posponer`, `/:id/estado`, `POST /:id/contactar` |
 | `/tareas` | `PATCH /:id/completar` limpia `respuesta_cliente` de la operación vinculada y sincroniza oportunidad/entrega espejo |
@@ -256,10 +258,13 @@ updated_at DESC LIMIT 1`** — hay más de una fila en prod), `tipos_abertura`, 
 `recibo_items`, `recibo_pagos`, `compromisos_pago`, `transportistas`, `pedidos` (= OC), `pedido_items`,
 `compras_solicitudes`, `compras_solicitud_items`, `compras_cotizaciones`, `compras_cotizacion_items`,
 `compras_cotizacion_proveedores`, `compras_cotizacion_respuesta_items`, `compras_seguimientos`,
-`compras_recepciones`, `compras_recepcion_items`, `compras_incidencias`,
+`compras_recepciones`, `compras_recepcion_items`, `compras_incidencias`, `compras_documentos`,
+`compras_facturas`, `proveedor_pagos`, `proveedor_pago_aplicaciones`, `proveedor_notas`,
+`proveedor_cc_movimientos`,
 `visitas_tecnicas`, `visita_tecnica_items`, `catalogo_servicios`, `oportunidades`,
-`mensajes_plantilla`, `changelog_cambios`, `schema_migrations`. Vista `catalogo_web` + rol
-`web_catalogo` (ver `docs/catalogo-web.md`).
+`mensajes_plantilla`, `changelog_cambios`, `schema_migrations`. Vistas `catalogo_web`
+(+ rol `web_catalogo`, ver `docs/catalogo-web.md`) y `proveedor_saldos` (saldo por proveedor =
+SUM de `proveedor_cc_movimientos.monto`; **única fuente de la deuda**).
 
 Enums: `app_role`, `tipo_operacion` (`estandar|a_medida_proveedor|fabricacion_propia`),
 `estado_operacion` (`presupuesto|enviado|aprobado|en_produccion|listo|instalado|entregado|cancelado`;
@@ -346,51 +351,51 @@ items + costo_envio`. Coverage stock-aware (`items_cubiertos`): un ítem está c
 (`operacion_id=NULL`). Al marcar `recibido` y no quedar pedidos activos → `operaciones.estado='listo'`.
 Operación 100% en stock (`STOCK_CUBRE_TODO`) va directo a "Lista p/ entregar" sin pedido.
 
-**Compras (Etapas 1 y 2, 2026-09-22)** — `docs/compras-plan.md`. La **OC es la tabla
+**Compras (módulo completo, 2026-09-23)** — `docs/compras-plan.md`. La **OC es la tabla
 `pedidos` extendida** (las nuevas se numeran `OC-`, las viejas `PED-` quedan intactas):
 `estado` legacy lo escribe SOLO `sincronizarEstadoLegacy()` (`lib/compras.ts`) a partir de
-`estado_logistica` (borrador→pendiente, enviada…recibida_parcial→enviado, recibida/cerrada→
-recibido, cancelada→cancelado); el flujo viejo (`PATCH /pedidos/:id/estado`) hace la inversa.
+`estado_logistica`; el flujo viejo (`PATCH /pedidos/:id/estado`) hace la inversa.
 `monto_total` es espejo de `total` y `costo_unitario` de `precio_unitario_neto` (los PED-
 históricos tienen `iva_pct = 0`).
 
-Circuito: **SC** (`compras_solicitudes`, ítems con `especificaciones` JSONB autocompletadas
-desde `operacion_items`+`catalogo_productos.atributos`, `visita_tecnica_items` o el catálogo —
-`armarItemDesde()`) → **PC** opcional (`compras_cotizaciones` + `compras_cotizacion_proveedores`,
-respuesta por total o por ítem, comparativa por **total final** = neto − desc + IVA + flete) →
-**OC** (`crearOrden()`: directa, adjudicada o consolidada de varias SC/clientes con
-`es_consolidada` y `operacion_id = NULL`; flete prorrateado por neto al leer, no se guarda) →
-**seguimiento** (`compras_seguimientos`: confirmación, cambios de `estado_logistica` con la
-tabla `TRANSICIONES_LOGISTICA`, llamados al proveedor; una fecha nueva saca la OC de
-`demorado`) → **recepción por ítem** → **reclamos**.
+Circuito: **SC** (`compras_solicitudes`, ficha técnica autocompletada con `armarItemDesde()`)
+→ **PC** opcional (comparativa por **total final** = neto − desc + IVA + flete) → **OC**
+(`crearOrden()`: directa, adjudicada o consolidada de varios clientes; flete prorrateado al
+leer) → **seguimiento** (`compras_seguimientos`, `TRANSICIONES_LOGISTICA`, demora automática)
+→ **recepción por ítem** → **reclamos** → **factura, pago y cierre**.
 
-**Recepción — regla central**: `crearRecepcion()` en `lib/compras.ts` es el **único camino de
-ingreso a stock** (lo usan `/compras/ordenes/:id/recepciones` y el flujo viejo `PATCH
-/pedidos/:id/estado recibido`, que registra una recepción completa todo-conforme). Ingresa a
-`stock_movimientos` **solo la cantidad conforme** (antes entraba la cantidad pedida entera al
-marcar "recibido"), valida que lo recibido acumulado no supere lo pedido y que conforme +
-problema = recibido, y abre una incidencia `abierta` por cada ítem con problema. `cantidad` de
-`stock_movimientos` es INT: un ítem con `producto_id` y cantidad conforme decimal se rechaza
-con 422 en vez de redondear en silencio. `recalcularRecepcionOC()` decide `recibida` vs
-`recibida_parcial` y el `estado_item` de cada línea contando como saldado lo que cubre un
-**reclamo cerrado** (reposición recibida, descuento, nota de crédito, rechazo) — sin eso el
-ítem que llegó roto quedaba "parcial" para siempre. Cancelar una OC con recepciones devuelve
-el stock (`revertirStockDeRecepciones`, movimientos `devolucion`).
+**Recepción — regla central**: `crearRecepcion()` es el **único camino de ingreso a stock**
+(lo usan `/compras/ordenes/:id/recepciones` y el flujo viejo). Ingresa **solo la cantidad
+conforme**; `stock_movimientos.cantidad` es INT, así que una cantidad decimal en un ítem con
+`producto_id` se rechaza con 422 en vez de redondear. `recalcularRecepcionOC()` decide
+`recibida` vs `recibida_parcial` contando como saldado lo que cubre un **reclamo cerrado**.
+Cancelar una OC recibida devuelve el stock (`revertirStockDeRecepciones`).
 
-**Reclamos** (`compras_incidencias`, `REC-`): nacen solos en la recepción; se mandan al
-proveedor por WhatsApp (texto + una imagen por request) o email; la respuesta con solución de
-mercadería crea un `pedido_item` de reposición en la misma OC (precio 0,
-`es_reposicion_reclamo = true`, no cuenta para decidir si la OC está completa) y el reclamo se
-cierra solo cuando esa reposición llega conforme. `estado_calidad` de la OC lo mantiene
-`recalcularEstadoCalidad()`.
+**Plata (etapa 3)**: `proveedor_cc_movimientos` es el libro mayor y **la única fuente del
+saldo** (vista `proveedor_saldos`); lo escribe SOLO `asentarMovimiento()` en `lib/compras.ts`
+— ninguna ruta inserta ahí. Convención: **monto positivo aumenta lo que debemos**, negativo lo
+reduce (pago, crédito, anticipo se guardan siempre en negativo). `proveedores.deuda_actual`
+**ya no se escribe ni se lee** (queda como respaldo; la migración creó un asiento
+`saldo_inicial` por proveedor y el control fue `0 descuadres / 59 proveedores`). Para
+re-verificarlo:
+`SELECT count(*) FILTER (WHERE abs(s.saldo - p.deuda_actual) > 0.001) FROM proveedores p JOIN proveedor_saldos s ON s.proveedor_id = p.id;`
+(sirve solo hasta el primer movimiento nuevo, obviamente).
+La compra se asienta al **cargar la factura**, o al recibir si el proveedor tiene
+`factura_al_recibir`. Una factura cuyo total no coincide con el de la OC **exige**
+`diferencia_motivo` (422). Un pago puede repartirse entre varias OC
+(`proveedor_pago_aplicaciones`) y el remanente queda como anticipo aplicable después.
+`recalcularEstadoFinanzas()` y `recalcularEstadoDocs()` mantienen las franjas; `registrarDoc()`
+refleja en `compras_documentos` (idempotente por `pedido_id + url`) el PDF de la OC al
+enviarla, el remito al recibir, las fotos de reclamos, la factura y los comprobantes de pago.
+`actualizarCierreTotal()` pone/saca el sello **"cerrada totalmente"** solo cuando no queda nada
+pendiente (mercadería, reclamos, control, factura, saldo y documentos).
 
-Precios neto + IVA % por línea (`calcularTotales()`), IVA ∈ {0, 10.5, 21, 27}. `POST /pedidos`
-(flujo viejo) sigue funcionando y crea la SC implícita `con_oc`. PDFs `generarPDFCompra()`
-(`renderPDF()` compartido en `pdf.ts`); envío con `enviarWhatsappPdf()` / `enviarImagenWhatsapp()` /
-`sendCompra()` / `sendReclamo()`; plantillas `compra_cotizacion`, `compra_orden`,
-`compra_reclamo`. Frontend en `src/pages/compras/` (`tipos.ts` + `ui.tsx` compartidos; modales
-por query param `?sc=|pc=|oc=|rec=`). Las franjas **Finanzas y Documentación** de la OC
-muestran "—" hasta la etapa 3.
+Precios neto + IVA % por línea, IVA ∈ {0, 10.5, 21, 27}. `POST /pedidos` (flujo viejo) sigue
+funcionando y crea la SC implícita `con_oc`. PDFs con `generarPDFCompra()` y
+`generarPDFEstadoCuentaProveedor()` (`renderPDF()` compartido); envío con `enviarWhatsappPdf()`
+/ `enviarImagenWhatsapp()` / `sendCompra()` / `sendReclamo()`; plantillas `compra_cotizacion`,
+`compra_orden`, `compra_reclamo`. Frontend en `src/pages/compras/` (`tipos.ts` + `ui.tsx`
+compartidos; modales por query param `?sc=|pc=|oc=|rec=`).
 
 **Visitas de relevamiento** — `VT-YYYYMM-NNNN`, `pendiente → relevada → convertida |
 cancelada`. Al crear se elige cobrar o no: `cobro_estado` `cobrada` (recibo emitido) |

@@ -19,18 +19,21 @@ import {
   CotizacionAdjudicarSchema, CotizacionCerrarSchema, OrdenDirectaSchema, OrdenConsolidarSchema,
   OrdenEditarSchema, EnviarCompraSchema, ConfirmacionOrdenSchema, EstadoLogisticaSchema,
   SeguimientoSchema, RecepcionSchema, IncidenciaEditarSchema, IncidenciaReclamarSchema,
-  IncidenciaRespuestaSchema,
+  IncidenciaRespuestaSchema, DocumentoCompraSchema, FacturaCompraSchema, PagoProveedorSchema,
+  AplicarPagoSchema, NotaProveedorSchema, CerrarOrdenSchema,
 } from '../lib/schemas.js';
 import {
   nextNumeroCompra, armarItemDesde, calcularTotales, recalcularTotalesOC, sincronizarEstadoLegacy,
   recalcularEstadoSolicitud, empresaActual, resumenEspecificaciones,
   TRANSICIONES_LOGISTICA, LOGISTICA_TERMINAL, LOGISTICA_LABEL, registrarSeguimiento, crearRecepcion,
   recalcularEstadoCalidad, recalcularRecepcionOC, revertirStockDeRecepciones, marcarOperacionListoSiCorresponde,
+  registrarDoc, registrarDocs, recalcularEstadoDocs, asentarMovimiento, saldoDeOC,
+  recalcularEstadoFinanzas, checklistCierre, actualizarCierreTotal,
   ErrorRecepcion, type EstadoLogistica,
 } from '../lib/compras.js';
 import { sqlItemsTotal, sqlItemsPendientes, sqlItemsCubiertos } from '../lib/coverage.js';
 import { registrarActividad } from '../lib/actividad.js';
-import { generarPDFCompra, type CompraPDF, type CompraItemPDF } from '../lib/pdf.js';
+import { generarPDFCompra, generarPDFEstadoCuentaProveedor, type CompraPDF, type CompraItemPDF, type EstadoCuentaProveedorPDF } from '../lib/pdf.js';
 import { enviarWhatsappPdf, enviarWhatsapp, enviarImagenWhatsapp } from '../lib/whatsapp.js';
 import { sendCompra, sendReclamo, emailDisponible } from '../email.js';
 
@@ -246,7 +249,9 @@ compras.get('/tablero', async (c) => {
         (SELECT COALESCE(SUM(total), 0)::numeric FROM pedidos WHERE estado_logistica NOT IN ('recibida','cerrada','cancelada')) AS valor_en_curso,
         (SELECT COUNT(*)::int FROM pedidos WHERE estado_logistica IN ('enviada','confirmada','en_preparacion','en_fabricacion','terminado','listo_despacho','en_transito','demorado','recibida_parcial')) AS oc_por_recibir,
         (SELECT COUNT(*)::int FROM compras_incidencias WHERE estado NOT IN ('resuelta','rechazada')) AS reclamos_abiertos,
-        (SELECT COUNT(*)::int FROM compras_incidencias WHERE estado = 'abierta') AS reclamos_sin_reclamar
+        (SELECT COUNT(*)::int FROM compras_incidencias WHERE estado = 'abierta') AS reclamos_sin_reclamar,
+        (SELECT COUNT(*)::int FROM pedidos WHERE estado_finanzas IN ('pendiente','pago_parcial')) AS oc_a_pagar,
+        (SELECT COALESCE(SUM(GREATEST(s.saldo, 0)), 0)::numeric FROM proveedor_saldos s) AS deuda_proveedores
     `),
     db.query(`
       SELECT p.id, p.numero, p.fecha_prometida, p.fecha_entrega_est, p.estado_logistica,
@@ -276,7 +281,7 @@ compras.get('/tablero', async (c) => {
     `),
   ]);
   return c.json({
-    stats: { ...s, valor_en_curso: parseFloat(s.valor_en_curso) },
+    stats: { ...s, valor_en_curso: parseFloat(s.valor_en_curso), deuda_proveedores: parseFloat(s.deuda_proveedores) },
     esperando_recepcion: esperando,
     para_preparar: preparar,
   });
@@ -1012,6 +1017,11 @@ compras.post('/cotizaciones/:id/adjudicar', async (c) => {
       await client.query(`UPDATE compras_cotizacion_proveedores SET estado = 'seleccionada' WHERE id = $1`, [cp.id]);
       await client.query(`UPDATE compras_cotizacion_proveedores SET estado = 'descartada' WHERE cotizacion_id = $1 AND id <> $2 AND estado IN ('respondida','pendiente','enviada','sin_respuesta')`, [id, cp.id]);
       await client.query(`UPDATE compras_cotizaciones SET estado = 'adjudicada', adjudicada_a_id = $2, updated_at = now() WHERE id = $1`, [id, cp.id]);
+      // La cotización que ganó queda archivada en la carpeta de la OC
+      await registrarDocs(client, adjuntos, {
+        pedido_id: oc.id, tipo: 'cotizacion', nombre: `Cotización ${pc.numero} — ${cp.proveedor_nombre}`,
+        numero: pc.numero, monto: Number(cp.total), origen_id: cp.id, created_by: user?.id ?? null,
+      });
       return { oc, pc, prov: cp };
     });
     registrarActividad(c, { entidad: 'compra', entidad_id: oc.id, entidad_numero: oc.numero, accion: 'adjudicar',
@@ -1209,12 +1219,29 @@ compras.post('/ordenes/:id/enviar', async (c) => {
     const mensaje = b.mensaje || await mensajeOrden(r.oc, r.empresa);
     await despachar(b.medio, r.oc.proveedor, r.pdf, `${r.oc.numero}.pdf`, mensaje, `Orden de compra ${r.oc.numero} — ${r.empresa.nombre}`, r.empresa);
 
+    // El PDF que se mandó queda guardado: la carpeta de la compra tiene el documento real,
+    // no uno regenerado después con otros precios.
+    const dirOC = './uploads/compras';
+    await mkdir(dirOC, { recursive: true });
+    const archivoOC = `${r.oc.numero}.pdf`;
+    await writeFile(`${dirOC}/${archivoOC}`, r.pdf);
+    const urlOC = `/uploads/compras/${archivoOC}`;
+
     await enTransaccion(async (client) => {
       await client.query(`
         UPDATE pedidos SET enviada_at = now(), enviada_medio = $2, contacto_proveedor = COALESCE($3, contacto_proveedor),
           estado_logistica = CASE WHEN estado_logistica = 'borrador' THEN 'enviada' ELSE estado_logistica END, updated_at = now()
         WHERE id = $1`, [id, b.medio, b.contacto ?? null]);
       await sincronizarEstadoLegacy(client, id);
+      await registrarDoc(client, {
+        pedido_id: id, tipo: 'orden_compra', url: urlOC, nombre: `Orden de compra ${r.oc.numero}`,
+        numero: r.oc.numero, fecha: null, monto: Number(r.oc.total), created_by: c.get('user')?.id ?? null,
+      });
+      await registrarSeguimiento(client, {
+        pedido_id: id, tipo: 'envio', estado_logistica_nuevo: 'enviada',
+        observaciones: `Enviada a ${r.oc.proveedor.nombre} por ${b.medio === 'manual' ? 'otro medio' : b.medio}`,
+        created_by: c.get('user')?.id ?? null,
+      });
     });
     registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: r.oc.numero, accion: 'enviar',
       detalle: `Orden enviada a ${r.oc.proveedor.nombre} por ${b.medio}` });
@@ -1672,6 +1699,509 @@ compras.post('/incidencias/:id/respuesta', async (c) => {
     const { rows: [row] } = await db.query(`${INCIDENCIA_SQL} WHERE inc.id = $1`, [id]);
     return c.json(row);
   } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Etapa 3 — documentos, facturas, cuenta corriente, pagos, cierre
+// ═════════════════════════════════════════════════════════════════════════════
+
+const DOC_TIPO_LABEL: Record<string, string> = {
+  cotizacion: 'Cotización', orden_compra: 'Orden de compra', remito: 'Remito',
+  factura: 'Factura', nota_credito: 'Nota de crédito', nota_debito: 'Nota de débito',
+  comprobante_pago: 'Comprobante de pago', foto_incidencia: 'Foto de reclamo', otro: 'Otro',
+};
+
+// ── Documentos de la OC ───────────────────────────────────────────────────────
+
+compras.get('/ordenes/:id/documentos', async (c) => {
+  const { rows } = await db.query(`
+    SELECT d.*, u.nombre AS usuario_nombre
+    FROM compras_documentos d
+    LEFT JOIN usuarios u ON u.id = d.created_by
+    WHERE d.pedido_id = $1
+    ORDER BY d.fecha DESC NULLS LAST, d.created_at DESC
+  `, [c.req.param('id')]);
+  return c.json(rows);
+});
+
+compras.post('/ordenes/:id/documentos', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, DocumentoCompraSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [oc] } = await client.query(`SELECT numero FROM pedidos WHERE id = $1`, [id]);
+      if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+      await registrarDoc(client, { pedido_id: id, ...b, created_by: user?.id ?? null });
+      await actualizarCierreTotal(client, id);
+      registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: oc.numero, accion: 'adjuntar_documento',
+        detalle: `${DOC_TIPO_LABEL[b.tipo] ?? b.tipo}${b.numero ? ` ${b.numero}` : ''}` });
+    });
+    const { rows } = await db.query(`SELECT * FROM compras_documentos WHERE pedido_id = $1 ORDER BY created_at DESC`, [id]);
+    return c.json(rows, 201);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+compras.delete('/ordenes/:id/documentos/:docId', async (c) => {
+  const { id, docId } = c.req.param();
+  await enTransaccion(async (client) => {
+    await client.query(`DELETE FROM compras_documentos WHERE id = $1 AND pedido_id = $2`, [docId, id]);
+    await recalcularEstadoDocs(client, id);
+    await actualizarCierreTotal(client, id);
+  });
+  return c.json({ ok: true });
+});
+
+// ── Control económico ─────────────────────────────────────────────────────────
+
+/** Cotizado / Orden / Facturado de una OC, con el detalle de cada factura. */
+compras.get('/ordenes/:id/control-economico', async (c) => {
+  const { id } = c.req.param();
+  const [saldo, { rows: facturas }, { rows: pagos }, { rows: notas }] = await Promise.all([
+    saldoDeOC(db, id),
+    db.query(`SELECT f.*, u.nombre AS usuario_nombre FROM compras_facturas f
+              LEFT JOIN usuarios u ON u.id = f.created_by WHERE f.pedido_id = $1 ORDER BY f.fecha, f.created_at`, [id]),
+    db.query(`
+      SELECT a.monto AS monto_aplicado, p.* FROM proveedor_pago_aplicaciones a
+      JOIN proveedor_pagos p ON p.id = a.pago_id WHERE a.pedido_id = $1 ORDER BY p.fecha`, [id]),
+    db.query(`SELECT * FROM proveedor_notas WHERE pedido_id = $1 ORDER BY fecha`, [id]),
+  ]);
+  const { rows: [oc] } = await db.query(
+    `SELECT estado_finanzas, estado_docs, cerrada_totalmente_at, control_realizado_at FROM pedidos WHERE id = $1`, [id]);
+  if (!oc) return c.json({ error: 'Orden no encontrada' }, 404);
+  return c.json({ ...saldo, ...oc, facturas, pagos, notas });
+});
+
+compras.get('/ordenes/:id/cierre', async (c) => {
+  const chk = await checklistCierre(db, c.req.param('id'));
+  return c.json(chk);
+});
+
+/** Cierra la compra: marca el control hecho y pasa la logística a `cerrada`. */
+compras.post('/ordenes/:id/cerrar', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, CerrarOrdenSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [oc] } = await client.query(`SELECT * FROM pedidos WHERE id = $1 FOR UPDATE`, [id]);
+      if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+      if (oc.estado_logistica === 'cerrada') throw new ErrorNegocio(409, 'La orden ya está cerrada');
+      if (b.control_realizado) {
+        await client.query(`UPDATE pedidos SET control_realizado_at = now(), control_realizado_by = $2 WHERE id = $1`, [id, user?.id ?? null]);
+      }
+      const chk = await checklistCierre(client, id);
+      if (!chk.puede_cerrar) {
+        const falta = chk.items.filter(i => !i.ok && ['mercaderia', 'reclamos', 'control'].includes(i.clave))
+          .map(i => i.detalle ?? i.label).join('; ');
+        throw new ErrorNegocio(409, `Todavía no se puede cerrar: ${falta}`);
+      }
+      await client.query(`UPDATE pedidos SET estado_logistica = 'cerrada', updated_at = now() WHERE id = $1`, [id]);
+      await sincronizarEstadoLegacy(client, id);
+      await actualizarCierreTotal(client, id);
+      await registrarSeguimiento(client, {
+        pedido_id: id, tipo: 'estado', estado_logistica_nuevo: 'cerrada',
+        observaciones: b.observaciones ?? 'Compra cerrada', created_by: user?.id ?? null,
+      });
+      registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: oc.numero, accion: 'cerrar',
+        detalle: 'Compra cerrada' });
+    });
+    return c.json(await cargarOrden(id));
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// ── Facturas ──────────────────────────────────────────────────────────────────
+
+compras.get('/facturas', async (c) => {
+  const proveedorId = c.req.query('proveedor_id') ?? '';
+  const pedidoId = c.req.query('pedido_id') ?? '';
+  const params: unknown[] = [];
+  let where = 'WHERE 1=1';
+  if (proveedorId) { params.push(proveedorId); where += ` AND f.proveedor_id = $${params.length}`; }
+  if (pedidoId)    { params.push(pedidoId);    where += ` AND f.pedido_id = $${params.length}`; }
+  const { rows } = await db.query(`
+    SELECT f.*, ${PROVEEDOR_JSON('prov')} AS proveedor,
+      CASE WHEN p.id IS NOT NULL THEN json_build_object('id', p.id, 'numero', p.numero) ELSE NULL END AS orden
+    FROM compras_facturas f
+    JOIN proveedores prov ON prov.id = f.proveedor_id
+    LEFT JOIN pedidos p ON p.id = f.pedido_id
+    ${where} ORDER BY f.fecha DESC, f.created_at DESC LIMIT 300
+  `, params);
+  return c.json(rows);
+});
+
+/**
+ * Alta de factura. Si el total no coincide con el de la OC (más de un centavo), exige el
+ * motivo: la diferencia entre lo pactado y lo facturado es justo lo que después nadie
+ * recuerda. Asienta la compra en la cuenta corriente y refleja el PDF en la carpeta.
+ */
+compras.post('/facturas', async (c) => {
+  const user = c.get('user');
+  const b = await validateBody(c, FacturaCompraSchema);
+  if (b instanceof Response) return b;
+  try {
+    const factura = await enTransaccion(async (client) => {
+      let diferencia = 0;
+      if (b.pedido_id) {
+        const { rows: [oc] } = await client.query(`SELECT id, numero, proveedor_id, total FROM pedidos WHERE id = $1 FOR UPDATE`, [b.pedido_id]);
+        if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+        if (oc.proveedor_id !== b.proveedor_id) throw new ErrorNegocio(422, 'La orden es de otro proveedor');
+        const saldo = await saldoDeOC(client, b.pedido_id);
+        // La diferencia se mide contra lo pactado, sumando lo ya facturado antes
+        diferencia = Math.round((saldo.facturado + b.total - Number(oc.total)) * 100) / 100;
+        if (Math.abs(diferencia) > 0.01 && !b.diferencia_motivo) {
+          throw new ErrorNegocio(422, `La factura no coincide con la orden (${diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}). Indicá el motivo de la diferencia.`);
+        }
+      }
+
+      const { rows: [f] } = await client.query(`
+        INSERT INTO compras_facturas
+          (proveedor_id, pedido_id, numero, fecha, subtotal_neto, iva_monto, total, url,
+           diferencia_vs_oc, diferencia_motivo, diferencia_obs, created_by)
+        VALUES ($1,$2,$3,COALESCE($4::date, CURRENT_DATE),$5,$6,$7,$8,$9,$10,$11,$12)
+        RETURNING *
+      `, [b.proveedor_id, b.pedido_id ?? null, b.numero, b.fecha ?? null, b.subtotal_neto, b.iva_monto,
+        b.total, b.url ?? null, diferencia, b.diferencia_motivo ?? null, b.diferencia_obs ?? null, user?.id ?? null]).catch((err: unknown) => {
+        if (err && typeof err === 'object' && (err as { code?: string }).code === '23505') {
+          throw new ErrorNegocio(409, `Ya hay una factura ${b.numero} cargada para este proveedor`);
+        }
+        throw err;
+      });
+
+      await asentarMovimiento(client, {
+        proveedor_id: b.proveedor_id, tipo: 'compra', monto: b.total, fecha: b.fecha ?? null,
+        pedido_id: b.pedido_id ?? null, factura_id: f.id,
+        concepto: `Factura ${b.numero}`, created_by: user?.id ?? null,
+      });
+
+      if (b.pedido_id) {
+        if (b.url) await registrarDoc(client, { pedido_id: b.pedido_id, tipo: 'factura', url: b.url,
+          nombre: `Factura ${b.numero}`, numero: b.numero, fecha: b.fecha ?? null, monto: b.total,
+          origen_id: f.id, created_by: user?.id ?? null });
+        await recalcularEstadoDocs(client, b.pedido_id);
+        await recalcularEstadoFinanzas(client, b.pedido_id);
+        await actualizarCierreTotal(client, b.pedido_id);
+      }
+      return f;
+    });
+    registrarActividad(c, { entidad: 'compra', entidad_id: factura.pedido_id ?? factura.id, entidad_numero: `FC ${b.numero}`,
+      accion: 'cargar_factura', detalle: `${fmtMonto(b.total)}${Math.abs(Number(factura.diferencia_vs_oc)) > 0.01 ? ` · diferencia ${fmtMonto(Number(factura.diferencia_vs_oc))} (${b.diferencia_motivo})` : ''}` });
+    return c.json(factura, 201);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+compras.delete('/facturas/:id', async (c) => {
+  const { id } = c.req.param();
+  try {
+    const pedidoId = await enTransaccion(async (client) => {
+      const { rows: [f] } = await client.query(`SELECT * FROM compras_facturas WHERE id = $1`, [id]);
+      if (!f) throw new ErrorNegocio(404, 'Factura no encontrada');
+      // El asiento se borra con la factura: la cuenta corriente no puede quedar con una
+      // compra sin comprobante detrás.
+      await client.query(`DELETE FROM proveedor_cc_movimientos WHERE factura_id = $1`, [id]);
+      await client.query(`DELETE FROM compras_facturas WHERE id = $1`, [id]);
+      if (f.pedido_id) {
+        await recalcularEstadoDocs(client, f.pedido_id);
+        await recalcularEstadoFinanzas(client, f.pedido_id);
+        await actualizarCierreTotal(client, f.pedido_id);
+      }
+      return f.pedido_id as string | null;
+    });
+    return c.json({ ok: true, pedido_id: pedidoId });
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// ── Pagos ─────────────────────────────────────────────────────────────────────
+
+const PAGO_SQL = `
+  SELECT p.*, ${PROVEEDOR_JSON('prov')} AS proveedor, u.nombre AS usuario_nombre,
+    COALESCE((SELECT SUM(a.monto) FROM proveedor_pago_aplicaciones a WHERE a.pago_id = p.id), 0)::numeric AS aplicado,
+    (p.importe - COALESCE((SELECT SUM(a.monto) FROM proveedor_pago_aplicaciones a WHERE a.pago_id = p.id), 0))::numeric AS sin_aplicar,
+    (SELECT COALESCE(json_agg(json_build_object('pedido_id', a.pedido_id, 'numero', ped.numero, 'monto', a.monto)), '[]'::json)
+       FROM proveedor_pago_aplicaciones a JOIN pedidos ped ON ped.id = a.pedido_id
+       WHERE a.pago_id = p.id) AS aplicaciones
+  FROM proveedor_pagos p
+  JOIN proveedores prov ON prov.id = p.proveedor_id
+  LEFT JOIN usuarios u ON u.id = p.created_by
+`;
+
+compras.get('/pagos', async (c) => {
+  const proveedorId = c.req.query('proveedor_id') ?? '';
+  const soloConSaldo = c.req.query('con_saldo') === 'true';
+  const params: unknown[] = [];
+  let where = 'WHERE 1=1';
+  if (proveedorId) { params.push(proveedorId); where += ` AND p.proveedor_id = $${params.length}`; }
+  if (soloConSaldo) where += ` AND p.importe > COALESCE((SELECT SUM(a.monto) FROM proveedor_pago_aplicaciones a WHERE a.pago_id = p.id), 0) + 0.01`;
+  const { rows } = await db.query(`${PAGO_SQL} ${where} ORDER BY p.fecha DESC, p.created_at DESC LIMIT 300`, params);
+  return c.json(rows);
+});
+
+/**
+ * Registra un pago y lo aplica a una o varias OC. Lo que no se aplica queda como saldo a
+ * favor (anticipo) y se puede aplicar después con `POST /pagos/:id/aplicar`.
+ */
+compras.post('/pagos', async (c) => {
+  const user = c.get('user');
+  const b = await validateBody(c, PagoProveedorSchema);
+  if (b instanceof Response) return b;
+  try {
+    const pago = await enTransaccion(async (client) => {
+      const { rows: [pg] } = await client.query(`
+        INSERT INTO proveedor_pagos (proveedor_id, fecha, importe, medio, nro_operacion, comprobantes, observacion, created_by)
+        VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6, $7, $8) RETURNING *
+      `, [b.proveedor_id, b.fecha ?? null, b.importe, b.medio, b.nro_operacion ?? null,
+        JSON.stringify(b.comprobantes ?? []), b.observacion ?? null, user?.id ?? null]);
+
+      const aplicado = await aplicarPago(client, pg.id, b.proveedor_id, b.aplicaciones ?? [], b.comprobantes ?? [], user?.id ?? null);
+
+      // Un solo asiento por el total del pago; el reparto entre OC vive en las aplicaciones
+      await asentarMovimiento(client, {
+        proveedor_id: b.proveedor_id, tipo: aplicado > 0 ? 'pago' : 'anticipo', monto: b.importe,
+        fecha: b.fecha ?? null, pago_id: pg.id,
+        pedido_id: (b.aplicaciones ?? []).length === 1 ? b.aplicaciones![0].pedido_id : null,
+        concepto: aplicado > 0
+          ? `Pago ${b.medio}${b.nro_operacion ? ` ${b.nro_operacion}` : ''}`
+          : `Anticipo ${b.medio}${b.nro_operacion ? ` ${b.nro_operacion}` : ''}`,
+        created_by: user?.id ?? null,
+      });
+      return pg;
+    });
+    registrarActividad(c, { entidad: 'compra', entidad_id: pago.id, entidad_numero: null, accion: 'pagar',
+      detalle: `Pago a proveedor ${fmtMonto(b.importe)} (${b.medio})` });
+    const { rows: [row] } = await db.query(`${PAGO_SQL} WHERE p.id = $1`, [pago.id]);
+    return c.json(row, 201);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+/** Aplica (o amplía la aplicación de) un pago existente: el saldo a favor se usa acá. */
+compras.post('/pagos/:id/aplicar', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, AplicarPagoSchema);
+  if (b instanceof Response) return b;
+  try {
+    await enTransaccion(async (client) => {
+      const { rows: [pg] } = await client.query(`
+        SELECT p.*, COALESCE((SELECT SUM(a.monto) FROM proveedor_pago_aplicaciones a WHERE a.pago_id = p.id), 0)::numeric AS aplicado
+        FROM proveedor_pagos p WHERE p.id = $1 FOR UPDATE`, [id]);
+      if (!pg) throw new ErrorNegocio(404, 'Pago no encontrado');
+      const disponible = Number(pg.importe) - Number(pg.aplicado);
+      const aPlicar = b.aplicaciones.reduce((a, x) => a + x.monto, 0);
+      if (aPlicar - disponible > 0.01) {
+        throw new ErrorNegocio(422, `El pago tiene ${disponible.toFixed(2)} sin aplicar y estás aplicando ${aPlicar.toFixed(2)}`);
+      }
+      await aplicarPago(client, id, pg.proveedor_id, b.aplicaciones, (pg.comprobantes as string[]) ?? [], user?.id ?? null);
+      // Si antes era anticipo y ahora se aplicó, el movimiento pasa a ser un pago
+      await client.query(`UPDATE proveedor_cc_movimientos SET tipo = 'pago' WHERE pago_id = $1 AND tipo = 'anticipo'`, [id]);
+    });
+    const { rows: [row] } = await db.query(`${PAGO_SQL} WHERE p.id = $1`, [id]);
+    return c.json(row);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+/** Reparte un pago entre OC, refleja los comprobantes y recalcula finanzas/cierre. */
+async function aplicarPago(client: PoolClient, pagoId: string, proveedorId: string,
+  aplicaciones: { pedido_id: string; monto: number }[], comprobantes: string[], userId: string | null): Promise<number> {
+  let total = 0;
+  for (const ap of aplicaciones) {
+    const { rows: [oc] } = await client.query(`SELECT id, numero, proveedor_id FROM pedidos WHERE id = $1 FOR UPDATE`, [ap.pedido_id]);
+    if (!oc) throw new ErrorNegocio(404, 'Orden no encontrada');
+    if (oc.proveedor_id !== proveedorId) throw new ErrorNegocio(422, `La orden ${oc.numero} es de otro proveedor`);
+    await client.query(`
+      INSERT INTO proveedor_pago_aplicaciones (pago_id, pedido_id, monto) VALUES ($1,$2,$3)
+      ON CONFLICT (pago_id, pedido_id) DO UPDATE SET monto = proveedor_pago_aplicaciones.monto + EXCLUDED.monto
+    `, [pagoId, ap.pedido_id, ap.monto]);
+    await registrarDocs(client, comprobantes, {
+      pedido_id: ap.pedido_id, tipo: 'comprobante_pago', nombre: 'Comprobante de pago',
+      monto: ap.monto, origen_id: pagoId, created_by: userId,
+    });
+    await recalcularEstadoFinanzas(client, ap.pedido_id);
+    await actualizarCierreTotal(client, ap.pedido_id);
+    total += ap.monto;
+  }
+  return total;
+}
+
+// ── Notas de crédito / débito ─────────────────────────────────────────────────
+
+compras.post('/notas', async (c) => {
+  const user = c.get('user');
+  const b = await validateBody(c, NotaProveedorSchema);
+  if (b instanceof Response) return b;
+  try {
+    const nota = await enTransaccion(async (client) => {
+      const { rows: [n] } = await client.query(`
+        INSERT INTO proveedor_notas (proveedor_id, tipo, pedido_id, incidencia_id, numero, fecha, monto, url, concepto, created_by)
+        VALUES ($1,$2,$3,$4,$5,COALESCE($6::date, CURRENT_DATE),$7,$8,$9,$10) RETURNING *
+      `, [b.proveedor_id, b.tipo, b.pedido_id ?? null, b.incidencia_id ?? null, b.numero ?? null,
+        b.fecha ?? null, b.monto, b.url ?? null, b.concepto ?? null, user?.id ?? null]);
+
+      await asentarMovimiento(client, {
+        proveedor_id: b.proveedor_id, tipo: b.tipo === 'credito' ? 'credito' : 'debito', monto: b.monto,
+        fecha: b.fecha ?? null, pedido_id: b.pedido_id ?? null, nota_id: n.id, incidencia_id: b.incidencia_id ?? null,
+        concepto: `${b.tipo === 'credito' ? 'Nota de crédito' : 'Nota de débito'}${b.numero ? ` ${b.numero}` : ''}${b.concepto ? ` — ${b.concepto}` : ''}`,
+        created_by: user?.id ?? null,
+      });
+
+      if (b.pedido_id) {
+        if (b.url) await registrarDoc(client, { pedido_id: b.pedido_id, tipo: b.tipo === 'credito' ? 'nota_credito' : 'nota_debito',
+          url: b.url, nombre: `${b.tipo === 'credito' ? 'Nota de crédito' : 'Nota de débito'}${b.numero ? ` ${b.numero}` : ''}`,
+          numero: b.numero ?? null, fecha: b.fecha ?? null, monto: b.monto, origen_id: n.id, created_by: user?.id ?? null });
+        await recalcularEstadoFinanzas(client, b.pedido_id);
+        await actualizarCierreTotal(client, b.pedido_id);
+      }
+
+      // Una nota de crédito por un reclamo lo cierra: era la solución acordada
+      if (b.incidencia_id && b.tipo === 'credito') {
+        await client.query(`
+          UPDATE compras_incidencias SET estado = 'resuelta', resuelta_at = now(), updated_at = now(),
+            solucion = COALESCE(solucion, 'nota_credito'), monto_descuento = COALESCE(monto_descuento, $2)
+          WHERE id = $1 AND estado NOT IN ('resuelta','rechazada')
+        `, [b.incidencia_id, b.monto]);
+        const { rows: [inc] } = await client.query(`SELECT pedido_id FROM compras_incidencias WHERE id = $1`, [b.incidencia_id]);
+        if (inc?.pedido_id) {
+          await recalcularEstadoCalidad(client, inc.pedido_id);
+          await recalcularRecepcionOC(client, inc.pedido_id);
+          await actualizarCierreTotal(client, inc.pedido_id);
+        }
+      }
+      return n;
+    });
+    registrarActividad(c, { entidad: 'compra', entidad_id: nota.pedido_id ?? nota.id, entidad_numero: b.numero ?? null,
+      accion: b.tipo === 'credito' ? 'nota_credito' : 'nota_debito', detalle: fmtMonto(b.monto) });
+    return c.json(nota, 201);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// ── Estado de cuenta del proveedor ────────────────────────────────────────────
+
+/** Saldo de todos los proveedores (vista `proveedor_saldos`, no `deuda_actual`). */
+compras.get('/cuenta-corriente', async (c) => {
+  const { rows } = await db.query(`
+    SELECT prov.id, prov.nombre, prov.telefono, prov.email, prov.contacto, prov.color, prov.activo,
+      s.saldo::numeric AS saldo,
+      (SELECT MAX(m.fecha) FROM proveedor_cc_movimientos m WHERE m.proveedor_id = prov.id) AS ultimo_movimiento,
+      (SELECT COUNT(*)::int FROM pedidos p WHERE p.proveedor_id = prov.id
+         AND p.estado_finanzas IN ('pendiente','pago_parcial')) AS ordenes_impagas
+    FROM proveedores prov
+    JOIN proveedor_saldos s ON s.proveedor_id = prov.id
+    WHERE prov.activo = true OR s.saldo <> 0
+    ORDER BY s.saldo DESC, prov.nombre
+  `);
+  const totales = (rows as Row[]).reduce((acc, r) => {
+    const saldo = Number(r.saldo);
+    if (saldo > 0) acc.deuda += saldo; else acc.a_favor += -saldo;
+    return acc;
+  }, { deuda: 0, a_favor: 0 });
+  return c.json({ proveedores: rows, totales });
+});
+
+async function estadoCuentaProveedor(proveedorId: string, desde: string | null, hasta: string | null, pedidoId: string | null) {
+  const params: unknown[] = [proveedorId];
+  let filtro = '';
+  if (desde) { params.push(desde); filtro += ` AND m.fecha >= $${params.length}::date`; }
+  if (hasta) { params.push(hasta); filtro += ` AND m.fecha <= $${params.length}::date`; }
+  if (pedidoId) { params.push(pedidoId); filtro += ` AND m.pedido_id = $${params.length}`; }
+
+  const [{ rows: [prov] }, { rows: [ini] }, { rows: movs }] = await Promise.all([
+    db.query(`SELECT prov.*, s.saldo::numeric AS saldo FROM proveedores prov
+              JOIN proveedor_saldos s ON s.proveedor_id = prov.id WHERE prov.id = $1`, [proveedorId]),
+    desde
+      ? db.query(`SELECT COALESCE(SUM(monto), 0)::numeric AS saldo FROM proveedor_cc_movimientos
+                  WHERE proveedor_id = $1 AND fecha < $2::date`, [proveedorId, desde])
+      : Promise.resolve({ rows: [{ saldo: 0 }] }),
+    db.query(`
+      SELECT m.*, ped.numero AS pedido_numero, f.numero AS factura_numero,
+        pg.medio AS pago_medio, pg.nro_operacion, u.nombre AS usuario_nombre
+      FROM proveedor_cc_movimientos m
+      LEFT JOIN pedidos ped ON ped.id = m.pedido_id
+      LEFT JOIN compras_facturas f ON f.id = m.factura_id
+      LEFT JOIN proveedor_pagos pg ON pg.id = m.pago_id
+      LEFT JOIN usuarios u ON u.id = m.created_by
+      WHERE m.proveedor_id = $1 ${filtro}
+      ORDER BY m.fecha, m.created_at
+    `, params),
+  ]);
+  if (!prov) return null;
+
+  let acum = Number(ini?.saldo ?? 0);
+  const movimientos: Row[] = (movs as Row[]).map(m => {
+    acum = Math.round((acum + Number(m.monto)) * 100) / 100;
+    return { ...m, monto: Number(m.monto), saldo_acumulado: acum };
+  });
+  const suma = (tipos: string[]) => movimientos.filter(m => tipos.includes(String(m.tipo)))
+    .reduce((a, m) => a + Math.abs(Number(m.monto)), 0);
+
+  return {
+    proveedor: { id: prov.id, nombre: prov.nombre, telefono: prov.telefono, email: prov.email,
+      contacto: prov.contacto, cuit: prov.cuit, direccion: prov.direccion, localidad: prov.localidad, color: prov.color },
+    saldo_inicial: Number(ini?.saldo ?? 0),
+    movimientos,
+    totales: {
+      compras: suma(['compra']), debitos: suma(['debito']), pagos: suma(['pago']),
+      creditos: suma(['credito']), anticipos: suma(['anticipo']),
+      saldo_final: movimientos.length ? acum : Number(ini?.saldo ?? 0),
+      saldo_actual: Number(prov.saldo),
+    },
+  };
+}
+
+async function pdfEstadoCuenta(id: string, desde: string | null, hasta: string | null) {
+  const data = await estadoCuentaProveedor(id, desde, hasta, null);
+  if (!data) return null;
+  const empresa = await empresaActual();
+  const pdfData: EstadoCuentaProveedorPDF = {
+    proveedor: data.proveedor as EstadoCuentaProveedorPDF['proveedor'],
+    periodo: { desde, hasta },
+    saldo_inicial: data.saldo_inicial,
+    movimientos: data.movimientos as unknown as EstadoCuentaProveedorPDF['movimientos'],
+    totales: data.totales,
+  };
+  return { pdf: await generarPDFEstadoCuentaProveedor(pdfData, empresa), data, empresa };
+}
+
+compras.get('/proveedores/:id/estado-cuenta/pdf', async (c) => {
+  const r = await pdfEstadoCuenta(c.req.param('id'), c.req.query('desde') ?? null, c.req.query('hasta') ?? null);
+  if (!r) return c.json({ error: 'Proveedor no encontrado' }, 404);
+  return c.body(new Uint8Array(r.pdf), 200, {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `inline; filename="CuentaCorriente-${String(r.data.proveedor.nombre).replace(/[^\w-]+/g, '_')}.pdf"`,
+  });
+});
+
+/** Le manda al proveedor su estado de cuenta en PDF por WhatsApp. */
+compras.post('/proveedores/:id/estado-cuenta/enviar-whatsapp', async (c) => {
+  const { id } = c.req.param();
+  try {
+    const r = await pdfEstadoCuenta(id, c.req.query('desde') ?? null, c.req.query('hasta') ?? null);
+    if (!r) throw new ErrorNegocio(404, 'Proveedor no encontrado');
+    if (!r.data.proveedor.telefono) throw new ErrorNegocio(422, 'El proveedor no tiene teléfono registrado');
+
+    const saldo = r.data.totales.saldo_final;
+    const caption = Math.abs(saldo) <= 0.01
+      ? `Hola! Te mandamos el estado de cuenta al ${fmtFechaAR(new Date())}. La cuenta está al día. ¡Gracias!`
+      : saldo > 0
+        ? `Hola! Te mandamos el estado de cuenta al ${fmtFechaAR(new Date())}. Saldo pendiente: ${fmtMonto(saldo)}. Cualquier diferencia avisanos.`
+        : `Hola! Te mandamos el estado de cuenta al ${fmtFechaAR(new Date())}. Tenemos ${fmtMonto(Math.abs(saldo))} a favor. Cualquier diferencia avisanos.`;
+
+    const envio = await enviarWhatsappPdf(r.data.proveedor.telefono, r.pdf,
+      `CuentaCorriente-${String(r.data.proveedor.nombre).replace(/[^\w-]+/g, '_')}.pdf`, caption);
+    if (!envio.ok) throw new ErrorNegocio(envio.status as 422, envio.error);
+
+    registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: null, accion: 'enviar',
+      detalle: `Estado de cuenta enviado a ${r.data.proveedor.nombre}` });
+    return c.json({ enviado: true, numero: envio.numero, caption });
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+compras.get('/proveedores/:id/estado-cuenta', async (c) => {
+  const { id } = c.req.param();
+  const data = await estadoCuentaProveedor(id, c.req.query('desde') ?? null, c.req.query('hasta') ?? null, c.req.query('pedido_id') ?? null);
+  if (!data) return c.json({ error: 'Proveedor no encontrado' }, 404);
+  return c.json(data);
 });
 
 export default compras;

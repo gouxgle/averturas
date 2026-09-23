@@ -443,6 +443,80 @@ export const IncidenciaRespuestaSchema = z.object({
   }
 });
 
+// ── Compras etapa 3: documentos, facturas, cuenta corriente ───────────────────
+export const TIPOS_DOCUMENTO_COMPRA = [
+  'cotizacion', 'orden_compra', 'remito', 'factura', 'nota_credito', 'nota_debito',
+  'comprobante_pago', 'foto_incidencia', 'otro',
+] as const;
+export const MOTIVOS_DIFERENCIA = ['flete', 'aumento', 'iva', 'adicional', 'error', 'otro'] as const;
+export const MEDIOS_PAGO_PROVEEDOR = ['transferencia', 'efectivo', 'cheque', 'otro'] as const;
+
+export const DocumentoCompraSchema = z.object({
+  tipo:   z.enum(TIPOS_DOCUMENTO_COMPRA),
+  url:    z.string().min(1, 'Falta el archivo').max(300),
+  nombre: zText(200).optional(),
+  numero: zText(100).optional(),
+  fecha:  zFecha.optional().nullable(),
+  monto:  zPosNum.optional().nullable(),
+  notas:  zText(1000).optional(),
+});
+
+export const FacturaCompraSchema = z.object({
+  proveedor_id:      zUUID,
+  pedido_id:         zUUID.optional().nullable(),
+  numero:            z.string().trim().min(1, 'Número de factura requerido').max(100),
+  fecha:             zFecha.optional(),
+  subtotal_neto:     zPosNum.optional().default(0),
+  iva_monto:         zPosNum.optional().default(0),
+  total:             z.number().positive('El total debe ser mayor a 0'),
+  url:               zText(300).optional(),
+  diferencia_motivo: z.enum(MOTIVOS_DIFERENCIA).optional().nullable(),
+  diferencia_obs:    zText(1000).optional(),
+});
+
+const PagoAplicacionSchema = z.object({
+  pedido_id: zUUID,
+  monto:     z.number().positive('El monto aplicado debe ser mayor a 0'),
+});
+
+export const PagoProveedorSchema = z.object({
+  proveedor_id:  zUUID,
+  fecha:         zFecha.optional(),
+  importe:       z.number().positive('El importe debe ser mayor a 0'),
+  medio:         z.enum(MEDIOS_PAGO_PROVEEDOR).optional().default('transferencia'),
+  nro_operacion: zText(100).optional(),
+  comprobantes:  zAdjuntos.optional().default([]),
+  observacion:   zText(1000).optional(),
+  aplicaciones:  z.array(PagoAplicacionSchema).max(30).optional().default([]),
+}).superRefine((b, ctx) => {
+  const suma = (b.aplicaciones ?? []).reduce((a, x) => a + x.monto, 0);
+  if (suma - b.importe > 0.01) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['aplicaciones'],
+      message: `Estás aplicando ${suma.toFixed(2)} pero el pago es de ${b.importe.toFixed(2)}` });
+  }
+});
+
+export const AplicarPagoSchema = z.object({
+  aplicaciones: z.array(PagoAplicacionSchema).min(1, 'Elegí al menos una orden'),
+});
+
+export const NotaProveedorSchema = z.object({
+  proveedor_id:  zUUID,
+  tipo:          z.enum(['credito', 'debito']),
+  pedido_id:     zUUID.optional().nullable(),
+  incidencia_id: zUUID.optional().nullable(),
+  numero:        zText(100).optional(),
+  fecha:         zFecha.optional(),
+  monto:         z.number().positive('El monto debe ser mayor a 0'),
+  url:           zText(300).optional(),
+  concepto:      zText(1000).optional(),
+});
+
+export const CerrarOrdenSchema = z.object({
+  control_realizado: z.boolean().optional().default(true),
+  observaciones:     zText(1000).optional(),
+});
+
 export const EnviarCompraSchema = z.object({
   medio:        z.enum(MEDIOS_ENVIO_COMPRA),
   proveedor_id: zUUID.optional(),
@@ -672,7 +746,10 @@ export const ProveedorSchema = z.object({
   // cuando el usuario no toca el campo. z.coerce evita el falso "Datos inválidos".
   costo_flete:        z.coerce.number().min(0).max(100).optional().nullable().default(0),
   calificacion:       z.number().int().min(1).max(5).optional().nullable(),
+  /** Legado: el saldo sale del libro mayor (`proveedor_saldos`). Se acepta para no romper
+   *  clientes viejos, pero la ruta ya no lo escribe. */
   deuda_actual:       z.coerce.number().nonnegative('Debe ser mayor o igual a 0').optional().nullable().default(0),
+  factura_al_recibir: z.boolean().optional().default(false),
   es_principal:       z.boolean().optional().default(false),
   margen_venta:       z.coerce.number().min(0).max(999).optional().nullable().default(0),
   activo:             z.boolean().optional(),
