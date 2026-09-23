@@ -464,8 +464,18 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   como tarjetas en mobile y `<table>` en desktop **en el mismo componente**, botones `h-11`,
   inputs `text-base`, modales `w-full sm:max-w-lg max-h-[90dvh]` (`dvh`, nunca `vh`).
   Prohibido crear vistas "mobile" paralelas.
-- Estados en Presupuestos: `aprobado`/`rechazado` en sólido (`emerald-600`/`red-600` con
-  texto blanco), fondo `-100`, franja lateral 7px — los pastel no se ven a 1366×768.
+- **Etiquetas de la fila de Presupuestos: 3 niveles**, con forma distinta además de color (a
+  1366×768 el color solo no alcanza). N1 = estado del documento, sólido `bg-X-600 text-white`
+  `rounded-md`, **exactamente uno por fila**; N2 = señales (falta enviar, respuesta del cliente,
+  relevamiento, pedido, cobro, vencimiento urgente, sin abrir, prioridad — **en ese orden**),
+  píldora pastel `-50/-700` con borde `-200`; N3 = rastro (fecha, tipo, editado, teléfono,
+  canal + días, visto), texto `gray-500` sin caja. Cada `<span>` lleva `data-nivel`.
+  El orden de N2 sale del array `senales[]`, no del orden del JSX. Constantes: `ESTADO_DOC`
+  (única fuente de label + sólido + franja lateral), `CANAL_CFG`, `COBRO_CFG`, `PRIO_CFG`,
+  `GRID` (compartida por cabecera y fila: si se duplica, se desalinean).
+  La franja lateral codifica **solo el estado**; `aprobado`/`rechazado` además llevan
+  `border-l-[7px]` y fondo `-100`. Ningún mapa puede imprimir el valor crudo de la base:
+  el fallback es `humanizar()` (pasó con `proforma_enviada`, `listo` y `entregado`).
 - Labels: `Pendiente de Aprobación` (no "Borrador"); `Pago total` si `cobrado >= 99%`,
   `Señado` si `> 0`; `Envío total/parcial al proveedor`; `llega hoy/mañana/el DD/MM`.
 - Modales de detalle: componente aparte que recibe `id`, header con número + estado + acciones

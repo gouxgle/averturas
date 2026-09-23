@@ -146,38 +146,76 @@ type Orden = 'prioridad' | 'monto' | 'vencimiento' | 'reciente';
 
 const PER_PAGE = 6;
 
+/**
+ * Jerarquía de etiquetas de la fila (3 niveles, diferenciados por FORMA además de color
+ * — a 1366x768 el color solo no alcanza):
+ *
+ *   N1 · Estado del documento — sólido, rectangular. Exactamente uno por fila, siempre.
+ *   N2 · Señales (plata y cosas que piden acción) — píldora pastel con borde.
+ *   N3 · Rastro (cómo llegó hasta acá) — texto gris, sin caja.
+ *
+ * El orden de las señales N2 no depende del orden del JSX: se arma el array `senales[]`
+ * y se renderea. Así el orden es uno solo, auditable y testeable.
+ */
+const N1_CLS = 'inline-flex items-center gap-1 text-[10px] font-bold px-2 py-[3px] rounded-md whitespace-nowrap';
+const N2_CLS = 'inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap';
+const N3_CLS = 'inline-flex items-center gap-1 text-[10px] text-gray-500';
+
+/** Ancho de columnas de la lista. Compartido por la cabecera y la fila: si se duplica, se desalinean. */
+const GRID = 'sm:grid-cols-[72px_minmax(0,1fr)_196px_84px_92px_76px]';
+
 const PRIO_CFG = {
-  alta:  { label: 'Alta prioridad',  bg: 'bg-red-50',    text: 'text-red-600',    border: 'border-l-red-500' },
-  media: { label: 'Media prioridad', bg: 'bg-amber-50',  text: 'text-amber-600',  border: 'border-l-amber-400' },
-  baja:  { label: 'Listo p/ cerrar', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-l-emerald-400' },
+  alta:  { label: 'Alta prioridad',  badge: 'bg-red-50 text-red-700 border-red-200' },
+  media: { label: 'Media prioridad', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+  baja:  { label: 'Listo p/ cerrar', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 };
 
-const ESTADO_COLOR: Record<string, string> = {
-  presupuesto:   'bg-gray-100 text-gray-700',
-  enviado:       'bg-blue-100 text-blue-700',
-  // Aprobado y rechazado van en sólido (no en pastel como el resto): son los dos
-  // estados que hay que poder cachar de un vistazo en una lista larga, y en pantallas
-  // de 1366x768 los tonos 100/700 se pierden.
-  aprobado:      'bg-emerald-600 text-white',
-  rechazado:     'bg-red-600 text-white',
-  cancelado:     'bg-red-100 text-red-700',
-  en_produccion: 'bg-amber-100 text-amber-700',
-  listo:         'bg-teal-100 text-teal-700',
+/**
+ * Única fuente del estado del documento: label + variante sólida (N1, fila y cabecera del
+ * modal de detalle) + franja lateral izquierda de la fila.
+ * Cubre los 10 valores posibles — antes faltaban `en_produccion`, `listo`, `instalado`,
+ * `entregado` y `consulta`, y esas filas mostraban el valor crudo de la base.
+ * `presupuesto` va en slate neutro a propósito: es la mitad de la lista y casi todas esas
+ * filas llevan además el chip rojo de vencido; si el N1 también gritara no habría jerarquía.
+ */
+const ESTADO_DOC: Record<string, { label: string; solid: string; franja: string }> = {
+  consulta:      { label: 'Consulta',                solid: 'bg-slate-500 text-white', franja: 'border-l-slate-400' },
+  presupuesto:   { label: 'Pendiente de Aprobación', solid: 'bg-slate-600 text-white', franja: 'border-l-slate-500' },
+  enviado:       { label: 'Enviado',                 solid: 'bg-blue-600 text-white', franja: 'border-l-blue-500' },
+  aprobado:      { label: 'Aprobado',                solid: 'bg-emerald-600 text-white', franja: 'border-l-emerald-600' },
+  rechazado:     { label: 'Rechazado',               solid: 'bg-red-600 text-white', franja: 'border-l-red-600' },
+  cancelado:     { label: 'Cancelado',               solid: 'bg-gray-500 text-white', franja: 'border-l-gray-300' },
+  en_produccion: { label: 'En producción',           solid: 'bg-amber-600 text-white', franja: 'border-l-amber-500' },
+  listo:         { label: 'Listo',                   solid: 'bg-teal-600 text-white', franja: 'border-l-teal-500' },
+  instalado:     { label: 'Instalado',               solid: 'bg-violet-600 text-white', franja: 'border-l-violet-500' },
+  entregado:     { label: 'Entregado',               solid: 'bg-blue-700 text-white', franja: 'border-l-blue-700' },
 };
+
+/** Ningún valor de la base tiene que llegar crudo a la pantalla. */
+function humanizar(v: string): string {
+  const s = v.replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function estadoDoc(estado: string) {
+  return ESTADO_DOC[estado] ?? {
+    label: humanizar(estado), solid: 'bg-gray-500 text-white',
+    franja: 'border-l-gray-300',
+  };
+}
 
 const RESPUESTA_CLIENTE: Record<string, { label: string; cls: string }> = {
-  mas_tiempo: { label: '⏳ Pidió más tiempo', cls: 'bg-sky-50 text-sky-700 border border-sky-200' },
-  consulta:   { label: '💬 Consulta',         cls: 'bg-cyan-50 text-cyan-700 border border-cyan-200' },
-  llamada:    { label: '📞 Pidió llamado',    cls: 'bg-green-50 text-green-700 border border-green-200' },
-  modificar:  { label: '✏️ Pidió cambios',    cls: 'bg-violet-50 text-violet-700 border border-violet-200' },
+  mas_tiempo: { label: '⏳ Pidió más tiempo', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  consulta:   { label: '💬 Consulta',         cls: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  llamada:    { label: '📞 Pidió llamado',    cls: 'bg-green-50 text-green-700 border-green-200' },
+  modificar:  { label: '✏️ Pidió cambios',    cls: 'bg-violet-50 text-violet-700 border-violet-200' },
 };
 
-const ESTADO_LABEL: Record<string, string> = {
-  presupuesto: 'Pendiente de Aprobación',
-  enviado:     'Enviado',
-  aprobado:    'Aprobado',
-  rechazado:   'Rechazado',
-  cancelado:   'Cancelado',
+const COBRO_CFG: Record<string, { label: string; cls: string; title: string }> = {
+  // Las claves son literales del backend — 'seña' va con tilde y ñ.
+  sin_cobrar: { label: '○ Sin cobrar', cls: 'bg-amber-50 text-amber-700 border-amber-200',       title: 'No se registró ningún pago' },
+  'seña':     { label: '◑ Señado',     cls: 'bg-sky-50 text-sky-700 border-sky-200',             title: 'Pago parcial — saldo pendiente' },
+  cobrado:    { label: '● Pago total', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', title: 'Total cobrado' },
 };
 
 const FORMA_ENVIO_LABEL: Record<string, { label: string; icon: React.ElementType }> = {
@@ -214,20 +252,27 @@ function avatarColor(c: ClienteMin): string {
   return AVATAR_COLORS[(nombreCliente(c).charCodeAt(0) || 0) % AVATAR_COLORS.length];
 }
 
-function canalLabel(canal: string | null): string {
-  const map: Record<string, string> = {
-    whatsapp: 'WhatsApp', llamada: 'Llamada', email: 'Email',
-    visita: 'Visita', nota: 'Nota',
-    presupuesto_enviado: 'Presupuesto', operacion_completada: 'Operación',
-  };
-  return canal ? (map[canal] ?? canal) : '-';
-}
+/**
+ * Último contacto con el cliente. Las claves son valores de `interacciones.tipo`: los
+ * cuatro primeros son los que realmente inserta el backend y antes salían crudos en
+ * pantalla ("proforma_enviada"); los de abajo son manuales o legacy.
+ */
+const CANAL_CFG: Record<string, { label: string; cls: string; Icon: React.ElementType }> = {
+  proforma_enviada:     { label: 'Proforma enviada',    cls: 'text-violet-500',  Icon: FileText },
+  respuesta_proforma:   { label: 'Respondió proforma',  cls: 'text-sky-500',     Icon: MessageSquare },
+  whatsapp:             { label: 'WhatsApp',            cls: 'text-green-600',   Icon: MessageSquare },
+  seguimiento_resuelto: { label: 'Seguimiento cerrado', cls: 'text-emerald-600', Icon: CheckCircle },
+  llamada:              { label: 'Llamada',             cls: 'text-blue-600',    Icon: Phone },
+  nota:                 { label: 'Nota',                cls: 'text-gray-500',    Icon: Pen },
+  email:                { label: 'Email',               cls: 'text-violet-600',  Icon: Mail },
+  visita:               { label: 'Visita',              cls: 'text-amber-600',   Icon: MapPin },
+  presupuesto_enviado:  { label: 'Presupuesto',         cls: 'text-violet-500',  Icon: FileText },
+  operacion_completada: { label: 'Operación',           cls: 'text-emerald-600', Icon: CheckCircle },
+};
 
-function canalColor(canal: string | null): string {
-  if (canal === 'whatsapp') return 'text-green-600';
-  if (canal === 'llamada')  return 'text-blue-600';
-  if (canal === 'email')    return 'text-violet-600';
-  return 'text-gray-600';
+function canalCfg(canal: string | null) {
+  if (!canal) return null;
+  return CANAL_CFG[canal] ?? { label: humanizar(canal), cls: 'text-gray-500', Icon: Clock };
 }
 
 function fmtDias(dias: number): string {
@@ -237,23 +282,44 @@ function fmtDias(dias: number): string {
   return `Hace ${dias} días`;
 }
 
-function fmtVencimiento(p: PresupuestoPanel): { text: string; color: string } | null {
-  // No mostrar vencimiento si ya está aprobado, rechazado o cancelado
-  if (['aprobado', 'rechazado', 'cancelado'].includes(p.estado)) return null;
+/**
+ * El vencimiento cambia de nivel según qué tan urgente es: vencido / hoy / dentro de una
+ * semana son señales N2 (van con el estado, en la columna del medio); una fecha lejana es
+ * rastro N3 y se queda en la columna Validez.
+ */
+type Venc = { label: string; nivel: 2 | 3; cls: string };
+
+function fmtVencimiento(p: PresupuestoPanel): Venc | null {
+  // La validez ya no aplica una vez que el presupuesto se resolvió.
+  if (['aprobado', 'rechazado', 'cancelado', 'instalado', 'entregado'].includes(p.estado)) return null;
   if (!p.fecha_validez) return null;
   const dv = p.dias_vencido ?? 0;
   const dh = p.dias_hasta_vencimiento ?? 0;
-  if (dv > 0) return { text: `Vencido hace ${dv} día${dv !== 1 ? 's' : ''}`, color: 'text-red-500 font-semibold' };
-  if (dh === 0) return { text: 'Vence hoy', color: 'text-amber-500 font-semibold' };
-  if (dh <= 7)  return { text: `En ${dh} días`, color: 'text-amber-500' };
-  return { text: formatDate(p.fecha_validez.slice(0, 10) + 'T12:00:00'), color: 'text-gray-600' };
+  if (dv > 0)   return { label: `Vencido hace ${dv} día${dv !== 1 ? 's' : ''}`, nivel: 2, cls: 'bg-red-50 text-red-700 border-red-200' };
+  if (dh === 0) return { label: 'Vence hoy',        nivel: 2, cls: 'bg-orange-50 text-orange-700 border-orange-200' };
+  if (dh <= 7)  return { label: `Vence en ${dh} días`, nivel: 2, cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+  return { label: `Vence ${formatDate(p.fecha_validez.slice(0, 10) + 'T12:00:00')}`, nivel: 3, cls: 'text-gray-500' };
 }
 
+/**
+ * La franja lateral codifica SOLO el estado. Antes significaba estado en las filas
+ * aprobadas/rechazadas/canceladas y prioridad en todas las demás, así que el mismo rojo
+ * quería decir "rechazado" en una fila y "alta prioridad" en la de abajo. La prioridad no
+ * se pierde: tiene su propia señal N2 con ícono.
+ */
 function borderColor(p: PresupuestoPanel): string {
-  if (p.estado === 'rechazado') return 'border-l-red-600';
-  if (p.estado === 'cancelado') return 'border-l-gray-300';
-  if (p.estado === 'aprobado') return 'border-l-emerald-600';
-  return PRIO_CFG[p.prioridad].border;
+  return estadoDoc(p.estado).franja;
+}
+
+/** Una señal N2. `data-nivel` documenta la jerarquía y deja testearla sin atarse a clases. */
+type SenalCfg = { key: string; label: string; cls: string; Icon?: React.ElementType; title?: string };
+
+function Senal({ label, cls, Icon, title }: Omit<SenalCfg, 'key'>) {
+  return (
+    <span data-nivel="2" title={title} className={cn(N2_CLS, cls, title && 'cursor-default')}>
+      {Icon && <Icon size={9} />}{label}
+    </span>
+  );
 }
 
 function whatsappUrl(telefono: string | null, mensaje?: string): string {
@@ -574,8 +640,8 @@ function PresupuestoModal({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-gray-900">{op?.numero ?? '...'}</span>
                 {op && (
-                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-semibold', ESTADO_COLOR[op.estado] ?? 'bg-gray-100 text-gray-700')}>
-                    {ESTADO_LABEL[op.estado] ?? op.estado}
+                  <span data-nivel="1" className={cn('text-xs font-bold px-2 py-[3px] rounded-md', estadoDoc(op.estado).solid)}>
+                    {estadoDoc(op.estado).label}
                   </span>
                 )}
                 {op && !op.enviado_wa_at && !['aprobado', 'cancelado', 'rechazado'].includes(op.estado) && (
@@ -584,7 +650,7 @@ function PresupuestoModal({
                   </span>
                 )}
                 {op && op.respuesta_cliente && RESPUESTA_CLIENTE[op.respuesta_cliente] && op.estado !== 'aprobado' && (
-                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-semibold', RESPUESTA_CLIENTE[op.respuesta_cliente].cls)}>
+                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-semibold border', RESPUESTA_CLIENTE[op.respuesta_cliente].cls)}>
                     {RESPUESTA_CLIENTE[op.respuesta_cliente].label}
                   </span>
                 )}
@@ -1340,18 +1406,18 @@ export function Presupuestos() {
             ) : (
               <div className="p-3 space-y-1.5">
                 {/* Cabecera columnas — solo desktop; en mobile cada fila es autodescriptiva */}
-                <div className="hidden sm:grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider sm:grid-cols-[70px_1fr_110px_80px_85px_80px]">
+                <div className={cn('hidden sm:grid gap-3 px-3 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wider', GRID)}>
                   <span>N°</span>
                   <span>Cliente</span>
-                  <span>Estado</span>
-                  <span>Vence</span>
+                  <span>Estado y señales</span>
+                  <span>Validez</span>
                   <span className="text-right">Importe</span>
                   <span></span>
                 </div>
 
                 {paginated.map(p => {
                   const vc     = fmtVencimiento(p);
-                  const canal  = p.ultimo_contacto_canal;
+                  const canal  = canalCfg(p.ultimo_contacto_canal);
                   const prio   = PRIO_CFG[p.prioridad];
                   const isAprobadoOnline = !!p.aprobado_online_at;
                   // Antes el fondo verde solo salía si la aprobación había sido online;
@@ -1359,74 +1425,73 @@ export function Presupuestos() {
                   const isAprobado = p.estado === 'aprobado';
                   const isRechazado = p.estado === 'rechazado';
 
-                  const estadoBadge = !p.aprobado_online_at ? (
-                    <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold',
-                      p.pendiente_envio
-                        ? 'bg-orange-50 text-orange-700 border border-orange-200'
-                        : ESTADO_COLOR[p.estado] ?? 'bg-gray-100 text-gray-700'
-                    )}>
-                      {p.pendiente_envio
-                        ? '✉ Pendiente de envío'
-                        : ESTADO_LABEL[p.estado] ?? p.estado}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
-                      ✓ Aprobado Online
-                    </span>
-                  );
+                  // ── N1: el estado del documento. Uno solo, siempre. ────────────────
+                  // Que la aprobación haya sido online es un matiz del estado, no otro
+                  // estado: antes reemplazaba al badge y "Aprobado" desaparecía de la fila.
+                  const doc = estadoDoc(p.estado);
+                  const docLabel = isAprobadoOnline ? 'Aprobado online' : doc.label;
 
-                  const cobroBadge = p.estado === 'aprobado' && p.estado_cobro ? (
-                    <span title={
-                      p.estado_cobro === 'sin_cobrar' ? 'No se registró ningún pago'
-                      : p.estado_cobro === 'seña'     ? 'Pago parcial — saldo pendiente'
-                      : 'Total cobrado'
-                    } className={cn(
-                      'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold cursor-default',
-                      p.estado_cobro === 'sin_cobrar' && 'bg-amber-50 text-amber-700 border border-amber-200',
-                      p.estado_cobro === 'seña'       && 'bg-sky-50 text-sky-700 border border-sky-200',
-                      p.estado_cobro === 'cobrado'    && 'bg-emerald-100 text-emerald-700',
-                    )}>
-                      {p.estado_cobro === 'sin_cobrar' && '○ Sin cobrar'}
-                      {p.estado_cobro === 'seña'       && `◑ Seña ${formatCurrency(p.cobrado_total)}`}
-                      {p.estado_cobro === 'cobrado'    && '● Cobrado'}
-                    </span>
-                  ) : null;
+                  // ── N2: las señales, en orden fijo de lectura ──────────────────────
+                  // 1) falta enviarlo  2) qué contestó el cliente  3) falta relevar
+                  // 4) pedido al proveedor  5) la plata  6) vencimiento urgente
+                  // 7) no abrió el link  8) prioridad (última: es un cálculo, no un hecho)
+                  const senales: SenalCfg[] = [];
 
-                  const vtBadge = p.tiene_items_a_relevar ? (
-                    <span title={
-                      p.visita_pendiente_numero
-                        ? `Falta relevar la Visita de Relevamiento de Datos ${p.visita_pendiente_numero}`
-                        : 'Hay ítems pendientes de relevar'
-                    } className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                      📐 Esperando relevamiento
-                    </span>
-                  ) : null;
+                  if (p.pendiente_envio) senales.push({
+                    key: 'envio', label: '✉ Falta enviar',
+                    cls: 'bg-orange-50 text-orange-700 border-orange-200',
+                    title: 'Todavía no se le mandó la proforma al cliente',
+                  });
 
-                  const pedidoBadge = p.tiene_pedido && p.pedido_estado !== 'cancelado' ? (() => {
+                  const resp = p.respuesta_cliente ? RESPUESTA_CLIENTE[p.respuesta_cliente] : null;
+                  if (resp) senales.push({ key: 'resp', label: resp.label, cls: resp.cls });
+
+                  if (p.tiene_items_a_relevar) senales.push({
+                    key: 'relev', label: '📐 Esperando relevamiento',
+                    cls: 'bg-amber-50 text-amber-700 border-amber-200',
+                    title: p.visita_pendiente_numero
+                      ? `Falta relevar la Visita de Relevamiento de Datos ${p.visita_pendiente_numero}`
+                      : 'Hay ítems pendientes de relevar',
+                  });
+
+                  if (p.tiene_pedido && p.pedido_estado !== 'cancelado') {
                     const parcial  = (p.items_en_pedido ?? 0) > 0 && (p.items_en_pedido ?? 0) < (p.items_total ?? 1);
                     const completo = (p.items_total ?? 0) > 0 && (p.items_en_pedido ?? 0) >= (p.items_total ?? 1);
-                    const label = p.pedido_estado === 'recibido' ? 'Pedido recibido'
-                      : completo ? 'Env. total proveedor'
-                      : parcial  ? 'Env. parcial proveedor'
-                      : 'Pedido generado';
-                    const cls = p.pedido_estado === 'recibido' ? 'bg-emerald-100 text-emerald-700'
-                      : completo ? 'bg-blue-100 text-blue-700'
-                      : parcial  ? 'bg-amber-100 text-amber-700'
-                      : 'bg-lime-100 text-lime-700';
-                    return (
-                      <span title={`Pedido al proveedor: ${p.pedido_estado}`}
-                        className={cn('inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold cursor-default', cls)}>
-                        <ShoppingCart size={9} />{label}
-                      </span>
-                    );
-                  })() : null;
+                    senales.push({
+                      key: 'pedido', Icon: ShoppingCart,
+                      title: `Pedido al proveedor: ${p.pedido_estado}`,
+                      label: p.pedido_estado === 'recibido' ? 'Pedido recibido'
+                        : completo ? 'Env. total proveedor'
+                        : parcial  ? 'Env. parcial proveedor'
+                        : 'Pedido generado',
+                      cls: p.pedido_estado === 'recibido' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : completo ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : parcial  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-lime-50 text-lime-700 border-lime-200',
+                    });
+                  }
 
-                  const editadoBadge = (p.version_count ?? 0) > 0 ? (
-                    <span title={`Editado ${p.version_count} ${p.version_count === 1 ? 'vez' : 'veces'} desde que se creó — ver historial de versiones en el detalle`}
-                      className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                      <Pen size={8} /> Editado{p.version_count > 1 ? ` ×${p.version_count}` : ''}
-                    </span>
-                  ) : null;
+                  const cobro = p.estado === 'aprobado' && p.estado_cobro ? COBRO_CFG[p.estado_cobro] : null;
+                  if (cobro) senales.push({
+                    key: 'cobro', cls: cobro.cls, title: cobro.title,
+                    label: p.estado_cobro === 'seña' ? `${cobro.label} ${formatCurrency(p.cobrado_total)}` : cobro.label,
+                  });
+
+                  if (vc?.nivel === 2) senales.push({ key: 'venc', label: vc.label, cls: vc.cls });
+
+                  // El link enviado y sin abrir es lo más accionable de la fila; antes era
+                  // gris y se perdía entre el resto.
+                  const sinAbrir = p.link_enviado && !p.link_visto_at && ['presupuesto', 'enviado'].includes(p.estado);
+                  if (sinAbrir) senales.push({
+                    key: 'sinabrir', label: 'Sin abrir', Icon: EyeOff,
+                    cls: 'bg-amber-50 text-amber-700 border-amber-200',
+                    title: 'El link fue enviado pero el cliente todavía no lo abrió',
+                  });
+
+                  if (['presupuesto', 'enviado'].includes(p.estado)) senales.push({
+                    key: 'prio', label: prio.label, cls: prio.badge,
+                    Icon: p.prioridad === 'alta' ? Flame : p.prioridad === 'media' ? AlertTriangle : CheckCircle,
+                  });
 
                   return (
                     <div key={p.id}
@@ -1442,23 +1507,29 @@ export function Presupuestos() {
                       )}
                       onClick={() => abrirDetalle(p)}>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-[70px_1fr_110px_80px_85px_80px] gap-3 px-3 py-2.5 items-start">
+                      {/* En mobile la grilla apila a una columna y se reordena con `order-*`:
+                          primero quién es, después en qué estado está, después cuánto. */}
+                      <div className={cn('grid grid-cols-1 gap-3 px-3 py-2.5 items-start', GRID)}>
 
-                        {/* N° + fecha */}
-                        <div>
+                        {/* N° + rastro (N3) */}
+                        <div className="order-4 sm:order-none">
                           <div className="flex items-center gap-1">
                             <span className="text-[11px] font-mono text-gray-600 group-hover:text-violet-500 transition-colors">{p.numero}</span>
-                            {isAprobadoOnline && <Check size={10} className="text-emerald-500" />}
                           </div>
-                          <p className="text-[10px] text-gray-600 mt-0.5">{formatDate(p.created_at)}</p>
+                          <p data-nivel="3" className="text-[10px] text-gray-500 mt-0.5">{formatDate(p.created_at)}</p>
                           {p.tipo && p.tipo !== 'estandar' && (
-                            <p className="text-[9px] text-gray-600 mt-0.5">{p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}</p>
+                            <p data-nivel="3" className="text-[9px] text-gray-500 mt-0.5">{p.tipo === 'a_medida_proveedor' ? 'A medida' : 'Fab. propia'}</p>
                           )}
-                          {editadoBadge && <div className="mt-0.5">{editadoBadge}</div>}
+                          {(p.version_count ?? 0) > 0 && (
+                            <span data-nivel="3" title={`Editado ${p.version_count} ${p.version_count === 1 ? 'vez' : 'veces'} desde que se creó — ver historial de versiones en el detalle`}
+                              className={cn(N3_CLS, 'mt-0.5 cursor-default')}>
+                              <Pen size={9} /> Editado{(p.version_count ?? 0) > 1 ? ` ×${p.version_count}` : ''}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Cliente */}
-                        <div className="min-w-0">
+                        {/* Cliente: identidad arriba, rastro (N3) abajo */}
+                        <div className="min-w-0 order-1 sm:order-none">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0', avatarColor(p.cliente))}>
                               {initials(p.cliente)}
@@ -1467,57 +1538,52 @@ export function Presupuestos() {
                               {nombreCliente(p.cliente)}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 mt-1 ml-[30px] flex-wrap">
-                            {p.cliente.telefono && <span className="text-[10px] text-gray-600">{p.cliente.telefono}</span>}
-                            {canal && <span className={cn('text-[10px] font-medium', canalColor(canal))}>{canalLabel(canal)}</span>}
-                            {/* ¿El cliente abrió el link? Solo tiene sentido mientras la proforma espera respuesta. */}
-                            {p.link_enviado && ['presupuesto', 'enviado'].includes(p.estado) && (
-                              p.link_visto_at
-                                ? <span title={`El cliente abrió el link ${p.link_vistas && p.link_vistas > 1 ? `${p.link_vistas} veces` : ''} — última vez ${haceCuanto(p.link_visto_at)}`}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
-                                    <Eye size={10} /> Visto {haceCuanto(p.link_visto_at)}
-                                  </span>
-                                : <span title="El link fue enviado pero el cliente todavía no lo abrió"
-                                    className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                                    <EyeOff size={10} /> Sin abrir
-                                  </span>
+                          <div className="flex items-center gap-x-1.5 gap-y-0.5 mt-1 ml-[30px] flex-wrap">
+                            {p.cliente.telefono && <span data-nivel="3" className="text-[10px] text-gray-500">{p.cliente.telefono}</span>}
+                            {/* Canal y "hace N días" salen del mismo dato (la última interacción),
+                                así que se leen juntos en vez de en dos columnas distintas. */}
+                            {canal ? (
+                              <span data-nivel="3" className={N3_CLS}>
+                                <canal.Icon size={10} className={canal.cls} />
+                                {canal.label}
+                                {p.dias_sin_respuesta !== undefined && ` · ${fmtDias(p.dias_sin_respuesta).toLowerCase()}`}
+                              </span>
+                            ) : p.dias_sin_respuesta !== undefined && (
+                              <span data-nivel="3" className={N3_CLS}>
+                                <Clock size={10} /> {fmtDias(p.dias_sin_respuesta)}
+                              </span>
                             )}
-                            {pedidoBadge}
+                            {/* Que lo haya visto es rastro; lo accionable es su negativo
+                                ("Sin abrir"), que sube a señal N2. */}
+                            {p.link_visto_at && ['presupuesto', 'enviado'].includes(p.estado) && (
+                              <span data-nivel="3" title={`El cliente abrió el link ${p.link_vistas && p.link_vistas > 1 ? `${p.link_vistas} veces` : ''} — última vez ${haceCuanto(p.link_visto_at)}`}
+                                className={cn(N3_CLS, 'cursor-default')}>
+                                <Eye size={10} /> Visto {haceCuanto(p.link_visto_at)}
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        {/* Estado + cobro + prioridad */}
-                        <div className="space-y-1">
-                          {estadoBadge}
-                          {p.respuesta_cliente && RESPUESTA_CLIENTE[p.respuesta_cliente] && !isAprobadoOnline && (
-                            <div>
-                              <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold', RESPUESTA_CLIENTE[p.respuesta_cliente].cls)}>
-                                {RESPUESTA_CLIENTE[p.respuesta_cliente].label}
-                              </span>
-                            </div>
-                          )}
-                          {cobroBadge && <div>{cobroBadge}</div>}
-                          {vtBadge && <div>{vtBadge}</div>}
-                          {['presupuesto','enviado'].includes(p.estado) && (
-                            <div className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', prio.bg, prio.text)}>
-                              {p.prioridad === 'alta' ? <Flame size={9} /> : p.prioridad === 'media' ? <AlertTriangle size={9} /> : <CheckCircle size={9} />}
-                              {prio.label}
+                        {/* Estado (N1) + señales (N2) */}
+                        <div className="flex flex-col items-start gap-1 order-2 sm:order-none">
+                          <span data-nivel="1" className={cn(N1_CLS, doc.solid)}>
+                            {isAprobadoOnline && <Check size={10} />}{docLabel}
+                          </span>
+                          {senales.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {senales.map(s => <Senal key={s.key} label={s.label} cls={s.cls} Icon={s.Icon} title={s.title} />)}
                             </div>
                           )}
                         </div>
 
-                        {/* Vence */}
-                        <div>
+                        {/* Validez: fecha lejana, motivo de rechazo y el control de +días.
+                            Lo urgente ya subió como señal N2 junto al estado. */}
+                        <div className="order-5 sm:order-none">
                           {isRechazado && p.motivo_rechazo ? (
-                            <span className="text-[10px] text-red-400 truncate block" title={p.motivo_rechazo}>{p.motivo_rechazo}</span>
-                          ) : vc ? (
-                            <span className={cn('text-[11px] font-semibold', vc.color)}>{vc.text}</span>
-                          ) : (
-                            <span className="text-[11px] text-gray-600">—</span>
-                          )}
-                          {p.dias_sin_respuesta !== undefined && (
-                            <p className="text-[10px] text-gray-600 mt-0.5">{fmtDias(p.dias_sin_respuesta)}</p>
-                          )}
+                            <span data-nivel="3" className="text-[10px] text-red-400 truncate block" title={p.motivo_rechazo}>{p.motivo_rechazo}</span>
+                          ) : vc?.nivel === 3 ? (
+                            <span data-nivel="3" className={cn('text-[11px]', vc.cls)}>{vc.label}</span>
+                          ) : null}
                           {['presupuesto','enviado'].includes(p.estado) && (
                             <div className="flex gap-0.5 mt-1" onClick={e => e.stopPropagation()}>
                               {[7, 15].map(dias => (
@@ -1525,7 +1591,7 @@ export function Presupuestos() {
                                   onClick={() => extenderValidez(p.id, p.numero, dias)}
                                   disabled={extendiendoIds.has(p.id)}
                                   title={`Extender validez ${dias} días`}
-                                  className="flex-1 text-[9px] font-bold px-1 py-0.5 rounded bg-sky-50 hover:bg-sky-100 disabled:opacity-50 text-sky-700 border border-sky-200">
+                                  className="flex-1 h-11 sm:h-auto text-[9px] font-bold px-1 py-0.5 rounded bg-sky-50 hover:bg-sky-100 disabled:opacity-50 text-sky-700 border border-sky-200">
                                   +{dias}d
                                 </button>
                               ))}
@@ -1534,12 +1600,12 @@ export function Presupuestos() {
                         </div>
 
                         {/* Importe */}
-                        <div className="text-right">
+                        <div className="text-left sm:text-right order-3 sm:order-none">
                           <p className="text-sm font-black text-gray-800 tabular-nums">{formatCurrency(p.precio_total)}</p>
                         </div>
 
                         {/* Acciones */}
-                        <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 justify-end order-6 sm:order-none" onClick={e => e.stopPropagation()}>
                           {p.cliente.telefono && (
                             <>
                               <button
