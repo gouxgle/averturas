@@ -51,6 +51,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { to: '/reportes',      label: 'Reportes',         icon: TrendingUp,      activeColor: 'text-purple-400',  activeBg: 'bg-purple-500/10' },
       { to: '/actividad',     label: 'Actividad',        icon: Activity,        activeColor: 'text-fuchsia-400', activeBg: 'bg-fuchsia-500/10' },
       { to: '/novedades',     label: 'Novedades',        icon: History,         activeColor: 'text-pink-400',    activeBg: 'bg-pink-500/10' },
+      { to: '/ayuda/compras', label: 'Manual de Compras', icon: BookOpen,       activeColor: 'text-lime-400',    activeBg: 'bg-lime-500/10' },
       { to: '/configuracion', label: 'Configuración',    icon: SlidersHorizontal, activeColor: 'text-slate-300', activeBg: 'bg-slate-500/10' },
     ],
   },

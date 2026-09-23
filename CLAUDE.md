@@ -178,12 +178,14 @@ src/pages/          una página por sección (Dashboard, CRM, Presupuestos, Nuev
                     Operaciones (kanban), Remitos, Recibos, NuevoRecibo, NuevoPedido (flujo
                     viejo de OC), compras/ (Compras + 6 pestañas + detalles SC/PC/OC/REC +
                     NuevaSolicitud + ModalRecepcion/Consolidar/Pago + PanelEconomico),
+                    ayuda/ (manual de Compras: manualCompras.ts = contenido, AyudaCompras.tsx
+                    = página, ContenidoManual.tsx = render compartido con la versión impresa),
                     VentaRapida, VisitaTecnica, VisitasTecnicas, CargarVisitaTecnica, Clientes,
                     ClienteDetalle, Productos, NuevoProducto, Stock, Proveedores, EstadoCuenta,
                     Reportes, Actividad, Novedades, Configuracion, VistaPublicaPresupuesto,
                     VistaPublicaRemito) + print/ (ImprimirPresupuesto → ProformaDocumento,
                     ImprimirPresupuestoPublico, ImprimirRecibo, ImprimirRemito,
-                    ImprimirVisitaTecnica, FormularioCliente)
+                    ImprimirVisitaTecnica, ImprimirManualCompras, FormularioCliente)
 src/components/     Layout/{AppLayout,Sidebar}, NotificationBell, AvisosEmergentes,
                     EntornoBanner, CentroAlertas, AlertaBackups, SectionHero, CompactStatsBar,
                     ComparadorRevisiones, RevisionesEnviadas, VersionesPresupuesto,
@@ -208,15 +210,15 @@ Autenticadas: `/dashboard`, `/crm`, `/presupuestos[/nuevo|/:id/editar|/visita-te
 `/compras[?tab=solicitudes|cotizaciones|ordenes&sc=|pc=|oc=]`, `/compras/nueva-solicitud`,
 `/compras/solicitudes/:id/editar`, `/compras/oc[/nueva|/:id/editar]` (flujo viejo; `/pedidos*`
 redirige acá), `/recibos[/nuevo|/:id/editar]`,
-`/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
+`/ayuda/compras` (manual del módulo), `/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
 `/productos[/nuevo|/:id]`, `/stock`, `/proveedores[/:id/precios]`, `/reportes`, `/actividad`,
 `/novedades`, `/configuracion`. Impresión (sin AppLayout): `/imprimir/{presupuesto,remito,recibo}/:id`,
-`/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`.
+`/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`, `/imprimir/manual-compras`.
 
 Sidebar: Dashboard · **Comercial** (CRM, Venta rápida, Presupuestos, Visitas de Relevamiento
 de Datos, Operaciones, Remitos, Compras, Recibos, Clientes, Estado de Cuenta) · **Catálogo**
 (Productos, Existencias, Proveedores) · **Sistema** (Reportes, Actividad, Novedades,
-Configuración). Configuración tiene paneles para tipos de abertura, sistemas, colores,
+Manual de Compras, Configuración). Configuración tiene paneles para tipos de abertura, sistemas, colores,
 materiales, líneas, tipos de vidrio, categorías, modelos, servicios, formas de pago, empresa,
 usuarios, plantillas de WhatsApp y Backups (solo admin).
 
@@ -389,6 +391,14 @@ refleja en `compras_documentos` (idempotente por `pedido_id + url`) el PDF de la
 enviarla, el remito al recibir, las fotos de reclamos, la factura y los comprobantes de pago.
 `actualizarCierreTotal()` pone/saca el sello **"cerrada totalmente"** solo cuando no queda nada
 pendiente (mercadería, reclamos, control, factura, saldo y documentos).
+
+**Documentación de usuario** (dos piezas, con distinto propósito — si se cambia una pantalla
+del módulo hay que tocar las dos): el **manual completo** en `src/pages/ayuda/manualCompras.ts`
+(fuente única: la lee la página `/ayuda/compras` y la versión imprimible
+`/imprimir/manual-compras`, con el render compartido de `ContenidoManual.tsx`), y el **resumen
+corto** del panel lateral en `HelpDrawer.tsx`, tema `compras`, que es para consultar mientras
+se trabaja y enlaza al manual. Hay además una copia editable del manual como documento en
+claude.ai (solo para revisión del usuario, no la lee el sistema).
 
 Precios neto + IVA % por línea, IVA ∈ {0, 10.5, 21, 27}. `POST /pedidos` (flujo viejo) sigue
 funcionando y crea la SC implícita `con_oc`. PDFs con `generarPDFCompra()` y

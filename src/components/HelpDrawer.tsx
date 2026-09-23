@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, BookOpen, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, BookOpen, ChevronRight, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ── Tipos de contenido ────────────────────────────────────────────────────────
@@ -345,6 +346,7 @@ interface HelpDrawerProps {
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const data = HELP_CONTENT[topic];
 
@@ -378,6 +380,17 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
             <X size={16} className="text-gray-600" />
           </button>
         </div>
+
+        {/* Compras tiene manual completo aparte: este panel es el resumen para consultar
+            mientras se trabaja. */}
+        {topic === 'compras' && (
+          <button
+            onClick={() => { onClose(); navigate('/ayuda/compras'); }}
+            className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-lime-200 bg-lime-50 text-left hover:bg-lime-100 transition-colors">
+            <span className="text-xs font-semibold text-lime-900">Ver el manual completo de Compras</span>
+            <ExternalLink size={13} className="text-lime-700 shrink-0" />
+          </button>
+        )}
 
         {/* Nav de secciones (solo si hay más de una) */}
         {data.sections.length > 1 && (

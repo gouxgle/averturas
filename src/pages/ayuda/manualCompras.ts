@@ -1,0 +1,526 @@
+import {
+  Workflow, LayoutDashboard, ClipboardList, Scale, PackageCheck, CalendarClock,
+  Truck, AlertTriangle, Wallet, Lock, Zap, MessageCircleQuestion, History,
+  type LucideIcon,
+} from 'lucide-react';
+
+/**
+ * Contenido del manual de Compras — fuente única: lo leen la página `/ayuda/compras`
+ * y la versión imprimible `/imprimir/manual-compras`.
+ *
+ * Está escrito para el operador del local, no para desarrolladores: si se cambia una
+ * pantalla del módulo, hay que corregir acá también (y en el panel de Ayuda, que es
+ * el resumen corto de lo mismo — ver `HelpDrawer.tsx`, tema `compras`).
+ *
+ * En los textos, `**esto**` sale en negrita.
+ */
+
+export type Bloque =
+  | { t: 'p'; texto: string }
+  | { t: 'lista'; items: string[]; ordenada?: boolean }
+  | { t: 'tabla'; cols: string[]; filas: string[][] }
+  /** Recuadro destacado: `regla` es una regla del negocio, `ojo` una advertencia. */
+  | { t: 'aviso'; tono: 'info' | 'ojo' | 'regla'; texto: string }
+  | { t: 'flujo'; nodos: string[] }
+  | { t: 'subtitulo'; texto: string };
+
+export interface SeccionManual {
+  id: string;
+  titulo: string;
+  /** Rótulo corto para el índice lateral. */
+  corto: string;
+  icono: LucideIcon;
+  bloques: Bloque[];
+}
+
+export const MANUAL_COMPRAS: SeccionManual[] = [
+  {
+    id: 'circuito',
+    titulo: 'Para qué sirve y cómo es el circuito',
+    corto: 'El circuito',
+    icono: Workflow,
+    bloques: [
+      { t: 'p', texto: 'Compras guarda toda la historia de lo que le pedimos a un proveedor: qué hizo falta, a quién se le pidió precio, qué se le compró, cómo llegó, qué salió mal y cuánto se le debe.' },
+      { t: 'p', texto: '**Una compra normal son tres pasos:** crear la solicitud, generar la orden y recibir la mercadería. Todo lo demás aparece solo cuando hace falta: la cotización si querés comparar precios, el reclamo si algo llega roto, el seguimiento si el proveedor se atrasa.' },
+      { t: 'flujo', nodos: ['Solicitud', 'Cotización', 'Orden de compra', 'Seguimiento', 'Recepción', 'Reclamo', 'Factura y pago', 'Cierre'] },
+      { t: 'p', texto: 'Cada documento tiene su número y queda enlazado con el anterior, así desde cualquier punto se puede ir para atrás y ver de dónde salió.' },
+      {
+        t: 'tabla',
+        cols: ['Documento', 'Para qué sirve', 'Ejemplo'],
+        filas: [
+          ['Solicitud (SC)', 'Anota qué hace falta y para quién', 'SC-202609-0001'],
+          ['Cotización (PC)', 'Le pide precio a varios proveedores y los compara', 'PC-202609-0001'],
+          ['Orden de compra (OC)', 'Es el pedido formal al proveedor elegido', 'OC-202609-0001'],
+          ['Reclamo (REC)', 'Registra un problema con lo que llegó', 'REC-202609-0001'],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'pantalla',
+    titulo: 'La pantalla de Compras',
+    corto: 'La pantalla',
+    icono: LayoutDashboard,
+    bloques: [
+      { t: 'p', texto: 'Se entra por **Compras**, en el menú de la izquierda (donde antes decía "Pedidos").' },
+      { t: 'p', texto: 'Arriba de todo hay una barra oscura con seis números. Son el resumen del día: si están todos en cero, no hay nada esperando por vos.' },
+      {
+        t: 'tabla',
+        cols: ['Número', 'Qué te está diciendo'],
+        filas: [
+          ['Solicitudes', 'Pedidos internos que todavía no se compraron'],
+          ['Esperando cotización', 'Proveedores a los que les pediste precio y no contestaron'],
+          ['Órdenes en curso', 'Compras hechas que todavía no llegaron'],
+          ['Demoradas', 'Órdenes que pasaron la fecha prometida (en rojo)'],
+          ['Reclamos', 'Problemas abiertos con proveedores'],
+          ['A pagar', 'Plata que le debemos a los proveedores'],
+        ],
+      },
+      { t: 'subtitulo', texto: 'Las seis pestañas' },
+      {
+        t: 'lista', ordenada: true,
+        items: [
+          '**Solicitudes** — lo que hace falta comprar, todavía sin proveedor definido.',
+          '**Cotizaciones** — los pedidos de precio en curso y la comparativa entre proveedores.',
+          '**Órdenes** — las compras hechas, con su estado (borrador, enviada, en camino, recibida).',
+          '**Recepciones** — cada entrega que llegó, con el detalle de qué vino en cada una.',
+          '**Reclamos** — los problemas: lo que llegó roto, faltante o equivocado.',
+          '**Cuenta corriente** — cuánto le debemos a cada proveedor y los pagos.',
+        ],
+      },
+      { t: 'subtitulo', texto: 'Los tres botones de arriba a la derecha' },
+      {
+        t: 'lista',
+        items: [
+          '**Nueva solicitud** — el camino normal: empezás por acá cuando hace falta comprar algo.',
+          '**Pedido rápido** — el formulario de siempre, para cuando ya sabés exactamente qué y a quién.',
+          '**Consolidar** — junta pedidos de varios clientes en una sola orden al mismo proveedor.',
+        ],
+      },
+      { t: 'aviso', tono: 'info', texto: 'En cada pestaña, hacé clic en cualquier fila para abrir el detalle. Los números de colores (SC-, PC-, OC-, REC-) son botones: te llevan al documento relacionado.' },
+    ],
+  },
+  {
+    id: 'solicitud',
+    titulo: 'Paso 1 — Crear la solicitud',
+    corto: '1. Solicitud',
+    icono: ClipboardList,
+    bloques: [
+      { t: 'p', texto: 'La solicitud contesta dos preguntas: **qué hace falta** y **para quién**. Todavía no dice a quién comprarle.' },
+      { t: 'p', texto: 'Se entra por **Nueva solicitud** y son tres pantallas.' },
+      { t: 'subtitulo', texto: 'Pantalla 1: de dónde sale el pedido' },
+      { t: 'p', texto: 'Elegí una de las ocho tarjetas. La que elijas define qué te va a pedir después el sistema.' },
+      {
+        t: 'tabla',
+        cols: ['Si el pedido viene de…', 'Elegí', 'Y después'],
+        filas: [
+          ['Un presupuesto aprobado y cobrado', 'Venta', 'Buscás el presupuesto por número o cliente'],
+          ['Un presupuesto que todavía no cerró', 'Proforma', 'Igual que Venta'],
+          ['Un relevamiento de medidas', 'Orden de trabajo', 'Buscás la visita (VT-)'],
+          ['Reponer lo que se vendió del salón', 'Reposición de stock', 'Elegís productos del catálogo'],
+          ['Algo que falta y hay que pedir ya', 'Faltante', 'Elegís productos del catálogo'],
+          ['Insumos para fabricar acá', 'Producción propia', 'Cargás los ítems a mano'],
+          ['Reponer por garantía al cliente', 'Garantía', 'Cargás los ítems a mano'],
+          ['Reponer una pieza fallada', 'Reposición por falla', 'Cargás los ítems a mano'],
+        ],
+      },
+      { t: 'aviso', tono: 'info', texto: 'Atajo: desde un presupuesto aprobado o desde el kanban de Operaciones, el botón de pedido al proveedor ya te abre esta pantalla con todo cargado.' },
+      { t: 'subtitulo', texto: 'Pantalla 2: revisar los ítems' },
+      { t: 'p', texto: 'Si el pedido sale de una venta o un relevamiento, **los ítems vienen solos**, con su ficha técnica: medidas, sistema, color, vidrio, tipo de apertura, herrajes.' },
+      {
+        t: 'lista',
+        items: [
+          '**Los ítems que ya están en otra orden aparecen en gris** y no se pueden volver a pedir. Es a propósito: evita comprar dos veces lo mismo.',
+          'El tilde verde de la izquierda deja afuera un ítem sin borrarlo.',
+          '"Ficha técnica" se despliega para corregir o completar datos. Lo que cargues ahí es lo que va a leer el proveedor en el PDF.',
+          'La **unidad** importa: `u` para cosas que se cuentan, `m` para perfiles, `m2` para vidrios, `kg` para materiales a granel.',
+          'Se pueden sumar ítems a mano (**Agregar ítem manual**) o del catálogo (**Del catálogo**).',
+          'Arriba cargás la obra, la fecha en que se necesita, el proveedor sugerido y los adjuntos (planos, fotos, PDF).',
+        ],
+      },
+      { t: 'subtitulo', texto: 'Pantalla 3: ¿Cómo seguimos?' },
+      {
+        t: 'tabla',
+        cols: ['Opción', 'Cuándo conviene'],
+        filas: [
+          ['**Pedir cotización**', 'No sabés a quién comprarle o querés comparar precios'],
+          ['**Comprar directo**', 'Ya sabés el proveedor y el precio'],
+          ['**Solo guardar**', 'Lo resolvés después; queda en la pestaña Solicitudes'],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'cotizacion',
+    titulo: 'Paso 2 — Pedir cotización y comparar',
+    corto: '2. Cotización',
+    icono: Scale,
+    bloques: [
+      { t: 'p', texto: 'Este paso es opcional. Sirve cuando querés que varios proveedores te pasen precio por lo mismo.' },
+      { t: 'subtitulo', texto: 'Invitar proveedores' },
+      { t: 'p', texto: 'Desde la solicitud, **Pedir cotización**: elegís hasta ocho proveedores y, si querés, una fecha límite para que contesten. El proveedor sugerido aparece primero en la lista.' },
+      { t: 'subtitulo', texto: 'Mandarles el pedido' },
+      { t: 'p', texto: 'Cada proveedor tiene su tarjeta con tres botones:' },
+      {
+        t: 'lista',
+        items: [
+          '**WhatsApp** — le manda el PDF con el detalle. Antes de enviar podés leer y retocar el mensaje.',
+          '**Email** — lo mismo, por correo.',
+          '**Ya enviada** — si se lo pasaste por otro lado (lo llamaste, te cruzaste con él). Queda registrado igual.',
+        ],
+      },
+      { t: 'p', texto: 'El botón **PDF** te deja ver exactamente lo que recibe el proveedor, sin enviar nada.' },
+      { t: 'subtitulo', texto: 'Cargar lo que contestaron' },
+      { t: 'p', texto: '**Cargar respuesta** en la tarjeta del proveedor. Hay dos formas:' },
+      {
+        t: 'tabla',
+        cols: ['Forma', 'Cuándo usarla', 'Qué cargás'],
+        filas: [
+          ['**Un solo total**', 'Te pasó un precio global', 'Neto, descuento, IVA y flete'],
+          ['**Precio por ítem**', 'Te detalló cada cosa', 'Precio, descuento e IVA de cada ítem'],
+        ],
+      },
+      { t: 'p', texto: 'Además cargás plazo de entrega, disponibilidad, forma de pago, hasta cuándo vale la oferta y la foto o PDF de la cotización que te mandó. Si no contestó, **Sin respuesta** lo deja anotado.' },
+      { t: 'subtitulo', texto: 'Comparar y elegir' },
+      { t: 'p', texto: 'La tabla comparativa se arma sola. **Pinta en verde el mejor valor de cada columna** y marca al más barato con "Menor costo".' },
+      { t: 'aviso', tono: 'ojo', texto: 'La comparación es por TOTAL FINAL (neto − descuento + IVA + flete), no por el precio de lista. Un proveedor con precio más bajo pero IVA 21% puede salir más caro que otro con IVA 10,5%, y uno que cobra flete puede terminar arriba del que no cobra.' },
+      { t: 'p', texto: 'Dos salidas:' },
+      {
+        t: 'lista',
+        items: [
+          '**Elegir** → genera la orden de compra con esos precios. Los demás quedan descartados, pero sus precios siguen visibles como historia.',
+          '**Cerrar sin comprar** → pide el motivo y los ítems vuelven a quedar pendientes en la solicitud.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'orden',
+    titulo: 'Paso 3 — La orden de compra',
+    corto: '3. Orden',
+    icono: PackageCheck,
+    bloques: [
+      { t: 'p', texto: 'La orden (OC) es el pedido formal al proveedor. Nace siempre en **borrador**.' },
+      { t: 'subtitulo', texto: 'Borrador: todavía se puede tocar todo' },
+      { t: 'p', texto: 'Mientras está en borrador, con el lápiz de arriba a la derecha podés cambiar cantidades, precios, descuentos, IVA, flete, forma de pago, contacto y fecha prometida. **Una vez enviada ya no se edita**, así que revisala antes.' },
+      { t: 'p', texto: 'Los precios se cargan **netos** (sin IVA) y el IVA se elige por línea: 0%, 10,5%, 21% o 27%. El botón "IVA para todos" lo aplica a todas las líneas de una.' },
+      { t: 'subtitulo', texto: 'Enviarla' },
+      { t: 'p', texto: 'Los mismos tres botones que la cotización: **WhatsApp**, **Email** o **Marcar enviada**. Se manda el PDF con el detalle, las especificaciones de cada ítem, los totales y las condiciones.' },
+      { t: 'aviso', tono: 'info', texto: 'El PDF que se envía queda guardado en la carpeta de la orden. Si después cambia algo, siempre podés mostrar el documento original que recibió el proveedor.' },
+      { t: 'p', texto: 'Al enviarla, la orden pasa de **Borrador** a **Enviada al proveedor**.' },
+      { t: 'subtitulo', texto: 'Consolidar: varios clientes, una sola orden' },
+      { t: 'p', texto: 'Cuando a un mismo proveedor le vas a pedir cosas de distintos clientes, **Consolidar** (botón de arriba) te muestra todos los ítems pendientes agrupados por solicitud. Marcás los que entran, armás los precios y sale una sola orden.' },
+      { t: 'p', texto: 'Cada ítem sigue sabiendo de qué cliente es, y **el flete se reparte entre los ítems según cuánto sale cada uno**, así sabés qué costo real tiene lo de cada cliente.' },
+      { t: 'subtitulo', texto: 'Pedido rápido: el camino corto' },
+      { t: 'p', texto: 'Si ya sabés qué y a quién, **Pedido rápido** es el formulario de siempre: proveedor, ítems, costos y listo. Por detrás el sistema arma igual la solicitud, así que la trazabilidad no se pierde.' },
+    ],
+  },
+  {
+    id: 'seguimiento',
+    titulo: 'Paso 4 — Seguirla hasta que llegue',
+    corto: '4. Seguimiento',
+    icono: CalendarClock,
+    bloques: [
+      { t: 'p', texto: 'Dentro de la orden, la sección **Cómo viene** muestra una línea de tiempo con el recorrido. El paso donde está hoy se ve resaltado.' },
+      { t: 'flujo', nodos: ['Borrador', 'Enviada', 'Confirmada', 'En fabricación', 'Listo p/ despacho', 'En tránsito', 'Recibida'] },
+      { t: 'subtitulo', texto: 'Registrar la confirmación' },
+      { t: 'p', texto: 'Cuando el proveedor confirma, **Registrar confirmación**: tildás si confirmó el precio y las características, y cargás **la fecha de entrega que prometió**. Esa fecha es la que después usa el sistema para avisarte si se atrasa.' },
+      { t: 'subtitulo', texto: 'Ir marcando el avance' },
+      { t: 'p', texto: 'El botón del medio te sugiere siempre el próximo paso ("Marcar en fabricación", "Marcar en camino"…). No es obligatorio usarlo: si no lo tocás, la orden pasa igual de Enviada a Recibida cuando registres la entrega.' },
+      { t: 'subtitulo', texto: 'Cuando llamás al proveedor' },
+      { t: 'p', texto: '**Registrar contacto** guarda qué te dijo, la fecha nueva si te dio una, y una observación interna. Todo queda en **Seguimiento**, abajo del detalle: la historia completa de llamados, cambios de estado y entregas, con fecha y quién lo cargó.' },
+      { t: 'subtitulo', texto: 'El aviso de demora' },
+      { t: 'p', texto: 'Si pasa la fecha prometida y la mercadería no llegó, el sistema avisa solo. No hay que hacer nada para activarlo.' },
+      {
+        t: 'lista',
+        items: [
+          'Aparece una tarjeta abajo a la derecha que **no se va hasta que la aceptás**, y el aviso queda en la campanita.',
+          'La orden se marca **"Demorada N días"** en rojo, en la lista y en el Dashboard.',
+          'El filtro **Demoradas** de la pestaña Órdenes las junta a todas.',
+        ],
+      },
+      { t: 'aviso', tono: 'info', texto: 'Cuando registrás un contacto con fecha nueva, la orden deja de figurar como demorada hasta que se pase otra vez. Es la forma de sacarse el aviso de encima: hablar con el proveedor y anotar la fecha que dio.' },
+    ],
+  },
+  {
+    id: 'recepcion',
+    titulo: 'Paso 5 — Recibir la mercadería',
+    corto: '5. Recepción',
+    icono: Truck,
+    bloques: [
+      { t: 'p', texto: 'Este es el paso más importante: **de lo que marques acá depende el stock**.' },
+      { t: 'p', texto: 'Desde la orden, **Registrar recepción** abre la lista de ítems. Cada uno tiene tres botones:' },
+      {
+        t: 'tabla',
+        cols: ['Botón', 'Qué significa', 'Qué hace el sistema'],
+        filas: [
+          ['✓ **Llegó bien**', 'Vino completo y en condiciones', 'Ingresa esa cantidad al stock'],
+          ['⚠ **Con problema**', 'Vino roto, rayado, con la medida o el color equivocado', '**No ingresa al stock** y abre un reclamo'],
+          ['✕ **No vino**', 'No vino en esta entrega', 'Queda pendiente para la próxima'],
+        ],
+      },
+      { t: 'aviso', tono: 'regla', texto: 'La regla de oro: al stock entra solo lo que llegó conforme. Si de 5 puertas llegaron 3 bien y 1 rota, al stock entran 3. Antes el sistema ingresaba las 5 igual, y el stock quedaba inflado.' },
+      { t: 'subtitulo', texto: 'Entregas parciales' },
+      { t: 'p', texto: 'No hace falta que llegue todo junto. Marcás lo que vino, confirmás, y la orden queda en **Recibida parcial**. Cuando llegue el resto, **Registrar otra entrega** y sigue desde donde quedó.' },
+      { t: 'p', texto: 'Las cantidades se pueden ajustar a mano en los casilleros: **Recibido**, **Con problema**, y el sistema calcula solo **Conforme** y **Queda pendiente**. El botón "Llegó todo bien" completa todas las líneas de una.' },
+      { t: 'subtitulo', texto: 'Si algo vino con problema' },
+      { t: 'p', texto: 'Apenas ponés una cantidad en "con problema", se abre ahí mismo un recuadro amarillo para cargar **qué pasó** (vidrio roto, medida incorrecta, color equivocado…), un detalle para el proveedor y **las fotos**. Sacar la foto en el momento, con la mercadería delante, vale mucho más que describirla después.' },
+      { t: 'p', texto: 'Al confirmar la recepción, el reclamo se abre solo y el sistema te lleva directo a él.' },
+      { t: 'subtitulo', texto: 'Datos de la entrega' },
+      { t: 'p', texto: 'Abajo de los ítems: fecha, **número de remito del proveedor**, transportista, **flete real** (si salió distinto al estimado, se corrige el total de la orden) y foto del remito. El remito que subas acá queda archivado solo en la carpeta de la orden.' },
+      { t: 'subtitulo', texto: 'Al confirmar' },
+      {
+        t: 'lista', ordenada: true,
+        items: [
+          'El stock sube por lo conforme.',
+          'Se abren los reclamos de lo que vino con problema.',
+          'La orden pasa a **Recibida** o **Recibida parcial**.',
+          'Si era de un cliente y ya llegó todo, el presupuesto queda **listo para entregar** y se puede hacer el remito.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'reclamos',
+    titulo: 'Paso 6 — Reclamar al proveedor',
+    corto: '6. Reclamos',
+    icono: AlertTriangle,
+    bloques: [
+      { t: 'p', texto: 'Los reclamos **no se crean a mano**: nacen solos cuando marcás un ítem con problema en la recepción. Llevan número propio (REC-) y viven en la pestaña **Reclamos**.' },
+      { t: 'subtitulo', texto: 'Pasárselo al proveedor' },
+      { t: 'p', texto: 'En el reclamo: **Reclamar por WhatsApp** o **Email**. Va el texto con el ítem, el problema, la cantidad afectada y **las fotos adjuntas**. Si ya lo hablaste por teléfono, **Ya reclamado** lo deja registrado igual.' },
+      { t: 'p', texto: 'El estado arranca en **Sin reclamar** (rojo) hasta que se lo pases: sirve para que ninguno se quede en el olvido.' },
+      { t: 'subtitulo', texto: 'Registrar lo que contestó' },
+      { t: 'p', texto: '**Registrar respuesta**: cargás textualmente qué dijo y elegís la solución acordada. Cada una hace algo distinto:' },
+      {
+        t: 'tabla',
+        cols: ['Solución', 'Qué pasa después'],
+        filas: [
+          ['Repone todo / una parte', 'Se agrega un ítem de reposición **sin costo** a la orden'],
+          ['Cambia el vidrio', 'Igual: ítem de reposición sin costo'],
+          ['Manda el herraje', 'Igual: ítem de reposición sin costo'],
+          ['Lo repara acá', 'El reclamo queda resuelto, no viene nada'],
+          ['Hace un descuento', 'Cargás el monto; el reclamo queda resuelto'],
+          ['Emite nota de crédito', 'Cargás el monto; se descuenta de la cuenta corriente'],
+          ['Devolvemos la mercadería', 'El reclamo queda resuelto'],
+          ['No se hace cargo', 'El reclamo queda cerrado como rechazado'],
+        ],
+      },
+      { t: 'subtitulo', texto: 'La reposición' },
+      { t: 'p', texto: 'Si el proveedor repone, aparece un ítem nuevo en la orden que dice "Reposición REC-…", con precio cero (no se paga dos veces). Cuando esa reposición llegue en una entrega posterior y la marques como conforme, **el reclamo se cierra solo**.' },
+      { t: 'subtitulo', texto: 'Dónde ver cómo viene' },
+      {
+        t: 'lista',
+        items: [
+          'La franja **Calidad** de la orden dice "Sin reclamos", "N abiertos" o "Resueltos".',
+          'La pestaña **Reclamos** los lista todos, con el filtro **Pendientes** por defecto.',
+          'El contador rojo de la pestaña marca cuántos quedan sin resolver.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'plata',
+    titulo: 'Paso 7 — Factura, pagos y cuenta corriente',
+    corto: '7. Plata',
+    icono: Wallet,
+    bloques: [
+      { t: 'subtitulo', texto: 'Cargar la factura' },
+      { t: 'p', texto: 'En la orden, sección **Control económico** → **Cargar factura**: número, fecha, neto, IVA (el total se calcula solo) y el PDF o la foto.' },
+      { t: 'aviso', tono: 'ojo', texto: 'Si el total no coincide con la orden, el sistema no te deja seguir sin explicar por qué. Tenés que elegir el motivo: flete no previsto, aumento de precio, diferencia de IVA, ítem adicional o error de facturación. Esa diferencia queda anotada en la orden para siempre.' },
+      { t: 'p', texto: 'El control económico muestra tres columnas para comparar de un vistazo: **Cotizado** (lo que había pasado el proveedor), **Orden** (lo que le pedimos) y **Facturado** (lo que terminó cobrando).' },
+      { t: 'subtitulo', texto: 'Registrar un pago' },
+      { t: 'p', texto: 'Desde la orden (**Pagar**) o desde la pestaña Cuenta corriente (**Registrar pago**). Cargás importe, fecha, medio, número de operación y el comprobante.' },
+      { t: 'p', texto: 'Abajo aparecen **las órdenes con saldo de ese proveedor**. Tildás a cuáles se lo aplicás:' },
+      {
+        t: 'lista',
+        items: [
+          'Un pago puede repartirse entre varias órdenes ("Repartir el importe" lo hace solo, de la más vieja a la más nueva).',
+          '**Lo que no apliques queda como saldo a favor**, listo para usar en otra orden más adelante.',
+          'Los comprobantes se archivan solos en la carpeta de cada orden que pagues.',
+        ],
+      },
+      { t: 'subtitulo', texto: 'Notas de crédito y débito' },
+      {
+        t: 'lista',
+        items: [
+          '**Crédito**: el proveedor nos descuenta (por ejemplo, por un reclamo). Baja lo que le debemos.',
+          '**Débito**: nos cobra algo más. Sube lo que le debemos.',
+        ],
+      },
+      { t: 'p', texto: 'Si la nota de crédito sale de un reclamo, ese reclamo queda cerrado automáticamente.' },
+      { t: 'subtitulo', texto: 'La pestaña Cuenta corriente' },
+      { t: 'p', texto: 'Muestra el saldo de cada proveedor, con tres totales arriba: **a pagar**, **saldo a favor** y la posición neta.' },
+      { t: 'p', texto: 'Entrando a un proveedor ves su **libro mayor**: cada compra, pago, nota y anticipo en orden de fecha, con el saldo corriendo al costado. Se puede filtrar por período, bajar el **PDF** y **mandarlo por WhatsApp** al proveedor para chequear diferencias.' },
+      {
+        t: 'tabla',
+        cols: ['Si el saldo está…', 'Significa'],
+        filas: [
+          ['En positivo (ámbar)', 'Le debemos plata'],
+          ['En cero (verde)', 'Cuenta al día'],
+          ['En negativo (celeste)', 'Tenemos saldo a favor'],
+        ],
+      },
+      { t: 'aviso', tono: 'regla', texto: 'La "Deuda actual" que antes se escribía a mano en la ficha del proveedor ya no se carga. El saldo sale solo de las facturas, pagos y notas que cargues acá. Lo que había quedado cargado se pasó como "Saldo inicial migrado".' },
+    ],
+  },
+  {
+    id: 'cierre',
+    titulo: 'Paso 8 — Cerrar la compra',
+    corto: '8. Cierre',
+    icono: Lock,
+    bloques: [
+      { t: 'subtitulo', texto: 'La carpeta de documentos' },
+      { t: 'p', texto: 'Cada orden junta sus papeles sola. No hay que subir nada dos veces:' },
+      {
+        t: 'tabla',
+        cols: ['Documento', 'Cuándo se archiva'],
+        filas: [
+          ['Orden de compra (PDF)', 'Al enviarla al proveedor'],
+          ['Remito', 'Al registrar la recepción, si subís la foto'],
+          ['Factura', 'Al cargarla'],
+          ['Comprobante de pago', 'Al registrar el pago'],
+          ['Fotos de reclamos', 'Al abrir el reclamo'],
+          ['Cotización del proveedor', 'Al elegirlo en la comparativa'],
+        ],
+      },
+      { t: 'p', texto: 'Arriba de la lista hay tres chips: **Orden de compra**, **Factura** y **Remito**. En verde con tilde si están; en gris punteado si faltan. Con **Agregar** sumás cualquier otro papel.' },
+      { t: 'subtitulo', texto: 'La lista de control' },
+      { t: 'p', texto: 'Abajo del todo, **Cierre de la compra** muestra qué falta:' },
+      {
+        t: 'lista', ordenada: true,
+        items: ['Mercadería recibida completa', 'Sin reclamos abiertos', 'Control realizado', 'Factura cargada', 'Saldo en cero', 'Documentación completa'],
+      },
+      { t: 'subtitulo', texto: 'Dos niveles de cierre' },
+      {
+        t: 'tabla',
+        cols: ['Nivel', 'Qué pide', 'Qué significa'],
+        filas: [
+          ['**Cerrada**', 'Los tres primeros puntos', 'La mercadería está y no hay nada que reclamar'],
+          ['**Cerrada totalmente**', 'Los seis', 'Además está pagada y con todos los papeles'],
+        ],
+      },
+      { t: 'p', texto: 'El botón **Cerrar la compra** aparece habilitado cuando se cumplen los tres primeros. El sello verde **"Cerrada totalmente"** lo pone el sistema solo, en cuanto se completa el último punto: no hay que volver a entrar a marcarlo.' },
+    ],
+  },
+  {
+    id: 'recetas',
+    titulo: 'Recetas rápidas',
+    corto: 'Recetas rápidas',
+    icono: Zap,
+    bloques: [
+      {
+        t: 'tabla',
+        cols: ['Necesito…', 'Dónde se hace'],
+        filas: [
+          ['Comprar lo de un presupuesto que se cobró', 'Compras → Nueva solicitud → Venta → elegís el presupuesto'],
+          ['Pedir precio a tres proveedores', 'En la solicitud → Pedir cotización'],
+          ['Comprar rápido, ya sé a quién', 'Compras → Pedido rápido'],
+          ['Reponer algo que se vendió del salón', 'Nueva solicitud → Reposición de stock → elegís del catálogo'],
+          ['Juntar pedidos de varios clientes', 'Compras → Consolidar'],
+          ['Ver qué órdenes están atrasadas', 'Pestaña Órdenes → filtro Demoradas'],
+          ['Anotar que llamé al proveedor', 'En la orden → Registrar contacto'],
+          ['Cargar mercadería que llegó', 'En la orden → Registrar recepción'],
+          ['Cargar mercadería que llegó incompleta', 'Igual: marcás lo que vino y después "Registrar otra entrega"'],
+          ['Reclamar algo roto', 'Se abre solo al marcar "con problema" en la recepción'],
+          ['Ver todos los reclamos abiertos', 'Pestaña Reclamos'],
+          ['Cargar la factura del proveedor', 'En la orden → Control económico → Cargar factura'],
+          ['Pagarle a un proveedor', 'Pestaña Cuenta corriente → Pago'],
+          ['Saber cuánto le debo a alguien', 'Pestaña Cuenta corriente'],
+          ['Mandarle el resumen de cuenta al proveedor', 'Cuenta corriente → entrás al proveedor → WhatsApp'],
+          ['Ver el PDF que recibió el proveedor', 'En la orden → ícono de hoja arriba a la derecha'],
+          ['Archivar la compra terminada', 'En la orden → Cerrar la compra'],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'avisos',
+    titulo: 'Avisos del sistema y qué hacer',
+    corto: 'Avisos y dudas',
+    icono: MessageCircleQuestion,
+    bloques: [
+      { t: 'p', texto: 'Cuando algo no se puede hacer, el sistema lo dice y explica por qué. Los más comunes:' },
+      {
+        t: 'tabla',
+        cols: ['Lo que dice', 'Qué pasó', 'Qué hacer'],
+        filas: [
+          ['"El ítem ya está en la orden OC-…"', 'Alguien ya lo compró en otra orden', 'Abrí esa orden; si está mal, cancelala primero'],
+          ['"Solo se puede editar una orden en borrador"', 'La orden ya se envió al proveedor', 'Si cambió el precio, cargá la factura con la diferencia y su motivo'],
+          ['"La factura no coincide con la orden"', 'El total facturado es distinto al pactado', 'Elegí el motivo de la diferencia; es obligatorio'],
+          ['"Ya hay una factura … cargada para este proveedor"', 'Ese número de factura ya existe', 'Revisá si no la cargaste antes'],
+          ['"Estás recibiendo N y ya había M de X pedidas"', 'Se recibe más de lo que se había pedido', 'Corregí la cantidad, o cargá el excedente como otra orden'],
+          ['"Conforme más lo que tiene problema tiene que dar lo recibido"', 'Las tres cantidades no cierran', 'Revisá los números de esa línea'],
+          ['"Es un producto de catálogo: la cantidad tiene que ser entera"', 'Se puso un decimal en algo que se cuenta por unidad', 'Poné un número entero'],
+          ['"Enviá la orden antes de registrar la recepción"', 'La orden sigue en borrador', 'Mandala al proveedor (o "Marcar enviada")'],
+          ['"El proveedor no tiene teléfono registrado"', 'Falta el dato en su ficha', 'Cargalo en Catálogo → Proveedores'],
+          ['"El envío por email no está configurado"', 'No hay correo configurado en el sistema', 'Usá WhatsApp o marcá como enviada'],
+          ['"Todavía no se puede cerrar: …"', 'Falta mercadería, hay reclamos abiertos o no se hizo el control', 'Mirá la lista de cierre: lo que está sin tilde es lo que falta'],
+        ],
+      },
+      { t: 'subtitulo', texto: 'Dudas frecuentes' },
+      {
+        t: 'lista',
+        items: [
+          '**¿Puedo comprar sin hacer la solicitud?** Sí, con Pedido rápido. El sistema arma la solicitud por detrás igual.',
+          '**¿Qué pasa si cancelo una orden que ya recibí?** El stock que había entrado se devuelve automáticamente.',
+          '**¿Puedo cargar una factura que no es de ninguna orden?** Sí — un gasto suelto del proveedor. Va a su cuenta corriente igual.',
+          '**¿Y si el proveedor no factura?** En su ficha se puede marcar que no factura: la compra se anota en la cuenta corriente al recibir la mercadería.',
+          '**¿Se puede borrar una factura mal cargada?** Sí, con el tacho. Se borra también el movimiento de la cuenta corriente.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'cambios',
+    titulo: 'Si venías usando "Pedidos"',
+    corto: 'Qué cambió',
+    icono: History,
+    bloques: [
+      { t: 'p', texto: 'La sección se llama **Compras** y está en el mismo lugar del menú. Los enlaces viejos siguen funcionando: te llevan solos a la pantalla nueva.' },
+      {
+        t: 'tabla',
+        cols: ['Antes', 'Ahora'],
+        filas: [
+          ['Menú "Pedidos"', 'Menú "Compras"'],
+          ['"Nuevo pedido"', '"Pedido rápido" (igual que siempre) o "Nueva solicitud" (el camino completo)'],
+          ['Pedidos numerados PED-', 'Los nuevos se numeran OC-; los PED- viejos quedan igual'],
+          ['Marcar "recibido" entraba todo al stock', 'Se marca ítem por ítem y entra **solo lo conforme**'],
+          ['No había forma de anotar un problema', 'Reclamos con foto, historial y reposición'],
+          ['La deuda del proveedor se escribía a mano', 'Sale sola de facturas, pagos y notas'],
+        ],
+      },
+      { t: 'subtitulo', texto: 'Lo que no cambió' },
+      {
+        t: 'lista',
+        items: [
+          'Los pedidos **PED-** anteriores están todos en la pestaña Órdenes, con sus datos intactos.',
+          'El kanban de Operaciones, los remitos y el Dashboard funcionan igual que siempre.',
+          'Las entregas que ya se habían registrado aparecen en Recepciones como "registrada con el flujo anterior".',
+          'El saldo que estaba cargado en cada proveedor se convirtió en un movimiento **"Saldo inicial migrado"**: el número es el mismo, pero ahora tiene historia detrás.',
+        ],
+      },
+      { t: 'subtitulo', texto: 'Lo único que hay que cambiar de costumbre' },
+      {
+        t: 'lista', ordenada: true,
+        items: [
+          '**Al recibir, marcá ítem por ítem.** Es un click más, pero el stock queda bien.',
+          '**Sacá la foto de lo que viene mal**, en el momento. Es la mitad del reclamo.',
+          '**La deuda del proveedor ya no se escribe.** Cargá la factura y el pago, y el saldo sale solo.',
+        ],
+      },
+    ],
+  },
+];
+
+/** Texto plano de una sección — lo usa el buscador de la página. */
+export function textoDeSeccion(s: SeccionManual): string {
+  const partes: string[] = [s.titulo];
+  for (const b of s.bloques) {
+    if (b.t === 'p' || b.t === 'subtitulo' || b.t === 'aviso') partes.push(b.texto);
+    else if (b.t === 'lista') partes.push(...b.items);
+    else if (b.t === 'tabla') { partes.push(...b.cols); b.filas.forEach(f => partes.push(...f)); }
+    else if (b.t === 'flujo') partes.push(...b.nodos);
+  }
+  return partes.join(' ').toLowerCase();
+}

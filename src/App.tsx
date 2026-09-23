@@ -35,6 +35,7 @@ const NuevoRemito              = lazy(() => import('@/pages/NuevoRemito').then(m
 const Recibos                  = lazy(() => import('@/pages/Recibos').then(m => ({ default: m.Recibos })));
 const NuevoRecibo              = lazy(() => import('@/pages/NuevoRecibo').then(m => ({ default: m.NuevoRecibo })));
 const Compras                  = lazy(() => import('@/pages/compras/Compras'));
+const AyudaCompras             = lazy(() => import('@/pages/ayuda/AyudaCompras'));
 const NuevaSolicitud           = lazy(() => import('@/pages/compras/NuevaSolicitud'));
 const NuevoPedido              = lazy(() => import('@/pages/NuevoPedido'));
 const EstadoCuentaGlobal       = lazy(() => import('@/pages/EstadoCuentaGlobal').then(m => ({ default: m.EstadoCuentaGlobal })));
@@ -46,6 +47,7 @@ const ImprimirRemito           = lazy(() => import('@/pages/print/ImprimirRemito
 const ImprimirRecibo           = lazy(() => import('@/pages/print/ImprimirRecibo').then(m => ({ default: m.ImprimirRecibo })));
 const FormularioCliente        = lazy(() => import('@/pages/print/FormularioCliente').then(m => ({ default: m.FormularioCliente })));
 const ImprimirVisitaTecnica    = lazy(() => import('@/pages/print/ImprimirVisitaTecnica').then(m => ({ default: m.ImprimirVisitaTecnica })));
+const ImprimirManualCompras    = lazy(() => import('@/pages/print/ImprimirManualCompras').then(m => ({ default: m.ImprimirManualCompras })));
 const VistaPublicaPresupuesto  = lazy(() => import('@/pages/VistaPublicaPresupuesto').then(m => ({ default: m.VistaPublicaPresupuesto })));
 const VistaPublicaRemito       = lazy(() => import('@/pages/VistaPublicaRemito').then(m => ({ default: m.VistaPublicaRemito })));
 
@@ -90,6 +92,7 @@ export default function App() {
                 <Route path="/imprimir/recibo/:id"       element={<ImprimirRecibo />} />
                 <Route path="/imprimir/formulario-cliente" element={<FormularioCliente />} />
                 <Route path="/imprimir/visita-tecnica"     element={<ImprimirVisitaTecnica />} />
+                <Route path="/imprimir/manual-compras"     element={<ImprimirManualCompras />} />
                 <Route element={<AppLayout />}>
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
@@ -125,6 +128,7 @@ export default function App() {
                   <Route path="/compras/solicitudes/:id/editar" element={<NuevaSolicitud />} />
                   <Route path="/compras/oc/nueva" element={<NuevoPedido />} />
                   <Route path="/compras/oc/:id/editar" element={<NuevoPedido />} />
+                  <Route path="/ayuda/compras" element={<AyudaCompras />} />
                   <Route path="/pedidos" element={<Navigate to="/compras?tab=ordenes" replace />} />
                   <Route path="/pedidos/nuevo" element={<RedirigirPedidoNuevo />} />
                   <Route path="/pedidos/:id/editar" element={<RedirigirPedidoEditar />} />
