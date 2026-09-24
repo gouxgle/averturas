@@ -232,6 +232,7 @@ recibos.get('/tablero', async (c) => {
       SELECT
         CASE
           WHEN LOWER(rpe.forma_pago) LIKE '%transfer%' THEN 'Transferencia'
+          WHEN LOWER(rpe.forma_pago) LIKE '%cheque%' THEN 'Cheque'
           WHEN LOWER(rpe.forma_pago) LIKE '%contado%' OR LOWER(rpe.forma_pago) LIKE '%efectivo%' THEN 'Efectivo'
           WHEN LOWER(rpe.forma_pago) LIKE '%tarjeta%' OR LOWER(rpe.forma_pago) LIKE '%cuota%'
             OR LOWER(rpe.forma_pago) LIKE '%débito%' OR LOWER(rpe.forma_pago) LIKE '%crédito%'

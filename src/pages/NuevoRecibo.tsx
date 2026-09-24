@@ -111,7 +111,10 @@ export function NuevoRecibo() {
   // Pago combinado: vacío = un solo medio (el modo por defecto, sin cambios). Se llena
   // recién cuando el usuario elige dividir el cobro entre varios medios.
   const [pagos, setPagos] = useState<{ forma_pago: string; monto: string; referencia: string }[]>([]);
-  const [concepto,    setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
+  // Formas de pago cargadas en Configuración (cheques a 30/60/90 días, etc.), que se
+  // suman a las fijas de FORMAS_PAGO.
+  const [formasCatalogo, setFormasCatalogo] = useState<string[]>([]);
+  const [concepto,   setConcepto]    = useState(urlConcepto ?? (urlMonto ? 'Pago parcial' : ''));
   // El concepto se arma solo con el número del presupuesto (igual que la venta rápida
   // de mostrador), pero deja de tocarse apenas el usuario escribe el suyo o viene uno
   // por URL (ej. "Cancelación de saldo" desde el botón "Cobrar saldo" de Recibos).
@@ -156,6 +159,12 @@ export function NuevoRecibo() {
   const [showClientes,  setShowClientes]  = useState(false);
   const clienteRef = useRef<HTMLInputElement>(null);
   const comprobanteInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.get<{ nombre: string }[]>('/catalogo/formas-pago')
+      .then(rows => setFormasCatalogo(rows.map(r => r.nombre)))
+      .catch(() => {});
+  }, []);
 
   // ── Carga inicial / edit ──────────────────────────────────
   useEffect(() => {
@@ -301,6 +310,12 @@ export function NuevoRecibo() {
   // Se considera combinado recién con 2 medios: con uno solo el recibo se guarda como
   // siempre (forma_pago + referencia_pago), sin tocar el camino por defecto.
   const combinado   = pagos.length > 1;
+  // Opciones de los selects: las fijas + las del catálogo + las que ya trae el recibo
+  // al editar (una forma desactivada después en Configuración no se pierde del select).
+  const opcionesFormaPago = [...new Set(
+    [...FORMAS_PAGO, ...formasCatalogo, formaPago, ...pagos.map(p => p.forma_pago)].filter(Boolean)
+  )];
+  const esCheque = (f: string) => /cheque/i.test(f);
   const sumaPagos   = pagos.reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
 
   // ── Monto final del recibo ────────────────────────────────
@@ -832,7 +847,7 @@ export function NuevoRecibo() {
               <div>
                 <label className={labelCls}>Forma de pago *</label>
                 <select value={formaPago} onChange={e => setFormaPago(e.target.value)} className={inputCls}>
-                  {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                  {opcionesFormaPago.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
             )}
@@ -859,9 +874,9 @@ export function NuevoRecibo() {
               </div>
             </div>
           )}
-          {!combinado && formaPago === 'Transferencia' && (
+          {!combinado && (formaPago === 'Transferencia' || esCheque(formaPago)) && (
             <div className="mt-3">
-              <label className={labelCls}>N° de transferencia / CBU</label>
+              <label className={labelCls}>{esCheque(formaPago) ? 'N° de cheque / banco' : 'N° de transferencia / CBU'}</label>
               <input value={referencia} onChange={e => setReferencia(e.target.value)}
                 placeholder="Referencia del pago" className={inputCls} />
             </div>
@@ -892,7 +907,7 @@ export function NuevoRecibo() {
                         <select value={p.forma_pago} onChange={e => setPago(i, 'forma_pago', e.target.value)}
                           className={inputCls}>
                           <option value="">Elegí el medio…</option>
-                          {FORMAS_PAGO.map(f => <option key={f} value={f}>{f}</option>)}
+                          {opcionesFormaPago.map(f => <option key={f} value={f}>{f}</option>)}
                         </select>
                         <div className="flex items-center gap-1.5">
                           <div className="flex-1 min-w-0">
@@ -915,9 +930,9 @@ export function NuevoRecibo() {
                         </button>
                       )}
                     </div>
-                    {p.forma_pago === 'Transferencia' && (
+                    {(p.forma_pago === 'Transferencia' || esCheque(p.forma_pago)) && (
                       <input value={p.referencia} onChange={e => setPago(i, 'referencia', e.target.value)}
-                        placeholder="N° de transferencia / CBU (opcional)"
+                        placeholder={esCheque(p.forma_pago) ? 'N° de cheque / banco (opcional)' : 'N° de transferencia / CBU (opcional)'}
                         className={cn(inputCls, 'mt-2 text-xs')} />
                     )}
                   </div>
