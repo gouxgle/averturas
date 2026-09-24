@@ -1219,6 +1219,8 @@ export function Presupuestos() {
   function abrirDetalle(p: PresupuestoPanel) { setDetailId(p.id); setDetailPanel(p); }
   const [ordenOpen, setOrdenOpen] = useState(false);
   const ordenRef = useRef<HTMLDivElement>(null);
+  const [filtroOpen, setFiltroOpen] = useState(false);
+  const filtroRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1260,6 +1262,7 @@ export function Presupuestos() {
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ordenRef.current && !ordenRef.current.contains(e.target as Node)) setOrdenOpen(false);
+      if (filtroRef.current && !filtroRef.current.contains(e.target as Node)) setFiltroOpen(false);
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -1332,6 +1335,7 @@ export function Presupuestos() {
     { value: 'aprobados',     label: 'Aprobados',      count: conteos.aprobados, dot: 'bg-emerald-500' },
     { value: 'perdidos',      label: 'Perdidos',       count: conteos.perdidos },
   ];
+  const tabActual = TABS.find(t => t.value === tab) ?? TABS[0];
 
   const ORDENES: { value: Orden; label: string }[] = [
     { value: 'prioridad',   label: 'Prioridad' },
@@ -1376,31 +1380,46 @@ export function Presupuestos() {
       <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
         {/* Left: table */}
         <div className="flex-1 min-w-0">
-          {/* Tabs + ordenar */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <div className="flex gap-1 flex-wrap flex-1">
-              {TABS.map(t => (
-                <button key={t.value} onClick={() => setTab(t.value)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap',
-                    tab === t.value
-                      ? 'bg-violet-600 text-white border-violet-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:text-violet-600'
-                  )}>
-                  {t.dot && <span className={cn('w-1.5 h-1.5 rounded-full', t.dot)} />}
-                  {t.label}
-                  <span className={cn(
-                    'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
-                    tab === t.value ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-                  )}>{t.count}</span>
-                </button>
-              ))}
+          {/* Filtro + ordenar — dos combos en una sola línea siempre (grid 50/50 en
+              mobile, flex en desktop). Antes los 7 filtros eran botones en fila que
+              envolvían hasta en 3 líneas a 375px; con esto la lista de abajo gana ese
+              espacio de vuelta. */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 mb-3">
+            <div className="relative min-w-0" ref={filtroRef}>
+              <button onClick={() => setFiltroOpen(o => !o)}
+                className="w-full sm:w-auto flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-400 transition-all">
+                {tabActual.dot && <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', tabActual.dot)} />}
+                <span className="font-semibold text-gray-800 truncate">{tabActual.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-violet-100 text-violet-700 shrink-0">
+                  {tabActual.count}
+                </span>
+                <ChevronLeft size={12} className={cn('transition-transform ml-auto shrink-0', filtroOpen ? 'rotate-90' : '-rotate-90')} />
+              </button>
+              {filtroOpen && (
+                <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1">
+                  {TABS.map(t => (
+                    <button key={t.value} onMouseDown={() => { setTab(t.value); setFiltroOpen(false); }}
+                      className={cn(
+                        'w-full flex items-center gap-1.5 text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors',
+                        tab === t.value ? 'text-violet-600 font-semibold' : 'text-gray-700'
+                      )}>
+                      {t.dot && <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', t.dot)} />}
+                      <span className="truncate">{t.label}</span>
+                      <span className={cn(
+                        'ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0',
+                        tab === t.value ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
+                      )}>{t.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="relative shrink-0" ref={ordenRef}>
+            <div className="relative min-w-0 sm:ml-auto" ref={ordenRef}>
               <button onClick={() => setOrdenOpen(o => !o)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-400 transition-all whitespace-nowrap">
-                Ordenar por <span className="font-semibold text-gray-800">{ORDENES.find(o => o.value === orden)?.label}</span>
-                <ChevronLeft size={12} className={cn('transition-transform', ordenOpen ? 'rotate-90' : '-rotate-90')} />
+                className="w-full sm:w-auto flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:border-gray-400 transition-all">
+                <span className="hidden sm:inline">Ordenar por</span>
+                <span className="font-semibold text-gray-800 truncate">{ORDENES.find(o => o.value === orden)?.label}</span>
+                <ChevronLeft size={12} className={cn('transition-transform ml-auto sm:ml-0 shrink-0', ordenOpen ? 'rotate-90' : '-rotate-90')} />
               </button>
               {ordenOpen && (
                 <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1">
