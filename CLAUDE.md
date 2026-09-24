@@ -318,6 +318,13 @@ congela una **revisión** en `operacion_revisiones` con token propio y snapshot 
 puede aprobar/rechazar/responder la última revisión y solo si coincide con el estado vivo (409
 si no). Links viejos siguen abiertos con aviso de "hay una más nueva" y comparador
 (`src/lib/diffProforma.ts`). PDF de cualquier revisión: `/imprimir/presupuesto/:id?revision=N`.
+**Deshacer una aprobación** (`POST /operaciones/:id/desaprobar`, botón "Deshacer aprobación"
+en el modal, 2026-09-24): vuelve a `enviado` si ya se había compartido o `presupuesto` si no,
+y limpia `aprobado_online_at` (si no se limpia, la fila sigue mostrando "Aprobado online" con
+un estado que ya no es `aprobado` — el bug que motivó separar esto de `PATCH /:id/estado`, que
+hace un `UPDATE` plano). Bloqueado con 409 si ya hay recibo emitido, pedido activo o remito no
+cancelado sobre la operación — a partir de ahí es una cancelación con pasos propios (nota de
+crédito, devolución de stock), no un simple deshacer.
 La proforma numera como `PRO-` (reemplazo visual de `OP-`). Si la visita de relevamiento
 vinculada quedó `sin_cargo`, la proforma lo aclara como bonificada.
 

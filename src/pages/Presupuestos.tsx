@@ -9,7 +9,7 @@ import {
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
   Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler, Target,
-  Eye, EyeOff,
+  Eye, EyeOff, Undo2, Loader2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -374,6 +374,8 @@ function PresupuestoModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando]         = useState(false);
+  const [confirmarDesaprobar, setConfirmarDesaprobar] = useState(false);
+  const [desaprobando, setDesaprobando]   = useState(false);
   const [resolviendo, setResolviendo]     = useState(false);
   const [linkUrl, setLinkUrl]             = useState<string | null>(null);
   const [linkRevision, setLinkRevision]   = useState<{ numero: number; nueva: boolean } | null>(null);
@@ -594,6 +596,23 @@ function PresupuestoModal({
     onEstadoChange(id, nuevoEstado);
     onRefresh();
     setCambiando(false);
+  }
+
+  async function desaprobar() {
+    if (!op) return;
+    setDesaprobando(true);
+    try {
+      const row = await api.post<{ estado: EstadoOperacion }>(`/operaciones/${id}/desaprobar`, {});
+      setOp(prev => prev ? { ...prev, estado: row.estado, aprobado_online_at: null } : prev);
+      onEstadoChange(id, row.estado);
+      onRefresh();
+      setConfirmarDesaprobar(false);
+      toast.success('Aprobación deshecha');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo deshacer la aprobación' });
+    } finally {
+      setDesaprobando(false);
+    }
   }
 
   async function resolverRespuesta() {
@@ -1077,6 +1096,40 @@ function PresupuestoModal({
                     <XCircle size={11} /> Rechazar
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Deshacer una aprobación hecha por error — solo si todavía no se generó
+                nada sobre el presupuesto (recibo, pedido o remito); si ya hay, el backend
+                lo rechaza y hay que anular esos documentos primero. */}
+            {esAprobado && !confirmarDesaprobar && (
+              <div className="px-5 py-3 flex justify-end bg-gray-50 rounded-b-2xl">
+                <button onClick={() => setConfirmarDesaprobar(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-white hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg font-medium transition-colors">
+                  <Undo2 size={11} /> Deshacer aprobación
+                </button>
+              </div>
+            )}
+            {esAprobado && confirmarDesaprobar && (
+              <div className="p-4 mx-5 mb-4 bg-red-50 rounded-xl border border-red-200 space-y-3">
+                <div className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle size={16} />
+                  <p className="text-sm font-semibold">¿Deshacer la aprobación de {op.numero}?</p>
+                </div>
+                <p className="text-xs text-red-600">
+                  Vuelve a {op.enviado_wa_at || op.revision_vigente ? '"Enviado"' : '"Pendiente de Aprobación"'}.
+                  Si el cliente ya lo había aprobado por el link, esa marca también se borra.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={desaprobar} disabled={desaprobando}
+                    className="flex-1 bg-red-500 text-white text-sm font-semibold py-2 rounded-lg hover:bg-red-600 disabled:opacity-50">
+                    {desaprobando ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Sí, deshacer'}
+                  </button>
+                  <button onClick={() => setConfirmarDesaprobar(false)}
+                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2 rounded-lg hover:bg-gray-50">
+                    No, volver
+                  </button>
+                </div>
               </div>
             )}
 

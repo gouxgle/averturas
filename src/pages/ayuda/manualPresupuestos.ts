@@ -27,6 +27,7 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
         ],
       },
       { t: 'aviso', tono: 'info', texto: 'Una vez **aprobado** el presupuesto no se edita más. Es a propósito: es el documento contra el que se cobra y se le compra al proveedor. Si hay que cambiar algo, se arma uno nuevo.' },
+      { t: 'aviso', tono: 'regla', texto: 'Si se aceptó por error, el botón **Deshacer aprobación** (abajo del todo en el detalle) lo vuelve al estado anterior. Solo funciona mientras no se generó nada sobre ese presupuesto: si ya hay un recibo, un pedido al proveedor o un remito, primero hay que anular esos documentos.' },
     ],
   },
   {
@@ -262,6 +263,7 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
         filas: [
           ['El botón Compartir está apagado', 'El presupuesto está vencido, o hay ítems a relevar', 'Extendé la validez, o completá la visita'],
           ['No puedo editarlo', 'Ya está aprobado', 'Armá uno nuevo'],
+          ['Lo aprobé/aprobó el cliente por error', 'Pasa', 'Detalle → Deshacer aprobación (si no hay recibo, pedido ni remito generados)'],
           ['El cliente dice que el link no anda', 'Pasaron 30 días del envío', 'Volvé a compartir: genera un link nuevo'],
           ['El cliente no puede aprobar', 'Se editó después de enviar y ya no coincide', 'Reenviale el presupuesto — se arma una revisión nueva'],
           ['No me deja emitir el recibo', 'El presupuesto no está aprobado', 'Aprobalo primero'],

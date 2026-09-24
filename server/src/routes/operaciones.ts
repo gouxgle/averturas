@@ -1699,6 +1699,59 @@ operaciones.put('/:id', async (c) => {
   }
 });
 
+// POST /:id/desaprobar — deshacer una aprobación hecha por error (manual u online).
+// Separado de PATCH /:id/estado a propósito: ese endpoint hace un UPDATE plano y no
+// limpia aprobado_online_at, así que revertir por ahí dejaba la fila mostrando
+// "✓ Aprobado Online" con un estado que ya no era 'aprobado' — la señal quedaba
+// mintiendo. Acá además se bloquea si ya hay plata o mercadería en movimiento: eso
+// no es un "deshacer", es una cancelación con más pasos (nota de crédito, devolución
+// de stock) que hay que resolver a mano primero.
+operaciones.post('/:id/desaprobar', async (c) => {
+  const { id } = c.req.param();
+
+  const { rows: [op] } = await db.query(
+    `SELECT id, numero, estado FROM operaciones WHERE id = $1`, [id]
+  );
+  if (!op) return c.json({ error: 'Operación no encontrada' }, 404);
+  if (op.estado !== 'aprobado') {
+    return c.json({ error: 'Este presupuesto no está aprobado' }, 409);
+  }
+
+  const { rows: [tiene] } = await db.query(`
+    SELECT
+      EXISTS (SELECT 1 FROM recibos r WHERE r.operacion_id = $1 AND r.estado = 'emitido') AS tiene_recibo,
+      EXISTS (SELECT 1 FROM pedidos p WHERE p.operacion_id = $1 AND p.estado != 'cancelado') AS tiene_pedido,
+      EXISTS (SELECT 1 FROM remitos rm WHERE rm.operacion_id = $1 AND rm.estado != 'cancelado') AS tiene_remito
+  `, [id]);
+  if (tiene.tiene_recibo || tiene.tiene_pedido || tiene.tiene_remito) {
+    return c.json({
+      error: 'No se puede deshacer: ya hay recibo, pedido al proveedor o remito generados sobre este presupuesto. Anulá esos documentos primero.'
+    }, 409);
+  }
+
+  // Si nunca se compartió (aprobado a mano, sin pasar por "enviado"), vuelve a
+  // "Pendiente de Aprobación" en vez de "Enviado" — no inventamos un envío que no pasó.
+  const { rows: [{ existe: fueCompartido }] } = await db.query(
+    `SELECT EXISTS (SELECT 1 FROM operacion_revisiones WHERE operacion_id = $1) AS existe`, [id]
+  );
+  const estadoDestino = fueCompartido ? 'enviado' : 'presupuesto';
+
+  const { rows: [row] } = await db.query(`
+    UPDATE operaciones
+    SET estado = $2, aprobado_online_at = NULL, updated_at = now()
+    WHERE id = $1
+    RETURNING id, numero, estado
+  `, [id, estadoDestino]);
+
+  registrarActividad(c, {
+    entidad: 'presupuesto', entidad_id: row.id, entidad_numero: row.numero,
+    accion: 'cambio_estado',
+    detalle: `Aprobación deshecha — vuelve a "${estadoDestino === 'enviado' ? 'Enviado' : 'Pendiente de Aprobación'}"`,
+    meta: { estado_anterior: 'aprobado', estado_nuevo: estadoDestino },
+  });
+  return c.json(row);
+});
+
 operaciones.patch('/:id/estado', async (c) => {
   const { id } = c.req.param();
   const b = await validateBody(c, EstadoOperacionSchema);
