@@ -178,14 +178,13 @@ src/pages/          una página por sección (Dashboard, CRM, Presupuestos, Nuev
                     Operaciones (kanban), Remitos, Recibos, NuevoRecibo, NuevoPedido (flujo
                     viejo de OC), compras/ (Compras + 6 pestañas + detalles SC/PC/OC/REC +
                     NuevaSolicitud + ModalRecepcion/Consolidar/Pago + PanelEconomico),
-                    ayuda/ (manual de Compras: manualCompras.ts = contenido, AyudaCompras.tsx
-                    = página, ContenidoManual.tsx = render compartido con la versión impresa),
+                    ayuda/ (Manuales del sistema — ver sección propia más abajo),
                     VentaRapida, VisitaTecnica, VisitasTecnicas, CargarVisitaTecnica, Clientes,
                     ClienteDetalle, Productos, NuevoProducto, Stock, Proveedores, EstadoCuenta,
                     Reportes, Actividad, Novedades, Configuracion, VistaPublicaPresupuesto,
                     VistaPublicaRemito) + print/ (ImprimirPresupuesto → ProformaDocumento,
                     ImprimirPresupuestoPublico, ImprimirRecibo, ImprimirRemito,
-                    ImprimirVisitaTecnica, ImprimirManualCompras, FormularioCliente)
+                    ImprimirVisitaTecnica, ImprimirManual, FormularioCliente)
 src/components/     Layout/{AppLayout,Sidebar}, NotificationBell, AvisosEmergentes,
                     EntornoBanner, CentroAlertas, AlertaBackups, SectionHero, CompactStatsBar,
                     ComparadorRevisiones, RevisionesEnviadas, VersionesPresupuesto,
@@ -210,15 +209,16 @@ Autenticadas: `/dashboard`, `/crm`, `/presupuestos[/nuevo|/:id/editar|/visita-te
 `/compras[?tab=solicitudes|cotizaciones|ordenes&sc=|pc=|oc=]`, `/compras/nueva-solicitud`,
 `/compras/solicitudes/:id/editar`, `/compras/oc[/nueva|/:id/editar]` (flujo viejo; `/pedidos*`
 redirige acá), `/recibos[/nuevo|/:id/editar]`,
-`/ayuda/compras` (manual del módulo), `/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
+`/ayuda` (índice de manuales) y `/ayuda/:manual`, `/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
 `/productos[/nuevo|/:id]`, `/stock`, `/proveedores[/:id/precios]`, `/reportes`, `/actividad`,
 `/novedades`, `/configuracion`. Impresión (sin AppLayout): `/imprimir/{presupuesto,remito,recibo}/:id`,
-`/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`, `/imprimir/manual-compras`.
+`/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`, `/imprimir/manual/:manual`
+(`/imprimir/manual-compras` redirige al nuevo, por los links viejos guardados).
 
 Sidebar: Dashboard · **Comercial** (CRM, Venta rápida, Presupuestos, Visitas de Relevamiento
 de Datos, Operaciones, Remitos, Compras, Recibos, Clientes, Estado de Cuenta) · **Catálogo**
 (Productos, Existencias, Proveedores) · **Sistema** (Reportes, Actividad, Novedades,
-Manual de Compras, Configuración). Configuración tiene paneles para tipos de abertura, sistemas, colores,
+Manuales del sistema, Configuración). Configuración tiene paneles para tipos de abertura, sistemas, colores,
 materiales, líneas, tipos de vidrio, categorías, modelos, servicios, formas de pago, empresa,
 usuarios, plantillas de WhatsApp y Backups (solo admin).
 
@@ -392,13 +392,9 @@ enviarla, el remito al recibir, las fotos de reclamos, la factura y los comproba
 `actualizarCierreTotal()` pone/saca el sello **"cerrada totalmente"** solo cuando no queda nada
 pendiente (mercadería, reclamos, control, factura, saldo y documentos).
 
-**Documentación de usuario** (dos piezas, con distinto propósito — si se cambia una pantalla
-del módulo hay que tocar las dos): el **manual completo** en `src/pages/ayuda/manualCompras.ts`
-(fuente única: la lee la página `/ayuda/compras` y la versión imprimible
-`/imprimir/manual-compras`, con el render compartido de `ContenidoManual.tsx`), y el **resumen
-corto** del panel lateral en `HelpDrawer.tsx`, tema `compras`, que es para consultar mientras
-se trabaja y enlaza al manual. Hay además una copia editable del manual como documento en
-claude.ai (solo para revisión del usuario, no la lee el sistema).
+**Documentación de usuario**: el manual completo (ver "Manuales del sistema") y el **resumen
+corto** del panel lateral en `HelpDrawer.tsx`, tema `compras`, para consultar mientras se
+trabaja. Si se cambia una pantalla del módulo hay que tocar las dos.
 
 Precios neto + IVA % por línea, IVA ∈ {0, 10.5, 21, 27}. `POST /pedidos` (flujo viejo) sigue
 funcionando y crea la SC implícita `con_oc`. PDFs con `generarPDFCompra()` y
@@ -449,6 +445,38 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   verificar el server-side sin enviar nada: llamar `generarPDF*()` directo con `tsx`. Firma
   digital: 56px en recibo, 49px en remito. Ante dudas de paginación, contar `/Type /Pages
   ... /Count N` en los bytes del PDF, no medir el DOM.
+
+## Manuales del sistema (`/ayuda`)
+
+Cuatro manuales escritos **para el operador del local, no para desarrolladores**. Si se
+cambia una pantalla de alguno de estos circuitos, hay que corregir el manual en el mismo
+commit (y el resumen corto del panel lateral, `HelpDrawer.tsx`, si el tema lo tiene).
+
+| Manual | Slug | Contenido |
+|---|---|---|
+| Presupuestos | `presupuestos` | `manualPresupuestos.ts` |
+| Visitas de Relevamiento | `visitas` | `manualVisitas.ts` |
+| Venta rápida | `venta-rapida` | `manualVentaRapida.ts` |
+| Compras | `compras` | `manualCompras.ts` |
+
+- `manuales.ts` es el **registro**: slug, título, ícono, `data-section` y a qué pantalla
+  lleva el botón "Ir a…". Agregar un manual = un archivo de contenido + una entrada acá;
+  las rutas, el índice y la versión imprimible salen solas.
+- `tipos.ts` tiene `Bloque` (`p | lista | tabla | aviso | flujo | subtitulo`),
+  `SeccionManual` y `textoDeSeccion()` (el buscador). En los textos, `**esto**` va en negrita.
+- `ContenidoManual.tsx` es el render compartido por pantalla e impresión (`print` compacta
+  y evita cortes de página; las tablas salen como tarjetas en mobile).
+- Páginas: `Manuales.tsx` (índice en `/ayuda`, con buscador que mira **todos** los manuales
+  y lleva a la sección exacta por ancla), `Ayuda.tsx` (`/ayuda/:manual`) y
+  `print/ImprimirManual.tsx` (`/imprimir/manual/:manual`, A4 con portada e índice).
+- `Ayuda.tsx` remonta con `key={slug}` al cambiar de manual — así la búsqueda arranca
+  vacía sin un `useEffect` que resetee estado (el lint del repo lo prohíbe).
+- **Al testear con Playwright**: acotar a `main` (el sidebar tiene ítems `lg:hidden` con los
+  mismos textos, que matchean primero y están ocultos) y navegar entre manuales **por
+  clicks**, no con `goto` — cada carga pega a `/auth/me` y el límite es 10/min.
+
+Hay además una copia editable del manual de Compras como documento en claude.ai (solo para
+revisión del usuario, no la lee el sistema).
 
 ## Convenciones de UI
 

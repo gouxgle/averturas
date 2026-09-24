@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { ChevronRight, Info, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Bloque, SeccionManual } from './manualCompras';
+import type { Bloque, SeccionManual } from './tipos';
 
 /** `**negrita**` → <strong>. Es el único formato que usan los textos del manual. */
 function Texto({ children }: { children: string }) {

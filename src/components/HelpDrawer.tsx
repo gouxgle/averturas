@@ -19,6 +19,12 @@ type HelpSection = {
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
 export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras';
 
+/** Temas que además tienen manual completo en Manuales del sistema (`/ayuda/:slug`). */
+const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
+  presupuestos: 'presupuestos',
+  compras: 'compras',
+};
+
 // ── Contenido de ayuda ────────────────────────────────────────────────────────
 
 const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
@@ -94,8 +100,8 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         intro: 'En la lista de presupuestos aprobados se muestra el estado de pago:',
         table: [
           { label: '○ Sin cobrar', value: 'No se registró ningún recibo' },
-          { label: '◑ Seña $X', value: 'Pago parcial registrado, hay saldo pendiente' },
-          { label: '● Cobrado', value: 'El total fue cobrado completamente' },
+          { label: '◑ Señado $X', value: 'Pago parcial registrado, hay saldo pendiente' },
+          { label: '● Pago total', value: 'El total fue cobrado completamente' },
         ],
         tip: 'Desde el modal del presupuesto aprobado, el botón "Registrar cobro" abre el formulario de recibo pre-cargado.',
       },
@@ -381,14 +387,14 @@ export function HelpDrawer({ topic, onClose, onChangeTopic }: HelpDrawerProps) {
           </button>
         </div>
 
-        {/* Compras tiene manual completo aparte: este panel es el resumen para consultar
-            mientras se trabaja. */}
-        {topic === 'compras' && (
+        {/* Este panel es el resumen para consultar mientras se trabaja; el manual
+            completo del tema vive en Manuales del sistema. */}
+        {MANUAL_DE_TEMA[topic] && (
           <button
-            onClick={() => { onClose(); navigate('/ayuda/compras'); }}
-            className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-lime-200 bg-lime-50 text-left hover:bg-lime-100 transition-colors">
-            <span className="text-xs font-semibold text-lime-900">Ver el manual completo de Compras</span>
-            <ExternalLink size={13} className="text-lime-700 shrink-0" />
+            onClick={() => { onClose(); navigate(`/ayuda/${MANUAL_DE_TEMA[topic]}`); }}
+            className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-violet-200 bg-violet-50 text-left hover:bg-violet-100 transition-colors">
+            <span className="text-xs font-semibold text-violet-900">Ver el manual completo de {data.label}</span>
+            <ExternalLink size={13} className="text-violet-700 shrink-0" />
           </button>
         )}
 
