@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, AlertTriangle, Calendar, CreditCard, Banknote,
+  Search, Calendar, CreditCard, Banknote,
   ArrowUpDown, XCircle, CheckCheck, Trash2, Users,
-  DollarSign, Phone, MessageSquare, Mail, MoreVertical,
-  TrendingUp, TrendingDown, RefreshCw, Download, Plus,
+  DollarSign, Phone, MessageSquare, Mail, TrendingUp, TrendingDown, RefreshCw, Plus,
   ExternalLink, Flame, BookOpen,
   FileText, Truck, ArrowDownLeft, ArrowUpRight, Check, Clock,
   ChevronDown, ChevronUp, Send, X,
@@ -858,7 +857,7 @@ export function EstadoCuentaGlobal() {
       const db = b.proximo_vencimiento ? new Date(b.proximo_vencimiento).getTime() : 9e15;
       return da - db;
     });
-    else if (ordenLocal === 'actividad') result = [...result].sort((a, b) => (Number(a.dias_desde_ultima_compra) ?? 999) - (Number(b.dias_desde_ultima_compra) ?? 999));
+    else if (ordenLocal === 'actividad') result = [...result].sort((a, b) => Number(a.dias_desde_ultima_compra ?? 999) - Number(b.dias_desde_ultima_compra ?? 999));
     else result = [...result].sort((a, b) => nombreCliente(a).localeCompare(nombreCliente(b)));
 
     return result;
@@ -1050,7 +1049,6 @@ export function EstadoCuentaGlobal() {
                 {filtrado.map(c => {
                   const cfg = ESTADO_COBRO_CFG[c.estado_cobro];
                   const seg = segmento(c);
-                  const vc  = fmtVencimiento(c);
                   const isExpanded = expandedId === c.id;
 
                   return (
@@ -1118,6 +1116,16 @@ export function EstadoCuentaGlobal() {
                               ? `En ${diasHasta(c.proximo_vencimiento)} días`
                               : cfg.label}
                           </span>
+                          {/* Único acceso a los compromisos de pago del cliente (marcar cumplido /
+                              incumplido, eliminar): el click en la fila abre el detalle desde jun-2026
+                              y el panel desplegable había quedado sin forma de abrirse. */}
+                          {Number(c.compromisos_pendientes) > 0 && (
+                            <button type="button"
+                              onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : c.id); }}
+                              className="block mt-1 text-[10px] font-semibold text-blue-600 hover:underline">
+                              {isExpanded ? 'Ocultar compromisos' : 'Ver compromisos'}
+                            </button>
+                          )}
                         </div>
 
                         {/* Días vencido */}

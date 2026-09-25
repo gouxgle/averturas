@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Truck, Plus, Pencil, Check, X, ToggleLeft, ToggleRight, Globe,
-  MapPin, Hash, Search, Star, TrendingUp, TrendingDown,
-  RefreshCw, Phone, Mail, Package, ChevronLeft, ChevronRight,
+  MapPin, Search, Star, RefreshCw, Phone, Mail, Package, ChevronLeft, ChevronRight,
   ShoppingCart, DollarSign, Clock, BarChart2, Zap, Tag, Trash2,
 } from 'lucide-react';
 import { SectionHero } from '@/components/SectionHero';

@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Upload, Search, Users, Phone, MessageCircle,
+  Plus, Search, Users, Phone, MessageCircle,
   History, TrendingUp, TrendingDown, Clock, Star,
-  AlertCircle, UserPlus, RefreshCw, ChevronLeft, ChevronRight,
-  Receipt, FileText, X, Download, Filter,
+  AlertCircle, RefreshCw, ChevronLeft, ChevronRight,
+  Receipt, FileText, X, Download,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, diasCalendarioAR, TZ_AR } from '@/lib/utils';
@@ -107,11 +107,6 @@ function actividadInfo(dias: number): { label: string; dotColor: string } {
   if (dias <= 7)   return { label: `Hace ${dias} días`, dotColor: 'bg-emerald-500' };
   if (dias <= 30)  return { label: `Hace ${dias} días`, dotColor: 'bg-amber-500' };
   return             { label: `Hace ${dias} días`,    dotColor: 'bg-red-500' };
-}
-
-function fmtFechaCorta(iso: string | null) {
-  if (!iso) return null;
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: TZ_AR });
 }
 
 function fmtRelativa(iso: string) {
@@ -358,15 +353,6 @@ export function Clientes() {
     mas_reciente:     'Más reciente',
     nombre:           'Nombre',
   };
-
-  const KPIS = [
-    { label: 'Total clientes',     valor: stats.total,               sub: 'Todos los clientes',       icon: Users,      color: 'text-sky-600',     bg: 'bg-sky-50' },
-    { label: 'Clientes activos',   valor: stats.activos,             sub: 'Con actividad reciente',   icon: Users,      color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Sin actividad',      valor: stats.sin_actividad,       sub: 'Más de 60 días',           icon: Clock,      color: 'text-amber-600',   bg: 'bg-amber-50' },
-    { label: 'Nuevos este mes',    valor: stats.nuevos_mes,          sub: '+20% vs mes anterior',     icon: UserPlus,   color: 'text-violet-600',  bg: 'bg-violet-50' },
-    { label: 'Total facturado (mes)', valor: formatCurrency(stats.total_facturado_mes), sub: `De ${stats.total} clientes`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', isCurrency: true },
-    { label: 'Clientes top (mes)', valor: stats.clientes_top,        sub: 'Generan mayor volumen',    icon: Star,       color: 'text-amber-600',   bg: 'bg-amber-50' },
-  ];
 
   const OPO_ITEMS = [
     {

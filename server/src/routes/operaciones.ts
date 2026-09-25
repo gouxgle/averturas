@@ -8,6 +8,7 @@ import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
 import { sendProformaCompartida } from '../email.js';
 import { registrarActividad } from '../lib/actividad.js';
+import { mesAR } from '../lib/fechas.js';
 
 const operaciones = new Hono();
 
@@ -118,7 +119,7 @@ async function renderMensajePresupuesto(nombre: string, numero: string, url: str
 // MAX del sufijo numérico (no COUNT): un borrado previo deja huecos y COUNT(*) + 1
 // puede repetir un número ya usado, violando el UNIQUE de numero.
 async function nextNumeroRecibo(): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
   const { rows } = await db.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
     [`REC-${ym}-%`]
@@ -128,7 +129,7 @@ async function nextNumeroRecibo(): Promise<string> {
 }
 
 async function nextNumeroRemito(): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
   const { rows } = await db.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM remitos WHERE numero LIKE $1`,
     [`R-${ym}-%`]
@@ -254,7 +255,7 @@ operaciones.post('/venta-rapida', async (c) => {
       // Numeración dentro de la misma transacción: nextNumeroRecibo() usa el pool
       // (otra conexión) y no vería el recibo de productos recién insertado, sin
       // confirmar todavía — generaría el mismo número dos veces.
-      const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+      const ym = mesAR();
       const { rows: [{ n }] } = await client.query(
         `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
         [`REC-${ym}-%`]

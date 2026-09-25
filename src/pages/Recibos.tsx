@@ -4,10 +4,9 @@ import { HelpButton } from '@/components/HelpButton';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 import {
-  Receipt, Plus, Search, RefreshCw, CheckCircle2, XCircle,
-  Wallet, CreditCard, Landmark, Banknote, X, Ban, Pen,
+  Receipt, Plus, Search, RefreshCw, Wallet, CreditCard, Landmark, Banknote, X, Ban, Pen,
   Printer, User, Package, AlertTriangle, MessageCircle,
-  Clock, TrendingUp, AlertCircle, ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight,
   Send, List,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -50,7 +49,6 @@ interface CompromisoRow {
   cliente_telefono: string | null;
 }
 
-type TablaRow = ReciboRow | CompromisoRow;
 type EstadoCobro = 'cobrado' | 'parcial' | 'pendiente' | 'vencido' | 'anulado';
 
 interface DeudasCliente {
@@ -677,52 +675,6 @@ export function Recibos() {
   };
 
   const donutData = metodos_pago.map(m => ({ label: m.grupo, pct: m.pct, total: m.total }));
-
-  const mesActual = new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-
-  // KPI tiles
-  const kpis = [
-    {
-      label: 'Total a cobrar',
-      sub: `${stats.count_mes} recibos emitidos`,
-      valor: formatCurrency(stats.total_a_cobrar),
-      icon: TrendingUp, color: 'text-sky-600', bg: 'bg-sky-50',
-    },
-    {
-      label: 'Cobrado este mes',
-      sub: `${stats.pct_cobro}% del total`,
-      valor: formatCurrency(stats.cobrado_mes),
-      icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50',
-      progress: stats.pct_cobro,
-    },
-    {
-      label: 'Pendiente de cobro',
-      sub: `${stats.total_a_cobrar > 0 ? 100 - stats.pct_cobro : 0}% del total`,
-      valor: formatCurrency(stats.pendiente_cobro),
-      icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50',
-    },
-    {
-      label: 'Vencido',
-      sub: stats.total_a_cobrar > 0
-        ? `${Math.round(stats.vencido / stats.total_a_cobrar * 100)}% del total`
-        : '0% del total',
-      valor: formatCurrency(stats.vencido),
-      icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50',
-    },
-    {
-      label: 'Días promedio de cobro',
-      sub: mesActual,
-      valor: `${stats.dias_promedio} días`,
-      icon: Clock, color: 'text-violet-600', bg: 'bg-violet-50',
-    },
-    {
-      label: '% de cobro',
-      sub: 'Objetivo: 80%',
-      valor: `${stats.pct_cobro}%`,
-      icon: TrendingUp, color: 'text-sky-600', bg: 'bg-sky-50',
-      circular: stats.pct_cobro,
-    },
-  ];
 
   const TABS: { key: FiltroEstado; label: string }[] = [
     { key: 'todos',   label: 'Todos' },

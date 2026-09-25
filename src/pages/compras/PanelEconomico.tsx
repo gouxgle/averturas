@@ -3,7 +3,7 @@ import {
   Wallet, FolderOpen, Receipt, Plus, FileText, Trash2, AlertTriangle, Check, Lock, ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
@@ -29,7 +29,7 @@ export function PanelEconomico({ oc, onChanged }: { oc: OrdenDetalle; onChanged:
   const [ocupado, setOcupado] = useState(false);
   // factura
   const [fNumero, setFNumero] = useState('');
-  const [fFecha, setFFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [fFecha, setFFecha] = useState(fechaDiaAR(new Date()));
   const [fNeto, setFNeto] = useState('');
   const [fIva, setFIva] = useState('');
   const [fTotal, setFTotal] = useState('');

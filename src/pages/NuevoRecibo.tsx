@@ -6,7 +6,7 @@ import {
   RefreshCw, Check, X, Package, Gift, ImagePlus, Trash2, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDate, formatCurrency, cn } from '@/lib/utils';
+import { formatDate, formatCurrency, cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
@@ -104,7 +104,7 @@ export function NuevoRecibo() {
   const [clienteId,   setClienteId]   = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSel,  setClienteSel]  = useState<Cliente | null>(null);
   const [operacionId, setOperacionId] = useState(searchParams.get('operacion_id') ?? '');
-  const [fecha,       setFecha]       = useState(new Date().toISOString().split('T')[0]);
+  const [fecha,       setFecha]       = useState(fechaDiaAR(new Date()));
   const [formaPago,   setFormaPago]   = useState('Contado');
   const [formaPagoAlternativaId, setFormaPagoAlternativaId] = useState('');
   const [referencia,  setReferencia]  = useState('');
@@ -521,7 +521,7 @@ export function NuevoRecibo() {
       setFormaPagoAlternativaId('');
       resetBonificacion();
     }
-  }, [presupuestoDetalle]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [presupuestoDetalle]);
 
   function elegirAlternativa(alt: { id: string; nombre: string; descuento_pct: number }) {
     setFormaPago(alt.nombre);
@@ -1522,6 +1522,7 @@ export function NuevoRecibo() {
           onNavigate={() => navigate('/recibos')}
           navigateLabel="Ir a recibos"
           entityEndpoint={`/recibos/${savedId}`}
+          adjuntaPdf
           clienteNombre={presupuestoDetalle ? (
             presupuestoDetalle.cliente.tipo_persona === 'juridica'
               ? presupuestoDetalle.cliente.razon_social ?? undefined

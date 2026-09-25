@@ -7,6 +7,7 @@ import {
   nextNumeroCompra, crearSolicitudImplicita, estadoLogisticaDesdeLegacy, crearRecepcion,
   revertirStockDeRecepciones, registrarSeguimiento, ErrorRecepcion,
 } from '../lib/compras.js';
+import { hoyAR } from '../lib/fechas.js';
 
 // Flujo "corto" de pedidos al proveedor (desde una operación o para stock propio). Sigue
 // vigente porque lo consumen Presupuestos, NuevoRecibo, NuevoRemito y Operaciones; el
@@ -39,136 +40,6 @@ const WITH_PROVEEDOR = `
   LEFT JOIN clientes c ON c.id = o.cliente_id
   LEFT JOIN transportistas t ON t.id = p.transportista_id
 `;
-
-// GET /tablero
-pedidos.get('/tablero', async (c) => {
-  const inicioSemana = new Date();
-  inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
-  inicioSemana.setHours(0, 0, 0, 0);
-
-  const [statsRow, listRows, esperandoRows, prepararRows] = await Promise.all([
-
-    db.query(`
-      SELECT
-        COUNT(*) FILTER (WHERE estado = 'pendiente')::int AS pendientes,
-        COUNT(*) FILTER (WHERE estado = 'enviado')::int AS enviados,
-        COUNT(*) FILTER (WHERE estado = 'recibido' AND updated_at >= $1)::int AS recibidos_semana,
-        COALESCE(SUM(monto_total) FILTER (WHERE estado IN ('pendiente','enviado')), 0)::numeric AS valor_pendiente
-      FROM pedidos
-    `, [inicioSemana.toISOString()]),
-
-    db.query(`
-      SELECT p.id, p.numero, p.estado, p.fecha_pedido, p.fecha_entrega_est,
-        p.fecha_recepcion, p.monto_total, p.notas,
-        json_build_object(
-          'id', prov.id, 'nombre', prov.nombre, 'telefono', prov.telefono
-        ) AS proveedor,
-        CASE WHEN o.id IS NOT NULL
-          THEN json_build_object(
-            'id', o.id, 'numero', o.numero,
-            'cliente', json_build_object(
-              'id', cl.id, 'nombre', cl.nombre, 'apellido', cl.apellido,
-              'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona
-            )
-          )
-          ELSE NULL END AS operacion,
-        items_agg.items_resumen,
-        (CASE WHEN p.operacion_id IS NOT NULL
-          THEN ${sqlItemsTotal('p.operacion_id')}
-          ELSE NULL END) AS items_total_op,
-        (CASE WHEN p.operacion_id IS NOT NULL
-          THEN ${sqlItemsCubiertos('p.operacion_id')}
-          ELSE NULL END) AS items_cubiertos
-      FROM pedidos p
-      JOIN  proveedores prov ON prov.id = p.proveedor_id
-      LEFT JOIN operaciones o  ON o.id = p.operacion_id
-      LEFT JOIN clientes    cl ON cl.id = o.cliente_id
-      LEFT JOIN LATERAL (
-        SELECT json_agg(
-          json_build_object('descripcion', pi.descripcion, 'cantidad', pi.cantidad)
-          ORDER BY pi.orden
-        ) AS items_resumen
-        FROM pedido_items pi WHERE pi.pedido_id = p.id
-      ) items_agg ON true
-      ORDER BY p.created_at DESC
-      LIMIT 300
-    `),
-
-    db.query(`
-      SELECT p.id, p.numero, p.fecha_entrega_est,
-        json_build_object('nombre', prov.nombre, 'telefono', prov.telefono) AS proveedor,
-        CASE WHEN o.id IS NOT NULL
-          THEN json_build_object('numero', o.numero, 'cliente',
-            json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
-              'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona))
-          ELSE NULL END AS operacion
-      FROM pedidos p
-      JOIN proveedores prov ON prov.id = p.proveedor_id
-      LEFT JOIN operaciones o ON o.id = p.operacion_id
-      LEFT JOIN clientes cl ON cl.id = o.cliente_id
-      WHERE p.estado = 'enviado'
-      ORDER BY p.fecha_entrega_est ASC NULLS LAST, p.created_at ASC
-      LIMIT 10
-    `),
-
-    // Recibidos sin remito emitido para la misma operación
-    db.query(`
-      SELECT p.id, p.numero, p.fecha_recepcion,
-        json_build_object('nombre', prov.nombre) AS proveedor,
-        CASE WHEN o.id IS NOT NULL
-          THEN json_build_object('id', o.id, 'numero', o.numero, 'cliente',
-            json_build_object('nombre', cl.nombre, 'apellido', cl.apellido,
-              'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona,
-              'telefono', cl.telefono))
-          ELSE NULL END AS operacion
-      FROM pedidos p
-      JOIN proveedores prov ON prov.id = p.proveedor_id
-      LEFT JOIN operaciones o ON o.id = p.operacion_id
-      LEFT JOIN clientes cl ON cl.id = o.cliente_id
-      WHERE p.estado = 'recibido'
-        AND p.es_stock_propio = false   -- los de stock propio ya quedaron en stock, no se entregan
-        AND (
-          p.operacion_id IS NULL
-          OR NOT EXISTS (
-            SELECT 1 FROM remitos r
-            WHERE r.operacion_id = p.operacion_id
-              AND r.estado IN ('emitido','entregado')
-          )
-        )
-      ORDER BY p.fecha_recepcion DESC NULLS LAST
-      LIMIT 10
-    `),
-  ]);
-
-  const s = statsRow.rows[0] as {
-    pendientes: number; enviados: number;
-    recibidos_semana: number; valor_pendiente: string;
-  };
-
-  return c.json({
-    stats: {
-      pendientes:       s.pendientes,
-      enviados:         s.enviados,
-      recibidos_semana: s.recibidos_semana,
-      valor_pendiente:  parseFloat(s.valor_pendiente),
-    },
-    pedidos:          listRows.rows,
-    esperando_recepcion: esperandoRows.rows,
-    para_preparar:    prepararRows.rows,
-  });
-});
-
-// GET /conteos
-pedidos.get('/conteos', async (c) => {
-  const { rows } = await db.query(`
-    SELECT estado, COUNT(*)::int AS n FROM pedidos GROUP BY estado
-  `);
-  const conteos: Record<string, number> = {
-    pendiente: 0, enviado: 0, recibido: 0, cancelado: 0,
-  };
-  for (const r of rows as { estado: string; n: number }[]) conteos[r.estado] = r.n;
-  return c.json(conteos);
-});
 
 // GET / — lista con filtros
 pedidos.get('/', async (c) => {
@@ -248,7 +119,7 @@ pedidos.post('/', async (c) => {
       b.proveedor_id,
       operacionId,
       esStockPropio,
-      b.fecha_pedido        || new Date().toISOString().split('T')[0],
+      b.fecha_pedido        || hoyAR(),
       b.fecha_entrega_est   || null,
       montoTotal,
       montoItems,
@@ -437,97 +308,6 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
   return c.json({ enviado: true, numero, mensaje, pedido: updated });
 });
 
-// POST /:id/avisar-recepcion-cliente — notifica al cliente que la mercadería llegó
-pedidos.post('/:id/avisar-recepcion-cliente', async (c) => {
-  const { id } = c.req.param();
-  const user = c.get('user');
-
-  const { rows: [pedido] } = await db.query(`${WITH_PROVEEDOR} WHERE p.id = $1`, [id]);
-  if (!pedido) return c.json({ error: 'Pedido no encontrado' }, 404);
-  if (!pedido.operacion) return c.json({ error: 'Este pedido no tiene operación vinculada' }, 422);
-
-  const cliente = pedido.operacion.cliente;
-  if (!cliente?.telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
-
-  // Normalizar número Argentina → 549XXXXXXXXXX
-  const digits = cliente.telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
-
-  const nombre = cliente.tipo_persona === 'juridica'
-    ? (cliente.razon_social ?? 'estimado/a')
-    : `${cliente.nombre ?? ''} ${cliente.apellido ?? ''}`.trim() || 'estimado/a';
-
-  // Leer plantilla de DB (fallback a texto inline)
-  const { rows: [tpl] } = await db.query(
-    `SELECT contenido FROM mensajes_plantilla WHERE clave = 'recepcion_cliente'`
-  );
-  const mensaje = tpl?.contenido
-    ? tpl.contenido
-        .replace(/\{\{nombre\}\}/g, nombre)
-        .replace(/\{\{numero_op\}\}/g, pedido.operacion.numero)
-    : `Hola ${nombre}, te informamos que los materiales de tu pedido *${pedido.operacion.numero}* han llegado.\n\nNos comunicamos pronto para coordinar la entrega. ¡Gracias! 🏠`;
-
-  const evoUrl  = process.env.EVOLUTION_API_URL;
-  const evoKey  = process.env.EVOLUTION_API_KEY;
-  const evoInst = process.env.EVOLUTION_INSTANCE;
-  if (!evoUrl || !evoKey || !evoInst)
-    return c.json({ error: 'Evolution API no configurada (faltan env vars)' }, 500);
-
-  const resp = await fetch(`${evoUrl}/message/sendText/${evoInst}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': evoKey },
-    body: JSON.stringify({ number: numero, text: mensaje }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    console.error('[whatsapp-recepcion] Evolution API error:', resp.status, errText);
-    try {
-      const errJson = JSON.parse(errText);
-      const msgs: Array<{ exists?: boolean; number?: string }> = errJson?.response?.message ?? [];
-      const noExiste = msgs.find(m => m.exists === false);
-      if (noExiste) {
-        return c.json({
-          error: `El número ${noExiste.number ?? numero} no está registrado en WhatsApp. Verificá el número en la ficha del cliente.`
-        }, 422);
-      }
-    } catch { /* no JSON */ }
-    return c.json({ error: `Error al enviar WhatsApp (${resp.status})` }, 502);
-  }
-
-  // Interacción CRM
-  db.query(
-    `INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by)
-     VALUES ($1, 'whatsapp', $2, $3)`,
-    [cliente.id, `Aviso de recepción de mercadería (pedido ${pedido.numero}) enviado por WhatsApp`, user?.id ?? null]
-  );
-
-  return c.json({ enviado: true, numero, mensaje });
-});
-
-// GET /reporte-envios — totales de costo de envío por mes y transportista
-pedidos.get('/reporte-envios', async (c) => {
-  const { rows } = await db.query(`
-    SELECT
-      TO_CHAR(DATE_TRUNC('month', p.fecha_pedido), 'YYYY-MM') AS mes,
-      COALESCE(t.nombre, 'Sin especificar') AS transportista,
-      COUNT(*)::int AS cantidad_pedidos,
-      SUM(p.costo_envio)::numeric AS total_envios,
-      SUM(p.monto_total - p.costo_envio)::numeric AS total_productos,
-      SUM(p.monto_total)::numeric AS total_pedidos
-    FROM pedidos p
-    LEFT JOIN transportistas t ON t.id = p.transportista_id
-    WHERE p.estado = 'recibido'
-    GROUP BY mes, t.nombre
-    ORDER BY mes DESC, total_envios DESC
-  `);
-  return c.json(rows);
-});
-
 // GET /:id — detalle con items
 pedidos.get('/:id', async (c) => {
   const { id } = c.req.param();
@@ -589,7 +369,7 @@ pedidos.put('/:id', async (c) => {
     `, [
       b.proveedor_id,
       esStockPropioEdit ? null : (b.operacion_id || null),
-      b.fecha_pedido      || new Date().toISOString().split('T')[0],
+      b.fecha_pedido      || hoyAR(),
       b.fecha_entrega_est || null,
       montoTotalEdit,
       costoEnvioEdit,

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Layers, Package,
@@ -21,7 +21,7 @@ import { buildSubtitle, isPromoActiva } from '@/lib/catalogoFiltros';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 import { ModalRenovarValidezPrecios } from '@/components/productos/ModalRenovarValidezPrecios';
-import type { Producto, TipoOperacion } from '@/types';
+import type { Producto } from '@/types';
 
 function lastDayOfMonth(): string {
   const d = new Date(); d.setMonth(d.getMonth() + 1, 0);

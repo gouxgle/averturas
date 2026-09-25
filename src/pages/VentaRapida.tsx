@@ -99,7 +99,6 @@ export function VentaRapida() {
     api.get<Producto>(`/productos/${productoIdInicial}`)
       .then(p => agregarItem(p))
       .catch(() => toast.error('No se pudo cargar el producto'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productoIdInicial]);
 
   // Búsqueda de cliente

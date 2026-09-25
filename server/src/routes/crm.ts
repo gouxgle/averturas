@@ -406,33 +406,6 @@ crm.patch('/clientes/:id', async (c) => {
   return c.json(rows[0]);
 });
 
-// ── Registrar contacto ────────────────────────────────────────────────────────
-
-crm.post('/contacto', async (c) => {
-  const b = await c.req.json();
-  if (!b.cliente_id || !b.descripcion?.trim()) return c.json({ error: 'cliente_id y descripcion requeridos' }, 400);
-
-  const [intResult] = await Promise.all([
-    db.query(`
-      INSERT INTO interacciones (cliente_id, tipo, descripcion)
-      VALUES ($1, $2, $3) RETURNING *
-    `, [b.cliente_id, b.tipo || 'nota', b.descripcion.trim()]),
-  ]);
-
-  if (b.tarea_descripcion?.trim() && b.tarea_vencimiento) {
-    await db.query(`
-      INSERT INTO tareas (cliente_id, descripcion, vencimiento, prioridad, tipo_accion, hora)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [
-      b.cliente_id, b.tarea_descripcion.trim(), b.tarea_vencimiento,
-      b.tarea_prioridad || 'normal', b.tarea_tipo || 'nota',
-      b.tarea_hora || null,
-    ]);
-  }
-
-  return c.json(intResult.rows[0], 201);
-});
-
 // ── Completar tarea ───────────────────────────────────────────────────────────
 
 crm.patch('/tareas/:id/completar', async (c) => {

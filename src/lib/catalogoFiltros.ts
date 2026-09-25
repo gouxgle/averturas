@@ -7,6 +7,7 @@
 
 import type { Producto } from '@/types';
 import { disponibilidadProducto } from '@/lib/disponibilidad';
+import { fechaDiaAR } from './utils';
 
 // ── Etiquetas de atributos ────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ export function buildSubtitle(p: Producto): string {
 
 export function isPromoActiva(p: Pick<Producto, 'promocion'>): boolean {
   if (!p.promocion?.activo) return false;
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = fechaDiaAR(new Date());
   if (p.promocion.fecha_inicio && hoy < p.promocion.fecha_inicio) return false;
   if (p.promocion.auto_renovar) return true;
   if (p.promocion.fecha_fin && hoy > p.promocion.fecha_fin) return false;

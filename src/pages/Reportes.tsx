@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { SectionHero } from '@/components/SectionHero';
+import { fechaDiaAR } from '@/lib/utils';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ const fmtDate = (iso: string): string => {
   return `${d.getDate()} ${meses[d.getMonth()]}`;
 };
 
-const hoy = (): string => new Date().toISOString().slice(0, 10);
+const hoy = (): string => fechaDiaAR(new Date());
 
 const primerDiaMes = (): string => {
   const d = new Date();
@@ -311,10 +312,8 @@ export function Reportes() {
     if (isNaN(valor)) return;
     setGuardandoObj(true);
     try {
-      await api.put('/empresa', {
-        nombre: 'Mi Empresa',
-        objetivo_ventas_mensual: valor,
-      });
+      // Solo el objetivo: el PUT de empresa es parcial y conserva el resto de los datos.
+      await api.put('/empresa', { objetivo_ventas_mensual: valor });
       setData(prev => prev ? {
         ...prev,
         objetivo: {

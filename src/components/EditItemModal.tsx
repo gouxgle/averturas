@@ -3,7 +3,7 @@ import { X, ImagePlus, Trash2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import type { TipoAbertura, Sistema } from '@/types';
-import { EspecificacionesAbertura, inpCls, lblCls } from '@/components/EspecificacionesAbertura';
+import { EspecificacionesAbertura, lblCls } from '@/components/EspecificacionesAbertura';
 
 // Campos que edita este modal — subconjunto común entre un ítem de presupuesto (ItemForm)
 // y un ítem "a medida" relevado en una visita técnica (VisitaTecnicaItem). Costo/precio/
@@ -59,7 +59,6 @@ export function EditItemModal({
   uploadField?: string;
 }) {
   const up = (f: keyof EditableItemSpec, v: unknown) => onChange(item._key, f, v);
-  const inp = inpCls;
   const lbl = lblCls;
   const conPrecio = mode === 'presupuesto';
 

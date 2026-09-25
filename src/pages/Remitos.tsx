@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Truck, Plus, RefreshCw, Package, CheckCircle2, Clock,
-  XCircle, AlertTriangle, ChevronRight, Eye, Phone,
+  AlertTriangle, ChevronRight, Eye, Phone,
   MessageCircle, Building2, DollarSign, BarChart3, Zap,
   PrinterIcon, FileText, CalendarClock, Search,
-  Share2, Copy, Check, X, Send, ExternalLink,
+  X, Send, ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, fechaDiaAR } from '@/lib/utils';
 import { haceCuanto } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
@@ -120,11 +120,6 @@ const RECEPCION_BADGE: Record<string, { label: string; cls: string }> = {
   no_conforme:        { label: 'No conforme',       cls: 'bg-red-50 text-red-600 border border-red-200' },
 };
 
-const ENTREGA_FECHA_BADGE: Record<string, { label: string; cls: string }> = {
-  entregado:  { label: 'Entregado', cls: 'text-emerald-600 font-semibold' },
-  cancelado:  { label: 'Cancelado', cls: 'text-gray-600' },
-};
-
 const MEDIOS_TIPO: Record<string, { tipo: string; sub: (t: string | null) => string; envio: boolean }> = {
   retiro_local:     { tipo: 'Retiro en taller', sub: () => 'Cliente retira',        envio: false },
   encomienda:       { tipo: 'Envío',            sub: () => 'Encomienda',             envio: true  },
@@ -133,9 +128,6 @@ const MEDIOS_TIPO: Record<string, { tipo: string; sub: (t: string | null) => str
   correo_argentino: { tipo: 'Envío',            sub: () => 'Correo Argentino',       envio: true  },
   otro:             { tipo: 'Envío',            sub: t => t ?? 'Otro',              envio: true  },
 };
-
-// Referencia a la ventana de WhatsApp Web para reutilizar pestaña existente
-let waWindow: Window | null = null;
 
 // ── Modal de detalle de remito ────────────────────────────────────────
 
@@ -336,7 +328,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
 
 function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: () => void; onSaved: () => void }) {
   const [nuevoEstado, setNuevoEstado] = useState('');
-  const [fechaReal, setFechaReal] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaReal, setFechaReal] = useState(fechaDiaAR(new Date()));
   const [firmaUrl, setFirmaUrl] = useState<string | null>(remito.firma_url ?? null);
   const [saving, setSaving] = useState(false);
 
@@ -455,7 +447,6 @@ function DonutChart({ segs }: { segs: { v: number; color: string }[] }) {
 type Filtro = 'todos' | 'pendientes' | 'para_hoy' | 'atrasados' | 'entregados' | 'cancelados';
 
 export function Remitos() {
-  const navigate = useNavigate();
   const [data, setData] = useState<TableroData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -465,12 +456,10 @@ export function Remitos() {
   const [estadoModal, setEstadoModal]     = useState<Remito | null>(null);
   const [detailRemito, setDetailRemito]   = useState<Remito | null>(null);
   const [shareRemito, setShareRemito]     = useState<Remito | null>(null);
-  const [linkUrl,     setLinkUrl]         = useState<string | null>(null);
-  const [linkCopied,  setLinkCopied]      = useState(false);
-  const [generandoLink, setGenerandoLink] = useState(false);
+  const [,            setLinkUrl]         = useState<string | null>(null);
   const [enviandoWA,  setEnviandoWA]      = useState(false);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = fechaDiaAR(new Date());
 
   const cargar = useCallback(async () => {
     try {
@@ -483,25 +472,6 @@ export function Remitos() {
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => { setPage(1); }, [filtro, search]);
-
-  async function generarLink(r: Remito) {
-    setShareRemito(r);
-    setLinkUrl(null);
-    setLinkCopied(false);
-    setGenerandoLink(true);
-    try {
-      const { url } = await api.post<{ url: string }>(`/remitos/${r.id}/generar-link`, {});
-      setLinkUrl(url);
-    } catch { toast.error('Error al generar el link'); }
-    setGenerandoLink(false);
-  }
-
-  async function copiarLink() {
-    if (!linkUrl) return;
-    await navigator.clipboard.writeText(linkUrl);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  }
 
   async function compartirWhatsApp() {
     if (!shareRemito) return;

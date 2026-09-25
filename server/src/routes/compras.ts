@@ -36,6 +36,7 @@ import { registrarActividad } from '../lib/actividad.js';
 import { generarPDFCompra, generarPDFEstadoCuentaProveedor, type CompraPDF, type CompraItemPDF, type EstadoCuentaProveedorPDF } from '../lib/pdf.js';
 import { enviarWhatsappPdf, enviarWhatsapp, enviarImagenWhatsapp } from '../lib/whatsapp.js';
 import { sendCompra, sendReclamo, emailDisponible } from '../email.js';
+import { hoyAR } from '../lib/fechas.js';
 
 const compras = new Hono();
 
@@ -1006,7 +1007,7 @@ compras.post('/cotizaciones/:id/adjudicar', async (c) => {
       }
 
       const fechaPrometida = b.fecha_prometida
-        ?? (cp.plazo_dias != null ? new Date(Date.now() + Number(cp.plazo_dias) * 86_400_000).toISOString().slice(0, 10) : null);
+        ?? (cp.plazo_dias != null ? hoyAR(new Date(Date.now() + Number(cp.plazo_dias) * 86_400_000)) : null);
       const adjuntos = [cp.archivo_url, ...((cp.adjuntos as string[]) ?? [])].filter(Boolean) as string[];
 
       const oc = await crearOrden(client, {
@@ -1431,12 +1432,6 @@ compras.post('/ordenes/:id/seguimientos', async (c) => {
     const [{ rows: seg }, orden] = await Promise.all([db.query(SEGUIMIENTOS_SQL, [id]), cargarOrden(id)]);
     return c.json({ seguimientos: seg, orden });
   } catch (err) { return manejarErrorNegocio(c, err); }
-});
-
-/** Marca el aviso de demora como visto (la campanita y el emergente lo usan). */
-compras.patch('/ordenes/:id/demora-vista', async (c) => {
-  await db.query(`UPDATE pedidos SET demora_notif_leida = true WHERE id = $1`, [c.req.param('id')]);
-  return c.json({ ok: true });
 });
 
 // ── Recepciones ───────────────────────────────────────────────────────────────

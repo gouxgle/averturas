@@ -20,6 +20,8 @@ interface PDFDialogProps {
   clienteEmail?: string;
   /** Si se provee, muestra botón "Generar pedido al proveedor" en el dialog */
   pedidoProveedorUrl?: string;
+  /** El envío por WhatsApp adjunta el PDF (recibos) en vez de mandar un link. */
+  adjuntaPdf?: boolean;
 }
 
 const WA_ICON = (
@@ -31,7 +33,7 @@ const WA_ICON = (
 export function PDFDialog({
   title, subtitle, pdfUrl, onClose, onNavigate,
   navigateLabel = 'Ver detalle', operacionId, entityEndpoint,
-  clienteNombre, clienteTelefono, clienteEmail, pedidoProveedorUrl,
+  clienteNombre, clienteTelefono, clienteEmail, pedidoProveedorUrl, adjuntaPdf,
 }: PDFDialogProps) {
   const navigate = useNavigate();
   const [linkUrl,    setLinkUrl]    = useState('');
@@ -128,7 +130,11 @@ export function PDFDialog({
           {/* Burbuja WhatsApp con URL como enlace */}
           <div className="bg-[#dcf8c6] rounded-2xl rounded-tl-sm px-4 py-3 mb-4 shadow-md">
             <p className="text-[13px] text-gray-800 whitespace-pre-wrap leading-relaxed">
-              {linkUrl ? (
+              {adjuntaPdf ? (
+                // Recibos no tienen link público: se manda el PDF con el texto de la
+                // plantilla del mensaje. Mostrar "Podés verlo desde este enlace" era falso.
+                `📄 Se envía el PDF adjunto${clienteNombre ? ` a ${clienteNombre}` : ''}, con el mensaje configurado en Configuración → Mensajes WhatsApp.`
+              ) : linkUrl ? (
                 <>
                   {partes[0]}
                   <a href={linkUrl} target="_blank" rel="noreferrer"
@@ -150,9 +156,11 @@ export function PDFDialog({
           <div className="flex flex-col gap-2">
             {enviado ? (
               <>
-                <button onClick={() => navigate('/presupuestos')}
+                {/* Recibos y remitos vuelven a su propia lista; el presupuesto conserva el
+                    destino de siempre. Antes todos decían "Ver presupuestos". */}
+                <button onClick={() => entityEndpoint ? onNavigate() : navigate('/presupuestos')}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors">
-                  <ExternalLink size={14} /> Ver presupuestos
+                  <ExternalLink size={14} /> {entityEndpoint ? navigateLabel : 'Ver presupuestos'}
                 </button>
               </>
             ) : (

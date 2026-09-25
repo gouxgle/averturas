@@ -9,39 +9,56 @@ empresa.get('/', async (c) => {
   return c.json(rows[0] ?? null);
 });
 
-empresa.put('/', async (c) => {
-  const { nombre, cuit, telefono, email, direccion, logo_url, objetivo_ventas_mensual, instagram, terminos_url,
-          costo_visita_tecnica } = await c.req.json();
-  if (!nombre?.trim()) return c.json({ error: 'nombre requerido' }, 400);
+// PUT parcial: solo se actualizan las columnas que vienen en el body. Antes pisaba
+// todas con lo recibido, y Reportes (que solo manda el objetivo de ventas) dejaba la
+// empresa como "Mi Empresa" sin CUIT, teléfono, email ni dirección; el panel de
+// Configuración, a su vez, borraba logo_url y el objetivo porque no los manda.
+const CAMPOS_TEXTO = ['nombre', 'cuit', 'telefono', 'email', 'direccion', 'logo_url', 'instagram', 'terminos_url'] as const;
+const CAMPOS_NUMERO = ['objetivo_ventas_mensual', 'costo_visita_tecnica'] as const;
 
-  // Campos que un guardado parcial NO debe pisar: si no vienen en el body se conserva el valor actual.
-  const costoVisita = costo_visita_tecnica === undefined || costo_visita_tecnica === null || costo_visita_tecnica === ''
-    ? null
-    : parseFloat(costo_visita_tecnica);
+empresa.put('/', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== 'object') return c.json({ error: 'Body inválido' }, 400);
+
+  const cols: string[] = [];
+  const vals: unknown[] = [];
+  for (const campo of CAMPOS_TEXTO) {
+    if (!(campo in body)) continue;
+    const v = typeof body[campo] === 'string' ? body[campo].trim() : body[campo];
+    if (campo === 'nombre' && !v) return c.json({ error: 'nombre requerido' }, 400);
+    cols.push(campo); vals.push(v || null);
+  }
+  for (const campo of CAMPOS_NUMERO) {
+    if (!(campo in body)) continue;
+    const v = body[campo];
+    // Vacío = no tocar (el panel manda '' cuando el costo de visita queda en blanco).
+    if (v === '' || v === null || v === undefined) continue;
+    const n = typeof v === 'number' ? v : parseFloat(String(v));
+    if (!Number.isFinite(n) || n < 0) return c.json({ error: `${campo} inválido` }, 400);
+    cols.push(campo); vals.push(n);
+  }
 
   const { rows: existing } = await db.query(`SELECT id FROM empresa ORDER BY updated_at DESC LIMIT 1`);
 
   if (existing[0]) {
+    if (cols.length === 0) {
+      const { rows } = await db.query(`SELECT * FROM empresa WHERE id = $1`, [existing[0].id]);
+      return c.json(rows[0]);
+    }
+    const sets = cols.map((col, i) => `${col} = $${i + 1}`).join(', ');
     const { rows } = await db.query(
-      `UPDATE empresa SET nombre=$1, cuit=$2, telefono=$3, email=$4, direccion=$5, logo_url=$6,
-         objetivo_ventas_mensual=$7, instagram=$8, terminos_url=$9,
-         costo_visita_tecnica = COALESCE($10::numeric, costo_visita_tecnica), updated_at=now()
-       WHERE id=$11 RETURNING *`,
-      [nombre.trim(), cuit || null, telefono || null, email || null, direccion || null, logo_url || null,
-       objetivo_ventas_mensual ? parseFloat(objetivo_ventas_mensual) : 0, instagram || null,
-       terminos_url || null, costoVisita, existing[0].id]
-    );
-    return c.json(rows[0]);
-  } else {
-    const { rows } = await db.query(
-      `INSERT INTO empresa (nombre, cuit, telefono, email, direccion, logo_url, objetivo_ventas_mensual, instagram, terminos_url, costo_visita_tecnica)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::numeric, 0)) RETURNING *`,
-      [nombre.trim(), cuit || null, telefono || null, email || null, direccion || null, logo_url || null,
-       objetivo_ventas_mensual ? parseFloat(objetivo_ventas_mensual) : 0, instagram || null,
-       terminos_url || null, costoVisita]
+      `UPDATE empresa SET ${sets}, updated_at = now() WHERE id = $${cols.length + 1} RETURNING *`,
+      [...vals, existing[0].id]
     );
     return c.json(rows[0]);
   }
+
+  if (!cols.includes('nombre')) return c.json({ error: 'nombre requerido' }, 400);
+  const { rows } = await db.query(
+    `INSERT INTO empresa (${cols.join(', ')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
+    vals
+  );
+  return c.json(rows[0]);
 });
 
 export default empresa;

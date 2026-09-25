@@ -9,6 +9,7 @@ import { ReciboSchema } from '../lib/schemas.js';
 import { generarPDFRecibo } from '../lib/pdf.js';
 import { enviarWhatsappPdf, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
+import { hoyAR, mesAR } from '../lib/fechas.js';
 
 const recibos = new Hono();
 
@@ -89,7 +90,7 @@ recibos.post('/upload-comprobante', async (c) => {
 // regenera un número ya usado → duplicate key y rollback silencioso).
 // Acepta un client para poder correr dentro de una transacción ajena (ej. cobro de visita técnica).
 export async function nextNumeroRecibo(q: { query: typeof db.query } = db): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
   const { rows } = await q.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
     [`REC-${ym}-%`]
@@ -368,19 +369,6 @@ recibos.get('/tablero', async (c) => {
   });
 });
 
-// GET /conteos — stats del mes (ANTES de /:id)
-recibos.get('/conteos', async (c) => {
-  const { rows: [r] } = await db.query(`
-    SELECT
-      COUNT(*) FILTER (WHERE estado = 'emitido')::int   AS emitidos,
-      COUNT(*) FILTER (WHERE estado = 'anulado')::int   AS anulados,
-      COALESCE(SUM(monto_total) FILTER (WHERE estado = 'emitido' AND fecha >= date_trunc('month', CURRENT_DATE)), 0)::numeric AS monto_mes,
-      COUNT(*) FILTER (WHERE estado = 'emitido' AND fecha >= date_trunc('month', CURRENT_DATE))::int AS count_mes
-    FROM recibos
-  `);
-  return c.json(r);
-});
-
 // GET / — lista con filtros
 recibos.get('/', async (c) => {
   const search       = c.req.query('search')       ?? '';
@@ -543,7 +531,7 @@ recibos.post('/', async (c) => {
       RETURNING *
     `, [
       numero,
-      b.fecha           || new Date().toISOString().split('T')[0],
+      b.fecha           || hoyAR(),
       b.cliente_id,
       b.operacion_id    || null,
       b.remito_id       || null,

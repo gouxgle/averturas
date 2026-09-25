@@ -141,6 +141,9 @@ apiAuth.route('/actividad',        actividadRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);
+// Un endpoint inexistente caía en el fallback de la SPA y devolvía index.html con 200:
+// el frontend recibía HTML donde esperaba JSON y el error no decía qué faltaba.
+app.all('/api/*', (c) => c.json({ error: 'No encontrado' }, 404));
 
 // ── Servir uploads (imágenes productos, etc.) ─────────────────
 app.use('/uploads/*', async (c, next) => {

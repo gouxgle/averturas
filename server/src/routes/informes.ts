@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { hoyAR } from '../lib/fechas.js';
 
 const informes = new Hono();
 
@@ -8,7 +9,7 @@ informes.get('/resumen', async (c) => {
   const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
 
   const desde = c.req.query('desde') ?? primerDiaMes.toISOString().slice(0, 10);
-  const hasta = c.req.query('hasta') ?? ahora.toISOString().slice(0, 10);
+  const hasta = c.req.query('hasta') ?? hoyAR(ahora);
 
   // Período anterior (misma duración, inmediatamente antes)
   const desdeDate = new Date(desde + 'T12:00:00');

@@ -84,24 +84,6 @@ function fmtLlegada(iso: string | null): string | null {
 
 // ── Sub-componentes ──────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, sub, iconBg, iconCl, subCl = 'text-gray-600' }: {
-  icon: React.ElementType; label: string; value: string | number; sub: string;
-  iconBg: string; iconCl: string; subCl?: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-[11px] font-medium text-gray-600 leading-tight">{label}</p>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-          <Icon size={16} className={iconCl} />
-        </div>
-      </div>
-      <p className="text-2xl font-extrabold text-gray-900 tabular-nums leading-none">{value}</p>
-      <p className={`text-[11px] mt-1 ${subCl}`}>{sub}</p>
-    </div>
-  );
-}
-
 function PagoBadge({ cobrado, total }: { cobrado: number; total: number }) {
   if (cobrado >= total * 0.99)
     return <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Pago total</span>;

@@ -5,7 +5,6 @@ const GREEN  = '#166534';
 const PURPLE = '#7c3aed';
 const ORANGE = '#b45309';
 const GRAY   = '#666';
-const LGRAY  = '#999';
 const LINE   = '#ccc';
 
 const css = `

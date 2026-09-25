@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Printer, Receipt, Truck, DollarSign, FileText,
-  ChevronDown, ChevronUp, Check, AlertTriangle, Clock, Calendar,
+  ChevronDown, ChevronUp, Check, Clock, Calendar,
   CreditCard, ArrowDownLeft, ArrowUpRight, XCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';

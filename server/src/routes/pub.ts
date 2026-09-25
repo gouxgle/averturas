@@ -7,6 +7,17 @@ import {
 
 const pub = new Hono();
 
+// Los tokens son UUID en la base: un link cortado o mal copiado (p.ej. al reenviarlo por
+// WhatsApp) hacía fallar el SELECT con "invalid input syntax for type uuid" → 500. Con
+// formato inválido respondemos lo mismo que para un token inexistente.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+for (const ruta of ['/presupuesto/:token', '/presupuesto/:token/*', '/remito/:token', '/remito/:token/*']) {
+  pub.use(ruta, async (c, next) => {
+    if (!UUID_RE.test(c.req.param('token') ?? '')) return c.json({ error: 'Link inválido o expirado' }, 404);
+    await next();
+  });
+}
+
 // GET /pub/entorno — para el banner visual test/producción. Se deriva de APP_URL
 // (ya es distinto por ambiente en cada .env) para que cambie solo al deployar,
 // sin tocar nada a mano. Ver tabla de Ambientes en CLAUDE.md.

@@ -1310,7 +1310,7 @@ const ROL_COLORS: Record<string, string> = {
 
 const emptyUserForm = () => ({ nombre: '', email: '', password: '', rol: 'vendedor' as Usuario['rol'] });
 
-function UserForm({ initial, onSave, onCancel, isEdit, currentUserId }: {
+function UserForm({ initial, onSave, onCancel, isEdit }: {
   initial: { nombre: string; email: string; password: string; rol: Usuario['rol'] };
   onSave: (vals: typeof initial) => Promise<void>;
   onCancel: () => void;
@@ -1865,7 +1865,7 @@ const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' 
   { id: 'modelos',        label: 'Modelos',             icon: Boxes,     desc: 'Producto padre — agrupa variantes (medida/color)' },
 ];
 
-function AccordionItem({ id, label, icon: Icon, desc, open, onToggle, children }: {
+function AccordionItem({ label, icon: Icon, desc, open, onToggle, children }: {
   id: string; label: string; icon: React.ElementType; desc: string;
   open: boolean; onToggle: () => void; children: React.ReactNode;
 }) {

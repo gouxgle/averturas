@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, MapPin, Star, Edit2,
-  Phone, MessageCircle, CheckCircle2, Users,
+  CheckCircle2, Users,
   Ruler, Wrench, AlertTriangle, Tag, Copy, Layers,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -23,10 +23,6 @@ import { ModeloVariantesModal } from '@/components/catalogo/GridMosaico';
 
 // ── Catálogos estáticos ───────────────────────────────────────────────────────
 
-const TIPOS_PROYECTO = [
-  'Vivienda', 'Frente comercial', 'Quincho', 'Baño', 'Habitación', 'Obra completa',
-];
-
 const FORMA_PAGO = [
   'Tarjeta de crédito 3 cuotas sin interés',
   'Precio de lista',
@@ -42,21 +38,6 @@ interface FormaPagoCatalogo {
 interface FormaPagoAlternativa {
   forma_pago_id: string; nombre: string; descuento_pct: number;
 }
-
-const LABEL_USO: Record<string, string> = {
-  interior: 'Interior', exterior: 'Exterior', ambos: 'Interior y exterior',
-};
-const LABEL_CONFIG_HOJAS: Record<string, string> = {
-  hoja_simple: 'Hoja simple', hoja_y_media: 'Hoja y media',
-  dos_hojas: '2 hojas iguales', puerta_pano_fijo: 'Con paño fijo',
-  '2_hojas': '2 hojas', '3_hojas': '3 hojas', '4_hojas': '4 hojas',
-};
-const LABEL_PROVISION: Record<string, string> = {
-  hoja_sola: 'Solo hoja', hoja_marco: 'Hoja + marco',
-};
-const LABEL_APERTURA: Record<string, string> = {
-  abatir: 'Abatir', correr: 'Corrediza', plegable: 'Plegable', vaiven: 'Vaivén', pivotante: 'Pivotante',
-};
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -217,10 +198,6 @@ function itemPrecioTotal(item: ItemForm) {
   const base = item.precio_unitario + (item.incluye_instalacion ? item.precio_instalacion : 0);
   return base * item.cantidad;
 }
-function itemCostoTotal(item: ItemForm) {
-  const base = item.costo_unitario + (item.incluye_instalacion ? item.costo_instalacion : 0);
-  return base * item.cantidad;
-}
 
 // ── Página principal ──────────────────────────────────────────────────────────
 
@@ -239,7 +216,7 @@ export function NuevoPresupuesto() {
 
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [editEstado, setEditEstado] = useState('');
+  const [, setEditEstado] = useState('');
   // Por qué se edita: a pedido del cliente o corrección interna. Solo las del
   // cliente se cuentan en la proforma y en el link público, así que una corrección
   // propia no puede quedar registrada como un pedido suyo.
@@ -258,7 +235,7 @@ export function NuevoPresupuesto() {
   // Cabecera
   const [clienteId, setClienteId]           = useState(searchParams.get('cliente_id') ?? '');
   const [clienteSearch, setClienteSearch]   = useState('');
-  const [showClienteList, setShowClienteList] = useState(false);
+  const [, setShowClienteList] = useState(false);
   const [tipoProyecto, setTipoProyecto]     = useState('');
   const [formaPago, setFormaPago]           = useState('Precio de lista');
   const [catalogoFormasPago, setCatalogoFormasPago] = useState<FormaPagoCatalogo[]>([]);
@@ -287,7 +264,6 @@ export function NuevoPresupuesto() {
   const [modo, setModo] = useState<'estandar' | 'a_medida' | 'servicio' | 'a_relevar'>('estandar');
   const [descripcionARelevar, setDescripcionARelevar] = useState('');
   const [servicioSeleccionadoId, setServicioSeleccionadoId] = useState('');
-  const esAMedida = modo === 'a_medida';
   // "Galería" ya no es un tab: abre el modal de catálogo completo (misma búsqueda que
   // la sección Productos). Quedan inline los dos flujos rápidos de una mano.
   const [tab, setTab] = useState<'frecuentes' | 'scanner'>('frecuentes');
@@ -2183,10 +2159,6 @@ export function NuevoPresupuesto() {
           onSelect={v => { setVariantePicker(null); sumarAlCarrito(v); }}
         />
       )}
-
-      {/* suppress unused-var lint only */}
-      {editEstado && false && <span>{editEstado}</span>}
-      {tipoProyecto && false && <span>{tipoProyecto}</span>}
 
       {/* ── BOTÓN FLOTANTE — Generar proforma (siempre visible) ── */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">

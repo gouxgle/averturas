@@ -8,6 +8,7 @@ import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '
 import { sincronizarTareaEntrega, completarTareaDeEntrega } from '../lib/remitos.js';
 import { enviarWhatsapp } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
+import { hoyAR, mesAR } from '../lib/fechas.js';
 
 const remitos = new Hono();
 
@@ -40,7 +41,7 @@ remitos.post('/upload-imagen', async (c) => {
 });
 
 async function nextNumero(): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
   const { rows } = await db.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM remitos WHERE numero LIKE $1`,
     [`R-${ym}-%`]
@@ -218,16 +219,6 @@ remitos.get('/', async (c) => {
   `, params);
 
   return c.json(rows);
-});
-
-// GET /conteos — para header/filtros
-remitos.get('/conteos', async (c) => {
-  const { rows } = await db.query(`
-    SELECT estado, COUNT(*)::int AS n FROM remitos GROUP BY estado
-  `);
-  const conteos: Record<string, number> = { borrador: 0, emitido: 0, entregado: 0, cancelado: 0 };
-  for (const r of rows as { estado: string; n: number }[]) conteos[r.estado] = r.n;
-  return c.json(conteos);
 });
 
 // GET /listos-para-enviar — operaciones con pago completo + pedidos recibidos + sin remito emitido
@@ -555,7 +546,7 @@ remitos.post('/', async (c) => {
       b.transportista  || null,
       b.nro_seguimiento|| null,
       b.direccion_entrega || null,
-      b.fecha_emision  || new Date().toISOString().split('T')[0],
+      b.fecha_emision  || hoyAR(),
       b.fecha_entrega_est || null,
       b.notas          || null,
       user?.id         || null,
@@ -627,7 +618,7 @@ remitos.put('/:id', async (c) => {
       b.transportista  || null,
       b.nro_seguimiento|| null,
       b.direccion_entrega || null,
-      b.fecha_emision  || new Date().toISOString().split('T')[0],
+      b.fecha_emision  || hoyAR(),
       b.fecha_entrega_est || null,
       b.notas          || null,
       id,

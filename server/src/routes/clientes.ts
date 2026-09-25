@@ -64,21 +64,6 @@ function clienteSearchSql(alias: string, search: string, params: unknown[]): str
   return `AND (${clausulas.join(' AND ')})`;
 }
 
-// GET /letras — índice de letras con conteo (carga inicial liviana). ANTES de /:id
-clientes.get('/letras', async (c) => {
-  const raw = `TRANSLATE(UPPER(LEFT(COALESCE(apellido, razon_social, nombre, '#'), 1)), 'ÁÉÍÓÚÑ', 'AEIOÚN')`;
-  const { rows } = await db.query(`
-    SELECT
-      CASE WHEN ${raw} ~ '^[A-Z]$' THEN ${raw} ELSE '#' END AS letra,
-      COUNT(*)::int AS total
-    FROM clientes
-    WHERE activo = true
-    GROUP BY letra
-    ORDER BY CASE WHEN (CASE WHEN ${raw} ~ '^[A-Z]$' THEN ${raw} ELSE '#' END) = '#' THEN 1 ELSE 0 END, letra
-  `);
-  return c.json(rows);
-});
-
 clientes.get('/', async (c) => {
   const search = c.req.query('search') ?? '';
   const estado = c.req.query('estado') ?? '';

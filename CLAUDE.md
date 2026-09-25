@@ -63,7 +63,7 @@ pre-deploy.** `node_modules` debe ser del usuario (`sistemas`); si aparece `EACC
 ```bash
 npm run typecheck        # tsc -b frontend — 1.4 s incremental
 npm run typecheck:all    # + backend
-npm run test:all         # vitest front (110) + back (59) — ~8 s
+npm run test:all         # vitest front (110) + back (179) — ~8 s
 npm run check            # typecheck:all + test:all
 npm run test:e2e         # Playwright nativo, Chrome del host, 54 tests en ~65 s
 npm run dev:api          # backend nativo en :3001 con recarga (tsx watch)
@@ -132,7 +132,8 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
 ## Stack
 
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind (componentes propios, sin shadcn), React
-  Router v7, TanStack Query v5, React Hook Form, Zod, Sonner, Recharts, Lucide. Alias `@/` →
+  Router v7, TanStack Query v5, Zod, Sonner, Recharts, Lucide (sin React Hook Form ni Radix: se
+  quitaron en la revisión del 2026-09-25 porque nada los importaba). Alias `@/` →
   `src/`. Cliente HTTP propio `src/lib/api.ts` (no axios): `api.get<T>(path)` devuelve `T`
   directo, sin `.data`; query params con `?${new URLSearchParams(...)}`; token en
   `sessionStorage` (`aberturas_token`) y header `Authorization`.
@@ -168,6 +169,16 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
   `MAX(SUBSTRING(numero FROM '(\d+)$')::int) + 1`, **nunca `COUNT(*)`** (regenera números
   borrados → `duplicate key` → rollback silencioso).
 - `crypto.randomUUID()` no existe en HTTP (test): usar el fallback con `Math.random`.
+- **"Hoy" y el mes de la numeración, siempre en horario Argentina**: `hoyAR()` / `mesAR()`
+  (`server/src/lib/fechas.ts`) en el backend y `fechaDiaAR(new Date())` en el frontend. Nunca
+  `new Date().toISOString().slice(0, 10)` ni `.split('T')[0]`: es UTC y desde las 21 h da el día
+  siguiente (recibos fechados mañana, números con el mes que viene el último día del mes).
+- Una ruta `/api/*` inexistente responde 404 JSON (`app.all('/api/*')` en `index.ts`); antes
+  caía en el fallback de la SPA y devolvía `index.html` con 200.
+- `/pub/*/:token` valida el formato UUID antes de consultar: un link cortado da 404 ("Link
+  inválido o expirado"), no 500.
+- `PUT /empresa` es **parcial**: solo toca las columnas que vienen en el body (antes pisaba todo;
+  guardar el objetivo desde Reportes renombraba la empresa a "Mi Empresa" y borraba el CUIT).
 - `index.html` lleva `lang="es" translate="no"`: sin eso Chrome Android traduce, muta el DOM y
   React 19 rompe con `insertBefore` (pantalla "Algo salió mal"). No cambiarlo.
 
@@ -239,15 +250,15 @@ proceso). **Hono matchea en orden de registro: rutas específicas siempre antes 
 | `/operaciones` | `POST /venta-rapida`, `/:id/generar-link`, `/:id/enviar-whatsapp`, `/:id/enviar-email`, `PATCH /:id/resolver-respuesta`, `GET /:id/revisiones[/:n]`, `/:id/versiones`, `/ventas-panel`, `/tablero` — todo antes de `GET /:id` |
 | `/catalogo` | tipos-abertura, sistemas, colores, materiales, lineas, vidrios, categorias, modelos, servicios, formas-pago, proveedores, proveedor-precios; `GET /productos` (solo activos) |
 | `/notificaciones` | `GET /` (6 fuentes), `PATCH /vista` (una sola: `{tipo,id}`), `PATCH /marcar-leidas` (todas) |
-| `/recibos` | `/conteos`, `/tablero` antes de `/:id`; `POST /:id/enviar-whatsapp` (PDF server-side) |
-| `/remitos` | `/conteos`, `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` antes de `/:id` |
-| `/pedidos` | flujo viejo de OC: `/tablero`, `/reporte-envios`, `/operaciones-disponibles` antes de `/:id`; `POST /` numera `OC-` y crea la SC implícita; `PATCH /:id/estado` sincroniza `estado_logistica` |
-| `/compras` | `/tablero`, `/adjuntos` (upload imagen→webp o PDF a `uploads/compras`), `/solicitudes[/pendientes-desde-operaciones|/items-pendientes|/preparar|/:id|/:id/estado]`, `/cotizaciones[/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/proveedores/:pid/respuesta|/:id/comparativa|/:id/adjudicar|/:id/cerrar]`, `/ordenes[/directa|/consolidar|/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/confirmacion|/:id/estado-logistica|/:id/seguimientos|/:id/recepciones|/:id/demora-vista|/:id/documentos|/:id/control-economico|/:id/cierre|/:id/cerrar]`, `/recepciones`, `/incidencias[/:id|/:id/mensaje|/:id/reclamar|/:id/respuesta]`, `/facturas`, `/pagos[/:id/aplicar]`, `/notas`, `/cuenta-corriente`, `/proveedores/:id/estado-cuenta[/pdf|/enviar-whatsapp]` — rutas específicas antes de `/:id` |
+| `/recibos` | `/tablero` antes de `/:id`; `POST /:id/enviar-whatsapp` (PDF server-side) |
+| `/remitos` | `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` antes de `/:id` |
+| `/pedidos` | flujo viejo de OC: `/operaciones-disponibles` antes de `/:id`; `POST /` numera `OC-` y crea la SC implícita; `PATCH /:id/estado` sincroniza `estado_logistica` |
+| `/compras` | `/tablero`, `/adjuntos` (upload imagen→webp o PDF a `uploads/compras`), `/solicitudes[/pendientes-desde-operaciones|/items-pendientes|/preparar|/:id|/:id/estado]`, `/cotizaciones[/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/proveedores/:pid/respuesta|/:id/comparativa|/:id/adjudicar|/:id/cerrar]`, `/ordenes[/directa|/consolidar|/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/confirmacion|/:id/estado-logistica|/:id/seguimientos|/:id/recepciones|/:id/documentos|/:id/control-economico|/:id/cierre|/:id/cerrar]`, `/recepciones`, `/incidencias[/:id|/:id/mensaje|/:id/reclamar|/:id/respuesta]`, `/facturas`, `/pagos[/:id/aplicar]` (aplicar un anticipo a una OC: **sin pantalla todavía**), `/notas`, `/cuenta-corriente`, `/proveedores/:id/estado-cuenta[/pdf|/enviar-whatsapp]` — rutas específicas antes de `/:id` |
 | `/visitas-tecnicas` | `/upload-imagen` antes de `/:id`; `PATCH /:id/cobrar`, `/sin-cargo`, `/bonificar`, `/costo-externo` |
 | `/oportunidades` | `/resumen`, `/plantilla/:id` antes de `/:id`; `PATCH /:id/posponer`, `/:id/estado`, `POST /:id/contactar` |
 | `/tareas` | `PATCH /:id/completar` limpia `respuesta_cliente` de la operación vinculada y sincroniza oportunidad/entrega espejo |
-| `/stock` | `/alertas`, `/lotes` antes de `/:id` |
-| otros | `/dashboard` (`/resumen`, `/indicadores`), `/interacciones`, `/empresa`, `/usuarios`, `/transportistas`, `/estado-cuenta`, `/informes`, `/crm`, `/configuracion`, `/localidades`, `/backups` (admin), `/comentarios`, `/changelog`, `/actividad` |
+| `/stock` | `/lotes` antes de `/:id` |
+| otros | `/dashboard` (`/resumen`), `/interacciones`, `/empresa`, `/usuarios`, `/transportistas`, `/estado-cuenta`, `/informes`, `/crm`, `/configuracion`, `/localidades`, `/backups` (admin), `/comentarios`, `/changelog`, `/actividad` |
 
 ## Base de datos
 

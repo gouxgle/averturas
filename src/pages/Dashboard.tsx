@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Phone, Truck, MessageCircle, CalendarClock,
   DollarSign, FileText, Target, TrendingUp,
-  AlertTriangle, CheckCircle2, Sparkles,
-  Clock, Package, ChevronRight, Plus,
+  AlertTriangle, CheckCircle2, Clock, Package, ChevronRight, Plus,
   BarChart3, ShoppingBag, Activity, Lightbulb,
   Users, Mail,
 } from 'lucide-react';
@@ -102,20 +101,10 @@ function diasDesde(iso: string) {
   return diasCalendarioAR(iso);
 }
 
-function fmtFecha(iso: string) {
-  return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
-}
-
 const ESTADO_LABEL: Record<string, string> = {
   presupuesto: 'Pendiente de Aprobación', enviado: 'Enviado', aprobado: 'Aprobado',
   en_produccion: 'En producción', listo: 'Listo', instalado: 'Instalado',
   entregado: 'Entregado', cancelado: 'Cancelado',
-};
-
-const ESTADO_DOT: Record<string, string> = {
-  presupuesto: 'bg-gray-400', enviado: 'bg-amber-400', aprobado: 'bg-emerald-500',
-  en_produccion: 'bg-blue-500', listo: 'bg-teal-500', instalado: 'bg-violet-500',
-  entregado: 'bg-green-500', cancelado: 'bg-red-400',
 };
 
 // ── Dashboard ────────────────────────────────────────────────────────
@@ -690,7 +679,6 @@ export function Dashboard() {
                 {data.recientes.map(op => {
                   const horasAtras = Math.floor((Date.now() - new Date(op.created_at).getTime()) / 3_600_000);
                   const tiempoLabel = horasAtras < 1 ? 'Hace menos de 1 h' : horasAtras < 24 ? `Hace ${horasAtras} h` : `Hace ${Math.floor(horasAtras / 24)} días`;
-                  const dotCl = ESTADO_DOT[op.estado] ?? 'bg-gray-400';
                   const iconMap: Record<string, React.ElementType> = {
                     presupuesto: FileText, enviado: FileText, aprobado: CheckCircle2,
                     en_produccion: Package, listo: Package, instalado: Truck,

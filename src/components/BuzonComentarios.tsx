@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { StickyNote, X, Check, Trash2, RotateCcw, Send, Archive, ArchiveRestore } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface Comentario {

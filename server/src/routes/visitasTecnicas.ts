@@ -9,6 +9,7 @@ import {
   VisitaTecnicaBonificarSchema, VisitaTecnicaCostoExternoSchema,
 } from '../lib/schemas.js';
 import { nextNumeroRecibo, cerrarCompromisosSiSaldado } from './recibos.js';
+import { mesAR } from '../lib/fechas.js';
 
 const visitasTecnicas = new Hono();
 
@@ -49,7 +50,7 @@ async function emitirReciboVisita(
 }
 
 async function nextNumero(): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
   const { rows } = await db.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM visitas_tecnicas WHERE numero LIKE $1`,
     [`VT-${ym}-%`]

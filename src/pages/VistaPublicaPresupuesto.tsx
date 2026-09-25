@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { ComparadorRevisiones } from '@/components/ComparadorRevisiones';
 import type { DiffSnapshot } from '@/lib/diffProforma';
+import { fechaDiaAR } from '@/lib/utils';
 
 const NAVY  = '#031d49';
 const RED   = '#e31e24';
@@ -571,7 +572,7 @@ export function VistaPublicaPresupuesto() {
         sub="Elegí cuándo te viene bien y te contactamos" onBack={() => setEstado('menu')}>
         <label className="block text-xs font-semibold text-gray-600 mb-1">Día preferido</label>
         <input type="date" value={llamadaFecha} onChange={e => setLlamadaFecha(e.target.value)}
-          min={new Date().toISOString().slice(0, 10)}
+          min={fechaDiaAR(new Date())}
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-200 mb-3" />
         <label className="block text-xs font-semibold text-gray-600 mb-1">Franja horaria</label>
         <select value={llamadaHorario} onChange={e => setLlamadaHorario(e.target.value)}

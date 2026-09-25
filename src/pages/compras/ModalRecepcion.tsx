@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PackageCheck, Check, AlertTriangle, XCircle, Truck } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
@@ -50,7 +50,7 @@ export function ModalRecepcion({ orden, onClose, onHecho }: {
   onHecho: (r: ResultadoRecepcion) => void;
 }) {
   const [transportistas, setTransportistas] = useState<Transportista[]>([]);
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(fechaDiaAR(new Date()));
   const [remito, setRemito] = useState('');
   const [transportistaId, setTransportistaId] = useState(orden.transportista_id ?? '');
   const [costoReal, setCostoReal] = useState('');

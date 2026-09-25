@@ -169,12 +169,6 @@ export function VistaPublicaRemito() {
     : null;
   const proformaNumero = remito.operacion?.numero?.replace(/^OP-/, 'PRO-') ?? null;
 
-  const RECEPCION_INFO: Record<string, { icon: string; titulo: string; subtitulo: string; bg: string; border: string; color: string }> = {
-    conforme:          { icon: '✓', titulo: 'ESTOY CONFORME',           subtitulo: 'Recibí todo en perfectas condiciones',        bg: '#f0fdf4', border: GREEN,    color: GREEN    },
-    con_observaciones: { icon: '!', titulo: 'RECIBÍ CON OBSERVACIONES', subtitulo: 'Hubo algún detalle a tener en cuenta',        bg: '#fffbeb', border: '#d97706', color: '#d97706' },
-    no_conforme:       { icon: '✕', titulo: 'NO RECIBÍ CORRECTAMENTE',  subtitulo: 'Faltan productos o hay problemas',            bg: '#fef2f2', border: RED,       color: RED      },
-  };
-
   // Datos derivados por ítem, calculados una sola vez y usados tanto en las
   // tarjetas de mobile como en la tabla de desktop (ver TABLA/TARJETAS ITEMS).
   const filasItems = remito.items.map(item => {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Wallet, Check, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
@@ -31,7 +31,7 @@ export function ModalPago({ proveedorId, proveedorNombre, pedidoId, onClose, onH
 }) {
   const [ordenes, setOrdenes] = useState<OrdenAPagar[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(fechaDiaAR(new Date()));
   const [importe, setImporte] = useState('');
   const [medio, setMedio] = useState<MedioPagoProveedor>('transferencia');
   const [nroOperacion, setNroOperacion] = useState('');

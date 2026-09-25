@@ -315,7 +315,6 @@ export function CRM() {
     setResaltarOportunidades(true);
     const t = setTimeout(() => setResaltarOportunidades(false), 2500);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   function irAOportunidades() {
@@ -752,7 +751,6 @@ export function CRM() {
           </div>
           <div className="space-y-1.5 mb-3">
             {(data?.embudo ?? []).map((e, i) => {
-              const colors = ['bg-rose-400','bg-amber-400','bg-violet-500','bg-sky-500','bg-emerald-500'];
               const widths = [100, 85, 65, 50, 35];
               return (
                 <div key={e.etapa} className="flex items-center gap-3">

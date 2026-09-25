@@ -6,6 +6,7 @@
  */
 import type { PoolClient } from 'pg';
 import { db } from '../db.js';
+import { mesAR } from './fechas.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -31,7 +32,7 @@ const TABLA_POR_PREFIJO: Record<PrefijoCompra, string> = {
  * borrados → duplicate key). Los PED- viejos no participan del conteo de OC-.
  */
 export async function nextNumeroCompra(client: Queryable, prefijo: PrefijoCompra): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
   const { rows } = await client.query(
     `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n
      FROM ${TABLA_POR_PREFIJO[prefijo]} WHERE numero LIKE $1`,

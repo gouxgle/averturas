@@ -7,7 +7,7 @@ import {
   Plus, Search, FileText, CheckCircle, XCircle,
   X, Pen, Printer, Share2, Check, Phone, Mail, User,
   CreditCard, Truck, MapPin, Gift, Building2, Package,
-  ChevronLeft, ChevronRight, MoreVertical, TrendingUp, AlertTriangle,
+  ChevronLeft, ChevronRight, MoreVertical, AlertTriangle,
   Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler, Target,
   Eye, EyeOff, Undo2, Loader2,
 } from 'lucide-react';
@@ -320,12 +320,6 @@ function Senal({ label, cls, Icon, title }: Omit<SenalCfg, 'key'>) {
       {Icon && <Icon size={9} />}{label}
     </span>
   );
-}
-
-function whatsappUrl(telefono: string | null, mensaje?: string): string {
-  const num = (telefono ?? '').replace(/\D/g, '');
-  const base = `https://wa.me/${num.startsWith('54') ? num : '54' + num}`;
-  return mensaje ? `${base}?text=${encodeURIComponent(mensaje)}` : base;
 }
 
 // ── DonutChart ────────────────────────────────────────────────────────────────

@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Boxes, Plus, Minus, AlertTriangle, TrendingDown, TrendingUp,
-  ChevronDown, ChevronUp, Package, Truck, RotateCcw,
+  Boxes, Plus, Minus, AlertTriangle, ChevronDown, ChevronUp, Package, Truck, RotateCcw,
   Wrench, Search, RefreshCw, ArrowDownCircle, ArrowUpCircle,
-  History, X, Check, Layers, Zap, BarChart2, Store,
-  ChevronLeft, ChevronRight, DollarSign
+  History, X, Check, Layers, Zap, Store,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -14,6 +13,7 @@ import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
+import { fechaDiaAR } from '@/lib/utils';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface ProductoExistencias {
@@ -204,7 +204,7 @@ function ModalIngreso({
   const [cantidad, setCantidad] = useState('');
   const [costoUnitario, setCostoUnitario] = useState('');
   const [proveedorId, setProveedorId] = useState('');
-  const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaIngreso, setFechaIngreso] = useState(fechaDiaAR(new Date()));
   const [remitoNro, setRemitoNro] = useState('');
   const [facturaNro, setFacturaNro] = useState('');
   const [notasLote, setNotasLote] = useState('');

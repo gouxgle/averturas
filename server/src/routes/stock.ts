@@ -3,13 +3,14 @@ import pkg from 'pg';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { StockIngresarSchema, StockEgresarSchema, StockAjustarSchema } from '../lib/schemas.js';
+import { hoyAR, mesAR } from '../lib/fechas.js';
 
 type QueryRunner = { query: (text: string, values?: unknown[]) => Promise<{ rows: unknown[] }> };
 
 const stock = new Hono();
 
 async function nextLoteNumero(client: QueryRunner = db, productoId?: string): Promise<string> {
-  const ym = new Date().toISOString().slice(0, 7).replace('-', '');
+  const ym = mesAR();
 
   let tipoAbrev = 'GEN';
   if (productoId) {
@@ -75,25 +76,6 @@ stock.get('/', async (c) => {
   `, params);
 
   return c.json(rows);
-});
-
-// GET /alertas — resumen para dashboard/header
-stock.get('/alertas', async (c) => {
-  const { rows: [r] } = await db.query(`
-    SELECT
-      COUNT(*) FILTER (WHERE stock_actual <= 0)::int                                       AS sin_stock,
-      COUNT(*) FILTER (WHERE stock_actual > 0 AND stock_actual <= stock_minimo)::int       AS bajo_minimo,
-      COUNT(*)::int                                                                        AS total
-    FROM (
-      SELECT p.id, p.stock_minimo,
-             (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual
-      FROM catalogo_productos p
-      LEFT JOIN stock_movimientos m ON m.producto_id = p.id
-      WHERE p.activo = true
-      GROUP BY p.id, p.stock_minimo, p.stock_inicial
-    ) sub
-  `);
-  return c.json(r);
 });
 
 // GET /tablero — panel de existencias con métricas completas
@@ -295,7 +277,7 @@ stock.post('/ingresar', async (c) => {
       `, [
         numero,
         b.proveedor_id  || null,
-        b.fecha_ingreso || new Date().toISOString().split('T')[0],
+        b.fecha_ingreso || hoyAR(),
         b.remito_nro    || null,
         b.factura_nro   || null,
         b.notas_lote    || null,

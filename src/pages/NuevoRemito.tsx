@@ -3,10 +3,10 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
   MapPin, Hash, RefreshCw, Search, X as XIcon,
-  FileText, CheckSquare, Square, Download, ChevronDown, CalendarClock
+  CheckSquare, Square, Download, ChevronDown, CalendarClock
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
@@ -152,7 +152,7 @@ export function NuevoRemito() {
   const [transportista, setTransportista] = useState('');
   const [nroSeguimiento, setNroSeguimiento] = useState('');
   const [direccionEntrega, setDireccionEntrega] = useState('');
-  const [fechaEmision, setFechaEmision]   = useState(new Date().toISOString().split('T')[0]);
+  const [fechaEmision, setFechaEmision]   = useState(fechaDiaAR(new Date()));
   const [fechaEntregaEst, setFechaEntregaEst] = useState('');
   const [horaEntregaEst, setHoraEntregaEst] = useState('');
   const [notas, setNotas]                 = useState('');

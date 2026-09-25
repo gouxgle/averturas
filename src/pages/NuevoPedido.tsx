@@ -5,7 +5,7 @@ import {
   RefreshCw, Plus, Trash2, MessageCircle, LayoutGrid, X, Search,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { SectionCard } from '@/components/SectionCard';
@@ -291,11 +291,11 @@ export default function NuevoPedido() {
   const [items,         setItems]         = useState<PedidoItemForm[]>([
     { descripcion: '', cantidad: 1, costo_unitario: 0 },
   ]);
-  const [fechaPedido,   setFechaPedido]   = useState(new Date().toISOString().split('T')[0]);
+  const [fechaPedido,   setFechaPedido]   = useState(fechaDiaAR(new Date()));
   const [fechaEst,      setFechaEst]      = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    return d.toISOString().split('T')[0];
+    return fechaDiaAR(d);
   });
   const [notas,            setNotas]            = useState('');
   const [costoEnvioManual, setCostoEnvioManual] = useState<number | null>(null);

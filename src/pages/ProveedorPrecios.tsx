@@ -7,7 +7,7 @@ import {
   Percent, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // ── Tipos ──────────────────────────────────────────────────────
@@ -887,7 +887,7 @@ export function ProveedorPrecios() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `precios_${proveedor?.nombre ?? id}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `precios_${proveedor?.nombre ?? id}_${fechaDiaAR(new Date())}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
 
