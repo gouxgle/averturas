@@ -100,6 +100,11 @@ cd server && npm run migrate   # lee server/.env
 - El clasificador de seguridad bloquea contraseñas literales en la línea de comandos:
   `curl -d @archivo.json`, nunca `-d '{"password":...}'`.
 - No agregar infraestructura nueva (scripts, perfiles de compose, herramientas) sin que se pida.
+- **Permisos**: viven en `~/.claude/settings.json` (usuario), con comodines; la sesión arranca en
+  `/home/sistemas`, así que `.claude/settings.json` de este repo no aplica. Si algo pide permiso,
+  agregar una regla con comodín ahí, nunca el comando literal. Prod y force push siempre preguntan.
+- **Lo que no bloquea el reporte va en segundo plano**: deploy a test, rebuild de `:3000` y e2e
+  se lanzan en background mientras se verifica o redacta; no esperar sentado a que terminen.
 
 **Calibrar la verificación al tamaño del cambio** — elegir UN nivel, una sola pasada al final:
 
