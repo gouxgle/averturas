@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
+import { scrollContenidoArriba } from '@/lib/scroll';
 import { Sidebar } from './Sidebar';
 import { Toaster } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -89,6 +90,14 @@ function Watermark() {
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  // Cada pantalla nueva arranca arriba: en una SPA el navegador no resetea el scroll al
+  // navegar, y la pantalla nueva abría a la altura que traía la anterior. Solo con el
+  // pathname: pestañas y modales por query param (?tab=, ?oc=) conservan la posición.
+  useEffect(() => {
+    scrollContenidoArriba();
+  }, [pathname]);
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: 'var(--app-bg)', position: 'relative' }}>

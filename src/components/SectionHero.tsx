@@ -32,8 +32,11 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
 
   return (
     <div className="section-hero">
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
+      {/* Título a la izquierda; Dólar + Clima y acciones juntos a la derecha. El título tiene
+          ancho mínimo: cuando no entra todo en una fila, el grupo de la derecha baja entero
+          (alineado a la derecha) en vez de aplastar el título ("Compr / as" a 1366px). */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-4 flex-1 min-w-0 sm:min-w-[18rem]">
           {/* Icon mark */}
           <div
             className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-md"
@@ -58,18 +61,15 @@ export function SectionHero({ section, icon: Icon, title, sub, actions }: Sectio
           </div>
         </div>
 
-        {/* Dólar + Clima — mismo formato en todas las secciones (como en el Dashboard).
-            Solo desktop: en mobile no entra sin romper el layout de icono+título+acciones. */}
-        <div className="hidden lg:flex lg:justify-center lg:shrink-0">
-          <ClimaDolarStrip />
-        </div>
-
-        {/* Actions — propia fila y envuelven en mobile, en línea con el título en desktop */}
-        {actions && (
-          <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
-            {actions}
+        <div className="flex items-center gap-2 flex-wrap sm:ml-auto sm:justify-end">
+          {/* Dólar + Clima — mismo formato en todas las secciones (como en el Dashboard).
+              Solo desktop: en mobile no entra sin romper el layout de icono+título+acciones. */}
+          <div className={`hidden lg:flex items-center gap-2 ${actions ? 'lg:pr-3 lg:mr-1 lg:border-r lg:border-black/10' : ''}`}>
+            <ClimaDolarStrip />
           </div>
-        )}
+
+          {actions}
+        </div>
       </div>
     </div>
   );

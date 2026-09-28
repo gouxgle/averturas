@@ -18,6 +18,7 @@ import {
 } from './tipos';
 import { inpCls, lblCls, btnPrimario, btnSecundario, AdjuntosGrid, DropzoneAdjuntos, SelectorProveedores, FichaTecnica, BotonEliminar } from './ui';
 import { FormOrden, type OrdenPayload } from './FormOrden';
+import { scrollContenidoArriba } from '@/lib/scroll';
 
 interface ItemForm {
   _key: string;
@@ -76,6 +77,9 @@ export default function NuevaSolicitud() {
   const esEdicion = !!editId;
 
   const [paso, setPaso] = useState<1 | 2 | 3>(esEdicion ? 2 : 1);
+  // "Continuar" está al pie de un formulario largo: sin esto el paso siguiente (más corto)
+  // quedaba fuera de la vista y se veía la pantalla vacía.
+  useEffect(() => { scrollContenidoArriba(); }, [paso]);
   const [origen, setOrigen] = useState<OrigenCompra | null>(null);
   const [cargandoOrigen, setCargandoOrigen] = useState(false);
   // Cabecera

@@ -13,6 +13,7 @@ import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
+import { scrollContenidoArriba } from '@/lib/scroll';
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Operacion {
@@ -393,7 +394,7 @@ export function NuevoRemito() {
       if (dir) setDireccionEntrega(dir);
     }
     setShowListos(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollContenidoArriba('smooth');
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -66,22 +66,18 @@ export function WeatherWidget() {
   const code = weather.current.weather_code;
 
   return (
-    <div className="relative inline-block my-2">
+    <div className="relative inline-block">
       <button
         onClick={() => setShowWeek(v => !v)}
-        className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border-2 border-sky-300 bg-gradient-to-r from-sky-50 to-blue-50 shadow-md hover:shadow-lg hover:border-sky-400 transition-all"
-        title="Clic para ver pronóstico semanal — Formosa, Argentina"
+        className="flex items-center gap-2 h-10 px-3 rounded-xl border border-sky-300 bg-gradient-to-r from-sky-50 to-blue-50 shadow-sm hover:shadow-md hover:border-sky-400 transition-all"
+        title={`${wmoDesc(code)} — Formosa, Argentina. Clic para ver el pronóstico semanal`}
       >
-        <span className="text-3xl leading-none">{wmoEmoji(code)}</span>
-        <div className="flex flex-col items-start leading-tight">
-          <span className="text-xl font-black text-sky-700 tabular-nums">{temp}°C</span>
-          <span className="text-[11px] text-sky-500 font-medium">{wmoDesc(code)}</span>
+        <span className="text-xl leading-none">{wmoEmoji(code)}</span>
+        <div className="flex flex-col items-start leading-none gap-0.5">
+          <span className="text-base font-black text-sky-700 tabular-nums">{temp}°C</span>
+          <span className="text-[10px] text-sky-600 font-medium whitespace-nowrap">{wmoDesc(code)}</span>
         </div>
-        <div className="flex flex-col items-end leading-tight ml-1 pl-3 border-l border-sky-200">
-          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Formosa</span>
-          <span className="text-[10px] text-gray-600">Argentina</span>
-          <span className="text-sky-400 text-[9px] mt-0.5">{showWeek ? '▲ cerrar' : '▼ semana'}</span>
-        </div>
+        <ChevronDown size={14} className={cn('text-sky-400 transition-transform', showWeek && 'rotate-180')} />
       </button>
 
       {showWeek && (
@@ -168,18 +164,18 @@ export function DolarWidget() {
   const tendencia = historial ? calcularTendencia(historial) : null;
 
   return (
-    <div className="relative inline-block my-2">
+    <div className="relative inline-block">
       <button
         onClick={toggleHistorial}
-        className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-md hover:shadow-lg hover:border-emerald-400 transition-all"
+        className="flex items-center gap-2 h-10 px-3 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all"
         title="Clic para ver la evolución de los últimos 30 días"
       >
-        <DollarSign size={22} className="text-emerald-600" />
-        <div className="flex flex-col items-start leading-tight">
-          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wide">Valor Dólar</span>
-          <span className="text-xl font-black text-emerald-700 tabular-nums">{formatCurrency(compra)}</span>
+        <DollarSign size={18} className="text-emerald-600" />
+        <div className="flex flex-col items-start leading-none gap-0.5">
+          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">Dólar</span>
+          <span className="text-base font-black text-emerald-700 tabular-nums">{formatCurrency(compra)}</span>
         </div>
-        <span className="text-emerald-400 text-[9px] ml-1 self-end mb-0.5">{showHistorial ? '▲ cerrar' : '▼ evolución'}</span>
+        <ChevronDown size={14} className={cn('text-emerald-400 transition-transform', showHistorial && 'rotate-180')} />
       </button>
 
       {showHistorial && (
@@ -266,7 +262,7 @@ export function DolarWidget() {
 // desde el Clima y taparía al Dólar si estuviera después.
 export function ClimaDolarStrip() {
   return (
-    <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex items-center gap-2">
       <DolarWidget />
       <WeatherWidget />
     </div>
