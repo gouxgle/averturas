@@ -170,9 +170,15 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
   `INSERT INTO schema_migrations (filename) VALUES ('...') ON CONFLICT DO NOTHING;`.
   `docker/initdb/01_schema.sh` las corre todas en una DB vacía (no tocarlo). Runner:
   `npm run migrate` / `migrate:list` / `migrate:dry`, transacción por migración.
-- Generación de números correlativos (`OP-`, `REC-`, `REM-`, `PED-`, `VT-`, lotes): siempre
-  `MAX(SUBSTRING(numero FROM '(\d+)$')::int) + 1`, **nunca `COUNT(*)`** (regenera números
-  borrados → `duplicate key` → rollback silencioso).
+- Números correlativos `PREFIJO-YYYYMM-NNNN` (`REC-`, `R-`, `VT-`, `SC-`/`PC-`/`OC-`/`REC-`
+  de compras): **siempre `siguienteNumero(client, tabla, prefijo)`** de
+  `server/src/lib/numeracion.ts`, con el client **después del BEGIN** y el INSERT en la misma
+  transacción. Toma un advisory lock hasta el COMMIT, así dos altas simultáneas no leen el
+  mismo MAX. Usa MAX del sufijo, **nunca `COUNT(*)`** (regenera números borrados). Test de
+  concurrencia contra la DB: `DATABASE_URL=… npx vitest run numeracion` en `server/`.
+  Los lotes (`LOT-`) todavía calculan su propio MAX en `stock.ts`.
+- **PDFs** (`server/src/lib/pdf.ts`): un solo Chromium compartido, un PDF por vez (cola) y
+  cierre tras 5 min sin uso. No volver a lanzar un browser por pedido (≈1 s y ≈150 MB cada uno).
 - `crypto.randomUUID()` no existe en HTTP (test): usar el fallback con `Math.random`.
 - **"Hoy" y el mes de la numeración, siempre en horario Argentina**: `hoyAR()` / `mesAR()`
   (`server/src/lib/fechas.ts`) en el backend y `fechaDiaAR(new Date())` en el frontend. Nunca

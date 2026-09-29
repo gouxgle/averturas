@@ -6,7 +6,7 @@
  */
 import type { PoolClient } from 'pg';
 import { db } from '../db.js';
-import { mesAR } from './fechas.js';
+import { siguienteNumero, type TablaNumerada } from './numeracion.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -19,7 +19,7 @@ const num = (v: unknown) => Number(v ?? 0);
 
 export type PrefijoCompra = 'SC' | 'PC' | 'OC' | 'REC';
 
-const TABLA_POR_PREFIJO: Record<PrefijoCompra, string> = {
+const TABLA_POR_PREFIJO: Record<PrefijoCompra, TablaNumerada> = {
   SC:  'compras_solicitudes',
   PC:  'compras_cotizaciones',
   OC:  'pedidos',
@@ -32,14 +32,7 @@ const TABLA_POR_PREFIJO: Record<PrefijoCompra, string> = {
  * borrados → duplicate key). Los PED- viejos no participan del conteo de OC-.
  */
 export async function nextNumeroCompra(client: Queryable, prefijo: PrefijoCompra): Promise<string> {
-  const ym = mesAR();
-  const { rows } = await client.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n
-     FROM ${TABLA_POR_PREFIJO[prefijo]} WHERE numero LIKE $1`,
-    [`${prefijo}-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `${prefijo}-${ym}-${String(n).padStart(4, '0')}`;
+  return siguienteNumero(client, TABLA_POR_PREFIJO[prefijo], prefijo);
 }
 
 // ── Estado legacy de la OC ────────────────────────────────────────────────────

@@ -8,7 +8,8 @@ import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '
 import { sincronizarTareaEntrega, completarTareaDeEntrega } from '../lib/remitos.js';
 import { enviarWhatsapp } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
-import { hoyAR, mesAR } from '../lib/fechas.js';
+import { hoyAR } from '../lib/fechas.js';
+import { siguienteNumero } from '../lib/numeracion.js';
 
 const remitos = new Hono();
 
@@ -39,16 +40,6 @@ remitos.post('/upload-imagen', async (c) => {
 
   return c.json({ url: `/uploads/remitos/${filename}` });
 });
-
-async function nextNumero(): Promise<string> {
-  const ym = mesAR();
-  const { rows } = await db.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM remitos WHERE numero LIKE $1`,
-    [`R-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `R-${ym}-${String(n).padStart(4, '0')}`;
-}
 
 const WITH_CLIENTE = `
   SELECT r.*,
@@ -526,11 +517,10 @@ remitos.post('/', async (c) => {
     if (error) return c.json({ error }, 409);
   }
 
-  const numero = await nextNumero();
-
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const numero = await siguienteNumero(client, 'remitos', 'R');
 
     const { rows: [remito] } = await client.query(`
       INSERT INTO remitos

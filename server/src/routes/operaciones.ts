@@ -8,7 +8,7 @@ import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
 import { sendProformaCompartida } from '../email.js';
 import { registrarActividad } from '../lib/actividad.js';
-import { mesAR } from '../lib/fechas.js';
+import { siguienteNumero } from '../lib/numeracion.js';
 
 const operaciones = new Hono();
 
@@ -116,28 +116,6 @@ async function renderMensajePresupuesto(nombre: string, numero: string, url: str
     : `Hola ${nombre}, te enviamos el presupuesto *${numero}* para tu revisión.\n\nPodés aprobarlo desde este enlace:\n${url}`;
 }
 
-// MAX del sufijo numérico (no COUNT): un borrado previo deja huecos y COUNT(*) + 1
-// puede repetir un número ya usado, violando el UNIQUE de numero.
-async function nextNumeroRecibo(): Promise<string> {
-  const ym = mesAR();
-  const { rows } = await db.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
-    [`REC-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `REC-${ym}-${String(n).padStart(4, '0')}`;
-}
-
-async function nextNumeroRemito(): Promise<string> {
-  const ym = mesAR();
-  const { rows } = await db.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM remitos WHERE numero LIKE $1`,
-    [`R-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `R-${ym}-${String(n).padStart(4, '0')}`;
-}
-
 // ── Venta rápida de mostrador ────────────────────────────────────────────
 // Crea operación (ya aprobada) + recibo (emitido) + remito (emitido/entregado) + descuento
 // de stock, todo en una sola transacción. Debe ir ANTES de GET /:id.
@@ -231,7 +209,7 @@ operaciones.post('/venta-rapida', async (c) => {
     const montoFinal = montoProductos - montoDescuento;
 
     // 4. Recibo (emitido por default de columna)
-    const numeroRecibo = await nextNumeroRecibo();
+    const numeroRecibo = await siguienteNumero(client, 'recibos', 'REC');
     const { rows: [recibo] } = await client.query(`
       INSERT INTO recibos
         (numero, cliente_id, operacion_id, monto_total, forma_pago, concepto,
@@ -252,15 +230,9 @@ operaciones.post('/venta-rapida', async (c) => {
     // registrarlo/contabilizarlo por separado (no es parte de precio_total).
     let reciboEnvio: { id: string; numero: string } | null = null;
     if (esEnvioDomicilio && b.costo_envio > 0) {
-      // Numeración dentro de la misma transacción: nextNumeroRecibo() usa el pool
-      // (otra conexión) y no vería el recibo de productos recién insertado, sin
-      // confirmar todavía — generaría el mismo número dos veces.
-      const ym = mesAR();
-      const { rows: [{ n }] } = await client.query(
-        `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
-        [`REC-${ym}-%`]
-      );
-      const numeroReciboEnvio = `REC-${ym}-${String(Number(n) + 1).padStart(4, '0')}`;
+      // Mismo client que el recibo de productos: ve ese INSERT sin confirmar y da el
+      // número siguiente (con el pool daría el mismo número dos veces).
+      const numeroReciboEnvio = await siguienteNumero(client, 'recibos', 'REC');
 
       const { rows: [reciboE] } = await client.query(`
         INSERT INTO recibos (numero, cliente_id, operacion_id, monto_total, forma_pago, concepto, created_by)
@@ -275,7 +247,7 @@ operaciones.post('/venta-rapida', async (c) => {
     }
 
     // 5. Remito — nace 'borrador' por diseño de columna
-    const numeroRemito = await nextNumeroRemito();
+    const numeroRemito = await siguienteNumero(client, 'remitos', 'R');
     const { rows: [remito] } = await client.query(`
       INSERT INTO remitos (numero, cliente_id, operacion_id, medio_envio, direccion_entrega, costo_envio, notas, created_by)
       VALUES ($1,$2,$3,$4,$5,$6,'Venta rápida de mostrador',$7)

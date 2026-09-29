@@ -9,7 +9,8 @@ import { ReciboSchema } from '../lib/schemas.js';
 import { generarPDFRecibo } from '../lib/pdf.js';
 import { enviarWhatsappPdf, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
-import { hoyAR, mesAR } from '../lib/fechas.js';
+import { hoyAR } from '../lib/fechas.js';
+import { siguienteNumero } from '../lib/numeracion.js';
 
 const recibos = new Hono();
 
@@ -86,20 +87,11 @@ recibos.post('/upload-comprobante', async (c) => {
   return c.json({ url: `/uploads/comprobantes/${filename}` });
 });
 
-// Correlativo mensual por MAX (nunca COUNT: si se borra una fila, COUNT sub-cuenta y
-// regenera un número ya usado → duplicate key y rollback silencioso).
-// Acepta un client para poder correr dentro de una transacción ajena (ej. cobro de visita técnica).
-export async function nextNumeroRecibo(q: { query: typeof db.query } = db): Promise<string> {
-  const ym = mesAR();
-  const { rows } = await q.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM recibos WHERE numero LIKE $1`,
-    [`REC-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `REC-${ym}-${String(n).padStart(4, '0')}`;
+// Correlativo mensual REC-. Con el client de la transacción donde va el INSERT (ver
+// lib/numeracion.ts); lo usa también el cobro de visitas técnicas.
+export async function nextNumeroRecibo(client: Pick<pkg.PoolClient, 'query'>): Promise<string> {
+  return siguienteNumero(client, 'recibos', 'REC');
 }
-
-const nextNumero = nextNumeroRecibo;
 
 // Cierra los compromisos de pago de una operación si ya quedó saldada.
 // Se llama tras crear un recibo y tras acreditar una visita técnica.
@@ -506,7 +498,6 @@ recibos.post('/', async (c) => {
   const b = await validateBody(c, ReciboSchema);
   if (b instanceof Response) return b;
 
-  const numero = await nextNumero();
   const items = b.items ?? [];
 
   const norm = normalizarPagos(b.pagos, b.monto_total);
@@ -517,6 +508,7 @@ recibos.post('/', async (c) => {
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
+    const numero = await nextNumeroRecibo(client);
     const montoLista     = Number(b.monto_lista     ?? b.monto_total);
     const montoDescuento = Number(b.monto_descuento ?? 0);
     const descuentoPct   = Number(b.descuento_pct   ?? 0);

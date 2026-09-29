@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer-core';
+import puppeteer, { type Browser } from 'puppeteer-core';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,19 +16,47 @@ const fmtFecha = (iso: string | Date | unknown) => {
   } catch { return String(iso); }
 };
 
-/**
- * Renderiza un HTML a PDF A4 con el Chromium del sistema. Compartido por todos los
- * generadores (antes cada uno lanzaba su propio browser con los mismos parámetros).
- */
-async function renderPDF(html: string): Promise<Buffer> {
-  const executablePath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium-browser';
-  const browser = await puppeteer.launch({
-    executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-    headless: true,
-  });
+// ── Chromium compartido ──────────────────────────────────────────────────────
+// Antes cada PDF lanzaba y cerraba un Chromium entero (~1 s y ~150 MB por pedido, y
+// varios pedidos a la vez sumaban esos picos en un VPS de 2 GB). Ahora hay un solo
+// browser: se abre con el primer PDF, cada PDF usa una pestaña propia, se generan de a
+// uno (cola) y el browser se cierra tras IDLE_MS sin pedidos para devolver la RAM.
+const IDLE_MS = 5 * 60 * 1000;
+let browserPromise: Promise<Browser> | null = null;
+let idleTimer: NodeJS.Timeout | null = null;
+let cola: Promise<unknown> = Promise.resolve();
+
+function getBrowser(): Promise<Browser> {
+  if (!browserPromise) {
+    const executablePath = process.env.CHROMIUM_PATH ?? '/usr/bin/chromium-browser';
+    const p = puppeteer.launch({
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      headless: true,
+    });
+    browserPromise = p;
+    // Si Chromium muere o no arranca, el próximo PDF lanza uno nuevo.
+    p.then(b => b.on('disconnected', () => { if (browserPromise === p) browserPromise = null; }))
+      .catch(() => { if (browserPromise === p) browserPromise = null; });
+  }
+  return browserPromise;
+}
+
+function programarCierre() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    const p = browserPromise;
+    browserPromise = null;
+    p?.then(b => b.close()).catch(() => {});
+  }, IDLE_MS);
+  idleTimer.unref();
+}
+
+async function renderEnPestana(html: string): Promise<Buffer> {
+  if (idleTimer) clearTimeout(idleTimer);
+  const browser = await getBrowser();
+  const page = await browser.newPage();
   try {
-    const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
     const pdfBuffer = await page.pdf({
       format: 'A4',
@@ -37,8 +65,19 @@ async function renderPDF(html: string): Promise<Buffer> {
     });
     return Buffer.from(pdfBuffer);
   } finally {
-    await browser.close();
+    await page.close().catch(() => {});
+    programarCierre();
   }
+}
+
+/**
+ * Renderiza un HTML a PDF A4 con el Chromium del sistema. Compartido por todos los
+ * generadores; los pedidos simultáneos esperan su turno en la cola.
+ */
+function renderPDF(html: string): Promise<Buffer> {
+  const turno = cola.then(() => renderEnPestana(html));
+  cola = turno.catch(() => {});
+  return turno;
 }
 
 /** Logo embebido en base64 (Puppeteer no tiene red hacia el propio servidor). */

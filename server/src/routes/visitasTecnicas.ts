@@ -9,7 +9,7 @@ import {
   VisitaTecnicaBonificarSchema, VisitaTecnicaCostoExternoSchema,
 } from '../lib/schemas.js';
 import { nextNumeroRecibo, cerrarCompromisosSiSaldado } from './recibos.js';
-import { mesAR } from '../lib/fechas.js';
+import { siguienteNumero } from '../lib/numeracion.js';
 
 const visitasTecnicas = new Hono();
 
@@ -47,16 +47,6 @@ async function emitirReciboVisita(
   `, [rec.id, `Visita de Relevamiento de Datos a domicilio — ${visita.numero}`, costo]);
 
   return rec;
-}
-
-async function nextNumero(): Promise<string> {
-  const ym = mesAR();
-  const { rows } = await db.query(
-    `SELECT COALESCE(MAX(SUBSTRING(numero FROM '(\\d+)$')::int), 0) AS n FROM visitas_tecnicas WHERE numero LIKE $1`,
-    [`VT-${ym}-%`]
-  );
-  const n = Number((rows[0] as { n: number }).n) + 1;
-  return `VT-${ym}-${String(n).padStart(4, '0')}`;
 }
 
 const WITH_CLIENTE = `
@@ -196,7 +186,7 @@ visitasTecnicas.post('/', async (c) => {
   try {
     await client.query('BEGIN');
 
-    const numero = await nextNumero();
+    const numero = await siguienteNumero(client, 'visitas_tecnicas', 'VT');
     const { rows: [row] } = await client.query(`
       INSERT INTO visitas_tecnicas (numero, cliente_id, created_by, cobro_estado, costo_cobrado, operacion_id)
       VALUES ($1, $2, $3, $4, $5, $6)
