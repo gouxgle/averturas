@@ -475,6 +475,28 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   digital: 56px en recibo, 49px en remito. Ante dudas de paginación, contar `/Type /Pages
   ... /Count N` en los bytes del PDF, no medir el DOM.
 
+## Facturación electrónica ARCA (en desarrollo, apagada)
+
+Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
+F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1**: configuración,
+certificado y prueba de conexión. `fiscal_config.habilitada=false` hasta F9.
+
+- `server/src/lib/arca/`: `soap.ts` (cliente mínimo, agente TLS `SECLEVEL=1` solo para ARCA,
+  registra cada llamada en `fiscal_eventos` con Token/Sign enmascarados; `ArcaError.incierto`
+  = no se sabe si ARCA procesó → **nunca reintentar sin `FECompConsultar`**), `wsaa.ts`
+  (ticket cacheado en `arca_tokens` con advisory lock: pedir otro vigente da error),
+  `wsfe.ts`, `secretos.ts` (clave privada cifrada con `FISCAL_KEY_SECRET` en
+  `FISCAL_SECRETS_DIR` = volumen `./secrets`, **nunca en uploads/**), `endpoints.ts`
+  (`ARCA_FAKE_URL` manda todo al simulador).
+- `server/src/lib/fiscal/`: `cuit.ts` (módulo 11), `config.ts`, `diagnostico.ts` (semáforo).
+- Simulador de ARCA para tests: `server/src/__tests__/arca-fake/servidor.ts`
+  (`DATABASE_URL=… npx vitest run arca`).
+- API `/api/facturacion` (todo admin salvo `GET /estado`); UI en Configuración >
+  Facturación (`src/pages/facturacion/PanelFacturacion.tsx`).
+- `trabajos_cola` = cola de trabajos en Postgres (`tareas` ya son las del CRM).
+- **Prod**: antes de F9 hay que agregar `FISCAL_KEY_SECRET` y el volumen `secrets` a mano en
+  el compose del host (fuera del repo).
+
 ## Manuales del sistema (`/ayuda`)
 
 Cuatro manuales escritos **para el operador del local, no para desarrolladores**. Si se

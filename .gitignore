@@ -75,3 +75,7 @@ vps-config/*.env
 
 # Credenciales del usuario de pruebas local (nunca se comparten)
 tests/.env.e2e
+
+# Clave privada y certificados de ARCA (facturación electrónica) — nunca al repo
+secrets/
+server/secrets/

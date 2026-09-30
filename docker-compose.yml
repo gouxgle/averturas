@@ -56,8 +56,14 @@ services:
       SMTP_USER:             ${SMTP_USER:-}
       SMTP_PASS:             ${SMTP_PASS:-}
       SMTP_REPLY_TO:         ${SMTP_REPLY_TO:-}
+      # Facturación electrónica ARCA: cifra la clave privada guardada en secrets/arca.
+      # Sin ella el semáforo de Configuración > Facturación queda en rojo (no rompe nada más).
+      FISCAL_KEY_SECRET:     ${FISCAL_KEY_SECRET:-}
+      FISCAL_SECRETS_DIR:    /app/secrets/arca
     volumes:
       - ./uploads:/app/uploads
+      # Clave y certificados de ARCA: FUERA de uploads (que se sirve público sin login).
+      - ./secrets:/app/secrets
       # Backups (solo existen en prod — cron + rclone corren en el host, fuera de Docker).
       # Montados solo lectura para que la sección Configuración > Backups pueda mostrar su estado.
       - /var/lib/docker-data/backups:/app/backup-data:ro

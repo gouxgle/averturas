@@ -933,3 +933,32 @@ export const ProductoSchema = z.object({
   modelo_id:        uuidOpt,
 });
 export type ProductoInput = z.infer<typeof ProductoSchema>;
+
+// ── Facturación electrónica (ARCA) ───────────────────────────────────────────
+const textoOpt = z.string().trim().max(300).nullable().optional();
+export const FiscalConfigSchema = z.object({
+  ambiente:           z.enum(['homologacion', 'produccion']).optional(),
+  cuit:               z.string().trim().regex(/^\d{2}-?\d{8}-?\d$/, 'CUIT con 11 dígitos').nullable().optional(),
+  razon_social:       textoOpt,
+  iibb:               z.string().trim().max(60).nullable().optional(),
+  inicio_actividades: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha AAAA-MM-DD').nullable().optional(),
+  domicilio_fiscal:   textoOpt,
+  leyenda_pie:        z.string().trim().max(500).nullable().optional(),
+});
+
+export const PuntoVentaSchema = z.object({
+  numero:    z.number().int().min(1).max(99998),
+  modo:      z.enum(['CAE', 'CAEA']),
+  domicilio: textoOpt,
+  activo:    z.boolean().optional(),
+});
+
+export const CsrSchema = z.object({
+  alias:     z.string().trim().regex(/^[a-zA-Z0-9]{3,30}$/, 'Solo letras y números, 3 a 30 caracteres'),
+  confirmar: z.boolean().optional(),
+});
+
+export const CertificadoSchema = z.object({
+  ambiente: z.enum(['homologacion', 'produccion']),
+  pem:      z.string().min(100).max(20_000),
+});

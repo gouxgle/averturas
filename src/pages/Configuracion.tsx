@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes, CreditCard, Tag, Square } from 'lucide-react';
+import { SlidersHorizontal, Users, Building2, Palette, Plus, Pencil, Check, X, Layers, Settings2, ToggleLeft, ToggleRight, Save, Eye, EyeOff, MessageSquare, MapPin, Trash2, GripVertical, DatabaseBackup, CheckCircle2, XCircle, AlertTriangle, HardDrive, Clock, Wrench, FolderTree, ChevronRight, Boxes, CreditCard, Tag, Square, ReceiptText } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { useAuth } from '@/hooks/useAuth';
 import { SectionHero } from '@/components/SectionHero';
+import { PanelFacturacion } from '@/pages/facturacion/PanelFacturacion';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1850,9 +1851,9 @@ function PanelBackups() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'materiales' | 'lineas' | 'vidrios' | 'colores' | 'servicios' | 'formas_pago' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | null;
+type Panel = 'empresa' | 'usuarios' | 'localidades' | 'tipos_abertura' | 'sistemas' | 'materiales' | 'lineas' | 'vidrios' | 'colores' | 'servicios' | 'formas_pago' | 'categorias' | 'modelos' | 'mensajes' | 'backups' | 'facturacion' | null;
 
-const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | null>; label: string; icon: typeof Layers; desc: string }[] = [
+const CATALOG_BTNS: { id: Exclude<Panel, 'empresa' | 'usuarios' | 'localidades' | 'facturacion' | null>; label: string; icon: typeof Layers; desc: string }[] = [
   { id: 'categorias',     label: 'Categorías',          icon: FolderTree, desc: 'Árbol de navegación del catálogo (los niveles los definís vos)' },
   { id: 'tipos_abertura', label: 'Tipos de abertura', icon: Layers,    desc: 'Ventana, puerta, celosía...' },
   { id: 'sistemas',       label: 'Sistemas',           icon: Settings2, desc: 'Sistema técnico: perfiles y método de construcción (Herrero, Módena, A30...)' },
@@ -1960,6 +1961,20 @@ export function Configuracion() {
           ))}
         </div>
       </div>
+
+      {/* Facturación electrónica — solo admin */}
+      {user?.rol === 'admin' && (
+        <div>
+          <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">Facturación electrónica</h2>
+          <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
+            <AccordionItem id="facturacion" label="Facturación con ARCA" icon={ReceiptText}
+              desc="Datos fiscales, puntos de venta, certificado y puesta en marcha"
+              open={openPanel === 'facturacion'} onToggle={() => togglePanel('facturacion')}>
+              <PanelFacturacion />
+            </AccordionItem>
+          </div>
+        </div>
+      )}
 
       {/* Mensajes WhatsApp */}
       <div>

@@ -38,6 +38,7 @@ import visitasTecnicasRoutes from './routes/visitasTecnicas.js';
 import backupsRoutes         from './routes/backups.js';
 import comentariosRoutes     from './routes/comentarios.js';
 import changelogRoutes       from './routes/changelog.js';
+import facturacionRoutes     from './routes/facturacion.js';
 import actividadRoutes       from './routes/actividad.js';
 import * as Sentry from '@sentry/node';
 import { authMiddleware } from './middleware/auth.js';
@@ -138,6 +139,7 @@ apiAuth.route('/backups',          backupsRoutes);
 apiAuth.route('/comentarios',      comentariosRoutes);
 apiAuth.route('/changelog',        changelogRoutes);
 apiAuth.route('/actividad',        actividadRoutes);
+apiAuth.route('/facturacion',      facturacionRoutes);
 
 api.route('/', apiAuth);
 app.route('/api', api);

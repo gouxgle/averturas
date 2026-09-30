@@ -25,3 +25,5 @@ deploy*.sh
 playwright.config.ts
 eslint.config.js
 firma*.jpeg
+secrets/
+server/secrets/
