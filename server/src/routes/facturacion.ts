@@ -2,7 +2,9 @@ import { Hono, type Context, type Next } from 'hono';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { FiscalConfigSchema, PuntoVentaSchema, CsrSchema, CertificadoSchema, ComprobanteSchema } from '../lib/schemas.js';
-import { crearBorrador, emitir, conciliar, EmisionError } from '../lib/fiscal/emision.js';
+import { crearBorrador, emitir, conciliar, analizar, EmisionError } from '../lib/fiscal/emision.js';
+import { prepararDesdeRecibo, prepararDesdeOperacion, prepararNotaCredito, excesoSobreOrigen, porFacturar, tablero, receptorDeClienteId } from '../lib/fiscal/origenes.js';
+import type { z } from 'zod';
 import { ArcaError } from '../lib/arca/soap.js';
 import { consultarPadron } from '../lib/arca/padron.js';
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
@@ -81,6 +83,9 @@ facturacion.get('/comprobantes', async (c) => {
   if (q.desde) where.push(`c.fecha >= ${p(q.desde)}`);
   if (q.hasta) where.push(`c.fecha <= ${p(q.hasta)}`);
   if (q.cliente_id) where.push(`c.cliente_id = ${p(q.cliente_id)}`);
+  if (q.recibo_id) where.push(`c.recibo_id = ${p(q.recibo_id)}`);
+  if (q.operacion_id) where.push(`c.operacion_id = ${p(q.operacion_id)}`);
+  if (q.tipo_doc) where.push(`c.tipo_doc = ${p(q.tipo_doc)}`);
   if (q.q?.trim()) {
     const t = p(`%${q.q.trim()}%`);
     where.push(`(c.receptor_nombre ILIKE ${t} OR c.receptor_doc_nro ILIKE ${t} OR c.numero::text ILIKE ${t})`);
@@ -116,10 +121,57 @@ facturacion.get('/comprobantes/:id', async (c) => {
   return c.json({ ...cbte, items, iva, eventos });
 });
 
+// Tablero, pendientes y propuestas (antes de /comprobantes/:id por el orden de Hono).
+facturacion.get('/tablero', async (c) => {
+  const [t, cfg] = await Promise.all([tablero(), leerConfig()]);
+  return c.json({ ...t, habilitada: cfg.habilitada, ambiente: cfg.ambiente });
+});
+
+facturacion.get('/por-facturar', async (c) => c.json(await porFacturar()));
+
+facturacion.get('/preparar', async (c) => {
+  const { recibo_id, operacion_id, factura_id } = c.req.query();
+  const p = recibo_id ? await prepararDesdeRecibo(recibo_id)
+    : operacion_id ? await prepararDesdeOperacion(operacion_id)
+      : factura_id ? await prepararNotaCredito(factura_id)
+        : null;
+  if (!p) return c.json({ error: 'No se encontró el origen a facturar' }, 404);
+  return c.json(p);
+});
+
+facturacion.get('/receptor/:clienteId', async (c) => {
+  const r = await receptorDeClienteId(c.req.param('clienteId')!);
+  return r ? c.json(r) : c.json({ error: 'Cliente no encontrado' }, 404);
+});
+
+async function analisisCompleto(b: z.infer<typeof ComprobanteSchema>) {
+  const a = await analizar(b);
+  const exceso = await excesoSobreOrigen(b, a.importes.imp_total);
+  return { ...a, exceso };
+}
+
+facturacion.post('/comprobantes/previsualizar', puedeEmitir, async (c) => {
+  const b = await validateBody(c, ComprobanteSchema);
+  if (b instanceof Response) return b;
+  try {
+    return c.json(await analisisCompleto(b));
+  } catch (e) {
+    if (e instanceof Error && /Alícuota/.test(e.message)) return c.json({ error: e.message }, 422);
+    return responderError(c, e);
+  }
+});
+
 facturacion.post('/comprobantes', puedeEmitir, async (c) => {
   const b = await validateBody(c, ComprobanteSchema);
   if (b instanceof Response) return b;
   try {
+    const { exceso } = await analisisCompleto(b);
+    if (exceso && exceso.exceso > 0 && !b.confirmar_exceso) {
+      return c.json({
+        error: `Supera en $ ${exceso.exceso.toLocaleString('es-AR')} lo que queda por ${b.tipo_doc === 'nota_credito' ? 'acreditar' : 'facturar'} ${exceso.referencia}`,
+        requiere_confirmacion: true,
+      }, 409);
+    }
     const r = await crearBorrador(b, c.get('user').id);
     return c.json(r, 201);
   } catch (e) {

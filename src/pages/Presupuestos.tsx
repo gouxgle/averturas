@@ -21,6 +21,7 @@ import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 import type { Oportunidad } from '@/components/oportunidades/types';
 import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
 import { RevisionesEnviadas } from '@/components/RevisionesEnviadas';
+import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1093,6 +1094,13 @@ function PresupuestoModal({
               </div>
             )}
 
+            {['aprobado', 'en_produccion', 'listo', 'instalado', 'entregado'].includes(op.estado) && (
+              <div className="px-5 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Facturación</span>
+                <FacturasVinculadas operacionId={op.id} />
+              </div>
+            )}
+
             {/* Deshacer una aprobación hecha por error — solo si todavía no se generó
                 nada sobre el presupuesto (recibo, pedido o remito); si ya hay, el backend
                 lo rechaza y hay que anular esos documentos primero. */}
@@ -1179,7 +1187,8 @@ export function Presupuestos() {
   const [orden, setOrden]       = useState<Orden>('reciente');
   const [busqueda, setBusqueda] = useState('');
   const [page, setPage]         = useState(1);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  // ?id= abre el detalle directo (links desde Facturación).
+  const [detailId, setDetailId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('id'));
   const [detailPanel, setDetailPanel] = useState<PresupuestoPanel | null>(null);
   const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
   const [showCancelados, setShowCancelados] = useState(false);

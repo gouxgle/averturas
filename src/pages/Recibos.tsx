@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
+import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
 
 // ── Tipos ────────────────────────────────────────────────────────
 
@@ -571,7 +572,8 @@ function ReciboModal({ id, onClose, onAnulado }: {
             )}
 
             {esEmitido && (
-              <div className="px-5 py-3 bg-gray-50 rounded-b-2xl flex justify-end">
+              <div className="px-5 py-3 bg-gray-50 rounded-b-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <FacturasVinculadas reciboId={id} />
                 <button onClick={() => setConfirmando(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg font-medium">
                   <Ban size={12} /> Anular recibo
@@ -612,7 +614,8 @@ export function Recibos() {
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro]     = useState<FiltroEstado>('todos');
   const [page, setPage]         = useState(1);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  // ?id= abre el detalle directo (links desde Facturación).
+  const [detailId, setDetailId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('id'));
   const [enviandoWaIds, setEnviandoWaIds] = useState<Set<string>>(new Set());
 
   async function enviarWa(reciboId: string) {

@@ -45,6 +45,7 @@
     --accent-reportes:         #c084fc;  --accent-reportes-deep:     #7e22ce;  --accent-reportes-bg:     #e8d0fd;  --accent-reportes-strip:     #d9b5fc;
     --accent-config:           #cbd5e1;  --accent-config-deep:       #475569;  --accent-config-bg:       #d4dde7;  --accent-config-strip:       #bfcbd9;
     --accent-venta-rapida:     #10b981;  --accent-venta-rapida-deep: #059669;  --accent-venta-rapida-bg: #bcf0dc;  --accent-venta-rapida-strip: #96e6c4;
+    --accent-facturacion:      #d946ef;  --accent-facturacion-deep: #a21caf;  --accent-facturacion-bg: #f3d4f8;  --accent-facturacion-strip: #eab6f5;
 
     /* ── Estado operation dots ── */
     --state-presupuesto: #9ca3af;  --state-enviado:    #fbbf24;
@@ -240,6 +241,7 @@
 [data-section="reportes"]     { background-color: var(--accent-reportes-bg); }
 [data-section="config"]       { background-color: var(--accent-config-bg); }
 [data-section="venta-rapida"] { background-color: var(--accent-venta-rapida-bg); }
+[data-section="facturacion"]  { background-color: var(--accent-facturacion-bg); }
 
 /* ── Section hero strip ───────────────────────────────────────────────────── */
 
@@ -270,6 +272,7 @@
 [data-section="crm"]          .section-hero::after { background: var(--accent-crm); }
 [data-section="config"]       .section-hero::after { background: var(--accent-config); }
 [data-section="venta-rapida"] .section-hero::after { background: var(--accent-venta-rapida); }
+[data-section="facturacion"]  .section-hero::after { background: var(--accent-facturacion); }
 
 /* ── Contraste global de cards ────────────────────────────────────────────── */
 /*

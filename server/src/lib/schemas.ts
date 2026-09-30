@@ -1001,4 +1001,6 @@ export const ComprobanteSchema = z.object({
   recibo_id:               zUUID.nullable().optional(),
   comprobante_asociado_id: zUUID.nullable().optional(),
   notas:                   z.string().trim().max(1000).nullable().optional(),
+  /** Facturar por encima del saldo del recibo/presupuesto (o acreditar más que la factura). */
+  confirmar_exceso:        z.boolean().optional(),
 });

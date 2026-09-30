@@ -38,6 +38,8 @@ const Compras                  = lazy(() => import('@/pages/compras/Compras'));
 const Manuales                 = lazy(() => import('@/pages/ayuda/Manuales'));
 const Ayuda                    = lazy(() => import('@/pages/ayuda/Ayuda'));
 const NuevaSolicitud           = lazy(() => import('@/pages/compras/NuevaSolicitud'));
+const Facturacion               = lazy(() => import('@/pages/facturacion/Facturacion'));
+const NuevaFactura             = lazy(() => import('@/pages/facturacion/NuevaFactura'));
 const NuevoPedido              = lazy(() => import('@/pages/NuevoPedido'));
 const EstadoCuentaGlobal       = lazy(() => import('@/pages/EstadoCuentaGlobal').then(m => ({ default: m.EstadoCuentaGlobal })));
 const CRM                      = lazy(() => import('@/pages/CRM').then(m => ({ default: m.CRM })));
@@ -127,6 +129,8 @@ export default function App() {
                   <Route path="/remitos/:id/editar" element={<NuevoRemito />} />
                   {/* Compras (SC → PC → OC). /pedidos* redirige: el flujo viejo vive en /compras/oc/* */}
                   <Route path="/compras" element={<Compras />} />
+                  <Route path="/facturacion" element={<Facturacion />} />
+                  <Route path="/facturacion/nueva" element={<NuevaFactura />} />
                   <Route path="/compras/nueva-solicitud" element={<NuevaSolicitud />} />
                   <Route path="/compras/solicitudes/:id/editar" element={<NuevaSolicitud />} />
                   <Route path="/compras/oc/nueva" element={<NuevoPedido />} />

@@ -72,35 +72,64 @@ const n2 = (v: string | number) => Number(v);
 
 // ── Borrador ─────────────────────────────────────────────────────────────────
 
-/** Crea el borrador (importes calculados y guardados). Devuelve id y problemas pendientes. */
-export async function crearBorrador(input: NuevoComprobante, usuarioId: string | null): Promise<{ id: string; problemas: string[] }> {
+export interface Analisis {
+  clase: Clase;
+  cbte_tipo: number;
+  punto_venta: number;
+  fecha: string;
+  importes: ReturnType<typeof calcularImportes>;
+  problemas: string[];
+  /** Origen heredado: una nota hereda recibo/operación de la factura que corrige. */
+  operacion_id: string | null;
+  recibo_id: string | null;
+}
+
+/** Letra, tipo, importes y validaciones de un comprobante, sin guardar nada (vista previa). */
+export async function analizar(input: NuevoComprobante): Promise<Analisis> {
   const cfg = await leerConfig();
   const importes = calcularImportes(input.items);
 
   let clase: Clase;
   let asociado: { cbte_tipo: number; numero: number | null; clase: Clase; punto_venta: number } | null = null;
+  let operacionId = input.operacion_id ?? null;
+  let reciboId = input.recibo_id ?? null;
   if (input.tipo_doc === 'factura') {
     clase = claseSegunReceptor(input.receptor.condicion_iva_id);
   } else {
     if (!input.comprobante_asociado_id) throw new EmisionError('Falta la factura asociada a la nota');
     const { rows: [a] } = await db.query(
-      `SELECT cbte_tipo, numero, clase, punto_venta, estado FROM comprobantes WHERE id = $1`, [input.comprobante_asociado_id]);
+      `SELECT cbte_tipo, numero, clase, punto_venta, estado, operacion_id, recibo_id FROM comprobantes WHERE id = $1`,
+      [input.comprobante_asociado_id]);
     if (!a) throw new EmisionError('La factura asociada no existe', [], 404);
     clase = a.clase;
     asociado = { cbte_tipo: a.cbte_tipo, numero: a.estado === 'autorizado' ? Number(a.numero) : null, clase: a.clase, punto_venta: a.punto_venta };
+    operacionId = operacionId ?? a.operacion_id;
+    reciboId = reciboId ?? a.recibo_id;
   }
 
   const pvs = (await leerPuntosVenta()).filter(p => p.activo && p.modo === 'CAE');
-  const puntoVenta = input.punto_venta ?? asociado?.punto_venta ?? pvs[0]?.numero;
-  if (!puntoVenta) throw new EmisionError('No hay un punto de venta activo para emisión online (Configuración > Facturación)');
-  if (!pvs.some(p => p.numero === puntoVenta)) throw new EmisionError(`El punto de venta ${puntoVenta} no está activo para emisión online`);
-
+  const puntoVenta = input.punto_venta ?? asociado?.punto_venta ?? pvs[0]?.numero ?? 0;
   const fecha = input.fecha ?? hoyAR();
   const problemas = validarComprobante({
     tipo: input.tipo_doc, clase, receptor: input.receptor, importes, fecha, hoy: hoyAR(),
     cuit_emisor: cfg.cuit ?? '', fch_serv_desde: input.fch_serv_desde, fch_serv_hasta: input.fch_serv_hasta,
     fch_vto_pago: input.fch_vto_pago, asociado,
   });
+  if (!puntoVenta) problemas.push('No hay un punto de venta activo para emisión online (Configuración > Facturación)');
+  else if (!pvs.some(p => p.numero === puntoVenta)) problemas.push(`El punto de venta ${puntoVenta} no está activo para emisión online`);
+  return {
+    clase, cbte_tipo: tipoComprobante(clase, input.tipo_doc), punto_venta: puntoVenta, fecha, importes, problemas,
+    operacion_id: operacionId, recibo_id: reciboId,
+  };
+}
+
+/** Crea el borrador (importes calculados y guardados). Devuelve id y problemas pendientes. */
+export async function crearBorrador(input: NuevoComprobante, usuarioId: string | null): Promise<{ id: string; problemas: string[] }> {
+  const cfg = await leerConfig();
+  const a = await analizar(input);
+  if (!a.punto_venta) throw new EmisionError('No hay un punto de venta activo para emisión online (Configuración > Facturación)');
+  const { clase, importes, problemas, fecha } = a;
+  const puntoVenta = a.punto_venta;
 
   const client = await db.connect();
   try {
@@ -114,12 +143,12 @@ export async function crearBorrador(input: NuevoComprobante, usuarioId: string |
           imp_neto, imp_iva, imp_op_ex, imp_tot_conc, imp_trib, imp_total, notas, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
        RETURNING id`,
-      [cfg.ambiente, input.tipo_doc, clase, tipoComprobante(clase, input.tipo_doc), puntoVenta, fecha, importes.concepto,
+      [cfg.ambiente, input.tipo_doc, clase, a.cbte_tipo, puntoVenta, fecha, importes.concepto,
        importes.concepto !== 1 ? input.fch_serv_desde ?? null : null,
        importes.concepto !== 1 ? input.fch_serv_hasta ?? null : null,
        importes.concepto !== 1 ? input.fch_vto_pago ?? null : null,
        input.cliente_id ?? null, r.doc_tipo, r.doc_nro, r.nombre.trim(), r.domicilio ?? null, r.condicion_iva_id,
-       input.origen ?? 'manual', input.operacion_id ?? null, input.recibo_id ?? null, input.comprobante_asociado_id ?? null,
+       input.origen ?? 'manual', a.operacion_id, a.recibo_id, input.comprobante_asociado_id ?? null,
        importes.imp_neto, importes.imp_iva, importes.imp_op_ex, importes.imp_tot_conc, importes.imp_trib, importes.imp_total,
        input.notas ?? null, usuarioId]);
     for (const [i, it] of importes.items.entries()) {

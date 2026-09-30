@@ -17,7 +17,7 @@ type HelpSection = {
   tip?: string;
 };
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
-export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras';
+export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion';
 
 /** Temas que además tienen manual completo en Manuales del sistema (`/ayuda/:slug`). */
 const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
@@ -206,6 +206,66 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { label: 'devolucion', value: 'Reingreso por cancelación de remito' },
           { label: 'reserva', value: 'Reserva al aprobar presupuesto con producto de stock' },
           { label: 'ajuste', value: 'Corrección manual de inventario' },
+        ],
+      },
+    ],
+  },
+
+  facturacion: {
+    label: 'Facturación',
+    color: 'text-fuchsia-700',
+    sections: [
+      {
+        id: 'como',
+        emoji: '🧾',
+        title: 'Cómo se factura',
+        intro: 'Cada factura se autoriza en el momento con ARCA (CAE). Se puede facturar de tres maneras:',
+        steps: [
+          { text: 'Por cada cobro: pestaña "Por facturar" → Cobros sin facturar → Facturar. Sirve también para las señas.' },
+          { text: 'Por la venta completa: "Presupuestos aprobados sin facturar" → Facturar (por ejemplo, al entregar).' },
+          { text: 'A mano: "Nueva factura" → elegir cliente → cargar ítems → revisar → emitir.' },
+        ],
+        tip: 'El sistema descuenta lo ya facturado de cada recibo y presupuesto: si te pasás, avisa y hay que confirmarlo.',
+      },
+      {
+        id: 'letra',
+        emoji: '🔤',
+        title: '¿A o B?',
+        table: [
+          { label: 'Factura A', value: 'Responsable inscripto o monotributista (necesita CUIT)' },
+          { label: 'Factura B', value: 'Consumidor final, exento y el resto' },
+        ],
+        tip: 'La letra sale sola de la condición de IVA del cliente. Con el CUIT cargado, "Traer de ARCA" la completa.',
+        warning: 'Desde $ 10.000.000 el consumidor final tiene que estar identificado con DNI o CUIT.',
+      },
+      {
+        id: 'precios',
+        emoji: '💲',
+        title: 'Precios e IVA',
+        steps: [
+          { text: 'Los precios se cargan finales, con IVA incluido. El sistema separa neto e IVA.' },
+          { text: 'Si hay instalación u otro servicio, hay que indicar el período del servicio y el vencimiento del pago.' },
+        ],
+      },
+      {
+        id: 'estados',
+        emoji: '🚦',
+        title: 'Estados',
+        table: [
+          { label: 'Borrador', value: 'Guardado, todavía no se mandó a ARCA', color: 'text-gray-700' },
+          { label: 'Autorizado', value: 'Tiene CAE: es la factura válida', color: 'text-emerald-700' },
+          { label: 'Rechazado', value: 'ARCA dijo que no; se corrige y se vuelve a emitir', color: 'text-red-700' },
+          { label: 'Sin confirmar', value: 'ARCA no respondió a tiempo; el sistema lo verifica solo', color: 'text-amber-700' },
+        ],
+        warning: 'Un comprobante "Sin confirmar" NO se vuelve a emitir: se podría duplicar la factura.',
+      },
+      {
+        id: 'anular',
+        emoji: '↩️',
+        title: 'Corregir o anular',
+        steps: [
+          { text: 'Una factura autorizada no se borra ni se modifica.' },
+          { text: 'Se corrige con una nota de crédito: abrir la factura → "Nota de crédito" (total o parcial).' },
         ],
       },
     ],

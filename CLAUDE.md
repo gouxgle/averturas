@@ -480,7 +480,20 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
 F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
 certificado, prueba de conexión), **F2** (cálculo, comprobantes, emisión CAE, conciliación,
-cola) y **F3** (padrón). `fiscal_config.habilitada=false` hasta F9.
+cola), **F3** (padrón) y **F4** (interfaz). `fiscal_config.habilitada=false` hasta F9.
+- **Interfaz** (`src/pages/facturacion/`): `Facturacion.tsx` (`/facturacion`, pestañas
+  `comprobantes`/`por-facturar`, detalle por `?cbte=`), `NuevaFactura.tsx`
+  (`/facturacion/nueva?recibo_id=|operacion_id=|factura_id=` → NC), `DetalleComprobante.tsx`.
+  `FacturasVinculadas` (chips + "Facturar") en el detalle de Recibos y Presupuestos, que
+  ahora abren su detalle con `?id=`. Color de sección `facturacion` (fucsia).
+- **Orígenes** (`lib/fiscal/origenes.ts`): propuesta desde recibo (una línea "Pago a cuenta
+  de la proforma PRO-…"; los `recibo_items` solo si suman el cobro — suelen ser los productos
+  del presupuesto, no el pago), desde operación (ítems + instalación como servicio + envío,
+  bonificaciones de los recibos repartidas entre productos con `repartirBonificacion`) y NC
+  desde factura. **Lo facturado** = facturas/ND − NC en estados autorizado/emitiendo/incierto;
+  facturar por encima del saldo del recibo/presupuesto (o acreditar más que la factura) exige
+  `confirmar_exceso` (409 `requiere_confirmacion`). `POST /comprobantes/previsualizar` calcula
+  sin guardar.
 - **Padrón** (`lib/arca/padron.ts`, `ws_sr_constancia_inscripcion` getPersona_v2): condición de
   IVA deducida de los impuestos (monotributo → 6, IVA 30 → RI, 32 → exento, si no CF); caché
   24 h en `padron_cache`. `GET /facturacion/padron/:cuit[?forzar=1]` funciona con la
