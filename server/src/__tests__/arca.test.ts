@@ -10,7 +10,7 @@ import { iniciarArcaFake, emitirCertificadoDePrueba, contenidoFirmado, type Esta
 // fiscal_eventos, así que corre solo con DATABASE_URL:
 //   DATABASE_URL=… npx vitest run arca
 
-const CUIT = '20111111112';
+const CUIT = '20111111112';   // distinto por archivo: los tests corren en paralelo y comparten arca_tokens
 let dirSecretos: string;
 
 beforeAll(async () => {
@@ -120,8 +120,11 @@ describe.skipIf(!process.env.DATABASE_URL)('WSAA + WSFE contra ARCA simulado', (
     await expect(ultimoAutorizado({ ...ctx, timeoutMs: 100 }, 3, 6))
       .rejects.toMatchObject({ codigos: ['timeout'], incierto: true });
     const { db } = await import('../db.js');
+    // Filtrado por CUIT: otros archivos de test registran eventos en paralelo.
     const { rows: [ev] } = await db.query(
-      `SELECT error_codigo, request FROM fiscal_eventos WHERE metodo='FECompUltimoAutorizado' ORDER BY id DESC LIMIT 1`);
+      `SELECT error_codigo, request FROM fiscal_eventos
+        WHERE metodo = 'FECompUltimoAutorizado' AND request LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`%<ar:Cuit>${CUIT}</ar:Cuit>%`]);
     expect(ev.error_codigo).toBe('timeout');
     expect(ev.request).toContain('<ar:Token>***<');   // el token no queda en el registro
   });

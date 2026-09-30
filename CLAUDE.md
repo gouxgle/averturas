@@ -479,8 +479,19 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 
 Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
 F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
-certificado, prueba de conexión) y **F2** (cálculo, comprobantes, emisión CAE, conciliación,
-cola). `fiscal_config.habilitada=false` hasta F9.
+certificado, prueba de conexión), **F2** (cálculo, comprobantes, emisión CAE, conciliación,
+cola) y **F3** (padrón). `fiscal_config.habilitada=false` hasta F9.
+- **Padrón** (`lib/arca/padron.ts`, `ws_sr_constancia_inscripcion` getPersona_v2): condición de
+  IVA deducida de los impuestos (monotributo → 6, IVA 30 → RI, 32 → exento, si no CF); caché
+  24 h en `padron_cache`. `GET /facturacion/padron/:cuit[?forzar=1]` funciona con la
+  facturación apagada (alcanza con CUIT + certificado). UI: `TraerDeArca.tsx` (compara ficha
+  vs ARCA; lo vacío viene marcado, lo distinto no, salvo el tipo de persona).
+- **Clientes**: `cuit` propio (el DNI sigue en `documento_nro`), `domicilio_fiscal`,
+  `padron_json`/`padron_actualizado_at`. La condición de IVA reutiliza `condicion_iva` (texto)
+  y `lib/fiscal/condicionIva.ts` la traduce al código ARCA (vacío = CF; `no_responsable` viejo
+  → 15). `PUT /clientes` reemplaza todo, por eso los datos fiscales se guardan aparte y **solo
+  si vienen en el body** (`guardarDatosFiscales`); el padrón se toma del caché del servidor.
+  `clientes.nombre` es NOT NULL: para Empresa se completa con la razón social.
 
 - `server/src/lib/arca/`: `soap.ts` (cliente mínimo, agente TLS `SECLEVEL=1` solo para ARCA,
   registra cada llamada en `fiscal_eventos` con Token/Sign enmascarados; `ArcaError.incierto`

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   CheckCircle2, XCircle, AlertTriangle, Circle, RefreshCw, Save, Plus, Trash2, Download, Upload,
-  KeyRound, Power, ShieldCheck, ChevronDown, Store,
+  KeyRound, Power, ShieldCheck, ChevronDown, Store, Landmark,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -151,7 +151,22 @@ function DatosFiscales({ config, onGuardado }: { config: Config; onGuardado: () 
     leyenda_pie: config.leyenda_pie ?? '', ambiente: config.ambiente,
   });
   const [guardando, setGuardando] = useState(false);
+  const [trayendo, setTrayendo] = useState(false);
   const set = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  // Completa razón social y domicilio fiscal con lo que informa el padrón (necesita el certificado).
+  async function traerDeArca() {
+    setTrayendo(true);
+    try {
+      const r = await api.get<{ persona: { nombre_completo: string; domicilio_texto: string | null } }>(
+        `/facturacion/padron/${form.cuit.replace(/\D/g, '')}?forzar=1`);
+      setForm(f => ({
+        ...f, razon_social: r.persona.nombre_completo || f.razon_social,
+        domicilio_fiscal: r.persona.domicilio_texto || f.domicilio_fiscal,
+      }));
+      toast.success('Datos traídos de ARCA: revisalos y guardá');
+    } catch (e) { toastApiError(e); } finally { setTrayendo(false); }
+  }
 
   async function guardar() {
     setGuardando(true);
@@ -207,7 +222,11 @@ function DatosFiscales({ config, onGuardado }: { config: Config; onGuardado: () 
           <textarea value={form.leyenda_pie} onChange={e => set('leyenda_pie', e.target.value)} rows={2} className={inputCls} />
         </div>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+        <button onClick={traerDeArca} disabled={trayendo || config.cert_estado !== 'activo' || form.cuit.replace(/\D/g, '').length !== 11}
+          title={config.cert_estado !== 'activo' ? 'Disponible cuando el certificado esté cargado' : undefined} className={btnSec}>
+          <Landmark size={15} /> {trayendo ? 'Consultando…' : 'Traer mis datos de ARCA'}
+        </button>
         <button onClick={guardar} disabled={guardando} className={btnPri}><Save size={15} /> {guardando ? 'Guardando…' : 'Guardar datos'}</button>
       </div>
     </Bloque>

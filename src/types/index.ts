@@ -56,6 +56,9 @@ export interface Cliente {
   email_alternativo: string | null;
   estado_civil: string | null;
   condicion_iva: string | null;
+  cuit?: string | null;
+  domicilio_fiscal?: string | null;
+  padron_actualizado_at?: string | null;
   categoria_id: string | null;
   categoria?: CategoriaCliente;
   estado: EstadoCliente;

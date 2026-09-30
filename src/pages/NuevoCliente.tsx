@@ -3,13 +3,16 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Zap, Clock, User, Building2, MapPin, Phone,
   Tag, FileText, Hash, AlertCircle, Home, Briefcase,
-  MessageCircle, ChevronRight, Star, Lightbulb, Printer, X, Mail,
+  MessageCircle, ChevronRight, Star, Lightbulb, Printer, X, Mail, Landmark,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { cn } from '@/lib/utils';
 import type { CategoriaCliente, Cliente } from '@/types';
+import { TraerDeArca, type DatosFichaArca } from '@/components/facturacion/TraerDeArca';
+import { CONDICIONES_IVA } from '@/lib/condicionIva';
+import { cuitValido } from '@/lib/cuit';
 
 type TipoPersona = 'fisica' | 'juridica';
 
@@ -98,8 +101,10 @@ const emptyForm = () => ({
   estado:                    'activo',
   categoria_id:              '',
   referido_por_id:           '',
-  // Admin
+  // Admin / fiscal
   condicion_iva:             '',
+  cuit:                      '',
+  domicilio_fiscal:          '',
   // CRM
   crm_etapa:                 '',
   interes:                   '',
@@ -178,6 +183,8 @@ export function NuevoCliente() {
           categoria_id:              c.categoria_id          ?? '',
           referido_por_id:           c.referido_por_id       ?? '',
           condicion_iva:             c.condicion_iva         ?? '',
+          cuit:                      c.cuit                  ?? '',
+          domicilio_fiscal:          c.domicilio_fiscal      ?? '',
           crm_etapa:                 (c as any).crm_etapa    ?? '',
           interes:                   (c as any).interes      ?? '',
         };
@@ -209,6 +216,27 @@ export function NuevoCliente() {
 
   function set(field: keyof FormState, value: string | boolean) {
     setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  const [arcaAbierto, setArcaAbierto] = useState(false);
+  const cuitDigitos = form.cuit.replace(/\D/g, '');
+  const cuitError = cuitDigitos.length > 0 && !cuitValido(cuitDigitos)
+    ? (cuitDigitos.length === 11 ? 'El dígito verificador no coincide' : 'El CUIT tiene 11 dígitos') : null;
+
+  function datosParaArca(): DatosFichaArca {
+    return {
+      tipo_persona: form.tipo_persona, nombre_completo: nombreCompleto, documento_nro: form.documento_nro,
+      condicion_iva: form.condicion_iva, domicilio_fiscal: form.domicilio_fiscal, direccion: form.direccion,
+      localidad: form.localidad, codigo_postal: form.codigo_postal,
+    };
+  }
+
+  function aplicarArca(cambios: Partial<DatosFichaArca>) {
+    const { nombre_completo, ...resto } = cambios;
+    if (nombre_completo !== undefined) setNombreCompleto(nombre_completo);
+    setForm(prev => ({ ...prev, ...resto }));
+    setArcaAbierto(false);
+    toast.success('Datos de ARCA cargados en el formulario: revisalos y guardá');
   }
 
   function setTipo(tipo: TipoPersona) {
@@ -268,6 +296,8 @@ export function NuevoCliente() {
       nombre:       esFisica ? (titleCase(nombre) || titleCase(apellido)) : null,
       razon_social: !esFisica ? titleCase(nombreCompleto) : null,
       documento_nro: form.documento_nro.replace(/\D/g, '') || null,
+      cuit:             form.cuit.replace(/\D/g, '') || null,
+      domicilio_fiscal: form.domicilio_fiscal.trim() || null,
       // emails: string vacío falla validación zEmail → null
       email:              form.email.trim()              || null,
       email_alternativo:  form.email_alternativo.trim()  || null,
@@ -361,6 +391,9 @@ export function NuevoCliente() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {arcaAbierto && (
+        <TraerDeArca cuit={cuitDigitos} actual={datosParaArca()} onAplicar={aplicarArca} onClose={() => setArcaAbierto(false)} />
+      )}
       {/* datalist reutilizable para todos los campos de localidad */}
       <datalist id="localidades-list">
         {localidades.map(l => <option key={l} value={l} />)}
@@ -935,25 +968,39 @@ export function NuevoCliente() {
                     <SubHeader icon={FileText} label="Datos administrativos" color="text-blue-600" />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className={lbl}>CUIT / CUIL (opcional)</label>
-                        <input
-                          value={form.documento_nro}
-                          onChange={e => { set('documento_nro', e.target.value); setDniWarning(null); }}
-                          onBlur={e => checkDni(e.target.value)}
-                          placeholder="Ej: 20-12345678-1"
-                          className={cn(inp, dniWarning && 'border-amber-400')}
-                        />
+                        <label className={lbl}>CUIT / CUIL (para factura A)</label>
+                        <div className="flex gap-2">
+                          <input
+                            value={form.cuit}
+                            onChange={e => set('cuit', e.target.value)}
+                            placeholder="Ej: 20-12345678-1"
+                            inputMode="numeric"
+                            className={cn(inp, 'min-w-0', cuitError && 'border-amber-400')}
+                          />
+                          <button type="button" onClick={() => setArcaAbierto(true)} disabled={!cuitValido(cuitDigitos)}
+                            title="Completar con los datos del padrón de ARCA"
+                            className="shrink-0 h-11 sm:h-auto px-3 inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-fuchsia-50 text-xs font-semibold text-fuchsia-800 hover:bg-fuchsia-100 disabled:opacity-40">
+                            <Landmark size={14} /> Traer de ARCA
+                          </button>
+                        </div>
+                        {cuitError && (
+                          <p className="flex items-center gap-1 text-[11px] text-amber-600 mt-1"><AlertCircle size={10} /> {cuitError}</p>
+                        )}
                       </div>
                       <div>
                         <label className={lbl}>Condición frente al IVA</label>
                         <select value={form.condicion_iva} onChange={e => set('condicion_iva', e.target.value)} className={inp}>
                           <option value="">Consumidor final</option>
-                          <option value="consumidor_final">Consumidor final</option>
-                          <option value="responsable_inscripto">Responsable inscripto</option>
-                          <option value="monotributista">Monotributista</option>
-                          <option value="exento">Exento</option>
-                          <option value="no_responsable">No responsable</option>
+                          {CONDICIONES_IVA.filter(c => c.clave !== 'consumidor_final').map(c => (
+                            <option key={c.clave} value={c.clave}>{c.etiqueta}</option>
+                          ))}
+                          {form.condicion_iva === 'no_responsable' && <option value="no_responsable">No responsable (categoría vieja)</option>}
                         </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className={lbl}>Domicilio fiscal</label>
+                        <input value={form.domicilio_fiscal} onChange={e => set('domicilio_fiscal', e.target.value)}
+                          placeholder="Como figura en ARCA (si es distinto del domicilio de entrega)" className={inp} />
                       </div>
                     </div>
                   </div>

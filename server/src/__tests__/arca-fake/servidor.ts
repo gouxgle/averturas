@@ -141,6 +141,43 @@ function solicitarCae(xml: string, e: EstadoFake, resp: (s: string) => string): 
   return det('A', `<CAE>${cae}</CAE><CAEFchVto>${vto}</CAEFchVto>`);
 }
 
+// Personas del padrón simulado (respuesta de getPersona_v2 tal como la arma ARCA).
+const PADRON: Record<string, string> = {
+  '30700000008':
+    `<datosGenerales><domicilioFiscal><codPostal>3600</codPostal><descripcionProvincia>FORMOSA</descripcionProvincia>` +
+    `<direccion>AV 25 DE MAYO 1234</direccion><idProvincia>9</idProvincia><localidad>FORMOSA</localidad>` +
+    `<tipoDomicilio>FISCAL</tipoDomicilio></domicilioFiscal><estadoClave>ACTIVO</estadoClave><idPersona>30700000008</idPersona>` +
+    `<mesCierre>12</mesCierre><razonSocial>CONSTRUCTORA DEL NORTE S.A.</razonSocial><tipoClave>CUIT</tipoClave>` +
+    `<tipoPersona>JURIDICA</tipoPersona></datosGenerales><datosRegimenGeneral>` +
+    `<actividad><descripcionActividad>CONSTRUCCIÓN DE EDIFICIOS RESIDENCIALES</descripcionActividad><idActividad>410011</idActividad><orden>1</orden><periodo>201501</periodo></actividad>` +
+    `<impuesto><descripcionImpuesto>GANANCIAS SOCIEDADES</descripcionImpuesto><idImpuesto>10</idImpuesto><periodo>201501</periodo></impuesto>` +
+    `<impuesto><descripcionImpuesto>IVA</descripcionImpuesto><idImpuesto>30</idImpuesto><periodo>201501</periodo></impuesto>` +
+    `</datosRegimenGeneral>`,
+  '27288887778':
+    `<datosGenerales><apellido>GOMEZ</apellido><domicilioFiscal><codPostal>3600</codPostal>` +
+    `<descripcionProvincia>FORMOSA</descripcionProvincia><direccion>PADRE PATIÑO 850</direccion><localidad>FORMOSA</localidad>` +
+    `</domicilioFiscal><estadoClave>ACTIVO</estadoClave><idPersona>27288887778</idPersona><nombre>MARIA DE LOS ANGELES</nombre>` +
+    `<tipoClave>CUIT</tipoClave><tipoPersona>FISICA</tipoPersona></datosGenerales>` +
+    `<datosMonotributo><categoriaMonotributo><descripcionCategoria>D LOCACIONES DE SERVICIO</descripcionCategoria>` +
+    `<idCategoria>13</idCategoria></categoriaMonotributo><impuesto><descripcionImpuesto>MONOTRIBUTO</descripcionImpuesto>` +
+    `<idImpuesto>20</idImpuesto></impuesto></datosMonotributo>`,
+  '20333333334':
+    `<errorConstancia><apellido>PEREZ</apellido><error>El contribuyente no posee impuestos activos</error>` +
+    `<idPersona>20333333334</idPersona><nombre>JUAN CARLOS</nombre></errorConstancia>`,
+};
+
+function manejarPadron(xml: string, e: EstadoFake): string {
+  if (!tag(xml, 'token')?.startsWith('TOKEN-')) return fault('Server', 'token invalido');
+  const id = tag(xml, 'idPersona') ?? '';
+  const persona = PADRON[id];
+  if (!persona) return fault('Server', 'No existe persona con ese Id');
+  e.llamadas.push(`padron:${id}`);
+  return `<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">` +
+    `<soap:Body><ns2:getPersona_v2Response xmlns:ns2="http://a5.soap.ws.server.puc.sr/"><personaReturn>${persona}` +
+    `<metadata><fechaHora>2026-10-02T10:00:00-03:00</fechaHora><servidor>fake</servidor></metadata>` +
+    `</personaReturn></ns2:getPersona_v2Response></soap:Body></soap:Envelope>`;
+}
+
 export async function iniciarArcaFake(): Promise<{ url: string; estado: EstadoFake; cerrar: () => Promise<void> }> {
   const estado: EstadoFake = {
     logins: 0, llamadas: [], ultimos: new Map(), puntosVenta: [{ nro: 3, tipo: 'CAE - RECE' }], demora: {}, errores: {},
@@ -158,7 +195,9 @@ export async function iniciarArcaFake(): Promise<{ url: string; estado: EstadoFa
       if (estado.tragar.has(metodo)) { estado.tragar.delete(metodo); setTimeout(() => req.socket.destroy(), 1500); return; }
       const demora = estado.demora[metodo];
       if (demora) { delete estado.demora[metodo]; await new Promise(r => setTimeout(r, demora)); }
-      const cuerpo = servicio === 'wsaa' ? manejarWsaa(xml, estado) : manejarWsfe(metodo, xml, estado);
+      const cuerpo = servicio === 'wsaa' ? manejarWsaa(xml, estado)
+        : servicio === 'padron' ? manejarPadron(xml, estado)
+        : manejarWsfe(metodo, xml, estado);
       const despues = estado.demoraDespues[metodo];
       if (despues) { delete estado.demoraDespues[metodo]; await new Promise(r => setTimeout(r, despues)); }
       res.writeHead(cuerpo.includes('Fault>') ? 500 : 200, { 'Content-Type': 'text/xml; charset=utf-8' });

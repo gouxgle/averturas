@@ -4,6 +4,7 @@ import { leerCredenciales, leerCsr } from '../arca/secretos.js';
 import { feDummy, puntosDeVenta, tiposComprobante, ultimoAutorizado, type ContextoArca } from '../arca/wsfe.js';
 import { obtenerTicket } from '../arca/wsaa.js';
 import { ArcaError } from '../arca/soap.js';
+import { consultarPadron } from '../arca/padron.js';
 import { db } from '../../db.js';
 
 // Checklist de puesta en marcha (semáforo de Configuración > Facturación). Los puntos
@@ -63,15 +64,16 @@ export async function diagnosticar(conArca: boolean, usuarioId?: string | null):
     pvCaea.length ? `N° ${pvCaea.map(p => p.numero).join(', ')}` : 'Recomendado: sin él no se puede facturar si ARCA está caído', false);
 
   // ── Contra ARCA ────────────────────────────────────────────────────────────
-  const clavesArca = ['servicio', 'reloj', 'token', 'pv_arca', 'tipos', 'numeracion'] as const;
+  const clavesArca = ['servicio', 'reloj', 'token', 'pv_arca', 'tipos', 'numeracion', 'padron'] as const;
   const titulosArca: Record<(typeof clavesArca)[number], string> = {
     servicio: 'ARCA responde', reloj: 'Hora del servidor sincronizada', token: 'Acceso autorizado (ticket WSAA)',
     pv_arca: 'Puntos de venta habilitados en ARCA', tipos: 'Comprobantes habilitados (A, B, notas de crédito)',
     numeracion: 'Numeración leída de ARCA',
+    padron: 'Consulta de padrón (datos de clientes)',
   };
   if (!conArca || !cred || !cuitValido(cfg.cuit)) {
     for (const k of clavesArca) {
-      add(k, titulosArca[k], 'pendiente', conArca ? 'Requiere datos fiscales y certificado' : 'Usar "Probar conexión"');
+      add(k, titulosArca[k], 'pendiente', conArca ? 'Requiere datos fiscales y certificado' : 'Usar "Probar conexión"', k !== 'padron');
     }
     return items;
   }
@@ -79,7 +81,7 @@ export async function diagnosticar(conArca: boolean, usuarioId?: string | null):
   const ctx: ContextoArca = { ambiente: cfg.ambiente, cuit: cfg.cuit!, usuarioId, timeoutMs: 20_000 };
   const msg = (e: unknown) => e instanceof ArcaError ? e.message : String((e as Error)?.message ?? e);
   const cortar = (desde: number, motivo: string) => {
-    for (const k of clavesArca.slice(desde)) add(k, titulosArca[k], 'pendiente', motivo);
+    for (const k of clavesArca.slice(desde)) add(k, titulosArca[k], 'pendiente', motivo, k !== 'padron');
   };
 
   try {
@@ -145,6 +147,15 @@ export async function diagnosticar(conArca: boolean, usuarioId?: string | null):
       lecturas.length ? lecturas.join(' · ') : 'Sin puntos de venta CAE para consultar');
   } catch (e) {
     add('numeracion', titulosArca.numeracion, 'error', msg(e));
+  }
+
+  // Padrón: recomendado (sin él se cargan los clientes a mano). Se prueba con el propio CUIT.
+  try {
+    const { persona } = await consultarPadron({ ambiente: cfg.ambiente, cuitEmisor: cfg.cuit!, usuarioId }, cfg.cuit!, true);
+    add('padron', titulosArca.padron, 'ok', `ARCA informa: ${persona.nombre_completo} · ${persona.domicilio_texto ?? 'sin domicilio'}`, false);
+  } catch (e) {
+    add('padron', titulosArca.padron, 'aviso',
+      `${msg(e)}. Asociá el certificado al servicio "Consulta de constancia de inscripción" en ARCA.`, false);
   }
 
   return guardarResultado(items);

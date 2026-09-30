@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ClienteSchema } from '../lib/schemas.js';
+import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
 import { generarPDFEstadoCuenta, type EstadoCuentaPDF, type EmpresaPDF } from '../lib/pdf.js';
 import { enviarWhatsapp, enviarWhatsappPdf } from '../lib/whatsapp.js';
 
@@ -838,10 +839,46 @@ clientes.get('/:id', async (c) => {
   return c.json({ ...cliente, operaciones, interacciones, tareas, recibos, remitos });
 });
 
+
+// Datos fiscales del cliente (CUIT, domicilio fiscal). Van aparte del INSERT/UPDATE general
+// porque PUT reemplaza todo el registro: una pantalla que no los manda no los tiene que
+// borrar. Si el CUIT se consultó en el padrón de ARCA, se guarda lo que ARCA informó
+// (tomado del caché del servidor, no del body).
+// clientes.nombre es NOT NULL y el formulario manda nombre vacío para las empresas: sin
+// esto, dar de alta o editar un cliente "Empresa" fallaba siempre con error 500.
+function nombreObligatorio(body: { tipo_persona?: string; nombre?: string | null; razon_social?: string | null }): string | null {
+  return body.nombre?.trim() || (body.tipo_persona === 'juridica' ? body.razon_social?.trim() || null : null);
+}
+
+function validarCuitCliente(body: { cuit?: string | null }): string | null {
+  if (body.cuit === undefined || body.cuit === null || !body.cuit.trim()) return null;
+  return cuitValido(body.cuit) ? null : 'El CUIT no es válido (revisá el dígito verificador)';
+}
+
+async function guardarDatosFiscales(id: string, body: { cuit?: string | null; domicilio_fiscal?: string | null }) {
+  if (body.cuit !== undefined) {
+    const cuit = body.cuit?.trim() ? normalizarCuit(body.cuit) : null;
+    await db.query(
+      `UPDATE clientes c SET
+         cuit = $2,
+         padron_json = CASE WHEN $2::text IS NULL THEN NULL
+                            WHEN c.cuit IS DISTINCT FROM $2 OR p.cuit IS NOT NULL THEN p.respuesta ELSE c.padron_json END,
+         padron_actualizado_at = CASE WHEN $2::text IS NULL THEN NULL
+                            WHEN c.cuit IS DISTINCT FROM $2 OR p.cuit IS NOT NULL THEN p.consultado_at ELSE c.padron_actualizado_at END
+       FROM (SELECT $2::text AS q) x LEFT JOIN padron_cache p ON p.cuit = x.q
+       WHERE c.id = $1`, [id, cuit]);
+  }
+  if (body.domicilio_fiscal !== undefined) {
+    await db.query(`UPDATE clientes SET domicilio_fiscal = $2 WHERE id = $1`, [id, body.domicilio_fiscal?.trim() || null]);
+  }
+}
+
 clientes.post('/', async (c) => {
   const user = c.get('user');
   const body = await validateBody(c, ClienteSchema);
   if (body instanceof Response) return body;
+  const errCuit = validarCuitCliente(body);
+  if (errCuit) return c.json({ error: errCuit }, 422);
 
   const { rows: [row] } = await db.query(`
     INSERT INTO clientes
@@ -856,7 +893,7 @@ clientes.post('/', async (c) => {
     RETURNING *
   `, [
     body.tipo_persona?.trim()       || 'fisica',
-    body.nombre?.trim()             || null,
+    nombreObligatorio(body),
     body.apellido?.trim()           || null,
     body.razon_social?.trim()       || null,
     body.documento_nro?.trim()      || null,
@@ -889,13 +926,17 @@ clientes.post('/', async (c) => {
     body.interes?.trim()                || null,
   ]);
 
-  return c.json(row, 201);
+  await guardarDatosFiscales(row.id, body);
+  const { rows: [creado] } = await db.query(`SELECT * FROM clientes WHERE id = $1`, [row.id]);
+  return c.json(creado, 201);
 });
 
 clientes.put('/:id', async (c) => {
   const { id } = c.req.param();
   const body = await validateBody(c, ClienteSchema);
   if (body instanceof Response) return body;
+  const errCuit = validarCuitCliente(body);
+  if (errCuit) return c.json({ error: errCuit }, 422);
 
   const { rows: [row] } = await db.query(`
     UPDATE clientes SET
@@ -939,7 +980,7 @@ clientes.put('/:id', async (c) => {
     WHERE id = $32 RETURNING *
   `, [
     body.tipo_persona?.trim() || 'fisica',
-    body.nombre?.trim() || null,
+    nombreObligatorio(body),
     body.apellido?.trim() || null,
     body.razon_social?.trim() || null,
     body.documento_nro?.trim() || null,
@@ -973,7 +1014,9 @@ clientes.put('/:id', async (c) => {
   ]);
 
   if (!row) return c.json({ error: 'Cliente no encontrado' }, 404);
-  return c.json(row);
+  await guardarDatosFiscales(id, body);
+  const { rows: [actualizado] } = await db.query(`SELECT * FROM clientes WHERE id = $1`, [id]);
+  return c.json(actualizado);
 });
 
 clientes.delete('/:id', async (c) => {

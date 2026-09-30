@@ -4,6 +4,7 @@ import { validateBody } from '../lib/validate.js';
 import { FiscalConfigSchema, PuntoVentaSchema, CsrSchema, CertificadoSchema, ComprobanteSchema } from '../lib/schemas.js';
 import { crearBorrador, emitir, conciliar, EmisionError } from '../lib/fiscal/emision.js';
 import { ArcaError } from '../lib/arca/soap.js';
+import { consultarPadron } from '../lib/arca/padron.js';
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
 import { diagnosticar, listoParaHabilitar } from '../lib/fiscal/diagnostico.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
@@ -48,6 +49,27 @@ function responderError(c: Context, e: unknown) {
   if (e instanceof ArcaError) return c.json({ error: e.message, codigos: e.codigos }, 502);
   throw e;
 }
+
+// ── Padrón de ARCA ───────────────────────────────────────────────────────────
+// Funciona aunque la facturación esté apagada: alcanza con CUIT y certificado cargados.
+facturacion.get('/padron/:cuit', puedeEmitir, async (c) => {
+  const cfg = await leerConfig();
+  if (!cuitValido(cfg.cuit) || cfg.cert_estado !== 'activo') {
+    return c.json({ error: 'La consulta a ARCA todavía no está configurada (Configuración > Facturación). Cargá los datos a mano.' }, 409);
+  }
+  try {
+    const r = await consultarPadron(
+      { ambiente: cfg.ambiente, cuitEmisor: cfg.cuit!, usuarioId: c.get('user').id },
+      c.req.param('cuit')!, c.req.query('forzar') === '1');
+    return c.json(r);
+  } catch (e) {
+    if (e instanceof ArcaError) {
+      const status = ['cuit_invalido', 'no_existe', 'sin_datos'].some(k => e.codigos.includes(k)) ? 404 : 502;
+      return c.json({ error: e.message, codigos: e.codigos }, status);
+    }
+    throw e;
+  }
+});
 
 // ── Comprobantes ─────────────────────────────────────────────────────────────
 facturacion.get('/comprobantes', async (c) => {

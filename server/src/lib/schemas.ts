@@ -40,6 +40,9 @@ export const ClienteSchema = z.object({
   dom_alternativo_cp:     zText(20).optional(),
   dom_alternativo_referencia: zText(255).optional(),
   condicion_iva:          zText(50).optional(),
+  // Datos fiscales (facturación): se guardan solo si vienen en el body.
+  cuit:                   z.string().trim().max(20).nullable().optional(),
+  domicilio_fiscal:       z.string().trim().max(300).nullable().optional(),
   crm_etapa:              zText(50).optional(),
   interes:                zText(200).optional(),
 }).refine(d => {

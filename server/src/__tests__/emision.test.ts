@@ -8,7 +8,7 @@ import { iniciarArcaFake, emitirCertificadoDePrueba, type EstadoFake } from './a
 // configuración fiscal y la restaura al final, y borra sus comprobantes (marcados con
 // notas='__test_emision__').   DATABASE_URL=… npx vitest run emision
 
-const CUIT = '20111111112';
+const CUIT = '20444444445';   // distinto por archivo: los tests corren en paralelo y comparten arca_tokens
 const MARCA = '__test_emision__';
 const PV = 3;
 
