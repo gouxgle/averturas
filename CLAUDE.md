@@ -478,8 +478,9 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 ## Facturación electrónica ARCA (en desarrollo, apagada)
 
 Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
-F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1**: configuración,
-certificado y prueba de conexión. `fiscal_config.habilitada=false` hasta F9.
+F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
+certificado, prueba de conexión) y **F2** (cálculo, comprobantes, emisión CAE, conciliación,
+cola). `fiscal_config.habilitada=false` hasta F9.
 
 - `server/src/lib/arca/`: `soap.ts` (cliente mínimo, agente TLS `SECLEVEL=1` solo para ARCA,
   registra cada llamada en `fiscal_eventos` con Token/Sign enmascarados; `ArcaError.incierto`
@@ -488,11 +489,28 @@ certificado y prueba de conexión. `fiscal_config.habilitada=false` hasta F9.
   `wsfe.ts`, `secretos.ts` (clave privada cifrada con `FISCAL_KEY_SECRET` en
   `FISCAL_SECRETS_DIR` = volumen `./secrets`, **nunca en uploads/**), `endpoints.ts`
   (`ARCA_FAKE_URL` manda todo al simulador).
-- `server/src/lib/fiscal/`: `cuit.ts` (módulo 11), `config.ts`, `diagnostico.ts` (semáforo).
-- Simulador de ARCA para tests: `server/src/__tests__/arca-fake/servidor.ts`
-  (`DATABASE_URL=… npx vitest run arca`).
-- API `/api/facturacion` (todo admin salvo `GET /estado`); UI en Configuración >
-  Facturación (`src/pages/facturacion/PanelFacturacion.tsx`).
+- `server/src/lib/fiscal/`: `cuit.ts` (módulo 11), `config.ts`, `diagnostico.ts` (semáforo),
+  `calculo.ts` (puro: letra — **A para RI y monotributo (RG 5003)**, B el resto —, neto/IVA
+  desde precio final en centavos, concepto, validaciones RG 5616/5700/fechas), `qr.ts`,
+  `emision.ts` y `trabajos.ts`.
+- **Emisión** (`emision.ts`): lock de sesión por serie (ambiente+PV+tipo) → número =
+  max(último de ARCA, máximo local)+1 → se guarda `emitiendo` con número y request **antes** de
+  llamar → A = `autorizado` (QR + `hash_fiscal`), R = `rechazado` sin número (no lo consume),
+  10016 = un reintento, timeout = `incierto` → conciliación con `FECompConsultar`. "No lo
+  recibió" solo se decide pasados `ESPERA_NO_RECIBIDO_MS` (3 min): un pedido cortado puede
+  seguir en viaje. Un incierto en la serie bloquea nuevas emisiones hasta resolverse.
+- `comprobantes` autorizados son inmutables por trigger (ni UPDATE de campos fiscales, ni
+  DELETE, ni tocar ítems/IVA). Tests limpian con `SET session_replication_role = replica`.
+- `lib/cola.ts`: cola en `trabajos_cola` (SKIP LOCKED, backoff 1-2-4… min); arranca con el
+  servidor (`iniciarTrabajosFiscales()` en `index.ts`) y retoma inciertos al iniciar.
+- Simulador de ARCA para tests: `server/src/__tests__/arca-fake/servidor.ts` (WSAA, consultas,
+  FECAESolicitar con validaciones reales, FECompConsultar; demoras, respuestas perdidas,
+  pedidos tragados). `DATABASE_URL=… npx vitest run arca emision` (emision usa la DB local y
+  restaura `fiscal_config` al terminar).
+- API `/api/facturacion`: configuración solo admin (middleware por ruta: un `use('*')`
+  alcanzaría también a `/comprobantes`); `/comprobantes[/:id|/:id/emitir|/:id/conciliar]`
+  admin y vendedor emiten, consulta solo lee. UI de configuración en
+  `src/pages/facturacion/PanelFacturacion.tsx`; la de emisión llega en F4.
 - `trabajos_cola` = cola de trabajos en Postgres (`tareas` ya son las del CRM).
 - **Prod**: antes de F9 hay que agregar `FISCAL_KEY_SECRET` y el volumen `secrets` a mano en
   el compose del host (fuera del repo).

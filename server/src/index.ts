@@ -39,6 +39,7 @@ import backupsRoutes         from './routes/backups.js';
 import comentariosRoutes     from './routes/comentarios.js';
 import changelogRoutes       from './routes/changelog.js';
 import facturacionRoutes     from './routes/facturacion.js';
+import { iniciarTrabajosFiscales } from './lib/fiscal/trabajos.js';
 import actividadRoutes       from './routes/actividad.js';
 import * as Sentry from '@sentry/node';
 import { authMiddleware } from './middleware/auth.js';
@@ -197,4 +198,6 @@ app.get('*', (c) => {
 const PORT = parseInt(process.env.PORT ?? '3000');
 serve({ fetch: app.fetch, port: PORT }, () => {
   console.log(`✓ Aberturas API corriendo en http://0.0.0.0:${PORT}`);
+  // Cola de trabajos (conciliación de comprobantes con ARCA, envíos con reintento).
+  iniciarTrabajosFiscales();
 });

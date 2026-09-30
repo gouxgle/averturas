@@ -103,3 +103,75 @@ export async function consultarComprobante(ctx: ContextoArca, ptoVta: number, cb
   if (err) throw err;
   return (result.ResultGet as Nodo | undefined) ?? null;
 }
+
+// ── Emisión ──────────────────────────────────────────────────────────────────
+export interface SolicitudCAE {
+  ptoVta: number; cbteTipo: number; numero: number; concepto: number;
+  docTipo: number; docNro: string; fecha: string;             // AAAA-MM-DD
+  impTotal: number; impTotConc: number; impNeto: number; impOpEx: number; impTrib: number; impIVA: number;
+  fchServDesde?: string | null; fchServHasta?: string | null; fchVtoPago?: string | null;
+  monId: string; monCotiz: number; condicionIvaReceptorId: number;
+  asociado?: { tipo: number; ptoVta: number; nro: number; cuit: string; fecha: string } | null;
+  iva: { id: number; baseImp: number; importe: number }[];
+}
+
+export interface RespuestaCAE {
+  resultado: 'A' | 'R' | 'P';
+  cae: string | null; caeVto: string | null;                 // AAAA-MM-DD
+  observaciones: { code: string; msg: string }[];
+  errores: { code: string; msg: string }[];
+  raw: Record<string, unknown>;
+}
+
+const f8 = (iso: string) => iso.replace(/-/g, '');           // AAAA-MM-DD → AAAAMMDD
+const de8 = (s: string) => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+const imp = (n: number) => n.toFixed(2);
+
+/** XML del detalle en el orden exacto del XSD de WSFEv1 (el orden importa). */
+export function xmlSolicitudCAE(s: SolicitudCAE): string {
+  const e = (t: string, v: string | number) => `<ar:${t}>${escXml(v)}</ar:${t}>`;
+  return `<ar:FeCAEReq><ar:FeCabReq>${e('CantReg', 1)}${e('PtoVta', s.ptoVta)}${e('CbteTipo', s.cbteTipo)}</ar:FeCabReq>` +
+    `<ar:FeDetReq><ar:FECAEDetRequest>` +
+    e('Concepto', s.concepto) + e('DocTipo', s.docTipo) + e('DocNro', s.docNro) +
+    e('CbteDesde', s.numero) + e('CbteHasta', s.numero) + e('CbteFch', f8(s.fecha)) +
+    e('ImpTotal', imp(s.impTotal)) + e('ImpTotConc', imp(s.impTotConc)) + e('ImpNeto', imp(s.impNeto)) +
+    e('ImpOpEx', imp(s.impOpEx)) + e('ImpTrib', imp(s.impTrib)) + e('ImpIVA', imp(s.impIVA)) +
+    (s.concepto !== 1
+      ? e('FchServDesde', f8(s.fchServDesde!)) + e('FchServHasta', f8(s.fchServHasta!)) + e('FchVtoPago', f8(s.fchVtoPago!))
+      : '') +
+    e('MonId', s.monId) + e('MonCotiz', s.monCotiz) + e('CondicionIVAReceptorId', s.condicionIvaReceptorId) +
+    (s.asociado
+      ? `<ar:CbtesAsoc><ar:CbteAsoc>${e('Tipo', s.asociado.tipo)}${e('PtoVta', s.asociado.ptoVta)}${e('Nro', s.asociado.nro)}` +
+        `${e('Cuit', s.asociado.cuit)}${e('CbteFch', f8(s.asociado.fecha))}</ar:CbteAsoc></ar:CbtesAsoc>`
+      : '') +
+    (s.iva.length
+      ? `<ar:Iva>${s.iva.map(a => `<ar:AlicIva>${e('Id', a.id)}${e('BaseImp', imp(a.baseImp))}${e('Importe', imp(a.importe))}</ar:AlicIva>`).join('')}</ar:Iva>`
+      : '') +
+    `</ar:FECAEDetRequest></ar:FeDetReq></ar:FeCAEReq>`;
+}
+
+const listaMsgs = (n: unknown, hijo: string) =>
+  comoArray((n as Record<string, Nodo | Nodo[]> | undefined)?.[hijo])
+    .map(o => ({ code: String(o.Code ?? ''), msg: String(o.Msg ?? '') }));
+
+/**
+ * FECAESolicitar. Si ARCA no responde lanza ArcaError con `incierto`: el llamador NO debe
+ * reintentar sin antes consultar con FECompConsultar (WSFE no es idempotente).
+ */
+export async function solicitarCAE(ctx: ContextoArca, s: SolicitudCAE): Promise<RespuestaCAE> {
+  const { result } = await invocar(ctx, 'FECAESolicitar', xmlSolicitudCAE(s));
+  const det = (result.FeDetResp as { FECAEDetResponse?: Nodo | Nodo[] } | undefined)?.FECAEDetResponse;
+  const d = comoArray(det)[0] ?? {};
+  const cab = (result.FeCabResp ?? {}) as Nodo;
+  const errores = listaMsgs(result.Errors, 'Err');
+  const resultado = String(d.Resultado ?? cab.Resultado ?? (errores.length ? 'R' : '')) as 'A' | 'R' | 'P';
+  const cae = d.CAE && String(d.CAE) !== '' ? String(d.CAE) : null;
+  const vto = d.CAEFchVto ? String(d.CAEFchVto) : '';
+  return {
+    resultado, cae, caeVto: /^\d{8}$/.test(vto) ? de8(vto) : null,
+    observaciones: listaMsgs(d.Observaciones, 'Obs'),
+    errores, raw: result,
+  };
+}
+
+export { de8 as fechaDeArca };

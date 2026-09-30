@@ -1,14 +1,16 @@
-import { Hono } from 'hono';
+import { Hono, type Context, type Next } from 'hono';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
-import { FiscalConfigSchema, PuntoVentaSchema, CsrSchema, CertificadoSchema } from '../lib/schemas.js';
+import { FiscalConfigSchema, PuntoVentaSchema, CsrSchema, CertificadoSchema, ComprobanteSchema } from '../lib/schemas.js';
+import { crearBorrador, emitir, conciliar, EmisionError } from '../lib/fiscal/emision.js';
+import { ArcaError } from '../lib/arca/soap.js';
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
 import { diagnosticar, listoParaHabilitar } from '../lib/fiscal/diagnostico.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
 import { generarClaveYCsr, guardarCertificado, leerCsr } from '../lib/arca/secretos.js';
 
-// /api/facturacion — Facturación electrónica ARCA. Etapa F1: configuración, certificado y
-// prueba de conexión (solo admin). La emisión llega en F2.
+// /api/facturacion — Facturación electrónica ARCA: configuración (solo admin) y
+// comprobantes (admin y vendedores emiten; consulta solo mira).
 
 const facturacion = new Hono();
 
@@ -26,10 +28,106 @@ facturacion.get('/estado', async (c) => {
   return c.json({ habilitada: cfg.habilitada, ambiente: cfg.ambiente });
 });
 
-// Todo lo demás es configuración: solo admin.
-facturacion.use('*', async (c, next) => {
+// Configuración: solo admin. (Un use('*') alcanzaría también a /comprobantes.)
+const soloAdmin = async (c: Context, next: Next) => {
   if (!esAdmin(c.get('user').rol)) return c.json({ error: 'Solo un administrador puede configurar la facturación' }, 403);
   await next();
+};
+for (const ruta of ['/config', '/puntos-venta', '/puntos-venta/*', '/certificado', '/certificado/*', '/probar', '/habilitar', '/eventos', '/eventos/*']) {
+  facturacion.use(ruta, soloAdmin);
+}
+
+// Emitir: admin y vendedores. El rol "consulta" solo mira.
+const puedeEmitir = async (c: Context, next: Next) => {
+  if (!['admin', 'vendedor'].includes(c.get('user').rol)) return c.json({ error: 'Tu usuario no puede emitir comprobantes' }, 403);
+  await next();
+};
+
+function responderError(c: Context, e: unknown) {
+  if (e instanceof EmisionError) return c.json({ error: e.message, problemas: e.problemas }, e.status as 404 | 409 | 422);
+  if (e instanceof ArcaError) return c.json({ error: e.message, codigos: e.codigos }, 502);
+  throw e;
+}
+
+// ── Comprobantes ─────────────────────────────────────────────────────────────
+facturacion.get('/comprobantes', async (c) => {
+  const q = c.req.query();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const p = (v: unknown) => { params.push(v); return `$${params.length}`; };
+  if (q.estado) where.push(`c.estado = ${p(q.estado)}`);
+  if (q.desde) where.push(`c.fecha >= ${p(q.desde)}`);
+  if (q.hasta) where.push(`c.fecha <= ${p(q.hasta)}`);
+  if (q.cliente_id) where.push(`c.cliente_id = ${p(q.cliente_id)}`);
+  if (q.q?.trim()) {
+    const t = p(`%${q.q.trim()}%`);
+    where.push(`(c.receptor_nombre ILIKE ${t} OR c.receptor_doc_nro ILIKE ${t} OR c.numero::text ILIKE ${t})`);
+  }
+  const limite = Math.min(Number(q.limite ?? 100) || 100, 500);
+  const { rows } = await db.query(
+    `SELECT c.id, c.estado, c.tipo_doc, c.clase, c.cbte_tipo, c.punto_venta, c.numero, c.fecha, c.receptor_nombre,
+            c.receptor_doc_tipo, c.receptor_doc_nro, c.imp_total, c.cae, c.cae_vto, c.origen, c.operacion_id, c.recibo_id,
+            c.cliente_id, c.ambiente, c.errores, c.created_at
+       FROM comprobantes c
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY c.created_at DESC LIMIT ${p(limite)}`, params);
+  return c.json(rows);
+});
+
+facturacion.get('/comprobantes/:id', async (c) => {
+  const id = c.req.param('id');
+  const { rows: [cbte] } = await db.query(
+    `SELECT c.*, a.clase AS asociado_clase, a.cbte_tipo AS asociado_cbte_tipo, a.punto_venta AS asociado_punto_venta,
+            a.numero AS asociado_numero, u.nombre AS creado_por
+       FROM comprobantes c
+       LEFT JOIN comprobantes a ON a.id = c.comprobante_asociado_id
+       LEFT JOIN usuarios u ON u.id = c.created_by
+      WHERE c.id = $1`, [id]).catch(() => ({ rows: [] }));
+  if (!cbte) return c.json({ error: 'Comprobante no encontrado' }, 404);
+  const [{ rows: items }, { rows: iva }, { rows: eventos }] = await Promise.all([
+    db.query(`SELECT * FROM comprobante_items WHERE comprobante_id = $1 ORDER BY orden`, [id]),
+    db.query(`SELECT * FROM comprobante_iva WHERE comprobante_id = $1 ORDER BY alicuota_id`, [id]),
+    db.query(
+      `SELECT id, tipo, metodo, ok, duracion_ms, error_codigo, error_mensaje, created_at
+         FROM fiscal_eventos WHERE comprobante_id = $1 ORDER BY id`, [id]),
+  ]);
+  return c.json({ ...cbte, items, iva, eventos });
+});
+
+facturacion.post('/comprobantes', puedeEmitir, async (c) => {
+  const b = await validateBody(c, ComprobanteSchema);
+  if (b instanceof Response) return b;
+  try {
+    const r = await crearBorrador(b, c.get('user').id);
+    return c.json(r, 201);
+  } catch (e) {
+    if (e instanceof Error && /Alícuota/.test(e.message)) return c.json({ error: e.message }, 422);
+    return responderError(c, e);
+  }
+});
+
+facturacion.post('/comprobantes/:id/emitir', puedeEmitir, async (c) => {
+  try {
+    return c.json(await emitir(c.req.param('id')!, c.get('user').id));
+  } catch (e) {
+    return responderError(c, e);
+  }
+});
+
+facturacion.post('/comprobantes/:id/conciliar', puedeEmitir, async (c) => {
+  try {
+    return c.json({ resultado: await conciliar(c.req.param('id')!, c.get('user').id) });
+  } catch (e) {
+    return responderError(c, e);
+  }
+});
+
+facturacion.delete('/comprobantes/:id', puedeEmitir, async (c) => {
+  const { rows: [row] } = await db.query(
+    `DELETE FROM comprobantes WHERE id = $1 AND estado IN ('borrador', 'rechazado') AND numero IS NULL RETURNING id`,
+    [c.req.param('id')]);
+  if (!row) return c.json({ error: 'Solo se pueden borrar borradores o rechazados que no llegaron a ARCA' }, 409);
+  return c.json({ ok: true });
 });
 
 facturacion.get('/config', async (c) => {
@@ -87,7 +185,11 @@ facturacion.put('/puntos-venta/:id', async (c) => {
 });
 
 facturacion.delete('/puntos-venta/:id', async (c) => {
-  // F2: bloquear si ya tiene comprobantes emitidos (queda desactivable, no borrable).
+  // Con comprobantes emitidos no se borra: queda desactivable.
+  const { rows: [usado] } = await db.query(
+    `SELECT 1 FROM comprobantes c JOIN fiscal_puntos_venta p ON p.numero = c.punto_venta WHERE p.id = $1 LIMIT 1`,
+    [c.req.param('id')]);
+  if (usado) return c.json({ error: 'Ese punto de venta ya tiene comprobantes: se puede desactivar pero no borrar' }, 409);
   const { rows: [row] } = await db.query(`DELETE FROM fiscal_puntos_venta WHERE id = $1 RETURNING numero`, [c.req.param('id')]);
   if (!row) return c.json({ error: 'Punto de venta no encontrado' }, 404);
   await registrarConfig(c.get('user').id, `Punto de venta ${row.numero} eliminado`);

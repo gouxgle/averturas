@@ -962,3 +962,40 @@ export const CertificadoSchema = z.object({
   ambiente: z.enum(['homologacion', 'produccion']),
   pem:      z.string().min(100).max(20_000),
 });
+
+const fechaISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha AAAA-MM-DD');
+export const ComprobanteItemSchema = z.object({
+  descripcion:       z.string().trim().min(1).max(500),
+  cantidad:          z.number().positive().max(1_000_000),
+  precio_unitario:   z.number().positive().max(1_000_000_000),
+  bonificacion:      z.number().min(0).optional(),
+  alicuota:          z.union([z.literal(0), z.literal(2.5), z.literal(5), z.literal(10.5), z.literal(21), z.literal(27)]).optional(),
+  exento:            z.boolean().optional(),
+  es_servicio:       z.boolean().optional(),
+  unidad:            z.string().trim().max(10).optional(),
+  producto_id:       zUUID.nullable().optional(),
+  operacion_item_id: zUUID.nullable().optional(),
+});
+
+export const ComprobanteSchema = z.object({
+  tipo_doc: z.enum(['factura', 'nota_debito', 'nota_credito']),
+  receptor: z.object({
+    doc_tipo:         z.union([z.literal(80), z.literal(86), z.literal(96), z.literal(99)]),
+    doc_nro:          z.string().trim().regex(/^[\d-]{1,13}$/, 'Solo números'),
+    nombre:           z.string().trim().min(1).max(200),
+    domicilio:        z.string().trim().max(300).nullable().optional(),
+    condicion_iva_id: z.number().int(),
+  }),
+  items:                   z.array(ComprobanteItemSchema).min(1).max(200),
+  cliente_id:              zUUID.nullable().optional(),
+  fecha:                   fechaISO.nullable().optional(),
+  fch_serv_desde:          fechaISO.nullable().optional(),
+  fch_serv_hasta:          fechaISO.nullable().optional(),
+  fch_vto_pago:            fechaISO.nullable().optional(),
+  punto_venta:             z.number().int().positive().nullable().optional(),
+  origen:                  z.enum(['manual', 'operacion', 'recibo']).optional(),
+  operacion_id:            zUUID.nullable().optional(),
+  recibo_id:               zUUID.nullable().optional(),
+  comprobante_asociado_id: zUUID.nullable().optional(),
+  notas:                   z.string().trim().max(1000).nullable().optional(),
+});

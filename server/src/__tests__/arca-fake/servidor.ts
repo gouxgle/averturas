@@ -15,6 +15,14 @@ export interface EstadoFake {
   demora: Partial<Record<string, number>>;
   /** Errores forzados por método: se devuelven en <Errors> una sola vez. */
   errores: Partial<Record<string, { code: string; msg: string }>>;
+  /** Procesa el pedido (ARCA autoriza) pero demora la respuesta esto (ms): simula perderla. */
+  demoraDespues: Partial<Record<string, number>>;
+  /** El próximo FECompUltimoAutorizado devuelve un número atrasado (fuerza el 10016). */
+  ultimoAtrasado: number;
+  /** Métodos que se reciben pero nunca se procesan: la conexión se corta sin respuesta. */
+  tragar: Set<string>;
+  /** Comprobantes autorizados: `${ptoVta}-${tipo}-${nro}` → datos. */
+  emitidos: Map<string, Record<string, string>>;
 }
 
 const soap = (cuerpo: string) =>
@@ -72,7 +80,9 @@ function manejarWsfe(metodo: string, xml: string, e: EstadoFake): string {
       return resp('<AppServer>OK</AppServer><DbServer>OK</DbServer><AuthServer>OK</AuthServer>');
     case 'FECompUltimoAutorizado': {
       const pv = Number(tag(xml, 'PtoVta')); const tipo = Number(tag(xml, 'CbteTipo'));
-      return resp(`<PtoVta>${pv}</PtoVta><CbteTipo>${tipo}</CbteTipo><CbteNro>${e.ultimos.get(`${pv}-${tipo}`) ?? 0}</CbteNro>`);
+      let ultimo = e.ultimos.get(`${pv}-${tipo}`) ?? 0;
+      if (e.ultimoAtrasado > 0) { e.ultimoAtrasado--; ultimo = Math.max(0, ultimo - 1); }
+      return resp(`<PtoVta>${pv}</PtoVta><CbteTipo>${tipo}</CbteTipo><CbteNro>${ultimo}</CbteNro>`);
     }
     case 'FEParamGetPtosVenta':
       if (!e.puntosVenta.length) return resp('<Errors><Err><Code>602</Code><Msg>Sin Resultados</Msg></Err></Errors>');
@@ -84,16 +94,57 @@ function manejarWsfe(metodo: string, xml: string, e: EstadoFake): string {
     case 'FEParamGetCondicionIvaReceptor':
       return resp(`<ResultGet>${[[1, 'IVA Responsable Inscripto', 'A/M/C'], [4, 'IVA Sujeto Exento', 'B/C'], [5, 'Consumidor Final', 'B/C'], [6, 'Responsable Monotributo', 'A/M/C']]
         .map(([id, d, c]) => `<CondicionIvaReceptor><Id>${id}</Id><Desc>${d}</Desc><Cmp_Clase>${c}</Cmp_Clase></CondicionIvaReceptor>`).join('')}</ResultGet>`);
-    case 'FECompConsultar':
-      return resp('<Errors><Err><Code>602</Code><Msg>No existen datos en nuestros registros para los parametros ingresados.</Msg></Err></Errors>');
+    case 'FECompConsultar': {
+      const c = e.emitidos.get(`${tag(xml, 'PtoVta')}-${tag(xml, 'CbteTipo')}-${tag(xml, 'CbteNro')}`);
+      if (!c) return resp('<Errors><Err><Code>602</Code><Msg>No existen datos en nuestros registros para los parametros ingresados.</Msg></Err></Errors>');
+      return resp(`<ResultGet>${Object.entries(c).map(([k, v]) => `<${k}>${v}</${k}>`).join('')}</ResultGet>`);
+    }
+    case 'FECAESolicitar':
+      return solicitarCae(xml, e, resp);
     default:
       return fault('Client', `Método no simulado: ${metodo}`);
   }
 }
 
+function solicitarCae(xml: string, e: EstadoFake, resp: (s: string) => string): string {
+  const pv = Number(tag(xml, 'PtoVta')); const tipo = Number(tag(xml, 'CbteTipo'));
+  const nro = Number(tag(xml, 'CbteDesde'));
+  const det = (resultado: string, extra: string) =>
+    resp(`<FeCabResp><Cuit>20111111112</Cuit><PtoVta>${pv}</PtoVta><CbteTipo>${tipo}</CbteTipo><FchProceso>20261001120000</FchProceso>` +
+      `<CantReg>1</CantReg><Resultado>${resultado}</Resultado><Reproceso>N</Reproceso></FeCabResp>` +
+      `<FeDetResp><FECAEDetResponse><Concepto>${tag(xml, 'Concepto')}</Concepto><DocTipo>${tag(xml, 'DocTipo')}</DocTipo>` +
+      `<DocNro>${tag(xml, 'DocNro')}</DocNro><CbteDesde>${nro}</CbteDesde><CbteHasta>${nro}</CbteHasta>` +
+      `<CbteFch>${tag(xml, 'CbteFch')}</CbteFch><Resultado>${resultado}</Resultado>${extra}</FECAEDetResponse></FeDetResp>`);
+  const obs = (code: string, msg: string) => det('R', `<Observaciones><Obs><Code>${code}</Code><Msg>${msg}</Msg></Obs></Observaciones><CAE></CAE><CAEFchVto></CAEFchVto>`);
+
+  if (!tag(xml, 'CondicionIVAReceptorId')) {
+    return resp('<Errors><Err><Code>10246</Code><Msg>El campo Condicion Frente al IVA del receptor es obligatorio conforme RG 5616</Msg></Err></Errors>');
+  }
+  const ultimo = e.ultimos.get(`${pv}-${tipo}`) ?? 0;
+  if (nro !== ultimo + 1) return obs('10016', 'El numero o fecha del comprobante no se corresponde con el proximo a autorizar.');
+  const n = (t: string) => Number(tag(xml, t) ?? 0);
+  const suma = n('ImpTotConc') + n('ImpNeto') + n('ImpOpEx') + n('ImpTrib') + n('ImpIVA');
+  if (Math.abs(suma - n('ImpTotal')) > 0.01) return obs('10048', 'El campo ImpTotal debe ser igual a la suma de ImpTotConc + ImpNeto + ImpOpEx + ImpTrib + ImpIVA.');
+  const alic = [...xml.matchAll(/<(?:\w+:)?AlicIva>([\s\S]*?)<\/(?:\w+:)?AlicIva>/g)].map(m => m[1]);
+  const ivaSum = alic.reduce((a, b) => a + Number(tag(b, 'Importe')), 0);
+  if (Math.abs(ivaSum - n('ImpIVA')) > 0.01) return obs('10018', 'La suma de los importes de IVA no coincide con ImpIVA.');
+  if ([2, 3, 7, 8].includes(tipo) && !xml.includes('CbteAsoc>')) return obs('10197', 'Las notas de credito y debito requieren comprobante asociado.');
+
+  e.ultimos.set(`${pv}-${tipo}`, nro);
+  const cae = String(76000000000000 + nro * 7 + pv);
+  const vto = new Date(Date.now() + 10 * 86400_000).toISOString().slice(0, 10).replace(/-/g, '');
+  e.emitidos.set(`${pv}-${tipo}-${nro}`, {
+    Concepto: tag(xml, 'Concepto')!, DocTipo: tag(xml, 'DocTipo')!, DocNro: tag(xml, 'DocNro')!,
+    CbteDesde: String(nro), CbteHasta: String(nro), CbteFch: tag(xml, 'CbteFch')!, ImpTotal: tag(xml, 'ImpTotal')!,
+    CodAutorizacion: cae, EmisionTipo: 'CAE', FchVto: vto, Resultado: 'A', PtoVta: String(pv), CbteTipo: String(tipo),
+  });
+  return det('A', `<CAE>${cae}</CAE><CAEFchVto>${vto}</CAEFchVto>`);
+}
+
 export async function iniciarArcaFake(): Promise<{ url: string; estado: EstadoFake; cerrar: () => Promise<void> }> {
   const estado: EstadoFake = {
     logins: 0, llamadas: [], ultimos: new Map(), puntosVenta: [{ nro: 3, tipo: 'CAE - RECE' }], demora: {}, errores: {},
+    demoraDespues: {}, emitidos: new Map(), ultimoAtrasado: 0, tragar: new Set(),
   };
   const server = http.createServer((req, res) => {
     const partes: Buffer[] = [];
@@ -104,9 +155,12 @@ export async function iniciarArcaFake(): Promise<{ url: string; estado: EstadoFa
       const metodo = servicio === 'wsaa' ? 'loginCms'
         : String(req.headers.soapaction ?? '').replace(/"/g, '').replace(/^.*\//, '');
       estado.llamadas.push(metodo);
+      if (estado.tragar.has(metodo)) { estado.tragar.delete(metodo); setTimeout(() => req.socket.destroy(), 1500); return; }
       const demora = estado.demora[metodo];
       if (demora) { delete estado.demora[metodo]; await new Promise(r => setTimeout(r, demora)); }
       const cuerpo = servicio === 'wsaa' ? manejarWsaa(xml, estado) : manejarWsfe(metodo, xml, estado);
+      const despues = estado.demoraDespues[metodo];
+      if (despues) { delete estado.demoraDespues[metodo]; await new Promise(r => setTimeout(r, despues)); }
       res.writeHead(cuerpo.includes('Fault>') ? 500 : 200, { 'Content-Type': 'text/xml; charset=utf-8' });
       res.end(cuerpo);
     });
