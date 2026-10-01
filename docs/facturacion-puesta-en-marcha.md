@@ -10,6 +10,10 @@ pasos.** Hacerlos primero en homologación (pruebas) y recién después en produ
 - [ ] Definir cómo se facturan las **señas**: factura por cada cobro, o una sola al final
       descontando los anticipos.
 - [ ] Revisar si algún cliente grande obliga a **Factura de Crédito Electrónica MiPyME**.
+- [ ] **Ingresos Brutos: ¿la empresa es agente de percepción** (Formosa o Convenio
+      Multilateral)? Si lo es, la factura tiene que llevar la percepción (alícuota, mínimo
+      no sujeto, padrón de alícuotas por cliente). **Hoy el sistema no calcula percepciones**: el
+      total es neto + IVA + exento. Hay que agregarlo antes de facturar en serio.
 - [ ] Revisar si hace falta alguna **leyenda** especial (IIBB de Formosa u otra).
 - [ ] Confirmar la **condición de venta** a imprimir (contado / cuenta corriente) si la pide.
 - [ ] Decidir qué pasa con los **talonarios CAI**. Los remitos siguen con CAI.

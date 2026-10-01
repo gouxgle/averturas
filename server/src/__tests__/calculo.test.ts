@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calcularImportes, claseSegunReceptor, tipoComprobante, validarComprobante, numeroFormateado,
+  calcularImportes, repartirCentavos, aCent, claseSegunReceptor, tipoComprobante, validarComprobante, numeroFormateado,
   COND_IVA, DOC_TIPO, type DatosValidacion,
 } from '../lib/fiscal/calculo.js';
 
@@ -114,5 +114,81 @@ describe('validaciones previas', () => {
 
   it('formatea el número como en el papel', () => {
     expect(numeroFormateado(3, 123)).toBe('00003-00000123');
+  });
+});
+
+describe('decimales, redondeos y consistencia (revisión 2026-10-01)', () => {
+  const c = (n: number) => Math.round(n * 100);
+
+  it('redondea bien los casos donde el flotante de JS pierde un centavo', () => {
+    expect(aCent(1.005)).toBe(101);
+    expect(calcularImportes([{ descripcion: 'x', cantidad: 1, precio_unitario: 1.005 }]).imp_total).toBe(1.01);
+    expect(calcularImportes([{ descripcion: 'x', cantidad: 1.5, precio_unitario: 2.33 }]).imp_total).toBe(3.5);
+    expect(calcularImportes([{ descripcion: 'x', cantidad: 7, precio_unitario: 1.15 }]).imp_total).toBe(8.05);
+    expect(calcularImportes([{ descripcion: 'x', cantidad: 3, precio_unitario: 0.1 }]).imp_total).toBe(0.3);
+  });
+
+  it('precio a 2 decimales y cantidad a 3, igual que la base: lo calculado es lo que se guarda', () => {
+    const r = calcularImportes([{ descripcion: 'x', cantidad: 1.2345, precio_unitario: 33.335 }]);
+    expect(r.items[0]).toMatchObject({ cantidad: 1.235, precio_unitario: 33.34 });
+    expect(r.items[0].total).toBe(Math.round(1.235 * 3334) / 100);
+  });
+
+  it('con muchas líneas el IVA de cada alícuota sigue siendo su base × el porcentaje', () => {
+    const r = calcularImportes(Array.from({ length: 60 }, (_, i) => ({ descripcion: `Tornillo ${i}`, cantidad: 1, precio_unitario: 1.07 })));
+    const a = r.alicuotas[0];
+    expect(r.imp_total).toBe(64.2);
+    expect(Math.abs(c(a.importe) - a.base_imp * 21)).toBeLessThanOrEqual(0.5);
+    // la suma de los netos de las líneas es exactamente la base informada
+    expect(r.items.reduce((s, i) => s + c(i.neto), 0)).toBe(c(a.base_imp));
+  });
+
+  it('reparto de centavos: suma exacta y proporcional', () => {
+    expect(repartirCentavos(100, [1, 1, 1])).toEqual([34, 33, 33]);
+    expect(repartirCentavos(0, [5, 5])).toEqual([0, 0]);
+    expect(repartirCentavos(7, [0, 0])).toEqual([0, 0]);
+    const p = repartirCentavos(123_457, [10, 20, 30, 40]);
+    expect(p.reduce((a, b) => a + b, 0)).toBe(123_457);
+  });
+
+  it('miles de facturas al azar: todos los totales cierran al centavo y recalcular da lo mismo', () => {
+    let semilla = 20261001;
+    const azar = () => { semilla = (semilla * 1103515245 + 12345) % 2 ** 31; return semilla / 2 ** 31; };
+    const ALIC = [21, 21, 21, 10.5, 27, 5, 2.5, 0];
+    for (let n = 0; n < 3000; n++) {
+      const items = Array.from({ length: 1 + Math.floor(azar() * 25) }, (_, i) => {
+        const cantidad = azar() < 0.8 ? 1 + Math.floor(azar() * 12) : Math.round(azar() * 10_000) / 1000 + 0.001;
+        const precio = Math.round((azar() < 0.5 ? azar() * 50 : azar() * 2_000_000) * 1000) / 1000 + 0.01;
+        const bruto = Math.round(cantidad * precio * 100) / 100;
+        return {
+          descripcion: `i${i}`, cantidad, precio_unitario: precio,
+          bonificacion: azar() < 0.2 ? Math.round(bruto * azar() * 0.3 * 100) / 100 : 0,
+          exento: azar() < 0.1, alicuota: ALIC[Math.floor(azar() * ALIC.length)], es_servicio: azar() < 0.2,
+        };
+      });
+      const r = calcularImportes(items);
+      // Total = neto + IVA + exento, y = suma de las líneas
+      expect(c(r.imp_total)).toBe(c(r.imp_neto) + c(r.imp_iva) + c(r.imp_op_ex));
+      expect(c(r.imp_total)).toBe(r.items.reduce((s, i) => s + c(i.total), 0));
+      // Lo que va a ARCA: ImpNeto = Σ BaseImp, ImpIVA = Σ Importe
+      expect(c(r.imp_neto)).toBe(r.alicuotas.reduce((s, a) => s + c(a.base_imp), 0));
+      expect(c(r.imp_iva)).toBe(r.alicuotas.reduce((s, a) => s + c(a.importe), 0));
+      for (const a of r.alicuotas) {
+        // IVA de cada alícuota = base × % (con medio centavo de tolerancia por el redondeo del neto)
+        expect(Math.abs(c(a.importe) - c(a.base_imp) * a.alicuota / 100)).toBeLessThanOrEqual(a.alicuota / 200 + 0.5);
+        const lineas = r.items.filter(i => i.alicuota_id === a.alicuota_id);
+        expect(lineas.reduce((s, i) => s + c(i.neto), 0)).toBe(c(a.base_imp));
+        expect(lineas.reduce((s, i) => s + c(i.iva), 0)).toBe(c(a.importe));
+      }
+      for (const i of r.items) {
+        expect(c(i.neto) + c(i.iva)).toBe(c(i.total));
+        if (i.total > 0) expect(i.iva).toBeGreaterThanOrEqual(0);
+        if (i.exento) expect(i.iva).toBe(0);
+      }
+      // Reconstruir desde lo guardado (nota de crédito total, PDF) da exactamente lo mismo
+      const r2 = calcularImportes(r.items);
+      expect([r2.imp_neto, r2.imp_iva, r2.imp_op_ex, r2.imp_total]).toEqual([r.imp_neto, r.imp_iva, r.imp_op_ex, r.imp_total]);
+      expect(r2.alicuotas).toEqual(r.alicuotas);
+    }
   });
 });

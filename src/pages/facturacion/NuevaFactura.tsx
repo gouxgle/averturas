@@ -22,6 +22,15 @@ const btnSec = 'inline-flex items-center justify-center gap-2 h-11 sm:h-10 px-4 
 
 const CF: Receptor = { doc_tipo: 99, doc_nro: '0', nombre: 'Consumidor Final', condicion_iva_id: 5 };
 const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// Total de la línea en centavos, con el mismo redondeo que el servidor (calculo.ts): precio a
+// 2 decimales, cantidad a 3 y sin el error de los flotantes (1,005 × 100 = 100,4999…).
+const redondear = (x: number) => Math.round(Number(x.toPrecision(15)));
+const totalLineaCent = (i: ItemCbte) => {
+  const precioC = redondear((i.precio_unitario || 0) * 100);
+  const cantidad = redondear((i.cantidad || 0) * 1000) / 1000;
+  return redondear(cantidad * precioC) - redondear((i.bonificacion ?? 0) * 100);
+};
+
 const itemVacio = (): ItemCbte => ({ descripcion: '', cantidad: 1, precio_unitario: 0, alicuota: 21 });
 const letraDe = (cond: number) => ([1, 6, 13, 16].includes(cond) ? 'A' : 'B');
 
@@ -234,7 +243,7 @@ function PasoItems({ comp, setComp, esNota, onVolver, onSeguir }: {
   const setItem = (i: number, cambios: Partial<ItemCbte>) =>
     setComp(c => ({ ...c, items: c.items.map((it, j) => (j === i ? { ...it, ...cambios } : it)) }));
   const hayServicio = comp.items.some(i => i.es_servicio);
-  const total = comp.items.reduce((a, i) => a + Math.round(i.cantidad * i.precio_unitario * 100) - Math.round((i.bonificacion ?? 0) * 100), 0) / 100;
+  const total = comp.items.reduce((a, i) => a + totalLineaCent(i), 0) / 100;
   const valido = comp.items.length > 0 && comp.items.every(i => i.descripcion.trim() && i.cantidad > 0 && i.precio_unitario > 0)
     && (!hayServicio || (comp.fch_serv_desde && comp.fch_serv_hasta && comp.fch_vto_pago));
 
@@ -285,7 +294,7 @@ function PasoItems({ comp, setComp, esNota, onVolver, onSeguir }: {
               </label>
             </div>
             <p className="text-right text-sm font-semibold tabular-nums text-gray-900">
-              {fmt$(Math.round(it.cantidad * it.precio_unitario * 100) / 100 - (it.bonificacion ?? 0))}
+              {fmt$(totalLineaCent(it) / 100)}
             </p>
           </li>
         ))}

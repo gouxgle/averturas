@@ -2,7 +2,7 @@ import { db } from '../../db.js';
 import { hoyAR } from '../fechas.js';
 import { cuitValido, normalizarCuit } from './cuit.js';
 import { condicionIvaId } from './condicionIva.js';
-import { DOC_TIPO, type ItemEntrada, type Receptor } from './calculo.js';
+import { DOC_TIPO, aCent, type ItemEntrada, type Receptor } from './calculo.js';
 import type { NuevoComprobante } from './emision.js';
 
 // De dónde sale una factura: un recibo (cada cobro, incluidas las señas), un presupuesto
@@ -74,12 +74,12 @@ async function totalOperacion(id: string): Promise<{ total: number; descuentos: 
 export function repartirBonificacion(lineas: ItemEntrada[], descuento: number): void {
   if (!(descuento > 0)) return;
   const productos = lineas.filter(l => !l.es_servicio);
-  const base = productos.reduce((a, l) => a + Math.round(l.cantidad * l.precio_unitario * 100), 0);
+  const base = productos.reduce((a, l) => a + aCent(l.cantidad * l.precio_unitario), 0);
   if (!base) return;
-  const totalC = Math.round(descuento * 100);
+  const totalC = aCent(descuento);
   let restante = totalC;
   productos.forEach((l, i) => {
-    const linea = Math.round(l.cantidad * l.precio_unitario * 100);
+    const linea = aCent(l.cantidad * l.precio_unitario);
     const parte = i === productos.length - 1 ? restante : Math.round(totalC * linea / base);
     l.bonificacion = parte / 100;
     restante -= parte;

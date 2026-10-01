@@ -567,6 +567,14 @@ saldo por factura), **F7** (contingencia CAEA) y **F8** (Libro IVA + control con
   si vienen en el body** (`guardarDatosFiscales`); el padrón se toma del caché del servidor.
   `clientes.nombre` es NOT NULL: para Empresa se completa con la razón social.
 
+**Cálculo (`lib/fiscal/calculo.ts`)**: todo en centavos enteros con `aCent()` (redondeo con
+`toPrecision(15)`: `Math.round(1.005*100)` da 100). Precio a 2 decimales y cantidad a 3 antes de
+calcular (lo mismo que guarda la base: recalcular desde lo guardado da idéntico). **El IVA se
+calcula por alícuota sobre su total**, no por línea (por línea el desvío se acumula: 60 líneas
+de $1,07 daban 31 centavos de IVA de más), y el neto se reparte a las líneas con
+`repartirCentavos` (mayor resto). Test de propiedades con 3000 facturas al azar en
+`calculo.test.ts`. No hay percepciones de IIBB (`imp_trib` = 0): pendiente del contador.
+
 - `server/src/lib/arca/`: `soap.ts` (cliente mínimo, agente TLS `SECLEVEL=1` solo para ARCA,
   registra cada llamada en `fiscal_eventos` con Token/Sign enmascarados; `ArcaError.incierto`
   = no se sabe si ARCA procesó → **nunca reintentar sin `FECompConsultar`**), `wsaa.ts`

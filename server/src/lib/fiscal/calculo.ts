@@ -100,35 +100,77 @@ export interface Importes {
   concepto: 1 | 2 | 3;   // 1 productos, 2 servicios, 3 ambos
 }
 
-const aCent = (n: number) => Math.round(n * 100);
+// Redondeo sin el error de los flotantes: en JS 1.005 * 100 = 100.49999… y 3 × 1,255 da
+// 3.7649999…; redondeados "a mano" pierden un centavo. toPrecision(15) limpia ese ruido.
+const redondear = (x: number) => Math.round(Number(x.toPrecision(15)));
+/** Centavos enteros de un importe en pesos. */
+export const aCent = (n: number) => redondear(n * 100);
 const dePesos = (c: number) => c / 100;
+/** Importe a 2 decimales y cantidad a 3: lo mismo que guarda la base, para que lo calculado y lo guardado coincidan. */
+const a2 = (n: number) => dePesos(aCent(n));
+const a3 = (n: number) => redondear(n * 1000) / 1000;
 
+/**
+ * Reparte `total` centavos entre las partes en proporción a `pesos`, sin perder ni sobrar
+ * un centavo (método del mayor resto: cada parte recibe su piso y los centavos que faltan
+ * van a las de mayor fracción).
+ */
+export function repartirCentavos(total: number, pesos: number[]): number[] {
+  const suma = pesos.reduce((a, p) => a + p, 0);
+  if (!suma) return pesos.map(() => 0);
+  const ideal = pesos.map(p => (total * p) / suma);
+  const partes = ideal.map(Math.floor);
+  let faltan = total - partes.reduce((a, p) => a + p, 0);
+  const orden = ideal.map((v, i) => ({ i, resto: v - Math.floor(v) })).sort((x, y) => y.resto - x.resto || x.i - y.i);
+  for (let k = 0; faltan > 0 && k < orden.length; k++, faltan--) partes[orden[k].i]++;
+  return partes;
+}
+
+/**
+ * Importes del comprobante desde precios FINALES (IVA incluido).
+ *
+ * El IVA se calcula sobre el total de CADA ALÍCUOTA (no línea por línea): así el IVA de cada
+ * alícuota es siempre su base × el porcentaje (± medio centavo). Calculado por línea, cada
+ * una arrastra hasta 0,6 centavos de diferencia y con muchas líneas el desvío se acumula
+ * (60 líneas de $ 1,07 daban 31 centavos de IVA de más sobre la base). Después el neto de la
+ * alícuota se reparte entre sus líneas, al centavo, para que la suma de las líneas sea
+ * exactamente el neto informado.
+ */
 export function calcularImportes(entrada: ItemEntrada[]): Importes {
-  const porAlicuota = new Map<number, { alicuota: number; base: number; iva: number }>();
-  let netoC = 0, ivaC = 0, exentoC = 0;
-
-  const items = entrada.map<ItemCalculado>(it => {
+  const filas = entrada.map(it => {
     const alicuota = it.exento ? 0 : (it.alicuota ?? 21);
     const alicuotaId = it.exento ? null : ALICUOTA_ID[String(alicuota)];
     if (!it.exento && alicuotaId === undefined) throw new Error(`Alícuota de IVA no admitida: ${alicuota}%`);
-    // Total de la línea en centavos; neto e IVA salen de él para que siempre sumen exacto.
-    const totalC = aCent(it.cantidad * it.precio_unitario) - aCent(it.bonificacion ?? 0);
-    const itemNetoC = it.exento ? totalC : Math.round(totalC / (1 + alicuota / 100));
-    const itemIvaC = it.exento ? 0 : totalC - itemNetoC;
-    if (it.exento) {
-      exentoC += totalC;
-    } else {
-      const acc = porAlicuota.get(alicuotaId!) ?? { alicuota, base: 0, iva: 0 };
-      acc.base += itemNetoC; acc.iva += itemIvaC;
-      porAlicuota.set(alicuotaId!, acc);
-      netoC += itemNetoC; ivaC += itemIvaC;
-    }
+    const cantidad = a3(it.cantidad);
+    const precio = a2(it.precio_unitario);
+    const bonificacion = a2(it.bonificacion ?? 0);
+    const totalC = redondear(cantidad * aCent(precio)) - aCent(bonificacion);
+    return { it, alicuota, alicuotaId: alicuotaId ?? null, cantidad, precio, bonificacion, totalC, netoC: totalC, ivaC: 0 };
+  });
+
+  // IVA por alícuota sobre su total, y reparto del neto entre las líneas
+  const grupos = new Map<number, typeof filas>();
+  for (const f of filas) if (f.alicuotaId !== null) grupos.set(f.alicuotaId, [...(grupos.get(f.alicuotaId) ?? []), f]);
+  const alicuotas: AlicuotaCalculada[] = [];
+  for (const [id, fs] of [...grupos.entries()].sort(([a], [b]) => a - b)) {
+    const totalG = fs.reduce((a, f) => a + f.totalC, 0);
+    const baseG = Math.round(totalG / (1 + fs[0].alicuota / 100));
+    const netos = repartirCentavos(baseG, fs.map(f => Math.max(f.totalC, 0)));
+    fs.forEach((f, i) => { f.netoC = netos[i]; f.ivaC = f.totalC - netos[i]; });
+    alicuotas.push({ alicuota_id: id, alicuota: fs[0].alicuota, base_imp: dePesos(baseG), importe: dePesos(totalG - baseG) });
+  }
+
+  let netoC = 0, ivaC = 0, exentoC = 0;
+  const items = filas.map<ItemCalculado>(f => {
+    if (f.alicuotaId === null) exentoC += f.totalC;
+    else { netoC += f.netoC; ivaC += f.ivaC; }
+    const it = f.it;
     return {
-      descripcion: it.descripcion.trim(), cantidad: it.cantidad, precio_unitario: it.precio_unitario,
-      bonificacion: it.bonificacion ?? 0, alicuota, alicuota_id: alicuotaId ?? null, exento: !!it.exento,
+      descripcion: it.descripcion.trim(), cantidad: f.cantidad, precio_unitario: f.precio,
+      bonificacion: f.bonificacion, alicuota: f.alicuota, alicuota_id: f.alicuotaId, exento: !!it.exento,
       es_servicio: !!it.es_servicio, unidad: it.unidad ?? 'u', producto_id: it.producto_id ?? null,
       operacion_item_id: it.operacion_item_id ?? null,
-      neto: dePesos(itemNetoC), iva: dePesos(itemIvaC), total: dePesos(totalC),
+      neto: dePesos(f.netoC), iva: dePesos(f.ivaC), total: dePesos(f.totalC),
     };
   });
 
@@ -136,9 +178,7 @@ export function calcularImportes(entrada: ItemEntrada[]): Importes {
   const hayProducto = items.some(i => !i.es_servicio);
   return {
     items,
-    alicuotas: [...porAlicuota.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([id, v]) => ({ alicuota_id: id, alicuota: v.alicuota, base_imp: dePesos(v.base), importe: dePesos(v.iva) })),
+    alicuotas,
     imp_neto: dePesos(netoC), imp_iva: dePesos(ivaC), imp_op_ex: dePesos(exentoC),
     imp_tot_conc: 0, imp_trib: 0,
     imp_total: dePesos(netoC + ivaC + exentoC),
