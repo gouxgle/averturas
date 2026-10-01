@@ -310,7 +310,7 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
                   <FilePlus size={15} /> Nota de débito
                 </button>
               )}
-              {puedeEmitir && d.estado === 'autorizado' && d.tipo_doc === 'factura' && (
+              {puedeEmitir && d.estado === 'autorizado' && d.tipo_doc !== 'nota_credito' && (
                 <button onClick={() => navigate(`/facturacion/nueva?factura_id=${d.id}`)} className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-50 text-sm font-semibold text-amber-800 hover:bg-amber-100">
                   <FileMinus size={15} /> Nota de crédito
                 </button>

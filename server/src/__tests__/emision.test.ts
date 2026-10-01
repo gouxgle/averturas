@@ -364,4 +364,177 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
     expect(mal.diferencias.map(d => d.tipo)).toEqual(expect.arrayContaining(['distinto', 'numeros_ajenos']));
     fake.estado.emitidos.set(clave, datos);
   });
+
+  // ── Circuito completo por escenarios (emisión, anulación, NC y ND) ─────────
+  describe('circuito: escenarios', () => {
+    let O: typeof import('../lib/fiscal/origenes.js');
+    let app: import('hono').Hono;
+    let clienteId: string, operacionId: string, reciboId: string;
+    const dias = (n: number) => new Date(Date.now() - 3 * 3600_000 + n * 86400_000).toISOString().slice(0, 10);
+    const ri = { doc_tipo: 80 as const, doc_nro: '30714522538', nombre: 'Constructora SA', condicion_iva_id: 1 };
+    const emitida = async (input: Record<string, unknown>) => {
+      const { id, problemas } = await E.crearBorrador(factura(input), null);
+      expect(problemas).toEqual([]);
+      expect(await E.emitir(id, null)).toMatchObject({ estado: 'autorizado' });
+      return id;
+    };
+    const nota = (tipo: 'nota_credito' | 'nota_debito', asociado: string, receptor: Record<string, unknown>, monto: number, extra: Record<string, unknown> = {}) =>
+      factura({ tipo_doc: tipo, comprobante_asociado_id: asociado, receptor, items: [{ descripcion: tipo, cantidad: 1, precio_unitario: monto }], ...extra });
+
+    beforeAll(async () => {
+      O = await import('../lib/fiscal/origenes.js');
+      const { Hono } = await import('hono');
+      const recibos = (await import('../routes/recibos.js')).default;
+      const operaciones = (await import('../routes/operaciones.js')).default;
+      app = new Hono();
+      app.use('*', async (c, next) => { (c as unknown as { set: (k: string, v: unknown) => void }).set('user', { id: null, rol: 'admin' }); await next(); });
+      app.route('/recibos', recibos);
+      app.route('/operaciones', operaciones);
+      ({ rows: [{ id: clienteId }] } = await db.query(
+        `INSERT INTO clientes (nombre, apellido, documento_nro, notas) VALUES ('Circuito', 'Test', '25889761', $1) RETURNING id`, [MARCA]));
+      ({ rows: [{ id: operacionId }] } = await db.query(
+        `INSERT INTO operaciones (tipo, estado, cliente_id, notas) VALUES ('estandar', 'aprobado', $1, $2) RETURNING id`, [clienteId, MARCA]));
+      await db.query(`INSERT INTO operacion_items (operacion_id, descripcion, cantidad, precio_unitario) VALUES ($1, 'Ventana test', 1, 242000)`, [operacionId]);
+      ({ rows: [{ id: reciboId }] } = await db.query(
+        `INSERT INTO recibos (numero, cliente_id, operacion_id, monto_total, monto_lista, notas) VALUES ('REC-TEST-CIRCUITO', $1, $2, 121000, 121000, $3) RETURNING id`,
+        [clienteId, operacionId, MARCA]));
+    });
+    afterAll(async () => {
+      const client = await db.connect();
+      try {
+        await client.query(`SET session_replication_role = replica`);
+        const { rows } = await client.query(`SELECT id FROM comprobantes WHERE cliente_id = $1 OR operacion_id = $2 OR recibo_id = $3`, [clienteId, operacionId, reciboId]);
+        const ids = rows.map(r => r.id);
+        await client.query(`DELETE FROM fiscal_eventos WHERE comprobante_id = ANY($1)`, [ids]);
+        await client.query(`DELETE FROM comprobante_items WHERE comprobante_id = ANY($1)`, [ids]);
+        await client.query(`DELETE FROM comprobante_iva WHERE comprobante_id = ANY($1)`, [ids]);
+        await client.query(`UPDATE comprobantes SET comprobante_asociado_id = NULL WHERE id = ANY($1)`, [ids]);
+        await client.query(`DELETE FROM comprobantes WHERE id = ANY($1)`, [ids]);
+        await client.query(`DELETE FROM recibos WHERE id = $1`, [reciboId]);
+        await client.query(`DELETE FROM operacion_items WHERE operacion_id = $1`, [operacionId]);
+        await client.query(`DELETE FROM estados_historial WHERE operacion_id = $1`, [operacionId]).catch(() => {});
+        await client.query(`DELETE FROM actividad_log WHERE entidad_id = $1 OR entidad_id = $2`, [operacionId, reciboId]).catch(() => {});
+        await client.query(`DELETE FROM operaciones WHERE id = $1`, [operacionId]);
+        await client.query(`DELETE FROM clientes WHERE id = $1`, [clienteId]);
+        await client.query(`SET session_replication_role = DEFAULT`);
+      } finally { client.release(); }
+    });
+
+    it('B a consumidor final con DNI, A a monotributista, B a exento', async () => {
+      const dni = await emitida({ receptor: { doc_tipo: 96, doc_nro: '25889760', nombre: 'Juan Pérez', condicion_iva_id: 5 } });
+      expect((await fila(dni)).request_json).toMatchObject({ docTipo: 96, docNro: '25889760', condicionIvaReceptorId: 5, cbteTipo: 6 });
+      const mono = await emitida({ receptor: { doc_tipo: 80, doc_nro: '27288887778', nombre: 'Gómez María', condicion_iva_id: 6 } });
+      expect((await fila(mono)).cbte_tipo).toBe(1);
+      const ex = await emitida({ receptor: { doc_tipo: 80, doc_nro: '30700000008', nombre: 'Fundación', condicion_iva_id: 4 } });
+      expect((await fila(ex)).cbte_tipo).toBe(6);
+    });
+
+    it('alícuotas mixtas, exento y bonificación: ARCA acepta los totales', async () => {
+      const id = await emitida({
+        receptor: ri, items: [
+          { descripcion: 'Ventana', cantidad: 3, precio_unitario: 33_333.33, bonificacion: 1_000.01 },
+          { descripcion: 'Material al 10,5', cantidad: 2, precio_unitario: 1_105.55, alicuota: 10.5 },
+          { descripcion: 'Exento', cantidad: 1, precio_unitario: 500, exento: true },
+        ],
+      });
+      const c = await fila(id);
+      expect(c.request_json.iva.map((x: { id: number }) => x.id)).toEqual([4, 5]);
+      expect(Math.round((Number(c.imp_neto) + Number(c.imp_iva) + Number(c.imp_op_ex)) * 100)).toBe(Math.round(Number(c.imp_total) * 100));
+    });
+
+    it('con instalación exige fechas de servicio; con fechas sale concepto 3', async () => {
+      const items = [{ descripcion: 'Ventana', cantidad: 1, precio_unitario: 100_000 }, { descripcion: 'Instalación', cantidad: 1, precio_unitario: 20_000, es_servicio: true }];
+      const sin = await E.crearBorrador(factura({ items }), null);
+      expect(sin.problemas.join()).toMatch(/período del servicio/);
+      const con = await emitida({ items, fch_serv_desde: dias(0), fch_serv_hasta: dias(0), fch_vto_pago: dias(10) });
+      expect((await fila(con)).request_json).toMatchObject({ concepto: 3, fchServDesde: dias(0) });
+    });
+
+    it('fechas fuera de rango o anteriores a la última de la serie no se emiten', async () => {
+      expect((await E.crearBorrador(factura({ fecha: dias(6) }), null)).problemas.join()).toMatch(/5 días/);
+      const vieja = await E.crearBorrador(factura({ fecha: dias(-3) }), null);
+      expect(vieja.problemas).toEqual([]);
+      await expect(E.emitir(vieja.id, null)).rejects.toThrow(/anterior a la del último comprobante/);
+    });
+
+    it('doble clic: dos emisiones del mismo borrador a la vez → una sola factura', async () => {
+      const { id } = await E.crearBorrador(factura(), null);
+      const r = await Promise.allSettled([E.emitir(id, null), E.emitir(id, null)]);
+      expect(r.filter(x => x.status === 'fulfilled')).toHaveLength(1);
+      expect(r.find(x => x.status === 'rejected')).toMatchObject({ reason: { status: 409 } });
+      const { rows } = await db.query(`SELECT count(*) FROM fiscal_eventos WHERE comprobante_id = $1 AND metodo = 'FECAESolicitar'`, [id]);
+      expect(Number(rows[0].count)).toBe(1);
+    });
+
+    it('NC parcial, después NC por más del saldo (pide confirmación), y NC A sobre factura A', async () => {
+      const f = await emitida({ receptor: ri });                               // 121.000
+      const nc1 = await E.crearBorrador(nota('nota_credito', f, ri, 21_000), null);
+      expect(nc1.problemas).toEqual([]);
+      await E.emitir(nc1.id, null);
+      expect((await fila(nc1.id)).cbte_tipo).toBe(3);
+      const exceso = await O.excesoSobreOrigen(nota('nota_credito', f, ri, 110_000) as never, 110_000);
+      expect(exceso).toMatchObject({ exceso: 10_000 });
+      const justo = await O.excesoSobreOrigen(nota('nota_credito', f, ri, 100_000) as never, 100_000);
+      expect(justo?.exceso).toBe(0);
+    });
+
+    it('notas mal armadas: NC sobre NC, otro cliente, fecha anterior, factura sin autorizar', async () => {
+      const f = await emitida({ receptor: ri });
+      const nc = await E.crearBorrador(nota('nota_credito', f, ri, 1_000), null);
+      await E.emitir(nc.id, null);
+      expect((await E.crearBorrador(nota('nota_credito', nc.id, ri, 500), null)).problemas.join()).toMatch(/otra nota de crédito/);
+      const otro = { ...ri, doc_nro: '30700000008', nombre: 'Otra empresa' };
+      expect((await E.crearBorrador(nota('nota_credito', f, otro, 500), null)).problemas.join()).toMatch(/mismo cliente/);
+      const fb = await E.crearBorrador(factura({ receptor: ri, fecha: dias(-2) }), null);  // borrador sin emitir
+      const p = (await E.crearBorrador(nota('nota_credito', fb.id, ri, 500, { fecha: dias(-3) }), null)).problemas.join();
+      expect(p).toMatch(/fecha anterior/);
+      expect(p).toMatch(/todavía no está autorizada/);
+    });
+
+    it('ND sobre factura y NC que anula la ND', async () => {
+      const f = await emitida({ receptor: ri });
+      const nd = await E.crearBorrador(nota('nota_debito', f, ri, 5_000), null);
+      expect(nd.problemas).toEqual([]);
+      await E.emitir(nd.id, null);
+      expect((await fila(nd.id)).cbte_tipo).toBe(2);
+      const ncDeNd = await E.crearBorrador(nota('nota_credito', nd.id, ri, 5_000), null);
+      expect(ncDeNd.problemas).toEqual([]);
+      expect(await E.emitir(ncDeNd.id, null)).toMatchObject({ estado: 'autorizado' });
+      expect((await fila(ncDeNd.id)).request_json.asociado).toMatchObject({ tipo: 2 });
+      expect((await E.crearBorrador(nota('nota_debito', nd.id, ri, 100), null)).problemas.join()).toMatch(/otra nota de débito/);
+    });
+
+    it('anulación desde un recibo: no se anula el recibo facturado hasta hacer la NC', async () => {
+      const cf = { doc_tipo: 96, doc_nro: '25889761', nombre: 'Test Circuito', condicion_iva_id: 5 };
+      const f = await emitida({ receptor: cf, cliente_id: clienteId, origen: 'recibo', recibo_id: reciboId, operacion_id: operacionId });
+      expect(await O.facturadoDe('recibo_id', reciboId)).toBe(121_000);
+      const anular = () => app.request(`/recibos/${reciboId}/anular`, { method: 'PATCH', body: JSON.stringify({ motivo_anulacion: 'Devolución' }), headers: { 'Content-Type': 'application/json' } });
+      expect((await anular()).status).toBe(409);
+      const editar = await app.request(`/recibos/${reciboId}`, { method: 'PUT', body: JSON.stringify({ monto_total: 100_000, cliente_id: clienteId }), headers: { 'Content-Type': 'application/json' } });
+      expect(editar.status).toBe(409);
+      const nc = await E.crearBorrador(nota('nota_credito', f, cf, 121_000), null);
+      expect(nc.problemas).toEqual([]);
+      await E.emitir(nc.id, null);
+      expect((await fila(nc.id)).recibo_id).toBe(reciboId);              // la NC hereda el origen
+      expect(await O.facturadoDe('recibo_id', reciboId)).toBe(0);
+      expect((await anular()).status).toBe(200);
+      // Recibo anulado: ya no se puede facturar.
+      expect((await E.crearBorrador(factura({ receptor: cf, recibo_id: reciboId, origen: 'recibo' }), null)).problemas.join()).toMatch(/está anulado/);
+    });
+
+    it('presupuesto facturado: no se cancela ni se deshace la aprobación sin NC; un borrador viejo no se emite si el origen cambió', async () => {
+      await db.query(`UPDATE operaciones SET estado = 'aprobado' WHERE id = $1`, [operacionId]);
+      const cf = { doc_tipo: 96, doc_nro: '25889761', nombre: 'Test Circuito', condicion_iva_id: 5 };
+      const f = await emitida({ receptor: cf, cliente_id: clienteId, origen: 'operacion', operacion_id: operacionId,
+        items: [{ descripcion: 'Ventana test', cantidad: 1, precio_unitario: 242_000 }] });
+      const cancelar = () => app.request(`/operaciones/${operacionId}/estado`, { method: 'PATCH', body: JSON.stringify({ estado: 'cancelado' }), headers: { 'Content-Type': 'application/json' } });
+      expect((await cancelar()).status).toBe(409);
+      expect((await app.request(`/operaciones/${operacionId}/desaprobar`, { method: 'POST' })).status).toBe(409);
+      const borradorViejo = await E.crearBorrador(factura({ receptor: cf, origen: 'operacion', operacion_id: operacionId }), null);
+      const nc = await E.crearBorrador(nota('nota_credito', f, cf, 242_000), null);
+      await E.emitir(nc.id, null);
+      expect((await cancelar()).status).toBe(200);
+      await expect(E.emitir(borradorViejo.id, null)).rejects.toMatchObject({ problemas: expect.arrayContaining([expect.stringMatching(/está cancelado/)]) });
+    });
+  });
 });

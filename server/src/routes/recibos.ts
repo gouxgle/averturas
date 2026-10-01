@@ -11,6 +11,7 @@ import { enviarWhatsappPdf, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { hoyAR } from '../lib/fechas.js';
 import { siguienteNumero } from '../lib/numeracion.js';
+import { facturadoDe } from '../lib/fiscal/origenes.js';
 
 const recibos = new Hono();
 
@@ -597,6 +598,13 @@ recibos.put('/:id', async (c) => {
   const { rows: [existing] } = await db.query('SELECT estado FROM recibos WHERE id=$1', [id]);
   if (!existing)                      return c.json({ error: 'No encontrado' }, 404);
   if (existing.estado === 'anulado')  return c.json({ error: 'No se puede editar un recibo anulado' }, 400);
+  const facturadoRec = await facturadoDe('recibo_id', id);
+  if (facturadoRec > 0.009 && Number(b.monto_total) + 0.009 < facturadoRec) {
+    return c.json({
+      error: `Este recibo ya tiene $ ${facturadoRec.toLocaleString('es-AR')} facturados: el importe no puede quedar por debajo. ` +
+        'Si cambió el cobro, primero hacé la nota de crédito.',
+    }, 409);
+  }
 
   const normUpd = normalizarPagos(b.pagos, b.monto_total);
   if (!normUpd.ok) return c.json({ error: normUpd.error }, 422);
@@ -671,6 +679,15 @@ recibos.patch('/:id/anular', async (c) => {
   const b = await c.req.json().catch(() => ({}));
   const motivo = typeof b.motivo_anulacion === 'string' ? b.motivo_anulacion.trim() : '';
   if (!motivo) return c.json({ error: 'El motivo de anulación es obligatorio' }, 400);
+  // Un cobro facturado no se anula sin antes anular la factura (nota de crédito): si no, la
+  // factura queda vigente sin plata detrás.
+  const facturado = await facturadoDe('recibo_id', id);
+  if (facturado > 0.009) {
+    return c.json({
+      error: `Este recibo tiene facturas vigentes por $ ${facturado.toLocaleString('es-AR')}. ` +
+        'Primero anulalas con una nota de crédito (Facturación) y después anulá el recibo.',
+    }, 409);
+  }
 
   const client = await db.connect();
   try {

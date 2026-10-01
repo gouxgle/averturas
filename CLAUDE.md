@@ -484,6 +484,14 @@ cola), **F3** (padrón), **F4** (interfaz), **F5** (PDF + envíos), **F6** (nota
 saldo por factura), **F7** (contingencia CAEA) y **F8** (Libro IVA + control con ARCA).
 **Falta solo F9** (datos reales): guía en `docs/facturacion-puesta-en-marcha.md`.
 `fiscal_config.habilitada=false` hasta F9.
+- **Reglas del circuito** (probadas en `emision.test.ts` > "circuito: escenarios"): una nota
+  corrige un comprobante del **mismo cliente** (mismo documento), con fecha igual o posterior,
+  y nunca otra nota del mismo tipo (NC → factura o ND; ND → factura o NC); hereda
+  recibo/operación de lo que corrige. No se factura un recibo no `emitido` ni un presupuesto
+  antes de aprobado (se revalida al emitir: un borrador viejo no sale si el origen cambió).
+  **No se anula ni se baja el importe** de un recibo con facturas vigentes, ni se cancela /
+  rechaza / desaprueba un presupuesto facturado: primero la NC (409 en `recibos.ts` y
+  `operaciones.ts`, con `facturadoDe`).
 - **Reportes** (`lib/fiscal/reportes.ts`): `GET /libro-iva` y `/libro-iva.csv` (Excel AR:
   `;`, coma decimal, BOM; NC en negativo, neto/IVA por alícuota), `POST /control` (cada
   autorizado del período contra `FECompConsultar` + series con números de ARCA mayores a los

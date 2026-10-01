@@ -48,7 +48,7 @@ export interface ComprobanteFila {
   fch_serv_desde: Date | string | null; fch_serv_hasta: Date | string | null; fch_vto_pago: Date | string | null;
   cliente_id: string | null; receptor_doc_tipo: number; receptor_doc_nro: string; receptor_nombre: string;
   receptor_domicilio: string | null; receptor_condicion_iva_id: number;
-  comprobante_asociado_id: string | null; moneda: string; cotizacion: string;
+  comprobante_asociado_id: string | null; operacion_id: string | null; recibo_id: string | null; moneda: string; cotizacion: string;
   imp_neto: string; imp_iva: string; imp_op_ex: string; imp_tot_conc: string; imp_trib: string; imp_total: string;
   cae: string | null; cae_vto: Date | string | null; emisor: Record<string, unknown> | null;
   intentos: number; emitiendo_desde: Date | null;
@@ -84,10 +84,51 @@ export interface Analisis {
   recibo_id: string | null;
 }
 
+/**
+ * Una nota corrige un comprobante del MISMO cliente, no puede ser anterior a él y no se asocia
+ * a otra nota del mismo tipo (una NC corrige una factura o una nota de débito; una ND, una
+ * factura o una nota de crédito).
+ */
+function validarAsociado(input: NuevoComprobante, a: {
+  tipo_doc: TipoDoc; fecha: Date | string; receptor_doc_tipo: number; receptor_doc_nro: string;
+}): string[] {
+  const p: string[] = [];
+  if (a.tipo_doc === input.tipo_doc) {
+    p.push(input.tipo_doc === 'nota_credito'
+      ? 'Una nota de crédito no se puede asociar a otra nota de crédito: asociala a la factura'
+      : 'Una nota de débito no se puede asociar a otra nota de débito: asociala a la factura');
+  }
+  if (Number(a.receptor_doc_tipo) !== input.receptor.doc_tipo || String(a.receptor_doc_nro) !== String(input.receptor.doc_nro)) {
+    p.push('La nota tiene que ser para el mismo cliente (mismo documento) que el comprobante que corrige');
+  }
+  const fechaNota = input.fecha ?? hoyAR();
+  if (iso(a.fecha)! > fechaNota) p.push(`La nota no puede tener fecha anterior al comprobante que corrige (${iso(a.fecha)})`);
+  return p;
+}
+
+/** No se factura un recibo anulado ni un presupuesto que no esté aprobado (o más adelante). */
+async function validarOrigen(input: NuevoComprobante, operacionId: string | null, reciboId: string | null): Promise<string[]> {
+  if (input.tipo_doc !== 'factura') return [];
+  const p: string[] = [];
+  if (reciboId) {
+    const { rows: [r] } = await db.query(`SELECT numero, estado FROM recibos WHERE id = $1`, [reciboId]);
+    if (!r) p.push('El recibo de origen no existe');
+    else if (r.estado !== 'emitido') p.push(`El recibo ${r.numero} está ${r.estado}: no se puede facturar`);
+  } else if (operacionId) {
+    const { rows: [o] } = await db.query(`SELECT estado FROM operaciones WHERE id = $1`, [operacionId]);
+    if (!o) p.push('El presupuesto de origen no existe');
+    else if (!['aprobado', 'en_produccion', 'listo', 'instalado', 'entregado'].includes(o.estado)) {
+      p.push(`El presupuesto está ${o.estado}: solo se factura desde que está aprobado`);
+    }
+  }
+  return p;
+}
+
 /** Letra, tipo, importes y validaciones de un comprobante, sin guardar nada (vista previa). */
 export async function analizar(input: NuevoComprobante): Promise<Analisis> {
   const cfg = await leerConfig();
   const importes = calcularImportes(input.items);
+  const extra: string[] = [];
 
   let clase: Clase;
   let asociado: { cbte_tipo: number; numero: number | null; clase: Clase; punto_venta: number } | null = null;
@@ -98,9 +139,12 @@ export async function analizar(input: NuevoComprobante): Promise<Analisis> {
   } else {
     if (!input.comprobante_asociado_id) throw new EmisionError('Falta la factura asociada a la nota');
     const { rows: [a] } = await db.query(
-      `SELECT cbte_tipo, numero, clase, punto_venta, estado, operacion_id, recibo_id FROM comprobantes WHERE id = $1`,
+      `SELECT cbte_tipo, numero, clase, punto_venta, estado, operacion_id, recibo_id, tipo_doc, fecha,
+              receptor_doc_tipo, receptor_doc_nro
+         FROM comprobantes WHERE id = $1`,
       [input.comprobante_asociado_id]);
     if (!a) throw new EmisionError('La factura asociada no existe', [], 404);
+    extra.push(...validarAsociado(input, a));
     clase = a.clase;
     asociado = { cbte_tipo: a.cbte_tipo, numero: a.estado === 'autorizado' ? Number(a.numero) : null, clase: a.clase, punto_venta: a.punto_venta };
     operacionId = operacionId ?? a.operacion_id;
@@ -115,6 +159,7 @@ export async function analizar(input: NuevoComprobante): Promise<Analisis> {
     cuit_emisor: cfg.cuit ?? '', fch_serv_desde: input.fch_serv_desde, fch_serv_hasta: input.fch_serv_hasta,
     fch_vto_pago: input.fch_vto_pago, asociado,
   });
+  problemas.push(...extra, ...await validarOrigen(input, operacionId, reciboId));
   if (!puntoVenta) problemas.push('No hay un punto de venta activo para emisión online (Configuración > Facturación)');
   else if (!pvs.some(p => p.numero === puntoVenta)) problemas.push(`El punto de venta ${puntoVenta} no está activo para emisión online`);
   return {
@@ -391,7 +436,9 @@ export async function emitir(id: string, usuarioId: string | null): Promise<Resu
       imp_tot_conc: n2(c.imp_tot_conc), imp_trib: n2(c.imp_trib), imp_total: n2(c.imp_total), concepto: c.concepto,
     };
     const asocFila = c.comprobante_asociado_id
-      ? (await client.query(`SELECT cbte_tipo, numero, clase, estado FROM comprobantes WHERE id = $1`, [c.comprobante_asociado_id])).rows[0]
+      ? (await client.query(
+          `SELECT cbte_tipo, numero, clase, estado, tipo_doc, fecha, receptor_doc_tipo, receptor_doc_nro FROM comprobantes WHERE id = $1`,
+          [c.comprobante_asociado_id])).rows[0]
       : null;
     const problemas = validarComprobante({
       tipo: c.tipo_doc, clase: c.clase,
@@ -400,6 +447,13 @@ export async function emitir(id: string, usuarioId: string | null): Promise<Resu
       fch_serv_desde: iso(c.fch_serv_desde), fch_serv_hasta: iso(c.fch_serv_hasta), fch_vto_pago: iso(c.fch_vto_pago),
       asociado: asocFila ? { cbte_tipo: asocFila.cbte_tipo, numero: asocFila.estado === 'autorizado' ? Number(asocFila.numero) : null, clase: asocFila.clase } : null,
     });
+    // Lo que pudo cambiar desde que se guardó el borrador: recibo anulado, presupuesto cancelado…
+    const comoInput = {
+      tipo_doc: c.tipo_doc, fecha: iso(c.fecha), items: [],
+      receptor: { doc_tipo: c.receptor_doc_tipo, doc_nro: c.receptor_doc_nro, nombre: c.receptor_nombre, condicion_iva_id: c.receptor_condicion_iva_id },
+    } as unknown as NuevoComprobante;
+    problemas.push(...await validarOrigen(comoInput, c.operacion_id, c.recibo_id));
+    if (asocFila) problemas.push(...validarAsociado(comoInput, asocFila));
     if (problemas.length) throw new EmisionError('El comprobante tiene datos a corregir', problemas);
 
     // ARCA rechaza una fecha anterior a la del último comprobante autorizado de la serie.

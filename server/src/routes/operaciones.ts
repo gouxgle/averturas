@@ -9,6 +9,7 @@ import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRel
 import { sendProformaCompartida } from '../email.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { siguienteNumero } from '../lib/numeracion.js';
+import { facturadoDe } from '../lib/fiscal/origenes.js';
 
 const operaciones = new Hono();
 
@@ -1689,6 +1690,10 @@ operaciones.post('/:id/desaprobar', async (c) => {
   if (op.estado !== 'aprobado') {
     return c.json({ error: 'Este presupuesto no está aprobado' }, 409);
   }
+  const facturadoOp = await facturadoDe('operacion_id', id);
+  if (facturadoOp > 0.009) {
+    return c.json({ error: `Este presupuesto tiene facturas vigentes por $ ${facturadoOp.toLocaleString('es-AR')}: primero anulalas con una nota de crédito.` }, 409);
+  }
 
   const { rows: [tiene] } = await db.query(`
     SELECT
@@ -1740,6 +1745,14 @@ operaciones.patch('/:id/estado', async (c) => {
     const vtPendiente = await visitaPendiente(id);
     if (vtPendiente) {
       return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente} antes de aprobar este presupuesto` }, 409);
+    }
+  }
+
+  // Cancelar o rechazar algo facturado deja facturas vigentes de una venta que no existe.
+  if (['cancelado', 'rechazado', 'presupuesto', 'enviado'].includes(estado)) {
+    const facturadoOp = await facturadoDe('operacion_id', id);
+    if (facturadoOp > 0.009) {
+      return c.json({ error: `Este presupuesto tiene facturas vigentes por $ ${facturadoOp.toLocaleString('es-AR')}: primero anulalas con una nota de crédito.` }, 409);
     }
   }
 
