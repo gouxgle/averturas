@@ -13,6 +13,8 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Facturación',                        path: '/facturacion' },
   { label: 'Facturación: por facturar',          path: '/facturacion?tab=por-facturar' },
   { label: 'Nueva factura',                      path: '/facturacion/nueva' },
+  { label: 'Facturación: libro IVA',             path: '/facturacion?tab=libro-iva' },
+  { label: 'Facturación: contingencia',          path: '/facturacion?tab=contingencia' },
   { label: 'Recibos',                            path: '/recibos' },
   { label: 'Clientes',                           path: '/clientes' },
   { label: 'Estado de Cuenta',                   path: '/estado-cuenta' },

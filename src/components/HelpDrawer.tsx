@@ -266,6 +266,36 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         steps: [
           { text: 'Una factura autorizada no se borra ni se modifica.' },
           { text: 'Se corrige con una nota de crédito: abrir la factura → "Nota de crédito" (total o parcial).' },
+          { text: 'Para cobrar un recargo o una diferencia a favor del local: "Nota de débito" sobre la factura.' },
+        ],
+      },
+      {
+        id: 'enviar',
+        emoji: '📤',
+        title: 'PDF y envío',
+        steps: [
+          { text: 'Desde la factura: "Ver PDF", "Imprimir" (original y duplicado) o "Enviar al cliente" por WhatsApp o mail.' },
+          { text: 'Si un envío falla, el sistema lo reintenta solo. El historial queda en la factura.' },
+        ],
+      },
+      {
+        id: 'contingencia',
+        emoji: '🛟',
+        title: 'Si ARCA no responde',
+        steps: [
+          { text: 'Si al emitir ARCA no contesta, aparece "Emitir en contingencia": la factura sale con el CAEA de la quincena y es válida.' },
+          { text: 'Hay que escribir la causa (por ejemplo "ARCA caído" o "sin internet"). Queda registrada con fecha, hora y usuario.' },
+          { text: 'Cuando ARCA vuelve, el sistema la informa solo (pestaña Contingencia).' },
+        ],
+        warning: 'El CAEA es SOLO para contingencias (RG 5852). Con ARCA funcionando, el sistema no deja usarlo.',
+      },
+      {
+        id: 'libro',
+        emoji: '📒',
+        title: 'Libro IVA para el contador',
+        steps: [
+          { text: 'Pestaña "Libro IVA": elegir el mes → "Descargar para el contador (CSV)".' },
+          { text: '"Controlar con ARCA" verifica que cada factura del mes esté en ARCA con los mismos datos.' },
         ],
       },
     ],

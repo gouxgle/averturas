@@ -11,6 +11,7 @@ import { generarPDFComprobante } from '../lib/fiscal/pdfComprobante.js';
 import { enviarComprobante } from '../lib/fiscal/envios.js';
 import { estadoContingencia, obtenerCaea, informarPendientes, emitirContingencia, quincenaDe, siguienteQuincena } from '../lib/fiscal/contingencia.js';
 import { hoyAR } from '../lib/fechas.js';
+import { libroIvaVentas, libroIvaCsv, controlConArca } from '../lib/fiscal/reportes.js';
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
 import { diagnosticar, listoParaHabilitar } from '../lib/fiscal/diagnostico.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
@@ -219,6 +220,35 @@ facturacion.post('/comprobantes/:id/enviar', puedeEmitir, async (c) => {
   if (b.canal !== 'whatsapp' && b.canal !== 'email') return c.json({ error: 'canal: whatsapp o email' }, 400);
   const r = await enviarComprobante(c.req.param('id')!, b.canal, b.destino ?? null, c.get('user').id);
   return c.json(r, r.ok ? 200 : 422);
+});
+
+// ── Reportes ─────────────────────────────────────────────────────────────────
+const fechaOk = (v: string | undefined) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+facturacion.get('/libro-iva', async (c) => {
+  const { desde, hasta } = c.req.query();
+  if (!fechaOk(desde) || !fechaOk(hasta)) return c.json({ error: 'desde y hasta (AAAA-MM-DD) son requeridos' }, 400);
+  return c.json(await libroIvaVentas(desde!, hasta!));
+});
+
+facturacion.get('/libro-iva.csv', async (c) => {
+  const { desde, hasta } = c.req.query();
+  if (!fechaOk(desde) || !fechaOk(hasta)) return c.json({ error: 'desde y hasta (AAAA-MM-DD) son requeridos' }, 400);
+  const csv = libroIvaCsv(await libroIvaVentas(desde!, hasta!));
+  c.header('Content-Type', 'text/csv; charset=utf-8');
+  c.header('Content-Disposition', `attachment; filename="libro-iva-ventas_${desde}_${hasta}.csv"`);
+  return c.body(csv);
+});
+
+facturacion.post('/control', puedeEmitir, async (c) => {
+  const { desde, hasta } = await c.req.json<{ desde?: string; hasta?: string }>().catch(() => ({} as { desde?: string; hasta?: string }));
+  if (!fechaOk(desde) || !fechaOk(hasta)) return c.json({ error: 'desde y hasta (AAAA-MM-DD) son requeridos' }, 400);
+  try {
+    return c.json(await controlConArca(desde!, hasta!, c.get('user').id));
+  } catch (e) {
+    if (e instanceof ArcaError) return c.json({ error: e.message }, 502);
+    return c.json({ error: (e as Error).message }, 422);
+  }
 });
 
 // ── Contingencia (CAEA) ──────────────────────────────────────────────────────

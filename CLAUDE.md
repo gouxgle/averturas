@@ -481,7 +481,13 @@ Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md`
 F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
 certificado, prueba de conexión), **F2** (cálculo, comprobantes, emisión CAE, conciliación,
 cola), **F3** (padrón), **F4** (interfaz), **F5** (PDF + envíos), **F6** (notas de débito,
-saldo por factura) y **F7** (contingencia CAEA). `fiscal_config.habilitada=false` hasta F9.
+saldo por factura), **F7** (contingencia CAEA) y **F8** (Libro IVA + control con ARCA).
+**Falta solo F9** (datos reales): guía en `docs/facturacion-puesta-en-marcha.md`.
+`fiscal_config.habilitada=false` hasta F9.
+- **Reportes** (`lib/fiscal/reportes.ts`): `GET /libro-iva` y `/libro-iva.csv` (Excel AR:
+  `;`, coma decimal, BOM; NC en negativo, neto/IVA por alícuota), `POST /control` (cada
+  autorizado del período contra `FECompConsultar` + series con números de ARCA mayores a los
+  locales = emitidos por fuera). Pestañas `libro-iva` y `contingencia` en `/facturacion`.
 - **CAEA** (`lib/fiscal/contingencia.ts`, RG 5852): `tareasCaea()` corre cada hora
   (`iniciarTrabajosFiscales`): pide el CAEA de la quincena actual y, desde 5 días antes, el de la
   próxima (`caea_periodos`); informa lo emitido (`informarPendientes`, en orden de número por

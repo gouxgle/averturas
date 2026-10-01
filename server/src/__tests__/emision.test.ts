@@ -336,4 +336,32 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
       expect((await db.query(`SELECT estado FROM caea_periodos WHERE id = $1`, [p.id])).rows[0].estado).toBe('informado');
     });
   });
+
+  it('libro IVA ventas y control cruzado con ARCA', async () => {
+    const R = await import('../lib/fiscal/reportes.js');
+    const hoy = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+    const libro = await R.libroIvaVentas(hoy, hoy);
+    const { rows: [cnt] } = await db.query(
+      `SELECT count(*) AS n, SUM(CASE WHEN tipo_doc = 'nota_credito' THEN -imp_total ELSE imp_total END) AS t
+         FROM comprobantes WHERE notas = $1 AND estado IN ('autorizado', 'contingencia')`, [MARCA]);
+    expect(libro.filas.length).toBeGreaterThanOrEqual(Number(cnt.n));
+    expect(libro.filas.some(f => f.total < 0)).toBe(true);              // las NC restan
+    const suma = libro.filas.reduce((a, f) => a + Math.round(f.total * 100), 0);
+    expect(Math.round(libro.totales.total * 100)).toBe(suma);
+    const csv = R.libroIvaCsv(libro);
+    expect(csv.startsWith('\uFEFF"Fecha";"Tipo"')).toBe(true);
+    expect(csv).toMatch(/"Neto 21%";"IVA 21%"/);
+
+    const ok = await R.controlConArca(hoy, hoy, null);
+    expect(ok.diferencias).toEqual([]);
+    expect(ok.verificados).toBe(ok.revisados);
+
+    // Un total distinto en ARCA y números emitidos por fuera del sistema.
+    const [clave, datos] = [...fake.estado.emitidos.entries()].find(([k]) => k.startsWith(`${PV}-6-`))!;
+    fake.estado.emitidos.set(clave, { ...datos, ImpTotal: '1.00' });
+    fake.estado.ultimos.set(`${PV}-6`, (fake.estado.ultimos.get(`${PV}-6`) ?? 0) + 3);
+    const mal = await R.controlConArca(hoy, hoy, null);
+    expect(mal.diferencias.map(d => d.tipo)).toEqual(expect.arrayContaining(['distinto', 'numeros_ajenos']));
+    fake.estado.emitidos.set(clave, datos);
+  });
 });

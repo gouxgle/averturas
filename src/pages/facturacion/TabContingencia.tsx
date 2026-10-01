@@ -17,9 +17,10 @@ interface Pendiente {
 }
 interface Estado { vigente: Caea | null; caeas: Caea[]; pendientes: Pendiente[]; alertas: string[]; pv_caea: boolean }
 
+const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const quincena = (c: Caea) => `${c.orden === 1 ? '1ª' : '2ª'} quincena de ${String(c.periodo).slice(4)}/${String(c.periodo).slice(0, 4)}`;
 const ESTADO_CAEA: Record<Caea['estado'], { l: string; c: string }> = {
-  vigente: { l: 'Vigente / en curso', c: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  vigente: { l: 'En curso', c: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
   cerrado: { l: 'Falta informar', c: 'bg-amber-50 text-amber-800 border-amber-200' },
   informado: { l: 'Informado', c: 'bg-gray-50 text-gray-700 border-gray-200' },
 };
@@ -131,7 +132,9 @@ export function TabContingencia({ puedeEmitir, abrir, refresh, onChanged }: {
                 <span className="font-mono font-semibold text-gray-900">{c.caea}</span>
                 <span className="text-gray-600 flex-1">{quincena(c)} · usado {c.usados} · tope {fechaCorta(c.fch_tope_inf)}
                   {c.informes.some(i => i.sin_movimiento && i.informado_at) && ' · sin movimiento informado'}</span>
-                <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-md border self-start', ESTADO_CAEA[c.estado].c)}>{ESTADO_CAEA[c.estado].l}</span>
+                {c.estado === 'vigente' && c.fch_vig_desde.slice(0, 10) > hoyLocal()
+                  ? <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md border self-start bg-sky-50 text-sky-800 border-sky-200">Próxima quincena</span>
+                  : <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-md border self-start', ESTADO_CAEA[c.estado].c)}>{ESTADO_CAEA[c.estado].l}</span>}
               </li>
             ))}
           </ul>

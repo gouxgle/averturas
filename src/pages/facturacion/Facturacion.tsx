@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ReceiptText, Plus, Files, Hourglass, AlertTriangle, PowerOff, ShieldAlert } from 'lucide-react';
+import { ReceiptText, Plus, Files, Hourglass, AlertTriangle, PowerOff, ShieldAlert, BookOpenCheck } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,9 +11,10 @@ import { fmt$, type Tablero } from './tipos';
 import { TabComprobantes } from './TabComprobantes';
 import { TabPorFacturar } from './TabPorFacturar';
 import { TabContingencia } from './TabContingencia';
+import { TabLibroIva } from './TabLibroIva';
 import { DetalleComprobante } from './DetalleComprobante';
 
-type Tab = 'comprobantes' | 'por-facturar' | 'contingencia';
+type Tab = 'comprobantes' | 'por-facturar' | 'contingencia' | 'libro-iva';
 
 // Facturación electrónica: comprobantes emitidos con ARCA y lo que falta facturar. El detalle
 // se abre por query param (?cbte=) para poder linkearlo desde recibos y presupuestos.
@@ -40,6 +41,7 @@ export default function Facturacion() {
   const TABS: { value: Tab; label: string; icon: typeof Files; count?: number }[] = [
     { value: 'comprobantes', label: 'Comprobantes', icon: Files },
     { value: 'por-facturar', label: 'Por facturar', icon: Hourglass },
+    { value: 'libro-iva',    label: 'Libro IVA',    icon: BookOpenCheck },
     { value: 'contingencia', label: 'Contingencia', icon: ShieldAlert, count: t?.en_contingencia || undefined },
   ];
 
@@ -110,6 +112,7 @@ export default function Facturacion() {
 
       {tab === 'comprobantes' && <TabComprobantes abrir={abrir} refresh={refresh} />}
       {tab === 'por-facturar' && <TabPorFacturar puedeEmitir={puedeEmitir} refresh={refresh} />}
+      {tab === 'libro-iva' && <TabLibroIva puedeEmitir={puedeEmitir} abrir={abrir} />}
       {tab === 'contingencia' && <TabContingencia puedeEmitir={puedeEmitir} abrir={abrir} refresh={refresh} onChanged={recargar} />}
 
       {cbteId && <DetalleComprobante id={cbteId} onClose={cerrar} onChanged={recargar} puedeEmitir={puedeEmitir} />}
