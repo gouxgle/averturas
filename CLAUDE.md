@@ -503,7 +503,7 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 
 ## Facturación electrónica ARCA (en desarrollo, apagada)
 
-Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
+Decisiones en esta sección y puesta en marcha en `docs/facturacion-puesta-en-marcha.md` (etapas
 F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
 certificado, prueba de conexión), **F2** (cálculo, comprobantes, emisión CAE, conciliación,
 cola), **F3** (padrón), **F4** (interfaz), **F5** (PDF + envíos), **F6** (notas de débito,
