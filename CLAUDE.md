@@ -480,7 +480,18 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
 F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
 certificado, prueba de conexión), **F2** (cálculo, comprobantes, emisión CAE, conciliación,
-cola), **F3** (padrón) y **F4** (interfaz). `fiscal_config.habilitada=false` hasta F9.
+cola), **F3** (padrón), **F4** (interfaz), **F5** (PDF + envíos) y **F6** (notas de débito,
+saldo por factura). `fiscal_config.habilitada=false` hasta F9.
+- **PDF** (`lib/fiscal/pdfComprobante.ts`, `GET /comprobantes/:id/pdf?copias=1..3`): se arma
+  siempre desde la base (no se guardan archivos). A: precios sin IVA + IVA discriminado; B:
+  finales + bloque Transparencia Fiscal. QR con `qrcode`. Marca de agua en borradores y en
+  homologación. Abrir desde el front con `abrirPdfApi()` (la API pide token en header).
+- **Envíos** (`lib/fiscal/envios.ts`, `POST /comprobantes/:id/enviar {canal, destino}`):
+  WhatsApp (`enviarWhatsappPdf`) o mail (`sendCompra`, sirve para cualquier PDF); falla
+  transitoria → trabajo `enviar_comprobante` en la cola; "no configurado"/"no tiene" no se
+  reintenta. Historial = `fiscal_eventos` tipo `envio_*` (destino en `request`).
+  **Al probar a mano, levantar el backend con `EVOLUTION_API_URL= SMTP_USER=`**: el `.env`
+  local tiene WhatsApp real.
 - **Interfaz** (`src/pages/facturacion/`): `Facturacion.tsx` (`/facturacion`, pestañas
   `comprobantes`/`por-facturar`, detalle por `?cbte=`), `NuevaFactura.tsx`
   (`/facturacion/nueva?recibo_id=|operacion_id=|factura_id=` → NC), `DetalleComprobante.tsx`.

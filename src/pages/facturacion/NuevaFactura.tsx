@@ -34,7 +34,7 @@ export default function NuevaFactura() {
   const [params] = useSearchParams();
   const origenParam = params.get('recibo_id') ? `recibo_id=${params.get('recibo_id')}`
     : params.get('operacion_id') ? `operacion_id=${params.get('operacion_id')}`
-      : params.get('factura_id') ? `factura_id=${params.get('factura_id')}` : null;
+      : params.get('factura_id') ? `factura_id=${params.get('factura_id')}${params.get('tipo') === 'nota_debito' ? '&tipo=nota_debito' : ''}` : null;
 
   const [paso, setPaso] = useState<1 | 2 | 3>(1);
   const [comp, setComp] = useState<NuevoComprobante>({ tipo_doc: 'factura', receptor: CF, items: [itemVacio()], fecha: hoy(), origen: 'manual' });
@@ -50,14 +50,15 @@ export default function NuevaFactura() {
       .then(p => {
         setPropuesta(p);
         setComp({ ...p.comprobante, fecha: p.comprobante.fecha ?? hoy() });
-        setPaso(p.comprobante.tipo_doc === 'nota_credito' ? 2 : 1);
+        setPaso(p.comprobante.tipo_doc === 'factura' ? 1 : 2);
       })
       .catch(e => toastApiError(e))
       .finally(() => setCargando(false));
   }, [origenParam]);
 
   const esNC = comp.tipo_doc === 'nota_credito';
-  const titulo = esNC ? 'Nueva nota de crédito' : 'Nueva factura';
+  const esNota = comp.tipo_doc !== 'factura';
+  const titulo = esNC ? 'Nueva nota de crédito' : comp.tipo_doc === 'nota_debito' ? 'Nueva nota de débito' : 'Nueva factura';
   const pasos = [{ n: 1, l: 'Cliente' }, { n: 2, l: 'Ítems' }, { n: 3, l: 'Revisar y emitir' }] as const;
 
   if (cargando) return <div className="p-6 text-sm text-gray-600">Preparando…</div>;
@@ -82,7 +83,7 @@ export default function NuevaFactura() {
 
       {/* Pasos */}
       <div className="flex items-center gap-2 overflow-x-auto">
-        {pasos.filter(p => !esNC || p.n !== 1).map((p, i, arr) => (
+        {pasos.filter(p => !esNota || p.n !== 1).map((p, i, arr) => (
           <div key={p.n} className="flex items-center gap-2 shrink-0">
             <button onClick={() => p.n < paso && setPaso(p.n)} disabled={p.n >= paso}
               className={cn('flex items-center gap-2 px-3 h-9 rounded-full text-xs font-semibold border',
@@ -98,7 +99,7 @@ export default function NuevaFactura() {
       </div>
 
       {paso === 1 && <PasoCliente comp={comp} setComp={setComp} onSeguir={() => setPaso(2)} />}
-      {paso === 2 && <PasoItems comp={comp} setComp={setComp} esNC={esNC} onVolver={() => setPaso(1)} onSeguir={() => setPaso(3)} />}
+      {paso === 2 && <PasoItems comp={comp} setComp={setComp} esNota={esNota} onVolver={() => setPaso(1)} onSeguir={() => setPaso(3)} />}
       {paso === 3 && <PasoRevision comp={comp} setComp={setComp} habilitada={!!habilitada} onVolver={() => setPaso(2)}
         onListo={id => navigate(`/facturacion?cbte=${id}`, { replace: true })} />}
     </div>
@@ -226,8 +227,8 @@ function PasoCliente({ comp, setComp, onSeguir }: {
 }
 
 // ── Paso 2: ítems ────────────────────────────────────────────────────────────
-function PasoItems({ comp, setComp, esNC, onVolver, onSeguir }: {
-  comp: NuevoComprobante; setComp: React.Dispatch<React.SetStateAction<NuevoComprobante>>; esNC: boolean;
+function PasoItems({ comp, setComp, esNota, onVolver, onSeguir }: {
+  comp: NuevoComprobante; setComp: React.Dispatch<React.SetStateAction<NuevoComprobante>>; esNota: boolean;
   onVolver: () => void; onSeguir: () => void;
 }) {
   const setItem = (i: number, cambios: Partial<ItemCbte>) =>
@@ -289,8 +290,11 @@ function PasoItems({ comp, setComp, esNC, onVolver, onSeguir }: {
           </li>
         ))}
       </ul>
-      {!esNC && (
+      {comp.tipo_doc !== 'nota_credito' && (
         <button onClick={() => setComp(c => ({ ...c, items: [...c.items, itemVacio()] }))} className={btnSec}><Plus size={15} /> Agregar ítem</button>
+      )}
+      {comp.tipo_doc === 'nota_credito' && (
+        <p className="text-xs text-gray-600">Para una nota de crédito <b>parcial</b>, bajá cantidades o importes, o quitá ítems.</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-gray-200">
@@ -319,7 +323,7 @@ function PasoItems({ comp, setComp, esNC, onVolver, onSeguir }: {
       <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
         <p className="text-base font-extrabold text-gray-900">Total {fmt$(total)}</p>
         <div className="flex gap-2">
-          {!esNC && <button onClick={onVolver} className={btnSec}><ArrowLeft size={15} /> Volver</button>}
+          {!esNota && <button onClick={onVolver} className={btnSec}><ArrowLeft size={15} /> Volver</button>}
           <button onClick={onSeguir} disabled={!valido} className={btnPri}>Revisar <ArrowRight size={15} /></button>
         </div>
       </div>

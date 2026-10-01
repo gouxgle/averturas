@@ -3,10 +3,12 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { FiscalConfigSchema, PuntoVentaSchema, CsrSchema, CertificadoSchema, ComprobanteSchema } from '../lib/schemas.js';
 import { crearBorrador, emitir, conciliar, analizar, EmisionError } from '../lib/fiscal/emision.js';
-import { prepararDesdeRecibo, prepararDesdeOperacion, prepararNotaCredito, excesoSobreOrigen, porFacturar, tablero, receptorDeClienteId } from '../lib/fiscal/origenes.js';
+import { prepararDesdeRecibo, prepararDesdeOperacion, prepararNotaCredito, prepararNotaDebito, excesoSobreOrigen, porFacturar, tablero, receptorDeClienteId } from '../lib/fiscal/origenes.js';
 import type { z } from 'zod';
 import { ArcaError } from '../lib/arca/soap.js';
 import { consultarPadron } from '../lib/arca/padron.js';
+import { generarPDFComprobante } from '../lib/fiscal/pdfComprobante.js';
+import { enviarComprobante } from '../lib/fiscal/envios.js';
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
 import { diagnosticar, listoParaHabilitar } from '../lib/fiscal/diagnostico.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
@@ -105,20 +107,31 @@ facturacion.get('/comprobantes/:id', async (c) => {
   const id = c.req.param('id');
   const { rows: [cbte] } = await db.query(
     `SELECT c.*, a.clase AS asociado_clase, a.cbte_tipo AS asociado_cbte_tipo, a.punto_venta AS asociado_punto_venta,
-            a.numero AS asociado_numero, u.nombre AS creado_por
+            a.numero AS asociado_numero, u.nombre AS creado_por,
+            cl.telefono AS cliente_telefono, cl.email AS cliente_email
        FROM comprobantes c
        LEFT JOIN comprobantes a ON a.id = c.comprobante_asociado_id
        LEFT JOIN usuarios u ON u.id = c.created_by
+       LEFT JOIN clientes cl ON cl.id = c.cliente_id
       WHERE c.id = $1`, [id]).catch(() => ({ rows: [] }));
   if (!cbte) return c.json({ error: 'Comprobante no encontrado' }, 404);
-  const [{ rows: items }, { rows: iva }, { rows: eventos }] = await Promise.all([
+  const [{ rows: items }, { rows: iva }, { rows: eventos }, { rows: notas }] = await Promise.all([
     db.query(`SELECT * FROM comprobante_items WHERE comprobante_id = $1 ORDER BY orden`, [id]),
     db.query(`SELECT * FROM comprobante_iva WHERE comprobante_id = $1 ORDER BY alicuota_id`, [id]),
     db.query(
-      `SELECT id, tipo, metodo, ok, duracion_ms, error_codigo, error_mensaje, created_at
+      `SELECT id, tipo, metodo, ok, duracion_ms, error_codigo, error_mensaje, created_at,
+              CASE WHEN tipo LIKE 'envio_%' THEN request END AS destino
          FROM fiscal_eventos WHERE comprobante_id = $1 ORDER BY id`, [id]),
+    db.query(
+      `SELECT id, tipo_doc, clase, cbte_tipo, punto_venta, numero, estado, imp_total, fecha
+         FROM comprobantes WHERE comprobante_asociado_id = $1 ORDER BY created_at`, [id]),
   ]);
-  return c.json({ ...cbte, items, iva, eventos });
+  // Saldo de la factura después de sus notas (las que cuentan: autorizadas o en camino).
+  const cuentan = notas.filter(n => ['autorizado', 'emitiendo', 'incierto'].includes(n.estado));
+  const saldo = Number(cbte.imp_total)
+    - cuentan.filter(n => n.tipo_doc === 'nota_credito').reduce((a, n) => a + Number(n.imp_total), 0)
+    + cuentan.filter(n => n.tipo_doc === 'nota_debito').reduce((a, n) => a + Number(n.imp_total), 0);
+  return c.json({ ...cbte, items, iva, eventos, notas_asociadas: notas, saldo: Math.round(saldo * 100) / 100 });
 });
 
 // Tablero, pendientes y propuestas (antes de /comprobantes/:id por el orden de Hono).
@@ -130,10 +143,10 @@ facturacion.get('/tablero', async (c) => {
 facturacion.get('/por-facturar', async (c) => c.json(await porFacturar()));
 
 facturacion.get('/preparar', async (c) => {
-  const { recibo_id, operacion_id, factura_id } = c.req.query();
+  const { recibo_id, operacion_id, factura_id, tipo } = c.req.query();
   const p = recibo_id ? await prepararDesdeRecibo(recibo_id)
     : operacion_id ? await prepararDesdeOperacion(operacion_id)
-      : factura_id ? await prepararNotaCredito(factura_id)
+      : factura_id ? await (tipo === 'nota_debito' ? prepararNotaDebito(factura_id) : prepararNotaCredito(factura_id))
         : null;
   if (!p) return c.json({ error: 'No se encontró el origen a facturar' }, 404);
   return c.json(p);
@@ -186,6 +199,24 @@ facturacion.post('/comprobantes/:id/emitir', puedeEmitir, async (c) => {
   } catch (e) {
     return responderError(c, e);
   }
+});
+
+// PDF (inline). ?copias=2 agrega DUPLICADO (para imprimir).
+facturacion.get('/comprobantes/:id/pdf', async (c) => {
+  const copias = Math.min(Math.max(Number(c.req.query('copias') ?? 1) || 1, 1), 3);
+  const r = await generarPDFComprobante(c.req.param('id')!, copias);
+  if (!r) return c.json({ error: 'Comprobante no encontrado' }, 404);
+  c.header('Content-Type', 'application/pdf');
+  c.header('Content-Disposition', `inline; filename="${r.nombre}"`);
+  c.header('Cache-Control', 'no-store');
+  return c.body(new Uint8Array(r.pdf));
+});
+
+facturacion.post('/comprobantes/:id/enviar', puedeEmitir, async (c) => {
+  const b = await c.req.json<{ canal?: string; destino?: string }>().catch(() => ({} as { canal?: string; destino?: string }));
+  if (b.canal !== 'whatsapp' && b.canal !== 'email') return c.json({ error: 'canal: whatsapp o email' }, 400);
+  const r = await enviarComprobante(c.req.param('id')!, b.canal, b.destino ?? null, c.get('user').id);
+  return c.json(r, r.ok ? 200 : 422);
 });
 
 facturacion.post('/comprobantes/:id/conciliar', puedeEmitir, async (c) => {

@@ -74,14 +74,14 @@ async function renderEnPestana(html: string): Promise<Buffer> {
  * Renderiza un HTML a PDF A4 con el Chromium del sistema. Compartido por todos los
  * generadores; los pedidos simultáneos esperan su turno en la cola.
  */
-function renderPDF(html: string): Promise<Buffer> {
+export function renderPDF(html: string): Promise<Buffer> {
   const turno = cola.then(() => renderEnPestana(html));
   cola = turno.catch(() => {});
   return turno;
 }
 
 /** Logo embebido en base64 (Puppeteer no tiene red hacia el propio servidor). */
-function logoDataURI(archivo: 'logo2.png' | 'logochico.png'): string | null {
+export function logoDataURI(archivo: 'logo2.png' | 'logochico.png'): string | null {
   try {
     return `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(), 'public', archivo)).toString('base64')}`;
   } catch { return null; }

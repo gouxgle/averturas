@@ -1,6 +1,7 @@
 import { db } from '../../db.js';
 import { registrarTrabajo, encolar, iniciarCola } from '../cola.js';
 import { conciliar } from './emision.js';
+import { enviarComprobante, type Canal } from './envios.js';
 
 // Trabajos de facturación que corren en la cola.
 
@@ -8,6 +9,11 @@ registrarTrabajo('conciliar_comprobante', async ({ id }) => {
   const r = await conciliar(String(id));
   // Si ARCA sigue sin responder se lanza para que la cola reintente más tarde.
   if (r === 'pendiente') throw new Error('ARCA todavía no confirma el comprobante');
+});
+
+registrarTrabajo('enviar_comprobante', async ({ id, canal, destino, usuario_id }) => {
+  const r = await enviarComprobante(String(id), canal as Canal, String(destino), (usuario_id as string) ?? null, { desdeCola: true });
+  if (!r.ok) throw new Error(r.error ?? 'No se pudo enviar');
 });
 
 /** Al arrancar: comprobantes que quedaron a mitad de emisión (se cayó el proceso, se cortó ARCA). */

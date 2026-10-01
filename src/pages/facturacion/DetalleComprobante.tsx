@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { X, Send, Trash2, RefreshCw, FileMinus, ExternalLink, ChevronDown, AlertTriangle, XCircle, CheckCircle2 } from 'lucide-react';
+import { X, Send, Trash2, RefreshCw, FileMinus, ExternalLink, ChevronDown, AlertTriangle, XCircle, CheckCircle2, FileText, Printer, MessageCircle, Mail, FilePlus } from 'lucide-react';
+import { abrirPdfApi } from '@/lib/abrirPdf';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -20,9 +21,11 @@ interface Detalle {
   imp_neto: string; imp_iva: string; imp_op_ex: string; imp_total: string; cae: string | null; cae_vto: string | null;
   qr_url: string | null; errores: { code: string; msg: string }[] | null; observaciones: { code: string; msg: string }[] | null;
   ambiente: string; creado_por: string | null; created_at: string; emitido_at: string | null; notas: string | null;
+  cliente_telefono: string | null; cliente_email: string | null; saldo: number;
+  notas_asociadas: { id: string; tipo_doc: TipoDoc; clase: string; cbte_tipo: number; punto_venta: number; numero: string | null; estado: EstadoCbte; imp_total: string }[];
   items: { id: string; descripcion: string; cantidad: string; precio_unitario: string; bonificacion: string; alicuota: string; exento: boolean; es_servicio: boolean; total: string }[];
   iva: { alicuota_id: number; alicuota: string; base_imp: string; importe: string }[];
-  eventos: { id: number; metodo: string | null; ok: boolean | null; duracion_ms: number | null; error_mensaje: string | null; created_at: string }[];
+  eventos: { id: number; tipo: string; metodo: string | null; ok: boolean | null; duracion_ms: number | null; error_mensaje: string | null; created_at: string; destino: string | null }[];
 }
 
 const CONCEPTO: Record<number, string> = { 1: 'Productos', 2: 'Servicios', 3: 'Productos y servicios' };
@@ -78,6 +81,12 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
   }
 
   const esNC = d?.tipo_doc === 'nota_credito';
+  const envios = d?.eventos.filter(e => e.tipo.startsWith('envio_')) ?? [];
+  const llamadas = d?.eventos.filter(e => e.tipo === 'arca_llamada') ?? [];
+
+  async function verPdf(copias: number) {
+    try { await abrirPdfApi(`/facturacion/comprobantes/${id}/pdf?copias=${copias}`); } catch (e) { toastApiError(e); }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4" onMouseDown={onClose}>
@@ -177,14 +186,44 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
               </div>
 
               {/* Registro con ARCA */}
-              {d.eventos.length > 0 && (
+              {d.notas_asociadas.length > 0 && (
+                <div className="rounded-xl border border-gray-200 px-3 py-2 text-sm space-y-1">
+                  <p className="text-xs font-bold text-gray-700">Notas sobre esta factura</p>
+                  {d.notas_asociadas.map(n => (
+                    <button key={n.id} onClick={() => navigate(`/facturacion?cbte=${n.id}`)} className="w-full flex items-center gap-2 text-left hover:underline">
+                      <span className="flex-1">{CBTE_NOMBRE[n.cbte_tipo]} {numeroCbte(n.punto_venta, n.numero)}</span>
+                      <EstadoBadge estado={n.estado} />
+                      <span className={cn('tabular-nums font-semibold', n.tipo_doc === 'nota_credito' ? 'text-amber-700' : 'text-gray-900')}>
+                        {n.tipo_doc === 'nota_credito' ? '−' : '+'}{fmt$(n.imp_total)}</span>
+                    </button>
+                  ))}
+                  <p className="flex justify-between border-t border-gray-200 pt-1 font-bold"><span>Saldo de la factura</span><span className="tabular-nums">{fmt$(d.saldo)}</span></p>
+                </div>
+              )}
+              {d.estado === 'autorizado' && puedeEmitir && (
+                <EnviarComprobante id={d.id} telefono={d.cliente_telefono} email={d.cliente_email} onEnviado={() => setRecarga(r => r + 1)} />
+              )}
+              {envios.length > 0 && (
+                <div className="rounded-xl border border-gray-200 px-3 py-2 text-xs space-y-1">
+                  <p className="font-bold text-gray-700">Envíos al cliente</p>
+                  {envios.map(ev => (
+                    <p key={ev.id} className="flex gap-2 items-start">
+                      {ev.ok ? <CheckCircle2 size={13} className="text-emerald-600 mt-0.5 shrink-0" /> : <XCircle size={13} className="text-red-600 mt-0.5 shrink-0" />}
+                      <span className="text-gray-800">{ev.tipo === 'envio_whatsapp' ? 'WhatsApp' : 'Mail'} a {ev.destino}
+                        {ev.error_mensaje && <span className="text-red-700"> · {ev.error_mensaje}</span>}</span>
+                      <span className="ml-auto text-gray-500 whitespace-nowrap">{new Date(ev.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+              {llamadas.length > 0 && (
                 <div className="rounded-xl border border-gray-200">
                   <button onClick={() => setVerRegistro(v => !v)} className="w-full h-10 px-3 flex items-center justify-between text-xs font-bold text-gray-700">
-                    Registro con ARCA ({d.eventos.length}) <ChevronDown size={14} className={cn('transition-transform', verRegistro && 'rotate-180')} />
+                    Registro con ARCA ({llamadas.length}) <ChevronDown size={14} className={cn('transition-transform', verRegistro && 'rotate-180')} />
                   </button>
                   {verRegistro && (
                     <ul className="border-t border-gray-200 divide-y divide-gray-100 text-xs">
-                      {d.eventos.map(ev => (
+                      {llamadas.map(ev => (
                         <li key={ev.id} className="px-3 py-1.5 flex gap-2">
                           {ev.ok === false ? <XCircle size={13} className="text-red-600 mt-0.5 shrink-0" /> : <CheckCircle2 size={13} className="text-emerald-600 mt-0.5 shrink-0" />}
                           <span className="text-gray-800"><b>{ev.metodo}</b>{ev.duracion_ms != null && ` · ${ev.duracion_ms} ms`}{ev.error_mensaje && ` · ${ev.error_mensaje}`}</span>
@@ -200,6 +239,14 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
 
             {/* Acciones */}
             <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2">
+              <button onClick={() => verPdf(1)} className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                <FileText size={15} /> Ver PDF
+              </button>
+              {d.estado === 'autorizado' && (
+                <button onClick={() => verPdf(2)} title="Original y duplicado" className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  <Printer size={15} /> Imprimir
+                </button>
+              )}
               {d.qr_url && (
                 <a href={d.qr_url} target="_blank" rel="noreferrer" className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                   <ExternalLink size={15} /> Verificar en ARCA
@@ -218,6 +265,12 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
               {puedeEmitir && ['incierto', 'emitiendo'].includes(d.estado) && (
                 <button onClick={conciliar} disabled={trabajando} className="h-11 sm:h-10 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50">
                   <RefreshCw size={15} className={trabajando ? 'animate-spin' : ''} /> Verificar con ARCA
+                </button>
+              )}
+              {puedeEmitir && d.estado === 'autorizado' && d.tipo_doc === 'factura' && (
+                <button onClick={() => navigate(`/facturacion/nueva?factura_id=${d.id}&tipo=nota_debito`)} title="Recargos, intereses o diferencias a favor del local"
+                  className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  <FilePlus size={15} /> Nota de débito
                 </button>
               )}
               {puedeEmitir && d.estado === 'autorizado' && d.tipo_doc === 'factura' && (
@@ -255,6 +308,55 @@ function Aviso({ tono, icon: Icon, children }: { tono: 'amber' | 'red'; icon: ty
     <div className={cn('rounded-lg border px-3 py-2 text-sm flex gap-2',
       tono === 'red' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-900')}>
       <Icon size={16} className="shrink-0 mt-0.5" /><div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function EnviarComprobante({ id, telefono, email, onEnviado }: {
+  id: string; telefono: string | null; email: string | null; onEnviado: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [tel, setTel] = useState(telefono ?? '');
+  const [mail, setMail] = useState(email ?? '');
+  const [enviando, setEnviando] = useState<null | 'whatsapp' | 'email'>(null);
+
+  async function enviar(canal: 'whatsapp' | 'email') {
+    setEnviando(canal);
+    try {
+      const r = await api.post<{ ok: boolean; destino: string }>(`/facturacion/comprobantes/${id}/enviar`, { canal, destino: canal === 'whatsapp' ? tel : mail });
+      toast.success(`Enviado por ${canal === 'whatsapp' ? 'WhatsApp' : 'mail'} a ${r.destino}`);
+    } catch (e) {
+      toastApiError(e, { duration: 10000 });
+    } finally {
+      setEnviando(null);
+      onEnviado();
+    }
+  }
+
+  if (!abierto) {
+    return (
+      <button onClick={() => setAbierto(true)} className="w-full h-11 sm:h-10 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">
+        <Send size={15} /> Enviar al cliente
+      </button>
+    );
+  }
+  const inp = 'flex-1 min-w-0 h-11 sm:h-10 px-3 border border-gray-300 rounded-lg text-base sm:text-sm';
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-2">
+      <p className="text-xs font-bold text-gray-700">Enviar el PDF al cliente</p>
+      <div className="flex gap-2">
+        <input value={tel} onChange={e => setTel(e.target.value)} placeholder="Teléfono" inputMode="tel" className={inp} />
+        <button onClick={() => enviar('whatsapp')} disabled={!tel.trim() || !!enviando} className="shrink-0 h-11 sm:h-10 px-3 inline-flex items-center gap-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold disabled:opacity-50">
+          <MessageCircle size={15} /> {enviando === 'whatsapp' ? 'Enviando…' : 'WhatsApp'}
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <input value={mail} onChange={e => setMail(e.target.value)} placeholder="Mail" inputMode="email" className={inp} />
+        <button onClick={() => enviar('email')} disabled={!mail.trim() || !!enviando} className="shrink-0 h-11 sm:h-10 px-3 inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm font-semibold disabled:opacity-50">
+          <Mail size={15} /> {enviando === 'email' ? 'Enviando…' : 'Mail'}
+        </button>
+      </div>
+      <p className="text-[11px] text-gray-600">Si el envío falla, el sistema lo reintenta solo.</p>
     </div>
   );
 }

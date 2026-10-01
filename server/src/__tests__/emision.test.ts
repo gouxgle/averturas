@@ -233,6 +233,31 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
     expect(c.request_json.asociado).toMatchObject({ tipo: 6, cuit: CUIT });
   });
 
+  it('arma el PDF con los datos obligatorios, QR y copias en páginas separadas', async () => {
+    process.env.CHROMIUM_PATH ??= '/usr/bin/google-chrome';
+    const { datosComprobantePDF, htmlComprobante, generarPDFComprobante } = await import('../lib/fiscal/pdfComprobante.js');
+    const { id } = await E.crearBorrador(factura({
+      receptor: { doc_tipo: 80, doc_nro: '30714522538', nombre: 'Constructora SA', condicion_iva_id: 1, domicilio: 'Calle 2' },
+    }), null);
+    const borrador = await htmlComprobante((await datosComprobantePDF(id))!);
+    expect(borrador).toContain('BORRADOR — SIN VALIDEZ FISCAL');
+    await E.emitir(id, null);
+    const d = (await datosComprobantePDF(id))!;
+    const html = await htmlComprobante(d, ['ORIGINAL', 'DUPLICADO']);
+    for (const t of ['COD. 01', 'FACTURA', 'IVA Responsable Inscripto', '30-71452253-8', d.c.cae, 'Vencimiento del CAE',
+      'COMPROBANTE DE PRUEBA', 'DUPLICADO', 'Precio unit. (sin IVA)', 'IVA 21%', 'data:image/png;base64']) {
+      expect(html).toContain(t);
+    }
+    // Factura B: bloque de Transparencia Fiscal.
+    const b = await E.crearBorrador(factura(), null);
+    await E.emitir(b.id, null);
+    expect(await htmlComprobante((await datosComprobantePDF(b.id))!)).toContain('Régimen de Transparencia Fiscal al Consumidor');
+    const pdf = (await generarPDFComprobante(id, 2))!;
+    expect(pdf.pdf.subarray(0, 4).toString()).toBe('%PDF');
+    expect(pdf.pdf.toString('latin1')).toMatch(/\/Type \/Pages[^>]*\/Count 2/);
+    expect(pdf.nombre).toMatch(/^Factura-A-00003-\d{8}\.pdf$/);
+  }, 60_000);
+
   it('valida antes de llamar a ARCA y respeta el interruptor general', async () => {
     const { id, problemas } = await E.crearBorrador(factura({
       items: [{ descripcion: 'Obra grande', cantidad: 1, precio_unitario: 12_000_000 }],

@@ -221,6 +221,20 @@ export async function prepararNotaCredito(facturaId: string): Promise<Propuesta 
   };
 }
 
+/** Nota de débito sobre una factura (recargos, intereses, diferencias): mismo receptor, ítems a cargar. */
+export async function prepararNotaDebito(facturaId: string): Promise<Propuesta | null> {
+  const nc = await prepararNotaCredito(facturaId);
+  if (!nc) return null;
+  return {
+    ...nc,
+    comprobante: {
+      ...nc.comprobante, tipo_doc: 'nota_debito', fch_serv_desde: null, fch_serv_hasta: null, fch_vto_pago: null,
+      items: [{ descripcion: 'Recargo', cantidad: 1, precio_unitario: 0 }],
+    },
+    avisos: nc.avisos.filter(a => !a.startsWith('Ya hay notas de crédito')),
+  };
+}
+
 /** Exceso sobre lo que queda por facturar del origen (0 = dentro del saldo). */
 export async function excesoSobreOrigen(input: NuevoComprobante, total: number): Promise<{ exceso: number; referencia: string } | null> {
   if (input.tipo_doc === 'nota_credito' && input.comprobante_asociado_id) {
