@@ -480,8 +480,18 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
 Plan completo y decisiones: `~/.claude/plans/con-respecto-a-la-fancy-gosling.md` (etapas
 F1–F9; F9 = puesta en marcha con datos reales, al final). **Hecho F1** (configuración,
 certificado, prueba de conexión), **F2** (cálculo, comprobantes, emisión CAE, conciliación,
-cola), **F3** (padrón), **F4** (interfaz), **F5** (PDF + envíos) y **F6** (notas de débito,
-saldo por factura). `fiscal_config.habilitada=false` hasta F9.
+cola), **F3** (padrón), **F4** (interfaz), **F5** (PDF + envíos), **F6** (notas de débito,
+saldo por factura) y **F7** (contingencia CAEA). `fiscal_config.habilitada=false` hasta F9.
+- **CAEA** (`lib/fiscal/contingencia.ts`, RG 5852): `tareasCaea()` corre cada hora
+  (`iniciarTrabajosFiscales`): pide el CAEA de la quincena actual y, desde 5 días antes, el de la
+  próxima (`caea_periodos`); informa lo emitido (`informarPendientes`, en orden de número por
+  serie, corta la serie si ARCA rechaza) y, cerrada la quincena, "sin movimiento" por PV CAEA
+  (`caea_informes`). `emitirContingencia` exige causa (≥10), PV CAEA activo, CAEA vigente, fecha
+  de hoy y evidencia de que ARCA falla (FEDummy o fallas WSFE en 30 min); deja estado
+  `contingencia` (cuenta como facturado, inmutable), `modo='CAEA'`, `cae`=CAEA, QR `tipoCodAut:'A'`.
+- `soap.ts`: una página HTML (ARCA caído) **no** es respuesta: sin `Envelope` o HTTP ≥ 400 →
+  `ArcaError 'soap'`; 502/503 = no procesado, 500/504 = incierto. Si ARCA falla antes de numerar,
+  el error queda en el borrador (`errores`) y la UI ofrece "Emitir en contingencia".
 - **PDF** (`lib/fiscal/pdfComprobante.ts`, `GET /comprobantes/:id/pdf?copias=1..3`): se arma
   siempre desde la base (no se guardan archivos). A: precios sin IVA + IVA discriminado; B:
   finales + bloque Transparencia Fiscal. QR con `qrcode`. Marca de agua en borradores y en

@@ -21,6 +21,12 @@ export interface EstadoFake {
   ultimoAtrasado: number;
   /** Métodos que se reciben pero nunca se procesan: la conexión se corta sin respuesta. */
   tragar: Set<string>;
+  /** ARCA caído: WSFE responde 503 (salvo los métodos de CAEA, que se usan al volver). */
+  caido: boolean;
+  /** CAEA otorgados: `${periodo}-${orden}` → código. */
+  caeas: Map<string, string>;
+  /** Informes "sin movimiento" recibidos: `${ptoVta}-${caea}`. */
+  sinMovimiento: string[];
   /** Comprobantes autorizados: `${ptoVta}-${tipo}-${nro}` → datos. */
   emitidos: Map<string, Record<string, string>>;
 }
@@ -101,6 +107,46 @@ function manejarWsfe(metodo: string, xml: string, e: EstadoFake): string {
     }
     case 'FECAESolicitar':
       return solicitarCae(xml, e, resp);
+    case 'FECAEASolicitar':
+    case 'FECAEAConsultar': {
+      const periodo = Number(tag(xml, 'Periodo')); const orden = Number(tag(xml, 'Orden'));
+      const clave = `${periodo}-${orden}`;
+      if (metodo === 'FECAEASolicitar' && e.caeas.has(clave)) {
+        return resp('<Errors><Err><Code>15008</Code><Msg>Existe un CAEA otorgado para el periodo y orden solicitado</Msg></Err></Errors>');
+      }
+      if (metodo === 'FECAEAConsultar' && !e.caeas.has(clave)) return resp('<Errors><Err><Code>602</Code><Msg>Sin resultados</Msg></Err></Errors>');
+      if (!e.caeas.has(clave)) e.caeas.set(clave, String(26000000000000 + periodo * 10 + orden));
+      const y = Math.floor(periodo / 100), m = periodo % 100;
+      const ult = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const mm = String(m).padStart(2, '0');
+      const desde = `${y}${mm}${orden === 1 ? '01' : '16'}`, hasta = `${y}${mm}${orden === 1 ? '15' : ult}`;
+      const tope = new Date(Date.UTC(y, m - 1, Number(hasta.slice(6)) + 8)).toISOString().slice(0, 10).replace(/-/g, '');
+      return resp(`<ResultGet><CAEA>${e.caeas.get(clave)}</CAEA><Periodo>${periodo}</Periodo><Orden>${orden}</Orden>` +
+        `<FchVigDesde>${desde}</FchVigDesde><FchVigHasta>${hasta}</FchVigHasta><FchTopeInf>${tope}</FchTopeInf>` +
+        `<FchProceso>20261001120000</FchProceso></ResultGet>`);
+    }
+    case 'FECAEARegInformativo': {
+      const pv = Number(tag(xml, 'PtoVta')); const tipo = Number(tag(xml, 'CbteTipo')); const nro = Number(tag(xml, 'CbteDesde'));
+      const caea = tag(xml, 'CAEA') ?? '';
+      const det = (res: string, extra = '') => resp(
+        `<FeCabResp><Cuit>20111111112</Cuit><PtoVta>${pv}</PtoVta><CbteTipo>${tipo}</CbteTipo><FchProceso>20261001120000</FchProceso>` +
+        `<CantReg>1</CantReg><Resultado>${res}</Resultado></FeCabResp><FeDetResp><FECAEADetResponse><CbteDesde>${nro}</CbteDesde>` +
+        `<CbteHasta>${nro}</CbteHasta><Resultado>${res}</Resultado><CAEA>${caea}</CAEA>${extra}</FECAEADetResponse></FeDetResp>`);
+      if (![...e.caeas.values()].includes(caea)) return det('R', '<Observaciones><Obs><Code>724</Code><Msg>CAEA inexistente</Msg></Obs></Observaciones>');
+      if (!tag(xml, 'CbteFchHsGen')) return det('R', '<Observaciones><Obs><Code>1018</Code><Msg>CbteFchHsGen obligatorio</Msg></Obs></Observaciones>');
+      const ultimo = e.ultimos.get(`${pv}-${tipo}`) ?? 0;
+      if (nro !== ultimo + 1) return det('R', '<Observaciones><Obs><Code>10016</Code><Msg>Numero no correlativo</Msg></Obs></Observaciones>');
+      e.ultimos.set(`${pv}-${tipo}`, nro);
+      e.emitidos.set(`${pv}-${tipo}-${nro}`, {
+        Concepto: tag(xml, 'Concepto')!, DocTipo: tag(xml, 'DocTipo')!, DocNro: tag(xml, 'DocNro')!, CbteDesde: String(nro),
+        CbteHasta: String(nro), CbteFch: tag(xml, 'CbteFch')!, ImpTotal: tag(xml, 'ImpTotal')!, CodAutorizacion: caea,
+        EmisionTipo: 'CAEA', FchVto: '', Resultado: 'A', PtoVta: String(pv), CbteTipo: String(tipo),
+      });
+      return det('A');
+    }
+    case 'FECAEASinMovimientoInformar':
+      e.sinMovimiento.push(`${tag(xml, 'PtoVta')}-${tag(xml, 'CAEA')}`);
+      return resp(`<CAEA>${tag(xml, 'CAEA')}</CAEA><FchProceso>20261001</FchProceso><PtoVta>${tag(xml, 'PtoVta')}</PtoVta><Resultado>A</Resultado>`);
     default:
       return fault('Client', `Método no simulado: ${metodo}`);
   }
@@ -182,6 +228,7 @@ export async function iniciarArcaFake(): Promise<{ url: string; estado: EstadoFa
   const estado: EstadoFake = {
     logins: 0, llamadas: [], ultimos: new Map(), puntosVenta: [{ nro: 3, tipo: 'CAE - RECE' }], demora: {}, errores: {},
     demoraDespues: {}, emitidos: new Map(), ultimoAtrasado: 0, tragar: new Set(),
+    caido: false, caeas: new Map(), sinMovimiento: [],
   };
   const server = http.createServer((req, res) => {
     const partes: Buffer[] = [];
@@ -195,6 +242,9 @@ export async function iniciarArcaFake(): Promise<{ url: string; estado: EstadoFa
       if (estado.tragar.has(metodo)) { estado.tragar.delete(metodo); setTimeout(() => req.socket.destroy(), 1500); return; }
       const demora = estado.demora[metodo];
       if (demora) { delete estado.demora[metodo]; await new Promise(r => setTimeout(r, demora)); }
+      if (estado.caido && servicio === 'wsfe' && !metodo.startsWith('FECAEA')) {
+        res.writeHead(503, { 'Content-Type': 'text/html' }); res.end('<html>Service Unavailable</html>'); return;
+      }
       const cuerpo = servicio === 'wsaa' ? manejarWsaa(xml, estado)
         : servicio === 'padron' ? manejarPadron(xml, estado)
         : manejarWsfe(metodo, xml, estado);

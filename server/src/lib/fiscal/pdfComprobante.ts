@@ -63,7 +63,8 @@ type Datos = NonNullable<Awaited<ReturnType<typeof datosComprobantePDF>>>;
 function pagina(d: Datos, copia: string, qrDataUrl: string | null): string {
   const { c, items, iva, emisor, empresa } = d;
   const esA = c.clase === 'A';
-  const autorizado = c.estado === 'autorizado';
+  const autorizado = c.estado === 'autorizado' || c.estado === 'contingencia';
+  const conCaea = c.modo === 'CAEA';
   const marca = !autorizado ? 'BORRADOR — SIN VALIDEZ FISCAL'
     : c.ambiente === 'homologacion' ? 'COMPROBANTE DE PRUEBA — SIN VALIDEZ FISCAL' : null;
   const logo = logoDataURI('logo2.png') ?? logoDataURI('logochico.png');
@@ -140,8 +141,11 @@ function pagina(d: Datos, copia: string, qrDataUrl: string | null): string {
       ${qrDataUrl ? `<img src="${qrDataUrl}" class="qr" alt="QR">` : '<div class="qr vacio"></div>'}
       <div class="arca">
         ${autorizado
-          ? `<p class="ok">Comprobante autorizado por ARCA</p>
-             <p>CAE N°: <b>${esc(c.cae)}</b></p><p>Vencimiento del CAE: <b>${fecha(c.cae_vto)}</b></p>`
+          ? conCaea
+            ? `<p class="ok">Comprobante emitido con CAEA (contingencia)</p>
+               <p>CAEA N°: <b>${esc(c.cae)}</b></p><p>Vigencia del CAEA hasta: <b>${fecha(c.cae_vto)}</b></p>`
+            : `<p class="ok">Comprobante autorizado por ARCA</p>
+               <p>CAE N°: <b>${esc(c.cae)}</b></p><p>Vencimiento del CAE: <b>${fecha(c.cae_vto)}</b></p>`
           : `<p class="ok">Comprobante no autorizado</p><p>Todavía no fue emitido con ARCA.</p>`}
         ${emisor.leyenda_pie ? `<p class="leyenda">${esc(emisor.leyenda_pie)}</p>` : ''}
       </div>
@@ -195,7 +199,7 @@ const CSS = `
 `;
 
 export async function htmlComprobante(d: Datos, copias: string[] = ['ORIGINAL']): Promise<string> {
-  const qr = d.c.estado === 'autorizado' && d.c.qr_url
+  const qr = ['autorizado', 'contingencia'].includes(d.c.estado) && d.c.qr_url
     ? await QRCode.toDataURL(d.c.qr_url, { margin: 0, width: 240, errorCorrectionLevel: 'M' })
     : null;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${CSS}</style></head>` +

@@ -9,6 +9,8 @@ import { ArcaError } from '../lib/arca/soap.js';
 import { consultarPadron } from '../lib/arca/padron.js';
 import { generarPDFComprobante } from '../lib/fiscal/pdfComprobante.js';
 import { enviarComprobante } from '../lib/fiscal/envios.js';
+import { estadoContingencia, obtenerCaea, informarPendientes, emitirContingencia, quincenaDe, siguienteQuincena } from '../lib/fiscal/contingencia.js';
+import { hoyAR } from '../lib/fechas.js';
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
 import { diagnosticar, listoParaHabilitar } from '../lib/fiscal/diagnostico.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
@@ -127,7 +129,7 @@ facturacion.get('/comprobantes/:id', async (c) => {
          FROM comprobantes WHERE comprobante_asociado_id = $1 ORDER BY created_at`, [id]),
   ]);
   // Saldo de la factura después de sus notas (las que cuentan: autorizadas o en camino).
-  const cuentan = notas.filter(n => ['autorizado', 'emitiendo', 'incierto'].includes(n.estado));
+  const cuentan = notas.filter(n => ['autorizado', 'emitiendo', 'incierto', 'contingencia'].includes(n.estado));
   const saldo = Number(cbte.imp_total)
     - cuentan.filter(n => n.tipo_doc === 'nota_credito').reduce((a, n) => a + Number(n.imp_total), 0)
     + cuentan.filter(n => n.tipo_doc === 'nota_debito').reduce((a, n) => a + Number(n.imp_total), 0);
@@ -217,6 +219,38 @@ facturacion.post('/comprobantes/:id/enviar', puedeEmitir, async (c) => {
   if (b.canal !== 'whatsapp' && b.canal !== 'email') return c.json({ error: 'canal: whatsapp o email' }, 400);
   const r = await enviarComprobante(c.req.param('id')!, b.canal, b.destino ?? null, c.get('user').id);
   return c.json(r, r.ok ? 200 : 422);
+});
+
+// ── Contingencia (CAEA) ──────────────────────────────────────────────────────
+facturacion.get('/contingencia', async (c) => c.json(await estadoContingencia()));
+
+facturacion.post('/contingencia/caea', puedeEmitir, async (c) => {
+  try {
+    const hoy = quincenaDe(hoyAR());
+    const actual = await obtenerCaea(hoy, c.get('user').id);
+    let proxima = null;
+    try { proxima = await obtenerCaea(siguienteQuincena(hoy), c.get('user').id); } catch { /* ARCA lo da recién 5 días antes */ }
+    return c.json({ actual, proxima });
+  } catch (e) {
+    return responderError(c, e);
+  }
+});
+
+facturacion.post('/contingencia/informar', puedeEmitir, async (c) => {
+  try {
+    return c.json(await informarPendientes());
+  } catch (e) {
+    return responderError(c, e);
+  }
+});
+
+facturacion.post('/comprobantes/:id/contingencia', puedeEmitir, async (c) => {
+  const { causa } = await c.req.json<{ causa?: string }>().catch(() => ({ causa: undefined }));
+  try {
+    return c.json(await emitirContingencia(c.req.param('id')!, causa ?? '', c.get('user').id));
+  } catch (e) {
+    return responderError(c, e);
+  }
 });
 
 facturacion.post('/comprobantes/:id/conciliar', puedeEmitir, async (c) => {

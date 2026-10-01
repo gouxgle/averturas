@@ -38,7 +38,7 @@ export async function enviarComprobante(cbteId: string, canal: Canal, destinoPed
   const gen = await generarPDFComprobante(cbteId, 1);
   if (!gen) return { ok: false, destino, error: 'Comprobante no encontrado' };
   const { c, empresa, emisor } = gen.datos;
-  if (c.estado !== 'autorizado') return { ok: false, destino, error: 'Solo se envían comprobantes autorizados por ARCA' };
+  if (!['autorizado', 'contingencia'].includes(c.estado)) return { ok: false, destino, error: 'Solo se envían comprobantes autorizados por ARCA' };
 
   const tipo = CBTE_DESC[c.cbte_tipo] ?? 'Comprobante';
   const numero = `${String(c.punto_venta).padStart(5, '0')}-${String(c.numero).padStart(8, '0')}`;

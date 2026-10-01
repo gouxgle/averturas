@@ -125,9 +125,15 @@ export async function llamarSoap(l: LlamadaSoap): Promise<RespuestaSoap> {
   let parsed: Record<string, unknown>;
   try {
     parsed = parser.parse(res.body) as Record<string, unknown>;
+    // Una página HTML de error (ARCA caído o en mantenimiento) también "parsea": sin Envelope
+    // SOAP no es una respuesta del servicio.
+    if (!parsed.Envelope) throw new Error('sin Envelope');
   } catch {
     await registrar({ l, ok: false, ms, request: envelope, response: res.body, codigo: 'soap', mensaje: `HTTP ${res.status}: respuesta no XML` });
-    throw new ArcaError(`ARCA devolvió una respuesta inválida (HTTP ${res.status})`, ['soap'], res.status >= 500);
+    // 502/503 = el servicio no atendió el pedido (caído, en mantenimiento): no llegó a procesarse.
+    // 500/504 pueden haberlo procesado: inciertos.
+    throw new ArcaError(`ARCA devolvió una respuesta inválida (HTTP ${res.status})`, ['soap'],
+      res.status >= 500 && ![502, 503].includes(res.status));
   }
   const body = ((parsed.Envelope as Record<string, unknown> | undefined)?.Body ?? {}) as Record<string, unknown>;
   const fault = body.Fault as Record<string, unknown> | undefined;
@@ -136,6 +142,10 @@ export async function llamarSoap(l: LlamadaSoap): Promise<RespuestaSoap> {
     const mensaje = String(fault.faultstring ?? 'Error SOAP');
     await registrar({ l, ok: false, ms, request: envelope, response: res.body, codigo, mensaje });
     throw new ArcaError(mensaje, [codigo]);
+  }
+  if (res.status >= 400) {
+    await registrar({ l, ok: false, ms, request: envelope, response: res.body, codigo: 'soap', mensaje: `HTTP ${res.status}` });
+    throw new ArcaError(`ARCA respondió con error (HTTP ${res.status})`, ['soap'], ![502, 503].includes(res.status));
   }
   await registrar({ l, ok: true, ms, request: envelope, response: res.body });
   return { body, raw: res.body, fechaServidor: res.date ? new Date(res.date) : null };

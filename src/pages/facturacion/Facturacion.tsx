@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ReceiptText, Plus, Files, Hourglass, AlertTriangle, PowerOff } from 'lucide-react';
+import { ReceiptText, Plus, Files, Hourglass, AlertTriangle, PowerOff, ShieldAlert } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,9 +10,10 @@ import { HelpButton } from '@/components/HelpButton';
 import { fmt$, type Tablero } from './tipos';
 import { TabComprobantes } from './TabComprobantes';
 import { TabPorFacturar } from './TabPorFacturar';
+import { TabContingencia } from './TabContingencia';
 import { DetalleComprobante } from './DetalleComprobante';
 
-type Tab = 'comprobantes' | 'por-facturar';
+type Tab = 'comprobantes' | 'por-facturar' | 'contingencia';
 
 // Facturación electrónica: comprobantes emitidos con ARCA y lo que falta facturar. El detalle
 // se abre por query param (?cbte=) para poder linkearlo desde recibos y presupuestos.
@@ -39,6 +40,7 @@ export default function Facturacion() {
   const TABS: { value: Tab; label: string; icon: typeof Files; count?: number }[] = [
     { value: 'comprobantes', label: 'Comprobantes', icon: Files },
     { value: 'por-facturar', label: 'Por facturar', icon: Hourglass },
+    { value: 'contingencia', label: 'Contingencia', icon: ShieldAlert, count: t?.en_contingencia || undefined },
   ];
 
   return (
@@ -101,12 +103,14 @@ export default function Facturacion() {
                 : 'bg-white text-gray-600 border-gray-200 hover:border-fuchsia-400 hover:text-fuchsia-700',
             )}>
             <x.icon size={14} /> {x.label}
+            {x.count !== undefined && <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-bold', tab === x.value ? 'bg-white/20' : 'bg-sky-100 text-sky-800')}>{x.count}</span>}
           </button>
         ))}
       </div>
 
       {tab === 'comprobantes' && <TabComprobantes abrir={abrir} refresh={refresh} />}
       {tab === 'por-facturar' && <TabPorFacturar puedeEmitir={puedeEmitir} refresh={refresh} />}
+      {tab === 'contingencia' && <TabContingencia puedeEmitir={puedeEmitir} abrir={abrir} refresh={refresh} onChanged={recargar} />}
 
       {cbteId && <DetalleComprobante id={cbteId} onClose={cerrar} onChanged={recargar} puedeEmitir={puedeEmitir} />}
     </div>

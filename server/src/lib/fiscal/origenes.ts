@@ -10,7 +10,7 @@ import type { NuevoComprobante } from './emision.js';
 // mismo: lo facturado cuenta facturas y notas de débito autorizadas (o en camino) menos las
 // notas de crédito.
 
-const ESTADOS_QUE_CUENTAN = `('autorizado', 'emitiendo', 'incierto')`;
+const ESTADOS_QUE_CUENTAN = `('autorizado', 'emitiendo', 'incierto', 'contingencia')`;
 const SIGNO = `CASE WHEN tipo_doc = 'nota_credito' THEN -imp_total ELSE imp_total END`;
 const ESTADOS_OPERACION_FACTURABLE = `('aprobado', 'en_produccion', 'listo', 'instalado', 'entregado')`;
 
@@ -299,10 +299,11 @@ export async function tablero() {
   const mes = hoyAR().slice(0, 7);
   const { rows: [t] } = await db.query(
     `SELECT
-       COALESCE(SUM(${SIGNO}) FILTER (WHERE estado = 'autorizado' AND to_char(fecha, 'YYYY-MM') = $1), 0) AS facturado_mes,
-       COUNT(*) FILTER (WHERE estado = 'autorizado' AND tipo_doc = 'factura' AND clase = 'A' AND to_char(fecha, 'YYYY-MM') = $1) AS facturas_a_mes,
-       COUNT(*) FILTER (WHERE estado = 'autorizado' AND tipo_doc = 'factura' AND clase = 'B' AND to_char(fecha, 'YYYY-MM') = $1) AS facturas_b_mes,
-       COUNT(*) FILTER (WHERE estado = 'autorizado' AND tipo_doc = 'nota_credito' AND to_char(fecha, 'YYYY-MM') = $1) AS notas_credito_mes,
+       COALESCE(SUM(${SIGNO}) FILTER (WHERE estado IN ('autorizado', 'contingencia') AND to_char(fecha, 'YYYY-MM') = $1), 0) AS facturado_mes,
+       COUNT(*) FILTER (WHERE estado IN ('autorizado', 'contingencia') AND tipo_doc = 'factura' AND clase = 'A' AND to_char(fecha, 'YYYY-MM') = $1) AS facturas_a_mes,
+       COUNT(*) FILTER (WHERE estado IN ('autorizado', 'contingencia') AND tipo_doc = 'factura' AND clase = 'B' AND to_char(fecha, 'YYYY-MM') = $1) AS facturas_b_mes,
+       COUNT(*) FILTER (WHERE estado IN ('autorizado', 'contingencia') AND tipo_doc = 'nota_credito' AND to_char(fecha, 'YYYY-MM') = $1) AS notas_credito_mes,
+       COUNT(*) FILTER (WHERE estado = 'contingencia') AS en_contingencia,
        COUNT(*) FILTER (WHERE estado IN ('borrador', 'rechazado')) AS pendientes,
        COUNT(*) FILTER (WHERE estado IN ('incierto', 'emitiendo')) AS sin_confirmar
      FROM comprobantes`, [mes]);
@@ -310,5 +311,6 @@ export async function tablero() {
   return {
     facturado_mes: a2(n(t.facturado_mes)), facturas_a_mes: n(t.facturas_a_mes), facturas_b_mes: n(t.facturas_b_mes),
     notas_credito_mes: n(t.notas_credito_mes), pendientes: n(t.pendientes), sin_confirmar: n(t.sin_confirmar),
+    en_contingencia: n(t.en_contingencia),
   };
 }

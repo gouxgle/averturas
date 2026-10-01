@@ -66,6 +66,7 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
       await client.query(`DELETE FROM comprobante_iva WHERE comprobante_id = ANY($1)`, [ids]);
       await client.query(`UPDATE comprobantes SET comprobante_asociado_id = NULL WHERE id = ANY($1)`, [ids]);
       await client.query(`DELETE FROM comprobantes WHERE id = ANY($1)`, [ids]);
+      await client.query(`DELETE FROM caea_periodos WHERE cuit = $1`, [CUIT]);
       await client.query(`SET session_replication_role = DEFAULT`);
     } finally {
       client.release();
@@ -89,7 +90,7 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
 
   beforeEach(() => {
     fake.estado.errores = {}; fake.estado.demora = {}; fake.estado.demoraDespues = {};
-    fake.estado.ultimoAtrasado = 0; fake.estado.tragar.clear();
+    fake.estado.ultimoAtrasado = 0; fake.estado.tragar.clear(); fake.estado.caido = false;
   });
 
   const fila = async (id: string) => (await db.query(`SELECT * FROM comprobantes WHERE id = $1`, [id])).rows[0];
@@ -271,5 +272,68 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
     } finally {
       await db.query(`UPDATE fiscal_config SET habilitada = true WHERE id = 1`);
     }
+  });
+
+  describe('contingencia con CAEA', () => {
+    const PV_CAEA = 9;
+    let C: typeof import('../lib/fiscal/contingencia.js');
+    beforeAll(async () => {
+      C = await import('../lib/fiscal/contingencia.js');
+      await db.query(`INSERT INTO fiscal_puntos_venta (numero, modo) VALUES ($1, 'CAEA') ON CONFLICT DO NOTHING`, [PV_CAEA]);
+      await db.query(`DELETE FROM fiscal_eventos WHERE tipo = 'arca_llamada' AND ok = false AND ambiente = 'homologacion'`);
+    });
+
+    it('la tarea periódica obtiene el CAEA de la quincena (y repetirla no pide otro)', async () => {
+      await C.tareasCaea();
+      await C.tareasCaea();
+      const q = C.quincenaDe(new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10));
+      const { rows } = await db.query(`SELECT * FROM caea_periodos WHERE cuit = $1 AND periodo = $2 AND orden = $3`, [CUIT, q.periodo, q.orden]);
+      expect(rows).toHaveLength(1);
+      expect(fake.estado.llamadas.filter(m => m === 'FECAEASolicitar').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('con ARCA funcionando no deja usar el CAEA (RG 5852)', async () => {
+      const { id } = await E.crearBorrador(factura(), null);
+      await expect(C.emitirContingencia(id, 'Prueba sin contingencia real', null)).rejects.toThrow(/respondiendo con normalidad/);
+    });
+
+    it('con ARCA caído emite con CAEA, registra la causa y numera correlativo en el PV de contingencia', async () => {
+      fake.estado.caido = true;
+      const a = await E.crearBorrador(factura(), null);
+      const r = await E.emitir(a.id, null);
+      expect(r.estado).toBe('borrador');                    // no se mandó nada: queda el error a la vista
+      expect((await fila(a.id)).errores[0].code).toBe('soap');
+      const c1 = await C.emitirContingencia(a.id, 'Se cortó internet en el local', null);
+      const b = await E.crearBorrador(factura(), null);
+      const c2 = await C.emitirContingencia(b.id, 'Se cortó internet en el local', null);
+      expect([c1.punto_venta, c2.punto_venta]).toEqual([PV_CAEA, PV_CAEA]);
+      expect(c2.numero).toBe(c1.numero + 1);
+      const f = await fila(a.id);
+      expect(f).toMatchObject({ estado: 'contingencia', modo: 'CAEA', punto_venta: PV_CAEA, cae: c1.caea });
+      expect(f.contingencia_causa).toMatch(/internet.*ARCA/);
+      const qr = JSON.parse(Buffer.from(new URL(f.qr_url).searchParams.get('p')!, 'base64').toString());
+      expect(qr).toMatchObject({ tipoCodAut: 'A', ptoVta: PV_CAEA });
+      await expect(db.query(`UPDATE comprobantes SET imp_total = 1 WHERE id = $1`, [a.id])).rejects.toThrow(/documento fiscal/);
+      const { rows: ev } = await db.query(`SELECT * FROM fiscal_eventos WHERE comprobante_id = $1 AND tipo = 'contingencia'`, [a.id]);
+      expect(ev[0].error_mensaje).toMatch(/Causa: Se cortó internet/);
+
+      // Vuelve ARCA: se informa en orden y quedan autorizados.
+      fake.estado.caido = false;
+      const inf = await C.informarPendientes();
+      expect(inf).toMatchObject({ informados: 2, pendientes: 0 });
+      expect((await fila(a.id)).estado).toBe('autorizado');
+      expect(fake.estado.emitidos.get(`${PV_CAEA}-6-${c1.numero}`)?.EmisionTipo).toBe('CAEA');
+    });
+
+    it('al cerrar una quincena sin uso informa "sin movimiento"', async () => {
+      const { rows: [p] } = await db.query(
+        `INSERT INTO caea_periodos (ambiente, cuit, periodo, orden, caea, fch_vig_desde, fch_vig_hasta, fch_tope_inf)
+         VALUES ('homologacion', $1, 202601, 1, '26000000000000', '2026-01-01', '2026-01-15', '2026-01-23') RETURNING id`, [CUIT]);
+      await C.tareasCaea();
+      const { rows: [inf] } = await db.query(`SELECT * FROM caea_informes WHERE caea_id = $1 AND punto_venta = $2`, [p.id, PV_CAEA]);
+      expect(inf).toMatchObject({ sin_movimiento: true, resultado: 'A' });
+      expect(fake.estado.sinMovimiento).toContain(`${PV_CAEA}-26000000000000`);
+      expect((await db.query(`SELECT estado FROM caea_periodos WHERE id = $1`, [p.id])).rows[0].estado).toBe('informado');
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { X, Send, Trash2, RefreshCw, FileMinus, ExternalLink, ChevronDown, AlertTriangle, XCircle, CheckCircle2, FileText, Printer, MessageCircle, Mail, FilePlus } from 'lucide-react';
+import { X, Send, Trash2, RefreshCw, FileMinus, ExternalLink, ChevronDown, AlertTriangle, XCircle, CheckCircle2, FileText, Printer, MessageCircle, Mail, FilePlus, ShieldAlert } from 'lucide-react';
 import { abrirPdfApi } from '@/lib/abrirPdf';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -37,6 +37,7 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
   const [d, setD] = useState<Detalle | null>(null);
   const [trabajando, setTrabajando] = useState(false);
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
+  const [contingencia, setContingencia] = useState<string | null>(null);   // causa, mientras se confirma
   const [verRegistro, setVerRegistro] = useState(false);
   const [recarga, setRecarga] = useState(0);
 
@@ -70,6 +71,16 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
     } catch (e) { toastApiError(e); } finally { setTrabajando(false); }
   }
 
+  async function emitirCaea() {
+    setTrabajando(true);
+    try {
+      const r = await api.post<{ numero: number; punto_venta: number; caea: string }>(`/facturacion/comprobantes/${id}/contingencia`, { causa: contingencia });
+      toast.success(`Emitido en contingencia: N° ${String(r.punto_venta).padStart(5, '0')}-${String(r.numero).padStart(8, '0')}`, { description: `CAEA ${r.caea}. Se informa a ARCA cuando vuelva.` });
+      setContingencia(null);
+      actualizar();
+    } catch (e) { toastApiError(e, { duration: 12000 }); } finally { setTrabajando(false); }
+  }
+
   async function borrar() {
     setTrabajando(true);
     try {
@@ -91,7 +102,22 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4" onMouseDown={onClose}>
       <div className="w-full sm:max-w-3xl max-h-[92dvh] overflow-y-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl" onMouseDown={e => e.stopPropagation()}>
-        {!d ? <p className="p-6 text-sm text-gray-600">Cargando…</p> : confirmarBorrar ? (
+        {!d ? <p className="p-6 text-sm text-gray-600">Cargando…</p> : contingencia !== null ? (
+          <div className="p-6 bg-sky-50 space-y-3">
+            <p className="text-base font-bold text-sky-900">Emitir en contingencia (CAEA)</p>
+            <p className="text-sm text-sky-900">Usalo solo si ARCA no está respondiendo. El comprobante sale con el CAEA de la quincena,
+              en el punto de venta de contingencia, y el sistema lo informa a ARCA cuando vuelva. Queda registrada la causa y quién lo emitió.</p>
+            <label className="block text-xs font-medium text-gray-700">Causa de la contingencia</label>
+            <textarea value={contingencia} onChange={e => setContingencia(e.target.value)} rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base sm:text-sm bg-white" />
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <button onClick={() => setContingencia(null)} className="h-11 px-4 rounded-lg border border-gray-300 bg-white text-sm font-semibold">Cancelar</button>
+              <button onClick={emitirCaea} disabled={trabajando || contingencia.trim().length < 10} className="h-11 px-4 rounded-lg bg-sky-700 text-white text-sm font-semibold disabled:opacity-50">
+                {trabajando ? 'Emitiendo…' : 'Emitir con CAEA'}
+              </button>
+            </div>
+          </div>
+        ) : confirmarBorrar ? (
           <div className="p-6 bg-red-50 space-y-4">
             <p className="text-base font-bold text-red-800">¿Borrar este borrador?</p>
             <p className="text-sm text-red-700">No llegó a ARCA, así que no hay nada que anular. Se pierde lo cargado.</p>
@@ -116,6 +142,11 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
             <div className="p-4 sm:p-5 space-y-4">
               {d.ambiente === 'homologacion' && d.estado === 'autorizado' && (
                 <p className="text-xs rounded-lg bg-sky-50 border border-sky-200 text-sky-800 px-3 py-2">Emitido en el ambiente de <b>pruebas</b> de ARCA: no tiene validez fiscal.</p>
+              )}
+              {d.estado === 'contingencia' && (
+                <Aviso tono="amber" icon={AlertTriangle}>
+                  Emitido con <b>CAEA</b> (contingencia): es válido y se puede entregar. Falta informarlo a ARCA; el sistema lo hace solo cuando ARCA responde.
+                </Aviso>
               )}
               {d.estado === 'incierto' && (
                 <Aviso tono="amber" icon={AlertTriangle}>
@@ -200,7 +231,7 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
                   <p className="flex justify-between border-t border-gray-200 pt-1 font-bold"><span>Saldo de la factura</span><span className="tabular-nums">{fmt$(d.saldo)}</span></p>
                 </div>
               )}
-              {d.estado === 'autorizado' && puedeEmitir && (
+              {['autorizado', 'contingencia'].includes(d.estado) && puedeEmitir && (
                 <EnviarComprobante id={d.id} telefono={d.cliente_telefono} email={d.cliente_email} onEnviado={() => setRecarga(r => r + 1)} />
               )}
               {envios.length > 0 && (
@@ -242,7 +273,7 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
               <button onClick={() => verPdf(1)} className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                 <FileText size={15} /> Ver PDF
               </button>
-              {d.estado === 'autorizado' && (
+              {['autorizado', 'contingencia'].includes(d.estado) && (
                 <button onClick={() => verPdf(2)} title="Original y duplicado" className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                   <Printer size={15} /> Imprimir
                 </button>
@@ -257,6 +288,12 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
                   <button onClick={() => setConfirmarBorrar(true)} className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                     <Trash2 size={15} /> Borrar
                   </button>
+                  {d.errores?.some(e => ['red', 'timeout', 'soap'].includes(e.code) || /ARCA no (respondió|recibió)|conectar con ARCA/.test(e.msg)) && (
+                    <button onClick={() => setContingencia(`ARCA no responde: ${d.errores?.[0]?.msg ?? ''}`)}
+                      className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-sky-400 bg-sky-50 text-sm font-semibold text-sky-800 hover:bg-sky-100">
+                      <ShieldAlert size={15} /> Emitir en contingencia
+                    </button>
+                  )}
                   <button onClick={emitir} disabled={trabajando} className="h-11 sm:h-10 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-fuchsia-700 text-white text-sm font-semibold hover:bg-fuchsia-800 disabled:opacity-50">
                     <Send size={15} /> {trabajando ? 'Enviando a ARCA…' : 'Emitir con ARCA'}
                   </button>

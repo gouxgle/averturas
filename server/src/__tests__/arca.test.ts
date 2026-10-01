@@ -129,6 +129,16 @@ describe.skipIf(!process.env.DATABASE_URL)('WSAA + WSFE contra ARCA simulado', (
     expect(ev.request).toContain('<ar:Token>***<');   // el token no queda en el registro
   });
 
+  it('una página HTML de error (ARCA caído) es un error, no una respuesta vacía', async () => {
+    const { ultimoAutorizado } = await import('../lib/arca/wsfe.js');
+    fake.estado.caido = true;
+    try {
+      await expect(ultimoAutorizado(ctx, 3, 6)).rejects.toMatchObject({ codigos: ['soap'], incierto: false });
+    } finally {
+      fake.estado.caido = false;
+    }
+  });
+
   it('consultar un comprobante inexistente devuelve null (error 602)', async () => {
     const { consultarComprobante } = await import('../lib/arca/wsfe.js');
     expect(await consultarComprobante(ctx, 3, 6, 999)).toBeNull();

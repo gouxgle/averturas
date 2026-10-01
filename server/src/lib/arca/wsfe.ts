@@ -175,3 +175,54 @@ export async function solicitarCAE(ctx: ContextoArca, s: SolicitudCAE): Promise<
 }
 
 export { de8 as fechaDeArca };
+
+// ── CAEA (contingencia, RG 5852) ─────────────────────────────────────────────
+export interface CaeaArca { caea: string; periodo: number; orden: number; vigDesde: string; vigHasta: string; topeInf: string }
+
+function caeaDe(r: Nodo): CaeaArca | null {
+  const g = (r.ResultGet ?? {}) as Nodo;
+  if (!g.CAEA) return null;
+  return {
+    caea: String(g.CAEA), periodo: Number(g.Periodo), orden: Number(g.Orden),
+    vigDesde: de8(String(g.FchVigDesde)), vigHasta: de8(String(g.FchVigHasta)), topeInf: de8(String(g.FchTopeInf)),
+  };
+}
+
+/** Pide el CAEA de una quincena; si ya estaba otorgado lo consulta (15008 = ya existe). */
+export async function solicitarCAEA(ctx: ContextoArca, periodo: number, orden: 1 | 2): Promise<CaeaArca> {
+  const params = `<ar:Periodo>${periodo}</ar:Periodo><ar:Orden>${orden}</ar:Orden>`;
+  const { result } = await invocar(ctx, 'FECAEASolicitar', params);
+  const ok = caeaDe(result);
+  if (ok) return ok;
+  const err = erroresDe(result);
+  if (err && !err.codigos.some(c => ['15008', '15006'].includes(c))) throw err;
+  const { result: r2 } = await invocar(ctx, 'FECAEAConsultar', params);
+  const c = caeaDe(r2);
+  if (!c) throw erroresDe(r2) ?? new ArcaError('ARCA no devolvió el CAEA', ['sin_caea']);
+  return c;
+}
+
+/** Informa a ARCA un comprobante emitido con CAEA (CbteFchHsGen = fecha y hora de generación). */
+export async function informarCAEA(ctx: ContextoArca, s: SolicitudCAE, caea: string, generadoAt: Date): Promise<RespuestaCAE> {
+  const hs = new Date(generadoAt.getTime() - 3 * 3600_000).toISOString().replace(/\D/g, '').slice(0, 14); // hora AR
+  const detalle = xmlSolicitudCAE(s)
+    .replace('<ar:FeCAEReq>', '<ar:FeCAEARegInfReq>').replace('</ar:FeCAEReq>', '</ar:FeCAEARegInfReq>')
+    .replace(/FECAEDetRequest>/g, 'FECAEADetRequest>')
+    .replace('</ar:FECAEADetRequest>', `<ar:CAEA>${escXml(caea)}</ar:CAEA><ar:CbteFchHsGen>${hs}</ar:CbteFchHsGen></ar:FECAEADetRequest>`);
+  const { result } = await invocar(ctx, 'FECAEARegInformativo', detalle);
+  const d = comoArray((result.FeDetResp as { FECAEADetResponse?: Nodo | Nodo[] } | undefined)?.FECAEADetResponse)[0] ?? {};
+  const errores = listaMsgs(result.Errors, 'Err');
+  return {
+    resultado: String(d.Resultado ?? ((result.FeCabResp ?? {}) as Nodo).Resultado ?? (errores.length ? 'R' : '')) as 'A' | 'R' | 'P',
+    cae: d.CAEA ? String(d.CAEA) : caea, caeVto: null,
+    observaciones: listaMsgs(d.Observaciones, 'Obs'), errores, raw: result,
+  };
+}
+
+export async function informarCAEASinMovimiento(ctx: ContextoArca, ptoVta: number, caea: string): Promise<void> {
+  const { result } = await invocar(ctx, 'FECAEASinMovimientoInformar',
+    `<ar:PtoVta>${ptoVta}</ar:PtoVta><ar:CAEA>${escXml(caea)}</ar:CAEA>`);
+  const err = erroresDe(result);
+  // Ya informado antes = listo (idempotente).
+  if (err && !/informad/i.test(err.message)) throw err;
+}

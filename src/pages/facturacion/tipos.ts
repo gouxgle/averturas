@@ -1,6 +1,6 @@
 // Tipos y utilidades compartidas del módulo Facturación (frontend).
 
-export type EstadoCbte = 'borrador' | 'emitiendo' | 'autorizado' | 'rechazado' | 'incierto';
+export type EstadoCbte = 'borrador' | 'emitiendo' | 'autorizado' | 'rechazado' | 'incierto' | 'contingencia';
 export type TipoDoc = 'factura' | 'nota_debito' | 'nota_credito';
 
 export interface ItemCbte {
@@ -74,7 +74,7 @@ export interface ComprobanteLista {
 
 export interface Tablero {
   facturado_mes: number; facturas_a_mes: number; facturas_b_mes: number; notas_credito_mes: number;
-  pendientes: number; sin_confirmar: number; habilitada: boolean; ambiente: 'homologacion' | 'produccion';
+  pendientes: number; sin_confirmar: number; en_contingencia: number; habilitada: boolean; ambiente: 'homologacion' | 'produccion';
 }
 
 export const CBTE_NOMBRE: Record<number, string> = {
@@ -96,6 +96,7 @@ export const ESTADO_CBTE: Record<EstadoCbte, { label: string; cls: string }> = {
   autorizado: { label: 'Autorizado',        cls: 'bg-emerald-600 text-white' },
   rechazado:  { label: 'Rechazado',         cls: 'bg-red-600 text-white' },
   incierto:   { label: 'Sin confirmar',     cls: 'bg-amber-500 text-white' },
+  contingencia: { label: 'CAEA sin informar', cls: 'bg-sky-700 text-white' },
 };
 
 export function numeroCbte(pv: number, numero: string | number | null): string {

@@ -177,7 +177,7 @@ export async function crearBorrador(input: NuevoComprobante, usuarioId: string |
 
 // ── Helpers de emisión ───────────────────────────────────────────────────────
 
-async function cargar(q: Q, id: string) {
+export async function cargar(q: Q, id: string) {
   const { rows: [c] } = await q.query(`SELECT * FROM comprobantes WHERE id = $1`, [id]);
   if (!c) return null;
   const { rows: items } = await q.query(`SELECT * FROM comprobante_items WHERE comprobante_id = $1 ORDER BY orden`, [id]);
@@ -185,21 +185,21 @@ async function cargar(q: Q, id: string) {
   return { c: c as ComprobanteFila, items, iva };
 }
 
-function snapshotEmisor(cfg: FiscalConfig) {
+export function snapshotEmisor(cfg: FiscalConfig) {
   return {
     cuit: cfg.cuit, razon_social: cfg.razon_social, domicilio_fiscal: cfg.domicilio_fiscal, iibb: cfg.iibb,
     inicio_actividades: iso(cfg.inicio_actividades), condicion_iva: 'IVA Responsable Inscripto', leyenda_pie: cfg.leyenda_pie,
   };
 }
 
-async function datosAsociado(q: Q, id: string | null, cuitEmisor: string) {
+export async function datosAsociado(q: Q, id: string | null, cuitEmisor: string) {
   if (!id) return null;
   const { rows: [a] } = await q.query(`SELECT cbte_tipo, punto_venta, numero, fecha, estado FROM comprobantes WHERE id = $1`, [id]);
   if (!a || a.estado !== 'autorizado') throw new EmisionError('La factura asociada no está autorizada por ARCA');
   return { tipo: a.cbte_tipo, ptoVta: a.punto_venta, nro: Number(a.numero), cuit: cuitEmisor, fecha: iso(a.fecha)! };
 }
 
-function solicitudDe(c: ComprobanteFila, iva: { alicuota_id: number; base_imp: string; importe: string }[],
+export function solicitudDe(c: ComprobanteFila, iva: { alicuota_id: number; base_imp: string; importe: string }[],
   numero: number, asociado: SolicitudCAE['asociado']): SolicitudCAE {
   return {
     ptoVta: c.punto_venta, cbteTipo: c.cbte_tipo, numero, concepto: c.concepto,
@@ -251,7 +251,7 @@ async function volverABorrador(q: Q, id: string, estado: 'borrador' | 'rechazado
     [id, estado, JSON.stringify(errores), response === undefined ? null : JSON.stringify(response)]);
 }
 
-const lockSerie = (c: { ambiente: string; punto_venta: number; cbte_tipo: number }) =>
+export const lockSerie = (c: { ambiente: string; punto_venta: number; cbte_tipo: number }) =>
   `cbte:${c.ambiente}:${c.punto_venta}:${c.cbte_tipo}`;
 
 // ── Conciliación ─────────────────────────────────────────────────────────────
@@ -310,7 +310,7 @@ async function conciliarSinLock(q: Q, c: ComprobanteFila, ctx: ContextoArca): Pr
   return 'pendiente';
 }
 
-async function contextoDe(c: { ambiente: 'homologacion' | 'produccion' }, usuarioId: string | null): Promise<ContextoArca> {
+export async function contextoDe(c: { ambiente: 'homologacion' | 'produccion' }, usuarioId: string | null): Promise<ContextoArca> {
   const cfg = await leerConfig();
   if (!cfg.cuit) throw new EmisionError('Falta el CUIT del emisor en Configuración > Facturación');
   return { ambiente: c.ambiente, cuit: cfg.cuit, usuarioId, timeoutMs: Number(process.env.ARCA_TIMEOUT_MS) || 30_000 };
@@ -413,7 +413,17 @@ export async function emitir(id: string, usuarioId: string | null): Promise<Resu
     const asociado = await datosAsociado(client, c.comprobante_asociado_id, cfg.cuit!);
     // Próximo número: el mayor entre lo que dice ARCA y lo que ya autorizó este sistema. Si no
     // coinciden algo anda mal (ARCA desactualizado, otro ambiente): queda registrado.
-    const ultimoArca = await ultimoAutorizado(ctx, c.punto_venta, c.cbte_tipo);
+    // Si ARCA falla acá todavía no se mandó nada: el error queda en el borrador (y la UI ofrece
+    // la contingencia con CAEA si ARCA no responde).
+    let ultimoArca: number;
+    try {
+      ultimoArca = await ultimoAutorizado(ctx, c.punto_venta, c.cbte_tipo);
+    } catch (e) {
+      if (!(e instanceof ArcaError)) throw e;
+      const err = { code: e.codigos[0] ?? 'arca', msg: e.message };
+      await client.query(`UPDATE comprobantes SET errores = $2 WHERE id = $1`, [id, JSON.stringify([err])]);
+      return { estado: 'borrador', numero: null, cae: null, mensajes: [e.message] };
+    }
     const { rows: [{ max: maxLocal }] } = await client.query(
       `SELECT COALESCE(max(numero), 0) AS max FROM comprobantes
         WHERE ambiente = $1 AND punto_venta = $2 AND cbte_tipo = $3 AND numero IS NOT NULL AND id <> $4`,

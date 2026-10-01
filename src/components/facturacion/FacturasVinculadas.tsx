@@ -11,7 +11,7 @@ const ETIQUETA: Record<string, string> = { factura: 'Factura', nota_credito: 'NC
 const COLOR: Record<string, string> = {
   autorizado: 'bg-emerald-50 text-emerald-800 border-emerald-200', rechazado: 'bg-red-50 text-red-700 border-red-200',
   incierto: 'bg-amber-50 text-amber-800 border-amber-200', emitiendo: 'bg-sky-50 text-sky-800 border-sky-200',
-  borrador: 'bg-gray-50 text-gray-700 border-gray-200',
+  borrador: 'bg-gray-50 text-gray-700 border-gray-200', contingencia: 'bg-sky-50 text-sky-800 border-sky-200',
 };
 
 /**
