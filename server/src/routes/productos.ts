@@ -93,15 +93,19 @@ productos.get('/', async (c) => {
 // solo para resetear el semáforo de antigüedad (verde ≤7d / amarillo 8-10 / rojo >10,
 // ver colorPorAntiguedadPrecio en TarjetaProductoMosaico.tsx).
 productos.patch('/renovar-validez-precios', async (c) => {
-  const body = await c.req.json().catch(() => ({})) as { tipo_abertura_ids?: string[] };
-  const ids = body.tipo_abertura_ids;
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return c.json({ error: 'Seleccioná al menos una familia' }, 422);
+  // Por familias (tipo_abertura_ids) o por productos elegidos a mano (producto_ids).
+  const body = await c.req.json().catch(() => ({})) as { tipo_abertura_ids?: unknown; producto_ids?: unknown };
+  const uuids = (v: unknown) => Array.isArray(v) && v.length > 0 && v.length <= 5000
+    && v.every(x => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x)) ? v as string[] : null;
+  const familias = uuids(body.tipo_abertura_ids);
+  const elegidos = uuids(body.producto_ids);
+  if (!familias && !elegidos) {
+    return c.json({ error: 'Seleccioná al menos una familia o un producto' }, 422);
   }
   const { rowCount } = await db.query(
     `UPDATE catalogo_productos SET precio_actualizado_at = now()
-     WHERE tipo_abertura_id = ANY($1::uuid[]) AND activo = true`,
-    [ids]
+     WHERE activo = true AND (tipo_abertura_id = ANY($1::uuid[]) OR id = ANY($2::uuid[]))`,
+    [familias ?? [], elegidos ?? []]
   );
   return c.json({ actualizados: rowCount });
 });
