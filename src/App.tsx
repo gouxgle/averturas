@@ -39,6 +39,7 @@ const Manuales                 = lazy(() => import('@/pages/ayuda/Manuales'));
 const Ayuda                    = lazy(() => import('@/pages/ayuda/Ayuda'));
 const NuevaSolicitud           = lazy(() => import('@/pages/compras/NuevaSolicitud'));
 const Facturacion               = lazy(() => import('@/pages/facturacion/Facturacion'));
+const Agenda                    = lazy(() => import('@/pages/Agenda'));
 const NuevaFactura             = lazy(() => import('@/pages/facturacion/NuevaFactura'));
 const NuevoPedido              = lazy(() => import('@/pages/NuevoPedido'));
 const EstadoCuentaGlobal       = lazy(() => import('@/pages/EstadoCuentaGlobal').then(m => ({ default: m.EstadoCuentaGlobal })));
@@ -129,6 +130,7 @@ export default function App() {
                   <Route path="/remitos/:id/editar" element={<NuevoRemito />} />
                   {/* Compras (SC → PC → OC). /pedidos* redirige: el flujo viejo vive en /compras/oc/* */}
                   <Route path="/compras" element={<Compras />} />
+                  <Route path="/agenda" element={<Agenda />} />
                   <Route path="/facturacion" element={<Facturacion />} />
                   <Route path="/facturacion/nueva" element={<NuevaFactura />} />
                   <Route path="/compras/nueva-solicitud" element={<NuevaSolicitud />} />

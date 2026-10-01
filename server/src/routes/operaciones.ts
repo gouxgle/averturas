@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
+import { sincronizarTareaVisita } from '../lib/tareas.js';
 import { sqlStockCubreTodo, sqlItemsTotal, sqlItemsEnPedidoInclReposicion } from '../lib/coverage.js';
 import { validateBody } from '../lib/validate.js';
 import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
@@ -1199,6 +1200,7 @@ operaciones.post('/:id/completar-relevamiento', async (c) => {
       `UPDATE visitas_tecnicas SET estado='convertida', updated_at=now() WHERE id=$1`,
       [b.visita_tecnica_id]
     );
+    await sincronizarTareaVisita(client, b.visita_tecnica_id);
 
     await client.query('COMMIT');
 
@@ -1521,6 +1523,7 @@ operaciones.post('/', async (c) => {
         UPDATE visitas_tecnicas SET operacion_id=$1, estado='convertida', updated_at=now()
         WHERE id=$2 AND estado != 'convertida'
       `, [op.id, b.visita_tecnica_id]);
+      await sincronizarTareaVisita(client, b.visita_tecnica_id);
     }
 
     await client.query('COMMIT');

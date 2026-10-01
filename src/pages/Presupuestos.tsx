@@ -22,6 +22,7 @@ import type { Oportunidad } from '@/components/oportunidades/types';
 import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
 import { RevisionesEnviadas } from '@/components/RevisionesEnviadas';
 import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
+import { FranjaRecotizar } from '@/components/agenda/FranjaRecotizar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1134,6 +1135,9 @@ function PresupuestoModal({
                 </div>
               </div>
             )}
+
+            {/* Recotizar: revisar la proforma y adecuarla a lo que pidió el cliente */}
+            {['presupuesto', 'enviado'].includes(op.estado) && <FranjaRecotizar operacionId={op.id} />}
 
             {/* ¿Lo va a retomar más adelante? — rechazado, o vencido sin confirmar */}
             {(op.estado === 'rechazado' || (esVencido && ['presupuesto', 'enviado'].includes(op.estado))) && (

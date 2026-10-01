@@ -101,12 +101,9 @@ export function NotificationBell() {
         // Remitos y entregas-en-1-hora ya salen como aviso emergente persistente
         // (AvisosEmergentes); un toast además sería el mismo mensaje dos veces.
         void nuevosRemitos;
-        nuevasOportunidades.forEach(n => {
-          toast.info(`Oportunidad futura: ${nombreCliente(n.cliente)}`, {
-            description: n.detalle ?? 'Llegó la fecha de recontacto',
-            duration: 6000,
-          });
-        });
+        // Las oportunidades que vencen hoy ya salen en el aviso de la agenda del día
+        // (AgendaDelDia): un toast además sería el mismo aviso dos veces.
+        void nuevasOportunidades;
         nuevasEntregasDia.forEach(n => {
           toast.info(`Entrega mañana: ${nombreCliente(n.cliente)}`, {
             description: `Preparar el pedido — ${n.numero}`,

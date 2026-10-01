@@ -17,7 +17,7 @@ type HelpSection = {
   tip?: string;
 };
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
-export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion';
+export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda';
 
 /** Temas que además tienen manual completo en Manuales del sistema (`/ayuda/:slug`). */
 const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
@@ -206,6 +206,59 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { label: 'devolucion', value: 'Reingreso por cancelación de remito' },
           { label: 'reserva', value: 'Reserva al aprobar presupuesto con producto de stock' },
           { label: 'ajuste', value: 'Corrección manual de inventario' },
+        ],
+      },
+    ],
+  },
+
+  agenda: {
+    label: 'Agenda del día',
+    color: 'text-orange-700',
+    sections: [
+      {
+        id: 'aviso',
+        emoji: '📅',
+        title: 'El aviso de cada día',
+        intro: 'Al entrar al sistema aparece "Tu agenda de hoy" con todo lo pendiente del día y lo que quedó atrasado: llamados, recotizaciones, visitas, entregas, oportunidades y tareas internas.',
+        steps: [
+          { text: 'Hecho: la tarea queda resuelta para todos.' },
+          { text: 'Leído: te la vuelvo a mostrar en 1 hora.' },
+          { text: 'Recordar: elegís en 30 min, 1, 2 o 4 horas, o a una hora exacta (por ejemplo 12:30).' },
+          { text: 'Reprogramar: la pasás a otro día. Si es una oportunidad, una entrega o una visita, también cambia su fecha.' },
+          { text: 'Ir: abre el cliente, la proforma, el remito o la visita.' },
+        ],
+        tip: '"Seguir trabajando" cierra el aviso: lo que no tocaste vuelve en 1 hora. La pastilla de abajo a la izquierda lo abre cuando quieras.',
+      },
+      {
+        id: 'acumulacion',
+        emoji: '🧘',
+        title: 'Sin avisos encimados',
+        steps: [
+          { text: 'Si el sistema se abre horas después, aparece un solo aviso con todo junto, no uno por cada hora.' },
+          { text: 'Si mientras está abierto vence otro recordatorio, se suma a la lista con la marca "Nuevo".' },
+          { text: 'Si estás escribiendo, el recordatorio espera a que termines.' },
+          { text: 'Cada uno maneja sus recordatorios: si vos posponés una tarea, a tus compañeros les sigue avisando.' },
+        ],
+      },
+      {
+        id: 'recotizar',
+        emoji: '📝',
+        title: 'Recotizar una proforma',
+        intro: 'Es revisar una proforma y adecuarla a lo que pidió el cliente.',
+        steps: [
+          { text: 'Se agenda sola cuando el cliente responde "quiero modificar" desde el link de la proforma.' },
+          { text: 'A mano: en el detalle de la proforma, "Agendar recotización".' },
+          { text: '"Ir" abre la proforma para editar. Al guardar, el sistema pregunta si quedó lista.' },
+        ],
+      },
+      {
+        id: 'internas',
+        emoji: '🏢',
+        title: 'Tareas internas',
+        intro: 'Para lo que no es de un cliente: comprar insumos, llamar a un proveedor, pagar un servicio, mantenimiento.',
+        steps: [
+          { text: 'Agenda → "Tarea interna" (o el + junto a la pastilla): qué hacer, fecha, hora, categoría y proveedor.' },
+          { text: 'Si se repite (cada semana, cada mes o cada tantos días), al marcarla hecha se agenda sola la próxima.' },
         ],
       },
     ],

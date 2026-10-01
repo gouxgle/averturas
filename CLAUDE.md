@@ -460,10 +460,36 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   "Aceptar" (marca esa sola vía `PATCH /notificaciones/vista`) o "Ver". No bloquea
   (`pointer-events-none` en el contenedor). Emergen presupuesto, remito, entrega-hora-antes y
   compra-demorada (**de a una por vez**: cada OC vencida es un aviso y apilados tapan los
-  botones de cualquier modal abierto — el contenedor está en `z-[10000]`); oportunidad y
-  entrega-mañana solo como toast. No duplicar con toasts.
+  botones de cualquier modal abierto — el contenedor está en `z-[10000]`); entrega-mañana
+  solo como toast; oportunidad ya no (la cubre el aviso de la agenda). No duplicar avisos.
 - `EntornoBanner`: franja + badge `TEST`/`PRODUCCIÓN` en `top-2 right-14` (a la izquierda de
   la campanita; en `right-2` la tapaba).
+- **Agenda del día** (`AgendaDelDia`, montado en `AppLayout`; API `/api/agenda`,
+  `server/src/routes/agenda.ts` + `server/src/lib/tareas.ts`): modal "Tu agenda de hoy" con lo
+  pendiente de hoy y lo atrasado de `tareas` (todos ven todo). Al iniciar sesión (marca
+  `aberturas_agenda_login` en sessionStorage, por token) se abre con todo; después consulta
+  `GET /agenda/hoy` cada 60 s y abre solo lo que tiene `debe_mostrarse` (nunca visto, venció
+  su "recordar", o faltan ≤15 min para su `hora`). Hecho / Leído (1 h) / Recordar (min o
+  `a_las`, si ya pasó → mañana) / Reprogramar (mueve el origen: oportunidad, entrega o visita)
+  / Ir. "Seguir trabajando" = recordar 1 h con `respetar_posterior` (no adelanta lo pospuesto).
+  **Sin acumulación**: es una foto al consultar, no hay cron ni cola de avisos; con el modal
+  abierto lo que vence se suma ("Nuevo"); entre pestañas `BroadcastChannel('aberturas-agenda')`;
+  si hay foco en un input espera; errores de red silenciosos. Recordatorios **por usuario**
+  (`tarea_recordatorios`); completar/reprogramar es global y borra los recordatorios.
+  Mientras está abierto, `AvisosEmergentes` espera (`useAvisoAgendaAbierto`). Botón con el
+  contador en la barra superior (`BotonAgenda`, a la izquierda: a la derecha está el badge
+  de entorno). Los e2e lo silencian (`login(page)` pone `aberturas_agenda_silencio`;
+  `login(page, { agenda: true })` lo deja).
+- **Tareas**: completar SIEMPRE por `completarTarea()` de `lib/tareas.ts` (respuesta del
+  cliente, oportunidad espejo, recordatorios, repetición). Internas: `ambito='interna'`, sin
+  cliente, con `categoria`, `proveedor_id` y `repetir` (semanal/mensual/dias; al completar se
+  crea la siguiente una sola vez, índice único `tarea_anterior_id`; mensual el 31 → fin de
+  mes). Pantalla `/agenda`. El CRM pide `/tareas/agenda?ambito=cliente`. `recotizar` = revisar
+  y adecuar una proforma: siempre con `operacion_id`, **una sola pendiente por proforma**
+  (`agendarRecotizacion`); nace de la respuesta "modificar" del link público o a mano
+  (`FranjaRecotizar` en el detalle del presupuesto); al guardar la proforma editada pregunta
+  si quedó lista (toast con acción). Visitas técnicas: tarea espejo `sincronizarTareaVisita`
+  (pendiente con fecha → tarea; relevada/convertida/cancelada → hecha).
 - Dashboard: `CentroAlertas` (agenda `GET /tareas/agenda`), tarjetas "Prioridades de hoy"
   (`GET /dashboard/resumen`), `entregas_hoy` como card aparte (no dentro del grid de 6 — wrap
   a 1366×768), `AlertaBackups` (admin, si el último backup exitoso tiene ≥2 días).

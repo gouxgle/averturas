@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
+import { agendarRecotizacion } from '../lib/tareas.js';
 import {
   sendProformaAceptada, sendProformaRechazada,
   sendEmpresaAceptacion, sendEmpresaRechazo,
@@ -388,6 +389,18 @@ pub.post('/presupuesto/:token/responder', async (c) => {
     tipo === 'consulta'  ? `Responder consulta del cliente — Proforma ${proformaNumero}` :
     tipo === 'modificar' ? `Ajustar y reenviar proforma — Proforma ${proformaNumero}` :
                            `Seguimiento de proforma — Proforma ${proformaNumero}`;
+
+  // "Quiero modificar" → recotizar: revisar la proforma y adecuarla al pedido. Una sola
+  // pendiente por proforma: si el cliente responde dos veces, se actualiza la misma.
+  if (tipo === 'modificar') {
+    const nota = [cambios.length ? `Cambios pedidos: ${cambios.join(', ')}` : '', comentario ? `"${comentario}"` : '']
+      .filter(Boolean).join(' — ') || null;
+    await agendarRecotizacion(db, {
+      operacionId: op.id, fecha: vencimiento, nota, prioridad: 'alta', usuarioId: null,
+      descripcion: `Recotizar proforma ${proformaNumero} — el cliente pidió cambios`,
+    }).catch(err => console.error('[crm] Error al agendar recotización:', err));
+    return c.json({ ok: true, tipo, seguimiento: vencimiento });
+  }
 
   const { rows: [tarea] } = await db.query(
     `INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, hora)

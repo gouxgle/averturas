@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  BellRing, Check, Phone, MessageCircle, Package, Zap, ShoppingBag,
-  Cake, RefreshCw, Users, Target, Clock, Loader2,
-} from 'lucide-react';
+import { BellRing, Check, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { metaDe, CATEGORIAS, EVENTO_AGENDA, type Categoria } from '@/lib/agenda';
 
 interface TareaAgenda {
   id: string;
@@ -16,7 +14,9 @@ interface TareaAgenda {
   prioridad: 'alta' | 'normal' | 'baja';
   vencimiento: string;
   operacion_id: string | null;
-  cliente_id: string;
+  cliente_id: string | null;
+  ambito: 'cliente' | 'interna';
+  categoria: Categoria | null;
   nombre: string | null;
   apellido: string | null;
   razon_social: string | null;
@@ -26,19 +26,8 @@ interface TareaAgenda {
 
 interface Agenda { vencidas: TareaAgenda[]; hoy: TareaAgenda[] }
 
-const TIPO_ICON: Record<string, React.ReactNode> = {
-  llamada:     <Phone size={13} className="text-sky-600" />,
-  whatsapp:    <MessageCircle size={13} className="text-green-600" />,
-  entrega:     <Package size={13} className="text-violet-600" />,
-  instalacion: <Zap size={13} className="text-amber-600" />,
-  cobranza:    <ShoppingBag size={13} className="text-rose-600" />,
-  cumpleanos:  <Cake size={13} className="text-pink-600" />,
-  seguimiento: <RefreshCw size={13} className="text-gray-600" />,
-  visita:      <Users size={13} className="text-indigo-600" />,
-  oportunidad: <Target size={13} className="text-fuchsia-600" />,
-};
-
 function nombreCliente(t: TareaAgenda): string {
+  if (t.ambito === 'interna') return `Interna · ${CATEGORIAS[t.categoria ?? 'otro']?.label ?? 'Empresa'}`;
   if (t.tipo_persona === 'juridica') return t.razon_social ?? '—';
   return [t.apellido, t.nombre].filter(Boolean).join(' ') || '—';
 }
@@ -56,10 +45,14 @@ export function CentroAlertas() {
   const [completando, setCompletando] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Agenda>('/tareas/agenda')
+    const cargar = () => api.get<Agenda>('/tareas/agenda')
       .then(r => setAgenda({ vencidas: r.vencidas, hoy: r.hoy }))
       .catch(() => setAgenda({ vencidas: [], hoy: [] }))
       .finally(() => setLoading(false));
+    cargar();
+    // Lo que se resuelve desde el aviso del día se refleja acá sin recargar la página
+    window.addEventListener(EVENTO_AGENDA, cargar);
+    return () => window.removeEventListener(EVENTO_AGENDA, cargar);
   }, []);
 
   async function completar(t: TareaAgenda) {
@@ -128,9 +121,9 @@ export function CentroAlertas() {
               'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
               t.vencida ? 'bg-red-100' : 'bg-amber-100'
             )}>
-              {t.tipo_accion ? (TIPO_ICON[t.tipo_accion] ?? <Clock size={13} className="text-gray-500" />) : <Clock size={13} className="text-gray-500" />}
+              {(() => { const m = metaDe(t); const I = m.icon; return <I size={13} className={m.color} />; })()}
             </div>
-            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/clientes/${t.cliente_id}`)}>
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(t.cliente_id ? `/clientes/${t.cliente_id}` : '/agenda?tab=internas')}>
               <p className="text-xs font-bold text-gray-800 truncate">{nombreCliente(t)}</p>
               <p className="text-[11px] text-gray-600 truncate">{t.descripcion}</p>
             </div>

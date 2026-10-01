@@ -10,6 +10,8 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Operaciones',                        path: '/operaciones' },
   { label: 'Remitos',                            path: '/remitos' },
   { label: 'Compras',                            path: '/compras' },
+  { label: 'Agenda',                             path: '/agenda' },
+  { label: 'Agenda: internas',                   path: '/agenda?tab=internas' },
   { label: 'Facturación',                        path: '/facturacion' },
   { label: 'Facturación: por facturar',          path: '/facturacion?tab=por-facturar' },
   { label: 'Nueva factura',                      path: '/facturacion/nueva' },

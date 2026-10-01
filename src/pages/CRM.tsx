@@ -5,7 +5,7 @@ import {
   TrendingUp, Users, CheckSquare, Clock, ChevronRight,
   Gift, Package, X, Check,
   ArrowRight, RefreshCw, Cake, FileText, ShoppingBag,
-  Activity, Zap, Target,
+  Activity, Zap, Target, FilePenLine,
 } from 'lucide-react';
 import { PanelOportunidades } from '@/components/oportunidades/PanelOportunidades';
 import {
@@ -137,6 +137,7 @@ const ACCION_ICON: Record<string, React.ReactNode> = {
   seguimiento: <RefreshCw size={12} className="text-gray-600" />,
   visita:      <Users size={12} className="text-indigo-500" />,
   oportunidad: <Target size={12} className="text-fuchsia-500" />,
+  recotizar:   <FilePenLine size={12} className="text-orange-500" />,
 };
 
 const SPECIAL_BADGE: Record<string, { label: string; cls: string }> = {
@@ -145,6 +146,7 @@ const SPECIAL_BADGE: Record<string, { label: string; cls: string }> = {
   instalacion: { label: 'Instalación',  cls: 'bg-amber-100 text-amber-600 border-amber-200' },
   cobranza:    { label: 'Cobranza',     cls: 'bg-rose-100 text-rose-600 border-rose-200' },
   oportunidad: { label: 'Oportunidad',  cls: 'bg-fuchsia-100 text-fuchsia-600 border-fuchsia-200' },
+  recotizar:   { label: 'Recotizar',    cls: 'bg-orange-100 text-orange-700 border-orange-200' },
 };
 
 const COLORES_PIE = ['#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#64748b'];
@@ -342,7 +344,7 @@ export function CRM() {
 
   const fetchAgenda = useCallback(async () => {
     try {
-      const a = await api.get<Agenda>('/tareas/agenda');
+      const a = await api.get<Agenda>('/tareas/agenda?ambito=cliente');
       setAgenda(a);
       if (a.vencidas.length > 0) setTabAgenda('vencidas');
     } catch { /* silencioso */ }

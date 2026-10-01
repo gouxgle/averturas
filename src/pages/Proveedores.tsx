@@ -641,7 +641,7 @@ export function Proveedores() {
   const [tablero, setTablero]   = useState<TableroData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [filtro, setFiltro]     = useState<FiltroTab>('todos');
-  const [search, setSearch]     = useState('');
+  const [search, setSearch]     = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [soloActivos, setSoloActivos] = useState(true);
   const [page, setPage]         = useState(1);
   const [modal, setModal]       = useState<'nuevo' | string | null>(null); // null | 'nuevo' | id para editar

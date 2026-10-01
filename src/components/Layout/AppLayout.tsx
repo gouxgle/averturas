@@ -7,6 +7,8 @@ import { Toaster } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { AvisosEmergentes } from '@/components/AvisosEmergentes';
 import { BuzonComentarios } from '@/components/BuzonComentarios';
+import { AgendaDelDia } from '@/components/agenda/AgendaDelDia';
+import { BotonAgenda } from '@/components/agenda/BotonAgenda';
 
 /** Marca de agua: el isologotipo 2×2 a muy baja opacidad */
 function Watermark() {
@@ -130,7 +132,7 @@ export function AppLayout() {
 
         {/* Top bar — hamburger (mobile) + logo centrado + bell */}
         <header
-          className="h-14 flex items-center px-4 gap-3 shrink-0"
+          className="h-14 flex items-center px-3 sm:px-4 gap-2 sm:gap-3 shrink-0"
           style={{
             background: '#031d49',
             boxShadow: '0 2px 12px rgba(3,29,73,0.25)',
@@ -146,9 +148,13 @@ export function AppLayout() {
             <Menu size={20} />
           </button>
 
+          {/* Agenda del día: cuántas tareas quedan hoy (a la izquierda: a la derecha está el
+              badge TEST/PRODUCCIÓN de EntornoBanner, junto a la campanita) */}
+          <BotonAgenda />
+
           {/* Logo — ícono + texto, centrado, tipografía de marca */}
-          <div className="flex-1 flex items-center justify-center gap-3">
-            <svg width="36" height="36" viewBox="0 0 200 200" fill="none" className="shrink-0">
+          <div className="flex-1 min-w-0 flex items-center justify-center gap-2 sm:gap-3">
+            <svg viewBox="0 0 200 200" fill="none" className="shrink-0 w-7 h-7 sm:w-9 sm:h-9">
               <rect x="8"   y="8"   width="84" height="84" rx="12" fill="rgba(255,255,255,0.90)" />
               <rect x="108" y="8"   width="84" height="84" rx="12" fill="#e31e24" />
               <rect x="8"   y="108" width="84" height="84" rx="12" fill="rgba(255,255,255,0.45)" />
@@ -156,7 +162,7 @@ export function AppLayout() {
             </svg>
             <div className="flex items-baseline gap-2.5 flex-wrap justify-center">
               <span
-                className="text-white text-xl sm:text-2xl tracking-wide"
+                className="text-white text-lg min-[400px]:text-xl sm:text-2xl tracking-wide whitespace-nowrap"
                 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800 }}
               >
                 CÉSAR BRÍTEZ
@@ -180,6 +186,9 @@ export function AppLayout() {
       </div>
 
       <BuzonComentarios />
+
+      {/* Agenda del día: aviso al entrar y recordatorios de lo pendiente (no bloquea) */}
+      <AgendaDelDia />
 
       {/* Avisos que se quedan hasta que se los acepta (no bloquean la pantalla) */}
       <AvisosEmergentes />

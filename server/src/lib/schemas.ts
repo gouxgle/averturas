@@ -1004,3 +1004,39 @@ export const ComprobanteSchema = z.object({
   /** Facturar por encima del saldo del recibo/presupuesto (o acreditar más que la factura). */
   confirmar_exceso:        z.boolean().optional(),
 });
+
+// ── Agenda (aviso del día, recordatorios, tareas internas, recotizar) ──
+const zHora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:\d{2})?$/, 'Hora inválida');
+
+export const RecordarSchema = z.object({
+  tarea_ids:  z.array(zUUID).min(1).max(200),
+  en_minutos: z.number().int().min(5).max(24 * 60).optional(),
+  a_las:      zHora.optional(),
+  // Al cerrar el aviso: no adelantar una tarea que el usuario ya pospuso para más tarde
+  respetar_posterior: z.boolean().optional(),
+});
+
+export const ReprogramarSchema = z.object({
+  tarea_ids: z.array(zUUID).min(1).max(200),
+  fecha:     zFecha,
+  hora:      zHora.nullable().optional(),   // undefined = deja la hora; null = sin hora
+});
+
+export const TareaInternaSchema = z.object({
+  descripcion:       z.string().trim().min(1, 'Escribí qué hay que hacer').max(500),
+  vencimiento:       zFecha,
+  hora:              zHora.nullable().optional(),
+  prioridad:         z.enum(['alta', 'normal', 'baja']).default('normal'),
+  categoria:         z.enum(['compras', 'proveedores', 'pagos', 'mantenimiento', 'personal', 'otro']),
+  proveedor_id:      zUUID.nullable().optional(),
+  notas:             zText(2000).nullable().optional(),
+  repetir:           z.enum(['semanal', 'mensual', 'dias']).nullable().optional(),
+  repetir_cada_dias: z.number().int().min(1).max(365).nullable().optional(),
+}).refine(t => t.repetir !== 'dias' || !!t.repetir_cada_dias, { message: 'Indicá cada cuántos días', path: ['repetir_cada_dias'] });
+
+export const RecotizacionSchema = z.object({
+  operacion_id: zUUID,
+  fecha:        zFecha,
+  hora:         zHora.nullable().optional(),
+  nota:         zText(2000).nullable().optional(),
+});

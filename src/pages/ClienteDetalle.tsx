@@ -147,7 +147,7 @@ export function ClienteDetalle() {
 
   // Nueva tarea
   const [mostrarFormTarea, setMostrarFormTarea] = useState(false);
-  const [nuevaTarea, setNuevaTarea] = useState({ descripcion: '', vencimiento: '', prioridad: 'normal' });
+  const [nuevaTarea, setNuevaTarea] = useState({ descripcion: '', vencimiento: '', prioridad: 'normal', tipo_accion: 'llamada', hora: '', operacion_id: '' });
   const [savingTarea, setSavingTarea] = useState(false);
 
   // Menú más acciones
@@ -232,8 +232,17 @@ export function ClienteDetalle() {
     if (!nuevaTarea.descripcion.trim() || !id) return;
     setSavingTarea(true);
     try {
-      await api.post('/tareas', { cliente_id: id, ...nuevaTarea });
-      setNuevaTarea({ descripcion: '', vencimiento: '', prioridad: 'normal' });
+      const esRecotizar = nuevaTarea.tipo_accion === 'recotizar';
+      if (esRecotizar && (!nuevaTarea.operacion_id || !nuevaTarea.vencimiento)) {
+        toast.error('Para recotizar elegí la proforma y la fecha');
+        return;
+      }
+      await api.post('/tareas', {
+        cliente_id: id, ...nuevaTarea,
+        hora: nuevaTarea.hora || null,
+        operacion_id: esRecotizar ? nuevaTarea.operacion_id : null,
+      });
+      setNuevaTarea({ descripcion: '', vencimiento: '', prioridad: 'normal', tipo_accion: 'llamada', hora: '', operacion_id: '' });
       setMostrarFormTarea(false);
       await load();
     } catch { toast.error('Error al guardar tarea'); }
@@ -795,6 +804,29 @@ export function ClienteDetalle() {
                         className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         onKeyDown={e => { if (e.key === 'Enter') guardarTarea(); if (e.key === 'Escape') setMostrarFormTarea(false); }}
                       />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={nuevaTarea.tipo_accion} aria-label="Tipo de tarea"
+                          onChange={e => setNuevaTarea(p => ({ ...p, tipo_accion: e.target.value }))}
+                          className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none">
+                          <option value="llamada">Llamar</option>
+                          <option value="whatsapp">WhatsApp</option>
+                          <option value="visita">Visita</option>
+                          <option value="seguimiento">Seguimiento</option>
+                          <option value="recotizar" disabled={presupuestosLista.length === 0}>Recotizar proforma</option>
+                          <option value="nota">Otra</option>
+                        </select>
+                        <input type="time" value={nuevaTarea.hora} aria-label="Hora (opcional)"
+                          onChange={e => setNuevaTarea(p => ({ ...p, hora: e.target.value }))}
+                          className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      </div>
+                      {nuevaTarea.tipo_accion === 'recotizar' && (
+                        <select value={nuevaTarea.operacion_id} aria-label="Proforma a recotizar"
+                          onChange={e => setNuevaTarea(p => ({ ...p, operacion_id: e.target.value }))}
+                          className="w-full text-xs px-2 py-1.5 border border-orange-300 rounded-lg bg-white focus:outline-none">
+                          <option value="">— Elegí la proforma —</option>
+                          {presupuestosLista.map(o => <option key={o.id} value={o.id}>{o.numero}</option>)}
+                        </select>
+                      )}
                       <div className="grid grid-cols-2 gap-2">
                         <input type="date" value={nuevaTarea.vencimiento}
                           onChange={e => setNuevaTarea(p => ({ ...p, vencimiento: e.target.value }))}

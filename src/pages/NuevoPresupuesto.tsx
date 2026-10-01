@@ -7,6 +7,7 @@ import {
   Ruler, Wrench, AlertTriangle, Tag, Copy, Layers,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { preguntarRecotizacion } from '@/components/agenda/preguntarRecotizacion';
 import { formatCurrency, cn, disponibilidadVigente } from '@/lib/utils';
 import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
@@ -798,6 +799,7 @@ export function NuevoPresupuesto() {
         : await api.post<{ id: string; numero: string }>('/operaciones', payload);
 
       if (!isEdit) borrarBorrador();
+      else void preguntarRecotizacion(op.id, op.numero);
       const msgBase = isEdit ? `Presupuesto ${op.numero} actualizado` : `Presupuesto ${op.numero} creado`;
       if (oportunidadId) {
         try {

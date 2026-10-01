@@ -10,7 +10,7 @@ import type { Page } from '@playwright/test';
 // El token se cachea por proceso: N tests del mismo worker = 1 login.
 let tokenCache: string | null = null;
 
-export async function login(page: Page) {
+export async function login(page: Page, opts: { agenda?: boolean } = {}) {
   const email = process.env.E2E_EMAIL;
   const password = process.env.E2E_PASSWORD;
   if (!email || !password) {
@@ -33,7 +33,12 @@ export async function login(page: Page) {
   }
 
   const token = tokenCache;
-  await page.addInitScript((t: string) => {
-    try { sessionStorage.setItem('aberturas_token', t); } catch { /* sin storage */ }
-  }, token);
+  // El aviso de la agenda del día taparía las pantallas que se revisan: se silencia en los e2e
+  // (los e2e de la agenda lo prenden con agenda: true).
+  await page.addInitScript(([t, silenciar]: [string, boolean]) => {
+    try {
+      sessionStorage.setItem('aberturas_token', t);
+      if (silenciar) sessionStorage.setItem('aberturas_agenda_silencio', '1');
+    } catch { /* sin storage */ }
+  }, [token, !opts.agenda] as [string, boolean]);
 }

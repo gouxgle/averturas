@@ -19,18 +19,18 @@ export async function sincronizarTareaEntrega(q: Queryable, remitoId: string): P
 
   if (r.tarea_id) {
     await q.query(
-      `UPDATE tareas SET descripcion = $1, vencimiento = $2, completada = false, completada_at = NULL
+      `UPDATE tareas SET descripcion = $1, vencimiento = $2, hora = $4, completada = false, completada_at = NULL
        WHERE id = $3`,
-      [descripcion, r.fecha_entrega_est, r.tarea_id]
+      [descripcion, r.fecha_entrega_est, r.tarea_id, r.hora_entrega_est ?? null]
     );
     return;
   }
 
   const { rows: [tarea] } = await q.query(
-    `INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, created_by)
-     VALUES ($1, $2, $3, $4, 'normal', 'entrega', $5)
+    `INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, created_by, hora)
+     VALUES ($1, $2, $3, $4, 'normal', 'entrega', $5, $6)
      RETURNING id`,
-    [r.cliente_id, r.operacion_id, descripcion, r.fecha_entrega_est, r.created_by]
+    [r.cliente_id, r.operacion_id, descripcion, r.fecha_entrega_est, r.created_by, r.hora_entrega_est ?? null]
   );
   await q.query(`UPDATE remitos SET tarea_id = $1 WHERE id = $2`, [tarea.id, remitoId]);
 }

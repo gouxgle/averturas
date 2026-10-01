@@ -4,6 +4,7 @@ import {
   CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAvisoAgendaAbierto } from '@/lib/agenda';
 import { formatCurrency, cn } from '@/lib/utils';
 
 /**
@@ -160,6 +161,7 @@ export function AvisosEmergentes() {
   const navigate = useNavigate();
   const [cola, setCola] = useState<AvisoNotif[]>([]);
   const vistosRef = useRef<Set<string>>(new Set());
+  const agendaAbierta = useAvisoAgendaAbierto();
 
   const clave = (n: AvisoNotif) => `${n.tipo}-${n.id}`;
 
@@ -218,7 +220,9 @@ export function AvisosEmergentes() {
     navigate(ruta);
   }
 
-  if (cola.length === 0) return null;
+  // Mientras está abierto el aviso de la agenda del día, estas tarjetas esperan: aparecen al
+  // cerrarlo, en vez de encimarse todo al entrar al sistema.
+  if (cola.length === 0 || agendaAbierta) return null;
 
   const visibles = cola.slice(0, MAX_VISIBLES);
   const restantes = cola.length - visibles.length;

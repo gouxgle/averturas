@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
   FileText, Hammer, Layers, Boxes, TrendingUp,
-  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, ReceiptText, BookOpen, GitBranch, ShoppingCart, Factory, Zap, Ruler, History, Activity
+  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, ReceiptText, BookOpen, GitBranch, ShoppingCart, Factory, Zap, Ruler, History, Activity, CalendarDays
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     items: [
       { to: '/dashboard',     label: 'Dashboard',        icon: LayoutDashboard, activeColor: 'text-blue-400',    activeBg: 'bg-blue-500/10' },
+      { to: '/agenda',        label: 'Agenda',           icon: CalendarDays,    activeColor: 'text-orange-400',  activeBg: 'bg-orange-500/10' },
     ],
   },
   {

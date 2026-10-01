@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
-import { sincronizarDesdeTarea } from '../lib/oportunidades.js';
+import { completarTarea } from '../lib/tareas.js';
 
 const crm = new Hono();
 
@@ -126,7 +126,7 @@ crm.get('/tablero', async (c) => {
         c.telefono
       FROM tareas t
       JOIN clientes c ON c.id = t.cliente_id
-      WHERE t.vencimiento = CURRENT_DATE AND t.completada = false
+      WHERE t.vencimiento = CURRENT_DATE AND t.completada = false AND t.ambito = 'cliente'
       ORDER BY t.hora ASC NULLS LAST, t.prioridad = 'alta' DESC
       LIMIT 15
     `),
@@ -247,7 +247,7 @@ crm.get('/tablero', async (c) => {
     db.query(`
       SELECT COUNT(*)::int AS total
       FROM tareas
-      WHERE completada = false
+      WHERE completada = false AND ambito = 'cliente'
         AND (vencimiento IS NULL OR vencimiento <= CURRENT_DATE + 7)
     `),
 
@@ -409,18 +409,9 @@ crm.patch('/clientes/:id', async (c) => {
 // ── Completar tarea ───────────────────────────────────────────────────────────
 
 crm.patch('/tareas/:id/completar', async (c) => {
-  const { rows } = await db.query(`
-    UPDATE tareas SET completada = true, completada_at = now()
-    WHERE id = $1 RETURNING *
-  `, [c.req.param('id')]);
-  if (!rows[0]) return c.json({ error: 'no encontrado' }, 404);
-
-  if (rows[0].tipo_accion === 'oportunidad') {
-    sincronizarDesdeTarea(db, rows[0].id, true)
-      .catch(err => console.error('[oportunidades] sync desde tarea:', err));
-  }
-
-  return c.json(rows[0]);
+  const row = await completarTarea(db, c.req.param('id'), true, c.get('user').id);
+  if (!row) return c.json({ error: 'no encontrado' }, 404);
+  return c.json(row);
 });
 
 export default crm;

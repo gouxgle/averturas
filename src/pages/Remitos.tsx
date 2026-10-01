@@ -450,7 +450,7 @@ export function Remitos() {
   const [data, setData] = useState<TableroData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('todos');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [page, setPage] = useState(1);
   const perPage = 10;
   const [estadoModal, setEstadoModal]     = useState<Remito | null>(null);

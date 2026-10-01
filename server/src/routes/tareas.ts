@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
-import { sincronizarDesdeTarea } from '../lib/oportunidades.js';
+import { completarTarea, agendarRecotizacion } from '../lib/tareas.js';
 
 const tareas = new Hono();
 
@@ -24,7 +24,7 @@ tareas.get('/', async (c) => {
       json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido, 'razon_social', c.razon_social)
         AS cliente
     FROM tareas t
-    JOIN clientes c ON c.id = t.cliente_id
+    LEFT JOIN clientes c ON c.id = t.cliente_id
     ${where}
     ORDER BY
       CASE WHEN t.vencimiento IS NULL THEN 1 ELSE 0 END,
@@ -40,23 +40,25 @@ tareas.get('/', async (c) => {
 tareas.get('/agenda', async (c) => {
   const CAMPOS = `
     t.id, t.descripcion, t.tipo_accion, t.hora::text, t.prioridad,
-    t.vencimiento, t.operacion_id, t.cliente_id,
+    t.vencimiento, t.operacion_id, t.cliente_id, t.ambito, t.categoria,
     c.nombre, c.apellido, c.razon_social, c.tipo_persona, c.telefono
   `;
+  // El CRM pide solo la agenda comercial (?ambito=cliente); el Centro de alertas, todo.
+  const ambito = c.req.query('ambito') === 'cliente' ? `AND t.ambito = 'cliente'` : '';
   const [{ rows: vencidas }, { rows: hoy }, { rows: proximos }] = await Promise.all([
     db.query(`
-      SELECT ${CAMPOS} FROM tareas t JOIN clientes c ON c.id = t.cliente_id
-      WHERE t.completada = false AND t.vencimiento < CURRENT_DATE
+      SELECT ${CAMPOS} FROM tareas t LEFT JOIN clientes c ON c.id = t.cliente_id
+      WHERE t.completada = false AND t.vencimiento < CURRENT_DATE ${ambito}
       ORDER BY t.vencimiento ASC LIMIT 50
     `),
     db.query(`
-      SELECT ${CAMPOS} FROM tareas t JOIN clientes c ON c.id = t.cliente_id
-      WHERE t.completada = false AND t.vencimiento = CURRENT_DATE
+      SELECT ${CAMPOS} FROM tareas t LEFT JOIN clientes c ON c.id = t.cliente_id
+      WHERE t.completada = false AND t.vencimiento = CURRENT_DATE ${ambito}
       ORDER BY t.hora ASC NULLS LAST, t.prioridad = 'alta' DESC LIMIT 50
     `),
     db.query(`
-      SELECT ${CAMPOS} FROM tareas t JOIN clientes c ON c.id = t.cliente_id
-      WHERE t.completada = false AND t.vencimiento > CURRENT_DATE AND t.vencimiento <= CURRENT_DATE + 3
+      SELECT ${CAMPOS} FROM tareas t LEFT JOIN clientes c ON c.id = t.cliente_id
+      WHERE t.completada = false AND t.vencimiento > CURRENT_DATE AND t.vencimiento <= CURRENT_DATE + 3 ${ambito}
       ORDER BY t.vencimiento ASC, t.hora ASC NULLS LAST LIMIT 50
     `),
   ]);
@@ -69,6 +71,19 @@ tareas.post('/', async (c) => {
 
   if (!body.cliente_id || !body.descripcion?.trim()) {
     return c.json({ error: 'cliente_id y descripcion son requeridos' }, 400);
+  }
+
+  // Recotizar va atado a una proforma y hay una sola pendiente por proforma
+  if (body.tipo_accion === 'recotizar') {
+    if (!body.operacion_id) return c.json({ error: 'Elegí la proforma a recotizar' }, 400);
+    if (!body.vencimiento) return c.json({ error: 'Indicá la fecha de la recotización' }, 400);
+    const r = await agendarRecotizacion(db, {
+      operacionId: body.operacion_id, fecha: body.vencimiento, hora: body.hora || null,
+      descripcion: body.descripcion.trim(), prioridad: body.prioridad, usuarioId: user.id,
+    });
+    if (!r) return c.json({ error: 'Proforma no encontrada' }, 404);
+    const { rows: [row] } = await db.query('SELECT * FROM tareas WHERE id = $1', [r.id]);
+    return c.json(row, r.creada ? 201 : 200);
   }
 
   const { rows: [row] } = await db.query(`
@@ -92,30 +107,8 @@ tareas.post('/', async (c) => {
 tareas.patch('/:id/completar', async (c) => {
   const { id } = c.req.param();
   const body = await c.req.json<{ completada: boolean }>();
-
-  const { rows: [row] } = await db.query(`
-    UPDATE tareas SET
-      completada    = $1,
-      completada_at = CASE WHEN $1 THEN now() ELSE NULL END
-    WHERE id = $2 RETURNING *
-  `, [body.completada, id]);
-
+  const row = await completarTarea(db, id, body.completada !== false, c.get('user').id);
   if (!row) return c.json({ error: 'Tarea no encontrada' }, 404);
-
-  // Completar la tarea de seguimiento cierra también el badge de "respuesta pendiente" de la operación
-  if (body.completada && row.operacion_id) {
-    db.query(
-      `UPDATE operaciones SET respuesta_cliente = NULL, respuesta_cliente_at = NULL
-       WHERE id = $1 AND respuesta_cliente IS NOT NULL`,
-      [row.operacion_id]
-    ).catch(err => console.error('[tareas] Error al limpiar respuesta_cliente:', err));
-  }
-
-  if (row.tipo_accion === 'oportunidad') {
-    sincronizarDesdeTarea(db, row.id, body.completada)
-      .catch(err => console.error('[oportunidades] sync desde tarea:', err));
-  }
-
   return c.json(row);
 });
 

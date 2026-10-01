@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
+import { sincronizarTareaVisita } from '../lib/tareas.js';
 import { validateBody } from '../lib/validate.js';
 import {
   VisitaTecnicaCrearSchema, VisitaTecnicaSchema, VisitaTecnicaCobrarSchema,
@@ -511,6 +512,7 @@ visitasTecnicas.put('/:id', async (c) => {
     }
 
     await client.query('COMMIT');
+    await sincronizarTareaVisita(db, id);
     const { rows: [full] } = await db.query(`${WITH_CLIENTE} WHERE vt.id = $1`, [id]);
     return c.json(full);
   } catch (err) {
@@ -541,6 +543,7 @@ visitasTecnicas.patch('/:id/cancelar', async (c) => {
     `UPDATE visitas_tecnicas SET estado='cancelada', updated_at=now() WHERE id=$1 RETURNING *`,
     [id]
   );
+  await sincronizarTareaVisita(db, id);
   return c.json(row);
 });
 
@@ -558,6 +561,8 @@ visitasTecnicas.delete('/:id', async (c) => {
   if (visita.recibo_id) {
     return c.json({ error: 'No se puede eliminar: tiene un recibo emitido' }, 409);
   }
+  // La tarea espejo se va con la visita (si no, quedaría en la agenda una visita inexistente)
+  await db.query(`DELETE FROM tareas WHERE id = (SELECT tarea_id FROM visitas_tecnicas WHERE id = $1) AND NOT completada`, [id]);
   await db.query('DELETE FROM visitas_tecnicas WHERE id = $1', [id]);
   return c.json({ ok: true });
 });
