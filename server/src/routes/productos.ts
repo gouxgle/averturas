@@ -5,6 +5,11 @@ import sharp from 'sharp';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { ProductoSchema } from '../lib/schemas.js';
+import { z } from 'zod';
+import {
+  filasRevision, analizarFila, leerConfigPrecios, precioSegunCriterio, redondearPrecio, grupoDe, registrarHistorial,
+  type Criterio, type CambioHistorial,
+} from '../lib/precios.js';
 
 const productos = new Hono();
 
@@ -102,12 +107,149 @@ productos.patch('/renovar-validez-precios', async (c) => {
   if (!familias && !elegidos) {
     return c.json({ error: 'Seleccioná al menos una familia o un producto' }, 422);
   }
-  const { rowCount } = await db.query(
+  const { rows } = await db.query(
     `UPDATE catalogo_productos SET precio_actualizado_at = now()
-     WHERE activo = true AND (tipo_abertura_id = ANY($1::uuid[]) OR id = ANY($2::uuid[]))`,
+     WHERE activo = true AND (tipo_abertura_id = ANY($1::uuid[]) OR id = ANY($2::uuid[]))
+     RETURNING id, precio_base::float AS precio, costo_base::float AS costo`,
     [familias ?? [], elegidos ?? []]
   );
-  return c.json({ actualizados: rowCount });
+  await registrarHistorial(db, rows.map(r => ({
+    producto_id: r.id, tipo: 'renovacion' as const, precio_anterior: r.precio, precio_nuevo: r.precio,
+    costo_anterior: r.costo, costo_nuevo: r.costo, origen: 'revision',
+    criterio: familias ? 'renovación por familia' : 'renovación de validez',
+  })), c.get('user')?.id ?? null);
+  return c.json({ actualizados: rows.length });
+});
+
+
+// ── Revisión integral de precios ────────────────────────────────
+// Análisis de cada producto (lib/precios.ts): sugiere renovar la validez de lo que no varió y
+// actualizar lo que sí, con los motivos. Registrar ANTES de '/:id'.
+
+const PreviaSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(2000),
+  criterio: z.discriminatedUnion('tipo', [
+    z.object({ tipo: z.literal('sugerido') }),
+    z.object({ tipo: z.literal('porcentaje'), pct: z.number().min(-90).max(500) }),
+    z.object({ tipo: z.literal('dolar') }),
+    z.object({ tipo: z.literal('costo'), actualizar_costo: z.boolean() }),
+    z.object({ tipo: z.literal('grupos'), por: z.enum(['familia', 'linea', 'proveedor', 'medida']), pcts: z.record(z.string(), z.number().min(-90).max(500)) }),
+  ]),
+  redondeo: z.number().min(0).max(100_000).default(0),
+});
+
+const AplicarSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().uuid(),
+    precio_nuevo: z.number().positive().max(1_000_000_000),
+    costo_nuevo: z.number().positive().max(1_000_000_000).nullable().optional(),
+  })).min(1).max(2000),
+  criterio: z.string().trim().max(200),
+});
+
+const ConfigPreciosSchema = z.object({
+  umbral_pct: z.number().min(0.5).max(50),
+  dias_al_dia: z.number().int().min(1).max(60),
+  dias_vencido: z.number().int().min(2).max(120),
+}).refine(c => c.dias_vencido > c.dias_al_dia, { message: 'Los días de vencido tienen que ser más que los de al día', path: ['dias_vencido'] });
+
+productos.get('/revision-precios', async (c) => {
+  const [cfg, filas, { rows: [dolar] }, { rows: ipc }] = await Promise.all([
+    leerConfigPrecios(),
+    filasRevision(),
+    db.query(`SELECT (SELECT venta FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1)::float AS hoy,
+                     (SELECT fecha FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1) AS fecha,
+                     (SELECT venta FROM cotizacion_dolar_historial WHERE fecha <= CURRENT_DATE - 30 ORDER BY fecha DESC LIMIT 1)::float AS hace30`),
+    db.query(`SELECT mes, variacion::float FROM indice_ipc ORDER BY mes DESC LIMIT 3`),
+  ]);
+  const productos = filas.map(f => ({ ...f, analisis: analizarFila(f, cfg) }));
+  const ipc3 = ipc.length === 3 ? (ipc.reduce((a, m) => a * (1 + m.variacion / 100), 1) - 1) * 100 : null;
+  return c.json({
+    config: cfg,
+    dolar: { hoy: dolar?.hoy ?? null, fecha: dolar?.fecha ?? null, var_30d: dolar?.hoy && dolar?.hace30 ? (dolar.hoy / dolar.hace30 - 1) * 100 : null },
+    ipc: { ultimo: ipc[0] ?? null, ultimos_3: ipc3 },
+    productos,
+  });
+});
+
+productos.put('/revision-precios/config', async (c) => {
+  if (c.get('user')?.rol !== 'admin') return c.json({ error: 'Solo un administrador cambia los parámetros' }, 403);
+  const b = await validateBody(c, ConfigPreciosSchema);
+  if (b instanceof Response) return b;
+  await db.query(`UPDATE precios_config SET umbral_pct = $1, dias_al_dia = $2, dias_vencido = $3, updated_at = now() WHERE id = 1`,
+    [b.umbral_pct, b.dias_al_dia, b.dias_vencido]);
+  return c.json(b);
+});
+
+/** Vista previa: precio actual → nuevo según el criterio, sin guardar nada. */
+productos.post('/revision-precios/previsualizar', async (c) => {
+  const b = await validateBody(c, PreviaSchema);
+  if (b instanceof Response) return b;
+  const cfg = await leerConfigPrecios();
+  const filas = await filasRevision(b.ids);
+  const criterio = b.criterio as Criterio;
+  const items = filas.map(f => {
+    const a = analizarFila(f, cfg);
+    const grupo = criterio.tipo === 'grupos' ? grupoDe(f, criterio.por) : null;
+    const r = precioSegunCriterio(Number(f.precio), a, criterio, grupo);
+    const precioNuevo = redondearPrecio(r.precio, b.redondeo);
+    const costoNuevo = r.costo ?? Number(f.costo);
+    return {
+      id: f.id, nombre: f.nombre, codigo: f.codigo, familia: f.familia, linea: f.linea ?? f.sistema, proveedor: f.proveedor,
+      precio_manual: f.precio_manual, precio_por_m2: f.precio_por_m2,
+      precio_actual: Number(f.precio), precio_nuevo: precioNuevo,
+      pct: Number(f.precio) > 0 ? (precioNuevo / Number(f.precio) - 1) * 100 : 0,
+      costo_actual: Number(f.costo), costo_nuevo: r.costo !== null ? costoNuevo : null,
+      recargo_nuevo: costoNuevo > 0 ? (precioNuevo / costoNuevo - 1) * 100 : null,
+      recargo_objetivo: f.recargo_objetivo,
+    };
+  });
+  return c.json({ items });
+});
+
+/** Aplica precios (y costos) ya revisados en la vista previa. Todo o nada, con historial. */
+productos.post('/revision-precios/aplicar', async (c) => {
+  if (c.get('user')?.rol === 'consulta') return c.json({ error: 'Tu usuario es de solo consulta' }, 403);
+  const b = await validateBody(c, AplicarSchema);
+  if (b instanceof Response) return b;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: antes } = await client.query(
+      `SELECT id, precio_base::float AS precio, costo_base::float AS costo FROM catalogo_productos
+        WHERE id = ANY($1::uuid[]) AND activo FOR UPDATE`, [b.items.map(i => i.id)]);
+    const porId = new Map(antes.map(r => [r.id, r]));
+    const cambios: CambioHistorial[] = [];
+    for (const it of b.items) {
+      const a = porId.get(it.id);
+      if (!a) continue;
+      const precio = Math.round(it.precio_nuevo * 100) / 100;
+      const costo = it.costo_nuevo != null ? Math.round(it.costo_nuevo * 100) / 100 : a.costo;
+      await client.query(
+        `UPDATE catalogo_productos SET precio_base = $2, costo_base = $3, precio_actualizado_at = now() WHERE id = $1`,
+        [it.id, precio, costo]);
+      cambios.push({
+        producto_id: it.id, tipo: precio !== a.precio ? 'cambio_precio' : costo !== a.costo ? 'cambio_costo' : 'renovacion',
+        precio_anterior: a.precio, precio_nuevo: precio, costo_anterior: a.costo, costo_nuevo: costo,
+        origen: 'revision', criterio: b.criterio,
+      });
+    }
+    await registrarHistorial(client, cambios, c.get('user')?.id ?? null);
+    await client.query('COMMIT');
+    return c.json({ actualizados: cambios.length });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+productos.get('/:id/historial-precios', async (c) => {
+  const { rows } = await db.query(`
+    SELECT h.*, u.nombre AS usuario FROM producto_precio_historial h LEFT JOIN usuarios u ON u.id = h.usuario_id
+     WHERE h.producto_id = $1 ORDER BY h.created_at DESC LIMIT 50`, [c.req.param('id')]);
+  return c.json(rows);
 });
 
 productos.get('/:id', async (c) => {
@@ -244,6 +386,8 @@ productos.put('/:id', async (c) => {
   if (b.publicado_web && !tieneImagen(b)) {
     return c.json({ error: SIN_IMAGEN_MSG }, 422);
   }
+  const { rows: [antes] } = await db.query(
+    `SELECT costo_base::float AS costo, precio_base::float AS precio FROM catalogo_productos WHERE id = $1`, [c.req.param('id')]);
 
   const { rows: [row] } = await db.query(`
     UPDATE catalogo_productos SET
@@ -333,6 +477,17 @@ productos.put('/:id', async (c) => {
     c.req.param('id'),
   ]);
   if (!row) return c.json({ error: 'Producto no encontrado' }, 404);
+  if (antes) {
+    const cambioPrecio = Number(row.precio_base) !== antes.precio;
+    const cambioCosto = Number(row.costo_base) !== antes.costo;
+    if (cambioPrecio || cambioCosto) {
+      await registrarHistorial(db, [{
+        producto_id: row.id, tipo: cambioPrecio ? 'cambio_precio' : 'cambio_costo',
+        precio_anterior: antes.precio, precio_nuevo: Number(row.precio_base),
+        costo_anterior: antes.costo, costo_nuevo: Number(row.costo_base), origen: 'ficha', criterio: 'a mano',
+      }], c.get('user')?.id ?? null).catch(e => console.error('[precios] historial:', e));
+    }
+  }
   return c.json(row);
 });
 

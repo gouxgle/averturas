@@ -240,11 +240,15 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
                           {[p.codigo, p.tipo_abertura?.nombre ?? 'Sin familia', p.proveedor?.nombre].filter(Boolean).join(' · ')}
                         </p>
                       </div>
+                      {/* Costo (referencia contra el precio del proveedor) y última renovación */}
                       <div className="shrink-0 text-right">
-                        <p className="text-xs font-bold text-gray-800 tabular-nums">{fmtPrecio(p.precio_base)}</p>
-                        <p className={cn('text-[11px] font-semibold inline-flex items-center gap-1', est.texto)}>
+                        <p className="text-xs font-bold text-gray-800 tabular-nums" title="Precio de costo">costo {fmtPrecio(p.costo_base)}</p>
+                        <p className={cn('text-[11px] font-semibold inline-flex items-center gap-1', est.texto)}
+                          title={dias === null ? '' : `hace ${dias} día${dias !== 1 ? 's' : ''}`}>
                           <span className={cn('w-1.5 h-1.5 rounded-full', est.punto)} />
-                          {dias === null ? 'sin fecha' : dias === 0 ? 'hoy' : `hace ${dias} día${dias !== 1 ? 's' : ''}`}
+                          {p.precio_actualizado_at
+                            ? `renovado ${new Date(p.precio_actualizado_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
+                            : 'sin fecha'}
                         </p>
                       </div>
                     </button>

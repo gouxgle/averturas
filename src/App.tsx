@@ -40,6 +40,7 @@ const Ayuda                    = lazy(() => import('@/pages/ayuda/Ayuda'));
 const NuevaSolicitud           = lazy(() => import('@/pages/compras/NuevaSolicitud'));
 const Facturacion               = lazy(() => import('@/pages/facturacion/Facturacion'));
 const Agenda                    = lazy(() => import('@/pages/Agenda'));
+const RevisionPrecios           = lazy(() => import('@/pages/RevisionPrecios'));
 const NuevaFactura             = lazy(() => import('@/pages/facturacion/NuevaFactura'));
 const NuevoPedido              = lazy(() => import('@/pages/NuevoPedido'));
 const EstadoCuentaGlobal       = lazy(() => import('@/pages/EstadoCuentaGlobal').then(m => ({ default: m.EstadoCuentaGlobal })));
@@ -121,6 +122,7 @@ export default function App() {
                   <Route path="/ventas/rapida" element={<VentaRapida />} />
                   <Route path="/productos" element={<Productos />} />
                   <Route path="/productos/nuevo" element={<NuevoProducto />} />
+                  <Route path="/productos/precios" element={<RevisionPrecios />} />
                   <Route path="/productos/:id" element={<NuevoProducto />} />
                   <Route path="/stock" element={<Stock />} />
                   <Route path="/proveedores" element={<Proveedores />} />

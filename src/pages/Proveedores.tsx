@@ -426,7 +426,7 @@ function ModalProveedor({
                 <p className="text-[10px] text-gray-500">Se calcula solo con las facturas, pagos y notas cargadas en Compras.</p>
               </div>
               <div>
-                <label className={lbl}>Margen de venta (%) <span className="text-gray-600 font-normal">— fallback</span></label>
+                <label className={lbl}>Recargo sobre costo (%) <span className="text-gray-600 font-normal">— fallback</span></label>
                 <input type="number" min="0" max="999" step="1" value={form.margen_venta ?? ''} onChange={e => set('margen_venta', parseFloat(e.target.value) || 0)}
                   className={inp('margen_venta')} placeholder="0" />
               </div>

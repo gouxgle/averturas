@@ -21,6 +21,7 @@ import dashboardRoutes    from './routes/dashboard.js';
 import interaccionesRoutes from './routes/interacciones.js';
 import tareasRoutes        from './routes/tareas.js';
 import agendaRoutes        from './routes/agenda.js';
+import { iniciarIndicesEconomicos } from './lib/indices.js';
 import empresaRoutes       from './routes/empresa.js';
 import usuariosRoutes      from './routes/usuarios.js';
 import stockRoutes         from './routes/stock.js';
@@ -202,4 +203,6 @@ serve({ fetch: app.fetch, port: PORT }, () => {
   console.log(`✓ Aberturas API corriendo en http://0.0.0.0:${PORT}`);
   // Cola de trabajos (conciliación de comprobantes con ARCA, envíos con reintento).
   iniciarTrabajosFiscales();
+  // Dólar blue diario e inflación mensual (revisión de precios).
+  iniciarIndicesEconomicos();
 });

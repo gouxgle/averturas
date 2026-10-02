@@ -445,6 +445,25 @@ sincronizada en ambos sentidos (`server/src/lib/oportunidades.ts`). Sin cron: la
 filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencido, CRM, y
 "necesito más tiempo" del link público.
 
+## Revisión integral de precios (`/productos/precios`)
+
+- Motor en `server/src/lib/precios.ts` (`analizarProducto`, puro, tests en `precios.test.ts`):
+  costo de reposición = máx(costo cargado, lista vigente del proveedor, última compra posterior
+  a la actualización y "razonable" 0,5×–2×). Precio sugerido = máx(costo rep. × (1 + recargo de
+  referencia), precio × variación del dólar blue); **recargo de referencia = el mayor entre el
+  actual y el objetivo** (nunca baja el precio). Estados: actualizar (≥ umbral, default 3 %) /
+  renovar / al día / sin datos. IPC solo informativo. Parámetros en `precios_config`.
+- Endpoints: `GET /productos/revision-precios`, `POST …/previsualizar` y `…/aplicar` (transacción
+  + historial), `PUT …/config` (admin), `GET /productos/:id/historial-precios`; lista por
+  proveedor `POST /catalogo/proveedor-precios/analizar-lista` y `…/aplicar-lista` (solo toca
+  productos de ESE proveedor; SKU por enlace en `proveedor_precios.producto_id` o
+  `catalogo_productos.proveedor_sku`; enlaces manuales).
+- `producto_precio_historial` se escribe desde la ficha (PUT), renovar validez, la revisión, la
+  lista por proveedor y `aplicar-actualizacion` (que ahora renueva `precio_actualizado_at`).
+- Dólar blue diario sin huecos + IPC: `server/src/lib/indices.ts` (arranque + cada 6 h,
+  api.argentinadatos.com). Listas en Excel/CSV: `src/lib/listaPrecios.ts` (`read-excel-file`,
+  importes "1.234,56").
+
 ## Notificaciones y avisos
 
 - `GET /notificaciones`: UNION de 6 fuentes no leídas — `presupuesto` (aprobación online,

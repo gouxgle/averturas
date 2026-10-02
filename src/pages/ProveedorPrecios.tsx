@@ -4,9 +4,10 @@ import {
   ArrowLeft, Plus, Pencil, Trash2, Check, X,
   Search, Upload, Download, RefreshCw, Tag,
   AlertCircle, Package, Link, Link2Off, TrendingUp,
-  Percent, ChevronRight, ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { filasDesdeTabla, tablaDesdeCsv } from '@/lib/listaPrecios';
 import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -49,18 +50,6 @@ interface FilaForm {
   precio: string;
 }
 
-interface DiffItem {
-  id: string;
-  sku: string;
-  descripcion: string;
-  precio_actual: number;
-  precio_nuevo: number;
-  margen_efectivo: number;
-  precio_venta_nuevo: number;
-  producto_nombre: string | null;
-  actualizar_catalogo: boolean;
-  es_nuevo: boolean; // no existe aún en la lista
-}
 
 // ── Helpers ────────────────────────────────────────────────────
 function formatCurrency(n: number) {
@@ -69,20 +58,11 @@ function formatCurrency(n: number) {
   }).format(n);
 }
 
+// Mismo lector que la Revisión integral de precios: detecta columnas y entiende "1.234,56"
+// (antes "1.234,56" se leía como 1,234).
 function parseCsv(text: string): FilaForm[] {
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  const filas: FilaForm[] = [];
-  for (const line of lines) {
-    const cols = line.match(/("(?:[^"]|"")*"|[^,\t]*)(?:[,\t]|$)/g)
-      ?.map(c => c.replace(/,$/, '').replace(/^\t$/, '').replace(/^"(.*)"$/, '$1').replace(/""/g, '"').trim())
-      ?? [];
-    const [sku, descripcion, precioStr] = cols;
-    if (!sku || !descripcion) continue;
-    const precio = parseFloat(precioStr?.replace(/[^\d.,]/g, '').replace(',', '.'));
-    if (!sku || sku.toLowerCase() === 'sku' || sku.toLowerCase() === 'codigo') continue;
-    filas.push({ sku, descripcion, precio: isNaN(precio) ? '0' : String(precio) } as unknown as FilaForm);
-  }
-  return filas;
+  return filasDesdeTabla(tablaDesdeCsv(text)).filas
+    .map(f => ({ sku: f.sku, descripcion: f.descripcion || f.sku, precio: String(f.precio) }) as unknown as FilaForm);
 }
 
 // ── Badge margen fuente ────────────────────────────────────────
@@ -201,350 +181,6 @@ function VincularModal({
             <p className="text-sm text-gray-600 text-center py-4">Sin resultados</p>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Modal actualizar precios ───────────────────────────────────
-function ActualizarPreciosModal({
-  proveedor, precios, onActualizado, onClose,
-}: {
-  proveedor: Proveedor;
-  precios: PrecioProv[];
-  onActualizado: () => void;
-  onClose: () => void;
-}) {
-  const [paso,   setPaso]   = useState<1 | 2 | 3>(1);
-  const [metodo, setMetodo] = useState<'porcentaje' | 'csv'>('porcentaje');
-  const [pct,    setPct]    = useState('');
-  const [diff,   setDiff]   = useState<DiffItem[]>([]);
-  const [propagarPrecioBase, setPropagarPrecioBase] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  function generarDiffPorcentaje() {
-    const p = parseFloat(pct);
-    if (!p || p <= 0) { toast.error('Ingresá un porcentaje válido mayor a 0'); return; }
-    const items: DiffItem[] = precios.map(pp => {
-      const nuevo = Math.round(pp.precio * (1 + p / 100));
-      return {
-        id: pp.id, sku: pp.sku, descripcion: pp.descripcion,
-        precio_actual: pp.precio, precio_nuevo: nuevo,
-        margen_efectivo: Number(pp.margen_efectivo) || 0,
-        precio_venta_nuevo: Math.round(nuevo * (1 + (Number(pp.margen_efectivo) || 0) / 100)),
-        producto_nombre: pp.producto_nombre,
-        actualizar_catalogo: Boolean(pp.producto_id),
-        es_nuevo: false,
-      };
-    });
-    setDiff(items);
-    setPaso(2);
-  }
-
-  function generarDiffCsv(filas: FilaForm[]) {
-    const mapaExistente = new Map(precios.map(p => [p.sku, p]));
-    const items: DiffItem[] = filas.map(f => {
-      const existe = mapaExistente.get(f.sku);
-      const nuevo = parseFloat(String(f.precio)) || 0;
-      const margen = Number(existe?.margen_efectivo) || 0;
-      return {
-        id: existe?.id ?? '',
-        sku: f.sku, descripcion: f.descripcion,
-        precio_actual: existe?.precio ?? 0,
-        precio_nuevo: nuevo,
-        margen_efectivo: margen,
-        precio_venta_nuevo: Math.round(nuevo * (1 + margen / 100)),
-        producto_nombre: existe?.producto_nombre ?? null,
-        actualizar_catalogo: Boolean(existe?.producto_id),
-        es_nuevo: !existe,
-      };
-    });
-    setDiff(items);
-    setPaso(2);
-  }
-
-  function handleCsvFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const text = e.target?.result as string;
-      const parsed = parseCsv(text);
-      if (!parsed.length) { toast.error('No se encontraron filas válidas'); return; }
-      generarDiffCsv(parsed);
-    };
-    reader.readAsText(file, 'UTF-8');
-  }
-
-  function toggleItem(idx: number, field: 'actualizar_catalogo') {
-    setDiff(prev => prev.map((d, i) => i === idx ? { ...d, [field]: !d[field] } : d));
-  }
-
-  async function confirmar() {
-    setSaving(true);
-    try {
-      const itemsConId = diff.filter(d => d.id && !d.es_nuevo);
-      const result = await api.post<{ preciosActualizados: number; catalogoActualizados: number }>(
-        '/catalogo/proveedor-precios/aplicar-actualizacion',
-        {
-          proveedor_id: proveedor.id,
-          items: itemsConId.map(d => ({
-            id: d.id,
-            precio_nuevo: d.precio_nuevo,
-            actualizar_catalogo: d.actualizar_catalogo,
-          })),
-          propagar_precio_base: propagarPrecioBase,
-        }
-      );
-      toast.success(`${result.preciosActualizados} precios actualizados · ${result.catalogoActualizados} productos del catálogo actualizados`);
-      onActualizado();
-    } catch {
-      toast.error('Error al aplicar la actualización');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const sinCambio  = diff.filter(d => d.precio_actual === d.precio_nuevo && !d.es_nuevo);
-  const conCambio  = diff.filter(d => d.precio_actual !== d.precio_nuevo && !d.es_nuevo);
-  const nuevos     = diff.filter(d => d.es_nuevo);
-  const vinculados = diff.filter(d => d.producto_nombre);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90dvh] flex flex-col">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
-          <div>
-            <h2 className="font-bold text-gray-900 text-sm">Actualizar lista de precios</h2>
-            <p className="text-xs text-gray-600">{proveedor.nombre}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Pasos */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-600">
-              {[1, 2, 3].map(n => (
-                <span key={n} className={cn('flex items-center gap-1.5',
-                  paso === n ? 'text-lime-600 font-semibold' : paso > n ? 'text-gray-600' : '')}>
-                  <span className={cn('w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border',
-                    paso === n ? 'bg-lime-500 text-white border-lime-500' :
-                    paso > n  ? 'bg-gray-200 text-gray-600 border-gray-200' :
-                    'border-gray-200 text-gray-600')}>
-                    {n}
-                  </span>
-                  {n < 3 && <ChevronRight size={12} />}
-                </span>
-              ))}
-            </div>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
-          </div>
-        </div>
-
-        {/* Paso 1: método */}
-        {paso === 1 && (
-          <div className="p-6 space-y-5 overflow-y-auto">
-            <p className="text-sm font-semibold text-gray-700">¿Cómo querés actualizar los precios?</p>
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setMetodo('porcentaje')}
-                className={cn('border-2 rounded-2xl p-5 text-left transition-all',
-                  metodo === 'porcentaje' ? 'border-lime-400 bg-lime-50' : 'border-gray-200 hover:border-gray-400')}>
-                <Percent size={20} className={metodo === 'porcentaje' ? 'text-lime-600' : 'text-gray-600'} />
-                <p className="font-semibold text-gray-800 mt-2 text-sm">Porcentaje de aumento</p>
-                <p className="text-xs text-gray-600 mt-1">Aplica el mismo % a toda la lista</p>
-              </button>
-              <button onClick={() => setMetodo('csv')}
-                className={cn('border-2 rounded-2xl p-5 text-left transition-all',
-                  metodo === 'csv' ? 'border-lime-400 bg-lime-50' : 'border-gray-200 hover:border-gray-400')}>
-                <Upload size={20} className={metodo === 'csv' ? 'text-lime-600' : 'text-gray-600'} />
-                <p className="font-semibold text-gray-800 mt-2 text-sm">Importar CSV nuevo</p>
-                <p className="text-xs text-gray-600 mt-1">Compará con precios actuales</p>
-              </button>
-            </div>
-
-            {metodo === 'porcentaje' && (
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-gray-600">Porcentaje de aumento</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number" min="0.1" max="999" step="0.5"
-                    value={pct} onChange={e => setPct(e.target.value)}
-                    placeholder="Ej: 15"
-                    className="w-32 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-300"
-                    autoFocus
-                  />
-                  <span className="text-sm text-gray-600">% sobre los {precios.length} precios actuales</span>
-                </div>
-                <button onClick={generarDiffPorcentaje}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-lime-500 text-white rounded-xl font-semibold text-sm hover:bg-lime-600 transition-colors">
-                  Ver previsualización <ChevronRight size={15} />
-                </button>
-              </div>
-            )}
-
-            {metodo === 'csv' && (
-              <div className="space-y-3">
-                <div
-                  onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleCsvFile(e.dataTransfer.files[0]); }}
-                  onDragOver={e => e.preventDefault()}
-                  onClick={() => fileRef.current?.click()}
-                  className="border-2 border-dashed border-gray-400 rounded-xl p-8 text-center cursor-pointer hover:border-lime-400 hover:bg-lime-50 transition-colors"
-                >
-                  <Upload size={28} className="mx-auto mb-2 text-gray-600" />
-                  <p className="text-sm font-medium text-gray-700">Arrastrá el CSV o hacé click</p>
-                  <p className="text-xs text-gray-600 mt-1">Formato: sku, descripcion, precio</p>
-                  <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
-                    onChange={e => { if (e.target.files?.[0]) handleCsvFile(e.target.files[0]); }} />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Paso 2: diff */}
-        {paso === 2 && (
-          <>
-            <div className="px-5 py-3 border-b bg-gray-50 shrink-0">
-              <div className="flex items-center gap-4 text-xs">
-                {conCambio.length > 0 && <span className="text-orange-600 font-semibold">{conCambio.length} con cambio</span>}
-                {sinCambio.length > 0 && <span className="text-gray-600">{sinCambio.length} sin cambio</span>}
-                {nuevos.length   > 0 && <span className="text-blue-600 font-semibold">{nuevos.length} nuevos (no se actualizan)</span>}
-                {vinculados.length > 0 && <span className="text-violet-600">{vinculados.filter(d => d.actualizar_catalogo).length} / {vinculados.length} vinculados seleccionados</span>}
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <table className="w-full min-w-[640px] text-xs">
-                <thead className="bg-gray-50 sticky top-0 border-b">
-                  <tr>
-                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">SKU</th>
-                    <th className="text-left px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Descripción</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Actual</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Nuevo</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Δ%</th>
-                    <th className="text-right px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">P.Venta nuevo</th>
-                    <th className="text-center px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider text-[10px]">Catálogo</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {diff.map((d, i) => {
-                    const delta = d.precio_actual > 0
-                      ? ((d.precio_nuevo - d.precio_actual) / d.precio_actual * 100)
-                      : 0;
-                    return (
-                      <tr key={d.id || d.sku} className={cn(
-                        d.es_nuevo ? 'bg-blue-50' :
-                        d.precio_nuevo > d.precio_actual ? 'bg-red-50/30' :
-                        d.precio_nuevo < d.precio_actual ? 'bg-green-50/30' : ''
-                      )}>
-                        <td className="px-3 py-2">
-                          <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-gray-700">{d.sku}</code>
-                        </td>
-                        <td className="px-3 py-2 text-gray-700 max-w-[180px] truncate">{d.descripcion}</td>
-                        <td className="px-3 py-2 text-right text-gray-600">
-                          {d.es_nuevo ? '—' : formatCurrency(d.precio_actual)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold text-gray-900">
-                          {formatCurrency(d.precio_nuevo)}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {d.es_nuevo ? (
-                            <span className="text-blue-500 font-semibold">nuevo</span>
-                          ) : delta === 0 ? (
-                            <span className="text-gray-600">—</span>
-                          ) : (
-                            <span className={cn('font-semibold', delta > 0 ? 'text-red-500' : 'text-green-600')}>
-                              {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-700">
-                          {d.margen_efectivo > 0 ? formatCurrency(d.precio_venta_nuevo) : <span className="text-gray-600">—</span>}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          {d.producto_nombre && !d.es_nuevo ? (
-                            <label className="flex items-center justify-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" checked={d.actualizar_catalogo}
-                                onChange={() => toggleItem(i, 'actualizar_catalogo')}
-                                className="w-3.5 h-3.5 accent-violet-500" />
-                              <span className="text-[10px] text-violet-600 max-w-[80px] truncate">{d.producto_nombre}</span>
-                            </label>
-                          ) : (
-                            <span className="text-gray-500">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t flex gap-3 shrink-0">
-              <button onClick={() => setPaso(3)}
-                className="flex-1 bg-lime-500 text-white font-semibold py-2.5 rounded-xl hover:bg-lime-600 flex items-center justify-center gap-2">
-                Continuar <ChevronRight size={15} />
-              </button>
-              <button onClick={() => setPaso(1)}
-                className="flex items-center gap-1.5 px-4 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50">
-                <ChevronLeft size={14} /> Volver
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* Paso 3: confirmar */}
-        {paso === 3 && (
-          <div className="p-6 space-y-5 overflow-y-auto">
-            <div className="bg-gray-100 border border-gray-400 rounded-2xl p-4 space-y-2">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Resumen</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{diff.filter(d => !d.es_nuevo && d.precio_actual !== d.precio_nuevo).length}</p>
-                  <p className="text-xs text-gray-600">precios a cambiar</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-violet-600">{diff.filter(d => d.actualizar_catalogo && !d.es_nuevo).length}</p>
-                  <p className="text-xs text-gray-600">productos del catálogo</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-500">{diff.filter(d => d.es_nuevo).length}</p>
-                  <p className="text-xs text-gray-600">nuevos (se omiten)</p>
-                </div>
-              </div>
-            </div>
-
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" checked={propagarPrecioBase} onChange={e => setPropagarPrecioBase(e.target.checked)}
-                className="w-4 h-4 accent-violet-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-gray-800">Recalcular precio de venta en catálogo</p>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Para cada producto vinculado y seleccionado, actualiza <code className="bg-gray-100 px-1 rounded">costo_base</code> y
-                  recalcula <code className="bg-gray-100 px-1 rounded">precio_base = precio × (1 + margen%)</code>.
-                  No aplica a productos con <em>precio manual</em>.
-                </p>
-              </div>
-            </label>
-
-            {diff.filter(d => d.es_nuevo).length > 0 && (
-              <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl p-3">
-                <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700">
-                  Los {diff.filter(d => d.es_nuevo).length} items nuevos del CSV <strong>no se agregarán</strong> automáticamente.
-                  Importalos por separado desde "Import CSV" para añadirlos a la lista.
-                </p>
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-1">
-              <button onClick={confirmar} disabled={saving}
-                className="flex-1 bg-lime-500 text-white font-semibold py-3 rounded-xl hover:bg-lime-600 disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving ? <><RefreshCw size={14} className="animate-spin" /> Aplicando...</> : <><Check size={14} /> Confirmar actualización</>}
-              </button>
-              <button onClick={() => setPaso(2)}
-                className="flex items-center gap-1.5 px-4 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50">
-                <ChevronLeft size={14} /> Volver
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -932,12 +568,14 @@ export function ProveedorPrecios() {
                 className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                 <Download size={14} /> Exportar
               </button>
-              <button onClick={() => setModal('actualizar')}
-                className="flex items-center gap-1.5 px-3 py-2 border border-orange-200 bg-orange-50 text-orange-700 rounded-xl text-sm font-medium hover:bg-orange-100 transition-colors">
-                <TrendingUp size={14} /> Actualizar precios
-              </button>
             </>
           )}
+          {/* La actualización por lista vive en Productos > Revisión integral de precios: analiza
+              solo los productos de este proveedor, con vista previa e historial. */}
+          <button onClick={() => navigate(`/productos/precios?tab=proveedor&proveedor=${id}`)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-orange-200 bg-orange-50 text-orange-700 rounded-xl text-sm font-medium hover:bg-orange-100 transition-colors">
+            <TrendingUp size={14} /> Actualizar precios
+          </button>
           <button onClick={() => setModal('csv')}
             className="flex items-center gap-1.5 px-3 py-2 border border-lime-200 bg-lime-50 text-lime-700 rounded-xl text-sm font-medium hover:bg-lime-100 transition-colors">
             <Upload size={14} /> Import CSV
@@ -1094,14 +732,6 @@ export function ProveedorPrecios() {
         <ImportCsvModal
           proveedorId={id}
           onImported={() => { setModal(null); cargar(); }}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal === 'actualizar' && proveedor && (
-        <ActualizarPreciosModal
-          proveedor={proveedor}
-          precios={precios}
-          onActualizado={() => { setModal(null); cargar(); }}
           onClose={() => setModal(null)}
         />
       )}

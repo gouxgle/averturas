@@ -17,7 +17,7 @@ type HelpSection = {
   tip?: string;
 };
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
-export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda';
+export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda' | 'precios';
 
 /** Temas que además tienen manual completo en Manuales del sistema (`/ayuda/:slug`). */
 const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
@@ -206,6 +206,49 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { label: 'devolucion', value: 'Reingreso por cancelación de remito' },
           { label: 'reserva', value: 'Reserva al aprobar presupuesto con producto de stock' },
           { label: 'ajuste', value: 'Corrección manual de inventario' },
+        ],
+      },
+    ],
+  },
+
+  precios: {
+    label: 'Revisión integral de precios',
+    color: 'text-sky-700',
+    sections: [
+      {
+        id: 'analisis',
+        emoji: '🔎',
+        title: 'Cómo analiza cada producto',
+        intro: 'Compara el costo cargado con la lista vigente del proveedor y con la última compra, el recargo actual con el objetivo, y el dólar blue del día en que se actualizó el precio con el de hoy. La inflación se muestra como referencia.',
+        table: [
+          { label: 'Renovar validez', value: 'Nada se movió más que el umbral (3 % por defecto): se renueva la fecha sin tocar el precio', color: 'text-sky-700' },
+          { label: 'Actualizar', value: 'Subió la lista, la última compra o el dólar, o el recargo quedó bajo el objetivo', color: 'text-orange-700' },
+          { label: 'Al día', value: 'Renovado hace pocos días', color: 'text-emerald-700' },
+          { label: 'Sin datos', value: 'Falta el costo del producto', color: 'text-gray-700' },
+        ],
+        tip: 'El precio sugerido mantiene el recargo sobre el costo de reposición (o lo lleva al objetivo si estaba por debajo), o sigue al dólar: el mayor de los dos, no los suma. Nunca propone bajar un precio solo.',
+      },
+      {
+        id: 'actualizar',
+        emoji: '📈',
+        title: 'Actualizar precios',
+        steps: [
+          { text: 'Agrupá por familia, línea, proveedor o por m² para ver dónde subió más el costo.' },
+          { text: 'Ordená por prioridad: primero lo que más se vende con el precio más viejo.' },
+          { text: 'Marcá y tocá "Actualizar precios": elegí el criterio (sugerido, %, dólar, costo + recargo o % por grupo) y el redondeo.' },
+          { text: 'En la vista previa podés corregir cada precio. Los de "precio manual" quedan afuera salvo que los marques.' },
+        ],
+        warning: 'Las proformas ya enviadas no cambian: guardan su propio precio.',
+      },
+      {
+        id: 'proveedor',
+        emoji: '📄',
+        title: 'Lista de un proveedor',
+        steps: [
+          { text: 'Elegí el proveedor y cargá su lista en Excel (.xlsx) o CSV, con código y precio; o un porcentaje.' },
+          { text: 'Se analizan solo los productos de ese proveedor: qué sube, qué baja y qué no cambió.' },
+          { text: 'Los códigos que no están enlazados se pueden enlazar a un producto y volver a analizar.' },
+          { text: 'Al aplicar se guarda la lista, se actualizan costos y precios, y se renueva la validez de lo que no cambió.' },
         ],
       },
     ],

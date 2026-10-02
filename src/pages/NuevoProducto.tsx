@@ -2478,7 +2478,7 @@ export function NuevoProducto() {
           </div>
           {precio > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-black">Margen efectivo:</span>
+              <span className="text-black" title="(precio − costo) / precio">Ganancia sobre precio:</span>
               <span className={cn('font-semibold', margen >= 30 ? 'text-green-600' : margen >= 15 ? 'text-amber-600' : 'text-red-600')}>
                 {margen}%
               </span>
@@ -2498,7 +2498,7 @@ export function NuevoProducto() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
             <div>
               <label className={labelCls}>
-                <span className="flex items-center gap-1"><Percent size={11} /> Margen objetivo (override)</span>
+                <span className="flex items-center gap-1"><Percent size={11} /> Recargo sobre costo objetivo (%)</span>
               </label>
               <input
                 type="number" min="0" max="999" step="1"
@@ -2507,7 +2507,7 @@ export function NuevoProducto() {
                 placeholder="Heredado de tipo de abertura"
                 className={inputCls}
               />
-              <p className="text-[10px] text-black mt-0.5">Vacío = usa margen del tipo o proveedor</p>
+              <p className="text-[10px] text-black mt-0.5">Precio = costo × (1 + recargo). Vacío = usa el de la familia o el proveedor</p>
             </div>
             <div>
               <label className="flex items-center gap-2 cursor-pointer w-fit">

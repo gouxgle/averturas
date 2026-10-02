@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
+import { registrarHistorial, leerConfigPrecios, type CambioHistorial } from '../lib/precios.js';
 import {
   TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, LineaSchema, VidrioSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema, FormaPagoCatalogoSchema,
@@ -928,12 +929,25 @@ catalogo.post('/proveedor-precios/aplicar-actualizacion', async (c) => {
             updates.push(`precio_base=$${vals.push(nuevoPrecio)}`);
             // precio_manual se mantiene: si estaba en true, no lo tocamos; el usuario decidió al desmarcar
           }
+          // Antes no renovaba la fecha (el semáforo quedaba en rojo aunque el precio cambió)
+          // y contaba como actualizados los de precio manual, que el WHERE excluye.
+          if (b.propagar_precio_base) updates.push('precio_actualizado_at=now()');
           vals.push(pp.producto_id);
-          await client.query(
-            `UPDATE catalogo_productos SET ${updates.join(',')} WHERE id=$${vals.length} AND precio_manual=false`,
+          const { rows: [antes] } = await client.query(
+            `SELECT precio_base::float AS precio, costo_base::float AS costo FROM catalogo_productos WHERE id=$1`, [pp.producto_id]);
+          const { rows: [despues] } = await client.query(
+            `UPDATE catalogo_productos SET ${updates.join(',')} WHERE id=$${vals.length} AND precio_manual=false
+             RETURNING precio_base::float AS precio, costo_base::float AS costo`,
             vals
           );
-          catalogoActualizados++;
+          if (despues) {
+            catalogoActualizados++;
+            await registrarHistorial(client, [{
+              producto_id: pp.producto_id, tipo: despues.precio !== antes.precio ? 'cambio_precio' : 'cambio_costo',
+              precio_anterior: antes.precio, precio_nuevo: despues.precio, costo_anterior: antes.costo, costo_nuevo: despues.costo,
+              origen: 'lista_proveedor', criterio: 'lista del proveedor',
+            }], c.get('user')?.id ?? null);
+          }
         }
       }
     }
@@ -945,6 +959,160 @@ catalogo.post('/proveedor-precios/aplicar-actualizacion', async (c) => {
     client.release();
   }
   return c.json({ preciosActualizados, catalogoActualizados });
+});
+
+
+// ── Lista de precios de UN proveedor (Revisión integral de precios) ──────────
+// Al cargar la lista (archivo o %) de un proveedor se analizan SOLO sus productos: costo
+// actual → costo de lista, precio nuevo con su recargo, SKUs que no están en el catálogo y
+// productos del proveedor que no vinieron. Los que no cambiaron se proponen para renovar.
+
+const FilaListaSchema = z.object({ sku: z.string().trim().min(1).max(100), descripcion: z.string().trim().max(500).default(''), precio: z.number().positive().max(1_000_000_000) });
+const AnalizarListaSchema = z.object({
+  proveedor_id: z.string().uuid(),
+  filas: z.array(FilaListaSchema).max(20_000).optional(),
+  pct: z.number().min(-90).max(500).optional(),
+  enlaces: z.array(z.object({ sku: z.string().trim().min(1), producto_id: z.string().uuid() })).max(5000).optional(),
+}).refine(b => (b.filas && b.filas.length > 0) || b.pct !== undefined, { message: 'Cargá la lista o indicá un porcentaje' });
+const AplicarListaSchema = z.object({
+  proveedor_id: z.string().uuid(),
+  filas: z.array(FilaListaSchema).max(20_000).optional(),
+  enlaces: z.array(z.object({ sku: z.string().trim().min(1), producto_id: z.string().uuid() })).max(5000).optional(),
+  items: z.array(z.object({
+    producto_id: z.string().uuid(),
+    costo_nuevo: z.number().positive().max(1_000_000_000),
+    precio_nuevo: z.number().positive().max(1_000_000_000).nullable(),
+    solo_renovar: z.boolean().default(false),
+  })).max(5000),
+  detalle: z.string().trim().max(200),
+});
+
+const normSku = (s: string) => s.trim().toUpperCase();
+const VARIACION_RARA = 30;
+
+catalogo.post('/proveedor-precios/analizar-lista', async (c) => {
+  const b = await validateBody(c, AnalizarListaSchema);
+  if (b instanceof Response) return b;
+  const [{ rows: [prov] }, { rows: prods }, { rows: lista }, cfg] = await Promise.all([
+    db.query(`SELECT id, nombre, margen_venta FROM proveedores WHERE id = $1`, [b.proveedor_id]),
+    db.query(`
+      SELECT cp.id, cp.nombre, cp.codigo, cp.costo_base::float AS costo, cp.precio_base::float AS precio, cp.precio_manual,
+             cp.proveedor_sku, cp.precio_actualizado_at, ta.nombre AS familia,
+             NULLIF(COALESCE(cp.margen_venta, ta.margen_venta, NULLIF(pr.margen_venta, 0)), 0)::float AS recargo_objetivo
+        FROM catalogo_productos cp
+        JOIN proveedores pr ON pr.id = cp.proveedor_id
+        LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
+       WHERE cp.proveedor_id = $1 AND cp.activo ORDER BY cp.nombre`, [b.proveedor_id]),
+    db.query(`SELECT sku, descripcion, precio::float AS precio, producto_id, updated_at FROM proveedor_precios WHERE proveedor_id = $1`, [b.proveedor_id]),
+    leerConfigPrecios(),
+  ]);
+  if (!prov) return c.json({ error: 'Proveedor no encontrado' }, 404);
+
+  const prodPorId = new Map(prods.map(p => [p.id, p]));
+  // SKU → producto: el enlace guardado en la lista o el SKU cargado en el producto
+  const skuDeProducto = new Map<string, string>();
+  const productoDeSku = new Map<string, string>();
+  for (const l of lista) if (l.producto_id && prodPorId.has(l.producto_id)) { productoDeSku.set(normSku(l.sku), l.producto_id); skuDeProducto.set(l.producto_id, l.sku); }
+  for (const p of prods) if (p.proveedor_sku && !productoDeSku.has(normSku(p.proveedor_sku))) { productoDeSku.set(normSku(p.proveedor_sku), p.id); skuDeProducto.set(p.id, p.proveedor_sku); }
+  // Enlaces elegidos a mano en esta revisión (todavía sin guardar)
+  for (const e of b.enlaces ?? []) if (prodPorId.has(e.producto_id)) { productoDeSku.set(normSku(e.sku), e.producto_id); skuDeProducto.set(e.producto_id, e.sku); }
+  const listaPorSku = new Map(lista.map(l => [normSku(l.sku), l]));
+
+  const fila = (p: typeof prods[number], costoNuevo: number, sku: string | null, descripcionLista: string | null) => {
+    const variacion = p.costo > 0 ? (costoNuevo / p.costo - 1) * 100 : null;
+    // Mismo criterio que la revisión: el mayor entre el recargo actual y el objetivo (nunca
+    // baja el precio porque el producto ya ganaba más que el objetivo).
+    const recargoActual = p.costo > 0 ? (p.precio / p.costo - 1) * 100 : 0;
+    const recargoRef = p.recargo_objetivo !== null && p.recargo_objetivo > recargoActual ? p.recargo_objetivo : recargoActual;
+    const precioCalc = recargoRef === recargoActual && p.costo > 0
+      ? Math.round(p.precio * costoNuevo / p.costo * 100) / 100
+      : Math.round(costoNuevo * (1 + recargoRef / 100) * 100) / 100;
+    const igual = variacion !== null && Math.abs(variacion) < 0.5;
+    return {
+      producto_id: p.id, nombre: p.nombre, codigo: p.codigo, familia: p.familia, sku, descripcion_lista: descripcionLista,
+      costo_actual: p.costo, costo_lista_anterior: sku ? listaPorSku.get(normSku(sku))?.precio ?? null : null, costo_nuevo: costoNuevo,
+      variacion, precio_actual: p.precio, recargo_referencia: recargoRef,
+      precio_nuevo: p.precio_manual || igual ? p.precio : Math.max(precioCalc, 0.01),
+      precio_manual: p.precio_manual, precio_actualizado_at: p.precio_actualizado_at,
+      estado: igual ? 'igual' : variacion === null ? 'sin_costo' : variacion < 0 ? 'baja' : 'sube',
+      revisar: variacion !== null && (variacion < 0 || variacion > VARIACION_RARA),
+    };
+  };
+
+  if (!b.filas?.length) {
+    const coincidencias = prods.map(p => fila(p, Math.round(p.costo * (1 + b.pct! / 100) * 100) / 100, skuDeProducto.get(p.id) ?? null, null));
+    return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: [], faltantes: [] });
+  }
+
+  const vistos = new Set<string>();
+  const coincidencias: ReturnType<typeof fila>[] = [];
+  const sinEnlazar: { sku: string; descripcion: string; precio: number }[] = [];
+  for (const f of b.filas) {
+    const pid = productoDeSku.get(normSku(f.sku));
+    const p = pid ? prodPorId.get(pid) : undefined;
+    if (p && !vistos.has(p.id)) { vistos.add(p.id); coincidencias.push(fila(p, f.precio, f.sku, f.descripcion || null)); }
+    else if (!p) sinEnlazar.push(f);
+  }
+  const faltantes = prods.filter(p => !vistos.has(p.id)).map(p => ({ producto_id: p.id, nombre: p.nombre, codigo: p.codigo, sku: skuDeProducto.get(p.id) ?? null, costo_actual: p.costo }));
+  return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: sinEnlazar, faltantes });
+});
+
+catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
+  if (c.get('user')?.rol === 'consulta') return c.json({ error: 'Tu usuario es de solo consulta' }, 403);
+  const b = await validateBody(c, AplicarListaSchema);
+  if (b instanceof Response) return b;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    // 1. La lista del proveedor queda guardada tal cual vino
+    for (const f of b.filas ?? []) {
+      await client.query(`
+        INSERT INTO proveedor_precios (proveedor_id, sku, descripcion, precio) VALUES ($1, $2, $3, $4)
+        ON CONFLICT (proveedor_id, sku) DO UPDATE SET precio = EXCLUDED.precio,
+          descripcion = COALESCE(NULLIF(EXCLUDED.descripcion, ''), proveedor_precios.descripcion), activo = true, updated_at = now()`,
+        [b.proveedor_id, f.sku.trim(), f.descripcion ?? '', f.precio]);
+    }
+    // 2. Enlaces SKU ↔ producto elegidos a mano (solo productos de este proveedor)
+    for (const e of b.enlaces ?? []) {
+      await client.query(`
+        UPDATE proveedor_precios SET producto_id = $3, updated_at = now()
+         WHERE proveedor_id = $1 AND sku = $2
+           AND EXISTS (SELECT 1 FROM catalogo_productos WHERE id = $3 AND proveedor_id = $1)`, [b.proveedor_id, e.sku.trim(), e.producto_id]);
+    }
+    // 3. Costos, precios y validez — solo productos de ESTE proveedor
+    const { rows: antes } = await client.query(
+      `SELECT id, precio_base::float AS precio, costo_base::float AS costo, precio_manual FROM catalogo_productos
+        WHERE id = ANY($1::uuid[]) AND proveedor_id = $2 AND activo FOR UPDATE`, [b.items.map(i => i.producto_id), b.proveedor_id]);
+    const porId = new Map(antes.map(r => [r.id, r]));
+    const cambios: CambioHistorial[] = [];
+    let ignorados = 0;
+    for (const it of b.items) {
+      const a = porId.get(it.producto_id);
+      if (!a) { ignorados++; continue; }
+      if (it.solo_renovar) {
+        await client.query(`UPDATE catalogo_productos SET precio_actualizado_at = now() WHERE id = $1`, [a.id]);
+        cambios.push({ producto_id: a.id, tipo: 'renovacion', precio_anterior: a.precio, precio_nuevo: a.precio,
+          costo_anterior: a.costo, costo_nuevo: a.costo, origen: 'lista_proveedor', criterio: 'sin cambios en la lista', detalle: b.detalle });
+        continue;
+      }
+      const costo = Math.round(it.costo_nuevo * 100) / 100;
+      const precio = it.precio_nuevo != null && !a.precio_manual ? Math.round(it.precio_nuevo * 100) / 100 : a.precio;
+      await client.query(
+        `UPDATE catalogo_productos SET costo_base = $2, precio_base = $3, precio_actualizado_at = now() WHERE id = $1`, [a.id, costo, precio]);
+      await client.query(
+        `UPDATE proveedor_precios SET precio = $3, updated_at = now() WHERE proveedor_id = $1 AND producto_id = $2`, [b.proveedor_id, a.id, costo]);
+      cambios.push({ producto_id: a.id, tipo: precio !== a.precio ? 'cambio_precio' : 'cambio_costo', precio_anterior: a.precio, precio_nuevo: precio,
+        costo_anterior: a.costo, costo_nuevo: costo, origen: 'lista_proveedor', criterio: 'lista del proveedor', detalle: b.detalle });
+    }
+    await registrarHistorial(client, cambios, c.get('user')?.id ?? null);
+    await client.query('COMMIT');
+    return c.json({ actualizados: cambios.filter(x => x.tipo !== 'renovacion').length, renovados: cambios.filter(x => x.tipo === 'renovacion').length, ignorados, lista: b.filas?.length ?? 0 });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 catalogo.get('/productos', async (c) => {

@@ -134,7 +134,7 @@ function PanelTiposAbertura() {
             { key: 'nombre', label: 'Nombre *', value: '', placeholder: 'Ej: Ventana' },
             { key: 'descripcion', label: 'Descripción', value: '', placeholder: 'Opcional' },
             { key: 'orden', label: 'Orden', value: '0', placeholder: '0' },
-            { key: 'margen_venta', label: 'Margen %', value: '', placeholder: 'Ej: 45' },
+            { key: 'margen_venta', label: 'Recargo sobre costo %', value: '', placeholder: 'Ej: 45' },
           ]}
           onSave={handleAdd}
           onCancel={() => setAdding(false)}
@@ -152,7 +152,7 @@ function PanelTiposAbertura() {
                     { key: 'nombre', label: 'Nombre *', value: item.nombre },
                     { key: 'descripcion', label: 'Descripción', value: item.descripcion ?? '' },
                     { key: 'orden', label: 'Orden', value: String(item.orden) },
-                    { key: 'margen_venta', label: 'Margen %', value: item.margen_venta != null ? String(item.margen_venta) : '', placeholder: 'Ej: 45' },
+                    { key: 'margen_venta', label: 'Recargo sobre costo %', value: item.margen_venta != null ? String(item.margen_venta) : '', placeholder: 'Ej: 45' },
                   ]}
                   onSave={vals => handleEdit(item.id, vals)}
                   onCancel={() => setEditId(null)}

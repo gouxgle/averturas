@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Pencil, ToggleLeft, ToggleRight, Layers, Package,
-  X, Tag, CalendarDays, RefreshCw, Play,
+  X, Tag, CalendarDays, RefreshCw, Play, Scale,
   Trash2, AlertTriangle, Store, DollarSign, Globe,
   Shield, Truck, Headphones, Award, Factory,
 } from 'lucide-react';
@@ -20,7 +20,6 @@ import { colorProveedor } from '@/lib/coloresProveedor';
 import { buildSubtitle, isPromoActiva } from '@/lib/catalogoFiltros';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
-import { ModalRenovarValidezPrecios } from '@/components/productos/ModalRenovarValidezPrecios';
 import type { Producto } from '@/types';
 
 function lastDayOfMonth(): string {
@@ -353,7 +352,6 @@ export function Productos() {
   const [selected, setSelected]   = useState<Producto | null>(null);
   const [showAjusteStock, setShowAjusteStock] = useState(false);
   const [ajusteProductoId, setAjusteProductoId] = useState<string | null>(null);
-  const [showRenovarValidez, setShowRenovarValidez] = useState(false);
   // Si se abrió el ajuste porque se intentó marcar "en salón" sin stock, al guardar
   // el ajuste activamos "en salón" directo — no hace falta un segundo click.
   const [salonPendientePostAjuste, setSalonPendientePostAjuste] = useState<string | null>(null);
@@ -484,10 +482,10 @@ export function Productos() {
         sub={`Catálogo de aberturas y precios base · ${productos.length} productos`}
         actions={
           <>
-            <button onClick={() => setShowRenovarValidez(true)}
-              className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-400 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
-              <RefreshCw size={16}/> Renovar validez de precios
-            </button>
+            <Link to="/productos/precios"
+              className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-400 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
+              <Scale size={16}/> Revisión integral de precios
+            </Link>
             <Link to="/productos/nuevo"
               className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
               <Plus size={16}/> Nuevo producto
@@ -496,13 +494,6 @@ export function Productos() {
         }
       />
 
-      {showRenovarValidez && (
-        <ModalRenovarValidezPrecios
-          productos={productos}
-          onClose={() => setShowRenovarValidez(false)}
-          onRenovado={load}
-        />
-      )}
 
       <ExploradorCatalogo
         productos={productos}
