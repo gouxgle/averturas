@@ -94,4 +94,25 @@ describe.skipIf(!process.env.DATABASE_URL)('padrón contra ARCA simulado', () =>
     await expect(consultarPadron(ctx, '20111111113')).rejects.toMatchObject({ codigos: ['cuit_invalido'] });
     await expect(consultarPadron(ctx, '20111111112')).rejects.toMatchObject({ codigos: ['no_existe'] });
   });
+
+  it('completa y guarda en la ficha de un cliente con nombre provisorio', async () => {
+    const { planCompletar, guardarCompletado, COLS_CLIENTE_FISCAL } = await import('../lib/fiscal/clienteArca.js');
+    const { rows: [nuevo] } = await db.query(
+      `INSERT INTO clientes (tipo_persona, nombre, telefono, localidad) VALUES ('fisica', 'Contacto Prueba Padron', '3704000111', 'Clorinda') RETURNING id`);
+    try {
+      const { persona } = await consultarPadron(ctx, '30700000008');
+      const { rows: [antes] } = await db.query(`SELECT ${COLS_CLIENTE_FISCAL} FROM clientes WHERE id = $1`, [nuevo.id]);
+      const { columnas } = planCompletar(antes, persona);
+      await guardarCompletado(nuevo.id, columnas, '30700000008');
+      const { rows: [c] } = await db.query(`SELECT * FROM clientes WHERE id = $1`, [nuevo.id]);
+      expect(c).toMatchObject({
+        cuit: '30700000008', tipo_persona: 'juridica', razon_social: 'CONSTRUCTORA DEL NORTE S.A.',
+        condicion_iva: 'responsable_inscripto', localidad: 'Clorinda', telefono: '3704000111',
+      });
+      expect(c.domicilio_fiscal).toContain('25 DE MAYO');
+      expect(c.padron_json).toBeTruthy();
+    } finally {
+      await db.query(`DELETE FROM clientes WHERE id = $1`, [nuevo.id]);
+    }
+  });
 });

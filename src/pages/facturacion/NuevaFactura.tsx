@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ReceiptText, ArrowRight, ArrowLeft, Check, Search, UserRound, Plus, Trash2, Landmark, AlertTriangle, XCircle, Send, Save, Info,
@@ -32,6 +32,10 @@ const totalLineaCent = (i: ItemCbte) => {
 };
 
 const itemVacio = (): ItemCbte => ({ descripcion: '', cantidad: 1, precio_unitario: 0, alicuota: 21 });
+interface CambioFicha { campo: string; etiqueta: string; antes: string | null; despues: string }
+interface RespuestaReceptor {
+  receptor: Receptor; cliente_id: string; faltantes: string[]; cuit_conocido: string | null; cambios?: CambioFicha[];
+}
 const letraDe = (cond: number) => ([1, 6, 13, 16].includes(cond) ? 'A' : 'B');
 
 interface ClienteBusqueda { id: string; nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string; documento_nro: string | null }
@@ -122,6 +126,8 @@ function PasoCliente({ comp, setComp, onSeguir }: {
   const [q, setQ] = useState('');
   const [resultados, setResultados] = useState<ClienteBusqueda[]>([]);
   const [trayendo, setTrayendo] = useState(false);
+  const [cambiosFicha, setCambiosFicha] = useState<CambioFicha[]>([]);
+  const [faltaDocumento, setFaltaDocumento] = useState(false);
   const r = comp.receptor;
   const setR = (cambios: Partial<Receptor>) => setComp(c => ({ ...c, receptor: { ...c.receptor, ...cambios } }));
 
@@ -134,17 +140,52 @@ function PasoCliente({ comp, setComp, onSeguir }: {
     return () => clearTimeout(t);
   }, [q]);
 
-  async function elegir(c: ClienteBusqueda) {
+  // Con un cliente de la base: si en su ficha faltan datos fiscales y se conoce el CUIT, se
+  // buscan en ARCA y se guardan en la ficha (así la próxima factura ya sale completa). Si no
+  // hay ARCA configurado o falla, se sigue con lo que hay: nunca bloquea.
+  async function prepararCliente(id: string) {
+    setCambiosFicha([]); setFaltaDocumento(false);
     try {
-      const x = await api.get<{ receptor: Receptor; cliente_id: string }>(`/facturacion/receptor/${c.id}`);
+      let x = await api.get<RespuestaReceptor>(`/facturacion/receptor/${id}`);
       setComp(p => ({ ...p, receptor: x.receptor, cliente_id: x.cliente_id }));
-      setQ(''); setResultados([]);
+      if (x.cuit_conocido && x.faltantes.some(f => f !== 'cuit')) {
+        try {
+          x = await api.post<RespuestaReceptor>(`/facturacion/clientes/${id}/completar-arca`, {});
+          setComp(p => (p.cliente_id === id ? { ...p, receptor: x.receptor } : p));
+          setCambiosFicha(x.cambios ?? []);
+        } catch { /* sin ARCA se sigue a mano */ }
+      }
+      setFaltaDocumento(x.faltantes.includes('cuit'));
     } catch (e) { toastApiError(e); }
+  }
+
+  // Si el cliente se trae por el origen (recibo, presupuesto) también se completa su ficha.
+  const clienteInicial = useRef<string | null>(null);
+  useEffect(() => {
+    if (comp.cliente_id && clienteInicial.current !== comp.cliente_id) {
+      clienteInicial.current = comp.cliente_id;
+      void prepararCliente(comp.cliente_id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comp.cliente_id]);
+
+  async function elegir(c: ClienteBusqueda) {
+    clienteInicial.current = c.id;
+    setQ(''); setResultados([]);
+    await prepararCliente(c.id);
   }
 
   async function traerDeArca() {
     setTrayendo(true);
     try {
+      if (comp.cliente_id) {
+        // Cliente de la base: se completa y guarda su ficha con el CUIT que está en pantalla.
+        const x = await api.post<RespuestaReceptor>(`/facturacion/clientes/${comp.cliente_id}/completar-arca`, { cuit: r.doc_nro });
+        setComp(p => ({ ...p, receptor: x.receptor }));
+        setCambiosFicha(x.cambios ?? []); setFaltaDocumento(false);
+        toast.success(x.cambios?.length ? 'Datos traídos de ARCA y guardados en la ficha del cliente' : 'La ficha ya estaba completa');
+        return;
+      }
       const x = await api.get<{ persona: { nombre_completo: string; domicilio_texto: string | null; condicion_iva: string } }>(
         `/facturacion/padron/${r.doc_nro.replace(/\D/g, '')}`);
       const cond: Record<string, number> = { responsable_inscripto: 1, monotributista: 6, exento: 4, consumidor_final: 5, no_alcanzado: 15, monotributo_social: 13 };
@@ -181,6 +222,24 @@ function PasoCliente({ comp, setComp, onSeguir }: {
         <button onClick={() => setComp(p => ({ ...p, receptor: CF, cliente_id: null }))}
           className="mt-2 text-xs font-semibold text-fuchsia-800 hover:underline">Usar "Consumidor final" sin identificar</button>
       </div>
+
+      {cambiosFicha.length > 0 && (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-900" role="status">
+          <p className="font-semibold flex items-center gap-1.5"><Check size={15} /> Se completó la ficha del cliente con datos de ARCA</p>
+          <ul className="mt-1 text-xs space-y-0.5">
+            {cambiosFicha.filter(c => !['documento_nro', 'tipo_persona'].includes(c.campo)).map(c => (
+              <li key={c.campo}><b>{c.etiqueta}:</b> {c.antes ? <>{c.antes} → {c.despues}</> : c.despues}</li>
+            ))}
+          </ul>
+          <p className="text-[11px] mt-1 text-emerald-800">Quedó guardado: la próxima factura a este cliente sale directo.</p>
+        </div>
+      )}
+      {faltaDocumento && comp.cliente_id && (
+        <div className="rounded-lg bg-amber-50 border border-amber-300 px-3 py-2 text-sm text-amber-900" role="status">
+          <p className="font-semibold flex items-center gap-1.5"><AlertTriangle size={15} /> Este cliente no tiene CUIT ni DNI cargado</p>
+          <p className="text-xs mt-0.5">Escribí el <b>CUIT</b> abajo y tocá <b>Traer de ARCA</b>: se completan sus datos y se guardan en la ficha para las próximas facturas. Para una factura B de poco monto alcanza con el DNI.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>

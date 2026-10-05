@@ -15,6 +15,7 @@ import { libroIvaVentas, libroIvaCsv, controlConArca } from '../lib/fiscal/repor
 import { leerConfig, leerPuntosVenta } from '../lib/fiscal/config.js';
 import { diagnosticar, listoParaHabilitar } from '../lib/fiscal/diagnostico.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
+import { COLS_CLIENTE_FISCAL, cuitDeCliente, faltantesParaFacturar, planCompletar, guardarCompletado, type ClienteFiscal } from '../lib/fiscal/clienteArca.js';
 import { generarClaveYCsr, guardarCertificado, leerCsr } from '../lib/arca/secretos.js';
 
 // /api/facturacion — Facturación electrónica ARCA: configuración (solo admin) y
@@ -157,7 +158,40 @@ facturacion.get('/preparar', async (c) => {
 
 facturacion.get('/receptor/:clienteId', async (c) => {
   const r = await receptorDeClienteId(c.req.param('clienteId')!);
-  return r ? c.json(r) : c.json({ error: 'Cliente no encontrado' }, 404);
+  if (!r) return c.json({ error: 'Cliente no encontrado' }, 404);
+  const { rows: [cli] } = await db.query<ClienteFiscal>(`SELECT ${COLS_CLIENTE_FISCAL} FROM clientes WHERE id = $1`, [r.cliente_id]);
+  return c.json({ ...r, faltantes: faltantesParaFacturar(cli), cuit_conocido: cuitDeCliente(cli) });
+});
+
+// Completa la ficha del cliente con el padrón de ARCA: toma el CUIT de la ficha (o el que se
+// escriba acá), consulta y guarda lo que falta para las próximas facturas. Devuelve el receptor
+// ya actualizado y la lista de lo que cambió para mostrarla.
+facturacion.post('/clientes/:id/completar-arca', puedeEmitir, async (c) => {
+  const id = c.req.param('id')!;
+  const body = await c.req.json().catch(() => ({})) as { cuit?: string };
+  const { rows: [cli] } = await db.query<ClienteFiscal>(`SELECT ${COLS_CLIENTE_FISCAL} FROM clientes WHERE id = $1`, [id]);
+  if (!cli) return c.json({ error: 'Cliente no encontrado' }, 404);
+  const cuit = body.cuit?.trim() ? normalizarCuit(body.cuit) : cuitDeCliente(cli);
+  if (!cuit) return c.json({ error: 'Falta el CUIT del cliente para buscarlo en ARCA', falta: 'cuit' }, 422);
+  if (!cuitValido(cuit)) return c.json({ error: 'El CUIT no es válido (revisá el dígito verificador)', falta: 'cuit' }, 422);
+  const cfg = await leerConfig();
+  if (!cuitValido(cfg.cuit) || cfg.cert_estado !== 'activo') {
+    return c.json({ error: 'La consulta a ARCA todavía no está configurada (Configuración > Facturación). Cargá los datos a mano.' }, 409);
+  }
+  try {
+    const { persona, desde_cache } = await consultarPadron({ ambiente: cfg.ambiente, cuitEmisor: cfg.cuit!, usuarioId: c.get('user').id }, cuit);
+    const { columnas, cambios } = planCompletar(cli, persona);
+    await guardarCompletado(id, columnas, cuit);
+    const r = await receptorDeClienteId(id);
+    const { rows: [nuevo] } = await db.query<ClienteFiscal>(`SELECT ${COLS_CLIENTE_FISCAL} FROM clientes WHERE id = $1`, [id]);
+    return c.json({ ...r, cambios, desde_cache, avisos: persona.avisos, faltantes: faltantesParaFacturar(nuevo), cuit_conocido: cuitDeCliente(nuevo) });
+  } catch (e) {
+    if (e instanceof ArcaError) {
+      const status = ['cuit_invalido', 'no_existe', 'sin_datos'].some(k => e.codigos.includes(k)) ? 404 : 502;
+      return c.json({ error: e.message, codigos: e.codigos }, status);
+    }
+    throw e;
+  }
 });
 
 async function analisisCompleto(b: z.infer<typeof ComprobanteSchema>) {

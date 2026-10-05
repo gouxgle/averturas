@@ -537,6 +537,12 @@ saldo por factura), **F7** (contingencia CAEA) y **F8** (Libro IVA + control con
   **No se anula ni se baja el importe** de un recibo con facturas vigentes, ni se cancela /
   rechaza / desaprueba un presupuesto facturado: primero la NC (409 en `recibos.ts` y
   `operaciones.ts`, con `facturadoDe`).
+- **Ficha del cliente ↔ ARCA** (`lib/fiscal/clienteArca.ts`): al elegir un cliente en Nueva
+  factura, si le faltan datos fiscales y se conoce su CUIT (campo `cuit` o un CUIT en
+  `documento_nro`), `POST /facturacion/clientes/:id/completar-arca` consulta el padrón y **guarda
+  en la ficha**: ARCA manda en condición de IVA y domicilio fiscal; dirección/localidad/CP/DNI
+  solo si estaban vacíos; el nombre solo si era provisorio. Sin CUIT, la pantalla pide cargarlo
+  y "Traer de ARCA" lo guarda. Sin ARCA configurado nunca bloquea. `planCompletar` es pura (test).
 - **Reportes** (`lib/fiscal/reportes.ts`): `GET /libro-iva` y `/libro-iva.csv` (Excel AR:
   `;`, coma decimal, BOM; NC en negativo, neto/IVA por alícuota), `POST /control` (cada
   autorizado del período contra `FECompConsultar` + series con números de ARCA mayores a los
