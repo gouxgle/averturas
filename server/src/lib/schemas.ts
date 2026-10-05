@@ -996,9 +996,10 @@ export const ComprobanteSchema = z.object({
   fch_serv_hasta:          fechaISO.nullable().optional(),
   fch_vto_pago:            fechaISO.nullable().optional(),
   punto_venta:             z.number().int().positive().nullable().optional(),
-  origen:                  z.enum(['manual', 'operacion', 'recibo']).optional(),
+  origen:                  z.enum(['manual', 'operacion', 'recibo', 'remito']).optional(),
   operacion_id:            zUUID.nullable().optional(),
   recibo_id:               zUUID.nullable().optional(),
+  remito_id:               zUUID.nullable().optional(),
   comprobante_asociado_id: zUUID.nullable().optional(),
   notas:                   z.string().trim().max(1000).nullable().optional(),
   /** Facturar por encima del saldo del recibo/presupuesto (o acreditar más que la factura). */

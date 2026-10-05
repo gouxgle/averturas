@@ -310,9 +310,16 @@ export function DetalleComprobante({ id, onClose, onChanged, puedeEmitir }: {
                   <FilePlus size={15} /> Nota de débito
                 </button>
               )}
+              {puedeEmitir && d.estado === 'autorizado' && d.tipo_doc === 'factura' && (
+                <button onClick={() => navigate(`/facturacion/nueva?factura_id=${d.id}&anular=1`)}
+                  title="En ARCA una factura no se borra: se anula con una nota de crédito por el total, que sale lista para emitir"
+                  className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-red-50 text-sm font-semibold text-red-700 hover:bg-red-100">
+                  <FileMinus size={15} /> Anular factura
+                </button>
+              )}
               {puedeEmitir && d.estado === 'autorizado' && d.tipo_doc !== 'nota_credito' && (
                 <button onClick={() => navigate(`/facturacion/nueva?factura_id=${d.id}`)} className="h-11 sm:h-10 px-3 inline-flex items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-50 text-sm font-semibold text-amber-800 hover:bg-amber-100">
-                  <FileMinus size={15} /> Nota de crédito
+                  <FileMinus size={15} /> {d.tipo_doc === 'factura' ? 'Nota de crédito parcial' : 'Nota de crédito'}
                 </button>
               )}
             </div>

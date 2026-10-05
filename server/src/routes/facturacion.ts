@@ -3,7 +3,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { FiscalConfigSchema, PuntoVentaSchema, CsrSchema, CertificadoSchema, ComprobanteSchema } from '../lib/schemas.js';
 import { crearBorrador, emitir, conciliar, analizar, EmisionError } from '../lib/fiscal/emision.js';
-import { prepararDesdeRecibo, prepararDesdeOperacion, prepararNotaCredito, prepararNotaDebito, excesoSobreOrigen, porFacturar, tablero, receptorDeClienteId } from '../lib/fiscal/origenes.js';
+import { prepararDesdeRecibo, prepararDesdeOperacion, prepararDesdeRemito, prepararNotaCredito, prepararNotaDebito, excesoSobreOrigen, porFacturar, tablero, receptorDeClienteId } from '../lib/fiscal/origenes.js';
 import type { z } from 'zod';
 import { ArcaError } from '../lib/arca/soap.js';
 import { consultarPadron } from '../lib/arca/padron.js';
@@ -90,6 +90,7 @@ facturacion.get('/comprobantes', async (c) => {
   if (q.hasta) where.push(`c.fecha <= ${p(q.hasta)}`);
   if (q.cliente_id) where.push(`c.cliente_id = ${p(q.cliente_id)}`);
   if (q.recibo_id) where.push(`c.recibo_id = ${p(q.recibo_id)}`);
+  if (q.remito_id) where.push(`c.remito_id = ${p(q.remito_id)}`);
   if (q.operacion_id) where.push(`c.operacion_id = ${p(q.operacion_id)}`);
   if (q.tipo_doc) where.push(`c.tipo_doc = ${p(q.tipo_doc)}`);
   if (q.q?.trim()) {
@@ -147,8 +148,9 @@ facturacion.get('/tablero', async (c) => {
 facturacion.get('/por-facturar', async (c) => c.json(await porFacturar()));
 
 facturacion.get('/preparar', async (c) => {
-  const { recibo_id, operacion_id, factura_id, tipo } = c.req.query();
-  const p = recibo_id ? await prepararDesdeRecibo(recibo_id)
+  const { recibo_id, operacion_id, remito_id, factura_id, tipo } = c.req.query();
+  const p = remito_id ? await prepararDesdeRemito(remito_id)
+    : recibo_id ? await prepararDesdeRecibo(recibo_id)
     : operacion_id ? await prepararDesdeOperacion(operacion_id)
       : factura_id ? await (tipo === 'nota_debito' ? prepararNotaDebito(factura_id) : prepararNotaCredito(factura_id))
         : null;

@@ -49,7 +49,7 @@ export async function receptorDeClienteId(id: string): Promise<{ receptor: Recep
   return c ? { receptor: receptorDeCliente(c), cliente_id: c.id } : null;
 }
 
-export async function facturadoDe(campo: 'recibo_id' | 'operacion_id', id: string): Promise<number> {
+export async function facturadoDe(campo: 'recibo_id' | 'operacion_id' | 'remito_id', id: string): Promise<number> {
   const { rows: [r] } = await db.query(
     `SELECT COALESCE(SUM(${SIGNO}), 0) AS t FROM comprobantes WHERE ${campo} = $1 AND estado IN ${ESTADOS_QUE_CUENTAN}`, [id]);
   return a2(Number(r.t));
@@ -132,6 +132,67 @@ export async function prepararDesdeRecibo(reciboId: string): Promise<Propuesta |
   };
 }
 
+
+/** Lo que ya se facturó de cada ítem del presupuesto (facturas menos notas de crédito). */
+async function facturadoPorItem(operacionId: string): Promise<Map<string, number>> {
+  const { rows } = await db.query(
+    `SELECT i.operacion_item_id AS id,
+            SUM(CASE WHEN c.tipo_doc = 'nota_credito' THEN -i.cantidad WHEN c.tipo_doc = 'factura' THEN i.cantidad ELSE 0 END) AS cant
+       FROM comprobante_items i JOIN comprobantes c ON c.id = i.comprobante_id
+      WHERE c.operacion_id = $1 AND i.operacion_item_id IS NOT NULL AND c.estado IN ${ESTADOS_QUE_CUENTAN}
+      GROUP BY i.operacion_item_id`, [operacionId]);
+  return new Map(rows.map(r => [r.id as string, Number(r.cant)]));
+}
+
+export async function prepararDesdeRemito(remitoId: string): Promise<Propuesta | null> {
+  const { rows: [m] } = await db.query(`SELECT id, numero, cliente_id, operacion_id, estado FROM remitos WHERE id = $1`, [remitoId]);
+  if (!m) return null;
+  const { rows: cli } = await db.query(`SELECT ${COLS_CLIENTE} FROM clientes WHERE id = $1`, [m.cliente_id]);
+  const { rows: items } = await db.query(
+    `SELECT id, producto_id, descripcion, cantidad, precio_unitario FROM remito_items WHERE remito_id = $1 ORDER BY ctid`, [remitoId]);
+  // El remito puede no tener precios: se toman del presupuesto del que sale (mismo producto).
+  const { rows: delPresupuesto } = m.operacion_id
+    ? await db.query(`SELECT id, producto_id, descripcion, precio_unitario, tipo_item FROM operacion_items WHERE operacion_id = $1`, [m.operacion_id])
+    : { rows: [] as Record<string, unknown>[] };
+  const avisos: string[] = [];
+  const sinPrecio: string[] = [];
+  const lineas: ItemEntrada[] = items.map(it => {
+    let precio = Number(it.precio_unitario ?? 0);
+    let opItem: Record<string, unknown> | undefined;
+    if (m.operacion_id) {
+      opItem = delPresupuesto.find(o => it.producto_id && o.producto_id === it.producto_id)
+        ?? delPresupuesto.find(o => String(o.descripcion).trim().toLowerCase() === String(it.descripcion).trim().toLowerCase());
+      if (!(precio > 0) && opItem) precio = Number(opItem.precio_unitario);
+    }
+    if (!(precio > 0)) sinPrecio.push(String(it.descripcion));
+    return {
+      descripcion: String(it.descripcion), cantidad: Number(it.cantidad), precio_unitario: precio,
+      producto_id: (it.producto_id as string | null) ?? null, operacion_item_id: (opItem?.id as string | undefined) ?? null,
+    };
+  });
+  if (sinPrecio.length) avisos.push(`Sin precio en el remito ni en el presupuesto: ${sinPrecio.join(', ')}. Cargalo a mano o quitá el ítem.`);
+  if (!['emitido', 'entregado'].includes(m.estado)) avisos.push(`El remito está ${m.estado}: solo se factura un remito emitido o entregado`);
+
+  const total = a2(lineas.reduce((a, l) => a + aCent(l.cantidad * l.precio_unitario), 0) / 100);
+  const facturado = await facturadoDe('remito_id', remitoId);
+  const saldo = a2(total - facturado);
+  if (facturado > 0) avisos.push(`Este remito ya tiene $ ${facturado.toLocaleString('es-AR')} facturados`);
+  if (m.operacion_id) {
+    const factOp = await facturadoDe('operacion_id', m.operacion_id);
+    const factRemito = facturado;
+    if (factOp - factRemito > 0) {
+      avisos.push(`Del presupuesto de este remito ya se facturaron $ ${a2(factOp - factRemito).toLocaleString('es-AR')} por otros comprobantes (señas o facturas): revisá que no se repita lo mismo.`);
+    }
+  }
+  return {
+    comprobante: {
+      tipo_doc: 'factura', receptor: cli[0] ? receptorDeCliente(cli[0]) : { doc_tipo: 99, doc_nro: '0', nombre: 'Consumidor Final', condicion_iva_id: 5 },
+      items: lineas, cliente_id: m.cliente_id, origen: 'remito', remito_id: m.id, operacion_id: m.operacion_id ?? null, fecha: hoyAR(),
+    },
+    referencia: `Remito ${m.numero}`, total_origen: total, facturado, saldo, avisos,
+  };
+}
+
 export async function prepararDesdeOperacion(operacionId: string): Promise<Propuesta | null> {
   const { rows: [o] } = await db.query(`SELECT id, numero, cliente_id, estado FROM operaciones WHERE id = $1`, [operacionId]);
   if (!o) return null;
@@ -141,25 +202,32 @@ export async function prepararDesdeOperacion(operacionId: string): Promise<Propu
     `SELECT id, descripcion, cantidad, precio_unitario, incluye_instalacion, precio_instalacion, tipo_item, producto_id
        FROM operacion_items WHERE operacion_id = $1 ORDER BY orden`, [operacionId]);
 
+  // Lo ya facturado por ítem (en otra factura parcial) no se vuelve a proponer: se factura solo lo que queda.
+  const yaFacturado = await facturadoPorItem(operacionId);
   const lineas: ItemEntrada[] = [];
+  const yaFacturados: string[] = [];
   for (const it of items) {
     const esServicio = it.tipo_item === 'servicio';
+    const hecho = yaFacturado.get(it.id) ?? 0;
+    const cantidad = Number(it.cantidad) - hecho;
+    if (hecho > 0 && cantidad <= 0) { yaFacturados.push(String(it.descripcion)); continue; }
     if (Number(it.precio_unitario) > 0) {
       lineas.push({
-        descripcion: it.descripcion, cantidad: Number(it.cantidad), precio_unitario: Number(it.precio_unitario),
+        descripcion: it.descripcion, cantidad, precio_unitario: Number(it.precio_unitario),
         es_servicio: esServicio, producto_id: it.producto_id, operacion_item_id: it.id,
       });
     }
     if (it.incluye_instalacion && Number(it.precio_instalacion) > 0) {
       lineas.push({
-        descripcion: `Instalación — ${it.descripcion}`, cantidad: Number(it.cantidad),
+        descripcion: `Instalación — ${it.descripcion}`, cantidad,
         precio_unitario: Number(it.precio_instalacion), es_servicio: true, operacion_item_id: it.id,
       });
     }
   }
-  if (tot.envio > 0) lineas.push({ descripcion: 'Envío', cantidad: 1, precio_unitario: tot.envio, es_servicio: true });
+  if (!yaFacturado.size && tot.envio > 0) lineas.push({ descripcion: 'Envío', cantidad: 1, precio_unitario: tot.envio, es_servicio: true });
 
-  repartirBonificacion(lineas, tot.descuentos);
+  // La bonificación se reparte entre los ítems en la primera factura; en una parcial no se repite.
+  if (!yaFacturado.size) repartirBonificacion(lineas, tot.descuentos);
 
   const facturado = await facturadoDe('operacion_id', operacionId);
   const saldo = a2(tot.total - facturado);
@@ -169,6 +237,7 @@ export async function prepararDesdeOperacion(operacionId: string): Promise<Propu
     avisos.push(`Ya hay $ ${facturado.toLocaleString('es-AR')} facturados de este presupuesto (por ejemplo, señas): ` +
       `el saldo a facturar es $ ${saldo.toLocaleString('es-AR')}. Ajustá los ítems o consultá con el contador cómo descontar los anticipos.`);
   }
+  if (yaFacturados.length) avisos.push(`Ya facturados completos y no incluidos: ${yaFacturados.join(', ')}`);
   const serv = lineas.some(l => l.es_servicio);
   return {
     comprobante: {
@@ -242,6 +311,11 @@ export async function excesoSobreOrigen(input: NuevoComprobante, total: number):
     return { exceso: a2(Math.max(0, total - saldo)), referencia: 'de la factura asociada' };
   }
   if (input.tipo_doc !== 'factura') return null;
+  if (input.remito_id) {
+    const p = await prepararDesdeRemito(input.remito_id);
+    if (!p) return null;
+    return { exceso: a2(Math.max(0, total - p.saldo)), referencia: `del remito (${p.referencia})` };
+  }
   if (input.recibo_id) {
     const { rows: [r] } = await db.query(`SELECT numero, monto_total FROM recibos WHERE id = $1`, [input.recibo_id]);
     if (!r) return null;
@@ -285,8 +359,19 @@ export async function porFacturar() {
       WHERE o.estado IN ${ESTADOS_OPERACION_FACTURABLE}
         AND o.precio_total + COALESCE(o.costo_envio, 0) - COALESCE(d.t, 0) - COALESCE(f.t, 0) > 0.009
       ORDER BY o.created_at DESC LIMIT 150`);
+  const { rows: remitos } = await db.query(
+    `SELECT m.id, m.numero, m.estado, m.fecha_emision, m.cliente_id, m.operacion_id, o.numero AS operacion_numero,
+            COALESCE(NULLIF(TRIM(COALESCE(c.apellido, '') || ' ' || COALESCE(c.nombre, '')), ''), c.razon_social) AS cliente_nombre,
+            COALESCE(f.t, 0) AS facturado
+       FROM remitos m
+       JOIN clientes c ON c.id = m.cliente_id
+       LEFT JOIN operaciones o ON o.id = m.operacion_id
+       LEFT JOIN LATERAL (SELECT SUM(${SIGNO}) AS t FROM comprobantes WHERE remito_id = m.id AND estado IN ${ESTADOS_QUE_CUENTAN}) f ON true
+      WHERE m.estado IN ('emitido', 'entregado') AND COALESCE(f.t, 0) = 0
+      ORDER BY m.fecha_emision DESC, m.created_at DESC LIMIT 150`);
   const n = (v: unknown) => Number(v);
   return {
+    remitos: remitos.map(m => ({ ...m, operacion_numero: m.operacion_numero ? String(m.operacion_numero).replace(/^OP-/, 'PRO-') : null, facturado: n(m.facturado) })),
     recibos: recibos.map(r => ({ ...r, monto_total: n(r.monto_total), facturado: n(r.facturado), saldo: a2(n(r.monto_total) - n(r.facturado)) })),
     operaciones: operaciones.map(o => ({
       ...o, numero: String(o.numero).replace(/^OP-/, 'PRO-'), total: n(o.total), facturado: n(o.facturado), cobrado: n(o.cobrado),

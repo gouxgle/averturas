@@ -45,7 +45,8 @@ const nombreCliente = (c: ClienteBusqueda) =>
 export default function NuevaFactura() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const origenParam = params.get('recibo_id') ? `recibo_id=${params.get('recibo_id')}`
+  const origenParam = params.get('remito_id') ? `remito_id=${params.get('remito_id')}`
+    : params.get('recibo_id') ? `recibo_id=${params.get('recibo_id')}`
     : params.get('operacion_id') ? `operacion_id=${params.get('operacion_id')}`
       : params.get('factura_id') ? `factura_id=${params.get('factura_id')}${params.get('tipo') === 'nota_debito' ? '&tipo=nota_debito' : ''}` : null;
 
@@ -62,16 +63,17 @@ export default function NuevaFactura() {
     api.get<Propuesta>(`/facturacion/preparar?${origenParam}`)
       .then(p => {
         setPropuesta(p);
-        setComp({ ...p.comprobante, fecha: p.comprobante.fecha ?? hoy() });
-        setPaso(p.comprobante.tipo_doc === 'factura' ? 1 : 2);
+        setComp({ ...p.comprobante, items: p.comprobante.items.map((it, i) => ({ ...it, origen_idx: i })), fecha: p.comprobante.fecha ?? hoy() });
+        setPaso(p.comprobante.tipo_doc === 'factura' ? 1 : params.get('anular') === '1' ? 3 : 2);
       })
       .catch(e => toastApiError(e))
       .finally(() => setCargando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origenParam]);
 
   const esNC = comp.tipo_doc === 'nota_credito';
   const esNota = comp.tipo_doc !== 'factura';
-  const titulo = esNC ? 'Nueva nota de crédito' : comp.tipo_doc === 'nota_debito' ? 'Nueva nota de débito' : 'Nueva factura';
+  const titulo = esNC ? (params.get('anular') === '1' ? 'Anular factura (nota de crédito total)' : 'Nueva nota de crédito') : comp.tipo_doc === 'nota_debito' ? 'Nueva nota de débito' : 'Nueva factura';
   const pasos = [{ n: 1, l: 'Cliente' }, { n: 2, l: 'Ítems' }, { n: 3, l: 'Revisar y emitir' }] as const;
 
   if (cargando) return <div className="p-6 text-sm text-gray-600">Preparando…</div>;
@@ -112,7 +114,7 @@ export default function NuevaFactura() {
       </div>
 
       {paso === 1 && <PasoCliente comp={comp} setComp={setComp} onSeguir={() => setPaso(2)} />}
-      {paso === 2 && <PasoItems comp={comp} setComp={setComp} esNota={esNota} onVolver={() => setPaso(1)} onSeguir={() => setPaso(3)} />}
+      {paso === 2 && <PasoItems comp={comp} setComp={setComp} esNota={esNota} original={propuesta?.comprobante.items ?? []} onVolver={() => setPaso(1)} onSeguir={() => setPaso(3)} />}
       {paso === 3 && <PasoRevision comp={comp} setComp={setComp} habilitada={!!habilitada} onVolver={() => setPaso(2)}
         onListo={id => navigate(`/facturacion?cbte=${id}`, { replace: true })} />}
     </div>
@@ -295,12 +297,13 @@ function PasoCliente({ comp, setComp, onSeguir }: {
 }
 
 // ── Paso 2: ítems ────────────────────────────────────────────────────────────
-function PasoItems({ comp, setComp, esNota, onVolver, onSeguir }: {
-  comp: NuevoComprobante; setComp: React.Dispatch<React.SetStateAction<NuevoComprobante>>; esNota: boolean;
+function PasoItems({ comp, setComp, esNota, original, onVolver, onSeguir }: {
+  comp: NuevoComprobante; setComp: React.Dispatch<React.SetStateAction<NuevoComprobante>>; esNota: boolean; original: ItemCbte[];
   onVolver: () => void; onSeguir: () => void;
 }) {
   const setItem = (i: number, cambios: Partial<ItemCbte>) =>
     setComp(c => ({ ...c, items: c.items.map((it, j) => (j === i ? { ...it, ...cambios } : it)) }));
+  const quitados = original.map((it, idx) => ({ it, idx })).filter(({ idx }) => !comp.items.some(i => i.origen_idx === idx));
   const hayServicio = comp.items.some(i => i.es_servicio);
   const total = comp.items.reduce((a, i) => a + totalLineaCent(i), 0) / 100;
   const valido = comp.items.length > 0 && comp.items.every(i => i.descripcion.trim() && i.cantidad > 0 && i.precio_unitario > 0)
@@ -358,6 +361,20 @@ function PasoItems({ comp, setComp, esNota, onVolver, onSeguir }: {
           </li>
         ))}
       </ul>
+      {quitados.length > 0 && (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
+          <p className="text-xs font-semibold text-gray-700 mb-1.5">Ítems del origen que no se van a facturar ({quitados.length})</p>
+          <ul className="space-y-1">
+            {quitados.map(({ it, idx }) => (
+              <li key={idx} className="flex items-center gap-2 text-xs text-gray-700">
+                <span className="flex-1 min-w-0 truncate">{it.cantidad} × {it.descripcion} · {fmt$(totalLineaCent(it) / 100)}</span>
+                <button onClick={() => setComp(c => ({ ...c, items: [...c.items, { ...it, origen_idx: idx }].sort((a, b) => (a.origen_idx ?? 1e6) - (b.origen_idx ?? 1e6)) }))}
+                  className="shrink-0 h-8 px-2.5 rounded-md border border-fuchsia-300 bg-white text-fuchsia-800 font-semibold hover:bg-fuchsia-50">Volver a incluir</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {comp.tipo_doc !== 'nota_credito' && (
         <button onClick={() => setComp(c => ({ ...c, items: [...c.items, itemVacio()] }))} className={btnSec}><Plus size={15} /> Agregar ítem</button>
       )}

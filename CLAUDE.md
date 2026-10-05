@@ -537,6 +537,12 @@ saldo por factura), **F7** (contingencia CAEA) y **F8** (Libro IVA + control con
   **No se anula ni se baja el importe** de un recibo con facturas vigentes, ni se cancela /
   rechaza / desaprueba un presupuesto facturado: primero la NC (409 en `recibos.ts` y
   `operaciones.ts`, con `facturadoDe`).
+- **Orígenes de una factura** (`lib/fiscal/origenes.ts`): recibo, presupuesto, **remito**
+  (`comprobantes.remito_id`; precios del remito o, si no tiene, del presupuesto por producto) o
+  manual. Del presupuesto no se vuelve a proponer lo ya facturado por ítem
+  (`facturadoPorItem`, vía `operacion_item_id`). En Nueva factura se pueden quitar ítems (y
+  "Volver a incluir" los quitados). "Anular factura" = nota de crédito total lista para emitir
+  (`?factura_id=…&anular=1`). Un remito con facturas vigentes no se cancela (409).
 - **Ficha del cliente ↔ ARCA** (`lib/fiscal/clienteArca.ts`): al elegir un cliente en Nueva
   factura, si le faltan datos fiscales y se conoce su CUIT (campo `cuit` o un CUIT en
   `documento_nro`), `POST /facturacion/clientes/:id/completar-arca` consulta el padrón y **guarda

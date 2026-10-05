@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Receipt, FileText, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Receipt, FileText, Truck, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toastApiError } from '@/lib/apiError';
 import { fmt$, fechaCorta } from './tipos';
@@ -8,6 +8,9 @@ import { fmt$, fechaCorta } from './tipos';
 interface ReciboPendiente {
   id: string; numero: string; fecha: string; monto_total: number; facturado: number; saldo: number;
   cliente_nombre: string; operacion_numero: string | null;
+}
+interface RemitoPendiente {
+  id: string; numero: string; estado: string; fecha_emision: string; cliente_nombre: string; operacion_numero: string | null;
 }
 interface OperacionPendiente {
   id: string; numero: string; estado: string; cliente_nombre: string; total: number; facturado: number;
@@ -22,10 +25,10 @@ const ESTADO_OP: Record<string, string> = {
 // aprobado con saldo sin facturar. Se factura caso por caso desde acá.
 export function TabPorFacturar({ puedeEmitir, refresh }: { puedeEmitir: boolean; refresh: number }) {
   const navigate = useNavigate();
-  const [data, setData] = useState<{ recibos: ReciboPendiente[]; operaciones: OperacionPendiente[] } | null>(null);
+  const [data, setData] = useState<{ recibos: ReciboPendiente[]; operaciones: OperacionPendiente[]; remitos: RemitoPendiente[] } | null>(null);
 
   useEffect(() => {
-    api.get<{ recibos: ReciboPendiente[]; operaciones: OperacionPendiente[] }>('/facturacion/por-facturar')
+    api.get<{ recibos: ReciboPendiente[]; operaciones: OperacionPendiente[]; remitos: RemitoPendiente[] }>('/facturacion/por-facturar')
       .then(setData).catch(e => toastApiError(e));
   }, [refresh]);
 
@@ -40,6 +43,30 @@ export function TabPorFacturar({ puedeEmitir, refresh }: { puedeEmitir: boolean;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <section className="xl:col-span-2 bg-white rounded-2xl border border-gray-400 shadow-lg p-3 sm:p-4">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-1">
+          <Truck size={16} className="text-sky-700" /> Remitos sin facturar
+          <span className="text-xs font-semibold text-gray-500">({data.remitos.length})</span>
+        </h2>
+        <p className="text-xs text-gray-600 mb-3">Remitos emitidos o entregados. Los productos y precios salen del remito y del presupuesto; podés quitar ítems antes de emitir.</p>
+        {data.remitos.length === 0 ? <Vacio texto="No hay remitos pendientes de facturar." /> : (
+          <ul className="divide-y divide-gray-200">
+            {data.remitos.map(m => (
+              <li key={m.id} className="py-2.5 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{m.cliente_nombre}</p>
+                  <p className="text-xs text-gray-600">
+                    <span className="font-mono">{m.numero}</span> · {fechaCorta(m.fecha_emision)} · {m.estado === 'entregado' ? 'Entregado' : 'Emitido'}
+                    {m.operacion_numero && <> · {m.operacion_numero}</>}
+                  </p>
+                </div>
+                {boton(`/facturacion/nueva?remito_id=${m.id}`)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section className="bg-white rounded-2xl border border-gray-400 shadow-lg p-3 sm:p-4">
         <h2 className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-1">
           <Receipt size={16} className="text-emerald-700" /> Cobros sin facturar

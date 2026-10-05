@@ -4,6 +4,8 @@ export type EstadoCbte = 'borrador' | 'emitiendo' | 'autorizado' | 'rechazado' |
 export type TipoDoc = 'factura' | 'nota_debito' | 'nota_credito';
 
 export interface ItemCbte {
+  /** Posición del ítem en la propuesta del origen: permite volver a agregar uno quitado. */
+  origen_idx?: number;
   descripcion: string;
   cantidad: number;
   precio_unitario: number;
@@ -33,9 +35,10 @@ export interface NuevoComprobante {
   fch_serv_desde?: string | null;
   fch_serv_hasta?: string | null;
   fch_vto_pago?: string | null;
-  origen?: 'manual' | 'operacion' | 'recibo';
+  origen?: 'manual' | 'operacion' | 'recibo' | 'remito';
   operacion_id?: string | null;
   recibo_id?: string | null;
+  remito_id?: string | null;
   comprobante_asociado_id?: string | null;
   notas?: string | null;
   confirmar_exceso?: boolean;

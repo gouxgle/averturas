@@ -1,3 +1,4 @@
+import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -298,6 +299,9 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                 <PrinterIcon size={14} /> Ver / imprimir PDF
               </button>
+              {['emitido', 'entregado'].includes(detalle.estado) && (
+                <div className="flex justify-center"><FacturasVinculadas remitoId={detalle.id} /></div>
+              )}
               {detalle.estado !== 'cancelado' && (
                 <button onClick={() => setShowEstado(true)}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-600 hover:text-gray-600">

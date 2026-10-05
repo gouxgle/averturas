@@ -15,16 +15,16 @@ const COLOR: Record<string, string> = {
 };
 
 /**
- * Facturas de un recibo o presupuesto (chips que abren el detalle) + botón "Facturar".
- * Se usa en el detalle de Recibos y Presupuestos.
+ * Facturas de un recibo, remito o presupuesto (chips que abren el detalle) + botón "Facturar".
+ * Se usa en el detalle de Recibos, Remitos y Presupuestos.
  */
-export function FacturasVinculadas({ reciboId, operacionId, puedeFacturar = true }: {
-  reciboId?: string; operacionId?: string; puedeFacturar?: boolean;
+export function FacturasVinculadas({ reciboId, operacionId, remitoId, puedeFacturar = true }: {
+  reciboId?: string; operacionId?: string; remitoId?: string; puedeFacturar?: boolean;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [lista, setLista] = useState<Vinculado[]>([]);
-  const filtro = reciboId ? `recibo_id=${reciboId}` : `operacion_id=${operacionId}`;
+  const filtro = remitoId ? `remito_id=${remitoId}` : reciboId ? `recibo_id=${reciboId}` : `operacion_id=${operacionId}`;
 
   useEffect(() => {
     api.get<Vinculado[]>(`/facturacion/comprobantes?${filtro}`, { silent: true }).then(setLista).catch(() => {});

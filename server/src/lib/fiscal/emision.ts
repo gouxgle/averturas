@@ -34,9 +34,10 @@ export interface NuevoComprobante {
   fch_serv_hasta?: string | null;
   fch_vto_pago?: string | null;
   punto_venta?: number | null;
-  origen?: 'manual' | 'operacion' | 'recibo';
+  origen?: 'manual' | 'operacion' | 'recibo' | 'remito';
   operacion_id?: string | null;
   recibo_id?: string | null;
+  remito_id?: string | null;
   comprobante_asociado_id?: string | null;
   notas?: string | null;
 }
@@ -48,7 +49,7 @@ export interface ComprobanteFila {
   fch_serv_desde: Date | string | null; fch_serv_hasta: Date | string | null; fch_vto_pago: Date | string | null;
   cliente_id: string | null; receptor_doc_tipo: number; receptor_doc_nro: string; receptor_nombre: string;
   receptor_domicilio: string | null; receptor_condicion_iva_id: number;
-  comprobante_asociado_id: string | null; operacion_id: string | null; recibo_id: string | null; moneda: string; cotizacion: string;
+  comprobante_asociado_id: string | null; operacion_id: string | null; recibo_id: string | null; remito_id: string | null; moneda: string; cotizacion: string;
   imp_neto: string; imp_iva: string; imp_op_ex: string; imp_tot_conc: string; imp_trib: string; imp_total: string;
   cae: string | null; cae_vto: Date | string | null; emisor: Record<string, unknown> | null;
   intentos: number; emitiendo_desde: Date | null;
@@ -82,6 +83,7 @@ export interface Analisis {
   /** Origen heredado: una nota hereda recibo/operación de la factura que corrige. */
   operacion_id: string | null;
   recibo_id: string | null;
+  remito_id: string | null;
 }
 
 /**
@@ -107,10 +109,14 @@ function validarAsociado(input: NuevoComprobante, a: {
 }
 
 /** No se factura un recibo anulado ni un presupuesto que no esté aprobado (o más adelante). */
-async function validarOrigen(input: NuevoComprobante, operacionId: string | null, reciboId: string | null): Promise<string[]> {
+async function validarOrigen(input: NuevoComprobante, operacionId: string | null, reciboId: string | null, remitoId: string | null = null): Promise<string[]> {
   if (input.tipo_doc !== 'factura') return [];
   const p: string[] = [];
-  if (reciboId) {
+  if (remitoId) {
+    const { rows: [m] } = await db.query(`SELECT numero, estado FROM remitos WHERE id = $1`, [remitoId]);
+    if (!m) p.push('El remito de origen no existe');
+    else if (!['emitido', 'entregado'].includes(m.estado)) p.push(`El remito ${m.numero} está ${m.estado}: solo se factura un remito emitido o entregado`);
+  } else if (reciboId) {
     const { rows: [r] } = await db.query(`SELECT numero, estado FROM recibos WHERE id = $1`, [reciboId]);
     if (!r) p.push('El recibo de origen no existe');
     else if (r.estado !== 'emitido') p.push(`El recibo ${r.numero} está ${r.estado}: no se puede facturar`);
@@ -134,12 +140,13 @@ export async function analizar(input: NuevoComprobante): Promise<Analisis> {
   let asociado: { cbte_tipo: number; numero: number | null; clase: Clase; punto_venta: number } | null = null;
   let operacionId = input.operacion_id ?? null;
   let reciboId = input.recibo_id ?? null;
+  let remitoId = input.remito_id ?? null;
   if (input.tipo_doc === 'factura') {
     clase = claseSegunReceptor(input.receptor.condicion_iva_id);
   } else {
     if (!input.comprobante_asociado_id) throw new EmisionError('Falta la factura asociada a la nota');
     const { rows: [a] } = await db.query(
-      `SELECT cbte_tipo, numero, clase, punto_venta, estado, operacion_id, recibo_id, tipo_doc, fecha,
+      `SELECT cbte_tipo, numero, clase, punto_venta, estado, operacion_id, recibo_id, remito_id, tipo_doc, fecha,
               receptor_doc_tipo, receptor_doc_nro
          FROM comprobantes WHERE id = $1`,
       [input.comprobante_asociado_id]);
@@ -149,6 +156,7 @@ export async function analizar(input: NuevoComprobante): Promise<Analisis> {
     asociado = { cbte_tipo: a.cbte_tipo, numero: a.estado === 'autorizado' ? Number(a.numero) : null, clase: a.clase, punto_venta: a.punto_venta };
     operacionId = operacionId ?? a.operacion_id;
     reciboId = reciboId ?? a.recibo_id;
+    remitoId = remitoId ?? a.remito_id;
   }
 
   const pvs = (await leerPuntosVenta()).filter(p => p.activo && p.modo === 'CAE');
@@ -159,12 +167,12 @@ export async function analizar(input: NuevoComprobante): Promise<Analisis> {
     cuit_emisor: cfg.cuit ?? '', fch_serv_desde: input.fch_serv_desde, fch_serv_hasta: input.fch_serv_hasta,
     fch_vto_pago: input.fch_vto_pago, asociado,
   });
-  problemas.push(...extra, ...await validarOrigen(input, operacionId, reciboId));
+  problemas.push(...extra, ...await validarOrigen(input, operacionId, reciboId, remitoId));
   if (!puntoVenta) problemas.push('No hay un punto de venta activo para emisión online (Configuración > Facturación)');
   else if (!pvs.some(p => p.numero === puntoVenta)) problemas.push(`El punto de venta ${puntoVenta} no está activo para emisión online`);
   return {
     clase, cbte_tipo: tipoComprobante(clase, input.tipo_doc), punto_venta: puntoVenta, fecha, importes, problemas,
-    operacion_id: operacionId, recibo_id: reciboId,
+    operacion_id: operacionId, recibo_id: reciboId, remito_id: remitoId,
   };
 }
 
@@ -184,16 +192,16 @@ export async function crearBorrador(input: NuevoComprobante, usuarioId: string |
       `INSERT INTO comprobantes
          (ambiente, tipo_doc, clase, cbte_tipo, punto_venta, fecha, concepto, fch_serv_desde, fch_serv_hasta, fch_vto_pago,
           cliente_id, receptor_doc_tipo, receptor_doc_nro, receptor_nombre, receptor_domicilio, receptor_condicion_iva_id,
-          origen, operacion_id, recibo_id, comprobante_asociado_id,
+          origen, operacion_id, recibo_id, remito_id, comprobante_asociado_id,
           imp_neto, imp_iva, imp_op_ex, imp_tot_conc, imp_trib, imp_total, notas, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
        RETURNING id`,
       [cfg.ambiente, input.tipo_doc, clase, a.cbte_tipo, puntoVenta, fecha, importes.concepto,
        importes.concepto !== 1 ? input.fch_serv_desde ?? null : null,
        importes.concepto !== 1 ? input.fch_serv_hasta ?? null : null,
        importes.concepto !== 1 ? input.fch_vto_pago ?? null : null,
        input.cliente_id ?? null, r.doc_tipo, r.doc_nro, r.nombre.trim(), r.domicilio ?? null, r.condicion_iva_id,
-       input.origen ?? 'manual', a.operacion_id, a.recibo_id, input.comprobante_asociado_id ?? null,
+       input.origen ?? 'manual', a.operacion_id, a.recibo_id, a.remito_id, input.comprobante_asociado_id ?? null,
        importes.imp_neto, importes.imp_iva, importes.imp_op_ex, importes.imp_tot_conc, importes.imp_trib, importes.imp_total,
        input.notas ?? null, usuarioId]);
     for (const [i, it] of importes.items.entries()) {
@@ -452,7 +460,7 @@ export async function emitir(id: string, usuarioId: string | null): Promise<Resu
       tipo_doc: c.tipo_doc, fecha: iso(c.fecha), items: [],
       receptor: { doc_tipo: c.receptor_doc_tipo, doc_nro: c.receptor_doc_nro, nombre: c.receptor_nombre, condicion_iva_id: c.receptor_condicion_iva_id },
     } as unknown as NuevoComprobante;
-    problemas.push(...await validarOrigen(comoInput, c.operacion_id, c.recibo_id));
+    problemas.push(...await validarOrigen(comoInput, c.operacion_id, c.recibo_id, c.remito_id));
     if (asocFila) problemas.push(...validarAsociado(comoInput, asocFila));
     if (problemas.length) throw new EmisionError('El comprobante tiene datos a corregir', problemas);
 

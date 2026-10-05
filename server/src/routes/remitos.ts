@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
+import { facturadoDe } from '../lib/fiscal/origenes.js';
 import { validateBody } from '../lib/validate.js';
 import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '../lib/schemas.js';
 import { sincronizarTareaEntrega, completarTareaDeEntrega } from '../lib/remitos.js';
@@ -675,6 +676,9 @@ remitos.patch('/:id/estado', async (c) => {
   const estadoActual = remito.estado as string;
   if (!TRANSICIONES[estadoActual]?.includes(nuevoEstado)) {
     return c.json({ error: `No se puede pasar de ${estadoActual} a ${nuevoEstado}` }, 409);
+  }
+  if (nuevoEstado === 'cancelado' && await facturadoDe('remito_id', id) > 0.009) {
+    return c.json({ error: 'Este remito tiene facturas vigentes: primero hacé la nota de crédito que corresponda.' }, 409);
   }
 
   const client = await db.connect();
