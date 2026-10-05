@@ -629,7 +629,7 @@ de $1,07 daban 31 centavos de IVA de más), y el neto se reparte a las líneas c
 
 ## Manuales del sistema (`/ayuda`)
 
-Cuatro manuales escritos **para el operador del local, no para desarrolladores**. Si se
+Cinco manuales escritos **para el operador del local, no para desarrolladores**. Si se
 cambia una pantalla de alguno de estos circuitos, hay que corregir el manual en el mismo
 commit (y el resumen corto del panel lateral, `HelpDrawer.tsx`, si el tema lo tiene).
 
@@ -639,6 +639,7 @@ commit (y el resumen corto del panel lateral, `HelpDrawer.tsx`, si el tema lo ti
 | Visitas de Relevamiento | `visitas` | `manualVisitas.ts` |
 | Venta rápida | `venta-rapida` | `manualVentaRapida.ts` |
 | Compras | `compras` | `manualCompras.ts` |
+| Revisión integral de precios | `precios` | `manualPrecios.ts` (+ tema `precios` del HelpDrawer) |
 
 - `manuales.ts` es el **registro**: slug, título, ícono, `data-section` y a qué pantalla
   lleva el botón "Ir a…". Agregar un manual = un archivo de contenido + una entrada acá;

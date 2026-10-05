@@ -23,6 +23,7 @@ export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circ
 const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
   presupuestos: 'presupuestos',
   compras: 'compras',
+  precios: 'precios',
 };
 
 // ── Contenido de ayuda ────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Compras',                            path: '/compras' },
   { label: 'Agenda',                             path: '/agenda' },
   { label: 'Revisión de precios',                path: '/productos/precios' },
+  { label: 'Manual: revisión de precios',        path: '/ayuda/precios' },
   { label: 'Revisión de precios: actualizar',    path: '/productos/precios?tab=actualizar' },
   { label: 'Revisión de precios: proveedor',     path: '/productos/precios?tab=proveedor' },
   { label: 'Agenda: internas',                   path: '/agenda?tab=internas' },

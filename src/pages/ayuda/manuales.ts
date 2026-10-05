@@ -1,9 +1,10 @@
-import { FileText, MapPin, Zap, ShoppingCart, type LucideIcon } from 'lucide-react';
+import { FileText, MapPin, Zap, ShoppingCart, Scale, type LucideIcon } from 'lucide-react';
 import type { SeccionManual } from './tipos';
 import { MANUAL_PRESUPUESTOS } from './manualPresupuestos';
 import { MANUAL_VISITAS } from './manualVisitas';
 import { MANUAL_VENTA_RAPIDA } from './manualVentaRapida';
 import { MANUAL_COMPRAS } from './manualCompras';
+import { MANUAL_PRECIOS } from './manualPrecios';
 
 export interface Manual {
   /** Va en la URL: `/ayuda/:slug` y `/imprimir/manual/:slug`. No cambiarlo sin migrar los links. */
@@ -63,6 +64,16 @@ export const MANUALES: Manual[] = [
     ruta: '/compras',
     rutaLabel: 'Ir a Compras',
     secciones: MANUAL_COMPRAS,
+  },
+  {
+    slug: 'precios',
+    titulo: 'Revisión integral de precios',
+    sub: 'Qué precios renovar, cuáles actualizar y cómo cargar la lista de un proveedor',
+    icono: Scale,
+    seccion: 'productos',
+    ruta: '/productos/precios',
+    rutaLabel: 'Ir a la revisión de precios',
+    secciones: MANUAL_PRECIOS,
   },
 ];
 
