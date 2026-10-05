@@ -108,8 +108,10 @@ export default function App() {
                   <Route path="/operaciones/:id" element={<OperacionDetalle />} />
                   <Route path="/clientes" element={<Clientes />} />
                   <Route path="/clientes/importar" element={<ImportarClientes />} />
-                  <Route path="/clientes/nuevo" element={<NuevoCliente />} />
-                  <Route path="/clientes/:id/editar" element={<NuevoCliente />} />
+                  {/* key distinta por ruta: sin ella React reutiliza el mismo formulario al pasar de "nuevo" a
+                      "editar" (Completar este contacto) y arrastra el estado y los avisos del alta */}
+                  <Route path="/clientes/nuevo" element={<NuevoCliente key="nuevo" />} />
+                  <Route path="/clientes/:id/editar" element={<NuevoCliente key="editar" />} />
                   <Route path="/clientes/:id/estado-cuenta" element={<EstadoCuenta />} />
                   <Route path="/clientes/:id" element={<ClienteDetalle />} />
                   <Route path="/crm" element={<CRM />} />

@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Zap, Clock, User, Building2, MapPin, Phone,
   Tag, FileText, Hash, AlertCircle, Home, Briefcase,
-  MessageCircle, ChevronRight, Star, Lightbulb, Printer, X, Mail, Landmark,
+  MessageCircle, ChevronRight, Star, Lightbulb, Printer, X, Mail, Landmark, UserCheck, Check,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -13,6 +13,9 @@ import type { CategoriaCliente, Cliente } from '@/types';
 import { TraerDeArca, type DatosFichaArca } from '@/components/facturacion/TraerDeArca';
 import { CONDICIONES_IVA } from '@/lib/condicionIva';
 import { cuitValido } from '@/lib/cuit';
+import {
+  ultimos10, partirTelefono, construirFusion, aplicarFusion, type FilaFusion, type ResultadoFusion, type ContactoExistente,
+} from '@/lib/fusionContacto';
 
 type TipoPersona = 'fisica' | 'juridica';
 
@@ -21,7 +24,12 @@ interface TelValidacionCliente {
   tipo_persona: TipoPersona; telefono: string | null;
   direccion: string | null; localidad: string | null; email: string | null;
   documento_nro: string | null; estado: string; activo: boolean;
+  telefono_fijo?: string | null; codigo_postal?: string | null; notas?: string | null; origen?: string | null;
+  fecha_nacimiento?: string | null; email_alternativo?: string | null;
 }
+
+/** Lo que "Completar este contacto" le pasa al formulario de edición. */
+type FusionEstado = ResultadoFusion;
 
 function titleCase(str: string) {
   return str.trim().replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
@@ -130,6 +138,16 @@ export function NuevoCliente() {
   const [telWarning, setTelWarning]     = useState<string | null>(null);
   const [telDuplicado, setTelDuplicado] = useState<TelValidacionCliente | null>(null);
   const [showTelModal, setShowTelModal] = useState(false);
+  // Teléfono y DNI tal como estaban guardados al abrir la edición: solo un número CAMBIADO que ya
+  // existe en otro contacto bloquea el guardado. Si no se tocó, el aviso informa pero deja guardar
+  // (antes, dos fichas con el mismo número no se podían editar ninguna de las dos).
+  const [telOriginal, setTelOriginal] = useState('');
+  const [dniOriginal, setDniOriginal] = useState('');
+  const [fusion, setFusion] = useState<FusionEstado | null>(null);
+  const [usos, setUsos] = useState<Record<string, FilaFusion['usar']>>({});
+  const location = useLocation();
+  // La fusión llega una sola vez, por navegación: se lee al montar y no vuelve a disparar la carga.
+  const fusionPendienteRef = useRef<FusionEstado | null>((location.state as { fusion?: FusionEstado } | null)?.fusion ?? null);
   const nombreRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>(() => {
@@ -188,26 +206,22 @@ export function NuevoCliente() {
           crm_etapa:                 (c as any).crm_etapa    ?? '',
           interes:                   (c as any).interes      ?? '',
         };
-        setForm(f);
-        // Parsear teléfono en prefijo + número para el split input
-        const raw = (c.telefono ?? '').trim();
-        if (raw) {
-          const spaceIdx = raw.indexOf(' ');
-          if (spaceIdx > 0) {
-            setTelPrefijo(raw.slice(0, spaceIdx));
-            setTelNumero(raw.slice(spaceIdx + 1));
-          } else if (raw.length > 4) {
-            setTelPrefijo(raw.slice(0, 4));
-            setTelNumero(raw.slice(4));
-          } else {
-            setTelPrefijo(raw);
-            setTelNumero('');
-          }
-        }
+        // Viene de "Completar este contacto": se completa lo que faltaba sobre la ficha cargada
+        const fusionPendiente = fusionPendienteRef.current;
+        const aplicado: FormState = fusionPendiente ? { ...f, ...fusionPendiente.valores } as FormState : f;
+        setForm(aplicado);
+        setTelOriginal(ultimos10(c.telefono));
+        setDniOriginal((c.documento_nro ?? '').replace(/\D/g, ''));
+        if (fusionPendiente) setFusion(fusionPendiente);
+        // Parsear teléfono en prefijo + número para los dos casilleros (sin recortar el de la agenda)
+        const partes = partirTelefono(c.telefono);
+        setTelPrefijo(partes.prefijo || '3704');
+        setTelNumero(partes.numero);
         setNombreCompleto(
-          c.tipo_persona === 'fisica'
-            ? combinarNombre(c.apellido, c.nombre)
-            : (c.razon_social ?? '')
+          fusionPendiente?.nombreCompleto
+            ?? (c.tipo_persona === 'fisica'
+              ? combinarNombre(c.apellido, c.nombre)
+              : (c.razon_social ?? ''))
         );
         setLoading(false);
       });
@@ -270,18 +284,38 @@ export function NuevoCliente() {
       );
       if (res.existe && res.cliente) {
         const n = res.cliente.razon_social ?? [res.cliente.apellido, res.cliente.nombre].filter(Boolean).join(', ');
+        setTelDuplicado(res.cliente);
+        // Editando un contacto sin cambiarle el número: otro contacto lo comparte, pero eso no
+        // impide guardar el resto de los datos. Se avisa y se puede ir a ver el otro.
+        if (isEdit && ultimos10(clean) === telOriginal) {
+          setTelWarning(`Otro contacto tiene este mismo número: ${n || 'sin nombre'}`);
+          return false;
+        }
         // Un contacto inactivo (los leads importados entran así) no figura en el
         // listado, así que decir solo "ya registrado" deja al operador buscando
         // algo que no va a encontrar. Se aclara para que sepa qué está pasando.
         setTelWarning(res.cliente.activo ? `Ya registrado: ${n}` : `Ya registrado (contacto inactivo): ${n}`);
-        setTelDuplicado(res.cliente);
+        setUsos({});
         setShowTelModal(true);
       } else {
         setTelWarning(null);
         setTelDuplicado(null);
       }
-      return res.existe;
+      return res.existe && !(isEdit && ultimos10(clean) === telOriginal);
     } catch { setTelWarning(null); setTelDuplicado(null); return false; }
+  }
+
+  /** Qué se haría con cada dato al completar el contacto que ya existía (solo al dar de alta). */
+  const filasFusion = useMemo<FilaFusion[]>(() => {
+    if (isEdit || !telDuplicado) return [];
+    return construirFusion(telDuplicado as unknown as ContactoExistente, form as unknown as Record<string, string>, nombreCompleto)
+      .map(f => ({ ...f, usar: usos[f.campo] ?? f.usar }));
+  }, [isEdit, telDuplicado, form, nombreCompleto, usos]);
+
+  /** Abre la edición del contacto que ya existía, con lo que faltaba ya agregado. */
+  function completarContactoExistente() {
+    if (!telDuplicado) return;
+    navigate(`/clientes/${telDuplicado.id}/editar`, { state: { fusion: aplicarFusion(filasFusion) } });
   }
 
   function buildPayload() {
@@ -321,7 +355,7 @@ export function NuevoCliente() {
 
     // Re-validar DNI
     const dniClean = form.documento_nro.replace(/\D/g, '');
-    if (dniClean.length >= 6) {
+    if (dniClean.length >= 6 && !(isEdit && dniClean === dniOriginal)) {
       try {
         const res = await api.get<{ existe: boolean; cliente: { nombre: string | null; apellido: string | null; razon_social: string | null } | null }>(
           `/clientes/validar-dni?dni=${encodeURIComponent(dniClean)}${isEdit ? `&excluir_id=${editId}` : ''}`
@@ -437,6 +471,21 @@ export function NuevoCliente() {
         {/* ── Contenido principal ── */}
         <div className="flex-1 min-w-0 space-y-4">
 
+          {/* Viene de "Completar este contacto": qué se agregó y qué se dejó como estaba */}
+          {fusion && (
+            <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4 flex gap-3" role="status">
+              <UserCheck size={20} className="text-emerald-700 shrink-0 mt-0.5" />
+              <div className="text-sm text-emerald-900 space-y-1 flex-1 min-w-0">
+                <p className="font-bold">Estás completando un contacto que ya estaba agendado</p>
+                {fusion.resumen.nombreAnterior && <p>Nombre provisorio <b>"{fusion.resumen.nombreAnterior}"</b> reemplazado por <b>"{nombreCompleto}"</b>.</p>}
+                {fusion.resumen.completados.length > 0 && <p>Se agregó: <b>{fusion.resumen.completados.join(', ')}</b>.</p>}
+                {fusion.resumen.mantenidos.length > 0 && <p>Se dejó como estaba (ya tenía datos): <b>{fusion.resumen.mantenidos.join(', ')}</b>.</p>}
+                <p className="text-emerald-800">Revisá los datos y tocá <b>Guardar cambios</b>. Si no querés cambiar nada, volvé atrás: no se guardó todavía.</p>
+              </div>
+              <button type="button" onClick={() => setFusion(null)} className="p-1 h-7 rounded-lg hover:bg-emerald-100 text-emerald-700 shrink-0" aria-label="Cerrar aviso"><X size={16} /></button>
+            </div>
+          )}
+
           {/* ══ SECCIÓN 1: CARGA RÁPIDA ════════════════════════════════════════ */}
           <div className="bg-white rounded-2xl border border-gray-400 shadow-lg overflow-hidden">
             {/* Header sección */}
@@ -514,8 +563,11 @@ export function NuevoCliente() {
                     />
                   </div>
                   {telWarning && (
-                    <p className="flex items-center gap-1 mt-1 text-[11px] text-amber-600 font-medium">
+                    <p className="flex items-center gap-1 mt-1 text-[11px] text-amber-700 font-medium flex-wrap">
                       <AlertCircle size={10} /> {telWarning}
+                      {isEdit && telDuplicado && (
+                        <button type="button" onClick={() => navigate(`/clientes/${telDuplicado.id}`)} className="underline font-semibold">Ver ese contacto</button>
+                      )}
                     </p>
                   )}
                 </div>
@@ -1137,7 +1189,7 @@ export function NuevoCliente() {
                 <p className="font-bold text-gray-900 text-sm">Este número ya está registrado</p>
                 <p className="text-[11px] text-gray-600">
                   {telDuplicado.activo
-                    ? 'Revisá si es el mismo cliente antes de continuar'
+                    ? (isEdit ? 'Otro contacto ya usa este número' : 'Si es la misma persona, completá su ficha en vez de crear otra')
                     : 'Es un contacto inactivo, por eso no lo ves en el listado. Editalo y vuelve a aparecer.'}
                 </p>
               </div>
@@ -1187,16 +1239,55 @@ export function NuevoCliente() {
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-gray-200 flex gap-2">
+            {/* Completar el contacto que ya existía con lo que se escribió */}
+            {!isEdit && filasFusion.some(f => f.resolucion !== 'igual') && (
+              <div className="px-5 py-3 border-t border-gray-200 bg-emerald-50/50 space-y-2">
+                <p className="text-xs font-bold text-emerald-900">Al completar este contacto, queda así:</p>
+                <ul className="space-y-1.5">
+                  {filasFusion.filter(f => f.resolucion !== 'igual').map(f => (
+                    <li key={f.campo} className="rounded-lg bg-white border border-emerald-200 px-3 py-2 text-xs">
+                      <p className="font-semibold text-gray-900">{f.etiqueta}</p>
+                      {f.resolucion === 'conflicto' ? (
+                        <div className="mt-1 grid gap-1">
+                          {([['existente', 'Dejar el que ya estaba', f.existente], ['nuevo', 'Usar el que escribiste', f.nuevo]] as const).map(([uso, rotulo, valor]) => (
+                            <label key={uso} className={cn('flex items-start gap-2 px-2 py-1.5 rounded-md border cursor-pointer',
+                              f.usar === uso ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200')}>
+                              <input type="radio" name={`fusion-${f.campo}`} checked={f.usar === uso} onChange={() => setUsos(prev => ({ ...prev, [f.campo]: uso }))} className="mt-0.5" />
+                              <span className="min-w-0"><span className="block text-[10px] uppercase tracking-wide text-gray-500">{rotulo}</span><span className="break-words">{valor}</span></span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-700 break-words">
+                          {f.resolucion === 'provisorio' && <><span className="line-through text-gray-500">{f.existente}</span> → <b>{f.nuevo}</b> <span className="text-emerald-700">(nombre provisorio)</span></>}
+                          {f.resolucion === 'completa' && <><b>{f.nuevo}</b> <span className="text-emerald-700">(se agrega)</span></>}
+                          {f.resolucion === 'juntar' && <>Se suma a lo que ya tenía: <b>{f.nuevo}</b></>}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-gray-600">Lo que ya estaba cargado no se pisa salvo que lo elijas. Después podés revisar todo antes de guardar.</p>
+              </div>
+            )}
+
+            <div className="px-5 py-4 border-t border-gray-200 flex gap-2 flex-wrap">
               <button onClick={() => setShowTelModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                className="flex-1 min-w-[8rem] py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                 Corregir número
               </button>
               <button onClick={() => navigate(`/clientes/${telDuplicado.id}`)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-                style={{ background: '#031d49' }}>
+                className={cn('flex-1 min-w-[8rem] flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-opacity',
+                  isEdit ? 'text-white hover:opacity-90' : 'border border-gray-300 text-gray-700 hover:bg-gray-50')}
+                style={isEdit ? { background: '#031d49' } : undefined}>
                 Ver cliente <ChevronRight size={14} />
               </button>
+              {!isEdit && (
+                <button onClick={completarContactoExistente}
+                  className="basis-full sm:basis-auto sm:flex-1 min-w-[10rem] flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-sm font-bold bg-emerald-600 hover:bg-emerald-700 shadow-md">
+                  <Check size={15} /> Completar este contacto
+                </button>
+              )}
             </div>
           </div>
         </div>

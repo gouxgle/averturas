@@ -444,17 +444,21 @@ clientes.get('/validar-telefono', async (c) => {
   const digits = (telefono ?? '').replace(/\D/g, '');
   if (digits.length < 8) return c.json({ existe: false });
 
+  // Trae también los datos que sirven para completar la ficha ("Completar este contacto" en el
+  // formulario de alta). Si hay varios con el mismo número, el activo y más antiguo va primero.
   let q = `
     SELECT id, nombre, apellido, razon_social, tipo_persona, telefono,
-      direccion, localidad, email, documento_nro, estado, activo
+      direccion, localidad, email, documento_nro, estado, activo,
+      telefono_fijo, codigo_postal, notas, origen, fecha_nacimiento::text AS fecha_nacimiento, email_alternativo
     FROM clientes
     WHERE telefono IS NOT NULL AND telefono != ''
       AND RIGHT(regexp_replace(telefono, '[^0-9]', '', 'g'), 10) = RIGHT($1, 10)
   `;
   const params: unknown[] = [digits];
   if (excluirId) { params.push(excluirId); q += ` AND id != $2`; }
+  q += ` ORDER BY activo DESC, created_at ASC`;
   const { rows } = await db.query(q, params);
-  return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null });
+  return c.json({ existe: rows.length > 0, cliente: rows[0] ?? null, cantidad: rows.length });
 });
 
 // POST /:id/enviar-mensaje-whatsapp — envía mensaje de texto por WhatsApp via Evolution API
