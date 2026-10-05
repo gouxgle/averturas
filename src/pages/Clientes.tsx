@@ -1,3 +1,4 @@
+import { coincideBusqueda } from '../lib/busquedaCliente';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -278,19 +279,8 @@ export function Clientes() {
       list = list.filter(c => c.estado === filtroEstado);
     }
 
-    // Búsqueda client-side
-    if (busqueda.trim()) {
-      const q = busqueda.toLowerCase();
-      list = list.filter(c =>
-        (c.nombre ?? '').toLowerCase().includes(q) ||
-        (c.apellido ?? '').toLowerCase().includes(q) ||
-        (c.razon_social ?? '').toLowerCase().includes(q) ||
-        (c.telefono ?? '').toLowerCase().includes(q) ||
-        (c.email ?? '').toLowerCase().includes(q) ||
-        (c.localidad ?? '').toLowerCase().includes(q) ||
-        (c.documento_nro ?? '').toLowerCase().includes(q)
-      );
-    }
+    // Búsqueda: palabras sueltas en cualquier orden (ver busquedaCliente.ts)
+    if (busqueda.trim()) list = list.filter(c => coincideBusqueda(c, busqueda));
 
     // Ordenar
     list.sort((a, b) => {

@@ -1,3 +1,4 @@
+import { coincideBusqueda } from '../lib/busquedaCliente';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Save, Hammer } from 'lucide-react';
@@ -66,9 +67,7 @@ export function NuevaOperacion() {
     });
   }, []);
 
-  const clientesFiltrados = clientes.filter(c =>
-    `${c.nombre} ${c.apellido ?? ''} ${c.telefono ?? ''}`.toLowerCase().includes(clienteSearch.toLowerCase())
-  );
+  const clientesFiltrados = clientes.filter(c => coincideBusqueda(c, clienteSearch));
   const clienteSeleccionado = clientes.find(c => c.id === clienteId);
 
   function updateItem(i: number, field: keyof Item, value: unknown) {

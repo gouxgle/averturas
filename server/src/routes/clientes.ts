@@ -21,7 +21,7 @@ const LETRA_EXPR = (alias: string) =>
 function clienteSearchSql(alias: string, search: string, params: unknown[]): string {
   const palabras = search
     .trim()
-    .split(/\s+/)
+    .split(/[\s,;]+/)
     // La lista muestra al cliente como "Apellido, Nombre", así que es natural que el
     // operador escriba la coma — pero la coma no está guardada (se arma al mostrar) y
     // el término quedaba como "Garcia," sin matchear nada. Se saca la puntuación de

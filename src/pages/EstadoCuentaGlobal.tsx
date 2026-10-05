@@ -1,3 +1,4 @@
+import { coincideBusqueda } from '../lib/busquedaCliente';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -840,12 +841,8 @@ export function EstadoCuentaGlobal() {
     else if (filtroRapido === 'sin_vencer') result = result.filter(c => ['al_dia','saldado'].includes(c.estado_cobro));
 
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase();
-      result = result.filter(c =>
-        nombreCliente(c).toLowerCase().includes(q) ||
-        (c.telefono ?? '').includes(q) ||
-        (c.email ?? '').toLowerCase().includes(q)
-      );
+      result = result.filter(c => coincideBusqueda({ nombre: nombreCliente(c), telefono: c.telefono, email: c.email }, busqueda));
+
     }
 
     const PRIO_ORD: Record<EstadoCobro, number> = { vencido: 0, por_vencer: 1, al_dia: 2, saldado: 3 };
