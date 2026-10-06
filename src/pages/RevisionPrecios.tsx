@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Scale, RefreshCw, TrendingUp, FileSpreadsheet, SlidersHorizontal, Loader2, ArrowLeft, X } from 'lucide-react';
+import { Scale, RefreshCw, TrendingUp, FileSpreadsheet, Calculator, SlidersHorizontal, Loader2, ArrowLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,9 @@ import { type Revision, fmt$, fmtPct } from '@/components/precios/tipos';
 import { TabRenovar } from '@/components/precios/TabRenovar';
 import { TabActualizar } from '@/components/precios/TabActualizar';
 import { TabListaProveedor } from '@/components/precios/TabListaProveedor';
+import { TabFormula } from '@/components/precios/TabFormula';
 
-type Tab = 'renovar' | 'actualizar' | 'proveedor';
+type Tab = 'renovar' | 'actualizar' | 'formula' | 'proveedor';
 
 // Revisión integral de precios: analiza cada producto (costo de lista y de última compra,
 // recargo, dólar blue, inflación, ventas) y sugiere qué renovar y qué actualizar; la
@@ -50,6 +51,7 @@ export default function RevisionPrecios() {
   const TABS: { v: Tab; l: string; icon: typeof RefreshCw; n?: number }[] = [
     { v: 'renovar', l: 'Renovar validez', icon: RefreshCw, n: cuenta('renovar') },
     { v: 'actualizar', l: 'Actualizar precios', icon: TrendingUp, n: cuenta('actualizar') },
+    { v: 'formula', l: 'Por fórmula', icon: Calculator, n: revision?.productos.filter(p => p.analisis.desvio_formula_pct !== null && !p.analisis.posible_error_carga && p.analisis.desvio_formula_pct <= -revision.config.umbral_pct).length },
     { v: 'proveedor', l: 'Lista del proveedor', icon: FileSpreadsheet },
   ];
 
@@ -100,6 +102,7 @@ export default function RevisionPrecios() {
       {!revision && !error && <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-gray-400" /></div>}
       {revision && tab === 'renovar' && <TabRenovar revision={revision} soloLectura={soloLectura} onCambio={recargar} onElegirAMano={abrirAMano} />}
       {revision && tab === 'actualizar' && <TabActualizar revision={revision} soloLectura={soloLectura} onCambio={recargar} />}
+      {revision && tab === 'formula' && <TabFormula revision={revision} soloLectura={soloLectura} onCambio={recargar} />}
       {revision && tab === 'proveedor' && <TabListaProveedor revision={revision} soloLectura={soloLectura} proveedorInicial={params.get('proveedor')} onCambio={recargar} />}
 
       {aMano && <ModalRenovarValidezPrecios productos={aMano} onClose={() => setAMano(null)} onRenovado={recargar} />}

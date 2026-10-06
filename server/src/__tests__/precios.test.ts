@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { analizarProducto, redondearPrecio, precioSegunCriterio, type DatosAnalisis } from '../lib/precios.js';
+import { analizarProducto, redondearPrecio, precioSegunCriterio, type DatosAnalisis,
+  precioPorFormula, redondearTerminacion, elegirFormula, posibleErrorCarga, type Formula } from '../lib/precios.js';
 
 // Revisión integral de precios: análisis/sugerencia (puro) y endpoints contra la base local.
 //   DATABASE_URL=… npx vitest run precios
@@ -9,6 +10,73 @@ const base: DatosAnalisis = {
   costo: 100_000, precio: 130_000, recargo_objetivo: null, costo_lista: null, costo_compra: null,
   compra_posterior: false, dolar_al_actualizar: 1500, dolar_hoy: 1500, dias: 20, ipc_pct: 1,
 };
+
+const FORMULA: Formula = {
+  id: 'g', nombre: 'Estándar', divisor: 0.6, recargo_pct: 15, adicional_costo_pct: 12, redondeo_paso: 1000, redondeo_terminacion: 900,
+  tipo_abertura_id: null, proveedor_id: null, activa: true,
+};
+
+describe('fórmula de precio (productos estándar)', () => {
+  it('el ejemplo del negocio: costo 100.000 → 203.900, con los pasos', () => {
+    const r = precioPorFormula(100_000, FORMULA);
+    expect(r.precio).toBe(203_900);
+    expect(r.pasos.map(p => p.valor)).toEqual([12_000, 166_666.67, 191_666.67, 203_666.67, 203_900]);
+  });
+  it('redondeo terminado en 900: hacia arriba, y si ya termina en 900 queda igual', () => {
+    expect(redondearTerminacion(203_666.67, 1000, 900)).toBe(203_900);
+    expect(redondearTerminacion(203_900, 1000, 900)).toBe(203_900);
+    expect(redondearTerminacion(203_950, 1000, 900)).toBe(204_900);
+    expect(redondearTerminacion(250, 1000, 900)).toBe(900);
+    expect(redondearTerminacion(1234.5, 0, 0)).toBe(1234.5);
+    expect(redondearPrecio(203_901, 1000, 900)).toBe(204_900);
+  });
+  it('costos con centavos', () => {
+    expect(precioPorFormula(146_400.5, FORMULA).precio).toBe(298_900);   // 298.169,35
+  });
+  it('gana la fórmula más específica y solo para estándar', () => {
+    const fam = { ...FORMULA, id: 'f', tipo_abertura_id: 'puertas' };
+    const prov = { ...FORMULA, id: 'p', proveedor_id: 'acme' };
+    const ambos = { ...FORMULA, id: 'fp', tipo_abertura_id: 'puertas', proveedor_id: 'acme' };
+    const fs = [FORMULA, fam, prov, ambos];
+    expect(elegirFormula(fs, { tipo: 'estandar', tipo_abertura_id: 'puertas', proveedor_id: 'acme' })?.id).toBe('fp');
+    expect(elegirFormula(fs, { tipo: 'estandar', tipo_abertura_id: 'puertas', proveedor_id: 'otro' })?.id).toBe('f');
+    expect(elegirFormula(fs, { tipo: 'estandar', tipo_abertura_id: 'ventanas', proveedor_id: 'acme' })?.id).toBe('p');
+    expect(elegirFormula(fs, { tipo: 'estandar', tipo_abertura_id: null, proveedor_id: null })?.id).toBe('g');
+    expect(elegirFormula(fs, { tipo: 'a_medida_proveedor', tipo_abertura_id: null, proveedor_id: null })).toBeNull();
+    expect(elegirFormula([{ ...fam, activa: false }, FORMULA], { tipo: 'estandar', tipo_abertura_id: 'puertas', proveedor_id: null })?.id).toBe('g');
+  });
+  it('posible error de carga', () => {
+    expect(posibleErrorCarga(175.8, 354_600)).toBe(true);     // costo en miles
+    expect(posibleErrorCarga(1, 1)).toBe(true);               // portón a $1
+    expect(posibleErrorCarga(100_000, 105_000)).toBe(true);   // precio casi igual al costo
+    expect(posibleErrorCarga(100_000, 380_000)).toBe(false);  // caro, pero posible
+  });
+  it('en el análisis: debajo → actualizar a la fórmula; encima → aviso sin bajar', () => {
+    const debajo = analizarProducto({ ...base, precio: 191_700, formula: FORMULA }, cfg);
+    expect(debajo.precio_por_formula).toBe(203_900);
+    expect(debajo.estado).toBe('actualizar');
+    expect(debajo.precio_sugerido).toBe(203_900);
+    expect(debajo.motivos.some(m => m.tipo === 'formula')).toBe(true);
+    const encima = analizarProducto({ ...base, precio: 380_000, formula: FORMULA }, cfg);
+    expect(encima.precio_sugerido).toBe(380_000);
+    expect(encima.motivos.some(m => /encima de la fórmula/.test(m.texto))).toBe(true);
+    const enFormula = analizarProducto({ ...base, precio: 201_700, formula: FORMULA }, cfg);   // 2,0167 (con 10 %): −1,1 %
+    expect(enFormula.estado).toBe('renovar');
+    const error = analizarProducto({ ...base, costo: 175.8, precio: 354_600, formula: FORMULA }, cfg);
+    expect(error.posible_error_carga).toBe(true);
+    expect(error.motivos.some(m => m.tipo === 'formula')).toBe(false);
+  });
+  it('criterio "fórmula": costo cargado o de reposición, y nada cambia sin fórmula o con error de carga', () => {
+    const a = analizarProducto({ ...base, precio: 150_000, costo_lista: 110_000, formula: FORMULA }, cfg);
+    expect(precioSegunCriterio(150_000, a, { tipo: 'formula', base: 'cargado', actualizar_costo: false }, null, { costo: 100_000, formula: FORMULA }))
+      .toEqual({ precio: 203_900, costo: null });
+    expect(precioSegunCriterio(150_000, a, { tipo: 'formula', base: 'reposicion', actualizar_costo: true }, null, { costo: 100_000, formula: FORMULA }))
+      .toEqual({ precio: precioPorFormula(110_000, FORMULA).precio, costo: 110_000 });
+    expect(precioSegunCriterio(150_000, a, { tipo: 'formula', base: 'cargado', actualizar_costo: false }, null, { costo: 100_000, formula: null }).precio).toBe(150_000);
+    const err = analizarProducto({ ...base, costo: 1, precio: 1, formula: FORMULA }, cfg);
+    expect(precioSegunCriterio(1, err, { tipo: 'formula', base: 'cargado', actualizar_costo: false }, null, { costo: 1, formula: FORMULA }).precio).toBe(1);
+  });
+});
 
 describe('análisis y sugerencia de precio', () => {
   it('nada cambió → renovar validez (sin tocar el precio)', () => {
@@ -153,6 +221,34 @@ describe.skipIf(!process.env.DATABASE_URL)('revisión de precios contra la base'
     expect(a1).toMatchObject({ costo: 100_000, precio: 130_000, proveedor: `${MARCA} A` });
     expect(['renovar', 'actualizar']).toContain(a1.analisis.estado);
     expect(r.json.config.umbral_pct).toBeGreaterThan(0);
+  });
+
+  it('fórmulas: la excepción del proveedor gana, la vista previa usa la fórmula y la general no se borra', async () => {
+    const exc = await req('POST', '/productos/revision-precios/formulas', {
+      nombre: `${MARCA} exc`, divisor: 0.5, recargo_pct: 0, adicional_costo_pct: 0, redondeo_paso: 0, redondeo_terminacion: 0, proveedor_id: provB,
+    });
+    expect(exc.status).toBe(201);
+    try {
+      const r = await req('GET', '/productos/revision-precios');
+      const general = r.json.formulas.find((f: Formula) => !f.tipo_abertura_id && !f.proveedor_id);
+      const porId = (id: string) => r.json.productos.find((p: { id: string }) => p.id === id);
+      expect(porId(pA1).formula_id).toBe(general.id);
+      expect(porId(pB1).formula_id).toBe(exc.json.id);
+      expect(porId(pB1).analisis.precio_por_formula).toBe(20_000);   // 10.000 ÷ 0,5
+
+      const prev = await req('POST', '/productos/revision-precios/previsualizar', {
+        ids: [pA1, pB1], criterio: { tipo: 'formula', base: 'cargado', actualizar_costo: false },
+      });
+      expect(prev.status).toBe(200);
+      const it = Object.fromEntries(prev.json.items.map((i: { id: string; precio_nuevo: number }) => [i.id, i.precio_nuevo]));
+      expect(it[pB1]).toBe(20_000);
+      expect(it[pA1]).toBe(precioPorFormula(100_000, general).precio);
+
+      expect((await req('DELETE', `/productos/revision-precios/formulas/${general.id}`)).status).toBe(409);
+      expect((await req('POST', '/productos/revision-precios/formulas', { ...general, id: undefined, tipo_abertura_id: null, proveedor_id: null })).status).toBe(422);
+    } finally {
+      expect((await req('DELETE', `/productos/revision-precios/formulas/${exc.json.id}`)).status).toBe(200);
+    }
   });
 
   it('lista de un proveedor: solo analiza sus productos, avisa SKUs sin enlazar y faltantes', async () => {

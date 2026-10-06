@@ -8,7 +8,7 @@ import { ProductoSchema } from '../lib/schemas.js';
 import { z } from 'zod';
 import {
   filasRevision, analizarFila, leerConfigPrecios, precioSegunCriterio, redondearPrecio, grupoDe, registrarHistorial,
-  type Criterio, type CambioHistorial,
+  leerFormulas, elegirFormula, type Criterio, type CambioHistorial,
 } from '../lib/precios.js';
 
 const productos = new Hono();
@@ -134,9 +134,25 @@ const PreviaSchema = z.object({
     z.object({ tipo: z.literal('dolar') }),
     z.object({ tipo: z.literal('costo'), actualizar_costo: z.boolean() }),
     z.object({ tipo: z.literal('grupos'), por: z.enum(['familia', 'linea', 'proveedor', 'medida']), pcts: z.record(z.string(), z.number().min(-90).max(500)) }),
+    z.object({ tipo: z.literal('formula'), base: z.enum(['cargado', 'reposicion']), actualizar_costo: z.boolean() }),
   ]),
   redondeo: z.number().min(0).max(100_000).default(0),
-});
+  /** Con redondeo: el precio termina en este número (ej. 1000 + 900 → …900). */
+  terminacion: z.number().int().min(0).max(99_999).default(0),
+}).refine(b => !b.terminacion || b.terminacion < b.redondeo, { message: 'La terminación tiene que ser menor que el paso de redondeo', path: ['terminacion'] });
+
+const FormulaSchema = z.object({
+  nombre: z.string().trim().min(1).max(80),
+  divisor: z.number().gt(0).max(1),
+  recargo_pct: z.number().min(0).max(500),
+  adicional_costo_pct: z.number().min(0).max(500),
+  redondeo_paso: z.number().int().min(0).max(100_000),
+  redondeo_terminacion: z.number().int().min(0).max(99_999),
+  tipo_abertura_id: z.string().uuid().nullable().optional(),
+  proveedor_id: z.string().uuid().nullable().optional(),
+  activa: z.boolean().optional().default(true),
+}).refine(f => f.redondeo_paso === 0 || f.redondeo_terminacion < f.redondeo_paso,
+  { message: 'La terminación tiene que ser menor que el paso de redondeo (ej. termina en 900 con paso 1.000)', path: ['redondeo_terminacion'] });
 
 const AplicarSchema = z.object({
   items: z.array(z.object({
@@ -154,22 +170,71 @@ const ConfigPreciosSchema = z.object({
 }).refine(c => c.dias_vencido > c.dias_al_dia, { message: 'Los días de vencido tienen que ser más que los de al día', path: ['dias_vencido'] });
 
 productos.get('/revision-precios', async (c) => {
-  const [cfg, filas, { rows: [dolar] }, { rows: ipc }] = await Promise.all([
+  const [cfg, filas, { rows: [dolar] }, { rows: ipc }, formulas] = await Promise.all([
     leerConfigPrecios(),
     filasRevision(),
     db.query(`SELECT (SELECT venta FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1)::float AS hoy,
                      (SELECT fecha FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1) AS fecha,
                      (SELECT venta FROM cotizacion_dolar_historial WHERE fecha <= CURRENT_DATE - 30 ORDER BY fecha DESC LIMIT 1)::float AS hace30`),
     db.query(`SELECT mes, variacion::float FROM indice_ipc ORDER BY mes DESC LIMIT 3`),
+    leerFormulas(),
   ]);
-  const productos = filas.map(f => ({ ...f, analisis: analizarFila(f, cfg) }));
+  const productos = filas.map(f => {
+    const formula = elegirFormula(formulas, f);
+    return { ...f, formula_id: formula?.id ?? null, analisis: analizarFila(f, cfg, formula) };
+  });
   const ipc3 = ipc.length === 3 ? (ipc.reduce((a, m) => a * (1 + m.variacion / 100), 1) - 1) * 100 : null;
   return c.json({
     config: cfg,
+    formulas,
     dolar: { hoy: dolar?.hoy ?? null, fecha: dolar?.fecha ?? null, var_30d: dolar?.hoy && dolar?.hace30 ? (dolar.hoy / dolar.hace30 - 1) * 100 : null },
     ipc: { ultimo: ipc[0] ?? null, ultimos_3: ipc3 },
     productos,
   });
+});
+
+// Fórmulas de precio: la general y sus excepciones por familia o proveedor (solo admin edita).
+productos.get('/revision-precios/formulas', async (c) => c.json(await leerFormulas()));
+
+productos.post('/revision-precios/formulas', async (c) => {
+  if (c.get('user')?.rol !== 'admin') return c.json({ error: 'Solo un administrador cambia las fórmulas' }, 403);
+  const b = await validateBody(c, FormulaSchema);
+  if (b instanceof Response) return b;
+  if (!b.tipo_abertura_id && !b.proveedor_id) return c.json({ error: 'Una excepción tiene que ser para una familia o un proveedor' }, 422);
+  try {
+    const { rows: [f] } = await db.query(
+      `INSERT INTO formulas_precio (nombre, divisor, recargo_pct, adicional_costo_pct, redondeo_paso, redondeo_terminacion,
+         tipo_abertura_id, proveedor_id, activa, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [b.nombre, b.divisor, b.recargo_pct, b.adicional_costo_pct, b.redondeo_paso, b.redondeo_terminacion,
+       b.tipo_abertura_id ?? null, b.proveedor_id ?? null, b.activa, c.get('user')?.id ?? null]);
+    return c.json(f, 201);
+  } catch (e) {
+    if ((e as { code?: string }).code === '23505') return c.json({ error: 'Ya hay una fórmula para esa familia / proveedor' }, 409);
+    throw e;
+  }
+});
+
+productos.put('/revision-precios/formulas/:id', async (c) => {
+  if (c.get('user')?.rol !== 'admin') return c.json({ error: 'Solo un administrador cambia las fórmulas' }, 403);
+  const b = await validateBody(c, FormulaSchema);
+  if (b instanceof Response) return b;
+  // El alcance no cambia al editar (la general sigue siendo general).
+  const { rowCount } = await db.query(
+    `UPDATE formulas_precio SET nombre = $2, divisor = $3, recargo_pct = $4, adicional_costo_pct = $5, redondeo_paso = $6,
+       redondeo_terminacion = $7, activa = CASE WHEN tipo_abertura_id IS NULL AND proveedor_id IS NULL THEN true ELSE $8 END,
+       updated_by = $9, updated_at = now()
+     WHERE id = $1`,
+    [c.req.param('id'), b.nombre, b.divisor, b.recargo_pct, b.adicional_costo_pct, b.redondeo_paso, b.redondeo_terminacion,
+     b.activa, c.get('user')?.id ?? null]);
+  return rowCount ? c.json({ ok: true }) : c.json({ error: 'Fórmula no encontrada' }, 404);
+});
+
+productos.delete('/revision-precios/formulas/:id', async (c) => {
+  if (c.get('user')?.rol !== 'admin') return c.json({ error: 'Solo un administrador cambia las fórmulas' }, 403);
+  const { rowCount } = await db.query(
+    `DELETE FROM formulas_precio WHERE id = $1 AND (tipo_abertura_id IS NOT NULL OR proveedor_id IS NOT NULL)`, [c.req.param('id')]);
+  return rowCount ? c.json({ ok: true }) : c.json({ error: 'La fórmula general no se borra (se puede editar)' }, 409);
 });
 
 productos.put('/revision-precios/config', async (c) => {
@@ -185,14 +250,15 @@ productos.put('/revision-precios/config', async (c) => {
 productos.post('/revision-precios/previsualizar', async (c) => {
   const b = await validateBody(c, PreviaSchema);
   if (b instanceof Response) return b;
-  const cfg = await leerConfigPrecios();
-  const filas = await filasRevision(b.ids);
+  const [cfg, filas, formulas] = await Promise.all([leerConfigPrecios(), filasRevision(b.ids), leerFormulas()]);
   const criterio = b.criterio as Criterio;
   const items = filas.map(f => {
-    const a = analizarFila(f, cfg);
+    const formula = f.precio_manual ? null : elegirFormula(formulas, f);
+    const a = analizarFila(f, cfg, formula);
     const grupo = criterio.tipo === 'grupos' ? grupoDe(f, criterio.por) : null;
-    const r = precioSegunCriterio(Number(f.precio), a, criterio, grupo);
-    const precioNuevo = redondearPrecio(r.precio, b.redondeo);
+    const r = precioSegunCriterio(Number(f.precio), a, criterio, grupo, { costo: Number(f.costo), formula });
+    // La fórmula ya trae su propio redondeo; sin fórmula el precio queda igual.
+    const precioNuevo = criterio.tipo === 'formula' ? r.precio : redondearPrecio(r.precio, b.redondeo, b.terminacion);
     const costoNuevo = r.costo ?? Number(f.costo);
     return {
       id: f.id, nombre: f.nombre, codigo: f.codigo, familia: f.familia, linea: f.linea ?? f.sistema, proveedor: f.proveedor,
@@ -202,6 +268,8 @@ productos.post('/revision-precios/previsualizar', async (c) => {
       costo_actual: Number(f.costo), costo_nuevo: r.costo !== null ? costoNuevo : null,
       recargo_nuevo: costoNuevo > 0 ? (precioNuevo / costoNuevo - 1) * 100 : null,
       recargo_objetivo: f.recargo_objetivo,
+      sin_formula: criterio.tipo === 'formula' && !formula,
+      posible_error_carga: a.posible_error_carga,
     };
   });
   return c.json({ items });

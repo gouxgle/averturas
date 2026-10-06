@@ -29,9 +29,10 @@ export interface DatosAnalisis {
   dolar_hoy: number | null;
   dias: number;                         // desde la última actualización/renovación
   ipc_pct: number | null;               // inflación acumulada desde entonces
+  formula?: Formula | null;             // fórmula de precio que le corresponde (solo estándar)
 }
 
-export interface Motivo { tipo: 'lista' | 'compra' | 'dolar' | 'recargo' | 'ipc' | 'aviso'; texto: string; pct?: number }
+export interface Motivo { tipo: 'lista' | 'compra' | 'dolar' | 'recargo' | 'ipc' | 'formula' | 'aviso'; texto: string; pct?: number }
 
 export interface Analisis {
   estado: Estado;
@@ -45,6 +46,9 @@ export interface Analisis {
   precio_por_dolar: number | null;
   precio_sugerido: number;
   pct_sugerido: number;                 // %
+  precio_por_formula: number | null;    // con el costo cargado
+  desvio_formula_pct: number | null;    // precio actual contra la fórmula (%)
+  posible_error_carga: boolean;
   motivos: Motivo[];
 }
 
@@ -52,12 +56,78 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const pct = (nuevo: number, viejo: number) => r2((nuevo / viejo - 1) * 100);
 const fmtPct = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString('es-AR', { maximumFractionDigits: 1 })} %`;
 
+// ── Fórmula de precio (productos estándar) ──────────────────────
+// precio = (costo ÷ divisor × (1 + recargo)) + costo × adicional, redondeado hacia arriba a un
+// número terminado en `terminación`. Ej.: 100.000 ÷ 0,60 × 1,15 + 12.000 = 203.666,67 → 203.900.
+
+export interface Formula {
+  id: string; nombre: string; divisor: number; recargo_pct: number; adicional_costo_pct: number;
+  redondeo_paso: number; redondeo_terminacion: number;
+  tipo_abertura_id: string | null; proveedor_id: string | null; activa: boolean;
+}
+
+/** El menor número ≥ x que termina en `terminacion` (paso 1000, terminación 900: 203.666 → 203.900). */
+export function redondearTerminacion(x: number, paso: number, terminacion: number): number {
+  if (!(paso > 0)) return r2(x);
+  return Math.ceil((r2(x) - terminacion) / paso - 1e-9) * paso + terminacion;
+}
+
+export interface PasoFormula { texto: string; valor: number }
+
+/** Precio por fórmula y el cálculo paso a paso (para mostrarlo tal como lo hace el negocio). */
+export function precioPorFormula(costo: number, f: Pick<Formula, 'divisor' | 'recargo_pct' | 'adicional_costo_pct' | 'redondeo_paso' | 'redondeo_terminacion'>):
+  { precio: number; pasos: PasoFormula[] } {
+  const num = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  const reserva = r2(costo * f.adicional_costo_pct / 100);
+  const dividido = r2(costo / f.divisor);
+  const conRecargo = r2(dividido * (1 + f.recargo_pct / 100));
+  const suma = r2(conRecargo + reserva);
+  const precio = redondearTerminacion(suma, f.redondeo_paso, f.redondeo_terminacion);
+  return {
+    precio,
+    pasos: [
+      { texto: `${num(f.adicional_costo_pct)} % del costo (se reserva)`, valor: reserva },
+      { texto: `Costo ÷ ${num(f.divisor)}`, valor: dividido },
+      { texto: `+ ${num(f.recargo_pct)} %`, valor: conRecargo },
+      { texto: `+ el ${num(f.adicional_costo_pct)} % reservado`, valor: suma },
+      { texto: f.redondeo_paso > 0 ? `Redondeo hacia arriba terminado en ${f.redondeo_terminacion}` : 'Sin redondeo', valor: precio },
+    ],
+  };
+}
+
+/** La fórmula que le toca a un producto estándar: la más específica (familia + proveedor > familia > proveedor > general). */
+export function elegirFormula(formulas: Formula[], p: { tipo?: string | null; tipo_abertura_id: string | null; proveedor_id: string | null }): Formula | null {
+  if (p.tipo !== 'estandar') return null;
+  const puntaje = (f: Formula) => {
+    if (!f.activa) return -1;
+    if (f.tipo_abertura_id && f.tipo_abertura_id !== p.tipo_abertura_id) return -1;
+    if (f.proveedor_id && f.proveedor_id !== p.proveedor_id) return -1;
+    return (f.tipo_abertura_id ? 2 : 0) + (f.proveedor_id ? 1 : 0);
+  };
+  let mejor: Formula | null = null;
+  let max = -1;
+  for (const f of formulas) { const s = puntaje(f); if (s > max) { max = s; mejor = f; } }
+  return mejor;
+}
+
+/**
+ * Costo o precio con pinta de mal cargado: el precio es menos de 1,2 o más de 4 veces el costo,
+ * o el costo es de $10 o menos (ej. una puerta con costo $175,80 en vez de $175.800).
+ */
+export function posibleErrorCarga(costo: number, precio: number): boolean {
+  if (!(costo > 0) || !(precio > 0)) return false;
+  if (costo <= 10) return true;
+  const m = precio / costo;
+  return m < 1.2 || m > 4;
+}
+
 export function analizarProducto(d: DatosAnalisis, cfg: ConfigPrecios): Analisis {
   const motivos: Motivo[] = [];
   const vacio: Analisis = {
     estado: 'sin_datos', costo_reposicion: d.costo, recargo_actual: null, recargo_referencia: null,
     var_lista: null, var_compra: null, var_dolar: null, precio_por_costo: null, precio_por_dolar: null,
-    precio_sugerido: d.precio, pct_sugerido: 0, motivos,
+    precio_sugerido: d.precio, pct_sugerido: 0, precio_por_formula: null, desvio_formula_pct: null,
+    posible_error_carga: false, motivos,
   };
   if (!(d.precio > 0)) { motivos.push({ tipo: 'aviso', texto: 'Sin precio de venta' }); return vacio; }
 
@@ -98,7 +168,14 @@ export function analizarProducto(d: DatosAnalisis, cfg: ConfigPrecios): Analisis
     ? r2(d.precio * costoRep / d.costo)
     : r2(costoRep * (1 + recargoRef / 100));
 
-  const precioSugerido = Math.max(d.precio, precioPorCosto, precioPorDolar ?? 0);
+  // Fórmula de precio (productos estándar): sobre el costo cargado para medir el desvío, y sobre
+  // el costo de reposición para sugerir. Un precio por encima de la fórmula nunca se baja.
+  const errorCarga = posibleErrorCarga(d.costo, d.precio);
+  const precioFormula = d.formula ? precioPorFormula(d.costo, d.formula).precio : null;
+  const precioFormulaRep = d.formula && !errorCarga ? precioPorFormula(costoRep, d.formula).precio : null;
+  const desvioFormula = precioFormula ? pct(d.precio, precioFormula) : null;
+
+  const precioSugerido = Math.max(d.precio, precioPorCosto, precioPorDolar ?? 0, precioFormulaRep ?? 0);
   const pctSugerido = pct(precioSugerido, d.precio);
 
   if (varLista !== null && Math.abs(varLista) >= umbral) {
@@ -116,6 +193,13 @@ export function analizarProducto(d: DatosAnalisis, cfg: ConfigPrecios): Analisis
   if (d.ipc_pct !== null && d.ipc_pct >= umbral) {
     motivos.push({ tipo: 'ipc', texto: `Inflación ${fmtPct(d.ipc_pct)} desde la última actualización`, pct: d.ipc_pct });
   }
+  if (errorCarga) {
+    motivos.push({ tipo: 'aviso', texto: `Posible error de carga: el precio es ${(d.precio / d.costo).toLocaleString('es-AR', { maximumFractionDigits: 2 })} veces el costo` });
+  } else if (desvioFormula !== null && desvioFormula <= -umbral) {
+    motivos.push({ tipo: 'formula', texto: `Debajo de la fórmula (${fmtPct(desvioFormula)})`, pct: desvioFormula });
+  } else if (desvioFormula !== null && desvioFormula >= umbral) {
+    motivos.push({ tipo: 'aviso', texto: `Por encima de la fórmula (${fmtPct(desvioFormula)}): revisar` });
+  }
   if (varLista !== null && varLista <= -umbral) {
     motivos.push({ tipo: 'aviso', texto: `El proveedor bajó el precio ${fmtPct(varLista)}: ¿conviene bajar?` });
   }
@@ -125,7 +209,8 @@ export function analizarProducto(d: DatosAnalisis, cfg: ConfigPrecios): Analisis
     estado, costo_reposicion: costoRep, recargo_actual: recargoActual, recargo_referencia: recargoRef,
     var_lista: varLista, var_compra: varCompra, var_dolar: varDolar,
     precio_por_costo: precioPorCosto, precio_por_dolar: precioPorDolar,
-    precio_sugerido: precioSugerido, pct_sugerido: pctSugerido, motivos,
+    precio_sugerido: precioSugerido, pct_sugerido: pctSugerido,
+    precio_por_formula: precioFormula, desvio_formula_pct: desvioFormula, posible_error_carga: errorCarga, motivos,
   };
 }
 
@@ -136,16 +221,32 @@ export type Criterio =
   | { tipo: 'porcentaje'; pct: number }
   | { tipo: 'dolar' }
   | { tipo: 'costo'; actualizar_costo: boolean }
-  | { tipo: 'grupos'; por: 'familia' | 'linea' | 'proveedor' | 'medida'; pcts: Record<string, number> };
+  | { tipo: 'grupos'; por: 'familia' | 'linea' | 'proveedor' | 'medida'; pcts: Record<string, number> }
+  | { tipo: 'formula'; base: 'cargado' | 'reposicion'; actualizar_costo: boolean };
 
-/** Paso de redondeo en pesos (0 = sin redondeo). Se redondea hacia arriba para no perder margen. */
-export function redondearPrecio(precio: number, paso: number): number {
+/**
+ * Paso de redondeo en pesos (0 = sin redondeo). Se redondea hacia arriba para no perder margen.
+ * Con `terminacion` el precio termina en ese número (paso 1000 + 900 → …900).
+ */
+export function redondearPrecio(precio: number, paso: number, terminacion = 0): number {
   if (!(paso > 0)) return r2(precio);
+  if (terminacion > 0) return redondearTerminacion(precio, paso, terminacion);
   return Math.ceil(r2(precio) / paso - 1e-9) * paso;
 }
 
-export function precioSegunCriterio(precio: number, a: Analisis, criterio: Criterio, grupo: string | null): { precio: number; costo: number | null } {
+export function precioSegunCriterio(precio: number, a: Analisis, criterio: Criterio, grupo: string | null,
+  ctx: { costo?: number; formula?: Formula | null } = {}): { precio: number; costo: number | null } {
   switch (criterio.tipo) {
+    case 'formula': {
+      // Sin fórmula (a medida, precio manual) o con un costo mal cargado, el precio no cambia.
+      if (!ctx.formula || a.posible_error_carga) return { precio, costo: null };
+      const costo = criterio.base === 'reposicion' ? a.costo_reposicion : ctx.costo ?? 0;
+      if (!(costo > 0)) return { precio, costo: null };
+      return {
+        precio: precioPorFormula(costo, ctx.formula).precio,
+        costo: criterio.base === 'reposicion' && criterio.actualizar_costo && costo !== ctx.costo ? costo : null,
+      };
+    }
     case 'sugerido': return { precio: a.precio_sugerido, costo: null };
     case 'porcentaje': return { precio: precio * (1 + criterio.pct / 100), costo: null };
     case 'dolar': return { precio: a.precio_por_dolar ?? precio, costo: null };
@@ -162,6 +263,14 @@ export function precioSegunCriterio(precio: number, a: Analisis, criterio: Crite
 
 // ── Consulta ────────────────────────────────────────────────────
 
+export async function leerFormulas(): Promise<Formula[]> {
+  const { rows } = await db.query(
+    `SELECT id, nombre, divisor::float, recargo_pct::float, adicional_costo_pct::float, redondeo_paso, redondeo_terminacion,
+            tipo_abertura_id, proveedor_id, activa
+       FROM formulas_precio ORDER BY (tipo_abertura_id IS NULL AND proveedor_id IS NULL) DESC, nombre`);
+  return rows as Formula[];
+}
+
 export async function leerConfigPrecios(): Promise<ConfigPrecios> {
   const { rows: [c] } = await db.query(`SELECT umbral_pct, dias_al_dia, dias_vencido FROM precios_config WHERE id = 1`);
   return c
@@ -177,7 +286,7 @@ export async function leerConfigPrecios(): Promise<ConfigPrecios> {
 export async function filasRevision(ids?: string[]) {
   const { rows } = await db.query(`
     WITH hoy AS (SELECT venta FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1)
-    SELECT cp.id, cp.nombre, cp.codigo, cp.color, cp.costo_base::float AS costo, cp.precio_base::float AS precio,
+    SELECT cp.id, cp.nombre, cp.codigo, cp.color, cp.tipo::text AS tipo, cp.costo_base::float AS costo, cp.precio_base::float AS precio,
            cp.precio_por_m2, cp.precio_manual, cp.en_salon, cp.precio_actualizado_at,
            cp.tipo_abertura_id, ta.nombre AS familia, cp.sistema_id, s.nombre AS sistema, cp.linea_id, li.nombre AS linea,
            cp.proveedor_id, pr.nombre AS proveedor,
@@ -225,8 +334,9 @@ export async function filasRevision(ids?: string[]) {
 
 type FilaRevision = Awaited<ReturnType<typeof filasRevision>>[number];
 
-export function analizarFila(f: FilaRevision, cfg: ConfigPrecios): Analisis {
+export function analizarFila(f: FilaRevision, cfg: ConfigPrecios, formula: Formula | null = null): Analisis {
   return analizarProducto({
+    formula: f.precio_manual ? null : formula,
     costo: Number(f.costo), precio: Number(f.precio), recargo_objetivo: f.recargo_objetivo,
     costo_lista: f.costo_lista, costo_compra: f.costo_compra, compra_posterior: !!f.compra_posterior,
     dolar_al_actualizar: f.dolar_al_actualizar, dolar_hoy: f.dolar_hoy, dias: Number(f.dias), ipc_pct: f.ipc_pct,

@@ -1,8 +1,10 @@
 // Tipos y formato de la Revisión integral de precios (respuestas de /productos/revision-precios).
 
+import type { Formula } from '@/lib/formulaPrecio';
+
 export type Estado = 'actualizar' | 'renovar' | 'al_dia' | 'sin_datos';
 
-export interface Motivo { tipo: 'lista' | 'compra' | 'dolar' | 'recargo' | 'ipc' | 'aviso'; texto: string; pct?: number }
+export interface Motivo { tipo: 'lista' | 'compra' | 'dolar' | 'recargo' | 'ipc' | 'formula' | 'aviso'; texto: string; pct?: number }
 
 export interface Analisis {
   estado: Estado;
@@ -16,11 +18,15 @@ export interface Analisis {
   precio_por_dolar: number | null;
   precio_sugerido: number;
   pct_sugerido: number;
+  precio_por_formula: number | null;
+  desvio_formula_pct: number | null;
+  posible_error_carga: boolean;
   motivos: Motivo[];
 }
 
 export interface ProductoRevision {
-  id: string; nombre: string; codigo: string | null; color: string | null;
+  id: string; nombre: string; codigo: string | null; color: string | null; tipo: string;
+  formula_id: string | null;
   costo: number; precio: number; precio_por_m2: boolean; precio_manual: boolean; en_salon: boolean;
   precio_actualizado_at: string;
   tipo_abertura_id: string | null; familia: string | null;
@@ -37,6 +43,7 @@ export interface ProductoRevision {
 
 export interface Revision {
   config: { umbral_pct: number; dias_al_dia: number; dias_vencido: number };
+  formulas: Formula[];
   dolar: { hoy: number | null; fecha: string | null; var_30d: number | null };
   ipc: { ultimo: { mes: string; variacion: number } | null; ultimos_3: number | null };
   productos: ProductoRevision[];
@@ -77,5 +84,6 @@ export const MOTIVO_CLS: Record<Motivo['tipo'], string> = {
   dolar: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   recargo: 'bg-red-50 text-red-800 border-red-200',
   ipc: 'bg-gray-50 text-gray-700 border-gray-200',
+  formula: 'bg-violet-50 text-violet-800 border-violet-200',
   aviso: 'bg-yellow-50 text-yellow-900 border-yellow-300',
 };

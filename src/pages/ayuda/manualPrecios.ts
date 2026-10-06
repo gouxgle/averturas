@@ -1,6 +1,6 @@
 import {
   Scale, LayoutDashboard, Calculator, RefreshCw, ListChecks, TrendingUp, Wand2, FileSpreadsheet,
-  Tags, History, SlidersHorizontal, CircleHelp,
+  Tags, History, SlidersHorizontal, CircleHelp, Sigma,
 } from 'lucide-react';
 import type { SeccionManual } from './tipos';
 
@@ -228,7 +228,7 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
           ['**Porcentaje por grupo**', 'Un % distinto para cada familia, línea, proveedor o por m². Los grupos sin % quedan igual.', 'Ej.: +8 % la línea Módena y +5 % Herrero.'],
         ],
       },
-      { t: 'p', texto: '**Redondeo**: sin redondeo, o a $ 10, $ 100 o $ 1.000. Siempre redondea **hacia arriba**, para no perder margen. Ejemplo: $ 57.750 con redondeo a $ 100 queda $ 57.800.' },
+      { t: 'p', texto: '**Redondeo**: sin redondeo, o a $ 10, $ 100 o $ 1.000. Siempre redondea **hacia arriba**, para no perder margen. Ejemplo: $ 57.750 con redondeo a $ 100 queda $ 57.800. También está **terminado en 900**: $ 203.666 queda $ 203.900 y $ 203.950 queda $ 204.900.' },
       { t: 'p', texto: 'Tocá **"Ver vista previa"**.' },
       { t: 'subtitulo', texto: 'Paso 2 — Vista previa' },
       { t: 'p', texto: 'Arriba hay un resumen con cuatro números:' },
@@ -253,6 +253,55 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
       },
       { t: 'p', texto: 'Si querés probar otro criterio, **"Cambiar criterio"** vuelve al paso 1. Cuando está todo bien, **"Aplicar a N"**.' },
       { t: 'aviso', tono: 'regla', texto: 'Se guarda **todo junto o nada**: si algo falla, no queda ningún producto a medias. Los productos actualizados quedan en verde y en su historial queda el criterio usado, quién lo hizo y el dólar del día.' },
+    ],
+  },
+  {
+    id: 'formula',
+    titulo: 'Pestaña "Por fórmula": el precio según la fórmula del negocio',
+    corto: 'Por fórmula',
+    icono: Sigma,
+    bloques: [
+      { t: 'p', texto: 'Los productos **estándar** tienen una forma fija de calcular el precio de venta a partir del costo. Esta pestaña la aplica a todos, te muestra cuáles están bien y cuáles no, y te deja **decidir a cuáles aplicarla**.' },
+      { t: 'subtitulo', texto: 'La fórmula' },
+      {
+        t: 'tabla',
+        cols: ['Paso', 'Qué se hace', 'Ejemplo con costo $ 100.000'],
+        filas: [
+          ['1', 'Se calcula el **12 % del costo** y se reserva', '$ 12.000'],
+          ['2', 'El costo se **divide por 0,60**', '$ 166.666,67'],
+          ['3', 'Al resultado se le **suma un 15 %**', '$ 191.666,67'],
+          ['4', 'Se **suma lo reservado** en el paso 1', '$ 203.666,67'],
+          ['5', '**Redondeo hacia arriba** a un número terminado en 900', '**$ 203.900**'],
+        ],
+      },
+      { t: 'p', texto: 'Los números (12 %, 0,60, 15 % y la terminación en 900) se pueden cambiar arriba de todo. Mientras los cambiás, la lista de abajo muestra **en vivo** cómo quedaría cada producto, sin guardar nada. Para aplicar hay que tocar **"Guardar fórmula"** (solo administradores).' },
+      { t: 'p', texto: '**Excepciones**: si una familia o un proveedor lleva otros números, tocá **"+ Excepción"**, elegí la familia y/o el proveedor y ajustá sus números. Para cada producto vale la más específica: familia y proveedor, después familia, después proveedor, y si no la general.' },
+      { t: 'subtitulo', texto: 'Los cinco grupos' },
+      {
+        t: 'tabla',
+        cols: ['Grupo', 'Qué significa', '¿Se marca solo?'],
+        filas: [
+          ['**Debajo de la fórmula**', 'El precio actual es menor que el de la fórmula (más que el umbral, 3 %).', 'Sí, si el aumento está entre el mínimo y el tope.'],
+          ['**En la fórmula**', 'La diferencia es chica: el precio está bien.', 'No. Si querés, renová la validez en su pestaña.'],
+          ['**Encima de la fórmula**', 'El precio es mayor que el de la fórmula.', 'No. Se puede marcar a mano, y entonces **baja**: el sistema pide confirmarlo.'],
+          ['**Posible error de carga**', 'El costo o el precio parecen mal cargados.', 'No se puede marcar: primero corregí el producto (botón "Corregir el producto").'],
+          ['**Sin fórmula**', 'Productos a medida o con "precio manual".', 'No: solo informativo.'],
+        ],
+      },
+      { t: 'subtitulo', texto: 'Herramientas para decidir' },
+      {
+        t: 'lista',
+        items: [
+          '**Costo para calcular**: el costo cargado, o el **costo de reposición** (si la lista del proveedor o la última compra subieron). Con el de reposición podés actualizar también el costo cargado.',
+          '**No tocar si la diferencia es menor a (%)**: evita cambios chicos de pocos pesos.',
+          '**No marcar aumentos mayores a (%)**: un aumento muy grande suele esconder un costo desactualizado; esos quedan desmarcados y con la etiqueta "sobre el tope" para que los mires uno por uno.',
+          'Filtros por nombre, familia, proveedor y línea, y **"Marcar los N de la lista"** para marcar o desmarcar todos los que estás viendo.',
+          '**Detalle**: muestra la cuenta paso a paso de ese producto y su historial de precios.',
+          'Abajo, el **resumen** dice cuántos se van a aplicar, el aumento promedio y cuántos quedan sin aplicar y por qué.',
+        ],
+      },
+      { t: 'flujo', nodos: ['Revisar la fórmula', 'Mirar los grupos', 'Marcar / desmarcar', 'Vista previa', 'Aplicar'] },
+      { t: 'aviso', tono: 'regla', texto: 'Nada cambia hasta tocar **"Aplicar"** en la vista previa, donde todavía podés corregir cada precio a mano. En el historial de cada producto queda "Fórmula Estándar (…)" con el dólar del día.' },
     ],
   },
   {
@@ -325,6 +374,9 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
           ['**La última compra difiere mucho: revisar**', 'La compra es menos de la mitad o más del doble del costo: probablemente un error de carga.'],
           ['**Recargo muy distinto al de su familia**', 'El recargo se aleja mucho del promedio de su familia: revisá costo y precio en la ficha.'],
           ['**Sin costo cargado**', 'No se puede calcular el recargo: cargá el costo en la ficha del producto.'],
+          ['**Debajo de la fórmula (−X %)**', 'El precio de un producto estándar está X % por debajo de lo que da la fórmula de precio.'],
+          ['**Por encima de la fórmula (+X %): revisar**', 'El precio está por encima de la fórmula. No se baja solo: revisá si es a propósito.'],
+          ['**Posible error de carga**', 'El precio es menos de 1,2 o más de 4 veces el costo, o el costo es de $ 10 o menos: casi siempre un costo mal cargado (por ejemplo $ 175,80 en vez de $ 175.800).'],
         ],
       },
     ],

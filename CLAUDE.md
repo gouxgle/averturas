@@ -460,6 +460,14 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   `catalogo_productos.proveedor_sku`; enlaces manuales).
 - `producto_precio_historial` se escribe desde la ficha (PUT), renovar validez, la revisión, la
   lista por proveedor y `aplicar-actualizacion` (que ahora renueva `precio_actualizado_at`).
+- **Fórmula de precio** (pestaña "Por fórmula", `TabFormula.tsx`; tabla `formulas_precio`):
+  precio = costo ÷ divisor × (1 + recargo) + costo × adicional → `redondearTerminacion` (paso
+  1000, termina en 900). Solo `tipo='estandar'` sin `precio_manual`; gana la más específica
+  (`elegirFormula`: familia+proveedor > familia > proveedor > general; la general no se borra).
+  Es **sugerencia**: se aplica con criterio `{tipo:'formula', base}` en previsualizar/aplicar.
+  Nunca baja un precio sin marca explícita (el asistente pide confirmar las bajas).
+  `posibleErrorCarga` (precio < 1,2× o > 4× costo, o costo ≤ $10) bloquea la fórmula. Las
+  funciones puras están duplicadas en `src/lib/formulaPrecio.ts` (cálculo en vivo al editar).
 - Dólar blue diario sin huecos + IPC: `server/src/lib/indices.ts` (arranque + cada 6 h,
   api.argentinadatos.com). Listas en Excel/CSV: `src/lib/listaPrecios.ts` (`read-excel-file`,
   importes "1.234,56").

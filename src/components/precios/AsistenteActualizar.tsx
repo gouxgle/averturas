@@ -14,6 +14,15 @@ interface ItemPrevia {
   precio_manual: boolean; precio_por_m2: boolean;
   precio_actual: number; precio_nuevo: number; pct: number;
   costo_actual: number; costo_nuevo: number | null; recargo_nuevo: number | null; recargo_objetivo: number | null;
+  sin_formula?: boolean; posible_error_carga?: boolean;
+}
+
+/** Criterio ya decidido en otra pantalla (ej. "Por fórmula"): el asistente abre directo en la vista previa. */
+export interface CriterioInicial {
+  criterio: Record<string, unknown>;
+  etiqueta: string;
+  /** Los que se marcaron para aplicar; el resto se muestra desmarcado. */
+  incluir: Set<string>;
 }
 
 const CRITERIOS: { v: TipoCriterio; titulo: string; texto: string }[] = [
@@ -23,19 +32,28 @@ const CRITERIOS: { v: TipoCriterio; titulo: string; texto: string }[] = [
   { v: 'costo', titulo: 'Costo de reposición + recargo', texto: 'Precio = costo actualizado × (1 + recargo): el que ya tiene, o el objetivo si estaba por debajo.' },
   { v: 'grupos', titulo: 'Porcentaje por grupo', texto: 'Un aumento distinto por familia, línea, proveedor o por m² (por ejemplo +8 % Módena, +5 % Herrero).' },
 ];
-const REDONDEOS = [0, 10, 100, 1000];
+const REDONDEOS: { paso: number; terminacion: number; l: string }[] = [
+  { paso: 0, terminacion: 0, l: 'Sin redondeo' },
+  { paso: 10, terminacion: 0, l: 'a $ 10' },
+  { paso: 100, terminacion: 0, l: 'a $ 100' },
+  { paso: 1000, terminacion: 0, l: 'a $ 1.000' },
+  { paso: 1000, terminacion: 900, l: 'terminado en 900' },
+];
 
 // Ventana aparte para aplicar la actualización de precios: criterio → redondeo → vista previa
 // editable → confirmar (todo o nada, con historial). Los de "precio manual" quedan afuera
 // salvo que se marquen a propósito.
-export function AsistenteActualizar({ productos, onClose, onAplicado }: { productos: ProductoRevision[]; onClose: () => void; onAplicado: () => void }) {
+export function AsistenteActualizar({ productos, inicial, onClose, onAplicado }: {
+  productos: ProductoRevision[]; inicial?: CriterioInicial; onClose: () => void; onAplicado: () => void;
+}) {
   const [paso, setPaso] = useState<1 | 2>(1);
+  const [confirmarBaja, setConfirmarBaja] = useState(false);
   const [tipo, setTipo] = useState<TipoCriterio>('sugerido');
   const [pct, setPct] = useState(5);
   const [actualizarCosto, setActualizarCosto] = useState(true);
   const [por, setPor] = useState<AgruparPor>('familia');
   const [pctsGrupo, setPctsGrupo] = useState<Record<string, number>>({});
-  const [redondeo, setRedondeo] = useState(100);
+  const [redondeo, setRedondeo] = useState(REDONDEOS[2]);
   const [items, setItems] = useState<ItemPrevia[]>([]);
   const [incluir, setIncluir] = useState<Set<string>>(new Set());
   const [editados, setEditados] = useState<Record<string, number>>({});
@@ -60,7 +78,8 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
     return { tipo };
   };
   const etiquetaCriterio = () => {
-    const r = redondeo ? `, redondeo $ ${redondeo.toLocaleString('es-AR')}` : '';
+    if (inicial) return inicial.etiqueta;
+    const r = redondeo.paso ? `, redondeo ${redondeo.l}` : '';
     if (tipo === 'porcentaje') return `porcentaje ${fmtPct(pct)}${r}`;
     if (tipo === 'grupos') return `por ${por}: ${grupos.filter(([k]) => pctsGrupo[k] !== undefined).map(([k, g]) => `${g.nombre} ${fmtPct(pctsGrupo[k])}`).join(', ')}${r}`;
     return `${CRITERIOS.find(c => c.v === tipo)!.titulo.toLowerCase()}${r}`;
@@ -69,17 +88,26 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
   async function verPrevia() {
     setCargando(true);
     try {
-      const r = await api.post<{ items: ItemPrevia[] }>('/productos/revision-precios/previsualizar', { ids: productos.map(p => p.id), criterio: criterio(), redondeo });
+      const r = await api.post<{ items: ItemPrevia[] }>('/productos/revision-precios/previsualizar', {
+        ids: productos.map(p => p.id), criterio: inicial?.criterio ?? criterio(),
+        redondeo: inicial ? 0 : redondeo.paso, terminacion: inicial ? 0 : redondeo.terminacion,
+      });
       setItems(r.items);
-      setIncluir(new Set(r.items.filter(i => !i.precio_manual && Math.abs(i.precio_nuevo - i.precio_actual) >= 0.01).map(i => i.id)));
+      const cambia = (i: ItemPrevia) => Math.abs(i.precio_nuevo - i.precio_actual) >= 0.01 || i.costo_nuevo !== null;
+      setIncluir(new Set(r.items.filter(i => cambia(i) && (inicial ? inicial.incluir.has(i.id) : !i.precio_manual)).map(i => i.id)));
       setEditados({});
+      setConfirmarBaja(false);
       setPaso(2);
     } catch (e) {
       toast.error('No se pudo calcular', { description: (e as Error).message });
+      if (inicial) onClose();
     } finally {
       setCargando(false);
     }
   }
+  // Con un criterio ya decidido se abre directo en la vista previa.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (inicial) void verPrevia(); }, []);
 
   const precioFinal = (i: ItemPrevia) => editados[i.id] ?? i.precio_nuevo;
   const incluidos = items.filter(i => incluir.has(i.id));
@@ -93,8 +121,11 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
     return { antes, despues, impacto, aumentoProm };
   }, [incluidos, editados, ventas]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const bajan = incluidos.filter(i => precioFinal(i) < i.precio_actual - 0.009);
   async function aplicar() {
     if (!incluidos.length || cargando) return;
+    // Bajar un precio nunca es automático: se confirma aparte.
+    if (bajan.length && !confirmarBaja) { setConfirmarBaja(true); return; }
     setCargando(true);
     try {
       const r = await api.post<{ actualizados: number }>('/productos/revision-precios/aplicar', {
@@ -122,7 +153,9 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
           <button onClick={onClose} className="ml-auto p-1.5 rounded-lg hover:bg-gray-100" aria-label="Cerrar"><X size={18} /></button>
         </div>
 
-        {paso === 1 ? (
+        {paso === 1 && inicial ? (
+          <div className="h-40 flex items-center justify-center gap-2 text-sm text-gray-600"><Loader2 size={16} className="animate-spin" /> Calculando la vista previa…</div>
+        ) : paso === 1 ? (
           <div className="p-5 space-y-4 overflow-y-auto">
             <div>
               <p className="text-xs font-bold text-gray-800 mb-2">1. Criterio</p>
@@ -171,9 +204,9 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
               <p className="text-xs font-bold text-gray-800 mb-2">2. Redondeo (hacia arriba)</p>
               <div className="flex gap-1.5 flex-wrap">
                 {REDONDEOS.map(r => (
-                  <button key={r} type="button" onClick={() => setRedondeo(r)}
+                  <button key={r.l} type="button" onClick={() => setRedondeo(r)}
                     className={cn('h-9 px-3 rounded-lg border text-xs font-semibold', redondeo === r ? 'bg-gray-900 text-white border-gray-900' : 'bg-white border-gray-300 text-gray-700')}>
-                    {r ? `a $ ${r.toLocaleString('es-AR')}` : 'Sin redondeo'}
+                    {r.l}
                   </button>
                 ))}
               </div>
@@ -216,6 +249,8 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
                     <div className="col-start-2 md:col-start-auto text-[11px] space-y-0.5">
                       <p className="text-gray-700">recargo {fmtPct(recargo, false)}</p>
                       {i.precio_manual && <p className="text-gray-700 font-semibold">Precio manual: excluido salvo que lo marques</p>}
+                      {i.sin_formula && !i.precio_manual && <p className="text-gray-700">Sin fórmula (no es estándar): no cambia</p>}
+                      {i.posible_error_carga && <p className="text-red-700 font-semibold">Posible error de carga: corregí el costo o el precio primero</p>}
                       {baja && <p className="text-red-700 font-semibold inline-flex items-center gap-1"><AlertTriangle size={11} /> El precio baja</p>}
                       {bajoObjetivo && <p className="text-red-700">Queda bajo el objetivo ({i.recargo_objetivo} %)</p>}
                     </div>
@@ -227,15 +262,21 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
         )}
 
         <div className="px-5 py-3 border-t border-gray-200 flex items-center gap-2 shrink-0">
-          {paso === 2 && (
+          {paso === 2 && !inicial && (
             <button onClick={() => setPaso(1)} className="h-10 px-3 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 inline-flex items-center gap-1">
               <ArrowLeft size={15} /> Cambiar criterio
             </button>
           )}
-          <p className="hidden md:block text-[11px] text-gray-600">Las proformas ya enviadas no cambian: guardan su propio precio.</p>
+          {confirmarBaja ? (
+            <p className="text-xs font-semibold text-red-700 inline-flex items-center gap-1" role="alert">
+              <AlertTriangle size={13} /> {bajan.length} producto{bajan.length !== 1 ? 's bajan' : ' baja'} de precio. Tocá de nuevo para confirmar.
+            </p>
+          ) : (
+            <p className="hidden md:block text-[11px] text-gray-600">Las proformas ya enviadas no cambian: guardan su propio precio.</p>
+          )}
           <div className="ml-auto flex gap-2">
             <button onClick={onClose} className="h-10 px-4 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
-            {paso === 1 ? (
+            {paso === 1 && inicial ? null : paso === 1 ? (
               <button onClick={verPrevia} disabled={cargando || (tipo === 'grupos' && !Object.keys(pctsGrupo).length)}
                 className="h-10 px-5 rounded-lg bg-orange-600 text-white text-sm font-bold hover:bg-orange-700 disabled:opacity-50 inline-flex items-center gap-2">
                 {cargando && <Loader2 size={15} className="animate-spin" />} Ver vista previa
@@ -243,7 +284,7 @@ export function AsistenteActualizar({ productos, onClose, onAplicado }: { produc
             ) : (
               <button onClick={aplicar} disabled={cargando || !incluidos.length}
                 className="h-10 px-5 rounded-lg bg-orange-600 text-white text-sm font-bold hover:bg-orange-700 disabled:opacity-50 inline-flex items-center gap-2">
-                {cargando && <Loader2 size={15} className="animate-spin" />} Aplicar a {incluidos.length}
+                {cargando && <Loader2 size={15} className="animate-spin" />} {confirmarBaja ? `Sí, aplicar a ${incluidos.length}` : `Aplicar a ${incluidos.length}`}
               </button>
             )}
           </div>

@@ -242,6 +242,19 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         warning: 'Las proformas ya enviadas no cambian: guardan su propio precio.',
       },
       {
+        id: 'formula',
+        emoji: '🧮',
+        title: 'Por fórmula (productos estándar)',
+        intro: 'Precio = (costo ÷ 0,60 + 15 %) + 12 % del costo, redondeado hacia arriba terminado en 900. Ej.: costo $ 100.000 → $ 203.900.',
+        steps: [
+          { text: 'Mirá los grupos: debajo, en la fórmula, encima, posible error de carga y sin fórmula.' },
+          { text: 'Se marcan solos los de abajo con un aumento entre el mínimo y el tope; marcá o desmarcá lo que quieras.' },
+          { text: '"Detalle" muestra la cuenta paso a paso. Tocá "Vista previa y aplicar" para confirmar.' },
+        ],
+        tip: 'Los números de la fórmula se cambian arriba y se ve el efecto en vivo; para aplicar hay que guardarla (administrador). Se pueden crear excepciones por familia o proveedor.',
+        warning: 'Un precio encima de la fórmula nunca baja solo: si lo marcás, se pide confirmación.',
+      },
+      {
         id: 'proveedor',
         emoji: '📄',
         title: 'Lista de un proveedor',
