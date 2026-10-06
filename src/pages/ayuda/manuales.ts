@@ -68,7 +68,7 @@ export const MANUALES: Manual[] = [
   {
     slug: 'precios',
     titulo: 'Revisión integral de precios',
-    sub: 'Qué precios renovar, cuáles actualizar y cómo cargar la lista de un proveedor',
+    sub: 'Qué precios renovar, cuáles subir, la fórmula de los estándar y la lista de cada proveedor',
     icono: Scale,
     seccion: 'productos',
     ruta: '/productos/precios',
