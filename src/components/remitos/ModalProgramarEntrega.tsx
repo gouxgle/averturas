@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CalendarClock, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -63,7 +64,9 @@ export function ModalProgramarEntrega({ remito, onClose, onSuccess }: {
   const inp = 'w-full px-3 py-2 border border-gray-400 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
   const lbl = 'block text-xs font-semibold text-gray-600 mb-1';
 
-  return (
+  // Portal a <body>: se abre desde el detalle del remito, que usa backdrop-blur, y un
+  // backdrop-filter hace que los `fixed` de adentro se ubiquen respecto de él (quedaba corrido).
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto">
@@ -123,6 +126,7 @@ export function ModalProgramarEntrega({ remito, onClose, onSuccess }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

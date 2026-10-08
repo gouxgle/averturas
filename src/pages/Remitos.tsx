@@ -1,5 +1,6 @@
 import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Truck, Plus, RefreshCw, Package, CheckCircle2, Clock,
@@ -447,8 +448,11 @@ function ModalEstado({ remito, onClose, onSaved, onEntregar }: {
 
   const opciones = TRANS[remito.estado] ?? [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  // Portal a <body>: se abre desde el detalle, que usa backdrop-blur, y un backdrop-filter
+  // hace que los `fixed` de adentro se ubiquen respecto de él (la ventana quedaba corrida).
+  return createPortal(
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
         <div className="p-5 border-b border-gray-200">
           <h2 className="font-bold text-gray-900">Cambiar estado</h2>
@@ -486,7 +490,8 @@ function ModalEstado({ remito, onClose, onSaved, onEntregar }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -759,18 +764,30 @@ export function Remitos() {
                                 ))}
                               </div>
                             </div>
-                            {/* Fecha entrega */}
-                            <div className="sm:shrink-0 text-left sm:text-right sm:min-w-[70px]">
-                              {r.fecha_entrega_est ? (
+                            {/* Fecha de entrega: la real si ya se entregó; si está pendiente, la prevista y cuánto falta o cuánto se atrasó */}
+                            <div className="sm:shrink-0 text-left sm:text-right sm:min-w-[84px] flex sm:block items-baseline gap-2">
+                              {r.estado === 'entregado' ? (
                                 <>
-                                  <p className="text-[11px] text-gray-600">{fmtFecha(r.fecha_entrega_est)}</p>
-                                  {urg === 'entregado' && <p className="text-[10px] text-emerald-600 font-semibold">Entregado</p>}
-                                  {urg === 'cancelado' && <p className="text-[10px] text-gray-600">Cancelado</p>}
-                                  {urg === 'atrasado' && <p className="text-[10px] text-red-600 font-semibold">Vencida</p>}
-                                  {urg === 'para_hoy' && <p className="text-[10px] text-orange-600 font-semibold">Hoy</p>}
-                                  {urg === 'pendiente' && dias !== null && <p className="text-[10px] text-gray-600">{dias === 1 ? 'Mañana' : `En ${dias}d`}</p>}
+                                  <p className="text-[10px] text-emerald-700 font-semibold">Entregado</p>
+                                  <p className="text-[11px] text-gray-700">{r.entregado_at
+                                    ? new Date(r.entregado_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                                    : fmtFecha(r.fecha_entrega_real)}</p>
                                 </>
-                              ) : <p className="text-[11px] text-gray-600">—</p>}
+                              ) : r.estado === 'cancelado' ? (
+                                <p className="text-[10px] text-gray-600">Cancelado</p>
+                              ) : r.fecha_entrega_est ? (
+                                <>
+                                  <p className="text-[10px] text-gray-600">Prevista</p>
+                                  <p className="text-[11px] text-gray-700">{fmtFecha(r.fecha_entrega_est)}</p>
+                                  {dias !== null && dias < 0 && (
+                                    <p className="text-[10px] text-red-600 font-semibold" title="Pasó la fecha prevista y todavía no se entregó">
+                                      Atrasada {-dias} {dias === -1 ? 'día' : 'días'}
+                                    </p>
+                                  )}
+                                  {dias === 0 && <p className="text-[10px] text-orange-600 font-semibold">Hoy</p>}
+                                  {dias !== null && dias > 0 && <p className="text-[10px] text-gray-600">{dias === 1 ? 'Mañana' : `En ${dias}d`}</p>}
+                                </>
+                              ) : <p className="text-[11px] text-gray-600">Sin fecha</p>}
                             </div>
                             {/* Acciones */}
                             <div className="sm:shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -944,7 +961,7 @@ export function Remitos() {
                     <div>
                       <p className="text-[11px] font-mono font-bold text-blue-600">{e.numero}</p>
                       <p className="text-[11px] text-gray-700 truncate max-w-[110px]">{ncl(e.cliente)}</p>
-                      <p className="text-[10px] text-red-600 font-semibold">Vencida {fmtFecha(e.fecha_entrega_est)}</p>
+                      <p className="text-[10px] text-red-600 font-semibold">Prevista {fmtFecha(e.fecha_entrega_est)}</p>
                     </div>
                     <p className="text-[11px] font-bold text-gray-800 tabular-nums shrink-0">{formatCurrency(Number(e.valor_total))}</p>
                   </Link>
