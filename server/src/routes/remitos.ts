@@ -106,10 +106,16 @@ remitos.get('/tablero', async (c) => {
       ) ri_sum ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(
-          json_build_object('descripcion', ri.descripcion, 'cantidad', ri.cantidad)
+          json_build_object('descripcion', ri.descripcion, 'cantidad', ri.cantidad,
+            'tipo_abertura_nombre', COALESCE(ta_oi.nombre, ta_p.nombre), 'producto_codigo', p.codigo)
           ORDER BY ri.id
         ) AS items_resumen
-        FROM remito_items ri WHERE ri.remito_id = r.id
+        FROM remito_items ri
+        LEFT JOIN catalogo_productos p ON p.id = ri.producto_id
+        LEFT JOIN operacion_items oi ON oi.id = ri.operacion_item_id
+        LEFT JOIN tipos_abertura ta_oi ON ta_oi.id = oi.tipo_abertura_id
+        LEFT JOIN tipos_abertura ta_p ON ta_p.id = p.tipo_abertura_id
+        WHERE ri.remito_id = r.id
       ) ri_agg ON true
       ORDER BY
         CASE WHEN r.fecha_entrega_est < CURRENT_DATE AND r.estado NOT IN ('entregado','cancelado') THEN 0 ELSE 1 END,
@@ -456,9 +462,14 @@ remitos.get('/:id', async (c) => {
         json_build_object(
           'id', p.id, 'nombre', p.nombre, 'codigo', p.codigo,
           'tipo', p.tipo, 'imagen_url', p.imagen_url
-        ) AS producto
+        ) AS producto,
+        -- "tipo de abertura + detalle" en pantalla (src/lib/itemRemito.ts)
+        COALESCE(ta_oi.nombre, ta_p.nombre) AS tipo_abertura_nombre
       FROM remito_items ri
       LEFT JOIN catalogo_productos p ON p.id = ri.producto_id
+      LEFT JOIN operacion_items oi ON oi.id = ri.operacion_item_id
+      LEFT JOIN tipos_abertura ta_oi ON ta_oi.id = oi.tipo_abertura_id
+      LEFT JOIN tipos_abertura ta_p ON ta_p.id = p.tipo_abertura_id
       WHERE ri.remito_id = $1
       ORDER BY ri.id
     `, [id]),

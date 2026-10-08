@@ -492,10 +492,11 @@ pub.get('/remito/:token', async (c) => {
       ta.nombre AS tipo_abertura_nombre,
       si.nombre AS sistema_nombre,
       cp.atributos  AS producto_atributos,
-      cp.imagen_url AS producto_imagen_url
+      cp.imagen_url AS producto_imagen_url,
+      cp.codigo     AS producto_codigo
     FROM remito_items ri
     LEFT JOIN operacion_items    oi ON oi.id = ri.operacion_item_id
-    LEFT JOIN tipos_abertura     ta ON ta.id = oi.tipo_abertura_id
+    LEFT JOIN tipos_abertura     ta ON ta.id = COALESCE(oi.tipo_abertura_id, (SELECT tipo_abertura_id FROM catalogo_productos WHERE id = ri.producto_id))
     LEFT JOIN sistemas           si ON si.id = oi.sistema_id
     LEFT JOIN catalogo_productos cp ON cp.id = COALESCE(oi.producto_id, ri.producto_id)
     WHERE ri.remito_id = $1

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { textoItemRemito } from '@/lib/itemRemito';
 import { useParams } from 'react-router-dom';
 
 const NAVY  = '#031d49';
@@ -52,6 +53,7 @@ interface Item {
   tipo_abertura_nombre: string | null; sistema_nombre: string | null;
   producto_imagen_url: string | null;
   producto_atributos: Record<string, unknown> | null;
+  producto_codigo?: string | null;
   notas: string | null; estado_producto?: string;
 }
 
@@ -360,7 +362,7 @@ export function VistaPublicaRemito() {
               )}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{i + 1}. {item.descripcion}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{i + 1}. {textoItemRemito(item)}</div>
                   <div style={{
                     flexShrink: 0, padding: '3px 10px', background: estadoBadge.bg, color: estadoBadge.color,
                     fontSize: 10, fontWeight: 700, borderRadius: 14, whiteSpace: 'nowrap',
@@ -411,9 +413,9 @@ export function VistaPublicaRemito() {
                     )}
                   </td>
                   <td style={{ padding: '10px 10px' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{item.descripcion}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{textoItemRemito(item)}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px 10px' }}>
-                      {item.tipo_abertura_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Tipo: {item.tipo_abertura_nombre}</span>}
+                      {item.producto_codigo && <span style={{ fontSize: 11, color: '#6b7280' }}>Cód.: {item.producto_codigo}</span>}
                       {item.sistema_nombre && <span style={{ fontSize: 11, color: '#6b7280' }}>Sistema: {item.sistema_nombre}</span>}
                       {item.vidrio && <span style={{ fontSize: 11, color: '#6b7280' }}>Vidrio: {item.vidrio}</span>}
                     </div>

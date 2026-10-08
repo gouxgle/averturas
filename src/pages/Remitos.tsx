@@ -18,6 +18,7 @@ import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntreg
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 import { FirmaDigital } from '@/components/FirmaDigital';
 import { EntregaEnSitio } from '@/components/remitos/EntregaEnSitio';
+import { describirItemRemito, textoItemRemito, type ItemRemitoDescribible } from '@/lib/itemRemito';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 
@@ -25,7 +26,7 @@ import { toastApiError } from '@/lib/apiError';
 
 interface RStats { pendientes: number; para_hoy: number; atrasados: number; entregados_mes: number; valor_pendiente: number }
 interface RCliente { id?: string; nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string; telefono?: string | null }
-interface ItemResumen { descripcion: string; cantidad: number }
+interface ItemResumen { descripcion: string; cantidad: number; tipo_abertura_nombre?: string | null; producto_codigo?: string | null }
 
 interface Remito {
   id: string; numero: string; estado: 'borrador' | 'emitido' | 'entregado' | 'cancelado';
@@ -91,7 +92,7 @@ const entregadoSinFirma = (r: Remito) => r.estado === 'entregado' && !r.firma_ur
 // Entrega en el lugar (o firma posterior) de un remito existente.
 function EntregaRemito({ remito, items, modo, onClose, onDone }: {
   remito: Remito;
-  items: { descripcion: string; cantidad: number }[];
+  items: (ItemRemitoDescribible & { cantidad: number })[];
   modo: 'entregar' | 'firmar';
   onClose: () => void;
   onDone: () => void;
@@ -99,7 +100,10 @@ function EntregaRemito({ remito, items, modo, onClose, onDone }: {
   return (
     <EntregaEnSitio
       modo={modo}
-      resumen={{ numero: remito.numero, cliente: ncl(remito.cliente), direccion: remito.direccion_entrega, items }}
+      resumen={{
+        numero: remito.numero, cliente: ncl(remito.cliente), direccion: remito.direccion_entrega,
+        items: items.map(it => ({ descripcion: textoItemRemito(it), cantidad: it.cantidad })),
+      }}
       nombreSugerido={nombreSugerido(remito)}
       onClose={onClose}
       onConfirmar={async datos => {
@@ -185,6 +189,7 @@ interface RemitoDetalle extends Remito {
   items: Array<{
     id: string; descripcion: string; cantidad: number;
     precio_unitario: number | null; estado_producto: string | null; notas_item: string | null;
+    tipo_abertura_nombre: string | null; producto: { codigo: string | null } | null;
   }>;
 }
 
@@ -280,10 +285,14 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Items del remito</p>
               <div className="divide-y divide-gray-50 border border-gray-200 rounded-xl overflow-hidden">
-                {detalle.items.map(it => (
+                {detalle.items.map(it => {
+                  const d = describirItemRemito(it);
+                  return (
                   <div key={it.id} className="flex items-center justify-between px-3 py-2.5">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 font-medium">{it.descripcion}</p>
+                      {d.tipo && <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700">{d.tipo}</p>}
+                      <p className="text-sm text-gray-800 font-medium">{d.detalle}</p>
+                      {d.codigo && <p className="text-[11px] text-gray-500">Cód. {d.codigo}</p>}
                       {it.notas_item && <p className="text-xs text-gray-600">{it.notas_item}</p>}
                     </div>
                     <div className="text-right shrink-0 ml-3">
@@ -293,12 +302,13 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             {/* Entrega */}
-            {(detalle.fecha_entrega_est || detalle.direccion_entrega || detalle.medio_envio) && (
+            {(detalle.fecha_entrega_est || detalle.direccion_entrega) && (
               <div className="p-3 bg-blue-50 rounded-xl space-y-1">
                 {detalle.fecha_entrega_est && (
                   <p className="text-xs text-blue-700">
@@ -757,8 +767,8 @@ export function Remitos() {
                                   </span>
                                 )}
                                 {r.items_resumen?.slice(0, 1).map((it, i) => (
-                                  <span key={i} className="text-[10px] text-gray-600 truncate max-w-[160px]">
-                                    {it.cantidad} {it.descripcion.slice(0, 28)}{it.descripcion.length > 28 ? '…' : ''}
+                                  <span key={i} className="inline-block align-bottom text-[10px] text-gray-600 truncate max-w-[220px]" title={textoItemRemito(it)}>
+                                    {it.cantidad} {textoItemRemito(it)}
                                     {(r.items_resumen?.length ?? 0) > 1 ? ` +${(r.items_resumen?.length ?? 0) - 1}` : ''}
                                   </span>
                                 ))}

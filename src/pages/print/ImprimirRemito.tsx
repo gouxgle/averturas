@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { describirItemRemito, textoItemRemito } from '@/lib/itemRemito';
 import { useParams } from 'react-router-dom';
 import { Printer, X } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -58,6 +59,9 @@ interface Item {
   producto_imagen_url: string | null;
   producto_atributos: Record<string, unknown> | null;
   notas: string | null; estado_producto?: string;
+  /** Solo en los ítems del remito (GET /remitos/:id). */
+  producto?: { codigo?: string | null } | null;
+  producto_codigo?: string | null;
 }
 
 interface OpItem extends Item {
@@ -155,6 +159,8 @@ export function ImprimirRemito() {
       ...origen,
       // Lo que el remito define manda: descripción, cantidad entregada y estado.
       descripcion:     ri.descripcion,
+      producto_codigo: ri.producto?.codigo ?? null,
+      tipo_abertura_nombre: origen.tipo_abertura_nombre ?? ri.tipo_abertura_nombre,
       cantidad:        ri.cantidad,
       estado_producto: ri.estado_producto,
       notas:           ri.notas ?? origen.notas,
@@ -435,10 +441,10 @@ export function ImprimirRemito() {
                       )}
                     </td>
                     <td style={{ padding: '8px 8px', verticalAlign: 'top' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{item.descripcion}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{textoItemRemito(item)}</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '1px 8px' }}>
-                        {item.tipo_abertura_nombre && (
-                          <span style={{ fontSize: 9.5, color: '#6b7280' }}>Tipo: {item.tipo_abertura_nombre}</span>
+                        {describirItemRemito(item).codigo && (
+                          <span style={{ fontSize: 9.5, color: '#6b7280' }}>Cód.: {describirItemRemito(item).codigo}</span>
                         )}
                         {item.sistema_nombre && (
                           <span style={{ fontSize: 9.5, color: '#6b7280' }}>Sistema: {item.sistema_nombre}</span>
