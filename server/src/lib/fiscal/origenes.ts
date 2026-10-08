@@ -1,4 +1,5 @@
 import { db } from '../../db.js';
+import { nombreItem } from '../nombreItem.js';
 import { hoyAR } from '../fechas.js';
 import { cuitValido, normalizarCuit } from './cuit.js';
 import { condicionIvaId } from './condicionIva.js';
@@ -149,7 +150,14 @@ export async function prepararDesdeRemito(remitoId: string): Promise<Propuesta |
   if (!m) return null;
   const { rows: cli } = await db.query(`SELECT ${COLS_CLIENTE} FROM clientes WHERE id = $1`, [m.cliente_id]);
   const { rows: items } = await db.query(
-    `SELECT id, producto_id, descripcion, cantidad, precio_unitario FROM remito_items WHERE remito_id = $1 ORDER BY ctid`, [remitoId]);
+    `SELECT ri.id, ri.producto_id, ri.descripcion, ri.cantidad, ri.precio_unitario,
+            p.codigo AS producto_codigo, COALESCE(ta_oi.nombre, ta_p.nombre) AS tipo_abertura_nombre
+       FROM remito_items ri
+       LEFT JOIN catalogo_productos p ON p.id = ri.producto_id
+       LEFT JOIN operacion_items oi ON oi.id = ri.operacion_item_id
+       LEFT JOIN tipos_abertura ta_oi ON ta_oi.id = oi.tipo_abertura_id
+       LEFT JOIN tipos_abertura ta_p ON ta_p.id = p.tipo_abertura_id
+      WHERE ri.remito_id = $1 ORDER BY ri.ctid`, [remitoId]);
   // El remito puede no tener precios: se toman del presupuesto del que sale (mismo producto).
   const { rows: delPresupuesto } = m.operacion_id
     ? await db.query(`SELECT id, producto_id, descripcion, precio_unitario, tipo_item FROM operacion_items WHERE operacion_id = $1`, [m.operacion_id])
@@ -164,9 +172,10 @@ export async function prepararDesdeRemito(remitoId: string): Promise<Propuesta |
         ?? delPresupuesto.find(o => String(o.descripcion).trim().toLowerCase() === String(it.descripcion).trim().toLowerCase());
       if (!(precio > 0) && opItem) precio = Number(opItem.precio_unitario);
     }
-    if (!(precio > 0)) sinPrecio.push(String(it.descripcion));
+    const nombre = nombreItem(String(it.descripcion), it.producto_codigo, it.tipo_abertura_nombre);
+    if (!(precio > 0)) sinPrecio.push(nombre);
     return {
-      descripcion: String(it.descripcion), cantidad: Number(it.cantidad), precio_unitario: precio,
+      descripcion: nombre, cantidad: Number(it.cantidad), precio_unitario: precio,
       producto_id: (it.producto_id as string | null) ?? null, operacion_item_id: (opItem?.id as string | undefined) ?? null,
     };
   });
@@ -199,8 +208,13 @@ export async function prepararDesdeOperacion(operacionId: string): Promise<Propu
   const tot = (await totalOperacion(operacionId))!;
   const { rows: [cli] } = await db.query(`SELECT ${COLS_CLIENTE} FROM clientes WHERE id = $1`, [o.cliente_id]);
   const { rows: items } = await db.query(
-    `SELECT id, descripcion, cantidad, precio_unitario, incluye_instalacion, precio_instalacion, tipo_item, producto_id
-       FROM operacion_items WHERE operacion_id = $1 ORDER BY orden`, [operacionId]);
+    `SELECT oi.id, oi.descripcion, oi.cantidad, oi.precio_unitario, oi.incluye_instalacion, oi.precio_instalacion,
+            oi.tipo_item, oi.producto_id, p.codigo AS producto_codigo, COALESCE(ta_oi.nombre, ta_p.nombre) AS tipo_abertura_nombre
+       FROM operacion_items oi
+       LEFT JOIN catalogo_productos p ON p.id = oi.producto_id
+       LEFT JOIN tipos_abertura ta_oi ON ta_oi.id = oi.tipo_abertura_id
+       LEFT JOIN tipos_abertura ta_p ON ta_p.id = p.tipo_abertura_id
+      WHERE oi.operacion_id = $1 ORDER BY oi.orden`, [operacionId]);
 
   // Lo ya facturado por ítem (en otra factura parcial) no se vuelve a proponer: se factura solo lo que queda.
   const yaFacturado = await facturadoPorItem(operacionId);
@@ -208,18 +222,19 @@ export async function prepararDesdeOperacion(operacionId: string): Promise<Propu
   const yaFacturados: string[] = [];
   for (const it of items) {
     const esServicio = it.tipo_item === 'servicio';
+    const nombre = nombreItem(String(it.descripcion), it.producto_codigo, esServicio ? null : it.tipo_abertura_nombre);
     const hecho = yaFacturado.get(it.id) ?? 0;
     const cantidad = Number(it.cantidad) - hecho;
-    if (hecho > 0 && cantidad <= 0) { yaFacturados.push(String(it.descripcion)); continue; }
+    if (hecho > 0 && cantidad <= 0) { yaFacturados.push(nombre); continue; }
     if (Number(it.precio_unitario) > 0) {
       lineas.push({
-        descripcion: it.descripcion, cantidad, precio_unitario: Number(it.precio_unitario),
+        descripcion: nombre, cantidad, precio_unitario: Number(it.precio_unitario),
         es_servicio: esServicio, producto_id: it.producto_id, operacion_item_id: it.id,
       });
     }
     if (it.incluye_instalacion && Number(it.precio_instalacion) > 0) {
       lineas.push({
-        descripcion: `Instalación — ${it.descripcion}`, cantidad,
+        descripcion: `Instalación — ${nombre}`, cantidad,
         precio_unitario: Number(it.precio_instalacion), es_servicio: true, operacion_item_id: it.id,
       });
     }
