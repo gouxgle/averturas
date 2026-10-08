@@ -6,7 +6,7 @@ import {
   AlertTriangle, ChevronRight, Eye, Phone,
   MessageCircle, Building2, DollarSign, BarChart3, Zap,
   PrinterIcon, FileText, CalendarClock, Search,
-  X, Send, ExternalLink,
+  X, Send, ExternalLink, PenLine,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, fechaDiaAR } from '@/lib/utils';
@@ -16,6 +16,7 @@ import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 import { FirmaDigital } from '@/components/FirmaDigital';
+import { EntregaEnSitio } from '@/components/remitos/EntregaEnSitio';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 
@@ -40,8 +41,13 @@ interface Remito {
   recepcion_estado: 'conforme' | 'con_observaciones' | 'no_conforme' | null;
   recepcion_at: string | null;
   recepcion_obs: string | null;
-  /** Firma de conformidad capturada en el celular al marcar "entregado" (opcional). */
+  /** Firma de conformidad capturada en el celular al entregar (EntregaEnSitio). */
   firma_url: string | null;
+  recibio_nombre: string | null;
+  recibio_dni: string | null;
+  entregado_at: string | null;
+  /** Se entregó sin firma: el motivo (firma opcional pero con aviso). */
+  sin_firma_motivo: string | null;
 }
 
 interface ProximaEntrega {
@@ -65,6 +71,48 @@ interface TableroData {
 function ncl(c: RCliente) {
   if (c.tipo_persona === 'juridica') return c.razon_social ?? '—';
   return [c.apellido, c.nombre].filter(Boolean).join(' ') || '—';
+}
+
+// Aclaración sugerida al entregar: el titular si es persona; una empresa la completa quien recibe.
+function nombreSugerido(r: Remito) {
+  if (r.recibio_nombre) return r.recibio_nombre;
+  if (r.cliente.tipo_persona === 'juridica') return '';
+  return [r.cliente.nombre, r.cliente.apellido].filter(Boolean).join(' ');
+}
+
+function fmtFechaHora(iso: string) {
+  return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+const puedeEntregarse = (r: Remito) => r.estado === 'borrador' || r.estado === 'emitido';
+const entregadoSinFirma = (r: Remito) => r.estado === 'entregado' && !r.firma_url;
+
+// Entrega en el lugar (o firma posterior) de un remito existente.
+function EntregaRemito({ remito, items, modo, onClose, onDone }: {
+  remito: Remito;
+  items: { descripcion: string; cantidad: number }[];
+  modo: 'entregar' | 'firmar';
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  return (
+    <EntregaEnSitio
+      modo={modo}
+      resumen={{ numero: remito.numero, cliente: ncl(remito.cliente), direccion: remito.direccion_entrega, items }}
+      nombreSugerido={nombreSugerido(remito)}
+      onClose={onClose}
+      onConfirmar={async datos => {
+        if (modo === 'firmar') {
+          await api.patch(`/remitos/${remito.id}/firma`, datos);
+          toast.success('Firma guardada');
+        } else {
+          await api.post(`/remitos/${remito.id}/entregar`, datos);
+          toast.success(datos.firma_url ? 'Remito entregado y firmado' : 'Remito entregado sin firma');
+        }
+        onDone();
+      }}
+    />
+  );
 }
 
 function diasHasta(iso: string | null) {
@@ -149,6 +197,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
   const [enviadoWA, setEnviadoWA]   = useState(false);
   const [showEstado, setShowEstado] = useState(false);
   const [showProgramar, setShowProgramar] = useState(false);
+  const [entrega, setEntrega] = useState<'entregar' | 'firmar' | null>(null);
 
   useEffect(() => {
     api.get<RemitoDetalle>(`/remitos/${remito.id}`)
@@ -262,6 +311,13 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               </div>
             )}
 
+            {puedeEntregarse(detalle) && (
+              <button onClick={() => setEntrega('entregar')} data-testid="btn-entregar-firmar"
+                className="w-full h-12 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-base font-bold shadow-md transition-colors">
+                <PenLine size={17} /> Entregar y firmar
+              </button>
+            )}
+
             {!['entregado', 'cancelado'].includes(detalle.estado) && (
               <button onClick={() => setShowProgramar(true)}
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-semibold transition-colors">
@@ -278,11 +334,29 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               </div>
             )}
 
-            {/* Firma de conformidad — capturada en el celular al marcar entregado */}
+            {/* Entrega: firma de conformidad tomada en el lugar, o aviso de que falta */}
             {detalle.firma_url && (
               <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
                 <p className="text-xs font-semibold text-gray-700 mb-1.5">Firma de conformidad</p>
                 <FirmaDigital value={detalle.firma_url} onChange={() => {}} disabled />
+                {(detalle.recibio_nombre || detalle.recibio_dni || detalle.entregado_at) && (
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    {[detalle.recibio_nombre, detalle.recibio_dni && `DNI ${detalle.recibio_dni}`].filter(Boolean).join(' · ')}
+                    {detalle.entregado_at && <span className="block">{fmtFechaHora(detalle.entregado_at)}</span>}
+                  </p>
+                )}
+              </div>
+            )}
+            {entregadoSinFirma(detalle) && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
+                  <AlertTriangle size={13} /> Entregado sin firma
+                </p>
+                {detalle.sin_firma_motivo && <p className="text-xs text-amber-800">Motivo: {detalle.sin_firma_motivo}</p>}
+                <button onClick={() => setEntrega('firmar')}
+                  className="w-full h-11 flex items-center justify-center gap-2 border border-amber-300 bg-white hover:bg-amber-100 text-amber-800 rounded-xl text-sm font-semibold">
+                  <PenLine size={14} /> Agregar firma
+                </button>
               </div>
             )}
 
@@ -316,7 +390,14 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
       {showEstado && detalle && (
         <ModalEstado remito={detalle}
           onClose={() => setShowEstado(false)}
+          onEntregar={() => { setShowEstado(false); setEntrega('entregar'); }}
           onSaved={() => { setShowEstado(false); onSaved(); onClose(); }} />
+      )}
+
+      {entrega && detalle && (
+        <EntregaRemito remito={detalle} items={detalle.items} modo={entrega}
+          onClose={() => setEntrega(null)}
+          onDone={() => { setEntrega(null); onSaved(); onClose(); }} />
       )}
 
       {showProgramar && detalle && (
@@ -330,19 +411,21 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
 
 // ── Modal de estado (reutilizado) ────────────────────────────────────
 
-function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: () => void; onSaved: () => void }) {
+// "Marcar entregado" no se confirma acá: abre la entrega en el lugar (firma + quién recibe).
+function ModalEstado({ remito, onClose, onSaved, onEntregar }: {
+  remito: Remito; onClose: () => void; onSaved: () => void; onEntregar: () => void;
+}) {
   const [nuevoEstado, setNuevoEstado] = useState('');
-  const [fechaReal, setFechaReal] = useState(fechaDiaAR(new Date()));
-  const [firmaUrl, setFirmaUrl] = useState<string | null>(remito.firma_url ?? null);
   const [saving, setSaving] = useState(false);
 
   const TRANS: Record<string, { value: string; label: string; desc: string; cls: string }[]> = {
     borrador: [
       { value: 'emitido',   label: 'Emitir remito',    desc: 'Descuenta stock automáticamente', cls: 'border-blue-300 bg-blue-50 text-blue-700' },
+      { value: 'entregado', label: 'Entregar y firmar', desc: 'Emite, descuenta stock y registra la entrega', cls: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
       { value: 'cancelado', label: 'Cancelar',          desc: 'Sin efecto en stock',              cls: 'border-red-300 bg-red-50 text-red-700' },
     ],
     emitido: [
-      { value: 'entregado', label: 'Marcar entregado',  desc: 'Confirma la entrega al cliente',   cls: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
+      { value: 'entregado', label: 'Entregar y firmar', desc: 'Firma del cliente y quién recibe',  cls: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
       { value: 'cancelado', label: 'Cancelar',          desc: 'Revierte stock descontado',        cls: 'border-red-300 bg-red-50 text-red-700' },
     ],
     entregado: [
@@ -354,11 +437,7 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
     if (!nuevoEstado) { toast.error('Seleccioná un estado'); return; }
     setSaving(true);
     try {
-      await api.patch(`/remitos/${remito.id}/estado`, {
-        estado: nuevoEstado,
-        fecha_entrega_real: nuevoEstado === 'entregado' ? fechaReal : undefined,
-        firma_url: nuevoEstado === 'entregado' ? firmaUrl : undefined,
-      });
+      await api.patch(`/remitos/${remito.id}/estado`, { estado: nuevoEstado });
       toast.success('Estado actualizado');
       onSaved();
     } catch (e) {
@@ -377,25 +456,12 @@ function ModalEstado({ remito, onClose, onSaved }: { remito: Remito; onClose: ()
         </div>
         <div className="p-5 space-y-2">
           {opciones.map(op => (
-            <button key={op.value} type="button" onClick={() => setNuevoEstado(op.value)}
+            <button key={op.value} type="button" onClick={() => op.value === 'entregado' ? onEntregar() : setNuevoEstado(op.value)}
               className={`w-full text-left p-3 rounded-xl border-2 transition-all ${nuevoEstado === op.value ? op.cls : 'border-gray-200 hover:border-gray-200'}`}>
               <p className="font-semibold text-sm">{op.label}</p>
               <p className="text-xs opacity-70 mt-0.5">{op.desc}</p>
             </button>
           ))}
-          {nuevoEstado === 'entregado' && (
-            <div className="pt-1 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Fecha real de entrega</label>
-                <input type="date" value={fechaReal} onChange={e => setFechaReal(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Firma de conformidad (opcional)</label>
-                <FirmaDigital value={firmaUrl} onChange={setFirmaUrl} uploadEndpoint="/api/remitos/upload-imagen" />
-              </div>
-            </div>
-          )}
           {nuevoEstado === 'emitido' && (
             <div className="flex gap-2 p-3 bg-amber-50 rounded-xl text-xs text-amber-700 border border-amber-200">
               <AlertTriangle size={12} className="mt-0.5 shrink-0" />
@@ -458,6 +524,7 @@ export function Remitos() {
   const [page, setPage] = useState(1);
   const perPage = 10;
   const [estadoModal, setEstadoModal]     = useState<Remito | null>(null);
+  const [entregaRemito, setEntregaRemito] = useState<Remito | null>(null);
   const [detailRemito, setDetailRemito]   = useState<Remito | null>(null);
   const [shareRemito, setShareRemito]     = useState<Remito | null>(null);
   const [,            setLinkUrl]         = useState<string | null>(null);
@@ -664,6 +731,13 @@ export function Remitos() {
                                 {r.recepcion_estado === 'conforme' && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">✓ Confirmado</span>
                                 )}
+                                {r.estado === 'entregado' && r.firma_url && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✍ Firmado</span>
+                                )}
+                                {entregadoSinFirma(r) && (
+                                  <span title={r.sin_firma_motivo ?? undefined}
+                                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">Sin firma</span>
+                                )}
                                 {/* Link enviado y todavía sin respuesta: ¿lo abrió? */}
                                 {r.token_acceso && !r.recepcion_estado && r.estado === 'emitido' && (
                                   r.link_primera_vista_at
@@ -700,6 +774,13 @@ export function Remitos() {
                             </div>
                             {/* Acciones */}
                             <div className="sm:shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                              {puedeEntregarse(r) && (
+                                <button type="button" onClick={() => setEntregaRemito(r)}
+                                  title="Entregar y firmar"
+                                  className="h-11 sm:h-7 px-3 sm:px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-sm sm:text-[11px] font-semibold transition-colors">
+                                  <PenLine size={13} /> Entregar
+                                </button>
+                              )}
                               {r.cliente.telefono && (
                                 <button type="button" onClick={() => setShareRemito(r)}
                                   title="Enviar por WhatsApp"
@@ -939,7 +1020,15 @@ export function Remitos() {
       )}
 
       {estadoModal && (
-        <ModalEstado remito={estadoModal} onClose={() => setEstadoModal(null)} onSaved={() => { setEstadoModal(null); cargar(); }} />
+        <ModalEstado remito={estadoModal} onClose={() => setEstadoModal(null)}
+          onEntregar={() => { setEntregaRemito(estadoModal); setEstadoModal(null); }}
+          onSaved={() => { setEstadoModal(null); cargar(); }} />
+      )}
+
+      {entregaRemito && (
+        <EntregaRemito remito={entregaRemito} items={entregaRemito.items_resumen ?? []} modo="entregar"
+          onClose={() => setEntregaRemito(null)}
+          onDone={() => { setEntregaRemito(null); cargar(); }} />
       )}
 
       {/* Modal compartir — envío directo por Evolution API */}

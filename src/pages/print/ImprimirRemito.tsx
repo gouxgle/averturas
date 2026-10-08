@@ -75,6 +75,13 @@ interface Remito {
   recepcion_estado?: string | null;
   recepcion_at?: string | null;
   recepcion_obs?: string | null;
+  // Entrega en el lugar (EntregaEnSitio): firma del cliente y quién recibió.
+  fecha_entrega_real?: string | null;
+  firma_url?: string | null;
+  recibio_nombre?: string | null;
+  recibio_dni?: string | null;
+  entregado_at?: string | null;
+  sin_firma_motivo?: string | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
     tipo_persona: string; telefono: string | null; email: string | null;
@@ -510,17 +517,28 @@ export function ImprimirRemito() {
             <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1, color: NAVY, marginBottom: 10 }}>
               Datos de Entrega
             </div>
-            {[
-              'Recibido por:',
-              'DNI:',
-              'Fecha:',
-              'Hora:',
-            ].map(lbl => (
-              <div key={lbl} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10 }}>
-                <span style={{ fontSize: 9.5, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' as const }}>{lbl}</span>
-                <div style={{ flex: 1, borderBottom: '1px solid #9ca3af' }} />
-              </div>
-            ))}
+            {(() => {
+              const entregado = remito.estado === 'entregado';
+              const at = entregado && remito.entregado_at ? new Date(remito.entregado_at) : null;
+              const fecha = at
+                ? at.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : entregado && remito.fecha_entrega_real
+                  ? new Date(remito.fecha_entrega_real.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : '';
+              return ([
+                ['Recibido por:', entregado ? remito.recibio_nombre ?? '' : ''],
+                ['DNI:', entregado ? remito.recibio_dni ?? '' : ''],
+                ['Fecha:', fecha],
+                ['Hora:', at ? at.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''],
+              ] as const).map(([lbl, val]) => (
+                <div key={lbl} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10 }}>
+                  <span style={{ fontSize: 9.5, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' as const }}>{lbl}</span>
+                  <div style={{ flex: 1, borderBottom: '1px solid #9ca3af', fontSize: 10, color: '#111827', fontWeight: 600, paddingLeft: 2, minHeight: 13 }}>
+                    {val}
+                  </div>
+                </div>
+              ));
+            })()}
             {/* Firma del receptor — tiene que saltar a la vista dónde firmar */}
             <div style={{ marginTop: 10 }}>
               <div style={{
@@ -529,15 +547,34 @@ export function ImprimirRemito() {
               }}>
                 Firma del cliente
               </div>
-              <div style={{
-                height: 62, border: `2px dashed ${NAVY}`, borderRadius: 6,
-                background: '#f8fafc',
-                display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 3,
-              }}>
-                <span style={{ fontSize: 8.5, color: '#94a3b8', fontStyle: 'italic' as const }}>
-                  Firmar aquí
-                </span>
-              </div>
+              {remito.estado === 'entregado' && remito.firma_url ? (
+                /* Firma tomada en el celular al entregar */
+                <div style={{
+                  height: 62, border: '1px solid #d1d5db', borderRadius: 6, background: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <img src={remito.firma_url} alt="Firma del cliente" style={{ height: 49, maxWidth: '100%', objectFit: 'contain' as const }} />
+                </div>
+              ) : remito.estado === 'entregado' && remito.sin_firma_motivo ? (
+                <div style={{
+                  height: 62, border: '1px solid #fcd34d', borderRadius: 6, background: '#fffbeb',
+                  display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center',
+                  padding: '0 6px', textAlign: 'center' as const,
+                }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: '#92400e' }}>ENTREGADO SIN FIRMA</span>
+                  <span style={{ fontSize: 8.5, color: '#92400e' }}>{remito.sin_firma_motivo}</span>
+                </div>
+              ) : (
+                <div style={{
+                  height: 62, border: `2px dashed ${NAVY}`, borderRadius: 6,
+                  background: '#f8fafc',
+                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 3,
+                }}>
+                  <span style={{ fontSize: 8.5, color: '#94a3b8', fontStyle: 'italic' as const }}>
+                    Firmar aquí
+                  </span>
+                </div>
+              )}
               <div style={{
                 textAlign: 'center' as const, fontSize: 10, fontWeight: 800,
                 color: NAVY, marginTop: 5, lineHeight: 1.3,

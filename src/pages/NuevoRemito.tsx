@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
   MapPin, Hash, RefreshCw, Search, X as XIcon,
-  CheckSquare, Square, Download, ChevronDown, CalendarClock
+  CheckSquare, Square, Download, ChevronDown, CalendarClock, PenLine
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn, fechaDiaAR } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntrega';
+import { EntregaEnSitio, type DatosEntrega } from '@/components/remitos/EntregaEnSitio';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
 import { scrollContenidoArriba } from '@/lib/scroll';
 
@@ -158,6 +159,8 @@ export function NuevoRemito() {
   const [horaEntregaEst, setHoraEntregaEst] = useState('');
   const [notas, setNotas]                 = useState('');
   const [showProgramar, setShowProgramar] = useState(false);
+  const [entregaNueva, setEntregaNueva]   = useState(false);
+  const [savedEntregado, setSavedEntregado] = useState(false);
   const [items, setItems]                 = useState<RemitoItem[]>([emptyItem()]);
   // búsqueda de producto por posición de ítem
   const [prodSearch, setProdSearch]       = useState<string[]>(['']);
@@ -335,15 +338,17 @@ export function NuevoRemito() {
     return s + p * it.cantidad;
   }, 0);
 
-  async function handleSave() {
-    if (!clienteId) { toast.error('Seleccioná un cliente'); return; }
-    if (!medioEnvio) { toast.error('Seleccioná medio de envío'); return; }
-    const itemsValidos = items.filter(it => it.descripcion.trim());
-    if (!itemsValidos.length) { toast.error('Agregá al menos un ítem'); return; }
+  const itemsValidos = items.filter(it => it.descripcion.trim());
 
-    setSaving(true);
-    try {
-      const body = {
+  function validar() {
+    if (!clienteId) { toast.error('Seleccioná un cliente'); return false; }
+    if (!medioEnvio) { toast.error('Seleccioná medio de envío'); return false; }
+    if (!itemsValidos.length) { toast.error('Agregá al menos un ítem'); return false; }
+    return true;
+  }
+
+  function armarBody() {
+    return {
         cliente_id:       clienteId,
         operacion_id:     operacionId  || null,
         medio_envio:      medioEnvio,
@@ -358,6 +363,40 @@ export function NuevoRemito() {
           precio_unitario: it.precio_unitario ? parseFloat(it.precio_unitario) : null,
         })),
       };
+  }
+
+  function errorAlGuardar(e: unknown) {
+    toastApiError(e, {
+      fallback: 'Error al guardar',
+      labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
+      labelItem: idx => {
+        const it = itemsValidos[idx];
+        return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
+      },
+    });
+  }
+
+  // "Crear y entregar ahora" (en el lugar): el remito se crea, emite y entrega en una
+  // sola llamada — si algo falla (stock, validación) no queda nada creado.
+  async function crearYEntregar(entrega: DatosEntrega) {
+    try {
+      const nuevo = await api.post<{ id: string }>('/remitos', { ...armarBody(), entrega });
+      toast.success(entrega.firma_url ? 'Remito creado, entregado y firmado' : 'Remito creado y entregado sin firma');
+      setEntregaNueva(false);
+      setSavedEntregado(true);
+      setSavedId(nuevo.id);
+    } catch (e) {
+      // Queda abierto con la firma ya tomada: se corrige (p. ej. stock) y se reintenta.
+      errorAlGuardar(e);
+    }
+  }
+
+  async function handleSave() {
+    if (!validar()) return;
+
+    setSaving(true);
+    try {
+      const body = armarBody();
 
       if (isEdit) {
         await api.put(`/remitos/${id}`, body);
@@ -370,14 +409,7 @@ export function NuevoRemito() {
       }
       navigate('/remitos');
     } catch (e) {
-      toastApiError(e, {
-        fallback: 'Error al guardar',
-        labelCampo: campo => CAMPO_LABELS[campo] ?? campo,
-        labelItem: idx => {
-          const it = itemsValidos[idx];
-          return `Ítem ${idx + 1}${it?.descripcion ? ` (${it.descripcion})` : ''}`;
-        },
-      });
+      errorAlGuardar(e);
     } finally {
       setSaving(false);
     }
@@ -398,7 +430,7 @@ export function NuevoRemito() {
   }
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-4xl mx-auto" data-section="remitos">
+    <div className="p-3 pb-24 sm:p-4 lg:p-6 max-w-4xl mx-auto" data-section="remitos">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/remitos')}
@@ -417,7 +449,7 @@ export function NuevoRemito() {
           </div>
         </div>
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60">
+          className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60">
           {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
           {isEdit ? 'Guardar cambios' : 'Crear remito'}
         </button>
@@ -990,19 +1022,44 @@ export function NuevoRemito() {
         </div>
       </div>
 
-      {/* Botón al pie — evita volver al header */}
-      <div className="mt-5 flex justify-end">
+      {/* Botones al pie — en el celular quedan fijos abajo (se usa en el lugar de la entrega) */}
+      {/* fixed y no sticky: <main> es overflow-auto sin alto fijo y sticky no se pega.
+          pl-16: el buzón de comentarios flota abajo a la izquierda. */}
+      <div className="fixed sm:static inset-x-0 bottom-0 z-40 sm:z-auto mt-5 pl-16 pr-3 pt-3 sm:p-0 bg-white/95 sm:bg-transparent border-t border-gray-200 sm:border-0 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] sm:shadow-none flex gap-2 sm:justify-end pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0">
+        {!isEdit && (
+          <button onClick={() => { if (validar()) setEntregaNueva(true); }} disabled={saving}
+            data-testid="btn-crear-entregar"
+            className="flex-1 sm:flex-none h-12 sm:h-auto flex items-center justify-center gap-2 px-4 sm:px-6 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold disabled:opacity-60 shadow-md">
+            <PenLine size={15} className="shrink-0" />
+            <span className="sm:hidden">Entregar ahora</span>
+            <span className="hidden sm:inline">Crear y entregar ahora</span>
+          </button>
+        )}
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60 shadow-md">
+          className="flex-1 sm:flex-none h-12 sm:h-auto flex items-center justify-center gap-2 px-4 sm:px-6 sm:py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold disabled:opacity-60 shadow-md">
           {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
           {isEdit ? 'Guardar cambios' : 'Crear remito'}
         </button>
       </div>
 
+      {entregaNueva && (
+        <EntregaEnSitio
+          resumen={{
+            cliente: clienteSeleccionado ? clienteLabel(clienteSeleccionado) : '',
+            direccion: direccionEntrega || null,
+            items: itemsValidos.map(it => ({ descripcion: it.descripcion, cantidad: Number(it.cantidad) || 1 })),
+          }}
+          nombreSugerido={clienteSeleccionado && clienteSeleccionado.tipo_persona !== 'juridica'
+            ? [clienteSeleccionado.nombre, clienteSeleccionado.apellido].filter(Boolean).join(' ') : ''}
+          onConfirmar={crearYEntregar}
+          onClose={() => setEntregaNueva(false)}
+        />
+      )}
+
       {savedId && (
         <PDFDialog
-          title="Remito creado"
-          subtitle="¿Querés generar el PDF ahora?"
+          title={savedEntregado ? 'Remito entregado' : 'Remito creado'}
+          subtitle={savedEntregado ? 'Podés enviarle al cliente el remito firmado.' : '¿Querés generar el PDF ahora?'}
           pdfUrl={`/imprimir/remito/${savedId}`}
           onClose={() => { setSavedId(null); navigate('/remitos'); }}
           onNavigate={() => navigate('/remitos')}

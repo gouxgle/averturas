@@ -787,6 +787,25 @@ const RemitoItemSchema = z.object({
   operacion_item_id: zUUID.optional().nullable(),
 });
 
+// Entrega en el lugar (POST /remitos/:id/entregar, o `entrega` en POST /remitos):
+// la firma es opcional pero con aviso — sin firma hay que decir por qué.
+export const RemitoEntregaSchema = z.object({
+  fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  firma_url:          zText(300),
+  recibio_nombre:     zText(120),
+  recibio_dni:        z.union([z.literal(''), z.string().regex(/^\d{7,11}$/, 'El DNI va solo con números (7 a 11)')]).optional().nullable(),
+  sin_firma_motivo:   zText(300),
+}).refine(b => !!b.firma_url || !!b.sin_firma_motivo?.trim(), {
+  message: 'Falta la firma del cliente o el motivo de entregar sin firma',
+  path: ['firma_url'],
+});
+
+export const RemitoFirmaSchema = z.object({
+  firma_url:      z.string().min(1, 'Falta la firma').max(300),
+  recibio_nombre: zText(120),
+  recibio_dni:    z.union([z.literal(''), z.string().regex(/^\d{7,11}$/, 'El DNI va solo con números (7 a 11)')]).optional().nullable(),
+});
+
 export const RemitoSchema = z.object({
   cliente_id:       zUUID,
   operacion_id:     zUUID.optional().nullable(),
@@ -798,6 +817,8 @@ export const RemitoSchema = z.object({
   fecha_entrega_est: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notas:            zText(2000).optional(),
   items:            z.array(RemitoItemSchema).min(1, 'Se requiere al menos 1 ítem'),
+  // "Crear y entregar ahora": si viene, el remito se crea, emite y entrega en una transacción.
+  entrega:          RemitoEntregaSchema.optional(),
 });
 
 export const RemitoEstadoSchema = z.object({

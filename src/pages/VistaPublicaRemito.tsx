@@ -64,6 +64,9 @@ interface Remito {
   recepcion_estado: string | null;
   recepcion_at: string | null;
   recepcion_obs: string | null;
+  firma_url?: string | null;
+  recibio_nombre?: string | null;
+  entregado_at?: string | null;
   cliente: {
     nombre: string | null; apellido: string | null; razon_social: string | null;
     tipo_persona: string; telefono: string | null; email: string | null;
@@ -455,6 +458,25 @@ export function VistaPublicaRemito() {
             </div>
           ))}
         </div>
+
+        {/* FIRMA TOMADA EN LA ENTREGA */}
+        {remito.firma_url && (
+          <div style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
+            <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <img src={remito.firma_url} alt="Firma de recepción"
+                style={{ height: 64, maxWidth: '100%', border: '1px solid #e5e7eb', borderRadius: 8, background: 'white' }} />
+              <div style={{ fontSize: 13, color: '#374151' }}>
+                <div style={{ fontWeight: 800, color: GREEN }}>Recibido y firmado</div>
+                {remito.recibio_nombre && <div>{remito.recibio_nombre}</div>}
+                {remito.entregado_at && (
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                    {new Date(remito.entregado_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CONFIRMACIÓN DE RECEPCIÓN */}
         <div style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '24px' }}>

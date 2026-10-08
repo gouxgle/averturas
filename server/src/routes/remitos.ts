@@ -5,8 +5,11 @@ import sharp from 'sharp';
 import { db } from '../db.js';
 import { facturadoDe } from '../lib/fiscal/origenes.js';
 import { validateBody } from '../lib/validate.js';
-import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema } from '../lib/schemas.js';
-import { sincronizarTareaEntrega, completarTareaDeEntrega } from '../lib/remitos.js';
+import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema, RemitoEntregaSchema, RemitoFirmaSchema } from '../lib/schemas.js';
+import {
+  sincronizarTareaEntrega, cargarRemitoParaTransicion, aplicarTransicionRemito, entregarRemito,
+  detalleEntrega, RemitoError, TRANSICIONES_REMITO,
+} from '../lib/remitos.js';
 import { enviarWhatsapp } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { hoyAR } from '../lib/fechas.js';
@@ -85,6 +88,7 @@ remitos.get('/tablero', async (c) => {
         r.fecha_entrega_est, r.fecha_entrega_real, r.notas, r.stock_descontado,
         r.token_acceso, r.recepcion_estado, r.recepcion_at, r.recepcion_obs,
         r.link_primera_vista_at, r.link_vistas,
+        r.firma_url, r.recibio_nombre, r.recibio_dni, r.entregado_at, r.sin_firma_motivo,
         json_build_object('id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
           'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
           'telefono', c.telefono) AS cliente,
@@ -560,15 +564,31 @@ remitos.post('/', async (c) => {
       ]);
     }
 
+    // "Crear y entregar ahora" (en el lugar): emitir + entregar en esta misma
+    // transacción — si el stock no alcanza no queda un borrador colgado.
+    if (b.entrega) {
+      const paraEntregar = await cargarRemitoParaTransicion(client, remito.id, true);
+      await entregarRemito(client, paraEntregar!, b.entrega, user?.id || null);
+    }
+
     await client.query('COMMIT');
     registrarActividad(c, {
       entidad: 'remito', entidad_id: remito.id, entidad_numero: remito.numero,
       accion: 'crear',
       detalle: b.operacion_id ? null : 'Sin operación vinculada',
     });
+    if (b.entrega) {
+      registrarActividad(c, {
+        entidad: 'remito', entidad_id: remito.id, entidad_numero: remito.numero,
+        accion: 'entregar',
+        detalle: `${detalleEntrega(b.entrega)} (creado en el lugar)`,
+        meta: { estado_anterior: 'borrador', estado_nuevo: 'entregado', con_firma: !!b.entrega.firma_url },
+      });
+    }
     return c.json(remito, 201);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err instanceof RemitoError) return c.json({ error: err.message }, err.status);
     throw err;
   } finally {
     client.release();
@@ -649,7 +669,8 @@ remitos.put('/:id', async (c) => {
   }
 });
 
-// PATCH /:id/estado — transición de estado + movimientos de stock
+// PATCH /:id/estado — transición de estado + movimientos de stock (lógica en lib/remitos.ts).
+// La entrega en el lugar usa POST /:id/entregar; este camino queda por compatibilidad.
 remitos.patch('/:id/estado', async (c) => {
   const { id } = c.req.param();
   const user   = c.get('user');
@@ -657,24 +678,11 @@ remitos.patch('/:id/estado', async (c) => {
   if (bEstado instanceof Response) return bEstado;
   const { estado: nuevoEstado, fecha_entrega_real, firma_url } = bEstado;
 
-  const TRANSICIONES: Record<string, string[]> = {
-    borrador:   ['emitido', 'cancelado'],
-    emitido:    ['entregado', 'cancelado'],
-    entregado:  ['cancelado'],
-    cancelado:  [],
-  };
-
-  const { rows: [remito] } = await db.query(
-    `SELECT r.*, json_agg(json_build_object('producto_id', ri.producto_id, 'cantidad', ri.cantidad)) AS items
-     FROM remitos r
-     LEFT JOIN remito_items ri ON ri.remito_id = r.id
-     WHERE r.id = $1
-     GROUP BY r.id`, [id]
-  );
+  const remito = await cargarRemitoParaTransicion(db, id);
   if (!remito) return c.json({ error: 'Remito no encontrado' }, 404);
 
-  const estadoActual = remito.estado as string;
-  if (!TRANSICIONES[estadoActual]?.includes(nuevoEstado)) {
+  const estadoActual = remito.estado;
+  if (!TRANSICIONES_REMITO[estadoActual]?.includes(nuevoEstado)) {
     return c.json({ error: `No se puede pasar de ${estadoActual} a ${nuevoEstado}` }, 409);
   }
   if (nuevoEstado === 'cancelado' && await facturadoDe('remito_id', id) > 0.009) {
@@ -684,151 +692,95 @@ remitos.patch('/:id/estado', async (c) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-
-    // borrador → emitido: cancelar reservas previas + descontar stock
-    if (estadoActual === 'borrador' && nuevoEstado === 'emitido' && !remito.stock_descontado) {
-      const items = (remito.items as { producto_id: string | null; cantidad: number }[])
-        .filter(i => i.producto_id);
-
-      // Cancelar reservas existentes para esta operación (netear a cero)
-      if (remito.operacion_id) {
-        const { rows: reservas } = await client.query(`
-          SELECT producto_id, SUM(cantidad) AS total
-          FROM stock_movimientos
-          WHERE operacion_id = $1 AND tipo = 'reserva'
-          GROUP BY producto_id
-          HAVING SUM(cantidad) < 0
-        `, [remito.operacion_id]);
-
-        for (const r of reservas) {
-          await client.query(`
-            INSERT INTO stock_movimientos
-              (producto_id, tipo, cantidad, motivo, operacion_id, referencia_nro, created_by)
-            VALUES ($1, 'reserva', $2, 'Cancelación reserva por remito', $3, $4, $5)
-          `, [r.producto_id, Math.abs(Number(r.total)), remito.operacion_id, remito.numero, user?.id || null]);
-        }
-      }
-
-      // Bloquear + validar stock disponible (ya neteada la reserva propia cancelada
-      // arriba) antes de descontar — evita que dos remitos emitidos en simultáneo
-      // sobrevendan el mismo producto. El FOR UPDATE serializa cualquier otra
-      // transacción que también bloquee estas mismas filas (incluida venta rápida).
-      //
-      // El lock y el cálculo de stock van en dos SELECT separados: si van juntos
-      // en un solo SELECT ... FOR UPDATE, el re-chequeo de Postgres al
-      // desbloquearse (EvalPlanQual) sólo refresca las columnas propias de la fila
-      // bloqueada — la subquery contra stock_movimientos sigue viendo el snapshot
-      // previo al bloqueo, sin los movimientos recién commiteados por quien tenía
-      // el lock. Con dos SELECT, el segundo arranca su propio snapshot ya con el
-      // lock en mano.
-      const productoIds = [...new Set(items.map(i => i.producto_id as string))];
-      if (productoIds.length) {
-        await client.query(`
-          SELECT id FROM catalogo_productos WHERE id = ANY($1::uuid[]) FOR UPDATE
-        `, [productoIds]);
-        const { rows: productosLock } = await client.query(`
-          SELECT cp.id, cp.nombre,
-            (COALESCE(cp.stock_inicial, 0) + COALESCE((
-              SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-            ), 0))::int AS stock_actual
-          FROM catalogo_productos cp
-          WHERE cp.id = ANY($1::uuid[])
-        `, [productoIds]);
-        const stockPorProducto = new Map(productosLock.map(p => [p.id as string, p]));
-        const cantidadPorProducto = new Map<string, number>();
-        for (const it of items) {
-          const key = it.producto_id as string;
-          cantidadPorProducto.set(key, (cantidadPorProducto.get(key) ?? 0) + it.cantidad);
-        }
-        for (const [prodId, cantidad] of cantidadPorProducto) {
-          const prod = stockPorProducto.get(prodId);
-          if (!prod || prod.stock_actual < cantidad) {
-            await client.query('ROLLBACK');
-            return c.json({
-              error: `Stock insuficiente para "${prod?.nombre ?? prodId}": disponible ${prod?.stock_actual ?? 0}, pedido ${cantidad}`
-            }, 422);
-          }
-        }
-      }
-
-      for (const item of items) {
-        await client.query(`
-          INSERT INTO stock_movimientos
-            (producto_id, tipo, cantidad, motivo, referencia_nro, created_by)
-          VALUES ($1, 'egreso_remito', $2, 'Remito emitido', $3, $4)
-        `, [item.producto_id, -Math.abs(item.cantidad), remito.numero, user?.id || null]);
-      }
-      await client.query(`UPDATE remitos SET stock_descontado=true WHERE id=$1`, [id]);
-
-      // Si el stock de algún producto quedó en 0, ya no puede seguir "exhibido en salón"
-      if (items.length) {
-        await client.query(`
-          UPDATE catalogo_productos cp SET en_salon = false
-          WHERE cp.id = ANY($1::uuid[]) AND cp.en_salon = true
-            AND (COALESCE(cp.stock_inicial,0) + COALESCE((
-              SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-            ), 0)) <= 0
-        `, [items.map(i => i.producto_id)]);
-      }
-    }
-
-    // cancelado habiendo ya descontado: revertir stock
-    if (nuevoEstado === 'cancelado' && remito.stock_descontado) {
-      const items = (remito.items as { producto_id: string | null; cantidad: number }[])
-        .filter(i => i.producto_id);
-      for (const item of items) {
-        await client.query(`
-          INSERT INTO stock_movimientos
-            (producto_id, tipo, cantidad, motivo, referencia_nro, created_by)
-          VALUES ($1, 'devolucion', $2, 'Cancelación remito', $3, $4)
-        `, [item.producto_id, Math.abs(item.cantidad), remito.numero, user?.id || null]);
-      }
-      await client.query(`UPDATE remitos SET stock_descontado=false WHERE id=$1`, [id]);
-    }
-
-    await client.query(`
-      UPDATE remitos SET
-        estado = $1,
-        fecha_entrega_real = COALESCE($2::date, CASE WHEN $1='entregado' THEN CURRENT_DATE ELSE fecha_entrega_real END),
-        firma_url = COALESCE($4, firma_url),
-        updated_at = now()
-      WHERE id = $3
-    `, [nuevoEstado, fecha_entrega_real || null, id, firma_url || null]);
-
-    // Al entregar: marcar la operación vinculada como entregada
-    if (nuevoEstado === 'entregado' && remito.operacion_id) {
-      await client.query(`
-        UPDATE operaciones SET estado = 'entregado', updated_at = now()
-        WHERE id = $1 AND estado NOT IN ('cancelado', 'entregado')
-      `, [remito.operacion_id]);
-    }
-
-    // Entregado o cancelado: la tarea espejo de "Entrega programada" se
-    // completa (no se borra, queda de historial en la agenda del CRM).
-    if ((nuevoEstado === 'entregado' || nuevoEstado === 'cancelado') && remito.tarea_id) {
-      await completarTareaDeEntrega(client, id);
-    }
-
+    const bloqueado = await cargarRemitoParaTransicion(client, id, true);
+    await aplicarTransicionRemito(client, bloqueado!, nuevoEstado, { fecha_entrega_real, firma_url }, user?.id || null);
     await client.query('COMMIT');
-    const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
-
-    const accionEstado = nuevoEstado === 'emitido' ? 'emitir'
-      : nuevoEstado === 'entregado' ? 'entregar'
-      : nuevoEstado === 'cancelado' ? 'cancelar'
-      : 'cambio_estado';
-    registrarActividad(c, {
-      entidad: 'remito', entidad_id: id, entidad_numero: remito.numero,
-      accion: accionEstado,
-      detalle: `${estadoActual} → ${nuevoEstado}`,
-      meta: { estado_anterior: estadoActual, estado_nuevo: nuevoEstado },
-    });
-    return c.json(updated);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err instanceof RemitoError) return c.json({ error: err.message }, err.status);
     throw err;
   } finally {
     client.release();
   }
+
+  const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
+  const accionEstado = nuevoEstado === 'emitido' ? 'emitir'
+    : nuevoEstado === 'entregado' ? 'entregar'
+    : nuevoEstado === 'cancelado' ? 'cancelar'
+    : 'cambio_estado';
+  registrarActividad(c, {
+    entidad: 'remito', entidad_id: id, entidad_numero: remito.numero,
+    accion: accionEstado,
+    detalle: `${estadoActual} → ${nuevoEstado}`,
+    meta: { estado_anterior: estadoActual, estado_nuevo: nuevoEstado },
+  });
+  return c.json(updated);
+});
+
+// POST /:id/entregar — entrega en el lugar desde el celular (EntregaEnSitio.tsx): firma,
+// aclaración y DNI de quien recibe. Un borrador se emite y entrega en la misma transacción.
+remitos.post('/:id/entregar', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  const b = await validateBody(c, RemitoEntregaSchema);
+  if (b instanceof Response) return b;
+
+  let estadoAnterior = '';
+  let numero = '';
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const remito = await cargarRemitoParaTransicion(client, id, true);
+    if (!remito) throw new RemitoError('Remito no encontrado', 404);
+    estadoAnterior = remito.estado;
+    numero = remito.numero;
+    await entregarRemito(client, remito, b, user?.id || null);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err instanceof RemitoError) return c.json({ error: err.message }, err.status);
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
+  registrarActividad(c, {
+    entidad: 'remito', entidad_id: id, entidad_numero: numero,
+    accion: 'entregar',
+    detalle: detalleEntrega(b),
+    meta: { estado_anterior: estadoAnterior, estado_nuevo: 'entregado', con_firma: !!b.firma_url },
+  });
+  return c.json(updated);
+});
+
+// PATCH /:id/firma — firma tomada después de entregar (el remito se entregó sin firma).
+remitos.patch('/:id/firma', async (c) => {
+  const { id } = c.req.param();
+  const b = await validateBody(c, RemitoFirmaSchema);
+  if (b instanceof Response) return b;
+
+  const { rows: [r] } = await db.query(`SELECT estado, numero FROM remitos WHERE id = $1`, [id]);
+  if (!r) return c.json({ error: 'Remito no encontrado' }, 404);
+  if (r.estado !== 'entregado') return c.json({ error: 'Solo se agrega la firma a un remito entregado' }, 409);
+
+  await db.query(`
+    UPDATE remitos SET
+      firma_url = $2,
+      recibio_nombre = COALESCE($3, recibio_nombre),
+      recibio_dni = COALESCE($4, recibio_dni),
+      sin_firma_motivo = NULL,
+      updated_at = now()
+    WHERE id = $1
+  `, [id, b.firma_url, b.recibio_nombre?.trim() || null, b.recibio_dni || null]);
+
+  const { rows: [updated] } = await db.query(`${WITH_CLIENTE} WHERE r.id = $1`, [id]);
+  registrarActividad(c, {
+    entidad: 'remito', entidad_id: id, entidad_numero: r.numero,
+    accion: 'firmar',
+    detalle: detalleEntrega({ ...b, firma_url: b.firma_url }).replace('Entregado con', 'Firma agregada:'),
+  });
+  return c.json(updated);
 });
 
 // DELETE /:id — solo borrador

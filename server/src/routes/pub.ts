@@ -433,6 +433,10 @@ pub.get('/remito/:token', async (c) => {
       r.direccion_entrega, r.fecha_emision, r.fecha_entrega_est, r.notas,
       r.token_acceso_at, r.recepcion_estado, r.recepcion_at, r.recepcion_obs,
       r.operacion_id,
+      -- Firma tomada en la entrega (sin el DNI: el link lo puede abrir cualquiera que lo tenga)
+      CASE WHEN r.estado = 'entregado' THEN r.firma_url END AS firma_url,
+      CASE WHEN r.estado = 'entregado' THEN r.recibio_nombre END AS recibio_nombre,
+      CASE WHEN r.estado = 'entregado' THEN r.entregado_at END AS entregado_at,
       CASE WHEN op.id IS NOT NULL THEN
         json_build_object('id', op.id, 'numero', op.numero)
       ELSE NULL END AS operacion,
