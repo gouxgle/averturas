@@ -1596,7 +1596,7 @@ export function NuevoPresupuesto() {
         </div>
 
         {/* ─────────────────────── COLUMNA CENTRAL — PRODUCTOS AGREGADOS ─────────────────────── */}
-        <div className="flex flex-col bg-white rounded-xl border-2 border-indigo-300 shadow-lg overflow-hidden">
+        <div className="flex flex-col bg-white rounded-xl border-2 border-indigo-300 shadow-lg overflow-clip lg:overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b-2 border-indigo-200 bg-indigo-50 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1621,7 +1621,11 @@ export function NuevoPresupuesto() {
               producto le quedaban ~70 px — el nombre se cortaba en "1" o "V" y la papelera
               quedaba fuera de vista. Debajo de 2xl cada ítem va en dos renglones: nombre con
               acciones, y abajo medida · cantidad · precio · subtotal. */}
-          <div className="flex-1 flex flex-col min-w-0">
+          {/* Desde lg la tarjeta tiene el alto de la pantalla: la lista scrollea por dentro y
+              necesita min-h-0 para poder achicarse (sin eso los ítems de abajo quedaban
+              cortados). Debajo de lg las columnas se apilan y la tarjeta crece con sus ítems:
+              overflow-clip (no overflow-hidden, que la dejaba en ~180 px y sin ítems visibles). */}
+          <div className="flex-1 flex flex-col min-w-0 lg:min-h-0">
           {/* Tabla header (solo en una línea) */}
           <div className="hidden 2xl:grid 2xl:grid-cols-[1fr_80px_100px_100px_100px_70px] bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2">
             <span>Producto</span>
@@ -1633,7 +1637,7 @@ export function NuevoPresupuesto() {
           </div>
 
           {/* Filas del carrito */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 lg:min-h-0 lg:overflow-y-auto">
             {items.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-10 text-gray-600">
                 <ScanLine size={32} className="text-gray-200 mb-3" />
