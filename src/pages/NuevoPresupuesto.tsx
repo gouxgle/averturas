@@ -1610,17 +1610,20 @@ export function NuevoPresupuesto() {
             </div>
             <button
               onClick={() => setItems(prev => [...prev, emptyItem()])}
-              className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 border border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-600 rounded-lg font-medium transition-colors"
+              className="shrink-0 whitespace-nowrap flex items-center gap-1 text-[10px] px-2.5 py-1.5 border border-gray-200 hover:border-violet-300 hover:text-violet-600 text-gray-600 rounded-lg font-medium transition-colors"
             >
               <Plus size={11} /> Ítem manual
             </button>
           </div>
 
-          {/* Tabla — scroll horizontal en mobile, columnas fijas no entran en pantallas chicas */}
-          <div className="flex-1 overflow-x-auto flex flex-col">
-          <div className="min-w-[450px] flex flex-col flex-1">
-          {/* Tabla header */}
-          <div className="grid bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2" style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 70px' }}>
+          {/* Tabla en una línea solo desde 2xl: la columna central mide ~545 px a 1366×768
+              (340/420 px de galería + 240/280 px de resumen) y con las 5 columnas fijas al
+              producto le quedaban ~70 px — el nombre se cortaba en "1" o "V" y la papelera
+              quedaba fuera de vista. Debajo de 2xl cada ítem va en dos renglones: nombre con
+              acciones, y abajo medida · cantidad · precio · subtotal. */}
+          <div className="flex-1 flex flex-col min-w-0">
+          {/* Tabla header (solo en una línea) */}
+          <div className="hidden 2xl:grid 2xl:grid-cols-[1fr_80px_100px_100px_100px_70px] bg-[#031d49] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2">
             <span>Producto</span>
             <span className="text-center">Medida</span>
             <span className="text-center">Cant.</span>
@@ -1649,13 +1652,15 @@ export function NuevoPresupuesto() {
                 <div
                   key={item._key}
                   className={cn(
-                    'grid items-center px-4 py-2.5 border-b border-gray-200 hover:bg-gray-50/50 transition-colors',
+                    'flex flex-col gap-2 px-3 2xl:px-4 py-2.5 border-b border-gray-200 hover:bg-gray-50/50 transition-colors',
+                    '2xl:grid 2xl:grid-cols-[1fr_80px_100px_100px_100px_70px] 2xl:items-center 2xl:gap-0',
                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
                   )}
-                  style={{ gridTemplateColumns: '1fr 80px 100px 100px 100px 70px' }}
                 >
+                  {/* Renglón 1 (o celdas 1 y 6 en 2xl, vía `contents` + order): producto y acciones */}
+                  <div className="flex items-start gap-2 min-w-0 2xl:contents">
                   {/* Producto info */}
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex-1 flex items-center gap-2 min-w-0 2xl:order-1">
                     <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                       {img
                         ? <img src={img} alt={item.descripcion} className="w-full h-full object-cover" />
@@ -1664,7 +1669,7 @@ export function NuevoPresupuesto() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-semibold text-gray-800 leading-tight truncate">{item.descripcion || 'Sin descripción'}</p>
+                        <p className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2 break-words" title={item.descripcion}>{item.descripcion || 'Sin descripción'}</p>
                         {item.tipo_item === 'servicio' && (
                           <span className="shrink-0 flex items-center gap-0.5 text-[8px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
                             <Wrench size={8}/> Servicio
@@ -1685,13 +1690,44 @@ export function NuevoPresupuesto() {
                     </div>
                   </div>
 
+                  {/* Acciones */}
+                  <div className="shrink-0 flex items-center justify-end gap-0.5 2xl:order-6">
+                    {item.tipo_item !== 'a_relevar' && (
+                      <button
+                        onClick={() => setEditItemKey(item._key)}
+                        title="Editar"
+                        className="p-1.5 2xl:p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
+                      >
+                        <Edit2 size={11} />
+                      </button>
+                    )}
+                    {item.tipo_item !== 'a_relevar' && (
+                      <button
+                        onClick={() => duplicarItem(item._key)}
+                        title="Duplicar — copia las características, no las medidas ni el precio"
+                        className="p-1.5 2xl:p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
+                      >
+                        <Copy size={11} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
+                      className="p-1.5 2xl:p-1 hover:bg-red-50 rounded text-gray-600 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                  </div>
+
+                  {/* Renglón 2 (o celdas 2 a 5 en 2xl): medida · cantidad · precio · subtotal */}
+                  <div className="flex items-center justify-between gap-2 pl-12 2xl:pl-0 2xl:contents">
                   {/* Medida */}
-                  <div className="text-center">
+                  <div className="text-center 2xl:order-2 min-w-[3rem]">
                     <span className="text-xs text-gray-600">{medida}</span>
                   </div>
 
                   {/* Cantidad */}
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-1 2xl:order-3">
                     <button
                       onClick={() => updateItem(item._key, 'cantidad', Math.max(1, item.cantidad - 1))}
                       className="w-6 h-6 border border-gray-200 rounded hover:border-violet-400 hover:text-violet-600 flex items-center justify-center text-gray-600 transition-colors"
@@ -1708,7 +1744,7 @@ export function NuevoPresupuesto() {
                   </div>
 
                   {/* Precio unit */}
-                  <div className="text-right">
+                  <div className="text-right whitespace-nowrap 2xl:order-4">
                     {item.tipo_item === 'a_relevar' ? (
                       <span className="text-[10px] font-semibold text-amber-600">Pendiente</span>
                     ) : item.precio_lista != null && item.precio_lista > item.precio_unitario ? (
@@ -1725,6 +1761,7 @@ export function NuevoPresupuesto() {
                     ) : (
                       <>
                         <span className="text-xs text-gray-700">{formatCurrency(item.precio_unitario)}</span>
+                        <span className="hidden xl:inline 2xl:hidden text-[10px] text-gray-500"> c/u</span>
                         {item.incluye_instalacion && (
                           <p className="text-[8px] text-violet-500">+inst. {formatCurrency(item.precio_instalacion)}</p>
                         )}
@@ -1733,45 +1770,18 @@ export function NuevoPresupuesto() {
                   </div>
 
                   {/* Subtotal */}
-                  <div className="text-right">
+                  <div className="text-right 2xl:order-5">
                     {item.tipo_item === 'a_relevar' ? (
                       <span className="text-[10px] font-semibold text-amber-600">—</span>
                     ) : (
                       <span className="text-xs font-bold text-gray-800">{formatCurrency(subtotal)}</span>
                     )}
                   </div>
-
-                  {/* Acciones */}
-                  <div className="flex items-center justify-end gap-0.5">
-                    {item.tipo_item !== 'a_relevar' && (
-                      <button
-                        onClick={() => setEditItemKey(item._key)}
-                        title="Editar"
-                        className="p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
-                      >
-                        <Edit2 size={11} />
-                      </button>
-                    )}
-                    {item.tipo_item !== 'a_relevar' && (
-                      <button
-                        onClick={() => duplicarItem(item._key)}
-                        title="Duplicar — copia las características, no las medidas ni el precio"
-                        className="p-1 hover:bg-violet-50 rounded text-gray-600 hover:text-violet-600 transition-colors"
-                      >
-                        <Copy size={11} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setItems(prev => prev.filter(it => it._key !== item._key))}
-                      className="p-1 hover:bg-red-50 rounded text-gray-600 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={11} />
-                    </button>
                   </div>
+
                 </div>
               );
             })}
-          </div>
           </div>
           </div>
 
