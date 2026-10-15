@@ -30,6 +30,23 @@ reintegros.get('/', async (c) => {
   return c.json(rows);
 });
 
+// GET /:id — detalle para el comprobante imprimible
+reintegros.get('/:id', async (c) => {
+  const { id } = c.req.param();
+  const { rows: [r] } = await db.query(`
+    SELECT r.*, ${NOMBRE_CLIENTE} AS cliente_nombre, c.telefono AS cliente_telefono, c.documento_nro AS cliente_documento,
+           d.numero AS devolucion_numero, u.nombre AS creado_por, ua.nombre AS anulado_por_nombre
+    FROM reintegros r
+    JOIN clientes c ON c.id = r.cliente_id
+    LEFT JOIN devoluciones d ON d.id = r.devolucion_id
+    LEFT JOIN usuarios u ON u.id = r.created_by
+    LEFT JOIN usuarios ua ON ua.id = r.anulado_por
+    WHERE r.id = $1
+  `, [id]);
+  if (!r) return c.json({ error: 'Reintegro no encontrado' }, 404);
+  return c.json(r);
+});
+
 // POST /:id/anular — solo admin: el dinero no salió, vuelve a quedar a favor del cliente.
 reintegros.post('/:id/anular', async (c) => {
   const user = c.get('user') as { id: string; rol: string };

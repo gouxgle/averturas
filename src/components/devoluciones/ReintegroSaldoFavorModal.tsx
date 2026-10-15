@@ -30,10 +30,13 @@ export function ReintegroSaldoFavorModal({ clienteId, clienteNombre, saldo, onCl
   async function confirmar() {
     setEnviando(true);
     try {
-      const r = await api.post<{ numero: string }>(`/clientes/${clienteId}/saldo-favor/reintegrar`, {
+      const r = await api.post<{ id: string; numero: string }>(`/clientes/${clienteId}/saldo-favor/reintegrar`, {
         monto: montoNum, forma_pago: forma, referencia: referencia.trim() || null, motivo: motivo.trim(),
       });
-      toast.success(`Reintegro ${r.numero} registrado: ${formatCurrency(montoNum)} en ${forma}`);
+      toast.success(`Reintegro ${r.numero} registrado: ${formatCurrency(montoNum)} en ${forma}`, {
+        duration: 15000,
+        action: { label: 'Imprimir comprobante', onClick: () => window.open(`/imprimir/reintegro/${r.id}`, '_blank') },
+      });
       onDone();
       onClose();
     } catch (e) {

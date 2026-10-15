@@ -23,7 +23,7 @@ interface Seleccion {
 
 interface Creada {
   id: string; numero: string; valor_total: number; aplicado_a_saldo: number; credito_monto: number; requiere_nc: boolean;
-  reintegro_monto: number; reintegro_numero: string | null;
+  reintegro_monto: number; reintegro_numero: string | null; reintegro_id?: string | null;
   cambio?: {
     operacion: { id: string; numero: string; total: number }; remito: { numero: string };
     pagado_con_saldo_favor: number; diferencia_cobrada: number; diferencia_pendiente: number;
@@ -229,6 +229,12 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
                 </div>
               )}
             </div>
+            {creada.reintegro_id && (
+              <button type="button" onClick={() => window.open(`/imprimir/reintegro/${creada.reintegro_id}`, '_blank')} data-testid="btn-imprimir-reintegro"
+                className="w-full h-11 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm font-semibold flex items-center justify-center gap-2">
+                <Printer size={15} /> Imprimir comprobante del reintegro {creada.reintegro_numero}
+              </button>
+            )}
             {creada.requiere_nc && (
               <div className="flex gap-2 text-left p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
                 <FileWarning size={16} className="shrink-0 mt-0.5" />

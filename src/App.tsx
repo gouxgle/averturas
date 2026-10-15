@@ -51,6 +51,7 @@ const ImprimirPresupuesto      = lazy(() => import('@/pages/print/ImprimirPresup
 const ImprimirPresupuestoPublico = lazy(() => import('@/pages/print/ImprimirPresupuestoPublico').then(m => ({ default: m.ImprimirPresupuestoPublico })));
 const ImprimirRemito           = lazy(() => import('@/pages/print/ImprimirRemito').then(m => ({ default: m.ImprimirRemito })));
 const ImprimirDevolucion       = lazy(() => import('@/pages/print/ImprimirDevolucion').then(m => ({ default: m.ImprimirDevolucion })));
+const ImprimirReintegro        = lazy(() => import('@/pages/print/ImprimirReintegro').then(m => ({ default: m.ImprimirReintegro })));
 const ImprimirRecibo           = lazy(() => import('@/pages/print/ImprimirRecibo').then(m => ({ default: m.ImprimirRecibo })));
 const FormularioCliente        = lazy(() => import('@/pages/print/FormularioCliente').then(m => ({ default: m.FormularioCliente })));
 const ImprimirVisitaTecnica    = lazy(() => import('@/pages/print/ImprimirVisitaTecnica').then(m => ({ default: m.ImprimirVisitaTecnica })));
@@ -97,6 +98,7 @@ export default function App() {
                 <Route path="/imprimir/presupuesto/:id"  element={<ImprimirPresupuesto />} />
                 <Route path="/imprimir/remito/:id"       element={<ImprimirRemito />} />
                 <Route path="/imprimir/devolucion/:id"   element={<ImprimirDevolucion />} />
+                <Route path="/imprimir/reintegro/:id"    element={<ImprimirReintegro />} />
                 <Route path="/imprimir/recibo/:id"       element={<ImprimirRecibo />} />
                 <Route path="/imprimir/formulario-cliente" element={<FormularioCliente />} />
                 <Route path="/imprimir/visita-tecnica"     element={<ImprimirVisitaTecnica />} />

@@ -75,6 +75,13 @@ describe.skipIf(!process.env.DATABASE_URL)('reintegros: dinero que sale de caja'
     expect([d.reintegro_monto, d.credito_monto]).toEqual([10000, 0]);
     expect(d.reintegro_numero).toMatch(/^REI-\d{6}-\d{4}$/);
     expect(await saldoFavor()).toBe(0);                       // nunca se acreditó: salió en dinero
+    // el comprobante imprimible sale del detalle del reintegro (y la devolución trae su id)
+    const dd = d as unknown as { reintegro_id: string };
+    expect(dd.reintegro_id).toBeTruthy();
+    const det = (await (await req(`/reintegros/${dd.reintegro_id}`, 'GET')).json()) as { numero: string; cliente_nombre: string; devolucion_numero: string; forma_pago: string; monto: string };
+    expect([det.numero, det.cliente_nombre, det.forma_pago, Number(det.monto)]).toEqual([d.reintegro_numero, 'Zzz TestRei', 'Efectivo', 10000]);
+    expect(det.devolucion_numero).toMatch(/^DEV-/);
+    expect((await req('/reintegros/00000000-0000-4000-8000-000000000000', 'GET')).status).toBe(404);
     const { rows: [rei] } = await db.query(`SELECT monto, forma_pago, estado, notif_leida, devolucion_id FROM reintegros WHERE numero = $1`, [d.reintegro_numero]);
     expect({ monto: Number(rei.monto), forma: rei.forma_pago, estado: rei.estado, leida: rei.notif_leida }).toEqual({ monto: 10000, forma: 'Efectivo', estado: 'emitido', leida: false });
     expect(rei.devolucion_id).toBe(d.id);

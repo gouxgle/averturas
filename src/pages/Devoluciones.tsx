@@ -298,9 +298,11 @@ function ReintegrosPanel({ esAdmin }: { esAdmin: boolean }) {
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {r.creado_por && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">por {r.creado_por}</span>}
                   {r.estado === 'anulado' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold" title={r.motivo_anulacion ?? undefined}>Anulado</span>}
+                  <button onClick={() => window.open(`/imprimir/reintegro/${r.id}`, '_blank')} data-testid="btn-imprimir-reintegro-lista"
+                    className="ml-auto h-9 px-3 rounded-lg border border-gray-300 text-gray-700 text-xs font-semibold hover:bg-gray-50 flex items-center gap-1.5"><Printer size={12} /> Imprimir</button>
                   {esAdmin && r.estado === 'emitido' && (
                     <button onClick={() => { setAnulando(r); setMotivo(''); }}
-                      className="ml-auto h-9 px-3 rounded-lg border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-50">Anular</button>
+                      className="h-9 px-3 rounded-lg border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-50">Anular</button>
                   )}
                 </div>
               </div>

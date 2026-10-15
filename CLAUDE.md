@@ -407,7 +407,8 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   **avisa a los administradores** (fuente `reintegro` de `/notificaciones`, solo se lista a admin; `reintegros.notif_leida`;
   "marcar leídas" de un no-admin no lo toca; el cartel emergente no se le muestra a quien lo hizo, la campanita sí).
   Informes: `kpis.reintegros_periodo`, `reintegros_por_metodo` y `caja_neta = cobrado − reintegros` (Reportes, bajo
-  Métodos de pago).
+  Métodos de pago). Comprobante imprimible del reintegro: `/imprimir/reintegro/:id` (`GET /reintegros/:id`; el cliente firma
+  que recibió el dinero; botón en la lista, en el cierre del asistente y en el aviso al devolver un saldo).
 - **Cambio** (`lib/cambios.ts`, `POST /devoluciones` con `cambio:{items, pago_diferencia}`): la devolución y la venta del
   producto nuevo son UNA transacción. El producto nuevo es una **operación aparte** (`es_cambio`, `devolucion_origen_id`,
   entregada en el momento con su remito y egreso de stock; la original no se toca). Con E = lo que sobra de la devolución y

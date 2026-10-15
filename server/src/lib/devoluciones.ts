@@ -196,6 +196,8 @@ export interface DevolucionCreada {
   id: string; numero: string; cliente_id: string; operacion_id: string | null;
   valor_total: number; aplicado_a_saldo: number; reintegro_monto: number; credito_monto: number; requiere_nc: boolean;
   reintegro_numero: string | null;
+  /** Para imprimir el comprobante del reintegro apenas se registra la devolución. */
+  reintegro_id: string | null;
 }
 
 // Corre dentro de la transacción del llamador (ya con BEGIN). Recalcula TODO en el servidor:
@@ -312,6 +314,7 @@ export async function crearDevolucion(
     });
   }
   let reintegroNumero: string | null = null;
+  let reintegroId: string | null = null;
   if (reintegroC > 0 && entrada.reintegro) {
     const rei = await crearReintegro(client, {
       cliente_id: clienteId, devolucion_id: dev.id, operacion_id: operacionId, monto: reintegroMonto,
@@ -319,12 +322,13 @@ export async function crearDevolucion(
       motivo: `Devolución ${numero}`, userId: user.id,
     });
     reintegroNumero = rei.numero;
+    reintegroId = rei.id;
   }
 
   return {
     id: dev.id, numero, cliente_id: clienteId, operacion_id: operacionId, valor_total: calc.valor_total,
     aplicado_a_saldo: calc.aplicado_a_saldo, reintegro_monto: reintegroMonto, credito_monto: creditoMonto,
-    requiere_nc: requiereNc, reintegro_numero: reintegroNumero,
+    requiere_nc: requiereNc, reintegro_numero: reintegroNumero, reintegro_id: reintegroId,
   };
 }
 
