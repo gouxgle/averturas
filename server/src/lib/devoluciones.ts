@@ -334,7 +334,7 @@ export async function crearDevolucion(
 // Deshace una devolución (la decide un admin). Solo se puede si lo que generó sigue intacto; si no, el
 // mensaje dice qué hay que deshacer primero. Revierte el stock que volvió y el saldo a favor que acreditó;
 // la deuda de la operación vuelve sola porque operacion_cobranza solo cuenta devoluciones emitidas.
-export async function anularDevolucion(client: Queryable, id: string, motivo: string, userId: string | null): Promise<{ id: string; numero: string; cliente_id: string; operacion_id: string | null }> {
+export async function anularDevolucion(client: Queryable, id: string, motivo: string, userId: string | null): Promise<{ id: string; numero: string; cliente_id: string; operacion_id: string | null; compromisos_reabiertos: number }> {
   const { rows: [d] } = await client.query(`SELECT * FROM devoluciones WHERE id = $1 FOR UPDATE`, [id]);
   if (!d) throw new DevolucionError('Devolución no encontrada', 404);
   if (d.estado === 'anulada') throw new DevolucionError('Esta devolución ya está anulada', 409);
@@ -390,5 +390,17 @@ export async function anularDevolucion(client: Queryable, id: string, motivo: st
       descripcion: `Devolución ${d.numero} anulada: se quita el saldo a favor`, created_by: userId,
     });
   }
-  return { id, numero: d.numero as string, cliente_id: d.cliente_id as string, operacion_id: (d.operacion_id as string | null) ?? null };
+  // Los compromisos de pago que esta devolución había cerrado vuelven a estar pendientes (si la operación
+  // vuelve a tener deuda: ya no hay devolución que la cubra).
+  let reabiertos = 0;
+  const cerrados = (d.compromisos_cerrados as string[] | null) ?? [];
+  if (cerrados.length && d.operacion_id) {
+    const { rowCount } = await client.query(`
+      UPDATE compromisos_pago SET estado = 'pendiente', updated_at = now()
+      WHERE id = ANY($1::uuid[]) AND estado = 'cobrado'
+        AND (SELECT saldo FROM operacion_cobranza WHERE operacion_id = $2) > 0.01
+    `, [cerrados, d.operacion_id]);
+    reabiertos = rowCount ?? 0;
+  }
+  return { id, numero: d.numero as string, cliente_id: d.cliente_id as string, operacion_id: (d.operacion_id as string | null) ?? null, compromisos_reabiertos: reabiertos };
 }

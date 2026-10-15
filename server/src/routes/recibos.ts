@@ -96,13 +96,16 @@ export async function nextNumeroRecibo(client: Pick<pkg.PoolClient, 'query'>): P
 }
 
 // Cierra los compromisos de pago de una operación si ya quedó saldada.
-// Se llama tras crear un recibo y tras acreditar una visita técnica.
-export async function cerrarCompromisosSiSaldado(operacionId: string): Promise<void> {
-  await db.query(`
+// Se llama tras crear un recibo, tras acreditar una visita técnica y tras una devolución.
+// Devuelve los ids que cerró (la devolución los anota para poder reabrirlos si se anula).
+export async function cerrarCompromisosSiSaldado(operacionId: string): Promise<string[]> {
+  const { rows } = await db.query(`
     UPDATE compromisos_pago SET estado = 'cobrado', updated_at = now()
     WHERE operacion_id = $1 AND estado = 'pendiente'
       AND (SELECT saldo FROM operacion_cobranza WHERE operacion_id = $1) <= 0.01
+    RETURNING id
   `, [operacionId]);
+  return rows.map(r => r.id as string);
 }
 
 // GET /tablero — panel de cobranza completo (ANTES de /:id)

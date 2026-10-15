@@ -122,7 +122,7 @@ devoluciones.post('/:id/anular', async (c) => {
     await client.query('COMMIT');
     registrarActividad(c, {
       entidad: 'devolucion', entidad_id: d.id, entidad_numero: d.numero, accion: 'anular',
-      detalle: `Devolución anulada: ${motivo}`,
+      detalle: `Devolución anulada: ${motivo}` + (d.compromisos_reabiertos > 0 ? ` · ${d.compromisos_reabiertos} compromiso(s) de pago reabierto(s)` : ''),
     });
     return c.json({ ok: true });
   } catch (err) {
@@ -151,7 +151,11 @@ devoluciones.post('/', async (c) => {
     await client.query('COMMIT');
 
     // Si la devolución dejó la operación sin deuda, los compromisos de pago pendientes ya no corresponden.
-    if (dev.operacion_id) await cerrarCompromisosSiSaldado(dev.operacion_id).catch(() => {});
+    // (y se anota cuáles cerró, para reabrirlos si la devolución se anula)
+    if (dev.operacion_id) {
+      const cerrados = await cerrarCompromisosSiSaldado(dev.operacion_id).catch(() => [] as string[]);
+      if (cerrados.length) await db.query(`UPDATE devoluciones SET compromisos_cerrados = $2 WHERE id = $1`, [dev.id, cerrados]).catch(() => {});
+    }
 
     registrarActividad(c, {
       entidad: 'devolucion', entidad_id: dev.id, entidad_numero: dev.numero, accion: 'crear',

@@ -421,7 +421,9 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   y quita el saldo a favor (`anulacion`); la deuda de la operación vuelve sola (`operacion_cobranza` solo cuenta devoluciones
   emitidas). **409 con el motivo** si: fue un cambio (el producto nuevo ya se entregó: se devuelve ese producto), hay un
   reintegro vigente (anularlo antes), el crédito ya se usó en un recibo, el cliente ya retiró parte del saldo, o lo que volvió
-  a stock ya se vendió (quedaría negativo). Lo anulado vuelve a poder devolverse.
+  a stock ya se vendió (quedaría negativo). Lo anulado vuelve a poder devolverse. Los compromisos de pago que la devolución
+  había cerrado (`devoluciones.compromisos_cerrados`, lo devuelve `cerrarCompromisosSiSaldado`) se **reabren** si la operación
+  vuelve a tener deuda.
 - **Nota de crédito**: una devolución con ítems facturados (`facturadoPorItem`) queda `requiere_nc`; `nc_pendiente` (calculado,
   `NC_PENDIENTE` en `routes/devoluciones.ts`) deja de serlo cuando hay una NC autorizada de esa operación posterior a la
   devolución. `GET /devoluciones/:id/facturas` da las facturas a las que acreditar; el detalle ofrece un botón por factura

@@ -92,6 +92,22 @@ describe.skipIf(!process.env.DATABASE_URL)('devoluciones: anulación, nota de cr
     expect((await devolver(e)).id).toBeTruthy();
   });
 
+  it('al anular una devolución se reabren los compromisos de pago que había cerrado', async () => {
+    const e = await escenario();
+    const comp = (await db.query(
+      `INSERT INTO compromisos_pago (cliente_id, operacion_id, tipo, monto, fecha_vencimiento) VALUES ($1,$2,'cuota',40000,CURRENT_DATE + 15) RETURNING id`, [ids.cli, e.op])).rows[0].id;
+    // otro compromiso que ya estaba cobrado por su cuenta: la anulación no lo toca
+    const yaCobrado = (await db.query(
+      `INSERT INTO compromisos_pago (cliente_id, operacion_id, tipo, monto, fecha_vencimiento, estado) VALUES ($1,$2,'cuota',1000,CURRENT_DATE,'cobrado') RETURNING id`, [ids.cli, e.op])).rows[0].id;
+    const estado = async (id: string) => (await db.query(`SELECT estado FROM compromisos_pago WHERE id = $1`, [id])).rows[0].estado;
+    const d = await devolver(e);                     // baja la deuda a 0 → el compromiso pendiente ya no corresponde
+    expect(await estado(comp)).toBe('cobrado');
+    const { rows: [dv] } = await db.query(`SELECT compromisos_cerrados FROM devoluciones WHERE id = $1`, [d.id]);
+    expect(dv.compromisos_cerrados).toEqual([comp]);
+    expect((await anular(d.id)).status).toBe(200);
+    expect([await estado(comp), await estado(yaCobrado)]).toEqual(['pendiente', 'cobrado']);
+  });
+
   it('no se anula si el saldo a favor ya se usó, si salió dinero, si fue un cambio o si ya se retiró parte del crédito', async () => {
     // 1) el crédito ya se gastó en un recibo
     const e1 = await escenario();
