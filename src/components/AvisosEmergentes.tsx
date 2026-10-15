@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock,
+  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock, Banknote,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import { useAvisoAgendaAbierto } from '@/lib/agenda';
 import { formatCurrency, cn } from '@/lib/utils';
 
@@ -21,7 +22,7 @@ import { formatCurrency, cn } from '@/lib/utils';
  */
 
 export interface AvisoNotif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro';
   id: string;
   numero: string | null;
   precio_total: number | null;
@@ -120,6 +121,16 @@ export function presentar(n: AvisoNotif): Presentacion {
     };
   }
 
+  if (n.tipo === 'reintegro') {
+    return {
+      titulo: 'Se devolvió dinero a un cliente',
+      detalle: `${n.data?.por ?? 'Un usuario'} devolvió ${formatCurrency(Number(n.precio_total ?? 0))} a ${quien} en ${n.data?.forma_pago ?? 'dinero'} — ${n.numero ?? ''}.`,
+      cita: n.data?.devolucion_numero ? `Por la devolución ${n.data.devolucion_numero}` : 'Reintegro de saldo a favor',
+      tono: 'ambar', Icono: Banknote,
+      ruta: '/devoluciones?tab=reintegros', prioridad: 1,
+    };
+  }
+
   if (n.tipo === 'compra_demorada') {
     const dias = Number(n.data?.dias_demora ?? 0);
     return {
@@ -151,6 +162,7 @@ const EMERGE: Record<AvisoNotif['tipo'], boolean> = {
   remito:             true,   // el cliente objetó la entrega
   entrega_hora_antes: true,
   compra_demorada:    true,   // el proveedor se pasó de la fecha prometida
+  reintegro:          true,   // salió dinero de caja hacia un cliente (solo le llega al admin)
   oportunidad:        false,
   entrega_dia_antes:  false,
 };
@@ -159,6 +171,8 @@ const MAX_VISIBLES = 4;
 
 export function AvisosEmergentes() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const miId = user?.id;
   const [cola, setCola] = useState<AvisoNotif[]>([]);
   const vistosRef = useRef<Set<string>>(new Set());
   const agendaAbierta = useAvisoAgendaAbierto();
@@ -172,6 +186,9 @@ export function AvisosEmergentes() {
         const yaEnCola = new Set(prev.map(clave));
         let nuevos = data.filter(n =>
           EMERGE[n.tipo] && !yaEnCola.has(clave(n)) && !vistosRef.current.has(clave(n))
+          // Un reintegro avisa a los OTROS administradores: quien lo acaba de hacer ya lo sabe (y el cartel
+          // le tapaba los botones del paso siguiente). Le sigue figurando en la campanita.
+          && !(n.tipo === 'reintegro' && n.data?.por_id === miId)
         );
         // Las compras demoradas se acumulan (cada OC vencida es una): de a una por vez, si
         // no tapan media pantalla —y los botones de cualquier modal abierto— con la misma
@@ -189,7 +206,7 @@ export function AvisosEmergentes() {
     } catch {
       // silencioso: la campanita ya reporta los errores de red
     }
-  }, []);
+  }, [miId]);
 
   useEffect(() => {
     revisar();

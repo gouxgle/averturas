@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Undo2, Plus, RefreshCw, Search, X, Printer, Package, FileWarning, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Undo2, Plus, RefreshCw, Search, X, Printer, Package, FileWarning, Loader2, Banknote } from 'lucide-react';
+import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
+import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api';
 import { cn, formatCurrency, haceCuanto } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
@@ -16,7 +20,15 @@ interface ItemDev {
   id: string; descripcion: string; cantidad: number; destino: 'stock' | 'no_reingresa';
   motivo_item: string | null; precio_unitario_neto: number; estado_producto: string;
 }
-interface DevolucionDetalle extends Devolucion { items: ItemDev[]; anulada_motivo: string | null }
+interface DevolucionDetalle extends Devolucion {
+  items: ItemDev[]; anulada_motivo: string | null;
+  reintegros?: { id: string; numero: string; monto: number; forma_pago: string; estado: string }[];
+}
+interface Reintegro {
+  id: string; numero: string; fecha: string; monto: number; forma_pago: string; referencia: string | null; motivo: string | null;
+  estado: 'emitido' | 'anulado'; motivo_anulacion: string | null; cliente_nombre: string | null; cliente_id: string;
+  devolucion_numero: string | null; creado_por: string | null; anulado_por: string | null;
+}
 interface RemitoMin {
   id: string; numero: string; estado: string; fecha_emision: string; operacion: { numero: string } | null;
   cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
@@ -80,6 +92,12 @@ function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void })
             <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 text-sm">
               <div className="flex justify-between px-3 py-2"><span>Valor devuelto</span><b>{formatCurrency(num(d.valor_total))}</b></div>
               {num(d.aplicado_a_saldo) > 0 && <div className="flex justify-between px-3 py-2"><span>Bajó la deuda de la operación</span><b>{formatCurrency(num(d.aplicado_a_saldo))}</b></div>}
+              {num(d.reintegro_monto) > 0 && (
+                <div className="flex justify-between px-3 py-2 text-amber-700">
+                  <span>Devuelto en dinero{d.reintegros?.[0] ? ` · ${d.reintegros[0].numero} (${d.reintegros[0].forma_pago})` : ''}</span>
+                  <b>{formatCurrency(num(d.reintegro_monto))}</b>
+                </div>
+              )}
               {num(d.credito_monto) > 0 && <div className="flex justify-between px-3 py-2 text-violet-700"><span>Saldo a favor del cliente</span><b>{formatCurrency(num(d.credito_monto))}</b></div>}
             </div>
             {d.creado_por && <p className="text-[11px] text-gray-500">Registrada por {d.creado_por} · {haceCuanto(d.created_at)}</p>}
@@ -148,9 +166,96 @@ function ElegirRemito({ onElegir, onClose }: { onElegir: (remitoId: string) => v
   );
 }
 
+// ── Reintegros (dinero que salió de caja hacia clientes) ─────────────
+
+function ReintegrosPanel({ esAdmin }: { esAdmin: boolean }) {
+  const [lista, setLista] = useState<Reintegro[] | null>(null);
+  const [anulando, setAnulando] = useState<Reintegro | null>(null);
+  const [motivo, setMotivo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const cargar = useCallback(() => { api.get<Reintegro[]>('/reintegros').then(setLista).catch(() => setLista([])); }, []);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const total = (lista ?? []).filter(r => r.estado === 'emitido').reduce((a, r) => a + num(r.monto), 0);
+
+  async function confirmarAnulacion() {
+    if (!anulando) return;
+    setEnviando(true);
+    try {
+      await api.post(`/reintegros/${anulando.id}/anular`, { motivo_anulacion: motivo.trim() });
+      toast.success(`${anulando.numero} anulado: el dinero vuelve a quedar a favor del cliente`);
+      setAnulando(null); setMotivo(''); cargar();
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo anular el reintegro' });
+    } finally { setEnviando(false); }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-3 sm:p-4 space-y-3" data-testid="panel-reintegros">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5"><Banknote size={15} className="text-amber-600" /> Dinero devuelto a clientes</p>
+        <p className="text-sm font-extrabold text-gray-900 tabular-nums">{formatCurrency(total)}</p>
+      </div>
+      {lista === null ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-amber-500" /></div>
+        : lista.length === 0 ? <p className="py-10 text-center text-sm text-gray-600">Todavía no se devolvió dinero a ningún cliente.</p>
+        : (
+          <div className="space-y-1.5">
+            {lista.map(r => (
+              <div key={r.id} className={cn('rounded-xl border border-gray-200 border-l-4 px-3 py-2.5', r.estado === 'anulado' ? 'border-l-gray-300 opacity-60' : 'border-l-amber-400')}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-900 truncate">{r.cliente_nombre ?? '—'}</p>
+                    <p className="text-[11px] text-gray-600 truncate">
+                      <span className="font-mono">{r.numero}</span> · {fmtFecha(r.fecha)} · {r.forma_pago}{r.referencia ? ` (${r.referencia})` : ''}
+                      {r.devolucion_numero ? ` · ${r.devolucion_numero}` : ' · saldo a favor'}
+                    </p>
+                    {r.motivo && <p className="text-[11px] text-gray-500 truncate">{r.motivo}</p>}
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 tabular-nums shrink-0">{formatCurrency(num(r.monto))}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {r.creado_por && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">por {r.creado_por}</span>}
+                  {r.estado === 'anulado' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold" title={r.motivo_anulacion ?? undefined}>Anulado</span>}
+                  {esAdmin && r.estado === 'emitido' && (
+                    <button onClick={() => { setAnulando(r); setMotivo(''); }}
+                      className="ml-auto h-9 px-3 rounded-lg border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-50">Anular</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      {anulando && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex sm:items-center sm:justify-center sm:p-4" onClick={e => { if (e.target === e.currentTarget && !enviando) setAnulando(null); }}>
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl mt-auto sm:mt-0 rounded-t-2xl p-4 space-y-3 max-h-[90dvh] overflow-y-auto">
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+              <p className="font-semibold">¿Anular {anulando.numero} por {formatCurrency(num(anulando.monto))}?</p>
+              <p className="text-xs mt-1">El dinero no salió de caja: vuelve a quedar como saldo a favor de {anulando.cliente_nombre}.</p>
+            </div>
+            <input value={motivo} onChange={e => setMotivo(e.target.value)} maxLength={300} autoFocus placeholder="Motivo de la anulación"
+              className="w-full h-11 border border-gray-300 rounded-xl px-3 text-base focus:outline-none focus:ring-2 focus:ring-red-400" />
+            <div className="flex gap-2 pb-[env(safe-area-inset-bottom)]">
+              <button onClick={() => setAnulando(null)} disabled={enviando} className="h-12 px-4 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700">Volver</button>
+              <button onClick={confirmarAnulacion} disabled={enviando || motivo.trim().length < 3}
+                className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+                {enviando && <Loader2 size={15} className="animate-spin" />} Anular reintegro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página ───────────────────────────────────────────────────────────
 
 export function Devoluciones() {
+  const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const vista = params.get('tab') === 'reintegros' ? 'reintegros' : 'devoluciones';
   const [lista, setLista] = useState<Devolucion[] | null>(null);
   const [estado, setEstado] = useState<'' | 'emitida' | 'anulada'>('');
   const [q, setQ] = useState('');
@@ -191,6 +296,17 @@ export function Devoluciones() {
         </>}
       />
 
+      <div className="flex gap-2">
+        {([['devoluciones', 'Devoluciones', Undo2], ['reintegros', 'Dinero devuelto', Banknote]] as const).map(([v, l, Icono]) => (
+          <button key={v} onClick={() => setParams(v === 'devoluciones' ? {} : { tab: v })} data-testid={`tab-${v}`}
+            className={cn('h-11 px-4 rounded-xl border text-sm font-semibold flex items-center gap-1.5',
+              vista === v ? 'bg-white border-gray-400 shadow-lg text-gray-900' : 'border-transparent text-gray-700 hover:bg-white/60')}>
+            <Icono size={14} /> {l}
+          </button>
+        ))}
+      </div>
+
+      {vista === 'reintegros' ? <ReintegrosPanel esAdmin={user?.rol === 'admin'} /> : (<>
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { l: 'Devoluciones', v: String(totales.n) },
@@ -251,6 +367,7 @@ export function Devoluciones() {
             </div>
           )}
       </div>
+      </>)}
 
       {verId && <DetalleDevolucion id={verId} onClose={() => setVerId(null)} />}
       {eligiendo && <ElegirRemito onClose={() => setEligiendo(false)} onElegir={id => { setEligiendo(false); setRemitoId(id); }} />}

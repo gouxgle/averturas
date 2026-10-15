@@ -34,6 +34,10 @@ export interface PreparacionDevolucion {
 
 export type DestinoDevolucion = 'stock' | 'no_reingresa';
 
+/** Cómo sale el dinero de un reintegro (el servidor acepta solo estas tres). */
+export const FORMAS_REINTEGRO = ['Efectivo', 'Transferencia', 'Otro'] as const;
+export type FormaReintegro = typeof FORMAS_REINTEGRO[number];
+
 export interface ResultadoDevolucion {
   valor_total: number;
   aplicado_a_saldo: number;

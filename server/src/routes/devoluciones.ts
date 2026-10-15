@@ -68,7 +68,9 @@ devoluciones.get('/:id', async (c) => {
   `, [id]);
   if (!d) return c.json({ error: 'Devolución no encontrada' }, 404);
   const { rows: items } = await db.query(`SELECT * FROM devolucion_items WHERE devolucion_id = $1 ORDER BY descripcion, id`, [id]);
-  return c.json({ ...d, items });
+  const { rows: reintegros } = await db.query(
+    `SELECT id, numero, monto, forma_pago, referencia, estado FROM reintegros WHERE devolucion_id = $1 ORDER BY created_at`, [id]);
+  return c.json({ ...d, items, reintegros });
 });
 
 // POST / — registrar una devolución (todo o nada: stock, saldo a favor y numeración en una transacción)
@@ -91,6 +93,7 @@ devoluciones.post('/', async (c) => {
       entidad: 'devolucion', entidad_id: dev.id, entidad_numero: dev.numero, accion: 'crear',
       detalle: `Devolución por $ ${dev.valor_total.toLocaleString('es-AR')}` +
         (dev.credito_monto > 0 ? ` · $ ${dev.credito_monto.toLocaleString('es-AR')} a favor del cliente` : '') +
+        (dev.reintegro_monto > 0 ? ` · $ ${dev.reintegro_monto.toLocaleString('es-AR')} devueltos en ${b.reintegro?.forma_pago} (${dev.reintegro_numero})` : '') +
         (dev.requiere_nc ? ' · hay ítems facturados: falta la nota de crédito' : ''),
       meta: { ...dev },
     });

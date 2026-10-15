@@ -4,6 +4,7 @@ import { facturadoPorItem } from './fiscal/origenes.js';
 import { nombreItem } from './nombreItem.js';
 import { siguienteNumero } from './numeracion.js';
 import { asentarSaldoFavor } from './saldoFavor.js';
+import { crearReintegro, type FormaReintegro } from './reintegros.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -186,11 +187,14 @@ export interface EntradaDevolucion {
     /** Solo se usa si el ítem no tiene precio ni en el remito ni en el presupuesto. */
     precio_unitario?: number | null;
   }[];
+  /** Parte del excedente que se devuelve en dinero (sale de caja); el resto queda a favor del cliente. */
+  reintegro?: { monto: number; forma_pago: FormaReintegro; referencia?: string | null } | null;
 }
 
 export interface DevolucionCreada {
   id: string; numero: string; cliente_id: string; operacion_id: string | null;
   valor_total: number; aplicado_a_saldo: number; reintegro_monto: number; credito_monto: number; requiere_nc: boolean;
+  reintegro_numero: string | null;
 }
 
 // Corre dentro de la transacción del llamador (ya con BEGIN). Recalcula TODO en el servidor:
@@ -259,15 +263,27 @@ export async function crearDevolucion(
     }
   }
 
+  // Del excedente, lo que se devuelve en dinero y lo que queda a favor (en centavos, sin perder uno).
+  const reintegroC = entrada.reintegro ? aCent(entrada.reintegro.monto) : 0;
+  const excedenteC = aCent(calc.excedente);
+  if (reintegroC > 0 && excedenteC <= 0) {
+    throw new DevolucionError('Esta devolución no deja plata a favor del cliente: no hay nada para devolver en dinero.', 422);
+  }
+  if (reintegroC > excedenteC) {
+    throw new DevolucionError(`Se pueden devolver en dinero hasta $ ${calc.excedente.toLocaleString('es-AR')} (lo que ya había pagado el cliente), no $ ${entrada.reintegro!.monto.toLocaleString('es-AR')}.`, 422);
+  }
+  const reintegroMonto = dePesos(reintegroC);
+  const creditoMonto = dePesos(excedenteC - reintegroC);
+
   const numero = await siguienteNumero(client as PoolClient, 'devoluciones', 'DEV');
   const requiereNc = armadas.some(a => a.linea.facturado);
   const { rows: [dev] } = await client.query(`
     INSERT INTO devoluciones
       (numero, cliente_id, operacion_id, remito_id, motivo, valor_total, aplicado_a_saldo, reintegro_monto, credito_monto, requiere_nc, created_by)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING id
   `, [numero, clienteId, operacionId, entrada.remito_id ?? null, entrada.motivo.trim(),
-    calc.valor_total, calc.aplicado_a_saldo, calc.excedente, requiereNc, user.id]);
+    calc.valor_total, calc.aplicado_a_saldo, reintegroMonto, creditoMonto, requiereNc, user.id]);
 
   for (let i = 0; i < armadas.length; i++) {
     const a = armadas[i], c = calc.lineas[i], l = a.linea;
@@ -287,16 +303,27 @@ export async function crearDevolucion(
     }
   }
 
-  if (calc.excedente > 0) {
+  // Solo lo que queda a favor entra al libro: lo que se devuelve en dinero nunca se acredita (sale de caja).
+  if (creditoMonto > 0) {
     await asentarSaldoFavor(client, {
-      cliente_id: clienteId, tipo: 'credito_devolucion', monto: calc.excedente, devolucion_id: dev.id,
+      cliente_id: clienteId, tipo: 'credito_devolucion', monto: creditoMonto, devolucion_id: dev.id,
       descripcion: `Devolución ${numero}`, created_by: user.id,
     });
+  }
+  let reintegroNumero: string | null = null;
+  if (reintegroC > 0 && entrada.reintegro) {
+    const rei = await crearReintegro(client, {
+      cliente_id: clienteId, devolucion_id: dev.id, operacion_id: operacionId, monto: reintegroMonto,
+      forma_pago: entrada.reintegro.forma_pago, referencia: entrada.reintegro.referencia,
+      motivo: `Devolución ${numero}`, userId: user.id,
+    });
+    reintegroNumero = rei.numero;
   }
 
   return {
     id: dev.id, numero, cliente_id: clienteId, operacion_id: operacionId, valor_total: calc.valor_total,
-    aplicado_a_saldo: calc.aplicado_a_saldo, reintegro_monto: 0, credito_monto: calc.excedente, requiere_nc: requiereNc,
+    aplicado_a_saldo: calc.aplicado_a_saldo, reintegro_monto: reintegroMonto, credito_monto: creditoMonto,
+    requiere_nc: requiereNc, reintegro_numero: reintegroNumero,
   };
 }
 

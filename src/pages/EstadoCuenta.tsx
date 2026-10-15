@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Printer, Receipt, Truck, DollarSign, FileText,
@@ -6,6 +6,7 @@ import {
   CreditCard, ArrowDownLeft, ArrowUpRight, XCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { ReintegroSaldoFavorModal } from '@/components/devoluciones/ReintegroSaldoFavorModal';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 const NAVY = '#031d49';
@@ -287,13 +288,15 @@ export function EstadoCuenta() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<EstadoCuentaData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reintegrando, setReintegrando] = useState(false);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     if (!id) return;
     api.get<EstadoCuentaData>(`/clientes/${id}/estado-cuenta`)
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
+  useEffect(() => { cargar(); }, [cargar]);
 
   if (loading) return (
     <div className="p-6 max-w-[1340px] mx-auto animate-pulse space-y-4">
@@ -414,9 +417,15 @@ export function EstadoCuenta() {
             </div>
           )}
           {saldoFavor > 0.01 && (
-            <div className="mt-3 pt-3 border-t border-violet-200 flex items-center justify-between gap-2 text-xs">
+            <div className="mt-3 pt-3 border-t border-violet-200 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-violet-700 font-semibold">Saldo a favor del cliente (por devoluciones)</span>
-              <span className="text-base font-bold font-mono text-violet-700">{formatCurrency(saldoFavor)}</span>
+              <span className="flex items-center gap-3">
+                <span className="text-base font-bold font-mono text-violet-700">{formatCurrency(saldoFavor)}</span>
+                <button type="button" onClick={() => setReintegrando(true)} data-testid="btn-devolver-dinero"
+                  className="h-9 px-3 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold">
+                  Devolver en dinero
+                </button>
+              </span>
             </div>
           )}
           {/* Compromisos pendientes como referencia */}
@@ -648,6 +657,11 @@ export function EstadoCuenta() {
         )}
 
       </div>
+
+      {reintegrando && (
+        <ReintegroSaldoFavorModal clienteId={cliente.id} clienteNombre={nombre} saldo={saldoFavor}
+          onClose={() => setReintegrando(false)} onDone={cargar} />
+      )}
     </>
   );
 }

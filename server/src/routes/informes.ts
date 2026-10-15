@@ -64,6 +64,14 @@ informes.get('/resumen', async (c) => {
         (SELECT COALESCE(SUM(rpe.monto), 0)::numeric FROM recibo_pagos_efectivos rpe JOIN recibos r ON r.id = rpe.recibo_id
          WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date AND rpe.es_saldo_favor
         ) AS saldo_favor_aplicado,
+        -- Egresos de caja: dinero devuelto a clientes (reintegros). Caja neta = cobrado − reintegros.
+        (SELECT COALESCE(SUM(monto), 0)::numeric FROM reintegros
+         WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
+        ) AS reintegros_periodo,
+        (SELECT COALESCE(json_agg(json_build_object('forma_pago', x.forma_pago, 'monto', x.m) ORDER BY x.m DESC), '[]'::json)
+         FROM (SELECT forma_pago, SUM(monto)::numeric AS m FROM reintegros
+               WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date GROUP BY forma_pago) x
+        ) AS reintegros_por_metodo,
         (SELECT COALESCE(SUM(monto), 0)::numeric FROM compromisos_pago WHERE estado = 'pendiente') AS pendiente_cobro,
         (SELECT COUNT(*)::int FROM catalogo_productos cp
          WHERE cp.activo = true AND cp.stock_minimo > 0
@@ -393,6 +401,10 @@ informes.get('/resumen', async (c) => {
       cobrado_vs_anterior:  pct(cobrado_periodo, cobrado_prev),
       // Pagado con saldo a favor del cliente (devoluciones): baja deuda pero no es caja, por eso va aparte
       saldo_favor_aplicado: Number(stats?.saldo_favor_aplicado ?? 0),
+      // Dinero devuelto a clientes y lo que queda en caja después de devolverlo
+      reintegros_periodo:   Number(stats?.reintegros_periodo ?? 0),
+      reintegros_por_metodo: (stats?.reintegros_por_metodo ?? []) as { forma_pago: string; monto: number }[],
+      caja_neta:            cobrado_periodo - Number(stats?.reintegros_periodo ?? 0),
       pendiente_cobro:      Number(stats?.pendiente_cobro  ?? 0),
       stock_critico:        Number(stats?.stock_critico     ?? 0),
       entregas_atrasadas:   Number(stats?.entregas_atrasadas ?? 0),

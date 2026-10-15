@@ -833,12 +833,28 @@ const DevolucionItemSchema = z.object({
   precio_unitario: zPosNum.optional().nullable(),
 });
 
+const FormaReintegro = z.enum(['Efectivo', 'Transferencia', 'Otro']);
+
 export const DevolucionSchema = z.object({
   remito_id:    zUUID.optional().nullable(),
   operacion_id: zUUID.optional().nullable(),
   motivo:       z.string().trim().min(3, 'Contá el motivo de la devolución').max(500),
   items:        z.array(DevolucionItemSchema).min(1, 'Elegí al menos un ítem'),
+  // Parte del excedente que se devuelve en dinero (sale de caja); el resto queda a favor del cliente.
+  reintegro:    z.object({
+    monto:      z.number().positive('El reintegro debe ser mayor a 0'),
+    forma_pago: FormaReintegro,
+    referencia: zText(200),
+  }).optional().nullable(),
 }).refine(b => !!b.remito_id || !!b.operacion_id, { message: 'Indicá el remito o la operación', path: ['remito_id'] });
+
+// Devolver en dinero un saldo a favor que el cliente ya tenía (POST /clientes/:id/saldo-favor/reintegrar).
+export const ReintegroSaldoFavorSchema = z.object({
+  monto:      z.number().positive('El monto debe ser mayor a 0'),
+  forma_pago: z.enum(['Efectivo', 'Transferencia', 'Otro']),
+  referencia: zText(200),
+  motivo:     z.string().trim().min(3, 'Contá por qué se devuelve el dinero').max(300),
+});
 
 export const RemitoEstadoSchema = z.object({
   estado:             z.enum(['borrador','emitido','entregado','cancelado']),

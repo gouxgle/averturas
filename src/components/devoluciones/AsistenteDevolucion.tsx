@@ -9,7 +9,7 @@ import { toastApiError } from '@/lib/apiError';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  calcularResultado, type DestinoDevolucion, type LineaDevolvible, type PreparacionDevolucion,
+  calcularResultado, FORMAS_REINTEGRO, type DestinoDevolucion, type FormaReintegro, type LineaDevolvible, type PreparacionDevolucion,
 } from '@/lib/devolucion';
 
 interface Seleccion {
@@ -22,6 +22,7 @@ interface Seleccion {
 
 interface Creada {
   id: string; numero: string; valor_total: number; aplicado_a_saldo: number; credito_monto: number; requiere_nc: boolean;
+  reintegro_monto: number; reintegro_numero: string | null;
 }
 
 const MOTIVOS_PERDIDA = ['Falla de fábrica', 'Rota o dañada', 'Mal estado'];
@@ -44,6 +45,11 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
   const [sel, setSel] = useState<Record<string, Seleccion>>({});
   const [paso, setPaso] = useState<1 | 2>(1);
   const [motivo, setMotivo] = useState('');
+  // Qué se hace con la plata que sobra (la que el cliente ya había pagado): a favor, en dinero o repartida
+  const [reparto, setReparto] = useState<'favor' | 'dinero' | 'mixto'>('favor');
+  const [montoMixto, setMontoMixto] = useState('');
+  const [formaReintegro, setFormaReintegro] = useState<FormaReintegro>('Efectivo');
+  const [refReintegro, setRefReintegro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [creada, setCreada] = useState<Creada | null>(null);
 
@@ -103,14 +109,25 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
   ), [sel, prep]);
   const hayFacturado = elegidas.some(l => l.facturado);
 
+  // Lo que sale en dinero (0 si todo queda a favor) y lo que queda a favor, en centavos para no perder uno.
+  const excedenteC = Math.round(resultado.excedente * 100);
+  const reintegroC = excedenteC <= 0 ? 0
+    : reparto === 'dinero' ? excedenteC
+    : reparto === 'mixto' ? Math.round((parseFloat(montoMixto) || 0) * 100) : 0;
+  const reintegro = reintegroC / 100;
+  const aFavor = (excedenteC - reintegroC) / 100;
+  const repartoInvalido = reparto === 'mixto' && excedenteC > 0 && (reintegroC <= 0 || reintegroC >= excedenteC);
+
   async function confirmar() {
     if (motivo.trim().length < 3) { toast.error('Contá el motivo de la devolución'); return; }
+    if (repartoInvalido) { toast.error('En el reparto, el dinero a devolver tiene que ser menos que lo que sobra'); return; }
     setEnviando(true);
     try {
       const nueva = await api.post<Creada>('/devoluciones', {
         remito_id: origen.remito_id ?? null,
         operacion_id: origen.remito_id ? null : origen.operacion_id,
         motivo: motivo.trim(),
+        reintegro: reintegroC > 0 ? { monto: reintegro, forma_pago: formaReintegro, referencia: refReintegro.trim() || null } : null,
         items: elegidas.map(l => {
           const s = sel[l.remito_item_id];
           return {
@@ -168,6 +185,11 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
             <div className="text-left rounded-xl border border-gray-200 divide-y divide-gray-100 text-sm">
               {creada.aplicado_a_saldo > 0 && (
                 <div className="flex justify-between px-3 py-2"><span>Bajó la deuda de la operación</span><b>{formatCurrency(creada.aplicado_a_saldo)}</b></div>
+              )}
+              {creada.reintegro_monto > 0 && (
+                <div className="flex justify-between px-3 py-2 text-amber-700">
+                  <span>Devuelto en dinero{creada.reintegro_numero ? ` (${creada.reintegro_numero})` : ''}</span><b>{formatCurrency(creada.reintegro_monto)}</b>
+                </div>
               )}
               {creada.credito_monto > 0 && (
                 <div className="flex justify-between px-3 py-2 text-violet-700"><span>Saldo a favor del cliente</span><b>{formatCurrency(creada.credito_monto)}</b></div>
@@ -309,7 +331,8 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
                 </div>
               )}
               <div className="flex justify-between px-3 py-2 bg-violet-50/60">
-                <span>Queda a favor del cliente</span><b className="text-violet-700">{formatCurrency(resultado.excedente)}</b>
+                <span>{resultado.excedente > 0 ? 'Plata del cliente que sobra' : 'Queda a favor del cliente'}</span>
+                <b className="text-violet-700">{formatCurrency(resultado.excedente)}</b>
               </div>
               {prep.operacion && resultado.saldo_final != null && (
                 <div className="flex justify-between px-3 py-2 text-gray-600">
@@ -318,7 +341,43 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
               )}
             </div>
             {resultado.excedente > 0 && (
-              <p className="text-xs text-gray-600">Lo que sobra queda como <b>saldo a favor</b> del cliente, para descontar de una próxima compra.</p>
+              <div className="space-y-2" data-testid="reparto">
+                <p className="text-xs font-semibold text-gray-700">¿Qué se hace con los {formatCurrency(resultado.excedente)} que ya había pagado?</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([['favor', 'Dejar a favor'], ['dinero', 'Devolver dinero'], ['mixto', 'Repartir']] as const).map(([v, l]) => (
+                    <button key={v} type="button" onClick={() => setReparto(v)}
+                      className={cn('min-h-11 px-1 rounded-xl border-2 text-xs sm:text-sm font-semibold leading-tight',
+                        reparto === v ? 'border-violet-400 bg-violet-50 text-violet-800' : 'border-gray-200 text-gray-700')}>{l}</button>
+                  ))}
+                </div>
+                {reparto === 'mixto' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Dinero a devolver ahora</label>
+                    <input value={montoMixto} onChange={e => setMontoMixto(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))}
+                      inputMode="decimal" placeholder={`Hasta ${formatCurrency(resultado.excedente)}`}
+                      className={cn('w-full h-11 border rounded-xl px-3 text-base focus:outline-none focus:ring-2',
+                        repartoInvalido && montoMixto ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-violet-400')} />
+                  </div>
+                )}
+                {reintegro > 0 && (
+                  <div className="space-y-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                    <p className="text-xs text-amber-900">Sale <b>{formatCurrency(reintegro)}</b> de caja{aFavor > 0 ? <> y <b>{formatCurrency(aFavor)}</b> quedan a favor del cliente</> : null}. Se le avisa al administrador.</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FORMAS_REINTEGRO.map(f => (
+                        <button key={f} type="button" onClick={() => setFormaReintegro(f)}
+                          className={cn('h-9 px-3 rounded-lg border text-xs font-semibold',
+                            formaReintegro === f ? 'border-amber-500 bg-white text-amber-900' : 'border-amber-200 text-amber-800')}>{f}</button>
+                      ))}
+                    </div>
+                    {formaReintegro !== 'Efectivo' && (
+                      <input value={refReintegro} onChange={e => setRefReintegro(e.target.value)} maxLength={200}
+                        placeholder={formaReintegro === 'Transferencia' ? 'N° de transferencia / CBU (opcional)' : 'Referencia (opcional)'}
+                        className="w-full h-11 border border-amber-200 bg-white rounded-xl px-3 text-base focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    )}
+                  </div>
+                )}
+                {reintegro === 0 && <p className="text-xs text-gray-600">Queda como <b>saldo a favor</b> del cliente, para descontar de una próxima compra.</p>}
+              </div>
             )}
             {hayFacturado && (
               <div className="flex gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
@@ -367,7 +426,7 @@ export function AsistenteDevolucion({ origen, onClose, onDone }: {
                 className="h-12 px-4 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 flex items-center gap-1">
                 <ChevronLeft size={16} /> Atrás
               </button>
-              <button type="button" onClick={confirmar} disabled={enviando || motivo.trim().length < 3}
+              <button type="button" onClick={confirmar} disabled={enviando || motivo.trim().length < 3 || repartoInvalido}
                 className="flex-1 h-12 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-base font-bold disabled:opacity-50 flex items-center justify-center gap-2">
                 {enviando && <RefreshCw size={15} className="animate-spin" />} Registrar devolución
               </button>

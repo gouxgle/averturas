@@ -398,7 +398,16 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   un recibo pagado con saldo a favor **no se edita** (409). **No es caja**: la vista `recibo_pagos_efectivos`
   trae `es_saldo_favor` y los informes (cobrado, métodos de pago, tablero de recibos) lo excluyen y lo
   muestran aparte (`kpis.saldo_favor_aplicado`). `GET /clientes/:id/saldo-favor` da saldo y movimientos.
-  Reintegros en dinero, cambios y anulación de devoluciones son las etapas 3-5 del plan.
+- **Reintegros** (`REI-`, `lib/reintegros.ts`, tabla `reintegros`): dinero que sale de caja hacia el cliente. Dos
+  orígenes: el excedente de una devolución (`POST /devoluciones` con `reintegro:{monto, forma_pago}`: a favor, en
+  dinero o repartido; solo lo que queda a favor entra al libro) o un saldo a favor ya acreditado
+  (`POST /clientes/:id/saldo-favor/reintegrar`, valida que alcance y asienta `reintegro`). Formas: Efectivo /
+  Transferencia / Otro. **Lo pueden hacer admin y vendedor** (consulta no); `POST /reintegros/:id/anular` es solo
+  admin y el dinero vuelve a quedar a favor del cliente (y se corrige el reparto de la devolución). Cada reintegro
+  **avisa a los administradores** (fuente `reintegro` de `/notificaciones`, solo se lista a admin; `reintegros.notif_leida`;
+  "marcar leídas" de un no-admin no lo toca; el cartel emergente no se le muestra a quien lo hizo, la campanita sí).
+  Informes: `kpis.reintegros_periodo`, `reintegros_por_metodo` y `caja_neta = cobrado − reintegros` (Reportes, bajo
+  Métodos de pago). Cambios y anulación de devoluciones son las etapas 4-5 del plan.
 - Stock: `devolucion_cliente` es el tipo de lo que vuelve de un cliente; el viejo `devolucion` se usa con 3
   sentidos (cancelar remito +, cancelar OC −, egreso manual −) y no se toca.
 - **Reservas**: la aprobación online reserva stock (`reserva` −); `liberarReservas()` (`lib/reservas.ts`) las

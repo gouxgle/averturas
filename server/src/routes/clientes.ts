@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
-import { ClienteSchema } from '../lib/schemas.js';
+import { ClienteSchema, ReintegroSaldoFavorSchema } from '../lib/schemas.js';
+import { reintegrarSaldoFavor, ReintegroError } from '../lib/reintegros.js';
+import { registrarActividad } from '../lib/actividad.js';
 import { cuitValido, normalizarCuit } from '../lib/fiscal/cuit.js';
 import { generarPDFEstadoCuenta, type EstadoCuentaPDF, type EmpresaPDF } from '../lib/pdf.js';
 import { enviarWhatsapp, enviarWhatsappPdf } from '../lib/whatsapp.js';
@@ -624,6 +626,37 @@ clientes.get('/:id/saldo-favor', async (c) => {
   const { rows: [s] } = await db.query(
     `SELECT COALESCE((SELECT saldo FROM cliente_saldo_favor WHERE cliente_id = $1), 0)::numeric AS saldo`, [id]);
   return c.json({ saldo: Number(s.saldo), movimientos });
+});
+
+// POST /:id/saldo-favor/reintegrar — devolver en dinero un saldo a favor que el cliente ya tenía (ANTES de /:id).
+// Lo pueden hacer admin y vendedor; queda en Actividad y avisa a los administradores.
+clientes.post('/:id/saldo-favor/reintegrar', async (c) => {
+  const user = c.get('user') as { id: string; rol: string };
+  if (user?.rol === 'consulta') return c.json({ error: 'Tu usuario es de solo consulta' }, 403);
+  const { id } = c.req.param();
+  const b = await validateBody(c, ReintegroSaldoFavorSchema);
+  if (b instanceof Response) return b;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const rei = await reintegrarSaldoFavor(client, {
+      cliente_id: id, monto: b.monto, forma_pago: b.forma_pago, referencia: b.referencia, motivo: b.motivo, userId: user?.id ?? null,
+    });
+    await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'devolucion', entidad_id: rei.id, entidad_numero: rei.numero, accion: 'reintegrar',
+      detalle: `Reintegro de saldo a favor: $ ${b.monto.toLocaleString('es-AR')} en ${b.forma_pago} — ${b.motivo}`,
+      meta: { ...rei },
+    });
+    return c.json(rei, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err instanceof ReintegroError) return c.json({ error: err.message }, err.status);
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // GET /:id/estado-cuenta — resumen financiero completo del cliente (ANTES de /:id)

@@ -7,6 +7,8 @@ const notificaciones = new Hono();
 // recepciones con problemas (remitos), oportunidades futuras que llegaron a su fecha
 // y entregas programadas (día antes / hora antes), todo no leído, por fecha del evento.
 notificaciones.get('/', async (c) => {
+  // Los reintegros de dinero avisan SOLO a los administradores (los hace cualquiera, se enteran ellos).
+  const esAdmin = (c.get('user') as { rol?: string } | undefined)?.rol === 'admin';
   const { rows } = await db.query(`
     SELECT 'presupuesto' AS tipo, o.id, o.numero, o.aprobado_online_at, o.respuesta_cliente,
       o.precio_total,
@@ -122,9 +124,27 @@ notificaciones.get('/', async (c) => {
       AND p.estado_logistica NOT IN ('borrador', 'recibida', 'cerrada', 'cancelada')
       AND p.demora_notif_leida = false
 
+    UNION ALL
+
+    -- Reintegros: plata que salió de caja hacia un cliente. Se avisa a los administradores cada vez.
+    SELECT 'reintegro' AS tipo, rei.id, rei.numero, NULL::timestamptz, NULL::text,
+      rei.monto AS precio_total, rei.created_at AS evento_at,
+      NULL::text AS recepcion_estado, NULL::text AS recepcion_obs,
+      rei.forma_pago AS detalle,
+      jsonb_build_object('por', u.nombre, 'por_id', rei.created_by, 'forma_pago', rei.forma_pago, 'devolucion_numero', d.numero) AS data,
+      json_build_object(
+        'nombre', cl.nombre, 'apellido', cl.apellido,
+        'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona
+      ) AS cliente
+    FROM reintegros rei
+    JOIN clientes cl ON cl.id = rei.cliente_id
+    LEFT JOIN usuarios u ON u.id = rei.created_by
+    LEFT JOIN devoluciones d ON d.id = rei.devolucion_id
+    WHERE $1::boolean AND rei.estado = 'emitido' AND rei.notif_leida = false
+
     ORDER BY evento_at DESC
     LIMIT 50
-  `);
+  `, [esAdmin]);
   return c.json(rows);
 });
 
@@ -138,6 +158,7 @@ const MARCAR_UNA: Record<string, string> = {
   entrega_dia_antes:  `UPDATE remitos SET recordatorio_dia_antes_visto = true WHERE id = $1`,
   entrega_hora_antes: `UPDATE remitos SET recordatorio_hora_antes_visto = true WHERE id = $1`,
   compra_demorada:    `UPDATE pedidos SET demora_notif_leida = true WHERE id = $1`,
+  reintegro:          `UPDATE reintegros SET notif_leida = true WHERE id = $1`,
 };
 
 notificaciones.patch('/vista', async (c) => {
@@ -180,6 +201,11 @@ notificaciones.patch('/marcar-leidas', async (c) => {
        AND estado_logistica NOT IN ('borrador','recibida','cerrada','cancelada')
        AND demora_notif_leida = false`
   );
+  // Solo un admin marca como leídos los avisos de reintegros: un vendedor que toca "marcar leídas"
+  // no puede borrarle al administrador un aviso que nunca vio.
+  if ((c.get('user') as { rol?: string } | undefined)?.rol === 'admin') {
+    await db.query(`UPDATE reintegros SET notif_leida = true WHERE notif_leida = false`);
+  }
   return c.json({ ok: true });
 });
 

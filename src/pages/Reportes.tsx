@@ -32,6 +32,10 @@ interface ResumenData {
     cobrado_vs_anterior: number;
     /** Pagado con saldo a favor de clientes: baja deuda pero no es caja. */
     saldo_favor_aplicado?: number;
+    /** Dinero devuelto a clientes (reintegros) y lo que queda en caja después de devolverlo. */
+    reintegros_periodo?: number;
+    reintegros_por_metodo?: { forma_pago: string; monto: number }[];
+    caja_neta?: number;
     pendiente_cobro: number;
     stock_critico: number;
     entregas_atrasadas: number;
@@ -975,6 +979,14 @@ export function Reportes() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {(kpis?.reintegros_periodo ?? 0) > 0 && (
+              <div className="text-[11px] text-amber-800 mt-3 pt-2 border-t border-gray-200 space-y-0.5" data-testid="reintegros-informe">
+                <p>Dinero devuelto a clientes: <b>−{fmtM(kpis!.reintegros_periodo!)}</b>
+                  {(kpis?.reintegros_por_metodo ?? []).length > 0 && <> ({(kpis!.reintegros_por_metodo!).map(r => `${r.forma_pago} ${fmtM(Number(r.monto))}`).join(' · ')})</>}
+                </p>
+                <p>Caja neta del período: <b>{fmtM(kpis?.caja_neta ?? 0)}</b></p>
               </div>
             )}
             {(kpis?.saldo_favor_aplicado ?? 0) > 0 && (

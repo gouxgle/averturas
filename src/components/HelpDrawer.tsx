@@ -156,6 +156,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { text: 'Al anular ese recibo, el saldo vuelve al cliente' },
         ],
         warning: 'El saldo a favor no es dinero que entra a caja: los informes lo muestran aparte. Un recibo pagado con saldo a favor no se edita, se anula y se hace otro.',
+        tip: 'Para devolverle el saldo en dinero (efectivo o transferencia): Estado de cuenta del cliente → "Devolver en dinero". Se le avisa al administrador.',
       },
     ],
   },
