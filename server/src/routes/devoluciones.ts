@@ -3,7 +3,7 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { DevolucionSchema } from '../lib/schemas.js';
 import { registrarActividad } from '../lib/actividad.js';
-import { prepararDevolucion, crearDevolucion, DevolucionError } from '../lib/devoluciones.js';
+import { prepararDevolucion, crearDevolucion, anularDevolucion, DevolucionError } from '../lib/devoluciones.js';
 import { crearCambio } from '../lib/cambios.js';
 import { VentaError } from '../lib/ventaRapida.js';
 import { cerrarCompromisosSiSaldado } from './recibos.js';
@@ -14,6 +14,13 @@ const NOMBRE_CLIENTE = `CASE WHEN c.tipo_persona = 'juridica' THEN COALESCE(c.ra
                               ELSE NULLIF(TRIM(COALESCE(c.apellido, '') || ' ' || COALESCE(c.nombre, '')), '') END`;
 
 const soloLectura = (rol: string | undefined) => rol === 'consulta';
+
+// Había ítems facturados y todavía no se emitió una nota de crédito sobre esa operación después de la
+// devolución. Es un aviso, no un bloqueo: la nota la hace una persona en Facturación (nunca sale sola).
+const NC_PENDIENTE = `(d.requiere_nc AND d.estado = 'emitida' AND NOT EXISTS (
+  SELECT 1 FROM comprobantes cn
+   WHERE cn.operacion_id = d.operacion_id AND cn.tipo_doc = 'nota_credito'
+     AND cn.estado IN ('autorizado', 'contingencia', 'emitiendo', 'incierto') AND cn.created_at >= d.created_at))`;
 
 // GET /preparar?remito_id=|operacion_id= — qué se puede devolver y cuánto, antes de confirmar.
 devoluciones.get('/preparar', async (c) => {
@@ -41,6 +48,7 @@ devoluciones.get('/', async (c) => {
            ${NOMBRE_CLIENTE} AS cliente_nombre, c.id AS cliente_id,
            o.numero AS operacion_numero, rm.numero AS remito_numero, u.nombre AS creado_por,
            oc.numero AS cambio_numero, oc.id AS cambio_operacion_id,
+           ${NC_PENDIENTE} AS nc_pendiente,
            -- Parte del crédito de esta devolución que ya se gastó (en un cambio o en un recibo)
            (SELECT COALESCE(-SUM(m.monto), 0)::numeric FROM cliente_saldo_favor_movimientos m
              WHERE m.devolucion_id = d.id AND m.tipo = 'consumo_recibo') AS credito_usado,
@@ -67,6 +75,7 @@ devoluciones.get('/:id', async (c) => {
     SELECT d.*, ${NOMBRE_CLIENTE} AS cliente_nombre, c.telefono AS cliente_telefono,
            o.numero AS operacion_numero, rm.numero AS remito_numero, u.nombre AS creado_por,
            oc.numero AS cambio_numero, oc.id AS cambio_operacion_id, oc.precio_total AS cambio_total,
+           ${NC_PENDIENTE} AS nc_pendiente,
            (SELECT COALESCE(-SUM(m.monto), 0)::numeric FROM cliente_saldo_favor_movimientos m
              WHERE m.devolucion_id = d.id AND m.tipo = 'consumo_recibo') AS credito_usado
     FROM devoluciones d
@@ -82,6 +91,47 @@ devoluciones.get('/:id', async (c) => {
   const { rows: reintegros } = await db.query(
     `SELECT id, numero, monto, forma_pago, referencia, estado FROM reintegros WHERE devolucion_id = $1 ORDER BY created_at`, [id]);
   return c.json({ ...d, items, reintegros });
+});
+
+// GET /:id/facturas — facturas vigentes de la operación (o del remito) de la devolución: a cuál hacerle la nota de crédito
+devoluciones.get('/:id/facturas', async (c) => {
+  const { id } = c.req.param();
+  const { rows } = await db.query(`
+    SELECT cf.id, cf.clase, cf.punto_venta, cf.numero, cf.fecha, cf.imp_total, cf.estado
+    FROM devoluciones d
+    JOIN comprobantes cf ON (cf.operacion_id = d.operacion_id OR (d.remito_id IS NOT NULL AND cf.remito_id = d.remito_id))
+    WHERE d.id = $1 AND cf.tipo_doc = 'factura' AND cf.estado IN ('autorizado', 'contingencia')
+    ORDER BY cf.fecha, cf.numero
+  `, [id]);
+  return c.json(rows);
+});
+
+// POST /:id/anular — solo admin. Revierte stock y saldo a favor; 409 con el motivo si algo ya se usó.
+devoluciones.post('/:id/anular', async (c) => {
+  const user = c.get('user') as { id: string; rol: string };
+  if (user?.rol !== 'admin') return c.json({ error: 'Solo un administrador puede anular una devolución' }, 403);
+  const { id } = c.req.param();
+  const b = await c.req.json().catch(() => ({}));
+  const motivo = typeof b?.motivo_anulacion === 'string' ? b.motivo_anulacion.trim() : '';
+  if (motivo.length < 3) return c.json({ error: 'Contá por qué se anula la devolución' }, 400);
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const d = await anularDevolucion(client, id, motivo, user.id);
+    await client.query('COMMIT');
+    registrarActividad(c, {
+      entidad: 'devolucion', entidad_id: d.id, entidad_numero: d.numero, accion: 'anular',
+      detalle: `Devolución anulada: ${motivo}`,
+    });
+    return c.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err instanceof DevolucionError || err instanceof VentaError) return c.json({ error: err.message }, err.status);
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // POST / — registrar una devolución (todo o nada: stock, saldo a favor y numeración en una transacción)

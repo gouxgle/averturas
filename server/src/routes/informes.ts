@@ -64,6 +64,19 @@ informes.get('/resumen', async (c) => {
         (SELECT COALESCE(SUM(rpe.monto), 0)::numeric FROM recibo_pagos_efectivos rpe JOIN recibos r ON r.id = rpe.recibo_id
          WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date AND rpe.es_saldo_favor
         ) AS saldo_favor_aplicado,
+        -- Devoluciones del período (valor devuelto) y pérdidas: mercadería que volvió y no reingresó a stock, al costo
+        (SELECT COALESCE(SUM(valor_total), 0)::numeric FROM devoluciones
+         WHERE estado = 'emitida' AND fecha BETWEEN $1::date AND $2::date
+        ) AS devoluciones_periodo,
+        (SELECT COALESCE(SUM(di.cantidad * COALESCE(cp.costo_base, 0)), 0)::numeric
+         FROM devolucion_items di JOIN devoluciones dv ON dv.id = di.devolucion_id
+         LEFT JOIN catalogo_productos cp ON cp.id = di.producto_id
+         WHERE dv.estado = 'emitida' AND dv.fecha BETWEEN $1::date AND $2::date AND di.destino = 'no_reingresa'
+        ) AS perdidas_costo_periodo,
+        (SELECT COALESCE(SUM(di.cantidad), 0)::int
+         FROM devolucion_items di JOIN devoluciones dv ON dv.id = di.devolucion_id
+         WHERE dv.estado = 'emitida' AND dv.fecha BETWEEN $1::date AND $2::date AND di.destino = 'no_reingresa'
+        ) AS perdidas_unidades_periodo,
         -- Egresos de caja: dinero devuelto a clientes (reintegros). Caja neta = cobrado − reintegros.
         (SELECT COALESCE(SUM(monto), 0)::numeric FROM reintegros
          WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
@@ -401,6 +414,11 @@ informes.get('/resumen', async (c) => {
       cobrado_vs_anterior:  pct(cobrado_periodo, cobrado_prev),
       // Pagado con saldo a favor del cliente (devoluciones): baja deuda pero no es caja, por eso va aparte
       saldo_favor_aplicado: Number(stats?.saldo_favor_aplicado ?? 0),
+      // Ventas netas = lo vendido (entregado) menos lo devuelto; pérdidas = lo que volvió y no reingresó, al costo
+      devoluciones_periodo:  Number(stats?.devoluciones_periodo ?? 0),
+      ventas_netas:          ventas_periodo - Number(stats?.devoluciones_periodo ?? 0),
+      perdidas_costo_periodo: Number(stats?.perdidas_costo_periodo ?? 0),
+      perdidas_unidades_periodo: Number(stats?.perdidas_unidades_periodo ?? 0),
       // Dinero devuelto a clientes y lo que queda en caja después de devolverlo
       reintegros_periodo:   Number(stats?.reintegros_periodo ?? 0),
       reintegros_por_metodo: (stats?.reintegros_por_metodo ?? []) as { forma_pago: string; monto: number }[],

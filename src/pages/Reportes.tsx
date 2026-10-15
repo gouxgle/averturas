@@ -34,6 +34,11 @@ interface ResumenData {
     saldo_favor_aplicado?: number;
     /** Dinero devuelto a clientes (reintegros) y lo que queda en caja después de devolverlo. */
     reintegros_periodo?: number;
+    /** Devoluciones del período, ventas netas de ellas y mercadería que no reingresó (al costo). */
+    devoluciones_periodo?: number;
+    ventas_netas?: number;
+    perdidas_costo_periodo?: number;
+    perdidas_unidades_periodo?: number;
     reintegros_por_metodo?: { forma_pago: string; monto: number }[];
     caja_neta?: number;
     pendiente_cobro: number;
@@ -979,6 +984,14 @@ export function Reportes() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {(kpis?.devoluciones_periodo ?? 0) > 0 && (
+              <div className="text-[11px] text-gray-700 mt-3 pt-2 border-t border-gray-200 space-y-0.5" data-testid="devoluciones-informe">
+                <p>Devoluciones de clientes: <b>−{fmtM(kpis!.devoluciones_periodo!)}</b> · Ventas netas: <b>{fmtM(kpis?.ventas_netas ?? 0)}</b></p>
+                {(kpis?.perdidas_unidades_periodo ?? 0) > 0 && (
+                  <p className="text-red-700">Mercadería que no reingresó: <b>{kpis!.perdidas_unidades_periodo} u.</b> — pérdida al costo <b>{fmtM(kpis?.perdidas_costo_periodo ?? 0)}</b></p>
+                )}
               </div>
             )}
             {(kpis?.reintegros_periodo ?? 0) > 0 && (

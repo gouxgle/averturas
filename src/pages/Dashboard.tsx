@@ -22,7 +22,9 @@ import { AlertaBackups } from '@/components/AlertaBackups';
 interface Stats {
   presupuestos_activos: number;
   ventas_mes: number;
+  /** Ventas del mes netas de devoluciones. */
   monto_mes: number;
+  devoluciones_mes?: number;
   ventas_hoy: number;
   clientes_total: number;
   prospectos: number;
@@ -339,6 +341,9 @@ export function Dashboard() {
                     {formatCurrency(data.stats.monto_mes)}
                   </p>
                   <p className="text-[11px] text-gray-600">Día {dayOfMonth} de {daysInMonth} — {data.stats.ventas_mes} ops.</p>
+                  {(data.stats.devoluciones_mes ?? 0) > 0 && (
+                    <p className="text-[11px] text-amber-700">Neto de {formatCurrency(data.stats.devoluciones_mes!)} en devoluciones</p>
+                  )}
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${monthPct}%` }} />

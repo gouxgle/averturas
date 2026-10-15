@@ -1,10 +1,11 @@
-import { FileText, MapPin, Zap, ShoppingCart, Scale, type LucideIcon } from 'lucide-react';
+import { FileText, MapPin, Zap, ShoppingCart, Scale, Undo2, type LucideIcon } from 'lucide-react';
 import type { SeccionManual } from './tipos';
 import { MANUAL_PRESUPUESTOS } from './manualPresupuestos';
 import { MANUAL_VISITAS } from './manualVisitas';
 import { MANUAL_VENTA_RAPIDA } from './manualVentaRapida';
 import { MANUAL_COMPRAS } from './manualCompras';
 import { MANUAL_PRECIOS } from './manualPrecios';
+import { MANUAL_DEVOLUCIONES } from './manualDevoluciones';
 
 export interface Manual {
   /** Va en la URL: `/ayuda/:slug` y `/imprimir/manual/:slug`. No cambiarlo sin migrar los links. */
@@ -74,6 +75,16 @@ export const MANUALES: Manual[] = [
     ruta: '/productos/precios',
     rutaLabel: 'Ir a la revisión de precios',
     secciones: MANUAL_PRECIOS,
+  },
+  {
+    slug: 'devoluciones',
+    titulo: 'Devoluciones y cambios',
+    sub: 'Qué hacer cuando el cliente devuelve mercadería: stock, plata, saldo a favor y cambios',
+    icono: Undo2,
+    seccion: 'remitos',
+    ruta: '/devoluciones',
+    rutaLabel: 'Ir a Devoluciones',
+    secciones: MANUAL_DEVOLUCIONES,
   },
 ];
 

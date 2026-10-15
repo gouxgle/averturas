@@ -142,6 +142,27 @@ notificaciones.get('/', async (c) => {
     LEFT JOIN devoluciones d ON d.id = rei.devolucion_id
     WHERE $1::boolean AND rei.estado = 'emitido' AND rei.notif_leida = false
 
+    UNION ALL
+
+    -- Devoluciones registradas por alguien que NO es admin: el administrador se entera (stock que vuelve,
+    -- saldo a favor, cambio). Las que hace un admin no avisan: ya lo sabe.
+    SELECT 'devolucion' AS tipo, dv.id, dv.numero, NULL::timestamptz, NULL::text,
+      dv.valor_total AS precio_total, dv.created_at AS evento_at,
+      NULL::text AS recepcion_estado, NULL::text AS recepcion_obs,
+      dv.motivo AS detalle,
+      jsonb_build_object('por', u.nombre, 'por_id', dv.created_by, 'cambio', oc.numero,
+        'credito', dv.credito_monto, 'reintegro', dv.reintegro_monto) AS data,
+      json_build_object(
+        'nombre', cl.nombre, 'apellido', cl.apellido,
+        'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona
+      ) AS cliente
+    FROM devoluciones dv
+    JOIN clientes cl ON cl.id = dv.cliente_id
+    LEFT JOIN usuarios u ON u.id = dv.created_by
+    LEFT JOIN operaciones oc ON oc.id = dv.operacion_cambio_id
+    WHERE $1::boolean AND dv.estado = 'emitida' AND dv.notif_leida = false
+      AND u.rol IS DISTINCT FROM 'admin'
+
     ORDER BY evento_at DESC
     LIMIT 50
   `, [esAdmin]);
@@ -159,6 +180,7 @@ const MARCAR_UNA: Record<string, string> = {
   entrega_hora_antes: `UPDATE remitos SET recordatorio_hora_antes_visto = true WHERE id = $1`,
   compra_demorada:    `UPDATE pedidos SET demora_notif_leida = true WHERE id = $1`,
   reintegro:          `UPDATE reintegros SET notif_leida = true WHERE id = $1`,
+  devolucion:         `UPDATE devoluciones SET notif_leida = true WHERE id = $1`,
 };
 
 notificaciones.patch('/vista', async (c) => {
@@ -205,6 +227,7 @@ notificaciones.patch('/marcar-leidas', async (c) => {
   // no puede borrarle al administrador un aviso que nunca vio.
   if ((c.get('user') as { rol?: string } | undefined)?.rol === 'admin') {
     await db.query(`UPDATE reintegros SET notif_leida = true WHERE notif_leida = false`);
+    await db.query(`UPDATE devoluciones SET notif_leida = true WHERE notif_leida = false`);
   }
   return c.json({ ok: true });
 });

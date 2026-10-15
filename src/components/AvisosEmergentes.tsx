@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock, Banknote,
+  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock, Banknote, Undo2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,7 +22,7 @@ import { formatCurrency, cn } from '@/lib/utils';
  */
 
 export interface AvisoNotif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro' | 'devolucion';
   id: string;
   numero: string | null;
   precio_total: number | null;
@@ -121,6 +121,16 @@ export function presentar(n: AvisoNotif): Presentacion {
     };
   }
 
+  if (n.tipo === 'devolucion') {
+    const cambio = n.data?.cambio ? ` Se llevó a cambio ${n.data.cambio}.` : '';
+    return {
+      titulo: 'Devolución registrada',
+      detalle: `${n.data?.por ?? 'Un vendedor'} registró ${n.numero ?? 'una devolución'} de ${quien} por ${formatCurrency(Number(n.precio_total ?? 0))}.${cambio}`,
+      cita: n.detalle, tono: 'celeste', Icono: Undo2,
+      ruta: '/devoluciones', prioridad: 1,
+    };
+  }
+
   if (n.tipo === 'reintegro') {
     return {
       titulo: 'Se devolvió dinero a un cliente',
@@ -163,6 +173,7 @@ const EMERGE: Record<AvisoNotif['tipo'], boolean> = {
   entrega_hora_antes: true,
   compra_demorada:    true,   // el proveedor se pasó de la fecha prometida
   reintegro:          true,   // salió dinero de caja hacia un cliente (solo le llega al admin)
+  devolucion:         true,   // un vendedor registró una devolución (solo le llega al admin)
   oportunidad:        false,
   entrega_dia_antes:  false,
 };
@@ -188,7 +199,7 @@ export function AvisosEmergentes() {
           EMERGE[n.tipo] && !yaEnCola.has(clave(n)) && !vistosRef.current.has(clave(n))
           // Un reintegro avisa a los OTROS administradores: quien lo acaba de hacer ya lo sabe (y el cartel
           // le tapaba los botones del paso siguiente). Le sigue figurando en la campanita.
-          && !(n.tipo === 'reintegro' && n.data?.por_id === miId)
+          && !((n.tipo === 'reintegro' || n.tipo === 'devolucion') && n.data?.por_id === miId)
         );
         // Las compras demoradas se acumulan (cada OC vencida es una): de a una por vez, si
         // no tapan media pantalla —y los botones de cualquier modal abierto— con la misma

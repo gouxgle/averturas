@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Undo2, Plus, RefreshCw, Search, X, Printer, Package, FileWarning, Loader2, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { useAuth } from '@/hooks/useAuth';
+import { HelpButton } from '@/components/HelpButton';
 import { api } from '@/lib/api';
 import { cn, formatCurrency, haceCuanto } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
@@ -17,6 +18,8 @@ interface Devolucion {
   unidades: number; unidades_perdidas: number;
   /** Si la devolución fue un cambio: la operación del producto nuevo. */
   cambio_numero?: string | null; cambio_operacion_id?: string | null;
+  /** Había ítems facturados y todavía no se emitió la nota de crédito. */
+  nc_pendiente?: boolean;
   /** Parte del crédito de esta devolución que ya se gastó (en el cambio o en un recibo). */
   credito_usado?: number;
 }
@@ -28,6 +31,9 @@ interface DevolucionDetalle extends Devolucion {
   items: ItemDev[]; anulada_motivo: string | null; cambio_total?: number | null;
   reintegros?: { id: string; numero: string; monto: number; forma_pago: string; estado: string }[];
 }
+interface FacturaDev { id: string; clase: string; punto_venta: number; numero: number | null; fecha: string; imp_total: number | string }
+const nroFactura = (f: FacturaDev) => `${f.clase} ${String(f.punto_venta).padStart(4, '0')}-${String(f.numero ?? 0).padStart(8, '0')}`;
+
 interface Reintegro {
   id: string; numero: string; fecha: string; monto: number; forma_pago: string; referencia: string | null; motivo: string | null;
   estado: 'emitido' | 'anulado'; motivo_anulacion: string | null; cliente_nombre: string | null; cliente_id: string;
@@ -46,9 +52,35 @@ const nombreCliente = (c: RemitoMin['cliente']) =>
 
 // ── Detalle ──────────────────────────────────────────────────────────
 
-function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void }) {
+function DetalleDevolucion({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [d, setD] = useState<DevolucionDetalle | null>(null);
-  useEffect(() => { api.get<DevolucionDetalle>(`/devoluciones/${id}`).then(setD).catch(() => onClose()); }, [id, onClose]);
+  const [facturas, setFacturas] = useState<FacturaDev[]>([]);
+  // Anular (solo admin): confirmación roja dentro del modal; si algo ya se usó, el servidor dice qué hay que deshacer primero
+  const [anulando, setAnulando] = useState(false);
+  const [motivoAnul, setMotivoAnul] = useState('');
+  const [errAnul, setErrAnul] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  const cargar = useCallback(() => {
+    api.get<DevolucionDetalle>(`/devoluciones/${id}`).then(setD).catch(() => onClose());
+  }, [id, onClose]);
+  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    if (d?.nc_pendiente) api.get<FacturaDev[]>(`/devoluciones/${id}/facturas`).then(setFacturas).catch(() => setFacturas([]));
+  }, [id, d?.nc_pendiente]);
+
+  async function confirmarAnulacion() {
+    setEnviando(true); setErrAnul(null);
+    try {
+      await api.post(`/devoluciones/${id}/anular`, { motivo_anulacion: motivoAnul.trim() });
+      toast.success('Devolución anulada: el stock y el saldo a favor se revirtieron');
+      setAnulando(false); setMotivoAnul(''); cargar(); onChanged();
+    } catch (e) {
+      setErrAnul(e instanceof Error ? e.message : 'No se pudo anular la devolución');
+    } finally { setEnviando(false); }
+  }
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', h);
@@ -76,7 +108,8 @@ function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void })
               {d.remito_numero && <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">Remito {d.remito_numero}</span>}
               {d.cambio_numero && <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Cambio → {d.cambio_numero}{d.cambio_total ? ` · ${formatCurrency(num(d.cambio_total))}` : ''}</span>}
               {d.estado === 'anulada' && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Anulada</span>}
-              {d.requiere_nc && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Falta nota de crédito</span>}
+              {d.nc_pendiente && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Falta nota de crédito</span>}
+              {d.requiere_nc && !d.nc_pendiente && d.estado === 'emitida' && <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Nota de crédito emitida</span>}
             </div>
             <p className="text-sm text-gray-700"><span className="font-semibold">Motivo:</span> {d.motivo}</p>
             <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
@@ -112,7 +145,43 @@ function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void })
                 <div className="flex justify-between px-3 py-2 text-violet-700"><span>Saldo a favor del cliente</span><b>{formatCurrency(num(d.credito_monto) - num(d.credito_usado))}</b></div>
               )}
             </div>
+            {d.nc_pendiente && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2" data-testid="aviso-nc">
+                <p className="text-xs text-amber-900 flex gap-1.5"><FileWarning size={14} className="shrink-0 mt-0.5" />
+                  Esta devolución incluye ítems que estaban facturados. Hay que hacer la nota de crédito en Facturación (no se emite sola).</p>
+                {facturas.map(f => (
+                  <button key={f.id} onClick={() => navigate(`/facturacion/nueva?factura_id=${f.id}`)}
+                    className="w-full min-h-11 px-3 rounded-lg border border-amber-300 bg-white text-amber-900 text-sm font-semibold text-left flex items-center justify-between gap-2">
+                    <span>Nota de crédito de {nroFactura(f)}</span><span className="text-xs tabular-nums">{formatCurrency(num(f.imp_total))}</span>
+                  </button>
+                ))}
+                <p className="text-[11px] text-amber-800">Acreditá solo los ítems devueltos: {d.items.map(i => `${i.cantidad} × ${i.descripcion}`).join(', ')}.</p>
+              </div>
+            )}
+            {d.estado === 'anulada' && d.anulada_motivo && (
+              <p className="text-sm text-red-700"><span className="font-semibold">Anulada:</span> {d.anulada_motivo}</p>
+            )}
             {d.creado_por && <p className="text-[11px] text-gray-500">Registrada por {d.creado_por} · {haceCuanto(d.created_at)}</p>}
+            {user?.rol === 'admin' && d.estado === 'emitida' && !anulando && (
+              <button onClick={() => { setAnulando(true); setErrAnul(null); }} data-testid="btn-anular-devolucion"
+                className="w-full h-11 rounded-xl border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-50">Anular devolución</button>
+            )}
+            {anulando && (
+              <div className="rounded-xl border border-red-300 bg-red-50 p-3 space-y-2" data-testid="confirmar-anulacion">
+                <p className="text-sm font-semibold text-red-800">¿Anular {d.numero}?</p>
+                <p className="text-xs text-red-800">La mercadería que volvió a stock se descuenta de nuevo, se quita el saldo a favor que dejó y la deuda de la operación vuelve a ser la de antes.</p>
+                <input value={motivoAnul} onChange={e => setMotivoAnul(e.target.value)} maxLength={300} autoFocus placeholder="Motivo de la anulación"
+                  className="w-full h-11 border border-red-200 bg-white rounded-xl px-3 text-base focus:outline-none focus:ring-2 focus:ring-red-400" />
+                {errAnul && <p className="text-xs font-semibold text-red-900 bg-white border border-red-300 rounded-lg p-2" role="alert">{errAnul}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => setAnulando(false)} disabled={enviando} className="h-11 px-4 rounded-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700">Volver</button>
+                  <button onClick={confirmarAnulacion} disabled={enviando || motivoAnul.trim().length < 3}
+                    className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+                    {enviando && <Loader2 size={14} className="animate-spin" />} Anular devolución
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div className="shrink-0 border-t border-gray-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
@@ -301,6 +370,7 @@ export function Devoluciones() {
           <button onClick={cargar} aria-label="Actualizar" className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center hover:bg-white/70 rounded-xl text-gray-600">
             <RefreshCw size={15} className={lista === null ? 'animate-spin' : ''} />
           </button>
+          <HelpButton topic="devoluciones" />
           <button onClick={() => setEligiendo(true)} data-testid="btn-nueva-devolucion"
             className="h-11 sm:h-auto flex items-center gap-1.5 px-4 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold">
             <Plus size={14} /> Nueva devolución
@@ -372,7 +442,7 @@ export function Devoluciones() {
                     {d.unidades_perdidas > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">{d.unidades_perdidas} en pérdida</span>}
                     {d.cambio_numero && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Cambio → {d.cambio_numero}</span>}
                     {num(d.credito_monto) - num(d.credito_usado) > 0.009 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold">{formatCurrency(num(d.credito_monto) - num(d.credito_usado))} a favor</span>}
-                    {d.requiere_nc && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold flex items-center gap-1"><FileWarning size={9} /> Falta NC</span>}
+                    {d.nc_pendiente && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold flex items-center gap-1"><FileWarning size={9} /> Falta NC</span>}
                     {d.estado === 'anulada' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Anulada</span>}
                   </div>
                 </button>
@@ -382,7 +452,7 @@ export function Devoluciones() {
       </div>
       </>)}
 
-      {verId && <DetalleDevolucion id={verId} onClose={() => setVerId(null)} />}
+      {verId && <DetalleDevolucion id={verId} onClose={() => setVerId(null)} onChanged={cargar} />}
       {eligiendo && <ElegirRemito onClose={() => setEligiendo(false)} onElegir={id => { setEligiendo(false); setRemitoId(id); }} />}
       {remitoId && <AsistenteDevolucion origen={{ remito_id: remitoId }} onClose={() => setRemitoId(null)} onDone={cargar} />}
     </div>

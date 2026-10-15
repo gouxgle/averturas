@@ -17,13 +17,14 @@ type HelpSection = {
   tip?: string;
 };
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
-export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda' | 'precios';
+export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda' | 'precios' | 'devoluciones';
 
 /** Temas que además tienen manual completo en Manuales del sistema (`/ayuda/:slug`). */
 const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
   presupuestos: 'presupuestos',
   compras: 'compras',
   precios: 'precios',
+  devoluciones: 'devoluciones',
 };
 
 // ── Contenido de ayuda ────────────────────────────────────────────────────────
@@ -239,6 +240,56 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
     ],
   },
 
+  devoluciones: {
+    label: 'Devoluciones',
+    color: 'text-amber-600',
+    sections: [
+      {
+        id: 'registrar',
+        emoji: '↩️',
+        title: 'Registrar una devolución',
+        steps: [
+          { text: 'Desde el remito (o el presupuesto entregado) → "Registrar devolución", o Devoluciones → "Nueva devolución"' },
+          { text: 'Elegir qué ítems y cuántas unidades vuelven: "Vuelve a stock" o "No reingresa" (pérdida, con motivo)' },
+          { text: '¿Se lleva otro producto? Solo devolución, o cambio por uno con stock' },
+          { text: 'Ver el resultado, cargar el motivo y confirmar' },
+        ],
+        tip: 'Una devolución no modifica el remito ni el recibo originales: queda como un comprobante DEV- aparte.',
+      },
+      {
+        id: 'plata',
+        emoji: '💰',
+        title: 'Qué pasa con la plata',
+        table: [
+          { label: 'Primero', value: 'Baja lo que el cliente todavía debía de esa compra' },
+          { label: 'Lo que sobra', value: 'Es plata que ya había pagado: queda a favor o se devuelve en dinero' },
+          { label: 'Bonificación', value: 'No se devuelve lo que el cliente no pagó' },
+          { label: 'Instalación y envío', value: 'No se devuelven' },
+        ],
+        warning: 'Lo que se devuelve en dinero o queda a favor nunca supera lo que el cliente pagó. Un ítem a medida solo lo devuelve un administrador.',
+      },
+      {
+        id: 'cambio',
+        emoji: '🔁',
+        title: 'Cambio de producto',
+        table: [
+          { label: 'Cuesta más', value: 'Paga la diferencia (medio a elección) o queda para cobrar después' },
+          { label: 'Cuesta menos', value: 'Lo que sobra queda a favor o se devuelve en dinero' },
+        ],
+        tip: 'El producto nuevo se entrega en el momento y debe tener stock. Un cambio no se anula: se devuelve el producto nuevo.',
+      },
+      {
+        id: 'anular',
+        emoji: '🚫',
+        title: 'Anular (solo administrador)',
+        steps: [
+          { text: 'Devoluciones → abrir la devolución → "Anular devolución" con el motivo' },
+          { text: 'Se revierte el stock y el saldo a favor; la deuda de la venta vuelve a ser la de antes' },
+        ],
+        warning: 'Si el saldo a favor ya se usó, salió dinero, fue un cambio o la mercadería ya se vendió, el sistema dice qué hay que deshacer primero.',
+      },
+    ],
+  },
   precios: {
     label: 'Revisión integral de precios',
     color: 'text-sky-700',

@@ -3,8 +3,9 @@ import { aCent } from './fiscal/calculo.js';
 import { facturadoPorItem } from './fiscal/origenes.js';
 import { nombreItem } from './nombreItem.js';
 import { siguienteNumero } from './numeracion.js';
-import { asentarSaldoFavor } from './saldoFavor.js';
+import { asentarSaldoFavor, saldoFavorDe } from './saldoFavor.js';
 import { crearReintegro, type FormaReintegro } from './reintegros.js';
+import { bloquearYValidarStock, VentaError } from './ventaRapida.js';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -327,3 +328,67 @@ export async function crearDevolucion(
   };
 }
 
+
+// ── Anular una devolución ────────────────────────────────────────────
+
+// Deshace una devolución (la decide un admin). Solo se puede si lo que generó sigue intacto; si no, el
+// mensaje dice qué hay que deshacer primero. Revierte el stock que volvió y el saldo a favor que acreditó;
+// la deuda de la operación vuelve sola porque operacion_cobranza solo cuenta devoluciones emitidas.
+export async function anularDevolucion(client: Queryable, id: string, motivo: string, userId: string | null): Promise<{ id: string; numero: string; cliente_id: string; operacion_id: string | null }> {
+  const { rows: [d] } = await client.query(`SELECT * FROM devoluciones WHERE id = $1 FOR UPDATE`, [id]);
+  if (!d) throw new DevolucionError('Devolución no encontrada', 404);
+  if (d.estado === 'anulada') throw new DevolucionError('Esta devolución ya está anulada', 409);
+
+  // Un cambio ya se entregó (el producto nuevo salió y se cobró): no se puede deshacer a medias.
+  if (d.operacion_cambio_id) {
+    const { rows: [oc] } = await client.query(`SELECT numero FROM operaciones WHERE id = $1`, [d.operacion_cambio_id]);
+    throw new DevolucionError(`Esta devolución fue un cambio y el producto nuevo (${oc?.numero ?? 'operación nueva'}) ya se entregó. Para deshacerlo, registrá la devolución de ese producto.`, 409);
+  }
+  const { rows: reintegros } = await client.query(`SELECT numero FROM reintegros WHERE devolucion_id = $1 AND estado = 'emitido'`, [id]);
+  if (reintegros.length) {
+    throw new DevolucionError(`Salió dinero de caja por esta devolución (${reintegros.map(r => r.numero).join(', ')}): primero anulá el reintegro.`, 409);
+  }
+  const { rows: [u] } = await client.query(
+    `SELECT COALESCE(-SUM(monto), 0) AS usado FROM cliente_saldo_favor_movimientos WHERE devolucion_id = $1 AND tipo = 'consumo_recibo'`, [id]);
+  if (Number(u.usado) > 0.009) {
+    throw new DevolucionError(`El saldo a favor de esta devolución ya se usó en un recibo ($ ${Number(u.usado).toLocaleString('es-AR')}): primero anulá ese recibo.`, 409);
+  }
+
+  // El crédito que acreditó tiene que seguir en la cuenta del cliente (con el cliente bloqueado)
+  await client.query(`SELECT id FROM clientes WHERE id = $1 FOR UPDATE`, [d.cliente_id]);
+  const credito = Number(d.credito_monto);
+  if (credito > 0.009) {
+    const saldo = await saldoFavorDe(client, d.cliente_id);
+    if (saldo + 0.009 < credito) {
+      throw new DevolucionError(`El cliente ya retiró parte del saldo a favor (le quedan $ ${saldo.toLocaleString('es-AR')} de los $ ${credito.toLocaleString('es-AR')} de esta devolución).`, 409);
+    }
+  }
+
+  // Lo que volvió a stock tiene que seguir ahí: si ya se vendió, revertirlo dejaría el stock en negativo.
+  const { rows: items } = await client.query(
+    `SELECT producto_id, descripcion, cantidad FROM devolucion_items WHERE devolucion_id = $1 AND destino = 'stock' AND producto_id IS NOT NULL`, [id]);
+  if (items.length) {
+    try {
+      await bloquearYValidarStock(client, items.map(i => ({ producto_id: i.producto_id as string, descripcion: i.descripcion as string, cantidad: Number(i.cantidad) })));
+    } catch (e) {
+      if (e instanceof VentaError) throw new DevolucionError(`No se puede revertir el stock: ${e.message}. Parte de lo que volvió ya se vendió o se entregó.`, 409);
+      throw e;
+    }
+  }
+
+  await client.query(
+    `UPDATE devoluciones SET estado = 'anulada', anulada_motivo = $2, anulada_por = $3, anulada_at = now(), updated_at = now() WHERE id = $1`, [id, motivo, userId]);
+  for (const it of items) {
+    await client.query(`
+      INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, operacion_id, referencia_nro, created_by)
+      VALUES ($1, 'devolucion_cliente', $2, $3, $4, $5, $6)
+    `, [it.producto_id, -Number(it.cantidad), `Devolución ${d.numero} anulada`, d.operacion_id, d.numero, userId]);
+  }
+  if (credito > 0.009) {
+    await asentarSaldoFavor(client, {
+      cliente_id: d.cliente_id, tipo: 'anulacion', monto: -credito, devolucion_id: id,
+      descripcion: `Devolución ${d.numero} anulada: se quita el saldo a favor`, created_by: userId,
+    });
+  }
+  return { id, numero: d.numero as string, cliente_id: d.cliente_id as string, operacion_id: (d.operacion_id as string | null) ?? null };
+}

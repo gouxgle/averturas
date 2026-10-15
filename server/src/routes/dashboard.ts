@@ -27,8 +27,12 @@ dashboard.get('/resumen', async (c) => {
       SELECT
         (SELECT COUNT(*) FROM operaciones WHERE estado IN ('presupuesto','enviado','aprobado'))::int AS presupuestos_activos,
         (SELECT COUNT(*) FROM operaciones WHERE estado NOT IN ('cancelado','presupuesto','enviado') AND created_at >= $1)::int AS ventas_mes,
-        (SELECT COALESCE(SUM(precio_total),0) FROM operaciones WHERE estado NOT IN ('cancelado','presupuesto','enviado') AND created_at >= $1)::numeric AS monto_mes,
-        (SELECT COALESCE(SUM(precio_total),0) FROM operaciones WHERE estado NOT IN ('cancelado','presupuesto','enviado') AND DATE(created_at) = CURRENT_DATE)::numeric AS ventas_hoy,
+        -- Ventas netas de devoluciones: lo devuelto resta (un cambio suma el producto nuevo y resta el devuelto)
+        ((SELECT COALESCE(SUM(precio_total),0) FROM operaciones WHERE estado NOT IN ('cancelado','presupuesto','enviado') AND created_at >= $1)
+         - (SELECT COALESCE(SUM(valor_total),0) FROM devoluciones WHERE estado = 'emitida' AND created_at >= $1))::numeric AS monto_mes,
+        (SELECT COALESCE(SUM(valor_total),0) FROM devoluciones WHERE estado = 'emitida' AND created_at >= $1)::numeric AS devoluciones_mes,
+        ((SELECT COALESCE(SUM(precio_total),0) FROM operaciones WHERE estado NOT IN ('cancelado','presupuesto','enviado') AND DATE(created_at) = CURRENT_DATE)
+         - (SELECT COALESCE(SUM(valor_total),0) FROM devoluciones WHERE estado = 'emitida' AND DATE(created_at) = CURRENT_DATE))::numeric AS ventas_hoy,
         (SELECT COUNT(*) FROM clientes WHERE activo = true)::int AS clientes_total,
         (SELECT COUNT(*) FROM clientes WHERE activo = true AND estado = 'prospecto')::int AS prospectos,
         (SELECT COUNT(*) FROM clientes WHERE activo = true AND estado IN ('activo','recurrente') AND (ultima_interaccion IS NULL OR ultima_interaccion < now() - interval '30 days'))::int AS sin_contacto_30,
@@ -179,7 +183,8 @@ dashboard.get('/resumen', async (c) => {
     stats: {
       presupuestos_activos: s.presupuestos_activos,
       ventas_mes:           s.ventas_mes,
-      monto_mes:            parseFloat(s.monto_mes),
+      monto_mes:            parseFloat(s.monto_mes),   // neto de devoluciones
+      devoluciones_mes:     parseFloat(s.devoluciones_mes),
       ventas_hoy:           parseFloat(s.ventas_hoy),
       clientes_total:       s.clientes_total,
       prospectos:           s.prospectos,

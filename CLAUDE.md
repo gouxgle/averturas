@@ -416,7 +416,21 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   se puede devolver en dinero). Sin stock del producto nuevo no se registra nada (ni la devolución). Los precios los manda
   el navegador como en la venta rápida. `lib/ventaRapida.ts` comparte con la venta rápida el bloqueo/validación de stock
   (`bloquearYValidarStock`) y el remito de mostrador (`entregarDeMostrador`). Anulación de devoluciones, nota de crédito e
-  informes netos son la etapa 5 del plan.
+  informes netos: ver más abajo.
+- **Anular una devolución** (`POST /devoluciones/:id/anular`, solo admin, motivo): revierte el stock (`devolucion_cliente` −)
+  y quita el saldo a favor (`anulacion`); la deuda de la operación vuelve sola (`operacion_cobranza` solo cuenta devoluciones
+  emitidas). **409 con el motivo** si: fue un cambio (el producto nuevo ya se entregó: se devuelve ese producto), hay un
+  reintegro vigente (anularlo antes), el crédito ya se usó en un recibo, el cliente ya retiró parte del saldo, o lo que volvió
+  a stock ya se vendió (quedaría negativo). Lo anulado vuelve a poder devolverse.
+- **Nota de crédito**: una devolución con ítems facturados (`facturadoPorItem`) queda `requiere_nc`; `nc_pendiente` (calculado,
+  `NC_PENDIENTE` en `routes/devoluciones.ts`) deja de serlo cuando hay una NC autorizada de esa operación posterior a la
+  devolución. `GET /devoluciones/:id/facturas` da las facturas a las que acreditar; el detalle ofrece un botón por factura
+  (`/facturacion/nueva?factura_id=`). **Nunca se emite sola**; sin facturas (o con la facturación apagada) no aparece.
+- **Aviso al admin de devoluciones**: fuente `devolucion` de `/notificaciones` (solo admin; solo las que registra un NO admin;
+  `devoluciones.notif_leida`; el cartel no se le muestra a quien la hizo). Igual que reintegros.
+- **Informes**: `kpis.devoluciones_periodo`, `ventas_netas` (= ventas − devoluciones), `perdidas_costo_periodo` /
+  `perdidas_unidades_periodo` (ítems `no_reingresa` × `costo_base`); el dashboard devuelve `monto_mes` y `ventas_hoy` NETOS de
+  devoluciones y `devoluciones_mes`. Manual: `src/pages/ayuda/manualDevoluciones.ts` (+ tema `devoluciones` del HelpDrawer).
 - Stock: `devolucion_cliente` es el tipo de lo que vuelve de un cliente; el viejo `devolucion` se usa con 3
   sentidos (cancelar remito +, cancelar OC −, egreso manual −) y no se toca.
 - **Reservas**: la aprobación online reserva stock (`reserva` −); `liberarReservas()` (`lib/reservas.ts`) las
@@ -696,7 +710,7 @@ de $1,07 daban 31 centavos de IVA de más), y el neto se reparte a las líneas c
 
 ## Manuales del sistema (`/ayuda`)
 
-Cinco manuales escritos **para el operador del local, no para desarrolladores**. Si se
+Seis manuales escritos **para el operador del local, no para desarrolladores**. Si se
 cambia una pantalla de alguno de estos circuitos, hay que corregir el manual en el mismo
 commit (y el resumen corto del panel lateral, `HelpDrawer.tsx`, si el tema lo tiene).
 
@@ -707,6 +721,7 @@ commit (y el resumen corto del panel lateral, `HelpDrawer.tsx`, si el tema lo ti
 | Venta rápida | `venta-rapida` | `manualVentaRapida.ts` |
 | Compras | `compras` | `manualCompras.ts` |
 | Revisión integral de precios | `precios` | `manualPrecios.ts` (+ tema `precios` del HelpDrawer) |
+| Devoluciones y cambios | `devoluciones` | `manualDevoluciones.ts` (+ tema `devoluciones` del HelpDrawer) |
 
 - `manuales.ts` es el **registro**: slug, título, ícono, `data-section` y a qué pantalla
   lleva el botón "Ir a…". Agregar un manual = un archivo de contenido + una entrada acá;
