@@ -100,11 +100,7 @@ export async function cerrarCompromisosSiSaldado(operacionId: string): Promise<v
   await db.query(`
     UPDATE compromisos_pago SET estado = 'cobrado', updated_at = now()
     WHERE operacion_id = $1 AND estado = 'pendiente'
-      AND (
-        (SELECT COALESCE(SUM(r.monto_total), 0) + COALESCE(SUM(r.monto_descuento), 0)
-           FROM recibos r WHERE r.operacion_id = $1 AND r.estado = 'emitido')
-        >= (SELECT COALESCE(precio_total, 0) FROM operaciones WHERE id = $1) - 0.01
-      )
+      AND (SELECT saldo FROM operacion_cobranza WHERE operacion_id = $1) <= 0.01
   `, [operacionId]);
 }
 

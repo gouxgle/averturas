@@ -1,4 +1,5 @@
 import { db } from '../db.js';
+import { liberarReservas } from './reservas.js';
 
 type Queryable = { query: typeof db.query };
 
@@ -112,21 +113,7 @@ export async function aplicarTransicionRemito(
 
     // Cancelar reservas existentes para esta operación (netear a cero)
     if (remito.operacion_id) {
-      const { rows: reservas } = await client.query(`
-        SELECT producto_id, SUM(cantidad) AS total
-        FROM stock_movimientos
-        WHERE operacion_id = $1 AND tipo = 'reserva'
-        GROUP BY producto_id
-        HAVING SUM(cantidad) < 0
-      `, [remito.operacion_id]);
-
-      for (const r of reservas) {
-        await client.query(`
-          INSERT INTO stock_movimientos
-            (producto_id, tipo, cantidad, motivo, operacion_id, referencia_nro, created_by)
-          VALUES ($1, 'reserva', $2, 'Cancelación reserva por remito', $3, $4, $5)
-        `, [r.producto_id, Math.abs(Number(r.total)), remito.operacion_id, remito.numero, userId]);
-      }
+      await liberarReservas(client, remito.operacion_id, 'Cancelación reserva por remito', remito.numero, userId);
     }
 
     // Bloquear + validar stock disponible (ya neteada la reserva propia cancelada

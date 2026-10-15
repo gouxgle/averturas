@@ -190,10 +190,7 @@ pedidos.get('/operaciones-disponibles', async (c) => {
         'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
         'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona
       ) AS cliente,
-      COALESCE((
-        SELECT SUM(r.monto_total) FROM recibos r
-        WHERE r.operacion_id = o.id AND r.estado = 'emitido'
-      ), 0)::numeric AS cobrado_total,
+      COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
       (SELECT nombre FROM proveedores WHERE id = o.proveedor_id LIMIT 1) AS proveedor_nombre,
       (
         SELECT COUNT(*)::int FROM pedidos p

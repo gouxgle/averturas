@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { liberarReservas } from '../lib/reservas.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
@@ -421,10 +422,7 @@ operaciones.get('/', async (c) => {
 
   const { rows } = await db.query(`
     SELECT o.*,
-      COALESCE((
-        SELECT SUM(r.monto_total) FROM recibos r
-        WHERE r.operacion_id = o.id AND r.estado = 'emitido'
-      ), 0)::numeric AS cobrado_total,
+      COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
       json_build_object(
         'id', c.id, 'nombre', c.nombre,
         'apellido', c.apellido, 'telefono', c.telefono
@@ -1220,14 +1218,11 @@ operaciones.get('/:id', async (c) => {
   const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }, versiones, revisionVigente] = await Promise.all([
     db.query(`
       SELECT o.*,
-        COALESCE((
-          SELECT SUM(r.monto_total) FROM recibos r
-          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
-        ), 0)::numeric AS cobrado_total,
-        COALESCE((
-          SELECT SUM(r.monto_descuento) FROM recibos r
-          WHERE r.operacion_id = o.id AND r.estado = 'emitido'
-        ), 0)::numeric AS total_descuentos,
+        COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
+        COALESCE((SELECT oc.descuentos FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS total_descuentos,
+        -- Lo que las devoluciones aplicaron a la deuda y el saldo resultante (vista operacion_cobranza)
+        COALESCE((SELECT oc.devuelto_a_saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS devuelto_a_saldo,
+        COALESCE((SELECT oc.saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS saldo,
         (
           SELECT i.descripcion FROM interacciones i
           WHERE i.operacion_id = o.id AND i.tipo = 'respuesta_proforma'
@@ -1717,12 +1712,26 @@ operaciones.post('/:id/desaprobar', async (c) => {
   );
   const estadoDestino = fueCompartido ? 'enviado' : 'presupuesto';
 
-  const { rows: [row] } = await db.query(`
-    UPDATE operaciones
-    SET estado = $2, aprobado_online_at = NULL, updated_at = now()
-    WHERE id = $1
-    RETURNING id, numero, estado
-  `, [id, estadoDestino]);
+  // La aprobación online reservó stock: al deshacerla se libera (al volver a aprobar se reserva de nuevo).
+  const client = await db.connect();
+  let row: { id: string; numero: string; estado: string };
+  try {
+    await client.query('BEGIN');
+    const upd = await client.query(`
+      UPDATE operaciones
+      SET estado = $2, aprobado_online_at = NULL, updated_at = now()
+      WHERE id = $1
+      RETURNING id, numero, estado
+    `, [id, estadoDestino]);
+    row = upd.rows[0] as typeof row;
+    await liberarReservas(client, id, 'Reserva liberada: aprobación deshecha', row.numero, c.get('user')?.id ?? null);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
   registrarActividad(c, {
     entidad: 'presupuesto', entidad_id: row.id, entidad_numero: row.numero,
@@ -1761,10 +1770,27 @@ operaciones.patch('/:id/estado', async (c) => {
 
   const { rows: [prev] } = await db.query(`SELECT estado FROM operaciones WHERE id = $1`, [id]);
 
-  const { rows: [row] } = await db.query(`
-    UPDATE operaciones SET estado = $1 WHERE id = $2
-    RETURNING id, numero, estado
-  `, [estado, id]);
+  // Si la venta deja de estar aprobada, el stock que reservó la aprobación online se libera
+  // en la misma transacción (antes quedaba reservado para siempre).
+  const client = await db.connect();
+  let row: { id: string; numero: string; estado: string } | undefined;
+  try {
+    await client.query('BEGIN');
+    const upd = await client.query(`
+      UPDATE operaciones SET estado = $1 WHERE id = $2
+      RETURNING id, numero, estado
+    `, [estado, id]);
+    row = upd.rows[0] as typeof row;
+    if (row && ['cancelado', 'rechazado', 'presupuesto', 'enviado'].includes(estado)) {
+      await liberarReservas(client, id, `Reserva liberada: presupuesto ${estado}`, row.numero, c.get('user')?.id ?? null);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
   if (!row) return c.json({ error: 'Operación no encontrada' }, 404);
 

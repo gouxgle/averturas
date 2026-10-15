@@ -780,7 +780,8 @@ const RemitoItemSchema = z.object({
   descripcion:     z.string().min(1).max(500),
   cantidad:        z.number().int().positive(),
   precio_unitario: zPosNum.optional().nullable(),
-  estado_producto: z.enum(['nuevo','usado','reparado']).optional().default('nuevo'),
+  // Mismos valores que el CHECK de remito_items y que la UI (NuevoRemito): nuevo|bueno|con_detalles.
+  estado_producto: z.enum(['nuevo','bueno','con_detalles']).optional().default('nuevo'),
   notas_item:      zText(500).optional(),
   // Ítem del presupuesto que este renglón entrega — lo que permite saber qué
   // queda pendiente cuando la entrega es parcial.
