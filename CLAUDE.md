@@ -407,7 +407,16 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   **avisa a los administradores** (fuente `reintegro` de `/notificaciones`, solo se lista a admin; `reintegros.notif_leida`;
   "marcar leídas" de un no-admin no lo toca; el cartel emergente no se le muestra a quien lo hizo, la campanita sí).
   Informes: `kpis.reintegros_periodo`, `reintegros_por_metodo` y `caja_neta = cobrado − reintegros` (Reportes, bajo
-  Métodos de pago). Cambios y anulación de devoluciones son las etapas 4-5 del plan.
+  Métodos de pago).
+- **Cambio** (`lib/cambios.ts`, `POST /devoluciones` con `cambio:{items, pago_diferencia}`): la devolución y la venta del
+  producto nuevo son UNA transacción. El producto nuevo es una **operación aparte** (`es_cambio`, `devolucion_origen_id`,
+  entregada en el momento con su remito y egreso de stock; la original no se toca). Con E = lo que sobra de la devolución y
+  T = total nuevo: **U = min(E, T)** se paga con ese crédito (recibo «Saldo a favor», no es caja), **T − U** lo paga el cliente
+  con un recibo del medio elegido (o queda pendiente de cobro), **E − U** sobra → a favor o reintegro (solo ese sobrante
+  se puede devolver en dinero). Sin stock del producto nuevo no se registra nada (ni la devolución). Los precios los manda
+  el navegador como en la venta rápida. `lib/ventaRapida.ts` comparte con la venta rápida el bloqueo/validación de stock
+  (`bloquearYValidarStock`) y el remito de mostrador (`entregarDeMostrador`). Anulación de devoluciones, nota de crédito e
+  informes netos son la etapa 5 del plan.
 - Stock: `devolucion_cliente` es el tipo de lo que vuelve de un cliente; el viejo `devolucion` se usa con 3
   sentidos (cancelar remito +, cancelar OC −, egreso manual −) y no se toca.
 - **Reservas**: la aprobación online reserva stock (`reserva` −); `liberarReservas()` (`lib/reservas.ts`) las

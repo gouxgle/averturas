@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { bloquearYValidarStock, insertarItemsOperacion, entregarDeMostrador, VentaError } from '../lib/ventaRapida.js';
 import { liberarReservas } from '../lib/reservas.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -141,48 +142,8 @@ operaciones.post('/venta-rapida', async (c) => {
   try {
     await client.query('BEGIN');
 
-    // Validar stock suficiente DENTRO de la transacción, con lock de fila
-    // (FOR UPDATE) sobre los productos involucrados. Sin esto, dos ventas
-    // simultáneas del mismo producto podrían leer el mismo stock disponible
-    // antes de que ninguna descuente nada y sobrevender — el lock serializa
-    // cualquier otra transacción que también bloquee esas mismas filas
-    // (incluida esta misma ruta, y la emisión de remitos tradicionales).
-    //
-    // OJO: el lock y el cálculo de stock van en dos SELECT separados. Si van
-    // en el mismo SELECT ... FOR UPDATE, el re-chequeo de Postgres al
-    // desbloquearse (EvalPlanQual) sólo refresca las columnas propias de la
-    // fila bloqueada — la subquery correlacionada contra stock_movimientos
-    // se sigue evaluando con el snapshot ORIGINAL (previo al bloqueo), que
-    // todavía no ve los movimientos recién commiteados por la transacción
-    // que liberó el lock. Con dos SELECT, el segundo arranca su propio
-    // snapshot ya con el lock en mano, y sí ve los datos frescos.
-    const productoIds = [...new Set(b.items.map(i => i.producto_id))];
-    await client.query(`
-      SELECT id FROM catalogo_productos WHERE id = ANY($1::uuid[]) FOR UPDATE
-    `, [productoIds]);
-    const { rows: productosLock } = await client.query(`
-      SELECT cp.id, cp.nombre,
-        (COALESCE(cp.stock_inicial, 0) + COALESCE((
-          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-        ), 0))::int AS stock_actual
-      FROM catalogo_productos cp
-      WHERE cp.id = ANY($1::uuid[])
-    `, [productoIds]);
-    const stockPorProducto = new Map(productosLock.map(p => [p.id as string, p]));
-
-    for (const item of b.items) {
-      const prod = stockPorProducto.get(item.producto_id);
-      if (!prod) {
-        await client.query('ROLLBACK');
-        return c.json({ error: `Producto no encontrado: ${item.descripcion}` }, 404);
-      }
-      if (prod.stock_actual < item.cantidad) {
-        await client.query('ROLLBACK');
-        return c.json({
-          error: `Stock insuficiente para "${prod.nombre}": disponible ${prod.stock_actual}, pedido ${item.cantidad}`
-        }, 422);
-      }
-    }
+    // Stock suficiente con las filas bloqueadas (ver lib/ventaRapida.ts: por qué dos SELECT y el lock)
+    await bloquearYValidarStock(client, b.items);
 
     // 1. Operación — venta directa, ya aprobada (sin negociación previa)
     const { rows: [op] } = await client.query(`
@@ -192,12 +153,7 @@ operaciones.post('/venta-rapida', async (c) => {
     `, [b.cliente_id, user.id, user.id, b.forma_pago, formaEnvioOp]);
 
     // 2. Ítems de la operación
-    for (const [idx, item] of b.items.entries()) {
-      await client.query(`
-        INSERT INTO operacion_items (operacion_id, orden, producto_id, descripcion, cantidad, precio_unitario)
-        VALUES ($1,$2,$3,$4,$5,$6)
-      `, [op.id, idx, item.producto_id, item.descripcion, item.cantidad, item.precio_unitario]);
-    }
+    await insertarItemsOperacion(client, op.id, b.items);
 
     // El trigger recalcular_totales_operacion ya completó operaciones.precio_total
     const { rows: [{ precio_total }] } = await client.query(
@@ -249,49 +205,13 @@ operaciones.post('/venta-rapida', async (c) => {
       reciboEnvio = { id: reciboE.id, numero: reciboE.numero };
     }
 
-    // 5. Remito — nace 'borrador' por diseño de columna
-    const numeroRemito = await siguienteNumero(client, 'remitos', 'R');
-    const { rows: [remito] } = await client.query(`
-      INSERT INTO remitos (numero, cliente_id, operacion_id, medio_envio, direccion_entrega, costo_envio, notas, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,'Venta rápida de mostrador',$7)
-      RETURNING *
-    `, [numeroRemito, b.cliente_id, op.id, medioEnvioRemito, b.direccion_entrega || null, b.costo_envio, user.id]);
-
-    for (const item of b.items) {
-      await client.query(`
-        INSERT INTO remito_items (remito_id, producto_id, descripcion, cantidad, precio_unitario, estado_producto)
-        VALUES ($1,$2,$3,$4,$5,'nuevo')
-      `, [remito.id, item.producto_id, item.descripcion, item.cantidad, item.precio_unitario]);
-    }
-
-    // 6. borrador → emitido: descuenta stock (mismo patrón que remitos.ts PATCH /:id/estado)
-    for (const item of b.items) {
-      await client.query(`
-        INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, operacion_id, referencia_nro, created_by)
-        VALUES ($1,'egreso_remito',$2,'Venta rápida de mostrador',$3,$4,$5)
-      `, [item.producto_id, -Math.abs(item.cantidad), op.id, numeroRemito, user.id]);
-    }
-    await client.query(`UPDATE remitos SET estado='emitido', stock_descontado=true WHERE id=$1`, [remito.id]);
-
-    // Si el stock de algún producto quedó en 0, ya no puede seguir "exhibido en salón"
-    await client.query(`
-      UPDATE catalogo_productos cp SET en_salon = false
-      WHERE cp.id = ANY($1::uuid[]) AND cp.en_salon = true
-        AND (COALESCE(cp.stock_inicial,0) + COALESCE((
-          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-        ), 0)) <= 0
-    `, [b.items.map(i => i.producto_id)]);
-
-    // 7. Si el cliente retira ahora: emitido → entregado, y la operación queda cerrada
-    let estadoRemitoFinal = 'emitido';
-    if (retira) {
-      await client.query(`
-        UPDATE remitos SET estado='entregado', fecha_entrega_real=CURRENT_DATE, recepcion_estado='conforme'
-        WHERE id=$1
-      `, [remito.id]);
-      await client.query(`UPDATE operaciones SET estado='entregado', updated_at=now() WHERE id=$1`, [op.id]);
-      estadoRemitoFinal = 'entregado';
-    }
+    // 5-7. Remito (borrador → emitido descontando stock → entregado si retira ahora)
+    const remito = await entregarDeMostrador(client, {
+      operacion_id: op.id, cliente_id: b.cliente_id, items: b.items, nota: 'Venta rápida de mostrador',
+      motivoStock: 'Venta rápida de mostrador', medioEnvio: medioEnvioRemito, direccionEntrega: b.direccion_entrega,
+      costoEnvio: b.costo_envio, retiraAhora: retira, userId: user.id,
+    });
+    const estadoRemitoFinal = remito.estado;
 
     await client.query('COMMIT');
     registrarActividad(c, {
@@ -317,6 +237,7 @@ operaciones.post('/venta-rapida', async (c) => {
     }, 201);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err instanceof VentaError) return c.json({ error: err.message }, err.status);
     throw err;
   } finally {
     client.release();

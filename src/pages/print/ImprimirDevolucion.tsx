@@ -12,6 +12,7 @@ interface Dev {
   numero: string; fecha: string; estado: string; motivo: string; cliente_nombre: string | null; cliente_telefono: string | null;
   operacion_numero: string | null; remito_numero: string | null; valor_total: number; aplicado_a_saldo: number;
   credito_monto: number; reintegro_monto: number; anulada_motivo: string | null; creado_por: string | null; items: Item[];
+  credito_usado?: number; cambio_numero?: string | null; cambio_total?: number | null;
 }
 
 const fmtFecha = (iso: string) => new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -110,7 +111,8 @@ export function ImprimirDevolucion() {
               <tr><td style={{ padding: '4px 8px' }}>Valor devuelto</td><td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800 }}>{formatCurrency(n(dev.valor_total))}</td></tr>
               {n(dev.aplicado_a_saldo) > 0 && <tr><td style={{ padding: '4px 8px' }}>Aplicado a la deuda</td><td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatCurrency(n(dev.aplicado_a_saldo))}</td></tr>}
               {n(dev.reintegro_monto) > 0 && <tr><td style={{ padding: '4px 8px' }}>Reintegrado en dinero</td><td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatCurrency(n(dev.reintegro_monto))}</td></tr>}
-              {n(dev.credito_monto) > 0 && <tr><td style={{ padding: '4px 8px' }}>Saldo a favor del cliente</td><td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(n(dev.credito_monto))}</td></tr>}
+              {n(dev.credito_usado) > 0 && <tr><td style={{ padding: '4px 8px' }}>{dev.cambio_numero ? `Aplicado al cambio ${dev.cambio_numero}` : 'Ya usado en recibos'}</td><td style={{ padding: '4px 8px', textAlign: 'right' }}>−{formatCurrency(n(dev.credito_usado))}</td></tr>}
+              {n(dev.credito_monto) - n(dev.credito_usado) > 0.009 && <tr><td style={{ padding: '4px 8px' }}>Saldo a favor del cliente</td><td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(n(dev.credito_monto) - n(dev.credito_usado))}</td></tr>}
             </tbody>
           </table>
         </div>

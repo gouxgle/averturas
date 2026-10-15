@@ -15,13 +15,17 @@ interface Devolucion {
   requiere_nc: boolean; created_at: string; cliente_nombre: string | null; cliente_id: string;
   operacion_numero: string | null; remito_numero: string | null; creado_por: string | null;
   unidades: number; unidades_perdidas: number;
+  /** Si la devolución fue un cambio: la operación del producto nuevo. */
+  cambio_numero?: string | null; cambio_operacion_id?: string | null;
+  /** Parte del crédito de esta devolución que ya se gastó (en el cambio o en un recibo). */
+  credito_usado?: number;
 }
 interface ItemDev {
   id: string; descripcion: string; cantidad: number; destino: 'stock' | 'no_reingresa';
   motivo_item: string | null; precio_unitario_neto: number; estado_producto: string;
 }
 interface DevolucionDetalle extends Devolucion {
-  items: ItemDev[]; anulada_motivo: string | null;
+  items: ItemDev[]; anulada_motivo: string | null; cambio_total?: number | null;
   reintegros?: { id: string; numero: string; monto: number; forma_pago: string; estado: string }[];
 }
 interface Reintegro {
@@ -70,6 +74,7 @@ function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void })
             <div className="flex flex-wrap gap-1.5 text-[11px]">
               {d.operacion_numero && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{d.operacion_numero}</span>}
               {d.remito_numero && <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">Remito {d.remito_numero}</span>}
+              {d.cambio_numero && <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Cambio → {d.cambio_numero}{d.cambio_total ? ` · ${formatCurrency(num(d.cambio_total))}` : ''}</span>}
               {d.estado === 'anulada' && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Anulada</span>}
               {d.requiere_nc && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Falta nota de crédito</span>}
             </div>
@@ -98,7 +103,14 @@ function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void })
                   <b>{formatCurrency(num(d.reintegro_monto))}</b>
                 </div>
               )}
-              {num(d.credito_monto) > 0 && <div className="flex justify-between px-3 py-2 text-violet-700"><span>Saldo a favor del cliente</span><b>{formatCurrency(num(d.credito_monto))}</b></div>}
+              {num(d.credito_usado) > 0 && (
+                <div className="flex justify-between px-3 py-2 text-emerald-700">
+                  <span>{d.cambio_numero ? `Usado para pagar el cambio (${d.cambio_numero})` : 'Ya usado en recibos'}</span><b>−{formatCurrency(num(d.credito_usado))}</b>
+                </div>
+              )}
+              {num(d.credito_monto) - num(d.credito_usado) > 0.009 && (
+                <div className="flex justify-between px-3 py-2 text-violet-700"><span>Saldo a favor del cliente</span><b>{formatCurrency(num(d.credito_monto) - num(d.credito_usado))}</b></div>
+              )}
             </div>
             {d.creado_por && <p className="text-[11px] text-gray-500">Registrada por {d.creado_por} · {haceCuanto(d.created_at)}</p>}
           </div>
@@ -358,7 +370,8 @@ export function Devoluciones() {
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">{d.unidades} {d.unidades === 1 ? 'unidad' : 'unidades'}</span>
                     {d.unidades_perdidas > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">{d.unidades_perdidas} en pérdida</span>}
-                    {num(d.credito_monto) > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold">{formatCurrency(num(d.credito_monto))} a favor</span>}
+                    {d.cambio_numero && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Cambio → {d.cambio_numero}</span>}
+                    {num(d.credito_monto) - num(d.credito_usado) > 0.009 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold">{formatCurrency(num(d.credito_monto) - num(d.credito_usado))} a favor</span>}
                     {d.requiere_nc && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold flex items-center gap-1"><FileWarning size={9} /> Falta NC</span>}
                     {d.estado === 'anulada' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Anulada</span>}
                   </div>

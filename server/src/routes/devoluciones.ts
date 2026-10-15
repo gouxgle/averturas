@@ -4,6 +4,8 @@ import { validateBody } from '../lib/validate.js';
 import { DevolucionSchema } from '../lib/schemas.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { prepararDevolucion, crearDevolucion, DevolucionError } from '../lib/devoluciones.js';
+import { crearCambio } from '../lib/cambios.js';
+import { VentaError } from '../lib/ventaRapida.js';
 import { cerrarCompromisosSiSaldado } from './recibos.js';
 
 const devoluciones = new Hono();
@@ -38,12 +40,17 @@ devoluciones.get('/', async (c) => {
            d.credito_monto, d.requiere_nc, d.created_at,
            ${NOMBRE_CLIENTE} AS cliente_nombre, c.id AS cliente_id,
            o.numero AS operacion_numero, rm.numero AS remito_numero, u.nombre AS creado_por,
+           oc.numero AS cambio_numero, oc.id AS cambio_operacion_id,
+           -- Parte del crédito de esta devolución que ya se gastó (en un cambio o en un recibo)
+           (SELECT COALESCE(-SUM(m.monto), 0)::numeric FROM cliente_saldo_favor_movimientos m
+             WHERE m.devolucion_id = d.id AND m.tipo = 'consumo_recibo') AS credito_usado,
            (SELECT COALESCE(SUM(di.cantidad), 0)::int FROM devolucion_items di WHERE di.devolucion_id = d.id) AS unidades,
            (SELECT COALESCE(SUM(di.cantidad) FILTER (WHERE di.destino = 'no_reingresa'), 0)::int
               FROM devolucion_items di WHERE di.devolucion_id = d.id) AS unidades_perdidas
     FROM devoluciones d
     JOIN clientes c ON c.id = d.cliente_id
     LEFT JOIN operaciones o ON o.id = d.operacion_id
+    LEFT JOIN operaciones oc ON oc.id = d.operacion_cambio_id
     LEFT JOIN remitos rm ON rm.id = d.remito_id
     LEFT JOIN usuarios u ON u.id = d.created_by
     ${where}
@@ -58,10 +65,14 @@ devoluciones.get('/:id', async (c) => {
   const { id } = c.req.param();
   const { rows: [d] } = await db.query(`
     SELECT d.*, ${NOMBRE_CLIENTE} AS cliente_nombre, c.telefono AS cliente_telefono,
-           o.numero AS operacion_numero, rm.numero AS remito_numero, u.nombre AS creado_por
+           o.numero AS operacion_numero, rm.numero AS remito_numero, u.nombre AS creado_por,
+           oc.numero AS cambio_numero, oc.id AS cambio_operacion_id, oc.precio_total AS cambio_total,
+           (SELECT COALESCE(-SUM(m.monto), 0)::numeric FROM cliente_saldo_favor_movimientos m
+             WHERE m.devolucion_id = d.id AND m.tipo = 'consumo_recibo') AS credito_usado
     FROM devoluciones d
     JOIN clientes c ON c.id = d.cliente_id
     LEFT JOIN operaciones o ON o.id = d.operacion_id
+    LEFT JOIN operaciones oc ON oc.id = d.operacion_cambio_id
     LEFT JOIN remitos rm ON rm.id = d.remito_id
     LEFT JOIN usuarios u ON u.id = d.created_by
     WHERE d.id = $1
@@ -83,7 +94,10 @@ devoluciones.post('/', async (c) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const dev = await crearDevolucion(client, b, { id: user?.id ?? null, rol: user?.rol ?? '' });
+    const quien = { id: user?.id ?? null, rol: user?.rol ?? '' };
+    // Con `cambio` la devolución y la venta del producto nuevo son una sola operación (todo o nada)
+    const cambio = b.cambio ? await crearCambio(client, { ...b, cambio: { items: b.cambio.items, pago_diferencia: b.cambio.pago_diferencia } }, quien) : null;
+    const dev = cambio ? cambio.devolucion : await crearDevolucion(client, b, quien);
     await client.query('COMMIT');
 
     // Si la devolución dejó la operación sin deuda, los compromisos de pago pendientes ya no corresponden.
@@ -97,10 +111,21 @@ devoluciones.post('/', async (c) => {
         (dev.requiere_nc ? ' · hay ítems facturados: falta la nota de crédito' : ''),
       meta: { ...dev },
     });
-    return c.json(dev, 201);
+    if (cambio) {
+      registrarActividad(c, {
+        entidad: 'devolucion', entidad_id: dev.id, entidad_numero: dev.numero, accion: 'cambiar',
+        detalle: `Cambio de producto: ${cambio.operacion.numero} por $ ${cambio.operacion.total.toLocaleString('es-AR')}, remito ${cambio.remito.numero}` +
+          (cambio.pagado_con_saldo_favor > 0 ? ` · $ ${cambio.pagado_con_saldo_favor.toLocaleString('es-AR')} con saldo a favor` : '') +
+          (cambio.diferencia_cobrada > 0 ? ` · $ ${cambio.diferencia_cobrada.toLocaleString('es-AR')} cobrados de diferencia` : '') +
+          (cambio.diferencia_pendiente > 0 ? ` · $ ${cambio.diferencia_pendiente.toLocaleString('es-AR')} pendientes de cobro` : ''),
+        meta: { operacion: cambio.operacion, remito: cambio.remito },
+      });
+    }
+    return c.json(cambio ? { ...dev, cambio: { operacion: cambio.operacion, remito: cambio.remito, pagado_con_saldo_favor: cambio.pagado_con_saldo_favor,
+      diferencia_cobrada: cambio.diferencia_cobrada, diferencia_pendiente: cambio.diferencia_pendiente, recibos: cambio.recibos } } : dev, 201);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (err instanceof DevolucionError) return c.json({ error: err.message }, err.status);
+    if (err instanceof DevolucionError || err instanceof VentaError) return c.json({ error: err.message }, err.status);
     throw err;
   } finally {
     client.release();

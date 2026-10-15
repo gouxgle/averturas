@@ -846,6 +846,20 @@ export const DevolucionSchema = z.object({
     forma_pago: FormaReintegro,
     referencia: zText(200),
   }).optional().nullable(),
+  // Cambio: el cliente se lleva otro producto (se entrega en el momento). Precios como en la venta rápida.
+  cambio:       z.object({
+    items:      z.array(z.object({
+      producto_id:     zUUID,
+      descripcion:     z.string().min(1).max(500),
+      cantidad:        z.number().int().positive('Cantidad debe ser > 0'),
+      precio_unitario: z.number().positive('El precio debe ser mayor a 0'),
+    })).min(1, 'Elegí el producto que se lleva').max(30),
+    // Con qué paga la diferencia si el producto nuevo cuesta más; sin esto queda pendiente de cobro.
+    pago_diferencia: z.object({
+      forma_pago: z.enum(['Contado', 'Tarjeta de débito/crédito en 1 pago', 'Transferencia', 'Tarjeta de crédito 3 cuotas sin interés']),
+      referencia: zText(200),
+    }).optional().nullable(),
+  }).optional().nullable(),
 }).refine(b => !!b.remito_id || !!b.operacion_id, { message: 'Indicá el remito o la operación', path: ['remito_id'] });
 
 // Devolver en dinero un saldo a favor que el cliente ya tenía (POST /clientes/:id/saldo-favor/reintegrar).

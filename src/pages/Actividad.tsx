@@ -39,6 +39,7 @@ const ACCION_CFG: Record<string, { label: string; cls: string }> = {
   entregar:      { label: 'Entregó',        cls: 'bg-teal-100 text-teal-700' },
   firmar:        { label: 'Firmó',          cls: 'bg-teal-100 text-teal-700' },
   reintegrar:    { label: 'Devolvió dinero', cls: 'bg-amber-100 text-amber-700' },
+  cambiar:       { label: 'Cambió producto', cls: 'bg-emerald-100 text-emerald-700' },
   anular:        { label: 'Anuló',          cls: 'bg-red-100 text-red-600' },
   cancelar:      { label: 'Canceló',        cls: 'bg-red-100 text-red-600' },
   eliminar:      { label: 'Eliminó',        cls: 'bg-red-100 text-red-600' },
