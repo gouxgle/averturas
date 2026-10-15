@@ -7,7 +7,7 @@ type Queryable = Pick<PoolClient, 'query'>;
 // interpolado en el SQL, nunca puede venir del request.
 export type TablaNumerada =
   | 'recibos' | 'remitos' | 'visitas_tecnicas'
-  | 'compras_solicitudes' | 'compras_cotizaciones' | 'pedidos' | 'compras_incidencias';
+  | 'compras_solicitudes' | 'compras_cotizaciones' | 'pedidos' | 'compras_incidencias' | 'devoluciones';
 
 /**
  * Próximo número `PREFIJO-YYYYMM-NNNN` (correlativo mensual). Tiene que llamarse con el

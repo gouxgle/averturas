@@ -22,6 +22,7 @@ import type { Oportunidad } from '@/components/oportunidades/types';
 import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
 import { RevisionesEnviadas } from '@/components/RevisionesEnviadas';
 import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
+import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
 import { FranjaRecotizar } from '@/components/agenda/FranjaRecotizar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -107,6 +108,8 @@ interface OpDetalle {
   respuesta_cliente_detalle: string | null;
   stock_cubre_todo: boolean;
   cliente_id: string; cobrado_total: number; total_descuentos: number; proveedor_id: string | null;
+  /** Lo que las devoluciones aplicaron a la deuda (vista operacion_cobranza). */
+  devuelto_a_saldo?: number;
   motivo_rechazo: string | null;
   credito_visita: number;
   tiene_items_a_relevar: boolean;
@@ -371,6 +374,7 @@ function PresupuestoModal({
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando]         = useState(false);
   const [confirmarDesaprobar, setConfirmarDesaprobar] = useState(false);
+  const [devolviendo, setDevolviendo]     = useState(false);
   const [desaprobando, setDesaprobando]   = useState(false);
   const [resolviendo, setResolviendo]     = useState(false);
   const [linkUrl, setLinkUrl]             = useState<string | null>(null);
@@ -924,7 +928,7 @@ function PresupuestoModal({
                 corregida a último momento queda sin reflejarse en la proforma. */}
             {op.estado !== 'aprobado' && op.visita_tecnica && (
               <div className="px-5 pb-4">
-                {creditoVisitaCard(Math.max(0, total - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0)))}
+                {creditoVisitaCard(Math.max(0, total - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0) - Number(op.devuelto_a_saldo ?? 0)))}
               </div>
             )}
 
@@ -932,8 +936,9 @@ function PresupuestoModal({
               const cobrado       = Number(op.cobrado_total    ?? 0);
               const descuentos    = Number(op.total_descuentos ?? 0);
               const creditoVisita = Number(op.credito_visita   ?? 0);
-              const saldo      = Math.max(0, total - cobrado - descuentos);
-              const pct        = total > 0 ? Math.min(100, Math.round((cobrado + descuentos) / total * 100)) : 0;
+              const devuelto      = Number(op.devuelto_a_saldo ?? 0);
+              const saldo      = Math.max(0, total - cobrado - descuentos - devuelto);
+              const pct        = total > 0 ? Math.min(100, Math.round((cobrado + descuentos + devuelto) / total * 100)) : 0;
               const ecLabel    = cobrado < 0.01 ? 'Sin cobrar' : saldo < 0.01 ? 'Cobrado' : 'Pago parcial (seña)';
               const ecColor    = cobrado < 0.01 ? 'text-amber-600' : saldo < 0.01 ? 'text-emerald-600' : 'text-sky-600';
               return (
@@ -963,6 +968,9 @@ function PresupuestoModal({
                     <div className={cn('rounded-lg px-2 py-2 border', saldo > 0.01 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-200')}>
                       <p className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Saldo</p>
                       <p className={cn('text-xs font-bold', saldo > 0.01 ? 'text-amber-700' : 'text-gray-600')}>{formatCurrency(saldo)}</p>
+                      {devuelto > 0.01 && (
+                        <p className="text-[9px] text-violet-500 mt-0.5">−{formatCurrency(devuelto)} devuelto</p>
+                      )}
                     </div>
                   </div>
                   {total > 0 && (
@@ -1100,6 +1108,21 @@ function PresupuestoModal({
                 <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Facturación</span>
                 <FacturasVinculadas operacionId={op.id} />
               </div>
+            )}
+
+            {/* Devolución: solo si ya se entregó o instaló algo (el asistente avisa si no hay mercadería entregada) */}
+            {['instalado', 'entregado'].includes(op.estado) && (
+              <div className="px-5 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Devolución</span>
+                <button onClick={() => setDevolviendo(true)}
+                  className="h-11 sm:h-auto flex items-center justify-center gap-1.5 px-3 sm:py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold">
+                  <Undo2 size={13} /> Registrar devolución
+                </button>
+              </div>
+            )}
+            {devolviendo && (
+              <AsistenteDevolucion origen={{ operacion_id: op.id }} onClose={() => setDevolviendo(false)}
+                onDone={() => { void cargarDetalle(); onRefresh(); }} />
             )}
 
             {/* Deshacer una aprobación hecha por error — solo si todavía no se generó

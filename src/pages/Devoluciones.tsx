@@ -1,0 +1,260 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Undo2, Plus, RefreshCw, Search, X, Printer, Package, FileWarning, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
+import { cn, formatCurrency, haceCuanto } from '@/lib/utils';
+import { SectionHero } from '@/components/SectionHero';
+import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
+
+interface Devolucion {
+  id: string; numero: string; fecha: string; estado: 'emitida' | 'anulada'; motivo: string;
+  valor_total: number; aplicado_a_saldo: number; reintegro_monto: number; credito_monto: number;
+  requiere_nc: boolean; created_at: string; cliente_nombre: string | null; cliente_id: string;
+  operacion_numero: string | null; remito_numero: string | null; creado_por: string | null;
+  unidades: number; unidades_perdidas: number;
+}
+interface ItemDev {
+  id: string; descripcion: string; cantidad: number; destino: 'stock' | 'no_reingresa';
+  motivo_item: string | null; precio_unitario_neto: number; estado_producto: string;
+}
+interface DevolucionDetalle extends Devolucion { items: ItemDev[]; anulada_motivo: string | null }
+interface RemitoMin {
+  id: string; numero: string; estado: string; fecha_emision: string; operacion: { numero: string } | null;
+  cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
+  items_resumen: { descripcion: string; cantidad: number }[] | null;
+}
+
+const num = (n: unknown) => Number(n ?? 0);
+const fmtFecha = (iso: string) => new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+const nombreCliente = (c: RemitoMin['cliente']) =>
+  c.tipo_persona === 'juridica' ? c.razon_social ?? '—' : [c.apellido, c.nombre].filter(Boolean).join(' ') || '—';
+
+// ── Detalle ──────────────────────────────────────────────────────────
+
+function DetalleDevolucion({ id, onClose }: { id: string; onClose: () => void }) {
+  const [d, setD] = useState<DevolucionDetalle | null>(null);
+  useEffect(() => { api.get<DevolucionDetalle>(`/devoluciones/${id}`).then(setD).catch(() => onClose()); }, [id, onClose]);
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex sm:items-center sm:justify-center sm:p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white w-full h-[100dvh] sm:h-auto sm:max-h-[90dvh] sm:max-w-xl sm:rounded-2xl shadow-2xl flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><Undo2 size={18} className="text-amber-700" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-gray-900">{d?.numero ?? '…'}</p>
+            {d && <p className="text-xs text-gray-600 truncate">{d.cliente_nombre} · {fmtFecha(d.fecha)}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-600"><X size={20} /></button>
+        </div>
+        {!d ? (
+          <div className="flex-1 flex items-center justify-center py-10"><Loader2 className="animate-spin text-amber-500" /></div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
+              {d.operacion_numero && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{d.operacion_numero}</span>}
+              {d.remito_numero && <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">Remito {d.remito_numero}</span>}
+              {d.estado === 'anulada' && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Anulada</span>}
+              {d.requiere_nc && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">Falta nota de crédito</span>}
+            </div>
+            <p className="text-sm text-gray-700"><span className="font-semibold">Motivo:</span> {d.motivo}</p>
+            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
+              {d.items.map(it => (
+                <div key={it.id} className="px-3 py-2 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 break-words">{it.cantidad} × {it.descripcion}</span>
+                    <span className="shrink-0 tabular-nums">{formatCurrency(num(it.precio_unitario_neto) * it.cantidad)}</span>
+                  </div>
+                  <p className="text-[11px] mt-0.5">
+                    {it.destino === 'stock'
+                      ? <span className="text-emerald-700">Volvió a stock · {it.estado_producto.replace('_', ' ')}</span>
+                      : <span className="text-red-700">No reingresa — {it.motivo_item}</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 text-sm">
+              <div className="flex justify-between px-3 py-2"><span>Valor devuelto</span><b>{formatCurrency(num(d.valor_total))}</b></div>
+              {num(d.aplicado_a_saldo) > 0 && <div className="flex justify-between px-3 py-2"><span>Bajó la deuda de la operación</span><b>{formatCurrency(num(d.aplicado_a_saldo))}</b></div>}
+              {num(d.credito_monto) > 0 && <div className="flex justify-between px-3 py-2 text-violet-700"><span>Saldo a favor del cliente</span><b>{formatCurrency(num(d.credito_monto))}</b></div>}
+            </div>
+            {d.creado_por && <p className="text-[11px] text-gray-500">Registrada por {d.creado_por} · {haceCuanto(d.created_at)}</p>}
+          </div>
+        )}
+        <div className="shrink-0 border-t border-gray-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button onClick={() => window.open(`/imprimir/devolucion/${id}`, '_blank')} disabled={!d}
+            className="w-full h-12 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 flex items-center justify-center gap-2 hover:bg-gray-50 disabled:opacity-50">
+            <Printer size={15} /> Imprimir comprobante
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Elegir de qué remito se devuelve ─────────────────────────────────
+
+function ElegirRemito({ onElegir, onClose }: { onElegir: (remitoId: string) => void; onClose: () => void }) {
+  const [remitos, setRemitos] = useState<RemitoMin[] | null>(null);
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    api.get<{ remitos: RemitoMin[] }>('/remitos/tablero')
+      .then(d => setRemitos(d.remitos.filter(r => ['emitido', 'entregado'].includes(r.estado))))
+      .catch(() => setRemitos([]));
+  }, []);
+  const filtrados = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return (remitos ?? []).filter(r => !t || r.numero.toLowerCase().includes(t) || nombreCliente(r.cliente).toLowerCase().includes(t)
+      || (r.operacion?.numero ?? '').toLowerCase().includes(t)).slice(0, 40);
+  }, [remitos, q]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex sm:items-center sm:justify-center sm:p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white w-full h-[100dvh] sm:h-auto sm:max-h-[85dvh] sm:max-w-lg sm:rounded-2xl shadow-2xl flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
+          <p className="flex-1 font-bold text-gray-900">¿De qué remito se devuelve?</p>
+          <button onClick={onClose} aria-label="Cerrar" className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-600"><X size={20} /></button>
+        </div>
+        <div className="p-3 border-b border-gray-200 shrink-0">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Número de remito, cliente o presupuesto"
+              className="w-full h-11 pl-9 pr-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {remitos === null ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-amber-500" /></div>
+            : filtrados.length === 0 ? <p className="p-6 text-sm text-gray-600 text-center">No hay remitos emitidos o entregados que coincidan.</p>
+            : filtrados.map(r => (
+              <button key={r.id} onClick={() => onElegir(r.id)} className="w-full text-left px-4 py-3 hover:bg-amber-50 min-h-[56px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-gray-900 truncate">{nombreCliente(r.cliente)}</span>
+                  <span className="text-[11px] font-mono text-gray-600 shrink-0">{r.numero}</span>
+                </div>
+                <p className="text-[11px] text-gray-600 truncate">
+                  {fmtFecha(r.fecha_emision)}{r.operacion ? ` · ${r.operacion.numero}` : ''}
+                  {r.items_resumen?.[0] ? ` · ${r.items_resumen[0].cantidad} ${r.items_resumen[0].descripcion}${r.items_resumen.length > 1 ? ` +${r.items_resumen.length - 1}` : ''}` : ''}
+                </p>
+              </button>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Página ───────────────────────────────────────────────────────────
+
+export function Devoluciones() {
+  const [lista, setLista] = useState<Devolucion[] | null>(null);
+  const [estado, setEstado] = useState<'' | 'emitida' | 'anulada'>('');
+  const [q, setQ] = useState('');
+  const [verId, setVerId] = useState<string | null>(null);
+  const [eligiendo, setEligiendo] = useState(false);
+  const [remitoId, setRemitoId] = useState<string | null>(null);
+
+  const cargar = useCallback(() => {
+    api.get<Devolucion[]>(`/devoluciones${estado ? `?estado=${estado}` : ''}`).then(setLista).catch(() => setLista([]));
+  }, [estado]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const filtradas = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return (lista ?? []).filter(d => !t || d.numero.toLowerCase().includes(t) || (d.cliente_nombre ?? '').toLowerCase().includes(t)
+      || (d.remito_numero ?? '').toLowerCase().includes(t) || (d.operacion_numero ?? '').toLowerCase().includes(t));
+  }, [lista, q]);
+  const totales = useMemo(() => {
+    const v = (lista ?? []).filter(d => d.estado === 'emitida');
+    return { n: v.length, valor: v.reduce((s, d) => s + num(d.valor_total), 0), perdidas: v.reduce((s, d) => s + d.unidades_perdidas, 0) };
+  }, [lista]);
+
+  return (
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4" data-section="remitos">
+      <SectionHero
+        section="remitos"
+        icon={Undo2}
+        title="Devoluciones"
+        sub="Mercadería que vuelve, deuda que baja y saldo a favor del cliente"
+        actions={<>
+          <button onClick={cargar} aria-label="Actualizar" className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center hover:bg-white/70 rounded-xl text-gray-600">
+            <RefreshCw size={15} className={lista === null ? 'animate-spin' : ''} />
+          </button>
+          <button onClick={() => setEligiendo(true)} data-testid="btn-nueva-devolucion"
+            className="h-11 sm:h-auto flex items-center gap-1.5 px-4 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold">
+            <Plus size={14} /> Nueva devolución
+          </button>
+        </>}
+      />
+
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          { l: 'Devoluciones', v: String(totales.n) },
+          { l: 'Valor devuelto', v: formatCurrency(totales.valor) },
+          { l: 'Unidades en pérdida', v: String(totales.perdidas) },
+        ].map(s => (
+          <div key={s.l} className="bg-white rounded-xl border border-gray-400 shadow-lg px-3 py-2.5 text-center">
+            <p className="text-sm sm:text-lg font-extrabold text-gray-900 tabular-nums">{s.v}</p>
+            <p className="text-[10px] sm:text-xs text-gray-600">{s.l}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-400 shadow-lg p-3 sm:p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {([['', 'Todas'], ['emitida', 'Emitidas'], ['anulada', 'Anuladas']] as const).map(([v, l]) => (
+            <button key={v} onClick={() => setEstado(v)}
+              className={cn('h-9 px-3 rounded-lg border text-xs font-semibold', estado === v ? 'bg-amber-600 border-amber-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}>{l}</button>
+          ))}
+          <div className="relative flex-1 min-w-[10rem]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por número, cliente, remito…"
+              className="w-full h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-base sm:text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+        </div>
+
+        {lista === null ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-amber-500" /></div>
+          : filtradas.length === 0 ? (
+            <div className="py-12 text-center">
+              <Package size={28} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-sm text-gray-600">{lista.length === 0 ? 'Todavía no se registró ninguna devolución.' : 'Sin devoluciones en esta vista.'}</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {filtradas.map(d => (
+                <button key={d.id} onClick={() => setVerId(d.id)}
+                  className={cn('w-full text-left rounded-xl border border-gray-200 border-l-4 px-3 py-2.5 hover:shadow-md transition-shadow',
+                    d.estado === 'anulada' ? 'border-l-gray-300 opacity-60' : 'border-l-amber-400')}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate">{d.cliente_nombre ?? '—'}</p>
+                      <p className="text-[11px] text-gray-600 truncate">
+                        <span className="font-mono">{d.numero}</span> · {fmtFecha(d.fecha)}
+                        {d.remito_numero && ` · Remito ${d.remito_numero}`}{d.operacion_numero && ` · ${d.operacion_numero}`}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-gray-900 tabular-nums shrink-0">{formatCurrency(num(d.valor_total))}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">{d.unidades} {d.unidades === 1 ? 'unidad' : 'unidades'}</span>
+                    {d.unidades_perdidas > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">{d.unidades_perdidas} en pérdida</span>}
+                    {num(d.credito_monto) > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold">{formatCurrency(num(d.credito_monto))} a favor</span>}
+                    {d.requiere_nc && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold flex items-center gap-1"><FileWarning size={9} /> Falta NC</span>}
+                    {d.estado === 'anulada' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Anulada</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+      </div>
+
+      {verId && <DetalleDevolucion id={verId} onClose={() => setVerId(null)} />}
+      {eligiendo && <ElegirRemito onClose={() => setEligiendo(false)} onElegir={id => { setEligiendo(false); setRemitoId(id); }} />}
+      {remitoId && <AsistenteDevolucion origen={{ remito_id: remitoId }} onClose={() => setRemitoId(null)} onDone={cargar} />}
+    </div>
+  );
+}

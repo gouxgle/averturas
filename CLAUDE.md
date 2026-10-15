@@ -233,7 +233,7 @@ Autenticadas: `/dashboard`, `/crm`, `/presupuestos[/nuevo|/:id/editar|/visita-te
 redirige acá), `/recibos[/nuevo|/:id/editar]`,
 `/ayuda` (índice de manuales) y `/ayuda/:manual`, `/clientes[/nuevo|/importar|/:id|/:id/editar|/:id/estado-cuenta]`, `/estado-cuenta`,
 `/productos[/nuevo|/:id]`, `/stock`, `/proveedores[/:id/precios]`, `/reportes`, `/actividad`,
-`/novedades`, `/configuracion`. Impresión (sin AppLayout): `/imprimir/{presupuesto,remito,recibo}/:id`,
+`/novedades`, `/configuracion`, `/devoluciones`. Impresión (sin AppLayout): `/imprimir/{presupuesto,remito,recibo,devolucion}/:id`,
 `/imprimir/visita-tecnica?visita_id=`, `/imprimir/formulario-cliente`, `/imprimir/manual/:manual`
 (`/imprimir/manual-compras` redirige al nuevo, por los links viejos guardados).
 
@@ -263,6 +263,7 @@ proceso). **Hono matchea en orden de registro: rutas específicas siempre antes 
 | `/notificaciones` | `GET /` (6 fuentes), `PATCH /vista` (una sola: `{tipo,id}`), `PATCH /marcar-leidas` (todas) |
 | `/recibos` | `/tablero` antes de `/:id`; `POST /:id/enviar-whatsapp` (PDF server-side) |
 | `/remitos` | `/:id/programar-entrega`, `/:id/plantilla-entrega`, `/:id/recordatorio-whatsapp` antes de `/:id` |
+| `/devoluciones` | `GET /preparar?remito_id=\|operacion_id=` (qué se puede devolver, máximos, precios, saldo), `GET /`, `GET /:id`, `POST /` (todo o nada; rol consulta 403) |
 | `/pedidos` | flujo viejo de OC: `/operaciones-disponibles` antes de `/:id`; `POST /` numera `OC-` y crea la SC implícita; `PATCH /:id/estado` sincroniza `estado_logistica` |
 | `/compras` | `/tablero`, `/adjuntos` (upload imagen→webp o PDF a `uploads/compras`), `/solicitudes[/pendientes-desde-operaciones|/items-pendientes|/preparar|/:id|/:id/estado]`, `/cotizaciones[/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/proveedores/:pid/respuesta|/:id/comparativa|/:id/adjudicar|/:id/cerrar]`, `/ordenes[/directa|/consolidar|/:id|/:id/pdf|/:id/mensaje|/:id/enviar|/:id/confirmacion|/:id/estado-logistica|/:id/seguimientos|/:id/recepciones|/:id/documentos|/:id/control-economico|/:id/cierre|/:id/cerrar]`, `/recepciones`, `/incidencias[/:id|/:id/mensaje|/:id/reclamar|/:id/respuesta]`, `/facturas`, `/pagos[/:id/aplicar]` (aplicar un anticipo a una OC: **sin pantalla todavía**), `/notas`, `/cuenta-corriente`, `/proveedores/:id/estado-cuenta[/pdf|/enviar-whatsapp]` — rutas específicas antes de `/:id` |
 | `/visitas-tecnicas` | `/upload-imagen` antes de `/:id`; `PATCH /:id/cobrar`, `/sin-cargo`, `/bonificar`, `/costo-externo` |
@@ -279,7 +280,8 @@ updated_at DESC LIMIT 1`** — hay más de una fila en prod), `tipos_abertura`, 
 `proveedor_precios`, `catalogo_productos`, `clientes`, `interacciones`, `tareas`, `operaciones`,
 `operacion_items`, `operacion_formas_pago`, `operacion_versiones`, `operacion_revisiones`,
 `estados_historial`, `stock_lotes`, `stock_movimientos`, `remitos`, `remito_items`, `recibos`,
-`recibo_items`, `recibo_pagos`, `compromisos_pago`, `transportistas`, `pedidos` (= OC), `pedido_items`,
+`recibo_items`, `recibo_pagos`, `compromisos_pago`, `devoluciones`, `devolucion_items`,
+`cliente_saldo_favor_movimientos`, `transportistas`, `pedidos` (= OC), `pedido_items`,
 `compras_solicitudes`, `compras_solicitud_items`, `compras_cotizaciones`, `compras_cotizacion_items`,
 `compras_cotizacion_proveedores`, `compras_cotizacion_respuesta_items`, `compras_seguimientos`,
 `compras_recepciones`, `compras_recepcion_items`, `compras_incidencias`, `compras_documentos`,
@@ -374,6 +376,28 @@ cancelado` (revierte con `devolucion`). Link público para confirmar recepción
 (`fecha/hora_entrega_est`, tarea espejo `tipo_accion='entrega'`, recordatorios día antes /
 hora antes evaluados en cada poll, `recordatorio_*_visto` se resetea al reprogramar).
 Entregas parciales soportadas.
+
+**Devoluciones** (`DEV-`, `server/src/lib/devoluciones.ts`, plan en `~/.claude/plans`): un comprobante
+nuevo que **no modifica** remito, recibo ni operación (cuenta contra-documentos). Se devuelve de
+líneas de remitos emitidos/entregados (`remito_items`), por ítem y cantidad (tope = entregado − ya
+devuelto, 409). Por ítem: `destino='stock'` (movimiento `devolucion_cliente` +) o `'no_reingresa'`
+(NO mueve stock: la mercadería ya salió; queda como pérdida con motivo en `devolucion_items`). A medida:
+solo admin y siempre no reingresa; servicios no se devuelven. **Valor** = precio × (1 − bonificación /
+`precio_total`) por unidad; primero baja la deuda de la operación (`aplicado_a_saldo`), el resto es
+plata que ya había puesto → saldo a favor (`credito_monto`), nunca más que lo cobrado. El navegador
+solo manda ítems y cantidades: el servidor recalcula todo (`calcularDevolucion`; copia para la vista
+previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia una, cambiar la otra).
+- **Saldo de una operación = vista `operacion_cobranza`** (cobrado, descuentos, `devuelto_a_saldo`,
+  saldo): única definición; no volver a copiar `precio_total − cobrado − descuentos`. `GET /operaciones/:id`
+  devuelve `saldo` y `devuelto_a_saldo`.
+- **Saldo a favor del cliente** = libro `cliente_saldo_favor_movimientos` (monto con signo; vista
+  `cliente_saldo_favor`), escrito SOLO por `asentarSaldoFavor()` (`lib/saldoFavor.ts`), espejo de
+  `proveedor_cc_movimientos`. Hoy lo crea la devolución; usarlo como medio de pago, reintegros en dinero,
+  cambios y anulación son las etapas 2-5 del plan.
+- Stock: `devolucion_cliente` es el tipo de lo que vuelve de un cliente; el viejo `devolucion` se usa con 3
+  sentidos (cancelar remito +, cancelar OC −, egreso manual −) y no se toca.
+- **Reservas**: la aprobación online reserva stock (`reserva` −); `liberarReservas()` (`lib/reservas.ts`) las
+  netea a cero al emitir remito, cancelar/rechazar o deshacer la aprobación (misma transacción).
 
 **Pedidos a proveedor** — contra-reembolso: `costo_envio` va al transporte, `monto_total =
 items + costo_envio`. Coverage stock-aware (`items_cubiertos`): un ítem está cubierto si tiene

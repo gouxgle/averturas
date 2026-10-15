@@ -7,7 +7,7 @@ import {
   AlertTriangle, ChevronRight, Eye, Phone,
   MessageCircle, Building2, DollarSign, BarChart3, Zap,
   PrinterIcon, FileText, CalendarClock, Search,
-  X, Send, ExternalLink, PenLine,
+  X, Send, ExternalLink, PenLine, Undo2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, cn, fechaDiaAR } from '@/lib/utils';
@@ -18,6 +18,7 @@ import { ModalProgramarEntrega } from '@/components/remitos/ModalProgramarEntreg
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 import { FirmaDigital } from '@/components/FirmaDigital';
 import { EntregaEnSitio } from '@/components/remitos/EntregaEnSitio';
+import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
 import { describirItemRemito, textoItemRemito, type ItemRemitoDescribible } from '@/lib/itemRemito';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
@@ -204,6 +205,7 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
   const [showEstado, setShowEstado] = useState(false);
   const [showProgramar, setShowProgramar] = useState(false);
   const [entrega, setEntrega] = useState<'entregar' | 'firmar' | null>(null);
+  const [devolviendo, setDevolviendo] = useState(false);
 
   useEffect(() => {
     api.get<RemitoDetalle>(`/remitos/${remito.id}`)
@@ -387,6 +389,12 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
               {['emitido', 'entregado'].includes(detalle.estado) && (
                 <div className="flex justify-center"><FacturasVinculadas remitoId={detalle.id} /></div>
               )}
+              {['emitido', 'entregado'].includes(detalle.estado) && (
+                <button onClick={() => setDevolviendo(true)} data-testid="btn-devolucion"
+                  className="w-full h-11 flex items-center justify-center gap-2 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-sm font-semibold transition-colors">
+                  <Undo2 size={14} /> Registrar devolución
+                </button>
+              )}
               {detalle.estado !== 'cancelado' && (
                 <button onClick={() => setShowEstado(true)}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-gray-600 hover:text-gray-600">
@@ -403,6 +411,11 @@ function RemitoDetailModal({ remito, onClose, onSaved }: {
           onClose={() => setShowEstado(false)}
           onEntregar={() => { setShowEstado(false); setEntrega('entregar'); }}
           onSaved={() => { setShowEstado(false); onSaved(); onClose(); }} />
+      )}
+
+      {devolviendo && detalle && (
+        <AsistenteDevolucion origen={{ remito_id: detalle.id }} onClose={() => setDevolviendo(false)}
+          onDone={() => { onSaved(); onClose(); }} />
       )}
 
       {entrega && detalle && (

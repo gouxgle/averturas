@@ -43,6 +43,7 @@ interface Operacion {
   estado: string;
   precio_total: number;
   cobrado_total: number;
+  devuelto_a_saldo?: number;
   forma_pago: string | null;
   cliente: { nombre: string | null; apellido: string | null };
 }
@@ -52,6 +53,7 @@ interface PresupuestoDetalle {
   numero: string;
   cliente_id: string;
   proveedor_id: string | null;
+  devuelto_a_saldo?: number;
   cliente: {
     id: string;
     nombre: string | null;
@@ -225,7 +227,7 @@ export function NuevoRecibo() {
       return;
     }
     api.get<Operacion[]>(`/operaciones?cliente_id=${clienteId}&estado=aprobado`)
-      .then(ops => setOperaciones(ops.filter(o => Number(o.cobrado_total) < Number(o.precio_total) - 0.01)))
+      .then(ops => setOperaciones(ops.filter(o => Number(o.cobrado_total) + Number(o.devuelto_a_saldo ?? 0) < Number(o.precio_total) - 0.01)))
       .catch(() => setOperaciones([]));
   }, [clienteId]);
 
@@ -273,7 +275,9 @@ export function NuevoRecibo() {
   // ── Cálculo del total de presupuesto ──────────────────────
   const totalPresupuesto = Number(operacionSel?.precio_total ?? 0);
   // Descuentos ya otorgados en recibos previos no son deuda — restarlos del saldo
-  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp - descuentosOp);
+  // Lo que las devoluciones aplicaron a la deuda tampoco hay que cobrarlo (viene de operacion_cobranza)
+  const devueltoOp = Number(presupuestoDetalle?.devuelto_a_saldo ?? 0);
+  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp - descuentosOp - devueltoOp);
 
   // ── Breakdown bonificación ────────────────────────────────
   // Descuentos disponibles en cualquier forma de pago (típicamente Contado, excepcionalmente otros)
@@ -303,7 +307,7 @@ export function NuevoRecibo() {
 
   // ── Saldo efectivo (aplica descuento si hay bonificación activa) ──
   const saldoEfectivo = (aplicaBonificacion && pctActual > 0)
-    ? Math.max(0, totalConBonif - cobradoOp)
+    ? Math.max(0, totalConBonif - cobradoOp - devueltoOp)
     : saldoOp;
 
   // ── Pago combinado ────────────────────────────────────────
@@ -510,7 +514,7 @@ export function NuevoRecibo() {
     const envio = presupuestoDetalle.forma_envio === 'envio_empresa'
       ? Number(presupuestoDetalle.costo_envio ?? 0) : 0;
     const desc  = Math.round(prod * pct * 100) / 100;
-    return Math.max(0, (prod - desc + inst + envio) - cobradoOp);
+    return Math.max(0, (prod - desc + inst + envio) - cobradoOp - devueltoOp);
   }
 
   // Al llegar el detalle de una operación con varias alternativas ofrecidas, no
@@ -823,7 +827,13 @@ export function NuevoRecibo() {
                 {descuentosOp > 0 && (
                   <p className="text-[11px] text-gray-600 mt-2">
                     {formatCurrency(totalPresupuesto)} − {formatCurrency(cobradoOp)} cobrados − {formatCurrency(descuentosOp)} bonificados
+                    {devueltoOp > 0 && <> − {formatCurrency(devueltoOp)} devueltos</>}
                     = <strong>{formatCurrency(saldoOp)}</strong>{saldoOp <= 0 ? ' · la operación ya está totalmente cancelada.' : '.'}
+                  </p>
+                )}
+                {descuentosOp === 0 && devueltoOp > 0 && (
+                  <p className="text-[11px] text-violet-600 mt-2">
+                    Ya se descontaron {formatCurrency(devueltoOp)} por devoluciones de esta operación.
                   </p>
                 )}
                 {saldoOp <= 0 && descuentosOp === 0 && cobradoOp > 0 && (

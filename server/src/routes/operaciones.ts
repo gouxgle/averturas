@@ -423,6 +423,7 @@ operaciones.get('/', async (c) => {
   const { rows } = await db.query(`
     SELECT o.*,
       COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
+      COALESCE((SELECT oc.devuelto_a_saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS devuelto_a_saldo,
       json_build_object(
         'id', c.id, 'nombre', c.nombre,
         'apellido', c.apellido, 'telefono', c.telefono
@@ -638,6 +639,7 @@ operaciones.get('/ventas-panel', async (c) => {
           ELSE 'baja'
         END AS prioridad,
         cob.cobrado_total,
+        cob.devuelto_a_saldo,
         cob.credito_visita,
         vtp.numero AS visita_pendiente_numero,
         EXISTS (
@@ -646,7 +648,7 @@ operaciones.get('/ventas-panel', async (c) => {
         CASE
           WHEN o.estado NOT IN ('aprobado','en_produccion','listo','instalado','entregado') THEN NULL
           WHEN cob.cobrado_total < 0.01 THEN 'sin_cobrar'
-          WHEN cob.cobrado_total + cob.descuentos_total >= o.precio_total - 0.01 THEN 'cobrado'
+          WHEN cob.cobrado_total + cob.descuentos_total + cob.devuelto_a_saldo >= o.precio_total - 0.01 THEN 'cobrado'
           ELSE 'seña'
         END AS estado_cobro,
         COALESCE(ped.tiene_pedido, false) AS tiene_pedido,
@@ -660,6 +662,8 @@ operaciones.get('/ventas-panel', async (c) => {
         SELECT
           COALESCE(SUM(r.monto_total),    0)::numeric AS cobrado_total,
           COALESCE(SUM(r.monto_descuento),0)::numeric AS descuentos_total,
+          -- Lo que las devoluciones aplicaron a la deuda (vista operacion_cobranza)
+          COALESCE((SELECT oc.devuelto_a_saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS devuelto_a_saldo,
           -- Parte del cobrado que viene de acreditar una visita técnica (no es seña del cliente)
           COALESCE(SUM(r.monto_total) FILTER (
             WHERE EXISTS (SELECT 1 FROM visitas_tecnicas vt WHERE vt.recibo_id = r.id)

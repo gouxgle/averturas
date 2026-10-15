@@ -28,6 +28,7 @@ const ENTIDAD_LABEL: Record<string, string> = {
   recibo: 'Recibo',
   remito: 'Remito',
   compra: 'Compra',
+  devolucion: 'Devolución',
 };
 
 const ACCION_CFG: Record<string, { label: string; cls: string }> = {
@@ -60,6 +61,7 @@ const ENTIDAD_FILTROS: { v: string; l: string }[] = [
   { v: 'presupuesto', l: 'Presupuestos' },
   { v: 'recibo', l: 'Recibos' },
   { v: 'remito', l: 'Remitos' },
+  { v: 'devolucion', l: 'Devoluciones' },
   { v: 'compra', l: 'Compras' },
 ];
 

@@ -130,6 +130,8 @@ const TIPO_MOV: Record<string, { label: string; icon: React.FC<{ size?: number; 
   egreso_remito:  { label: 'Egreso remito',  icon: Truck,           color: 'text-blue-600',    bg: 'bg-blue-50' },
   egreso_retiro:  { label: 'Retiro local',   icon: ArrowUpCircle,   color: 'text-indigo-600',  bg: 'bg-indigo-50' },
   devolucion:     { label: 'Devolución',     icon: RotateCcw,       color: 'text-amber-600',   bg: 'bg-amber-50' },
+  devolucion_cliente: { label: 'Devol. de cliente', icon: RotateCcw,    color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  reserva:        { label: 'Reserva',        icon: ArrowUpCircle,   color: 'text-slate-600',   bg: 'bg-slate-100' },
   ajuste:         { label: 'Ajuste',         icon: Wrench,          color: 'text-gray-600',    bg: 'bg-gray-100' },
 };
 

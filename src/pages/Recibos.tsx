@@ -124,6 +124,8 @@ interface ReciboDetalle {
   created_by_nombre: string | null;
   cobrado_operacion: number;
   total_descuentos_operacion: number;
+  /** Lo que las devoluciones aplicaron a la deuda de la operación. */
+  devuelto_a_saldo_operacion?: number;
   descuento_pct: number;
   monto_descuento: number;
   compromiso: { monto: number; fecha_vencimiento: string; tipo: string } | null;
@@ -348,7 +350,7 @@ function ReciboModal({ id, onClose, onAnulado }: {
 
   const esEmitido = rec?.estado === 'emitido';
   const saldo = rec?.operacion
-    ? Math.max(0, Number(rec.operacion.precio_total) - Number(rec.cobrado_operacion ?? 0) - Number(rec.total_descuentos_operacion ?? 0))
+    ? Math.max(0, Number(rec.operacion.precio_total) - Number(rec.cobrado_operacion ?? 0) - Number(rec.total_descuentos_operacion ?? 0) - Number(rec.devuelto_a_saldo_operacion ?? 0))
     : 0;
 
   return (

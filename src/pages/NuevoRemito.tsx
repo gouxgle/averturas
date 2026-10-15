@@ -211,7 +211,7 @@ export function NuevoRemito() {
     }
     setLoadingOp(true);
     Promise.all([
-      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; total_descuentos: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
+      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; total_descuentos: number; saldo?: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
       api.get<Array<{ id: string; numero: string; estado: string; proveedor: { nombre: string } }>>(`/pedidos?operacion_id=${operacionId}`),
     ]).then(([op, peds]) => {
       const itemsOp = op.items ?? [];
@@ -221,7 +221,8 @@ export function NuevoRemito() {
       setSelectedOp(new Set(
         itemsOp.flatMap((it, i) => (it.cantidad_entregada ?? 0) < it.cantidad ? [i] : [])
       ));
-      const saldo = Number(op.precio_total) - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0);
+      // `saldo` viene de la vista operacion_cobranza y ya descuenta lo devuelto
+      const saldo = op.saldo != null ? Number(op.saldo) : Number(op.precio_total) - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0);
       setSaldoPendiente(saldo > 0.01 ? saldo : null);
       const sinRecibir = peds.filter(p => p.estado !== 'cancelado' && p.estado !== 'recibido');
       setPedidosSinRecibir(sinRecibir);

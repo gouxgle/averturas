@@ -135,7 +135,7 @@ export async function prepararDesdeRecibo(reciboId: string): Promise<Propuesta |
 
 
 /** Lo que ya se facturó de cada ítem del presupuesto (facturas menos notas de crédito). */
-async function facturadoPorItem(operacionId: string): Promise<Map<string, number>> {
+export async function facturadoPorItem(operacionId: string): Promise<Map<string, number>> {
   const { rows } = await db.query(
     `SELECT i.operacion_item_id AS id,
             SUM(CASE WHEN c.tipo_doc = 'nota_credito' THEN -i.cantidad WHEN c.tipo_doc = 'factura' THEN i.cantidad ELSE 0 END) AS cant

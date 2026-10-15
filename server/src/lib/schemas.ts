@@ -822,6 +822,24 @@ export const RemitoSchema = z.object({
   entrega:          RemitoEntregaSchema.optional(),
 });
 
+// Devolución de un cliente (POST /devoluciones). El navegador manda solo qué ítems y cuántos:
+// precios, bonificación y reparto los recalcula el servidor (lib/devoluciones.ts).
+const DevolucionItemSchema = z.object({
+  remito_item_id:  zUUID,
+  cantidad:        z.number().int().positive('La cantidad debe ser mayor a 0'),
+  destino:         z.enum(['stock', 'no_reingresa']),
+  motivo_item:     zText(300),
+  estado_producto: z.enum(['nuevo', 'bueno', 'con_detalles']).optional().default('nuevo'),
+  precio_unitario: zPosNum.optional().nullable(),
+});
+
+export const DevolucionSchema = z.object({
+  remito_id:    zUUID.optional().nullable(),
+  operacion_id: zUUID.optional().nullable(),
+  motivo:       z.string().trim().min(3, 'Contá el motivo de la devolución').max(500),
+  items:        z.array(DevolucionItemSchema).min(1, 'Elegí al menos un ítem'),
+}).refine(b => !!b.remito_id || !!b.operacion_id, { message: 'Indicá el remito o la operación', path: ['remito_id'] });
+
 export const RemitoEstadoSchema = z.object({
   estado:             z.enum(['borrador','emitido','entregado','cancelado']),
   fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),

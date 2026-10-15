@@ -31,6 +31,7 @@ const CargarVisitaTecnica      = lazy(() => import('@/pages/CargarVisitaTecnica'
 const Proveedores              = lazy(() => import('@/pages/Proveedores').then(m => ({ default: m.Proveedores })));
 const ProveedorPrecios         = lazy(() => import('@/pages/ProveedorPrecios').then(m => ({ default: m.ProveedorPrecios })));
 const Remitos                  = lazy(() => import('@/pages/Remitos').then(m => ({ default: m.Remitos })));
+const Devoluciones             = lazy(() => import('@/pages/Devoluciones').then(m => ({ default: m.Devoluciones })));
 const NuevoRemito              = lazy(() => import('@/pages/NuevoRemito').then(m => ({ default: m.NuevoRemito })));
 const Recibos                  = lazy(() => import('@/pages/Recibos').then(m => ({ default: m.Recibos })));
 const NuevoRecibo              = lazy(() => import('@/pages/NuevoRecibo').then(m => ({ default: m.NuevoRecibo })));
@@ -49,6 +50,7 @@ const ImportarClientes         = lazy(() => import('@/pages/ImportarClientes').t
 const ImprimirPresupuesto      = lazy(() => import('@/pages/print/ImprimirPresupuesto').then(m => ({ default: m.ImprimirPresupuesto })));
 const ImprimirPresupuestoPublico = lazy(() => import('@/pages/print/ImprimirPresupuestoPublico').then(m => ({ default: m.ImprimirPresupuestoPublico })));
 const ImprimirRemito           = lazy(() => import('@/pages/print/ImprimirRemito').then(m => ({ default: m.ImprimirRemito })));
+const ImprimirDevolucion       = lazy(() => import('@/pages/print/ImprimirDevolucion').then(m => ({ default: m.ImprimirDevolucion })));
 const ImprimirRecibo           = lazy(() => import('@/pages/print/ImprimirRecibo').then(m => ({ default: m.ImprimirRecibo })));
 const FormularioCliente        = lazy(() => import('@/pages/print/FormularioCliente').then(m => ({ default: m.FormularioCliente })));
 const ImprimirVisitaTecnica    = lazy(() => import('@/pages/print/ImprimirVisitaTecnica').then(m => ({ default: m.ImprimirVisitaTecnica })));
@@ -94,6 +96,7 @@ export default function App() {
                 {/* Páginas de impresión — sin AppLayout */}
                 <Route path="/imprimir/presupuesto/:id"  element={<ImprimirPresupuesto />} />
                 <Route path="/imprimir/remito/:id"       element={<ImprimirRemito />} />
+                <Route path="/imprimir/devolucion/:id"   element={<ImprimirDevolucion />} />
                 <Route path="/imprimir/recibo/:id"       element={<ImprimirRecibo />} />
                 <Route path="/imprimir/formulario-cliente" element={<FormularioCliente />} />
                 <Route path="/imprimir/visita-tecnica"     element={<ImprimirVisitaTecnica />} />
@@ -130,6 +133,7 @@ export default function App() {
                   <Route path="/proveedores" element={<Proveedores />} />
                   <Route path="/proveedores/:id/precios" element={<ProveedorPrecios />} />
                   <Route path="/remitos" element={<Remitos />} />
+                  <Route path="/devoluciones" element={<Devoluciones />} />
                   <Route path="/remitos/nuevo" element={<NuevoRemito />} />
                   <Route path="/remitos/:id/editar" element={<NuevoRemito />} />
                   {/* Compras (SC → PC → OC). /pedidos* redirige: el flujo viejo vive en /compras/oc/* */}

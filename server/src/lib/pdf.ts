@@ -133,6 +133,8 @@ export interface ReciboPDF {
   created_by_nombre: string | null;
   cobrado_operacion: number;
   total_descuentos_operacion: number;
+  /** Lo que las devoluciones aplicaron a la deuda de la operación (baja el saldo). */
+  devuelto_a_saldo_operacion?: number;
   compromiso: CompromisoPDF | null;
   /** Última revisión enviada al cliente de la proforma vinculada, si tiene alguna. */
   proforma_revision?: number | null;
@@ -268,6 +270,7 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
       Number(recibo.operacion.precio_total)
       - Number(recibo.cobrado_operacion ?? 0)
       - totalDesc
+      - Number(recibo.devuelto_a_saldo_operacion ?? 0)
     );
     const fvStr = recibo.compromiso?.fecha_vencimiento
       ? fmtFecha(recibo.compromiso.fecha_vencimiento)

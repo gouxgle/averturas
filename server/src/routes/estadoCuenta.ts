@@ -41,7 +41,9 @@ estadoCuenta.get('/', async (c) => {
         ops.total                                            AS total_presupuestado,
         COALESCE(rec.total, 0)                               AS total_cobrado,
         COALESCE(rec.descuentos, 0)                          AS total_descuentos,
-        ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0) AS saldo,
+        ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0) - COALESCE(dev.aplicado, 0) AS saldo,
+        COALESCE(dev.aplicado, 0)                            AS total_devuelto,
+        COALESCE(sf.saldo, 0)::numeric                       AS saldo_favor,
         COALESCE(pend.count, 0)                              AS pendientes_count,
         COALESCE(pend.total, 0)                              AS pendientes_monto,
         COALESCE(comp.total, 0)                              AS compromisos_pendientes,
@@ -52,9 +54,9 @@ estadoCuenta.get('/', async (c) => {
         ops.ultima                                           AS ultima_compra_fecha,
         (CURRENT_DATE - ops.primera::date)                   AS dias_desde_primera_op,
         (CURRENT_DATE - ops.ultima::date)                    AS dias_desde_ultima_compra,
-        COALESCE(ROUND(100.0 * (COALESCE(rec.total,0) + COALESCE(rec.descuentos,0)) / NULLIF(ops.total,0), 0), 0)::int AS pct_cobrado,
+        COALESCE(ROUND(100.0 * (COALESCE(rec.total,0) + COALESCE(rec.descuentos,0) + COALESCE(dev.aplicado,0)) / NULLIF(ops.total,0), 0), 0)::int AS pct_cobrado,
         CASE
-          WHEN (ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0)) <= 0.01 THEN 'saldado'
+          WHEN (ops.total - COALESCE(rec.total, 0) - COALESCE(rec.descuentos, 0) - COALESCE(dev.aplicado, 0)) <= 0.01 THEN 'saldado'
           WHEN COALESCE(comp.compromisos_vencidos, 0) > 0   THEN 'vencido'
           WHEN comp.proximo_vencimiento IS NOT NULL
             AND comp.proximo_vencimiento <= CURRENT_DATE + 7 THEN 'por_vencer'
@@ -84,6 +86,15 @@ estadoCuenta.get('/', async (c) => {
         FROM recibos
         WHERE cliente_id = c.id AND estado != 'anulado'
       ) rec ON true
+      -- Lo que las devoluciones aplicaron a la deuda de las operaciones aprobadas (bajan el saldo)
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(d.aplicado_a_saldo), 0) AS aplicado
+        FROM devoluciones d
+        JOIN operaciones o2 ON o2.id = d.operacion_id
+        WHERE d.cliente_id = c.id AND d.estado = 'emitida'
+          AND o2.estado IN ('aprobado','en_produccion','listo','instalado','entregado')
+      ) dev ON true
+      LEFT JOIN cliente_saldo_favor sf ON sf.cliente_id = c.id
       LEFT JOIN LATERAL (
         SELECT
           COALESCE(SUM(monto) FILTER (WHERE estado = 'pendiente'), 0) AS total,

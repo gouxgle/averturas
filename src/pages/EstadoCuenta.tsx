@@ -59,12 +59,20 @@ interface OperacionDetalle {
   genera_saldo: boolean;
 }
 
+interface DevolucionResumen {
+  id: string; numero: string; fecha: string; valor_total: number; aplicado_a_saldo: number;
+  reintegro_monto: number; credito_monto: number; operacion_id: string | null; motivo: string;
+}
+
 interface EstadoCuentaData {
   cliente: ClienteInfo;
   operaciones: OperacionDetalle[];
   recibos_directos: ReciboResumen[];
   compromisos: Compromiso[];
-  totales: { presupuestado: number; cobrado: number; saldo: number; pendiente_aprobacion: number };
+  devoluciones?: DevolucionResumen[];
+  /** Plata a favor del cliente (de devoluciones), para descontar de una próxima compra. */
+  saldo_favor?: number;
+  totales: { presupuestado: number; cobrado: number; saldo: number; pendiente_aprobacion: number; devuelto?: number };
 }
 
 // ── Ledger ───────────────────────────────────────────────────
@@ -77,7 +85,7 @@ interface Movimiento {
   saldo: number;
 }
 
-function buildLedger(operaciones: OperacionDetalle[], recibosDirectos: ReciboResumen[]): Movimiento[] {
+function buildLedger(operaciones: OperacionDetalle[], recibosDirectos: ReciboResumen[], devoluciones: DevolucionResumen[] = []): Movimiento[] {
   const entries: Omit<Movimiento, 'saldo'>[] = [];
 
   for (const op of operaciones) {
@@ -110,6 +118,16 @@ function buildLedger(operaciones: OperacionDetalle[], recibosDirectos: ReciboRes
       concepto: r.forma_pago + (r.concepto ? ` · ${r.concepto}` : ''),
       monto: Number(r.monto_total),
     });
+  }
+
+  // Lo que una devolución aplicó a la deuda de una operación aprobada baja el saldo (como un abono).
+  const aprobadas = new Set(operaciones.filter(o => o.genera_saldo).map(o => o.id));
+  for (const d of devoluciones) {
+    if (d.operacion_id && aprobadas.has(d.operacion_id) && Number(d.aplicado_a_saldo) > 0) {
+      entries.push({
+        fecha: d.fecha, tipo: 'abono', numero: d.numero, concepto: `Devolución · ${d.motivo}`, monto: Number(d.aplicado_a_saldo),
+      });
+    }
   }
 
   entries.sort((a, b) => a.fecha.localeCompare(b.fecha));
@@ -293,7 +311,8 @@ export function EstadoCuenta() {
 
   const { cliente, operaciones, recibos_directos, compromisos, totales } = data;
   const nombre = clienteNombre(cliente);
-  const ledger = buildLedger(operaciones, recibos_directos);
+  const ledger = buildLedger(operaciones, recibos_directos, data.devoluciones ?? []);
+  const saldoFavor = Number(data.saldo_favor ?? 0);
   const saldo = totales.saldo;
   const saldoNegativo = saldo < -0.01; // pagó de más
   const saldado = Math.abs(saldo) <= 0.01;
@@ -392,6 +411,12 @@ export function EstadoCuenta() {
                   style={{ width: `${pctGlobal}%` }} />
               </div>
               <span className="text-xs font-semibold text-gray-600 shrink-0">{pctGlobal}% cobrado</span>
+            </div>
+          )}
+          {saldoFavor > 0.01 && (
+            <div className="mt-3 pt-3 border-t border-violet-200 flex items-center justify-between gap-2 text-xs">
+              <span className="text-violet-700 font-semibold">Saldo a favor del cliente (por devoluciones)</span>
+              <span className="text-base font-bold font-mono text-violet-700">{formatCurrency(saldoFavor)}</span>
             </div>
           )}
           {/* Compromisos pendientes como referencia */}

@@ -40,6 +40,7 @@ interface ReciboData {
   created_by_nombre: string | null;
   cobrado_operacion: number;
   total_descuentos_operacion: number;
+  devuelto_a_saldo_operacion?: number;
   compromiso: { monto: number; fecha_vencimiento: string; tipo: string } | null;
   descuento_pct:    number;
   monto_lista:      number;
@@ -387,6 +388,7 @@ export function ImprimirRecibo() {
                   Number(recibo.operacion.precio_total)
                   - Number(recibo.cobrado_operacion ?? 0)
                   - Number(recibo.total_descuentos_operacion ?? 0)
+                  - Number(recibo.devuelto_a_saldo_operacion ?? 0)
                 );
                 if (saldo < 0.01) return null;
                 return (

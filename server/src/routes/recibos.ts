@@ -466,19 +466,16 @@ recibos.get('/:id', async (c) => {
   // Total cobrado + descuentos otorgados para la operación (para calcular saldo real)
   let cobrado_operacion = 0;
   let total_descuentos_operacion = 0;
+  let devuelto_a_saldo_operacion = 0;
   if (r.operacion_id) {
-    const { rows: [tot] } = await db.query(`
-      SELECT
-        COALESCE(SUM(monto_total),     0)::numeric AS total_cobrado,
-        COALESCE(SUM(monto_descuento), 0)::numeric AS total_descuentos
-      FROM recibos
-      WHERE operacion_id = $1 AND estado = 'emitido'
-    `, [r.operacion_id]);
-    cobrado_operacion          = Number(tot?.total_cobrado   ?? 0);
-    total_descuentos_operacion = Number(tot?.total_descuentos ?? 0);
+    const { rows: [tot] } = await db.query(
+      `SELECT cobrado, descuentos, devuelto_a_saldo FROM operacion_cobranza WHERE operacion_id = $1`, [r.operacion_id]);
+    cobrado_operacion          = Number(tot?.cobrado          ?? 0);
+    total_descuentos_operacion = Number(tot?.descuentos       ?? 0);
+    devuelto_a_saldo_operacion = Number(tot?.devuelto_a_saldo ?? 0);
   }
 
-  return c.json({ ...r, items, compromiso, cobrado_operacion, total_descuentos_operacion });
+  return c.json({ ...r, items, compromiso, cobrado_operacion, total_descuentos_operacion, devuelto_a_saldo_operacion });
 });
 
 // Comprobantes: acepta el array nuevo o el campo viejo; comprobante_url espeja el primero.
@@ -761,21 +758,20 @@ recibos.post('/:id/enviar-whatsapp', async (c) => {
   // Total cobrado + descuentos para saldo en el PDF
   let cobrado_operacion = 0;
   let total_descuentos_operacion = 0;
+  let devuelto_a_saldo_operacion = 0;
   if (r.operacion_id) {
     const { rows: [tot] } = await db.query(
-      `SELECT COALESCE(SUM(monto_total), 0) AS total, COALESCE(SUM(monto_descuento), 0) AS total_desc
-       FROM recibos WHERE operacion_id=$1 AND estado='emitido'`,
-      [r.operacion_id]
-    );
-    cobrado_operacion          = Number(tot?.total      ?? 0);
-    total_descuentos_operacion = Number(tot?.total_desc ?? 0);
+      `SELECT cobrado, descuentos, devuelto_a_saldo FROM operacion_cobranza WHERE operacion_id = $1`, [r.operacion_id]);
+    cobrado_operacion          = Number(tot?.cobrado          ?? 0);
+    total_descuentos_operacion = Number(tot?.descuentos       ?? 0);
+    devuelto_a_saldo_operacion = Number(tot?.devuelto_a_saldo ?? 0);
   }
 
   const numero = normalizarNumeroAR(r.cliente.telefono);
 
   // Generar PDF
   const empresa = emp ?? { nombre: 'César Brítez Aberturas', cuit: null, telefono: null, email: null, direccion: null };
-  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion, total_descuentos_operacion, compromiso }, empresa);
+  const pdfBuffer = await generarPDFRecibo({ ...r, items, cobrado_operacion, total_descuentos_operacion, devuelto_a_saldo_operacion, compromiso }, empresa);
 
   const nombre = r.cliente.tipo_persona === 'juridica'
     ? (r.cliente.razon_social ?? 'estimado/a')

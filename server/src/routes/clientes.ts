@@ -619,6 +619,8 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     { rows: recibos_all },
     { rows: remitos_all },
     { rows: compromisos_all },
+    { rows: devoluciones_all },
+    { rows: [sf] },
   ] = await Promise.all([
     db.query(`
       SELECT c.id, c.nombre, c.apellido, c.razon_social, c.tipo_persona,
@@ -690,9 +692,23 @@ clientes.get('/:id/estado-cuenta', async (c) => {
       WHERE cp.cliente_id = $1
       ORDER BY cp.fecha_vencimiento ASC, cp.created_at ASC
     `, [id]),
+    // Devoluciones vigentes: bajan la deuda de la operación (aplicado_a_saldo) o quedan a favor del cliente.
+    db.query(`
+      SELECT d.id, d.numero, d.fecha, d.valor_total, d.aplicado_a_saldo, d.reintegro_monto, d.credito_monto,
+             d.operacion_id, d.motivo
+      FROM devoluciones d
+      WHERE d.cliente_id = $1 AND d.estado = 'emitida'
+      ORDER BY d.fecha ASC, d.created_at ASC
+    `, [id]),
+    db.query(`SELECT COALESCE((SELECT saldo FROM cliente_saldo_favor WHERE cliente_id = $1), 0)::numeric AS saldo`, [id]),
   ]);
 
   if (!cliente) return c.json({ error: 'Cliente no encontrado' }, 404);
+
+  const devueltoPorOp: Record<string, number> = {};
+  for (const d of devoluciones_all) {
+    if (d.operacion_id) devueltoPorOp[d.operacion_id] = (devueltoPorOp[d.operacion_id] ?? 0) + Number(d.aplicado_a_saldo);
+  }
 
   // Agrupar recibos y remitos por operacion
   const recibosMap: Record<string, typeof recibos_all> = {};
@@ -719,6 +735,7 @@ clientes.get('/:id/estado-cuenta', async (c) => {
   let totalPresupuestado = 0;
   let totalCobrado = 0;
   let totalDescuentos = 0;
+  let totalDevuelto = 0;
   let totalPendienteAprobacion = 0;
 
   const operacionesConDetalle = operaciones.map((op: any) => {
@@ -727,16 +744,18 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     const generaSaldo = ESTADOS_APROBADOS.has(op.estado);
     const cobrado = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_total), 0);
     const descuentos = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_descuento ?? 0), 0);
-    // saldo financiero solo aplica a operaciones aprobadas — la bonificación no es deuda
-    const saldo = generaSaldo ? Number(op.precio_total) - cobrado - descuentos : null;
+    const devuelto = devueltoPorOp[op.id] ?? 0;
+    // saldo financiero solo aplica a operaciones aprobadas — la bonificación no es deuda y lo devuelto baja la deuda
+    const saldo = generaSaldo ? Number(op.precio_total) - cobrado - descuentos - devuelto : null;
     if (generaSaldo) {
       totalPresupuestado += Number(op.precio_total);
       totalCobrado += cobrado;
       totalDescuentos += descuentos;
+      totalDevuelto += devuelto;
     } else {
       totalPendienteAprobacion += Number(op.precio_total);
     }
-    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado: generaSaldo ? cobrado : null, descuentos: generaSaldo ? descuentos : null, saldo, genera_saldo: generaSaldo };
+    return { ...op, recibos: recibosOp, remitos: remitosOp, cobrado: generaSaldo ? cobrado : null, descuentos: generaSaldo ? descuentos : null, devuelto: generaSaldo ? devuelto : null, saldo, genera_saldo: generaSaldo };
   });
 
   const cobradoDirecto = recibosDirectos.reduce((s, r) => s + Number(r.monto_total), 0);
@@ -749,11 +768,14 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     operaciones: operacionesConDetalle,
     recibos_directos: recibosDirectos,
     compromisos: compromisos_all,
+    devoluciones: devoluciones_all,
+    saldo_favor: Number(sf?.saldo ?? 0),
     totales: {
       presupuestado: totalPresupuestado,
       cobrado: totalCobrado,
       descuentos: totalDescuentos,
-      saldo: totalPresupuestado - totalCobrado - totalDescuentos,
+      devuelto: totalDevuelto,
+      saldo: totalPresupuestado - totalCobrado - totalDescuentos - totalDevuelto,
       pendiente_aprobacion: totalPendienteAprobacion,
     },
   });
