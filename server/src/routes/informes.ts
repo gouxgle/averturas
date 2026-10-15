@@ -57,9 +57,13 @@ informes.get('/resumen', async (c) => {
          WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
            AND o.es_venta_rapida = true
         ) AS ventas_rapidas_monto,
-        (SELECT COALESCE(SUM(monto_total), 0)::numeric FROM recibos
-         WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
+        -- Cobrado = lo que entró a caja: el saldo a favor aplicado es crédito de una compra ya cobrada
+        (SELECT COALESCE(SUM(rpe.monto), 0)::numeric FROM recibo_pagos_efectivos rpe JOIN recibos r ON r.id = rpe.recibo_id
+         WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date AND NOT rpe.es_saldo_favor
         ) AS cobrado_periodo,
+        (SELECT COALESCE(SUM(rpe.monto), 0)::numeric FROM recibo_pagos_efectivos rpe JOIN recibos r ON r.id = rpe.recibo_id
+         WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date AND rpe.es_saldo_favor
+        ) AS saldo_favor_aplicado,
         (SELECT COALESCE(SUM(monto), 0)::numeric FROM compromisos_pago WHERE estado = 'pendiente') AS pendiente_cobro,
         (SELECT COUNT(*)::int FROM catalogo_productos cp
          WHERE cp.activo = true AND cp.stock_minimo > 0
@@ -79,8 +83,8 @@ informes.get('/resumen', async (c) => {
          FROM remitos rem JOIN operaciones o ON o.id = rem.operacion_id
          WHERE rem.estado = 'entregado' AND rem.fecha_entrega_real BETWEEN $1::date AND $2::date
         ) AS ventas_periodo,
-        (SELECT COALESCE(SUM(monto_total), 0)::numeric FROM recibos
-         WHERE estado = 'emitido' AND fecha BETWEEN $1::date AND $2::date
+        (SELECT COALESCE(SUM(rpe.monto), 0)::numeric FROM recibo_pagos_efectivos rpe JOIN recibos r ON r.id = rpe.recibo_id
+         WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date AND NOT rpe.es_saldo_favor
         ) AS cobrado_periodo
     `, [desdePrev, hastaPrev]),
 
@@ -236,6 +240,7 @@ informes.get('/resumen', async (c) => {
       FROM recibo_pagos_efectivos rpe
       JOIN recibos r ON r.id = rpe.recibo_id
       WHERE r.estado = 'emitido' AND r.fecha BETWEEN $1::date AND $2::date
+        AND NOT rpe.es_saldo_favor      -- crédito del cliente, no es caja (va aparte en kpis.saldo_favor_aplicado)
       GROUP BY rpe.forma_pago
       ORDER BY monto_total DESC
     `, [desde, hasta]),
@@ -386,6 +391,8 @@ informes.get('/resumen', async (c) => {
       ventas_vs_anterior:   pct(ventas_periodo, ventas_prev),
       cobrado_periodo,
       cobrado_vs_anterior:  pct(cobrado_periodo, cobrado_prev),
+      // Pagado con saldo a favor del cliente (devoluciones): baja deuda pero no es caja, por eso va aparte
+      saldo_favor_aplicado: Number(stats?.saldo_favor_aplicado ?? 0),
       pendiente_cobro:      Number(stats?.pendiente_cobro  ?? 0),
       stock_critico:        Number(stats?.stock_critico     ?? 0),
       entregas_atrasadas:   Number(stats?.entregas_atrasadas ?? 0),

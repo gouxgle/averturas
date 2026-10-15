@@ -609,6 +609,23 @@ clientes.post('/:id/enviar-estado-cuenta-whatsapp', async (c) => {
   return c.json({ enviado: true, numero });
 });
 
+// GET /:id/saldo-favor — saldo a favor del cliente (devoluciones) y sus últimos movimientos (ANTES de /:id)
+clientes.get('/:id/saldo-favor', async (c) => {
+  const { id } = c.req.param();
+  const { rows: movimientos } = await db.query(`
+    SELECT m.id, m.fecha, m.monto, m.tipo, m.descripcion, d.numero AS devolucion_numero, r.numero AS recibo_numero
+    FROM cliente_saldo_favor_movimientos m
+    LEFT JOIN devoluciones d ON d.id = m.devolucion_id
+    LEFT JOIN recibos r ON r.id = m.recibo_id
+    WHERE m.cliente_id = $1
+    ORDER BY m.created_at DESC
+    LIMIT 50
+  `, [id]);
+  const { rows: [s] } = await db.query(
+    `SELECT COALESCE((SELECT saldo FROM cliente_saldo_favor WHERE cliente_id = $1), 0)::numeric AS saldo`, [id]);
+  return c.json({ saldo: Number(s.saldo), movimientos });
+});
+
 // GET /:id/estado-cuenta — resumen financiero completo del cliente (ANTES de /:id)
 clientes.get('/:id/estado-cuenta', async (c) => {
   const { id } = c.req.param();

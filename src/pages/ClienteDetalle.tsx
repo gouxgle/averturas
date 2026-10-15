@@ -161,6 +161,8 @@ export function ClienteDetalle() {
   // Oportunidades futuras abiertas
   const [oportunidades, setOportunidades] = useState<Oportunidad[]>([]);
   const [showNuevaOportunidad, setShowNuevaOportunidad] = useState(false);
+  // Saldo a favor por devoluciones (se usa como medio de pago en un recibo)
+  const [saldoFavor, setSaldoFavor] = useState(0);
   const [editandoOportunidad, setEditandoOportunidad] = useState<Oportunidad | null>(null);
 
   async function load() {
@@ -182,7 +184,10 @@ export function ClienteDetalle() {
     } catch { /* silencioso */ }
   }
 
-  useEffect(() => { load(); cargarOportunidades(); }, [id]);
+  useEffect(() => {
+    load(); cargarOportunidades();
+    if (id) api.get<{ saldo: number }>(`/clientes/${id}/saldo-favor`).then(r => setSaldoFavor(Number(r.saldo) || 0)).catch(() => setSaldoFavor(0));
+  }, [id]);
 
   function onUpdateOportunidad(actualizada: Oportunidad) {
     setOportunidades(prev =>
@@ -340,7 +345,9 @@ export function ClienteDetalle() {
 
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-4">
-        <div className="flex items-center gap-3">
+        {/* flex-wrap: en el celular las acciones bajan a su propia fila; antes quedaban al lado y el
+            nombre del cliente se aplastaba hasta desaparecer detrás de los botones. */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
           <button onClick={() => navigate('/clientes')}
             className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0">
             <ArrowLeft size={17} className="text-gray-600" />
@@ -355,7 +362,7 @@ export function ClienteDetalle() {
           </div>
 
           {/* Nombre + badges */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-[9rem]">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-bold text-gray-900 truncate">{nombre}</h1>
               <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium border shrink-0',
@@ -391,11 +398,18 @@ export function ClienteDetalle() {
                   <MapPin size={10} /> {cliente.localidad}
                 </span>
               )}
+              {saldoFavor > 0.009 && (
+                <Link to={`/clientes/${cliente.id}/estado-cuenta`} data-testid="saldo-favor-cliente"
+                  title="Saldo a favor por devoluciones: se descuenta al cobrar un recibo"
+                  className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 hover:bg-violet-200">
+                  A favor {formatCurrency(saldoFavor)}
+                </Link>
+              )}
             </div>
           </div>
 
           {/* Acciones */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
             <Link to={`/clientes/${cliente.id}/editar`}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-lg text-sm font-medium transition-colors">
               <Edit3 size={14} /> Editar

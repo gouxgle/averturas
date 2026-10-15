@@ -392,8 +392,13 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   devuelve `saldo` y `devuelto_a_saldo`.
 - **Saldo a favor del cliente** = libro `cliente_saldo_favor_movimientos` (monto con signo; vista
   `cliente_saldo_favor`), escrito SOLO por `asentarSaldoFavor()` (`lib/saldoFavor.ts`), espejo de
-  `proveedor_cc_movimientos`. Hoy lo crea la devolución; usarlo como medio de pago, reintegros en dinero,
-  cambios y anulación son las etapas 2-5 del plan.
+  `proveedor_cc_movimientos`. Lo crea la devolución (`credito_devolucion`) y se **gasta como medio de pago**
+  «Saldo a favor» (`FORMA_PAGO_SALDO_FAVOR`, nombre reservado): `POST /recibos` bloquea al cliente, valida
+  que alcance (409) y asienta `consumo_recibo`; anular el recibo devuelve el crédito (`anulacion`, una vez);
+  un recibo pagado con saldo a favor **no se edita** (409). **No es caja**: la vista `recibo_pagos_efectivos`
+  trae `es_saldo_favor` y los informes (cobrado, métodos de pago, tablero de recibos) lo excluyen y lo
+  muestran aparte (`kpis.saldo_favor_aplicado`). `GET /clientes/:id/saldo-favor` da saldo y movimientos.
+  Reintegros en dinero, cambios y anulación de devoluciones son las etapas 3-5 del plan.
 - Stock: `devolucion_cliente` es el tipo de lo que vuelve de un cliente; el viejo `devolucion` se usa con 3
   sentidos (cancelar remito +, cancelar OC −, egreso manual −) y no se toca.
 - **Reservas**: la aprobación online reserva stock (`reserva` −); `liberarReservas()` (`lib/reservas.ts`) las

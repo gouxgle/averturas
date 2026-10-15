@@ -2,6 +2,22 @@ import type { PoolClient } from 'pg';
 
 type Queryable = Pick<PoolClient, 'query'>;
 
+/** Nombre reservado de la forma de pago que consume el saldo a favor (también en la vista recibo_pagos_efectivos). */
+export const FORMA_PAGO_SALDO_FAVOR = 'Saldo a favor';
+
+/**
+ * Cuánto de un recibo se paga con saldo a favor: el total si es el medio único, o la suma de los
+ * renglones "Saldo a favor" si es un pago combinado (≥ 2 medios).
+ */
+export function montoEnSaldoFavor(
+  formaPago: string | null | undefined,
+  pagos: { forma_pago: string; monto: number | string }[] | null,
+  montoTotal: number,
+): number {
+  if (pagos) return pagos.filter(p => p.forma_pago === FORMA_PAGO_SALDO_FAVOR).reduce((a, p) => a + Number(p.monto), 0);
+  return formaPago === FORMA_PAGO_SALDO_FAVOR ? Number(montoTotal) : 0;
+}
+
 export type TipoSaldoFavor = 'credito_devolucion' | 'consumo_recibo' | 'reintegro' | 'ajuste' | 'anulacion';
 
 /**

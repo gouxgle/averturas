@@ -12,6 +12,7 @@ import { registrarActividad } from '../lib/actividad.js';
 import { hoyAR } from '../lib/fechas.js';
 import { siguienteNumero } from '../lib/numeracion.js';
 import { facturadoDe } from '../lib/fiscal/origenes.js';
+import { asentarSaldoFavor, saldoFavorDe, montoEnSaldoFavor } from '../lib/saldoFavor.js';
 
 const recibos = new Hono();
 
@@ -236,6 +237,7 @@ recibos.get('/tablero', async (c) => {
       FROM recibo_pagos_efectivos rpe
       JOIN recibos r ON r.id = rpe.recibo_id
       WHERE r.estado = 'emitido' AND r.fecha >= $1::date
+        AND NOT rpe.es_saldo_favor      -- crédito del cliente, no es dinero que entre
       GROUP BY grupo
       ORDER BY total DESC
     `, [mesStr]),
@@ -499,9 +501,21 @@ recibos.post('/', async (c) => {
   const pagos = norm.pagos;
   const comprobantes = resolverComprobantes(b);
 
+  const usaSaldoFavor = montoEnSaldoFavor(b.forma_pago, pagos, b.monto_total);
+
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
+    // Pagar con saldo a favor: se bloquea al cliente y se valida que alcance ANTES de emitir (dos
+    // recibos simultáneos no pueden gastar el mismo crédito).
+    if (usaSaldoFavor > 0.009) {
+      await client.query(`SELECT id FROM clientes WHERE id = $1 FOR UPDATE`, [b.cliente_id]);
+      const disponible = await saldoFavorDe(client, b.cliente_id);
+      if (usaSaldoFavor > disponible + 0.009) {
+        await client.query('ROLLBACK');
+        return c.json({ error: `El cliente tiene $ ${disponible.toLocaleString('es-AR')} a favor y el recibo usa $ ${usaSaldoFavor.toLocaleString('es-AR')}. Cobrá la diferencia con otro medio (pago combinado).` }, 409);
+      }
+    }
     const numero = await nextNumeroRecibo(client);
     const montoLista     = Number(b.monto_lista     ?? b.monto_total);
     const montoDescuento = Number(b.monto_descuento ?? 0);
@@ -545,6 +559,13 @@ recibos.post('/', async (c) => {
     }
 
     await guardarPagos(client, rec.id, pagos);
+
+    if (usaSaldoFavor > 0.009) {
+      await asentarSaldoFavor(client, {
+        cliente_id: b.cliente_id, tipo: 'consumo_recibo', monto: usaSaldoFavor, recibo_id: rec.id,
+        descripcion: `Pago del recibo ${rec.numero}`, created_by: user?.id ?? null,
+      });
+    }
 
     // Compromiso de saldo (pago parcial)
     const comp = b.compromiso;
@@ -602,6 +623,12 @@ recibos.put('/:id', async (c) => {
   const normUpd = normalizarPagos(b.pagos, b.monto_total);
   if (!normUpd.ok) return c.json({ error: normUpd.error }, 422);
   const pagosUpd = normUpd.pagos;
+  // Un recibo pagado con saldo a favor consumió crédito del cliente: editarlo desajustaría ese libro.
+  const { rows: [consumio] } = await db.query(
+    `SELECT 1 AS si FROM cliente_saldo_favor_movimientos WHERE recibo_id = $1 AND tipo = 'consumo_recibo'`, [id]);
+  if (consumio || montoEnSaldoFavor(b.forma_pago, pagosUpd, b.monto_total) > 0) {
+    return c.json({ error: 'Un recibo pagado con saldo a favor no se edita: anulalo (el crédito vuelve al cliente) y emití otro.' }, 409);
+  }
   const comprobantesUpd = resolverComprobantes(b);
 
   const client: pkg.PoolClient = await db.connect();
@@ -692,6 +719,19 @@ recibos.patch('/:id/anular', async (c) => {
     if (!rec) {
       await client.query('ROLLBACK');
       return c.json({ error: 'Recibo no encontrado o ya anulado' }, 400);
+    }
+
+    // Si el recibo se pagó (en todo o en parte) con saldo a favor, ese crédito vuelve al cliente.
+    const { rows: [gastado] } = await client.query(`
+      SELECT COALESCE(-SUM(monto) FILTER (WHERE tipo = 'consumo_recibo'), 0) AS consumido,
+             COUNT(*) FILTER (WHERE tipo = 'anulacion') AS ya_devuelto
+      FROM cliente_saldo_favor_movimientos WHERE recibo_id = $1
+    `, [id]);
+    if (Number(gastado.consumido) > 0 && Number(gastado.ya_devuelto) === 0) {
+      await asentarSaldoFavor(client, {
+        cliente_id: rec.cliente_id, tipo: 'anulacion', monto: Number(gastado.consumido), recibo_id: id,
+        descripcion: `Recibo ${rec.numero} anulado: el crédito vuelve al cliente`, created_by: c.get('user')?.id ?? null,
+      });
     }
 
     // Si el recibo era de una visita técnica, la visita no puede seguir diciendo "cobrada"

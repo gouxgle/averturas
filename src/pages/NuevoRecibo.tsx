@@ -12,7 +12,7 @@ import { toastApiError, CAMPO_LABELS } from '@/lib/apiError';
 import { MontoInput } from '@/components/MontoInput';
 import { PDFDialog } from '@/components/PDFDialog';
 import { SectionCard } from '@/components/SectionCard';
-import { FORMAS_PAGO } from '@/lib/formasPago';
+import { FORMAS_PAGO, FORMA_PAGO_SALDO_FAVOR } from '@/lib/formasPago';
 
 // ── Conceptos predefinidos ────────────────────────────────────
 const CONCEPTOS_PREDEFINIDOS = [
@@ -108,6 +108,8 @@ export function NuevoRecibo() {
   const [operacionId, setOperacionId] = useState(searchParams.get('operacion_id') ?? '');
   const [fecha,       setFecha]       = useState(fechaDiaAR(new Date()));
   const [formaPago,   setFormaPago]   = useState('Contado');
+  // Saldo a favor del cliente (devoluciones): se puede usar como medio de pago
+  const [saldoFavor,  setSaldoFavor]   = useState(0);
   const [formaPagoAlternativaId, setFormaPagoAlternativaId] = useState('');
   const [referencia,  setReferencia]  = useState('');
   // Pago combinado: vacío = un solo medio (el modo por defecto, sin cambios). Se llena
@@ -219,6 +221,14 @@ export function NuevoRecibo() {
     return () => clearTimeout(t);
   }, [searchCliente]);
 
+  // ── Saldo a favor del cliente (por devoluciones) ──────────
+  useEffect(() => {
+    if (!clienteId) { setSaldoFavor(0); return; }
+    api.get<{ saldo: number }>(`/clientes/${clienteId}/saldo-favor`)
+      .then(r => setSaldoFavor(Number(r.saldo) || 0))
+      .catch(() => setSaldoFavor(0));
+  }, [clienteId]);
+
   // ── Al cambiar cliente → presupuestos aprobados ───────────
   useEffect(() => {
     if (!clienteId) {
@@ -317,7 +327,7 @@ export function NuevoRecibo() {
   // Opciones de los selects: las fijas + las del catálogo + las que ya trae el recibo
   // al editar (una forma desactivada después en Configuración no se pierde del select).
   const opcionesFormaPago = [...new Set(
-    [...FORMAS_PAGO, ...formasCatalogo, formaPago, ...pagos.map(p => p.forma_pago)].filter(Boolean)
+    [...FORMAS_PAGO, ...formasCatalogo, ...(saldoFavor > 0.009 ? [FORMA_PAGO_SALDO_FAVOR] : []), formaPago, ...pagos.map(p => p.forma_pago)].filter(Boolean)
   )];
   const esCheque = (f: string) => /cheque/i.test(f);
   const sumaPagos   = pagos.reduce((a, p) => a + (parseFloat(p.monto) || 0), 0);
@@ -611,6 +621,15 @@ export function NuevoRecibo() {
         return;
       }
     }
+    // Saldo a favor: no puede gastarse más de lo que el cliente tiene (el servidor lo vuelve a validar)
+    const usaSaldoFavor = combinado
+      ? pagos.filter(p => p.forma_pago === FORMA_PAGO_SALDO_FAVOR).reduce((a, p) => a + (parseFloat(p.monto) || 0), 0)
+      : (formaPago === FORMA_PAGO_SALDO_FAVOR ? montoFinal : 0);
+    if (usaSaldoFavor > saldoFavor + 0.01) {
+      toast.error(`El cliente tiene ${formatCurrency(saldoFavor)} a favor y el recibo usa ${formatCurrency(usaSaldoFavor)}. ` +
+        'Elegí pago parcial o combiná el saldo a favor con otro medio.');
+      return;
+    }
     if (alternativasOfrecidas.length > 0 && !formaPagoAlternativaId) {
       toast.error('Elegí cuál de las formas de pago ofrecidas usó el cliente');
       return;
@@ -862,6 +881,21 @@ export function NuevoRecibo() {
               </div>
             )}
           </div>
+
+          {saldoFavor > 0.009 && !isEdit && (
+            <div className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-violet-50 border border-violet-200 text-xs text-violet-800" data-testid="aviso-saldo-favor">
+              <span className="font-bold shrink-0">A favor</span>
+              <span className="flex-1">
+                Este cliente tiene <b>{formatCurrency(saldoFavor)}</b> de saldo a favor por devoluciones. Elegí
+                «{FORMA_PAGO_SALDO_FAVOR}» como forma de pago{!combinado ? ' (o combinalo con otro medio si no alcanza)' : ''}.
+                No cuenta como dinero en caja.
+              </span>
+              {!combinado && formaPago !== FORMA_PAGO_SALDO_FAVOR && (
+                <button type="button" onClick={() => setFormaPago(FORMA_PAGO_SALDO_FAVOR)}
+                  className="shrink-0 h-9 px-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-semibold">Usar</button>
+              )}
+            </div>
+          )}
 
           {alternativasOfrecidas.length > 0 && (
             <div className="mt-3">

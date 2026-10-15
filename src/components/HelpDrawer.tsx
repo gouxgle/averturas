@@ -145,6 +145,18 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         ],
         tip: 'Los compromisos de pago (fecha de vencimiento) se crean al guardar un recibo parcial si se activa esa opción.',
       },
+      {
+        id: 'saldo-favor',
+        emoji: '💜',
+        title: 'Pagar con saldo a favor',
+        intro: 'Si el cliente devolvió mercadería ya pagada, le queda saldo a favor (se ve en su ficha y en el estado de cuenta).',
+        steps: [
+          { text: 'Al elegir el cliente aparece el aviso con lo que tiene a favor' },
+          { text: 'Elegir «Saldo a favor» como forma de pago (botón "Usar"); si no alcanza, "Dividir en varios medios" y completar con otro' },
+          { text: 'Al anular ese recibo, el saldo vuelve al cliente' },
+        ],
+        warning: 'El saldo a favor no es dinero que entra a caja: los informes lo muestran aparte. Un recibo pagado con saldo a favor no se edita, se anula y se hace otro.',
+      },
     ],
   },
 

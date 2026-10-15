@@ -30,6 +30,8 @@ interface ResumenData {
     ventas_vs_anterior: number;
     cobrado_periodo: number;
     cobrado_vs_anterior: number;
+    /** Pagado con saldo a favor de clientes: baja deuda pero no es caja. */
+    saldo_favor_aplicado?: number;
     pendiente_cobro: number;
     stock_critico: number;
     entregas_atrasadas: number;
@@ -974,6 +976,11 @@ export function Reportes() {
                   ))}
                 </div>
               </div>
+            )}
+            {(kpis?.saldo_favor_aplicado ?? 0) > 0 && (
+              <p className="text-[11px] text-violet-700 mt-3 pt-2 border-t border-gray-200">
+                Aplicado de saldo a favor de clientes: <b>{fmtM(kpis!.saldo_favor_aplicado!)}</b> — no es caja, no está en este total.
+              </p>
             )}
           </div>
 
