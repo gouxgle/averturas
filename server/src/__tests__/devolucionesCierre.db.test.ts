@@ -108,6 +108,19 @@ describe.skipIf(!process.env.DATABASE_URL)('devoluciones: anulación, nota de cr
     expect([await estado(comp), await estado(yaCobrado)]).toEqual(['pendiente', 'cobrado']);
   });
 
+  it('la lista de remitos devolvibles filtra por cliente y búsqueda, y saca los que ya se devolvieron por completo', async () => {
+    const e = await escenario();
+    const buscar = async (qs: string) => ((await (await req(`/devoluciones/remitos-devolvibles?${qs}`, 'GET')).json()) as { id: string; cliente_id: string; items_resumen: { descripcion: string }[] }[]);
+    expect((await buscar(`cliente_id=${ids.cli}`)).some(r => r.id === e.remito)).toBe(true);
+    expect((await buscar(`cliente_id=${ids.cli}&q=Ventana%20vieja`)).some(r => r.id === e.remito)).toBe(true);
+    expect((await buscar(`cliente_id=${ids.cli}&q=no-existe-zzz`)).length).toBe(0);
+    expect((await buscar(`cliente_id=00000000-0000-4000-8000-000000000000`)).length).toBe(0);
+    // devolver las 2 unidades entregadas: ya no queda nada para devolver de ese remito
+    const r = await req('/devoluciones', 'POST', { remito_id: e.remito, motivo: 'Todo', items: [{ remito_item_id: e.ri, cantidad: 2, destino: 'stock' }] });
+    expect(r.status).toBe(201);
+    expect((await buscar(`cliente_id=${ids.cli}`)).some(x => x.id === e.remito)).toBe(false);
+  });
+
   it('no se anula si el saldo a favor ya se usó, si salió dinero, si fue un cambio o si ya se retiró parte del crédito', async () => {
     // 1) el crédito ya se gastó en un recibo
     const e1 = await escenario();

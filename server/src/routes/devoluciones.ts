@@ -68,6 +68,41 @@ devoluciones.get('/', async (c) => {
   return c.json(rows);
 });
 
+// GET /remitos-devolvibles?cliente_id=&q= — remitos emitidos o entregados que todavía tienen algo para devolver
+// (para elegir de cuál se devuelve, también desde la ficha del cliente). Busca en el servidor: el tablero de
+// remitos solo trae los últimos 300. ANTES de /:id.
+devoluciones.get('/remitos-devolvibles', async (c) => {
+  const clienteId = c.req.query('cliente_id') || '';
+  const q = (c.req.query('q') || '').trim();
+  const params: unknown[] = [];
+  let where = `WHERE rm.estado IN ('emitido', 'entregado')`;
+  if (clienteId) { params.push(clienteId); where += ` AND rm.cliente_id = $${params.length}`; }
+  if (q) {
+    params.push(`%${q}%`);
+    where += ` AND (rm.numero ILIKE $${params.length} OR o.numero ILIKE $${params.length} OR ${NOMBRE_CLIENTE} ILIKE $${params.length}
+                    OR EXISTS (SELECT 1 FROM remito_items rq WHERE rq.remito_id = rm.id AND rq.descripcion ILIKE $${params.length}))`;
+  }
+  const { rows } = await db.query(`
+    SELECT rm.id, rm.numero, rm.estado, rm.fecha_emision, rm.fecha_entrega_real, c.id AS cliente_id, ${NOMBRE_CLIENTE} AS cliente_nombre,
+           o.numero AS operacion_numero,
+           (SELECT json_agg(json_build_object('descripcion', ri.descripcion, 'cantidad', ri.cantidad) ORDER BY ri.id)
+              FROM remito_items ri WHERE ri.remito_id = rm.id) AS items_resumen
+    FROM remitos rm
+    JOIN clientes c ON c.id = rm.cliente_id
+    LEFT JOIN operaciones o ON o.id = rm.operacion_id
+    ${where}
+      AND EXISTS (
+        SELECT 1 FROM remito_items ri
+        LEFT JOIN operacion_items oi ON oi.id = ri.operacion_item_id
+        WHERE ri.remito_id = rm.id AND COALESCE(oi.tipo_item, '') <> 'servicio'
+          AND ri.cantidad > COALESCE((SELECT SUM(di.cantidad) FROM devolucion_items di
+                JOIN devoluciones d ON d.id = di.devolucion_id AND d.estado = 'emitida' WHERE di.remito_item_id = ri.id), 0))
+    ORDER BY rm.created_at DESC
+    LIMIT 40
+  `, params);
+  return c.json(rows);
+});
+
 // GET /:id — detalle con ítems
 devoluciones.get('/:id', async (c) => {
   const { id } = c.req.param();

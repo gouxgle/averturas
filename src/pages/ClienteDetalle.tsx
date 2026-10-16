@@ -5,7 +5,7 @@ import {
   Navigation, MessageCircle, Send, FileText, CheckCircle2, AlertTriangle,
   Shield, Building2, User, Hash, Calendar, Clock, Trash2,
   ChevronDown, ClipboardList, TrendingUp, Edit3, Receipt, Truck,
-  MoreVertical, Gift, Star, Target, DollarSign,
+  MoreVertical, Gift, Star, Target, DollarSign, Undo2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import type { Cliente, Operacion, Interaccion, Tarea, TipoInteraccion, EstadoCliente } from '@/types';
 import { OportunidadCard } from '@/components/oportunidades/OportunidadCard';
+import { ElegirRemito } from '@/components/devoluciones/ElegirRemito';
+import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 import type { Oportunidad } from '@/components/oportunidades/types';
 
@@ -163,6 +165,9 @@ export function ClienteDetalle() {
   const [showNuevaOportunidad, setShowNuevaOportunidad] = useState(false);
   // Saldo a favor por devoluciones (se usa como medio de pago en un recibo)
   const [saldoFavor, setSaldoFavor] = useState(0);
+  // Devolver mercadería de este cliente: primero se elige el remito, después el asistente
+  const [eligiendoRemito, setEligiendoRemito] = useState(false);
+  const [devolverRemitoId, setDevolverRemitoId] = useState<string | null>(null);
   const [editandoOportunidad, setEditandoOportunidad] = useState<Oportunidad | null>(null);
 
   async function load() {
@@ -417,7 +422,7 @@ export function ClienteDetalle() {
 
             {/* Más acciones dropdown */}
             <div className="relative" ref={moreRef}>
-              <button onClick={() => setShowMore(v => !v)}
+              <button onClick={() => setShowMore(v => !v)} data-testid="menu-mas-acciones" aria-label="Más acciones"
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
                 <MoreVertical size={15} className="text-gray-600" />
               </button>
@@ -428,6 +433,11 @@ export function ClienteDetalle() {
                     onClick={() => setShowMore(false)}>
                     <Receipt size={14} className="text-gray-600" /> Estado de cuenta
                   </Link>
+                  <button type="button" data-testid="menu-registrar-devolucion"
+                    onClick={() => { setShowMore(false); setEligiendoRemito(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Undo2 size={14} className="text-gray-600" /> Registrar devolución
+                  </button>
                   <Link to={`/presupuestos/nuevo?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
                     className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     onClick={() => setShowMore(false)}>
@@ -1171,6 +1181,14 @@ export function ClienteDetalle() {
           onClose={() => setEditandoOportunidad(null)}
           onSuccess={onEdicionOportunidad}
         />
+      )}
+      {eligiendoRemito && (
+        <ElegirRemito clienteId={cliente.id} clienteNombre={nombre} onClose={() => setEligiendoRemito(false)}
+          onElegir={id => { setEligiendoRemito(false); setDevolverRemitoId(id); }} />
+      )}
+      {devolverRemitoId && (
+        <AsistenteDevolucion origen={{ remito_id: devolverRemitoId }} onClose={() => setDevolverRemitoId(null)}
+          onDone={() => { load(); api.get<{ saldo: number }>(`/clientes/${cliente.id}/saldo-favor`).then(r => setSaldoFavor(Number(r.saldo) || 0)).catch(() => {}); }} />
       )}
     </div>
   );

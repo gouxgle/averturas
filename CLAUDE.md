@@ -418,6 +418,10 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   el navegador como en la venta rápida. `lib/ventaRapida.ts` comparte con la venta rápida el bloqueo/validación de stock
   (`bloquearYValidarStock`) y el remito de mostrador (`entregarDeMostrador`). Anulación de devoluciones, nota de crédito e
   informes netos: ver más abajo.
+- **Dónde se inicia** una devolución: detalle del remito, presupuesto entregado/instalado, sección Devoluciones y **ficha del cliente**
+  (menú ⋮ → "Registrar devolución"). `ElegirRemito` (`components/devoluciones/`) lista remitos emitidos/entregados con algo
+  para devolver vía `GET /devoluciones/remitos-devolvibles?cliente_id=&q=` (busca en el servidor por remito, cliente, presupuesto
+  o producto; antes usaba el tablero de remitos, que trae solo los últimos 300).
 - **Anular una devolución** (`POST /devoluciones/:id/anular`, solo admin, motivo): revierte el stock (`devolucion_cliente` −)
   y quita el saldo a favor (`anulacion`); la deuda de la operación vuelve sola (`operacion_cobranza` solo cuenta devoluciones
   emitidas). **409 con el motivo** si: fue un cambio (el producto nuevo ya se entregó: se devuelve ese producto), hay un

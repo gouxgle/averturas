@@ -22,7 +22,7 @@ export const MANUAL_DEVOLUCIONES: SeccionManual[] = [
           ['Dejarlo para una compra futura', 'Devolución y **saldo a favor** (se descuenta en un próximo recibo)'],
         ],
       },
-      { t: 'aviso', tono: 'info', texto: 'Las devoluciones se registran desde el **detalle del remito** (botón "Registrar devolución"), desde el **presupuesto entregado** o desde la sección **Devoluciones** → "Nueva devolución", donde se elige el remito.' },
+      { t: 'aviso', tono: 'info', texto: 'Las devoluciones se registran desde el **detalle del remito** (botón "Registrar devolución"), desde el **presupuesto entregado**, desde la **ficha del cliente** (menú ⋮ → "Registrar devolución") o desde la sección **Devoluciones** → "Nueva devolución", donde se busca el remito por número, cliente, presupuesto o producto.' },
     ],
   },
   {
@@ -97,6 +97,7 @@ export const MANUAL_DEVOLUCIONES: SeccionManual[] = [
         'Cada vez, **al administrador le llega un aviso** (campanita y cartel) con quién devolvió cuánto y cómo.',
         'Todo queda en **Actividad**. La lista está en **Devoluciones → Dinero devuelto**.',
         'Solo un **administrador** puede **anular** un reintegro: el dinero vuelve a quedar a favor del cliente.',
+        'Cada reintegro tiene su **comprobante imprimible** (botón "Imprimir" en Dinero devuelto, o al terminar la devolución): el cliente firma que recibió el dinero.',
       ] },
       { t: 'aviso', tono: 'info', texto: 'En **Reportes** se ve el dinero devuelto y la **caja neta** (lo cobrado menos lo devuelto en dinero).' },
     ],
@@ -150,7 +151,7 @@ export const MANUAL_DEVOLUCIONES: SeccionManual[] = [
     corto: 'Anular',
     icono: Ban,
     bloques: [
-      { t: 'p', texto: 'Si una devolución se cargó por error, **un administrador** puede anularla desde su detalle (botón "Anular devolución", con el motivo). Se revierte el stock que volvió, se quita el saldo a favor que dejó y la deuda de la venta vuelve a ser la de antes. Lo anulado se puede volver a devolver.' },
+      { t: 'p', texto: 'Si una devolución se cargó por error, **un administrador** puede anularla desde su detalle (botón "Anular devolución", con el motivo). Se revierte el stock que volvió, se quita el saldo a favor que dejó y la deuda de la venta vuelve a ser la de antes; si la devolución había cerrado compromisos de pago porque la venta quedaba saldada, **se reabren**. Lo anulado se puede volver a devolver.' },
       { t: 'p', texto: 'No se puede anular, y el sistema dice por qué, cuando lo que generó ya se usó:' },
       {
         t: 'tabla',

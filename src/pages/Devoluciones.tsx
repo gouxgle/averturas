@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { cn, formatCurrency, haceCuanto } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
+import { ElegirRemito } from '@/components/devoluciones/ElegirRemito';
 
 interface Devolucion {
   id: string; numero: string; fecha: string; estado: 'emitida' | 'anulada'; motivo: string;
@@ -39,16 +40,9 @@ interface Reintegro {
   estado: 'emitido' | 'anulado'; motivo_anulacion: string | null; cliente_nombre: string | null; cliente_id: string;
   devolucion_numero: string | null; creado_por: string | null; anulado_por: string | null;
 }
-interface RemitoMin {
-  id: string; numero: string; estado: string; fecha_emision: string; operacion: { numero: string } | null;
-  cliente: { nombre: string | null; apellido: string | null; razon_social: string | null; tipo_persona: string };
-  items_resumen: { descripcion: string; cantidad: number }[] | null;
-}
 
 const num = (n: unknown) => Number(n ?? 0);
 const fmtFecha = (iso: string) => new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-const nombreCliente = (c: RemitoMin['cliente']) =>
-  c.tipo_persona === 'juridica' ? c.razon_social ?? '—' : [c.apellido, c.nombre].filter(Boolean).join(' ') || '—';
 
 // ── Detalle ──────────────────────────────────────────────────────────
 
@@ -189,58 +183,6 @@ function DetalleDevolucion({ id, onClose, onChanged }: { id: string; onClose: ()
             className="w-full h-12 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 flex items-center justify-center gap-2 hover:bg-gray-50 disabled:opacity-50">
             <Printer size={15} /> Imprimir comprobante
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Elegir de qué remito se devuelve ─────────────────────────────────
-
-function ElegirRemito({ onElegir, onClose }: { onElegir: (remitoId: string) => void; onClose: () => void }) {
-  const [remitos, setRemitos] = useState<RemitoMin[] | null>(null);
-  const [q, setQ] = useState('');
-  useEffect(() => {
-    api.get<{ remitos: RemitoMin[] }>('/remitos/tablero')
-      .then(d => setRemitos(d.remitos.filter(r => ['emitido', 'entregado'].includes(r.estado))))
-      .catch(() => setRemitos([]));
-  }, []);
-  const filtrados = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return (remitos ?? []).filter(r => !t || r.numero.toLowerCase().includes(t) || nombreCliente(r.cliente).toLowerCase().includes(t)
-      || (r.operacion?.numero ?? '').toLowerCase().includes(t)).slice(0, 40);
-  }, [remitos, q]);
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex sm:items-center sm:justify-center sm:p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white w-full h-[100dvh] sm:h-auto sm:max-h-[85dvh] sm:max-w-lg sm:rounded-2xl shadow-2xl flex flex-col">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
-          <p className="flex-1 font-bold text-gray-900">¿De qué remito se devuelve?</p>
-          <button onClick={onClose} aria-label="Cerrar" className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-600"><X size={20} /></button>
-        </div>
-        <div className="p-3 border-b border-gray-200 shrink-0">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Número de remito, cliente o presupuesto"
-              className="w-full h-11 pl-9 pr-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-amber-400" />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-          {remitos === null ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-amber-500" /></div>
-            : filtrados.length === 0 ? <p className="p-6 text-sm text-gray-600 text-center">No hay remitos emitidos o entregados que coincidan.</p>
-            : filtrados.map(r => (
-              <button key={r.id} onClick={() => onElegir(r.id)} className="w-full text-left px-4 py-3 hover:bg-amber-50 min-h-[56px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-gray-900 truncate">{nombreCliente(r.cliente)}</span>
-                  <span className="text-[11px] font-mono text-gray-600 shrink-0">{r.numero}</span>
-                </div>
-                <p className="text-[11px] text-gray-600 truncate">
-                  {fmtFecha(r.fecha_emision)}{r.operacion ? ` · ${r.operacion.numero}` : ''}
-                  {r.items_resumen?.[0] ? ` · ${r.items_resumen[0].cantidad} ${r.items_resumen[0].descripcion}${r.items_resumen.length > 1 ? ` +${r.items_resumen.length - 1}` : ''}` : ''}
-                </p>
-              </button>
-            ))}
         </div>
       </div>
     </div>
