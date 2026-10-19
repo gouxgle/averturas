@@ -1,5 +1,5 @@
 import {
-  Undo2, Package, Calculator, Wallet, Banknote, ArrowLeftRight, FileWarning, Ban, BarChart3, HelpCircle,
+  Undo2, Package, Calculator, Wallet, Banknote, ArrowLeftRight, FileWarning, Ban, BarChart3, HelpCircle, Workflow, ListChecks,
 } from 'lucide-react';
 import type { SeccionManual } from './tipos';
 
@@ -23,6 +23,61 @@ export const MANUAL_DEVOLUCIONES: SeccionManual[] = [
         ],
       },
       { t: 'aviso', tono: 'info', texto: 'Las devoluciones se registran desde el **detalle del remito** (botón "Registrar devolución"), desde el **presupuesto entregado**, desde la **ficha del cliente** (menú ⋮ → "Registrar devolución") o desde la sección **Devoluciones** → "Nueva devolución", donde se busca el remito por número, cliente, presupuesto o producto.' },
+    ],
+  },
+  {
+    id: 'ciclo',
+    titulo: 'Ciclo de vida: de la devolución a la plata',
+    corto: 'Ciclo de vida',
+    icono: Workflow,
+    bloques: [
+      { t: 'p', texto: 'Una devolución recorre siempre el mismo camino. Lo que cambia es **qué se hace con la plata** al final.' },
+      { t: 'flujo', nodos: ['Venta entregada', 'Devolución (DEV-)', 'Stock y deuda se ajustan', 'Plata: saldo a favor, dinero o cambio', 'Se usa o se devuelve'] },
+      { t: 'subtitulo', texto: '1 — La devolución (DEV-…)' },
+      {
+        t: 'tabla',
+        cols: ['Estado', 'Qué significa'],
+        filas: [
+          ['**Emitida**', 'Está vigente: el stock volvió (o quedó como pérdida), la deuda bajó y la plata quedó a favor, se devolvió o se usó en un cambio'],
+          ['**Anulada**', 'La deshizo un administrador: se revierte todo lo que había hecho. Lo devuelto se puede volver a devolver'],
+        ],
+      },
+      { t: 'p', texto: 'Al confirmar, en **un solo paso** (todo o nada): se registra el DEV-, vuelve la mercadería al stock, baja la deuda de la venta, se acredita el saldo a favor o se saca el dinero de caja, y si hubo cambio se entrega el producto nuevo. Si algo falla, no se registra nada.' },
+      { t: 'subtitulo', texto: '2 — Qué se hace con la plata que sobra' },
+      {
+        t: 'tabla',
+        cols: ['Camino', 'Cómo sigue', 'Cómo termina'],
+        filas: [
+          ['**Saldo a favor**', 'Queda en la ficha del cliente', 'Se **usa** como medio de pago en un recibo, o se **devuelve en dinero** más adelante'],
+          ['**Devolver dinero**', 'Sale de caja con un comprobante REI-', 'Fin. Solo un administrador puede anularlo (el dinero vuelve a quedar a favor)'],
+          ['**Cambio**', 'La plata paga el producto nuevo, que se entrega en el momento', 'Si cuesta más se cobra la diferencia; si cuesta menos, lo que sobra queda a favor o se devuelve'],
+          ['**Repartir**', 'Una parte en dinero y otra a favor', 'Cada parte sigue su camino'],
+        ],
+      },
+      { t: 'subtitulo', texto: '3 — Vida del saldo a favor' },
+      { t: 'lista', ordenada: true, items: [
+        '**Se crea** cuando una devolución deja plata sin usar (o un cambio sale más barato).',
+        '**Se ve** en la ficha del cliente, en el estado de cuenta y en Nuevo recibo.',
+        '**Se gasta** eligiendo «Saldo a favor» como forma de pago (solo o combinado con otro medio). No es caja: los informes lo muestran aparte.',
+        '**Se devuelve en dinero** desde el Estado de cuenta ("Devolver en dinero"): genera un REI-.',
+        '**Vuelve** si se anula el recibo que lo gastó, el reintegro que lo sacó o la devolución que lo creó (esta última solo si todavía no se usó).',
+      ] },
+      { t: 'subtitulo', texto: '4 — Vida del dinero devuelto (REI-)' },
+      {
+        t: 'tabla',
+        cols: ['Estado', 'Qué significa'],
+        filas: [
+          ['**Emitido**', 'El dinero salió de caja y el cliente firma el comprobante. Entra en la **caja neta** de Reportes'],
+          ['**Anulado**', 'Lo anuló un administrador: el dinero vuelve a quedar como saldo a favor del cliente'],
+        ],
+      },
+      { t: 'subtitulo', texto: '5 — Qué avisa el sistema' },
+      { t: 'lista', items: [
+        'Cada **reintegro** de dinero le llega al **administrador** (campanita y cartel), lo haga quien lo haga.',
+        'Una devolución registrada por un **vendedor** también le avisa al administrador.',
+        'Si la venta estaba facturada, la devolución queda con **"Falta nota de crédito"** hasta que se emita (nunca se emite sola).',
+        'Todo queda en **Actividad** con quién lo hizo.',
+      ] },
     ],
   },
   {
@@ -180,6 +235,55 @@ export const MANUAL_DEVOLUCIONES: SeccionManual[] = [
         '**Actividad**: cada devolución, cambio, reintegro y anulación queda registrado con quién lo hizo.',
       ] },
       { t: 'aviso', tono: 'info', texto: 'Cuando una devolución la registra un **vendedor**, al administrador le llega un aviso (campanita y cartel).' },
+    ],
+  },
+  {
+    id: 'ejemplos',
+    titulo: 'Casos completos paso a paso',
+    corto: 'Casos completos',
+    icono: ListChecks,
+    bloques: [
+      { t: 'subtitulo', texto: 'Caso 1 — Devuelve y se queda con saldo a favor' },
+      { t: 'p', texto: 'Compra de $100.000, pagó $60.000 y devuelve una ventana de $50.000 en buen estado.' },
+      { t: 'lista', ordenada: true, items: [
+        'Remito → **Registrar devolución** → la ventana **vuelve a stock**.',
+        'Resultado: baja la deuda en **$40.000** (lo que debía) y le sobran **$10.000** de plata que ya había puesto.',
+        'Se elige **Dejar a favor**: el cliente queda con **$10.000 a favor**. La compra queda saldada.',
+        'En una compra futura, en Nuevo recibo se elige «Saldo a favor» y se descuentan esos $10.000.',
+      ] },
+      { t: 'subtitulo', texto: 'Caso 2 — Devuelve y se le reintegra el dinero' },
+      { t: 'p', texto: 'Mismo caso, pero el cliente quiere el dinero.' },
+      { t: 'lista', ordenada: true, items: [
+        'En el paso 3 se elige **Devolver dinero** y la forma (efectivo o transferencia).',
+        'Se emite el **REI-…** y el sistema avisa al administrador. Se imprime el comprobante y el cliente **firma que lo recibió**.',
+        'En **Reportes** el dinero devuelto resta de la caja neta.',
+      ] },
+      { t: 'subtitulo', texto: 'Caso 3 — Lo devuelto está roto' },
+      { t: 'lista', ordenada: true, items: [
+        'Se marca el ítem como **No reingresa** y se carga el motivo (falla de fábrica, rota…).',
+        'El stock **no** se mueve: queda registrado como **pérdida** al costo y aparece en Reportes.',
+        'La plata se trata igual que en los casos anteriores.',
+      ] },
+      { t: 'subtitulo', texto: 'Caso 4 — Cambio por otro producto' },
+      { t: 'p', texto: 'Devuelve una ventana de $50.000 (ya la había pagado) y se lleva una de $65.000.' },
+      { t: 'lista', ordenada: true, items: [
+        'Paso 2: **Cambiar por otro producto** y se elige el nuevo (con stock).',
+        'La plata de la devolución ($50.000) paga la mayor parte del producto nuevo.',
+        'El cliente paga la **diferencia de $15.000** con el medio que elija, o queda para cobrar después.',
+        'El producto nuevo sale con su remito, en el momento, y descuenta stock.',
+      ] },
+      { t: 'subtitulo', texto: 'Caso 5 — Compra con bonificación' },
+      { t: 'p', texto: 'Compra de $100.000 con $10.000 de bonificación del presupuesto, pagó $90.000 y devuelve una ventana de $50.000.' },
+      { t: 'lista', items: [
+        'La ventana vale **$45.000** (se le descuenta la parte proporcional de la bonificación: no se devuelve plata que no puso).',
+        'Como ya estaba saldada, los **$45.000** quedan a favor o se devuelven en dinero.',
+      ] },
+      { t: 'subtitulo', texto: 'Caso 6 — Se cargó mal' },
+      { t: 'lista', ordenada: true, items: [
+        'Un **administrador** abre la devolución → **Anular devolución** con el motivo.',
+        'Si el sistema se niega, dice qué hay que deshacer primero (el recibo que gastó el saldo, el reintegro, la entrega del cambio…).',
+        'Al anular, el stock y la deuda vuelven a lo que eran y los compromisos de pago que se habían cerrado se **reabren**.',
+      ] },
     ],
   },
   {

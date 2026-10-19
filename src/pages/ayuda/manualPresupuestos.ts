@@ -1,6 +1,6 @@
 import {
   Workflow, LayoutDashboard, FilePlus2, Tags, Send, Globe, MessageSquareReply,
-  Receipt, History, Clock, AlertTriangle,
+  Receipt, History, Clock, AlertTriangle, Gift,
 } from 'lucide-react';
 import type { SeccionManual } from './tipos';
 
@@ -107,10 +107,7 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
           '**Tiempo de entrega** — en días, para que el cliente sepa qué esperar.',
         ],
       },
-      { t: 'subtitulo', texto: 'Bonificación (opcional)' },
-      { t: 'p', texto: 'En el resumen de la derecha, **Aplicar bonificación** permite descontar un **porcentaje** (con atajos 5, 7, 10 y 15%) o un **monto fijo**, con un motivo opcional ("Cliente frecuente"). Se calcula sobre el precio de lista de los **productos**: la instalación y el envío no se bonifican.' },
-      { t: 'p', texto: 'La proforma la muestra bien destacada: **precio de lista tachado, bonificación y total final**, para que el cliente note el esfuerzo de la empresa. Al hacer el recibo, la bonificación llega ya cargada y también queda impresa ahí.' },
-      { t: 'aviso', tono: 'info', texto: 'Cambiar la bonificación de un presupuesto ya enviado genera una **revisión nueva** de la proforma, igual que cambiar un precio.' },
+      { t: 'aviso', tono: 'info', texto: 'Podés **bonificar** el presupuesto (un descuento visible para el cliente). Mirá la sección **Bonificación: del presupuesto al recibo**.' },
       { t: 'aviso', tono: 'regla', texto: 'Los **servicios nunca requieren pedirle nada al proveedor**. El sistema los excluye solo de los controles de stock y de cobertura de ítems.' },
     ],
   },
@@ -123,6 +120,62 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
       { t: 'p', texto: 'La proforma es la versión del presupuesto **sin costos ni márgenes**: solo lo que el cliente tiene que ver. Se puede imprimir en PDF desde el botón **PDF** del detalle.' },
       { t: 'p', texto: 'Muestra los ítems con su miniatura (la foto del producto, o la del cálculo en los ítems a medida), las formas de pago, el envío y la validez.' },
       { t: 'aviso', tono: 'info', texto: 'Si el presupuesto salió de una **Visita de Relevamiento sin cargo**, la proforma lo aclara: le dice al cliente que el relevamiento fue bonificado. Conviene que se vea, es un argumento de venta.' },
+    ],
+  },
+  {
+    id: 'bonificacion',
+    titulo: 'Bonificación: del presupuesto al recibo',
+    corto: 'Bonificación',
+    icono: Gift,
+    bloques: [
+      { t: 'p', texto: 'La **bonificación** es un descuento que la empresa le hace al cliente. Se puede poner **ya en el presupuesto** para que se note en la proforma el esfuerzo que se hace, y después el recibo la toma sobre el precio de lista, de modo que **el cliente la ve dos veces**: en la proforma y en el recibo.' },
+      { t: 'flujo', nodos: ['Se elige en el presupuesto', 'Se ve en la proforma', 'El cliente aprueba', 'El recibo la trae cargada', 'Queda en el recibo impreso'] },
+      { t: 'subtitulo', texto: '1 — Elegirla al armar el presupuesto' },
+      { t: 'lista', items: [
+        'En el resumen de la derecha, tildar **Aplicar bonificación**. Es **opcional**: cada presupuesto lo decide quien lo arma (vendedor o administrador, sin tope).',
+        'Se elige **%** (con atajos 5, 7, 10 y 15) o **$** (monto fijo), y un **motivo** si se quiere ("Cliente frecuente", "Promoción de temporada").',
+        'Se calcula **solo sobre los productos**: la instalación y el envío no se bonifican. El monto fijo nunca puede pasar del valor de los productos.',
+        'Mientras se arma, el resumen muestra el **subtotal, la bonificación y el total bonificado**.',
+      ] },
+      { t: 'aviso', tono: 'regla', texto: 'La bonificación **no cambia los precios** de los ítems: el precio de lista sigue siendo el de siempre. Es una línea aparte, y por eso se puede mostrar tachado el precio de lista.' },
+      { t: 'subtitulo', texto: '2 — Cómo se ve en la proforma' },
+      { t: 'p', texto: 'La proforma (impresa y en el link del cliente) muestra un **recuadro verde "Bonificación especial"** con el **precio de lista tachado**, la **bonificación** (porcentaje o monto y su motivo), la leyenda "Es un beneficio que la empresa te otorga" y el **Total Final con bonificación**. Las cuotas y las formas de pago ofrecidas se calculan sobre ese total.' },
+      { t: 'aviso', tono: 'ojo', texto: 'Si cambiás la bonificación de un presupuesto **que ya se envió**, se genera una **revisión nueva** de la proforma (igual que si cambiaras un precio) y el cliente tiene que aprobar la nueva. Un presupuesto sin bonificación se comporta como siempre.' },
+      { t: 'subtitulo', texto: '3 — Al aprobarse' },
+      { t: 'p', texto: 'Desde que el presupuesto está **aprobado**, la deuda ya viene **bonificada**: el saldo, el estado de cuenta y el listado descuentan la bonificación aunque todavía no haya ningún recibo. En el detalle del presupuesto se ve el total bonificado con el de lista tachado y un chip con la bonificación.' },
+      { t: 'subtitulo', texto: '4 — Al cobrar (recibo)' },
+      { t: 'lista', items: [
+        'En **Nuevo recibo**, una sección **"Bonificación del presupuesto"** aparece **ya cargada** con lo acordado, mostrando productos a precio de lista, la bonificación y el saldo a cobrar.',
+        '**Cualquiera que cobre puede cambiarla o quitarla** (otro %, un monto, o destildar). Si la cambia, el sistema avisa "distinta a la del presupuesto" y, al guardar, **el presupuesto queda con la nueva** y se anota en Actividad.',
+        'El **primer recibo toma la bonificación completa**, aunque sea una seña. Los siguientes **no la repiten**: solo cobran el saldo que queda.',
+        'Si además se eligió una forma de pago con descuento (ej.: contado), ese descuento se calcula **sobre lo que ya quedó bonificado** y se muestra aparte.',
+      ] },
+      { t: 'p', texto: 'El **recibo impreso** (y el PDF por WhatsApp) muestra "Bonificación acordada en presupuesto PRO-… (10% — motivo)", la bonificación por forma de pago si hay, lo que pagaría sin bonificación y lo que paga.' },
+      { t: 'subtitulo', texto: 'Ciclo de vida de una bonificación' },
+      {
+        t: 'tabla',
+        cols: ['Momento', 'Qué pasa con la bonificación'],
+        filas: [
+          ['Se arma el presupuesto', 'Se elige (o no) y se muestra en el resumen. Se puede cambiar libremente'],
+          ['Se envía la proforma', 'Se ve destacada para el cliente. Si se cambia después, hay una **revisión nueva**'],
+          ['El cliente aprueba', 'La deuda ya viene bonificada, antes de cobrar nada'],
+          ['Primer recibo', 'La toma entera (se puede ajustar ahí). Queda impresa en el recibo'],
+          ['Recibos siguientes', 'No la repiten; solo cobran el saldo'],
+          ['Se anula el recibo que la tomó', 'La bonificación **sigue vigente** en el presupuesto; el siguiente recibo la vuelve a tomar'],
+          ['Hay una devolución', 'Lo devuelto se valora **a precio bonificado** (no se devuelve plata que el cliente no puso). Ver el manual de Devoluciones'],
+        ],
+      },
+      {
+        t: 'tabla',
+        cols: ['Ejemplo', 'Cuenta'],
+        filas: [
+          ['Presupuesto: 2 ventanas de $50.000 + instalación $10.000', 'Precio de lista **$110.000**'],
+          ['Bonificación 10%', '10% de los **productos** ($100.000) = **$10.000** (la instalación no entra)'],
+          ['Total con bonificación', '$110.000 − $10.000 = **$100.000**'],
+          ['Seña de $40.000', 'El recibo toma los $10.000 completos; saldo **$60.000**'],
+          ['Pago del saldo', 'Cobra **$60.000** y la bonificación no se repite'],
+        ],
+      },
     ],
   },
   {
@@ -211,7 +264,6 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
       { t: 'aviso', tono: 'regla', texto: 'Solo se puede emitir recibos sobre presupuestos **aprobados**. El formulario **no viene con "total" preseleccionado** a propósito: hay que elegir si es total o parcial, porque antes salían recibos por el saldo completo por olvido.' },
       { t: 'p', texto: 'Un pago parcial genera un **compromiso de pago**, que se cierra solo cuando se termina de cobrar.' },
       { t: 'aviso', tono: 'ojo', texto: 'El **saldo real** es precio total − cobrado − bonificaciones. Una bonificación no es deuda del cliente.' },
-      { t: 'p', texto: 'Si el presupuesto tiene **bonificación**, el recibo la trae precargada en su propia sección: se puede cambiar o quitar (queda registrado), y el primer recibo la toma completa; los siguientes no la repiten.' },
     ],
   },
   {

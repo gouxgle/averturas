@@ -96,6 +96,19 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         warning: 'Si el presupuesto está vencido (fecha de validez pasada), no se puede generar link. Editarlo para actualizar la fecha.',
       },
       {
+        id: 'bonificacion',
+        emoji: '🎁',
+        title: 'Bonificar un presupuesto',
+        intro: 'Opcional. Un descuento que se ve destacado en la proforma para que el cliente note el esfuerzo de la empresa.',
+        steps: [
+          { text: 'En el resumen del presupuesto, tildar "Aplicar bonificación"' },
+          { text: 'Elegir % (5, 7, 10, 15 u otro) o monto fijo, y un motivo opcional' },
+          { text: 'La proforma muestra el precio de lista tachado, la bonificación y el total final' },
+          { text: 'Al hacer el recibo, la bonificación llega ya cargada y se imprime también ahí' },
+        ],
+        warning: 'Cambiar la bonificación de un presupuesto ya enviado genera una revisión nueva de la proforma. Se calcula solo sobre productos, no sobre instalación ni envío.',
+      },
+      {
         id: 'cobro',
         emoji: '💰',
         title: 'Estado de cobro',
@@ -127,13 +140,15 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
       {
         id: 'bonificacion',
         emoji: '🎁',
-        title: 'Bonificación por pago al contado',
-        intro: 'Solo disponible cuando la forma de pago es "Contado". Se aplica sobre el precio de los productos, NO sobre instalación ni envío.',
+        title: 'Bonificación en el recibo',
+        intro: 'Si el presupuesto tiene una bonificación, el recibo la trae ya cargada en la sección "Bonificación del presupuesto". Se aplica sobre los productos, NO sobre instalación ni envío.',
         steps: [
-          { text: 'Seleccionar forma de pago "Contado"' },
-          { text: 'Aparece la sección de bonificación con botones de 5%, 10%, 15%, 20% o porcentaje libre' },
-          { text: 'El total del recibo se recalcula mostrando el descuento aplicado' },
+          { text: 'Revisar la bonificación acordada: se puede cambiar (%, monto fijo) o quitar' },
+          { text: 'El primer recibo la toma completa, aunque sea una seña; los siguientes no la repiten' },
+          { text: 'Si la forma de pago tiene su propio descuento (ej.: contado), aparece aparte y se calcula sobre lo ya bonificado' },
+          { text: 'El recibo impreso muestra la bonificación acordada en el presupuesto y el total que paga' },
         ],
+        tip: 'Si se cambia la bonificación al cobrar, el presupuesto queda con la nueva y se anota en Actividad.',
       },
       {
         id: 'saldo',
@@ -255,6 +270,19 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { text: 'Ver el resultado, cargar el motivo y confirmar' },
         ],
         tip: 'Una devolución no modifica el remito ni el recibo originales: queda como un comprobante DEV- aparte.',
+      },
+      {
+        id: 'ciclo',
+        emoji: '🔄',
+        title: 'Ciclo de vida',
+        table: [
+          { label: 'Devolución (DEV-)', value: 'Emitida → (si hubo error) Anulada por un administrador' },
+          { label: 'Stock', value: 'Vuelve a Existencias o queda como pérdida si "No reingresa"' },
+          { label: 'Deuda', value: 'Primero baja lo que el cliente debía de esa compra' },
+          { label: 'Plata que sobra', value: 'Saldo a favor, dinero devuelto (REI-) o paga un cambio' },
+          { label: 'Saldo a favor', value: 'Se gasta como forma de pago, o se devuelve en dinero' },
+        ],
+        tip: 'Todo se registra junto o no se registra nada. Los reintegros de dinero le avisan siempre al administrador.',
       },
       {
         id: 'plata',
