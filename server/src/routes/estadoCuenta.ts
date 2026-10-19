@@ -81,7 +81,9 @@ estadoCuenta.get('/', async (c) => {
       ) pend ON true
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(monto_total), 0) AS total,
-               COALESCE(SUM(monto_descuento), 0) AS descuentos,
+               COALESCE(SUM(monto_descuento), 0)
+                 + (SELECT COALESCE(SUM(operacion_bonif_pendiente(o3.id)), 0) FROM operaciones o3
+                     WHERE o3.cliente_id = c.id AND o3.estado IN ('aprobado','en_produccion','listo','instalado','entregado')) AS descuentos,
                MAX(created_at) AS ultima
         FROM recibos
         WHERE cliente_id = c.id AND estado != 'anulado'

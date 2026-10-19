@@ -390,6 +390,15 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
 - **Saldo de una operación = vista `operacion_cobranza`** (cobrado, descuentos, `devuelto_a_saldo`,
   saldo): única definición; no volver a copiar `precio_total − cobrado − descuentos`. `GET /operaciones/:id`
   devuelve `saldo` y `devuelto_a_saldo`.
+- **Bonificación del presupuesto** (opcional, % o monto fijo, `operaciones.bonificacion_*`): `precio_total` sigue
+  siendo el precio de LISTA; la bonificación se calcula solo sobre productos (sin instalación ni envío), la fija
+  el servidor (`lib/bonificacion.ts` → `guardarBonificacion`, espejo en `src/lib/bonificacion.ts`) y sale en la
+  proforma (impresa y link público) y en el recibo. `operacion_cobranza.descuentos` = descuentos de recibos +
+  `operacion_bonif_pendiente()` (la parte no tomada aún por un recibo), así el saldo ya viene bonificado desde
+  el presupuesto. El recibo la trae precargada y la toma con `bonificacion_presupuesto_monto` (el resto de su
+  descuento es el de la forma de pago); si quien cobra la cambia, `tomarBonificacionEnRecibo` actualiza la
+  operación y deja Actividad. Cualquier SQL que sume `recibos.monto_descuento` por su cuenta debe sumar también
+  `operacion_bonif_pendiente(o.id)`. La bonificación entra al hash de la proforma solo si existe.
 - **Saldo a favor del cliente** = libro `cliente_saldo_favor_movimientos` (monto con signo; vista
   `cliente_saldo_favor`), escrito SOLO por `asentarSaldoFavor()` (`lib/saldoFavor.ts`), espejo de
   `proveedor_cc_movimientos`. Lo crea la devolución (`credito_devolucion`) y se **gasta como medio de pago**

@@ -101,6 +101,10 @@ export const OperacionSchema = z.object({
   items:            z.array(OperacionItemSchema).min(1, 'Se requiere al menos 1 ítem'),
   visita_tecnica_id: zUUID.optional().nullable(),
   formas_pago_alternativas: z.array(OperacionFormaPagoSchema).optional().default([]),
+  /** Bonificación opcional del presupuesto: % o monto fijo sobre los productos. El monto lo recalcula el servidor. */
+  bonificacion_tipo:   z.enum(['porcentaje', 'monto']).optional().nullable(),
+  bonificacion_valor:  z.number().positive().optional().nullable(),
+  bonificacion_motivo: zText(150).optional().nullable(),
   /**
    * Solo en PUT: por qué se está editando. Se guarda en la versión que este cambio
    * reemplaza, para poder contar aparte las modificaciones que pidió el cliente
@@ -156,6 +160,14 @@ export const ReciboSchema = z.object({
   descuento_pct:   z.number().min(0).max(100).optional().default(0),
   monto_lista:     z.number().min(0).optional().default(0),
   monto_descuento: z.number().min(0).optional().default(0),
+  /** Parte de monto_descuento que es la bonificación acordada en el presupuesto (el resto es la de la forma de pago). */
+  bonificacion_presupuesto_monto: z.number().min(0).optional().default(0),
+  /** Solo si quien cobra la cambió respecto del presupuesto (tipo null = la quitó). */
+  bonificacion_presupuesto: z.object({
+    tipo:   z.enum(['porcentaje', 'monto']).nullable(),
+    valor:  z.number().positive().nullable(),
+    motivo: zText(150).optional().nullable(),
+  }).optional().nullable(),
   comprobante_url: zText(300).optional().nullable(),
   comprobantes:    z.array(z.string().max(300)).max(10).optional(),
 });

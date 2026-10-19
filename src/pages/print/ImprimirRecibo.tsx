@@ -1,3 +1,4 @@
+import { rotuloBonificacion } from '@/lib/bonificacion';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -30,7 +31,9 @@ interface ReciboData {
     tipo_persona: string; telefono: string | null; email: string | null;
     direccion: string | null; localidad: string | null; documento_nro: string | null;
   };
-  operacion: { id: string; numero: string; precio_total: number } | null;
+  operacion: { id: string; numero: string; precio_total: number;
+    bonificacion_tipo?: 'porcentaje' | 'monto' | null; bonificacion_valor?: number | string | null; bonificacion_motivo?: string | null } | null;
+  bonificacion_presupuesto_monto?: number | string | null;
   remito: { id: string; numero: string } | null;
   visita_tecnica: { id: string; numero: string; fecha_visita: string | null; cobro_estado: string } | null;
   items: {
@@ -340,12 +343,38 @@ export function ImprimirRecibo() {
           <div style={{ backgroundColor: '#f5f0ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700 }}>
-                Bonificación {Number(recibo.descuento_pct) % 1 === 0 ? Number(recibo.descuento_pct).toFixed(0) : Number(recibo.descuento_pct).toFixed(1)}% aplicada
+                {Number(recibo.bonificacion_presupuesto_monto) > 0
+                  ? 'Bonificación aplicada'
+                  : `Bonificación ${Number(recibo.descuento_pct) % 1 === 0 ? Number(recibo.descuento_pct).toFixed(0) : Number(recibo.descuento_pct).toFixed(1)}% aplicada`}
               </span>
               <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 700 }}>
                 Ahorro: {fmt(Number(recibo.monto_descuento))}
               </span>
             </div>
+            {Number(recibo.bonificacion_presupuesto_monto) > 0 && (() => {
+              const op = recibo.operacion;
+              const pres = Math.min(Number(recibo.bonificacion_presupuesto_monto), Number(recibo.monto_descuento));
+              const pago = Math.round((Number(recibo.monto_descuento) - pres) * 100) / 100;
+              const rotulo = op?.bonificacion_tipo && Number(op.bonificacion_valor) > 0
+                ? rotuloBonificacion(op.bonificacion_tipo, op.bonificacion_valor) : '';
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6d28d9', marginBottom: 3 }}>
+                    <span>
+                      Bonificación acordada en presupuesto {proformaNumero}
+                      {rotulo ? ` (${rotulo}${op?.bonificacion_motivo ? ` — ${op.bonificacion_motivo}` : ''})` : ''}
+                    </span>
+                    <span>−{fmt(pres)}</span>
+                  </div>
+                  {pago > 0.009 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6d28d9', marginBottom: 3 }}>
+                      <span>Bonificación por forma de pago{Number(recibo.descuento_pct) > 0 ? ` (${Number(recibo.descuento_pct)}%)` : ''}</span>
+                      <span>−{fmt(pago)}</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {recibo.operacion && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#888', marginBottom: 4 }}>
                 <span>Total del presupuesto sin descuento</span>

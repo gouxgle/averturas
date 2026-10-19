@@ -107,6 +107,10 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
           '**Tiempo de entrega** — en días, para que el cliente sepa qué esperar.',
         ],
       },
+      { t: 'subtitulo', texto: 'Bonificación (opcional)' },
+      { t: 'p', texto: 'En el resumen de la derecha, **Aplicar bonificación** permite descontar un **porcentaje** (con atajos 5, 7, 10 y 15%) o un **monto fijo**, con un motivo opcional ("Cliente frecuente"). Se calcula sobre el precio de lista de los **productos**: la instalación y el envío no se bonifican.' },
+      { t: 'p', texto: 'La proforma la muestra bien destacada: **precio de lista tachado, bonificación y total final**, para que el cliente note el esfuerzo de la empresa. Al hacer el recibo, la bonificación llega ya cargada y también queda impresa ahí.' },
+      { t: 'aviso', tono: 'info', texto: 'Cambiar la bonificación de un presupuesto ya enviado genera una **revisión nueva** de la proforma, igual que cambiar un precio.' },
       { t: 'aviso', tono: 'regla', texto: 'Los **servicios nunca requieren pedirle nada al proveedor**. El sistema los excluye solo de los controles de stock y de cobertura de ítems.' },
     ],
   },
@@ -207,6 +211,7 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
       { t: 'aviso', tono: 'regla', texto: 'Solo se puede emitir recibos sobre presupuestos **aprobados**. El formulario **no viene con "total" preseleccionado** a propósito: hay que elegir si es total o parcial, porque antes salían recibos por el saldo completo por olvido.' },
       { t: 'p', texto: 'Un pago parcial genera un **compromiso de pago**, que se cierra solo cuando se termina de cobrar.' },
       { t: 'aviso', tono: 'ojo', texto: 'El **saldo real** es precio total − cobrado − bonificaciones. Una bonificación no es deuda del cliente.' },
+      { t: 'p', texto: 'Si el presupuesto tiene **bonificación**, el recibo la trae precargada en su propia sección: se puede cambiar o quitar (queda registrado), y el primer recibo la toma completa; los siguientes no la repiten.' },
     ],
   },
   {

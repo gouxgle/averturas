@@ -126,7 +126,9 @@ export interface ReciboPDF {
   concepto: string | null; notas: string | null; monto_total: number;
   descuento_pct: number; monto_lista: number; monto_descuento: number;
   cliente: ClientePDF;
-  operacion: { id?: string; numero: string; precio_total: number } | null;
+  operacion: { id?: string; numero: string; precio_total: number;
+    bonificacion_tipo?: 'porcentaje' | 'monto' | null; bonificacion_valor?: number | string | null; bonificacion_motivo?: string | null } | null;
+  bonificacion_presupuesto_monto?: number | string | null;
   remito: { id?: string; numero: string } | null;
   visita_tecnica?: { id: string; numero: string; fecha_visita: string | Date | null; cobro_estado: string } | null;
   items: ItemPDF[];
@@ -240,14 +242,33 @@ function buildHTML(recibo: ReciboPDF, empresa: EmpresaPDF): string {
     </div>
   ` : '';
 
+  // Bonificacion acordada en el presupuesto (se muestra aparte de la de la forma de pago).
+  const bonifPres = Math.min(Number(recibo.bonificacion_presupuesto_monto ?? 0), montoDescuento);
+  const bonifPago = Math.round((montoDescuento - bonifPres) * 100) / 100;
+  const opB = recibo.operacion;
+  const rotuloPres = opB?.bonificacion_tipo && Number(opB.bonificacion_valor) > 0
+    ? (opB.bonificacion_tipo === 'porcentaje' ? `${Number(opB.bonificacion_valor)}%` : fmt(Number(opB.bonificacion_valor))) : '';
+  const tituloDescuento = bonifPres > 0
+    ? 'Bonificacion aplicada'
+    : `Bonificacion ${descuentoPct % 1 === 0 ? descuentoPct.toFixed(0) : descuentoPct.toFixed(1)}% aplicada`;
+  const desgloseBonifHTML = bonifPres > 0 ? `
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;margin-bottom:3px;">
+        <span>Bonificacion acordada en presupuesto${proformaNumero ? ` ${proformaNumero}` : ''}${rotuloPres ? ` (${rotuloPres}${opB?.bonificacion_motivo ? ` &mdash; ${opB.bonificacion_motivo}` : ''})` : ''}</span>
+        <span>-${fmt(bonifPres)}</span>
+      </div>
+      ${bonifPago > 0.009 ? `<div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;margin-bottom:3px;">
+        <span>Bonificacion por forma de pago${descuentoPct > 0 ? ` (${descuentoPct}%)` : ''}</span><span>-${fmt(bonifPago)}</span>
+      </div>` : ''}` : '';
+
   const descuentoHTML = montoDescuento > 0 ? `
     <div style="background:#f5f0ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <span style="font-size:12px;color:#7c3aed;font-weight:700;">
-          Bonificacion ${descuentoPct % 1 === 0 ? descuentoPct.toFixed(0) : descuentoPct.toFixed(1)}% aplicada
+          ${tituloDescuento}
         </span>
         <span style="font-size:12px;color:#7c3aed;font-weight:700;">Ahorro: ${fmt(montoDescuento)}</span>
       </div>
+      ${desgloseBonifHTML}
       ${recibo.operacion ? `
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px;">
           <span>Total del presupuesto sin descuento</span><span>${fmt(Number(recibo.operacion.precio_total))}</span>

@@ -33,7 +33,7 @@ pub.get('/entorno', (c) => {
 async function fetchCtxEmail(operacionId: string) {
   const { rows: [row] } = await db.query(`
     SELECT
-      o.numero, o.precio_total,
+      o.numero, (o.precio_total - o.bonificacion_monto) AS precio_total,
       cl.nombre AS cliente_nombre, cl.apellido AS cliente_apellido,
       cl.razon_social, cl.tipo_persona, cl.email AS cliente_email,
       e.nombre   AS empresa_nombre,

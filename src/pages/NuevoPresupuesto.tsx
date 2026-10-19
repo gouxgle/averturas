@@ -1,10 +1,11 @@
+import { baseBonificable, calcularBonificacion, rotuloBonificacion, type TipoBonificacion } from '@/lib/bonificacion';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, FileText, ChevronDown, ScanLine, Search,
   Package, X, LayoutGrid, MapPin, Star, Edit2,
   CheckCircle2, Users,
-  Ruler, Wrench, AlertTriangle, Tag, Copy, Layers,
+  Ruler, Wrench, AlertTriangle, Tag, Copy, Layers, Percent,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { preguntarRecotizacion } from '@/components/agenda/preguntarRecotizacion';
@@ -79,6 +80,9 @@ interface FullOperacion {
     stock_actual?: number | null;
   }>;
   formas_pago_alternativas?: Array<{ forma_pago_id: string | null; nombre: string; descuento_pct: number }>;
+  bonificacion_tipo?: TipoBonificacion | null;
+  bonificacion_valor?: number | string | null;
+  bonificacion_motivo?: string | null;
   visita_tecnica: { id: string; numero: string; estado: string } | null;
   /** Respuesta intermedia del link público; 'modificar' = el cliente pidió cambios. */
   respuesta_cliente?: string | null;
@@ -242,6 +246,11 @@ export function NuevoPresupuesto() {
   const [catalogoFormasPago, setCatalogoFormasPago] = useState<FormaPagoCatalogo[]>([]);
   const [formasPagoAlternativas, setFormasPagoAlternativas] = useState<FormaPagoAlternativa[]>([]);
   const [tiempoEntrega, setTiempoEntrega]   = useState('');
+  // Bonificación opcional: se muestra en la proforma y el recibo la toma como punto de partida
+  const [bonifActiva, setBonifActiva]       = useState(false);
+  const [bonifTipo, setBonifTipo]           = useState<TipoBonificacion>('porcentaje');
+  const [bonifValor, setBonifValor]         = useState('');
+  const [bonifMotivo, setBonifMotivo]       = useState('');
   const [fechaValidez, setFechaValidez]     = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -449,6 +458,12 @@ export function NuevoPresupuesto() {
         forma_pago_id: a.forma_pago_id ?? '', nombre: a.nombre, descuento_pct: Number(a.descuento_pct),
       })));
       setTiempoEntrega(op.tiempo_entrega ? String(op.tiempo_entrega) : '');
+      if (op.bonificacion_tipo && Number(op.bonificacion_valor) > 0) {
+        setBonifActiva(true);
+        setBonifTipo(op.bonificacion_tipo);
+        setBonifValor(String(Number(op.bonificacion_valor)));
+        setBonifMotivo(op.bonificacion_motivo ?? '');
+      }
       setFechaValidez(op.fecha_validez ? op.fecha_validez.split('T')[0] : '');
       setValidezDias('custom');
       setNotas(op.notas ?? '');
@@ -621,6 +636,10 @@ export function NuevoPresupuesto() {
 
   const precioTotal   = items.reduce((s, it) => s + itemPrecioTotal(it), 0);
   const totalConEnvio = precioTotal + (formaEnvio === 'envio_empresa' ? costoEnvio : 0);
+  // Bonificación sobre productos (sin instalación ni envío); el servidor la recalcula al guardar
+  const bonifValorNum  = parseFloat(bonifValor.replace(',', '.')) || 0;
+  const bonifMonto     = bonifActiva ? calcularBonificacion(baseBonificable(items), bonifTipo, bonifValorNum) : 0;
+  const totalBonificado = totalConEnvio - bonifMonto;
   const ahorroPromociones = items.reduce((s, it) =>
     s + (it.precio_lista != null && it.precio_lista > it.precio_unitario
       ? (it.precio_lista - it.precio_unitario) * it.cantidad
@@ -768,6 +787,9 @@ export function NuevoPresupuesto() {
         costo_envio:    costoEnvio,
         visita_tecnica_id: !isEdit && visitaTecnicaId ? visitaTecnicaId : undefined,
         formas_pago_alternativas: formaPago === 'Varias formas de pago' ? formasPagoAlternativas : [],
+        bonificacion_tipo:   bonifMonto > 0 ? bonifTipo : null,
+        bonificacion_valor:  bonifMonto > 0 ? bonifValorNum : null,
+        bonificacion_motivo: bonifMonto > 0 ? (bonifMotivo.trim() || null) : null,
         version_origen: isEdit ? versionOrigen : undefined,
         items: items.map((it, idx) => ({
           tipo_abertura_id:    it.tipo_abertura_id || null,
@@ -1820,7 +1842,10 @@ export function NuevoPresupuesto() {
             </div>
             <div className="text-right">
               <p className="text-[10px] text-gray-600 uppercase tracking-wider">Total</p>
-              <p className="text-xl font-black text-[#031d49]">{formatCurrency(totalConEnvio)}</p>
+              {bonifMonto > 0 && (
+                <p className="text-[11px] text-gray-500 line-through leading-none">{formatCurrency(totalConEnvio)}</p>
+              )}
+              <p className="text-xl font-black text-[#031d49]">{formatCurrency(totalBonificado)}</p>
             </div>
           </div>
 
@@ -1927,12 +1952,21 @@ export function NuevoPresupuesto() {
                     <span className="text-xs font-bold text-pink-600">-{formatCurrency(ahorroPromociones)}</span>
                   </div>
                 )}
+                {bonifMonto > 0 && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1 min-w-0">
+                      <Percent size={11} className="shrink-0"/>
+                      <span className="truncate">Bonificación {rotuloBonificacion(bonifTipo, bonifValorNum)}</span>
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 shrink-0">-{formatCurrency(bonifMonto)}</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
                   <span className="text-sm font-bold text-gray-900">TOTAL</span>
-                  <span className="text-lg font-black text-[#7c3aed]">{formatCurrency(totalConEnvio)}</span>
+                  <span className="text-lg font-black text-[#7c3aed]">{formatCurrency(totalBonificado)}</span>
                 </div>
-                {formaPago === 'Tarjeta de crédito 3 cuotas sin interés' && totalConEnvio > 0 && (
-                  <p className="text-[10px] text-violet-600 text-right">3 cuotas de {formatCurrency(totalConEnvio / 3)}</p>
+                {formaPago === 'Tarjeta de crédito 3 cuotas sin interés' && totalBonificado > 0 && (
+                  <p className="text-[10px] text-violet-600 text-right">3 cuotas de {formatCurrency(totalBonificado / 3)}</p>
                 )}
               </div>
 
@@ -1965,6 +1999,56 @@ export function NuevoPresupuesto() {
                   className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white"
                 />
                 <p className="text-[10px] text-gray-600 mt-1">Válido hasta el {fechaValidezLabel}</p>
+              </div>
+
+              {/* Bonificación — opcional; queda a la vista en la proforma y el recibo la toma de acá */}
+              <div className="border-t border-gray-200 pt-3" data-testid="bonificacion-presupuesto">
+                <label className="flex items-center gap-2 cursor-pointer min-h-[32px]">
+                  <input type="checkbox" checked={bonifActiva}
+                    onChange={e => setBonifActiva(e.target.checked)}
+                    className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-400" />
+                  <span className="text-[9px] font-semibold text-gray-600 uppercase tracking-wider">Aplicar bonificación</span>
+                </label>
+                {bonifActiva && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                        {(['porcentaje', 'monto'] as const).map(t => (
+                          <button key={t} type="button" onClick={() => setBonifTipo(t)}
+                            aria-label={t === 'porcentaje' ? 'Porcentaje' : 'Monto fijo'}
+                            className={cn('h-9 w-10 text-sm font-bold',
+                              bonifTipo === t ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600')}>
+                            {t === 'porcentaje' ? '%' : '$'}
+                          </button>
+                        ))}
+                      </div>
+                      <input type="number" inputMode="decimal" min={0} step="any" value={bonifValor}
+                        onChange={e => setBonifValor(e.target.value)}
+                        placeholder={bonifTipo === 'porcentaje' ? 'Ej: 10' : 'Ej: 50000'}
+                        aria-label="Valor de la bonificación"
+                        className="flex-1 min-w-0 h-9 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    </div>
+                    {bonifTipo === 'porcentaje' && (
+                      <div className="flex gap-1.5">
+                        {[5, 7, 10, 15].map(p => (
+                          <button key={p} type="button" onClick={() => setBonifValor(String(p))}
+                            className={cn('flex-1 h-8 rounded-lg border text-xs font-semibold',
+                              bonifValorNum === p ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 bg-white')}>
+                            {p}%
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <input value={bonifMotivo} onChange={e => setBonifMotivo(e.target.value)} maxLength={150}
+                      placeholder="Motivo (opcional): Cliente frecuente, Promoción…"
+                      aria-label="Motivo de la bonificación"
+                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    <p className="text-[10px] text-gray-500">
+                      Se calcula sobre los productos (sin instalación ni envío) y se imprime en la proforma.
+                      {bonifMonto > 0 && <> Bonifica <strong className="text-emerald-700">{formatCurrency(bonifMonto)}</strong>.</>}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Forma de pago — colapsada; por defecto queda "Precio de lista" */}

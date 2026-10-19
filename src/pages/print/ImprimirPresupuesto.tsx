@@ -1,3 +1,4 @@
+import { rotuloBonificacion } from '@/lib/bonificacion';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Printer, X } from 'lucide-react';
@@ -95,6 +96,10 @@ export interface Operacion {
   };
   items: Item[];
   formas_pago_alternativas?: { nombre: string; descuento_pct: number }[];
+  bonificacion_tipo?: 'porcentaje' | 'monto' | null;
+  bonificacion_valor?: number | string | null;
+  bonificacion_motivo?: string | null;
+  bonificacion_monto?: number | string | null;
 }
 
 // Línea "Revisión" del encabezado — resuelve las tres variantes: se está viendo
@@ -168,7 +173,10 @@ export function ProformaDocumento({ op, empresa, revisionFijada = null }: {
   const proformaNumero = op.numero.replace(/^OP-/, 'PRO-');
   const subtotal   = op.items.reduce((s, it) => s + Number(it.precio_total), 0);
   const costoEnvio = op.forma_envio === 'envio_empresa' ? Number(op.costo_envio ?? 0) : 0;
-  const total      = subtotal + costoEnvio;
+  const totalLista = subtotal + costoEnvio;
+  // Bonificación acordada: se resta del precio de lista y se explicita para que el cliente la vea
+  const bonif      = Math.min(Number(op.bonificacion_monto ?? 0), subtotal);
+  const total      = totalLista - bonif;
   const ahorroPromociones = op.items.reduce((s, it) => {
     const pLista = it.precio_lista != null ? Number(it.precio_lista) : null;
     return s + (pLista != null && pLista > Number(it.precio_unitario)
@@ -181,7 +189,7 @@ export function ProformaDocumento({ op, empresa, revisionFijada = null }: {
   const itemsConInstalacion = op.items.filter(it => it.incluye_instalacion).length;
   const instalacionMixta = itemsConInstalacion > 0 && itemsConInstalacion < op.items.length;
   const alternativas = op.forma_pago === 'Varias formas de pago' ? (op.formas_pago_alternativas ?? []) : [];
-  const montoProductos = subtotal - totalInstalacion;
+  const montoProductos = subtotal - totalInstalacion - bonif;
   const instagram   = empresa?.instagram   ?? null;
   const terminosUrl = empresa?.terminos_url ?? null;
 
@@ -533,17 +541,38 @@ export function ProformaDocumento({ op, empresa, revisionFijada = null }: {
 
         {/* ── TOTAL ─────────────────────────────────────────────────────── */}
         <div style={{ margin: '14px 16px 0', border: `2px solid ${NAVY}`, borderRadius: 8, padding: '14px 18px', background: 'white' }}>
+          {bonif > 0.01 && (
+            <div data-testid="proforma-bonificacion" style={{ background: '#ecfdf5', border: '1.5px solid #10b981', borderRadius: 8, padding: '9px 14px', marginBottom: 12 }}>
+              <div style={{ color: '#047857', fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 1.5, marginBottom: 5 }}>
+                🎁 Bonificación especial
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#4b5563' }}>
+                <span>Precio de lista</span>
+                <span style={{ textDecoration: 'line-through', fontFamily: 'monospace' }}>{fmtM(totalLista)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: '#047857', fontWeight: 800, marginTop: 2 }}>
+                <span>
+                  Bonificación {rotuloBonificacion(op.bonificacion_tipo, op.bonificacion_valor)}
+                  {op.bonificacion_motivo ? ` — ${op.bonificacion_motivo}` : ''}
+                </span>
+                <span style={{ fontFamily: 'monospace' }}>−{fmtM(bonif)}</span>
+              </div>
+              <div style={{ color: '#047857', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
+                Es un beneficio que la empresa te otorga: te bonificamos {fmtM(bonif)} sobre el precio de lista.
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ color: '#9ca3af', fontSize: 9, textTransform: 'uppercase' as const, letterSpacing: 2, marginBottom: 4 }}>
-                Total Final
+                {bonif > 0.01 ? 'Total Final con bonificación' : 'Total Final'}
               </div>
               <div style={{ color: NAVY, fontSize: 26, fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
                 {fmtM(total)}
               </div>
               {costoEnvio > 0 && (
                 <div style={{ color: '#6b7280', fontSize: 10, marginTop: 3 }}>
-                  (productos {fmtM(subtotal)} + envío {fmtM(costoEnvio)})
+                  (productos {fmtM(subtotal - bonif)} + envío {fmtM(costoEnvio)})
                 </div>
               )}
               {ahorroPromociones > 0.01 && (

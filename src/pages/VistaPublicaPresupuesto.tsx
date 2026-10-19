@@ -1,3 +1,4 @@
+import { rotuloBonificacion } from '@/lib/bonificacion';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -54,6 +55,10 @@ interface Presupuesto {
   empresa: Empresa;
   items: Item[];
   formas_pago_alternativas?: { nombre: string; descuento_pct: number }[];
+  bonificacion_tipo?: 'porcentaje' | 'monto' | null;
+  bonificacion_valor?: number | string | null;
+  bonificacion_motivo?: string | null;
+  bonificacion_monto?: number | string | null;
 }
 type Estado =
   | 'loading' | 'not_found' | 'error' | 'data'
@@ -678,9 +683,12 @@ export function VistaPublicaPresupuesto() {
 
   // ── Vista principal ────────────────────────────────────────────────────────
   const costoEnvio    = pres.forma_envio === 'envio_empresa' ? Number(pres.costo_envio ?? 0) : 0;
-  const total         = Number(pres.precio_total);
+  // Precio de lista (con envío, igual que la proforma impresa) y total con la bonificación acordada
+  const totalLista    = Number(pres.precio_total) + costoEnvio;
+  const bonif         = Math.min(Number(pres.bonificacion_monto ?? 0), Number(pres.precio_total));
+  const total         = totalLista - bonif;
   const alternativas  = pres.forma_pago === 'Varias formas de pago' ? (pres.formas_pago_alternativas ?? []) : [];
-  const montoProductos = pres.items.reduce((s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0);
+  const montoProductos = pres.items.reduce((s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0) - bonif;
   const montoInstalacionExtra = pres.items.reduce((s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0);
   const ahorroPromociones = pres.items.reduce((s, it) => {
     const pLista = it.precio_lista != null ? Number(it.precio_lista) : null;
@@ -952,8 +960,27 @@ export function VistaPublicaPresupuesto() {
         {/* ── TOTAL ─────────────────────────────────────────────────────── */}
         <div className="bg-white px-4 py-4 mt-px">
           <div className="rounded-xl border-2 p-4 flex flex-col sm:flex-row items-start sm:justify-between gap-3" style={{ borderColor: NAVY }}>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af', letterSpacing: 2 }}>Total Final</div>
+            <div className="w-full sm:w-auto">
+              {bonif > 0.01 && (
+                <div data-testid="proforma-bonificacion" className="rounded-xl p-3 mb-3" style={{ background: '#ecfdf5', border: '1.5px solid #10b981' }}>
+                  <div className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5" style={{ color: '#047857' }}>🎁 Bonificación especial</div>
+                  <div className="flex justify-between gap-3 text-xs text-gray-600">
+                    <span>Precio de lista</span>
+                    <span className="line-through tabular-nums">{fmtM(totalLista)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 text-sm font-extrabold mt-0.5" style={{ color: '#047857' }}>
+                    <span>
+                      Bonificación {rotuloBonificacion(pres.bonificacion_tipo, pres.bonificacion_valor)}
+                      {pres.bonificacion_motivo ? ` — ${pres.bonificacion_motivo}` : ''}
+                    </span>
+                    <span className="tabular-nums shrink-0">−{fmtM(bonif)}</span>
+                  </div>
+                  <p className="text-[11px] italic mt-1.5" style={{ color: '#047857' }}>
+                    Es un beneficio que la empresa te otorga: te bonificamos {fmtM(bonif)} sobre el precio de lista.
+                  </p>
+                </div>
+              )}
+              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af', letterSpacing: 2 }}>{bonif > 0.01 ? 'Total Final con bonificación' : 'Total Final'}</div>
               <div className="text-3xl font-black tabular-nums" style={{ color: NAVY }}>{fmtM(total)}</div>
               {costoEnvio > 0 && (
                 <div className="text-gray-600 text-xs mt-0.5">

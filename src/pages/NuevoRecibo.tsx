@@ -1,3 +1,4 @@
+import { calcularBonificacion, rotuloBonificacion, type TipoBonificacion } from '@/lib/bonificacion';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
@@ -77,6 +78,12 @@ interface PresupuestoDetalle {
     precio_total: number;
   }>;
   formas_pago_alternativas?: Array<{ id: string; nombre: string; descuento_pct: number }>;
+  /** Bonificación acordada en el presupuesto y la parte que recibos anteriores ya tomaron. */
+  bonificacion_tipo?: TipoBonificacion | null;
+  bonificacion_valor?: number | string | null;
+  bonificacion_motivo?: string | null;
+  bonificacion_monto?: number | string | null;
+  bonificacion_tomada?: number | string | null;
 }
 
 interface ReciboItemPayload {
@@ -138,6 +145,10 @@ export function NuevoRecibo() {
   // ── Bonificación ──────────────────────────────────────────
   const [bonPct,    setBonPct]    = useState(0);      // preset: 0.05, 0.10…
   const [bonCustom, setBonCustom] = useState('');     // texto "%"
+  // Bonificación acordada en el presupuesto: llega precargada y se puede cambiar o quitar
+  const [bpActiva, setBpActiva] = useState(false);
+  const [bpTipo,   setBpTipo]   = useState<TipoBonificacion>('porcentaje');
+  const [bpValor,  setBpValor]  = useState('');
 
   // ── Compromiso de saldo ───────────────────────────────────
   const [crearCompromiso, setCrearCompromiso] = useState(true);
@@ -255,6 +266,10 @@ export function NuevoRecibo() {
     api.get<PresupuestoDetalle>(`/operaciones/${operacionId}`)
       .then(detail => {
         setPresupuestoDetalle(detail);
+        const tiene = !!detail.bonificacion_tipo && Number(detail.bonificacion_valor) > 0;
+        setBpActiva(tiene);
+        setBpTipo(detail.bonificacion_tipo ?? 'porcentaje');
+        setBpValor(tiene ? String(Number(detail.bonificacion_valor)) : '');
         // Auto-set client when arriving from "Cobrar saldo" (URL param, no client selected yet)
         if (!clienteId && detail.cliente_id) {
           setClienteId(detail.cliente_id);
@@ -287,7 +302,9 @@ export function NuevoRecibo() {
   // Descuentos ya otorgados en recibos previos no son deuda — restarlos del saldo
   // Lo que las devoluciones aplicaron a la deuda tampoco hay que cobrarlo (viene de operacion_cobranza)
   const devueltoOp = Number(presupuestoDetalle?.devuelto_a_saldo ?? 0);
-  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp - descuentosOp - devueltoOp);
+  // La bonificación acordada en el presupuesto que ningún recibo tomó todavía ya no es deuda (igual que operacion_cobranza)
+  const bonifPendienteOp = Math.max(Number(presupuestoDetalle?.bonificacion_monto ?? 0) - Number(presupuestoDetalle?.bonificacion_tomada ?? 0), 0);
+  const saldoOp = Math.max(0, totalPresupuesto - cobradoOp - descuentosOp - devueltoOp - bonifPendienteOp);
 
   // ── Breakdown bonificación ────────────────────────────────
   // Descuentos disponibles en cualquier forma de pago (típicamente Contado, excepcionalmente otros)
@@ -306,18 +323,29 @@ export function NuevoRecibo() {
     ? presupuestoDetalle.items.reduce(
         (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0)
     : 0;
-  const envioExtra = presupuestoDetalle?.forma_envio === 'envio_empresa'
-    ? Number(presupuestoDetalle.costo_envio ?? 0)
-    : 0;
-
   const pctActual = bonPct > 0 ? bonPct
     : bonCustom ? parseFloat(bonCustom) / 100 : 0;
-  const descuentoMonto = Math.round(montoProductos * pctActual * 100) / 100;
-  const totalConBonif  = montoProductos - descuentoMonto + montoInstalacion + envioExtra;
+  // Descuento de la operación = bonificación del presupuesto + % de la forma de pago (sobre lo ya bonificado).
+  // Este recibo aplica lo que todavía falta: el objetivo menos lo que recibos anteriores ya descontaron,
+  // así un segundo recibo no vuelve a descontar.
+  const bpValorNum = parseFloat(bpValor.replace(',', '.')) || 0;
+  const bpMonto    = bpActiva ? calcularBonificacion(montoProductos, bpTipo, bpValorNum) : 0;
+  const descAlt    = Math.round((montoProductos - bpMonto) * pctActual * 100) / 100;
+  const descuentoObjetivo = bpMonto + descAlt;
+  const descuentoMonto = aplicaBonificacion ? Math.max(Math.round((descuentoObjetivo - descuentosOp) * 100) / 100, 0) : 0;
+  const bonifTomada = Number(presupuestoDetalle?.bonificacion_tomada ?? 0);
+  const bpEste = aplicaBonificacion ? Math.min(Math.max(bpMonto - bonifTomada, 0), descuentoMonto) : 0;
+  const pctEfectivo = montoProductos > 0 ? descuentoMonto / montoProductos : 0;
+  const totalConBonif  = montoProductos - descuentoObjetivo + montoInstalacion;
+  // ¿Cambió quien cobra la bonificación del presupuesto?
+  const bpOriginalTipo  = presupuestoDetalle?.bonificacion_tipo ?? null;
+  const bpOriginalValor = Number(presupuestoDetalle?.bonificacion_valor ?? 0);
+  const bpCambiada = aplicaBonificacion && !!presupuestoDetalle &&
+    (bpActiva ? (bpOriginalTipo !== bpTipo || Math.abs(bpOriginalValor - bpValorNum) > 0.001) : bpOriginalTipo !== null);
 
-  // ── Saldo efectivo (aplica descuento si hay bonificación activa) ──
-  const saldoEfectivo = (aplicaBonificacion && pctActual > 0)
-    ? Math.max(0, totalConBonif - cobradoOp - devueltoOp)
+  // ── Saldo efectivo (aplica el descuento de este recibo) ──
+  const saldoEfectivo = aplicaBonificacion
+    ? Math.max(0, totalPresupuesto - cobradoOp - descuentosOp - descuentoMonto - devueltoOp)
     : saldoOp;
 
   // ── Pago combinado ────────────────────────────────────────
@@ -517,14 +545,9 @@ export function NuevoRecibo() {
 
   function calcTotalConDesc(pct: number): number {
     if (!presupuestoDetalle) return saldoOp;
-    const prod  = presupuestoDetalle.items.reduce(
-      (s, it) => s + Number(it.precio_unitario) * Number(it.cantidad), 0);
-    const inst  = presupuestoDetalle.items.reduce(
-      (s, it) => s + (it.incluye_instalacion ? Number(it.precio_instalacion) * Number(it.cantidad) : 0), 0);
-    const envio = presupuestoDetalle.forma_envio === 'envio_empresa'
-      ? Number(presupuestoDetalle.costo_envio ?? 0) : 0;
-    const desc  = Math.round(prod * pct * 100) / 100;
-    return Math.max(0, (prod - desc + inst + envio) - cobradoOp - devueltoOp);
+    const alt   = Math.round((montoProductos - bpMonto) * pct * 100) / 100;
+    const nuevo = Math.max(Math.round((bpMonto + alt - descuentosOp) * 100) / 100, 0);
+    return Math.max(0, totalPresupuesto - cobradoOp - descuentosOp - nuevo - devueltoOp);
   }
 
   // Al llegar el detalle de una operación con varias alternativas ofrecidas, no
@@ -651,8 +674,10 @@ export function NuevoRecibo() {
     }
 
     // Campos de descuento — monto_lista - monto_descuento = monto_total (cobrado)
-    const descPct    = aplicaBonificacion && pctActual > 0 ? Math.round(pctActual * 10000) / 100 : 0;
-    const descMonto  = aplicaBonificacion && pctActual > 0 ? Math.round(descuentoMonto * 100) / 100 : 0;
+    const descMonto  = Math.round(descuentoMonto * 100) / 100;
+    // % exacto cuando es solo el de la forma de pago; si entra la bonificación del presupuesto, el efectivo
+    const descPct    = descMonto <= 0 ? 0
+      : (bpEste <= 0 && pctActual > 0 ? Math.round(pctActual * 10000) / 100 : Math.round(pctEfectivo * 10000) / 100);
     const listaTotal = Math.round((montoFinal + descMonto) * 100) / 100;
 
     const payload: Record<string, unknown> = {
@@ -684,13 +709,19 @@ export function NuevoRecibo() {
       comprobante_url: comprobantes[0] || null,
       forma_pago_alternativa_id: formaPagoAlternativaId || null,
     };
+    if (!isEdit && bpEste > 0) payload.bonificacion_presupuesto_monto = bpEste;
+    if (!isEdit && bpCambiada) {
+      payload.bonificacion_presupuesto = bpActiva && bpValorNum > 0
+        ? { tipo: bpTipo, valor: bpValorNum, motivo: presupuestoDetalle?.bonificacion_motivo ?? null }
+        : { tipo: null, valor: null };
+    }
 
     if (!isEdit && esParcial && hayQueComprometer && crearCompromiso && compromisoFecha) {
       payload.compromiso = {
         monto:             Math.round(saldoTrasRecibo * 100) / 100,
         fecha_vencimiento: compromisoFecha,
         tipo:              compromisoTipo,
-        descripcion:       `Saldo pendiente — ${operacionSel?.numero ?? ''}${pctActual > 0 ? ` (bonif. ${String(Math.round(pctActual * 10000) / 100)}%)` : ''}`,
+        descripcion:       `Saldo pendiente — ${operacionSel?.numero ?? ''}${descuentoMonto > 0 ? ` (bonif. ${String(Math.round(pctEfectivo * 10000) / 100)}%)` : ''}`,
       };
     }
 
@@ -1098,6 +1129,66 @@ export function NuevoRecibo() {
         </SectionCard>
       )}
 
+      {/* ── 3b. Bonificación acordada en el presupuesto ─── */}
+      {aplicaBonificacion && (!!presupuestoDetalle?.bonificacion_tipo) && (
+        <SectionCard
+          title="Bonificación del presupuesto"
+          icon={Gift}
+          accent="bg-emerald-50 border-emerald-100 text-emerald-700"
+        >
+          <div className="space-y-3" data-testid="bonificacion-recibo">
+            <p className="text-xs text-gray-600">
+              Acordada en {presupuestoDetalle?.numero.replace(/^OP-/, 'PRO-')}
+              {presupuestoDetalle?.bonificacion_motivo ? ` — ${presupuestoDetalle.bonificacion_motivo}` : ''}.
+              Se calcula sobre el precio de lista de los productos y queda impresa en el recibo.
+            </p>
+            <label className="flex items-center gap-2 min-h-[44px] cursor-pointer">
+              <input type="checkbox" checked={bpActiva} onChange={e => setBpActiva(e.target.checked)}
+                className="w-5 h-5 rounded border-gray-400 text-emerald-600 focus:ring-emerald-400" />
+              <span className="text-sm font-semibold text-gray-800">Aplicar la bonificación</span>
+            </label>
+            {bpActiva && (
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                  {(['porcentaje', 'monto'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => setBpTipo(t)}
+                      aria-label={t === 'porcentaje' ? 'Porcentaje' : 'Monto fijo'}
+                      className={cn('h-11 w-11 text-sm font-bold',
+                        bpTipo === t ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600')}>
+                      {t === 'porcentaje' ? '%' : '$'}
+                    </button>
+                  ))}
+                </div>
+                <input type="number" inputMode="decimal" min={0} step="any" value={bpValor}
+                  onChange={e => setBpValor(e.target.value)} aria-label="Valor de la bonificación"
+                  className="flex-1 min-w-0 h-11 px-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              </div>
+            )}
+            {bpCambiada && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                {bpActiva
+                  ? <>Distinta a la del presupuesto ({rotuloBonificacion(bpOriginalTipo, bpOriginalValor)}). Al guardar el recibo, el presupuesto queda con esta bonificación.</>
+                  : <>Se quita la bonificación del presupuesto ({rotuloBonificacion(bpOriginalTipo, bpOriginalValor)}). Al guardar el recibo, el presupuesto queda sin bonificación.</>}
+              </p>
+            )}
+            {bonifTomada > 0.009 && (
+              <p className="text-[11px] text-gray-500">Ya aplicada en recibos anteriores: {formatCurrency(bonifTomada)}.</p>
+            )}
+            {bpMonto > 0 && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 space-y-1.5 text-xs">
+                <div className="flex justify-between text-gray-600"><span>Productos (precio de lista)</span><span className="font-medium">{formatCurrency(montoProductos)}</span></div>
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>Bonificación {rotuloBonificacion(bpTipo, bpValorNum)}</span><span>− {formatCurrency(bpMonto)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold text-emerald-800 pt-1.5 border-t border-emerald-200">
+                  <span>Saldo a cobrar</span><span>{formatCurrency(saldoEfectivo)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
       {/* ── 4. Descuento (típicamente pago contado) ──────── */}
       {aplicaBonificacion && (
         <SectionCard
@@ -1150,26 +1241,20 @@ export function NuevoRecibo() {
               )}
             </div>
 
-            {pctActual > 0 && (
+            {descAlt > 0 && (
               <div className="bg-violet-50 border border-violet-100 rounded-xl p-3.5 space-y-2">
                 <div className="flex justify-between text-xs text-gray-600">
                   <span>Productos</span>
                   <span className="font-medium">{formatCurrency(montoProductos)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-emerald-600 font-semibold">
-                  <span>Descuento {fmtPct(pctActual)}%</span>
-                  <span>− {formatCurrency(descuentoMonto)}</span>
+                  <span>Descuento {fmtPct(pctActual)}%{bpMonto > 0 ? ' (sobre lo ya bonificado)' : ''}</span>
+                  <span>− {formatCurrency(descAlt)}</span>
                 </div>
                 {montoInstalacion > 0 && (
                   <div className="flex justify-between text-xs text-gray-600">
                     <span>Instalación (sin descuento)</span>
                     <span className="font-medium">{formatCurrency(montoInstalacion)}</span>
-                  </div>
-                )}
-                {envioExtra > 0 && (
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>Envío (sin descuento)</span>
-                    <span className="font-medium">{formatCurrency(envioExtra)}</span>
                   </div>
                 )}
                 {/* Si hay pagos previos, mostrar el subtotal y la deducción para que cuadren los números */}
@@ -1241,9 +1326,9 @@ export function NuevoRecibo() {
                   {formatCurrency(saldoEfectivo)}
                 </span>
                 <span className="text-[11px] text-gray-600">Cancela todo el saldo — no queda deuda</span>
-                {pctActual > 0 && (
+                {descuentoMonto > 0 && (
                   <span className="text-[10px] text-violet-600 font-medium">
-                    incl. {fmtPct(pctActual)}% desc.
+                    incl. {fmtPct(pctEfectivo)}% desc.
                   </span>
                 )}
               </button>
@@ -1524,10 +1609,10 @@ export function NuevoRecibo() {
               )}
 
               {/* Bonificación info */}
-              {pctActual > 0 && aplicaBonificacion && montoFinal > 0 && (
+              {descuentoMonto > 0 && aplicaBonificacion && montoFinal > 0 && (
                 <p className="text-xs text-violet-600 mt-1.5 font-medium">
-                  Bonificación {fmtPct(pctActual)}% aplicada
-                  {descuentoMonto > 0 ? ` · ahorro ${formatCurrency(descuentoMonto)}` : ''}
+                  Bonificación {fmtPct(pctEfectivo)}% aplicada
+                  {` · ahorro ${formatCurrency(descuentoMonto)}`}
                 </p>
               )}
 

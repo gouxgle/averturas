@@ -11,6 +11,7 @@ import { enviarWhatsappPdf, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { hoyAR } from '../lib/fechas.js';
 import { siguienteNumero } from '../lib/numeracion.js';
+import { tomarBonificacionEnRecibo, BonificacionError } from '../lib/bonificacion.js';
 import { facturadoDe } from '../lib/fiscal/origenes.js';
 import { asentarSaldoFavor, saldoFavorDe, montoEnSaldoFavor } from '../lib/saldoFavor.js';
 
@@ -413,7 +414,9 @@ const RECIBO_DETALLE_SQL = `
     -- {"id":null,...} — un objeto VERDADERO en JS, así que el guard "recibo.remito &&"
     -- pasaba igual y el recibo impreso mostraba "Ref. remito:" vacío.
     CASE WHEN op.id IS NULL THEN NULL ELSE
-      json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado) END AS operacion,
+      json_build_object('id', op.id, 'numero', op.numero, 'precio_total', op.precio_total, 'estado', op.estado,
+        'bonificacion_tipo', op.bonificacion_tipo, 'bonificacion_valor', op.bonificacion_valor,
+        'bonificacion_motivo', op.bonificacion_motivo, 'bonificacion_monto', op.bonificacion_monto) END AS operacion,
     CASE WHEN rm.id IS NULL THEN NULL ELSE
       json_build_object('id', rm.id, 'numero', rm.numero, 'estado', rm.estado) END AS remito,
     CASE WHEN vt.id IS NULL THEN NULL ELSE json_build_object(
@@ -523,14 +526,18 @@ recibos.post('/', async (c) => {
     const montoLista     = Number(b.monto_lista     ?? b.monto_total);
     const montoDescuento = Number(b.monto_descuento ?? 0);
     const descuentoPct   = Number(b.descuento_pct   ?? 0);
+    const bonif = await tomarBonificacionEnRecibo(client, {
+      operacion_id: b.operacion_id, monto_descuento: montoDescuento,
+      aplicado: b.bonificacion_presupuesto_monto, cambio: b.bonificacion_presupuesto,
+    });
 
     const { rows: [rec] } = await client.query(`
       INSERT INTO recibos
         (numero, fecha, cliente_id, operacion_id, remito_id, monto_total,
          forma_pago, referencia_pago, concepto, notas, created_by,
          descuento_pct, monto_lista, monto_descuento, comprobante_url,
-         forma_pago_alternativa_id, comprobantes)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         forma_pago_alternativa_id, comprobantes, bonificacion_presupuesto_monto)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       RETURNING *
     `, [
       numero,
@@ -551,6 +558,7 @@ recibos.post('/', async (c) => {
       comprobantes.primero,
       b.forma_pago_alternativa_id || null,
       JSON.stringify(comprobantes.lista),
+      bonif.aplicado,
     ]);
 
     for (let i = 0; i < items.length; i++) {
@@ -598,9 +606,16 @@ recibos.post('/', async (c) => {
       accion: 'crear',
       detalle: `${rec.forma_pago ?? 'Pago'} $${Number(rec.monto_total).toLocaleString('es-AR')}`,
     });
+    if (bonif.cambio && b.operacion_id) {
+      registrarActividad(c, {
+        entidad: 'presupuesto', entidad_id: b.operacion_id, entidad_numero: null,
+        accion: 'editar', detalle: `Bonificación cambiada al cobrar ${rec.numero}: de ${bonif.cambio.antes} a ${bonif.cambio.despues}`,
+      });
+    }
     return c.json(rec, 201);
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err instanceof BonificacionError) return c.json({ error: err.message }, 409);
     throw err;
   } finally {
     client.release();

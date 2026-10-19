@@ -60,7 +60,7 @@ export async function facturadoDe(campo: 'recibo_id' | 'operacion_id' | 'remito_
 async function totalOperacion(id: string): Promise<{ total: number; descuentos: number; envio: number; precio: number } | null> {
   const { rows: [o] } = await db.query(
     `SELECT o.precio_total, COALESCE(o.costo_envio, 0) AS costo_envio,
-            (SELECT COALESCE(SUM(monto_descuento), 0) FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido') AS descuentos
+            (SELECT COALESCE(SUM(monto_descuento), 0) FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido') + operacion_bonif_pendiente(o.id) AS descuentos
        FROM operaciones o WHERE o.id = $1`, [id]);
   if (!o) return null;
   const precio = Number(o.precio_total), envio = Number(o.costo_envio), descuentos = Number(o.descuentos);
@@ -368,7 +368,7 @@ export async function porFacturar() {
             COALESCE(cob.t, 0) AS cobrado
        FROM operaciones o
        JOIN clientes c ON c.id = o.cliente_id
-       LEFT JOIN LATERAL (SELECT SUM(monto_descuento) AS t FROM recibos WHERE operacion_id = o.id AND estado = 'emitido') d ON true
+       LEFT JOIN LATERAL (SELECT COALESCE(SUM(monto_descuento), 0) + operacion_bonif_pendiente(o.id) AS t FROM recibos WHERE operacion_id = o.id AND estado = 'emitido') d ON true
        LEFT JOIN LATERAL (SELECT SUM(monto_total) AS t FROM recibos WHERE operacion_id = o.id AND estado = 'emitido') cob ON true
        LEFT JOIN LATERAL (SELECT SUM(${SIGNO}) AS t FROM comprobantes WHERE operacion_id = o.id AND estado IN ${ESTADOS_QUE_CUENTAN}) f ON true
       WHERE o.estado IN ${ESTADOS_OPERACION_FACTURABLE}

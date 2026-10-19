@@ -1,3 +1,4 @@
+import { rotuloBonificacion } from '@/lib/bonificacion';
 // Diff puro entre dos revisiones (snapshots) de una proforma. Sin dependencias
 // de React — se usa tanto en la vista pública como en el panel admin.
 //
@@ -53,6 +54,9 @@ export interface DiffSnapshot {
   precio_total: number;
   items: DiffSnapshotItem[];
   formas_pago_alternativas?: { nombre: string; descuento_pct: number }[];
+  bonificacion_tipo?: 'porcentaje' | 'monto' | null;
+  bonificacion_valor?: number | string | null;
+  bonificacion_monto?: number | string | null;
 }
 
 export type EstadoItemDiff = 'igual' | 'modificado' | 'agregado' | 'quitado';
@@ -223,6 +227,9 @@ function diffHeader(a: DiffSnapshot, b: DiffSnapshot): CambioCampo[] {
     const va = a[campo], vb = b[campo];
     if (normVal(va) !== normVal(vb)) cambios.push({ campo: label, antes: va, despues: vb });
   }
+  const bonA = rotuloBonificacion(a.bonificacion_tipo, a.bonificacion_valor) || 'Sin bonificación';
+  const bonB = rotuloBonificacion(b.bonificacion_tipo, b.bonificacion_valor) || 'Sin bonificación';
+  if (bonA !== bonB) cambios.push({ campo: 'Bonificación', antes: bonA, despues: bonB });
   return cambios;
 }
 

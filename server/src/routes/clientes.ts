@@ -793,7 +793,9 @@ clientes.get('/:id/estado-cuenta', async (c) => {
     const remitosOp = remitosMap[op.id] ?? [];
     const generaSaldo = ESTADOS_APROBADOS.has(op.estado);
     const cobrado = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_total), 0);
-    const descuentos = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_descuento ?? 0), 0);
+    const descuentosRecibos = recibosOp.reduce((s: number, r: any) => s + Number(r.monto_descuento ?? 0), 0);
+    // La bonificación del presupuesto cuenta desde que se aprueba, aunque todavía no haya recibo que la materialice
+    const descuentos = descuentosRecibos + Math.max(Number(op.bonificacion_monto ?? 0) - descuentosRecibos, 0);
     const devuelto = devueltoPorOp[op.id] ?? 0;
     // saldo financiero solo aplica a operaciones aprobadas — la bonificación no es deuda y lo devuelto baja la deuda
     const saldo = generaSaldo ? Number(op.precio_total) - cobrado - descuentos - devuelto : null;

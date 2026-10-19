@@ -1,3 +1,4 @@
+import { rotuloBonificacion } from '@/lib/bonificacion';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { HelpButton } from '@/components/HelpButton';
@@ -122,6 +123,8 @@ interface OpDetalle {
   tiempo_entrega: number | null; fecha_validez: string | null;
   notas: string | null; created_at: string; updated_at: string;
   forma_envio: string | null; costo_envio: number;
+  bonificacion_tipo?: 'porcentaje' | 'monto' | null; bonificacion_valor?: number | string | null;
+  bonificacion_motivo?: string | null; bonificacion_monto?: number | string | null;
   /** Última revisión ENVIADA al cliente y si coincide con el estado vivo — si no
    *  coincide, se editó después del último envío y conviene reenviar. */
   revision_vigente: {
@@ -909,8 +912,19 @@ function PresupuestoModal({
                   <span className="text-xs text-gray-600">Productos: {formatCurrency(subtotal)} + Envío: {formatCurrency(costoEnvio)}</span>
                 )}
                 <span className="text-xs text-gray-600">Total:</span>
-                <span className="text-xl font-bold text-gray-900">{formatCurrency(total)}</span>
+                {Number(op.bonificacion_monto ?? 0) > 0.01 && (
+                  <span className="text-sm text-gray-500 line-through">{formatCurrency(total)}</span>
+                )}
+                <span className="text-xl font-bold text-gray-900">{formatCurrency(total - Number(op.bonificacion_monto ?? 0))}</span>
               </div>
+              {Number(op.bonificacion_monto ?? 0) > 0.01 && (
+                <div className="flex justify-end">
+                  <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100" data-testid="chip-bonificacion">
+                    Bonificación {rotuloBonificacion(op.bonificacion_tipo, op.bonificacion_valor)}
+                    {op.bonificacion_motivo ? ` — ${op.bonificacion_motivo}` : ''}: −{formatCurrency(Number(op.bonificacion_monto))}
+                  </span>
+                </div>
+              )}
               {esCuotas && total > 0 && (
                 <div className="flex justify-end">
                   <span className="text-xs text-violet-600 font-semibold bg-violet-50 px-3 py-1 rounded-lg border border-violet-100">

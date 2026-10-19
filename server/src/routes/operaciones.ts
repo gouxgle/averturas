@@ -1,3 +1,4 @@
+import { guardarBonificacion } from '../lib/bonificacion.js';
 import { Hono } from 'hono';
 import { bloquearYValidarStock, insertarItemsOperacion, entregarDeMostrador, VentaError } from '../lib/ventaRapida.js';
 import { liberarReservas } from '../lib/reservas.js';
@@ -582,7 +583,7 @@ operaciones.get('/ventas-panel', async (c) => {
       LEFT JOIN LATERAL (
         SELECT
           COALESCE(SUM(r.monto_total),    0)::numeric AS cobrado_total,
-          COALESCE(SUM(r.monto_descuento),0)::numeric AS descuentos_total,
+          (COALESCE(SUM(r.monto_descuento),0) + operacion_bonif_pendiente(o.id))::numeric AS descuentos_total,
           -- Lo que las devoluciones aplicaron a la deuda (vista operacion_cobranza)
           COALESCE((SELECT oc.devuelto_a_saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS devuelto_a_saldo,
           -- Parte del cobrado que viene de acreditar una visita técnica (no es seña del cliente)
@@ -819,7 +820,7 @@ operaciones.post('/:id/enviar-email', async (c) => {
   }
 
   const { rows: [op] } = await db.query(
-    `SELECT o.id, o.numero, o.cliente_id, o.estado, o.precio_total, o.token_acceso,
+    `SELECT o.id, o.numero, o.cliente_id, o.estado, (o.precio_total - o.bonificacion_monto) AS precio_total, o.token_acceso,
        cl.nombre, cl.apellido, cl.razon_social, cl.tipo_persona, cl.email
      FROM operaciones o
      JOIN clientes cl ON cl.id = o.cliente_id
@@ -1145,6 +1146,8 @@ operaciones.get('/:id', async (c) => {
       SELECT o.*,
         COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
         COALESCE((SELECT oc.descuentos FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS total_descuentos,
+        -- Bonificación del presupuesto ya tomada por recibos emitidos (el recibo toma solo lo que falta)
+        COALESCE((SELECT SUM(r.bonificacion_presupuesto_monto) FROM recibos r WHERE r.operacion_id = o.id AND r.estado = 'emitido'), 0)::numeric AS bonificacion_tomada,
         -- Lo que las devoluciones aplicaron a la deuda y el saldo resultante (vista operacion_cobranza)
         COALESCE((SELECT oc.devuelto_a_saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS devuelto_a_saldo,
         COALESCE((SELECT oc.saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS saldo,
@@ -1438,6 +1441,8 @@ operaciones.post('/', async (c) => {
       }
     }
 
+    await guardarBonificacion(client, op.id, b);
+
     if (b.visita_tecnica_id) {
       await client.query(`
         UPDATE visitas_tecnicas SET operacion_id=$1, estado='convertida', updated_at=now()
@@ -1578,6 +1583,8 @@ operaciones.put('/:id', async (c) => {
         `, [id, alt.forma_pago_id || null, alt.nombre, alt.descuento_pct ?? 0, alt.orden ?? idx]);
       }
     }
+
+    await guardarBonificacion(client, id, b);
 
     await client.query('COMMIT');
     registrarActividad(c, {
