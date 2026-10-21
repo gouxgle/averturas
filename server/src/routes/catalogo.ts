@@ -931,7 +931,8 @@ catalogo.post('/proveedor-precios/aplicar-actualizacion', async (c) => {
           }
           // Antes no renovaba la fecha (el semáforo quedaba en rojo aunque el precio cambió)
           // y contaba como actualizados los de precio manual, que el WHERE excluye.
-          if (b.propagar_precio_base) updates.push('precio_actualizado_at=now()');
+          // Se actualizó el costo de lista: el precio queda vigente desde hoy, se propague o no el de venta
+          updates.push('precio_actualizado_at=now()');
           vals.push(pp.producto_id);
           const { rows: [antes] } = await client.query(
             `SELECT precio_base::float AS precio, costo_base::float AS costo FROM catalogo_productos WHERE id=$1`, [pp.producto_id]);

@@ -336,6 +336,17 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         tip: 'El precio sugerido mantiene el recargo sobre el costo de reposición (o lo lleva al objetivo si estaba por debajo), o sigue al dólar: el mayor de los dos, no los suma. Nunca propone bajar un precio solo.',
       },
       {
+        id: 'renovar-rapido',
+        emoji: '🔄',
+        title: 'Renovar validez desde Productos',
+        steps: [
+          { text: 'En la tarjeta del producto, si el precio está en amarillo o rojo, tocá "Renovar"' },
+          { text: 'O abrí el detalle: "Validez del precio" → "Renovar validez"' },
+          { text: 'Y al editar el costo o el precio de un producto, la validez se renueva sola' },
+        ],
+        tip: 'Renovar no cambia el precio: solo la fecha, y el producto vuelve a verde. En Productos también podés filtrar por proveedor con el selector de arriba.',
+      },
+      {
         id: 'actualizar',
         emoji: '📈',
         title: 'Actualizar precios',

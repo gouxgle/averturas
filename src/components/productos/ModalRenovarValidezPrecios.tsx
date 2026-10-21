@@ -1,21 +1,21 @@
 import { useMemo, useState } from 'react';
 import { X, RefreshCw, Check, AlertTriangle, Loader2, Search, Layers, ListChecks } from 'lucide-react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, diasCalendarioAR } from '@/lib/utils';
+import { useConfigValidez, validezPrecio, type ConfigValidez } from '@/lib/validezPrecio';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import type { Producto } from '@/types';
 
 function diasDesde(fechaIso: string): number {
-  return Math.floor((Date.now() - new Date(fechaIso).getTime()) / 86400000);
+  return diasCalendarioAR(fechaIso);
 }
 
 type Estado = 'vencido' | 'por_vencer' | 'al_dia';
-/** Mismo semáforo que la tarjeta del producto: verde ≤7 días, amarillo 8-10, rojo >10. */
-function estadoPrecio(p: Producto): Estado {
-  if (!p.precio_actualizado_at) return 'vencido';
-  const d = diasDesde(p.precio_actualizado_at);
-  return d > 10 ? 'vencido' : d >= 8 ? 'por_vencer' : 'al_dia';
+/** Mismo semáforo que la tarjeta y el detalle del producto (validezPrecio, con los días de la configuración). */
+function estadoPrecio(p: Producto, cfg: ConfigValidez): Estado {
+  const e = validezPrecio(p.precio_actualizado_at, cfg).estado;
+  return e;
 }
 const ESTADO_UI: Record<Estado, { label: string; punto: string; texto: string }> = {
   vencido:    { label: 'Vencidos',   punto: 'bg-red-500',     texto: 'text-red-600' },
@@ -42,6 +42,7 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
   onClose: () => void;
   onRenovado: () => void;
 }) {
+  const cfg = useConfigValidez();
   const [modo, setModo] = useState<'familias' | 'productos'>('familias');
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [elegidos, setElegidos] = useState<Set<string>>(new Set());
@@ -70,15 +71,15 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
       .filter(p => !q || [p.nombre, p.codigo, p.color, p.proveedor?.nombre].some(v => v?.toLowerCase().includes(q)))
       .filter(p => !familiaFiltro || (familiaFiltro === 'sin' ? !p.tipo_abertura_id : p.tipo_abertura_id === familiaFiltro))
       .filter(p => !proveedorFiltro || p.proveedor_id === proveedorFiltro)
-      .filter(p => !estadoFiltro || estadoPrecio(p) === estadoFiltro)
+      .filter(p => !estadoFiltro || estadoPrecio(p, cfg) === estadoFiltro)
       .sort((a, b) => (a.precio_actualizado_at ?? '').localeCompare(b.precio_actualizado_at ?? '') || a.nombre.localeCompare(b.nombre));
-  }, [activos, busqueda, familiaFiltro, proveedorFiltro, estadoFiltro]);
+  }, [activos, busqueda, familiaFiltro, proveedorFiltro, estadoFiltro, cfg]);
 
   const conteoEstados = useMemo(() => {
     const c: Record<Estado, number> = { vencido: 0, por_vencer: 0, al_dia: 0 };
-    for (const p of activos) c[estadoPrecio(p)]++;
+    for (const p of activos) c[estadoPrecio(p, cfg)]++;
     return c;
-  }, [activos]);
+  }, [activos, cfg]);
 
   const todosVisiblesElegidos = visibles.length > 0 && visibles.every(p => elegidos.has(p.id));
   function toggleProducto(id: string) {
@@ -100,14 +101,14 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
       const f = mapa.get(p.tipo_abertura_id) ?? { id: p.tipo_abertura_id, nombre, total: 0, vencidos: 0, porVencer: 0 };
       f.total += 1;
       if (p.precio_actualizado_at) {
-        const dias = diasDesde(p.precio_actualizado_at);
-        if (dias > 10) f.vencidos += 1;
-        else if (dias >= 8) f.porVencer += 1;
+        const est = estadoPrecio(p, cfg);
+        if (est === 'vencido') f.vencidos += 1;
+        else if (est === 'por_vencer') f.porVencer += 1;
       }
       mapa.set(p.tipo_abertura_id, f);
     }
     return [...mapa.values()].sort((a, b) => (b.vencidos + b.porVencer) - (a.vencidos + a.porVencer));
-  }, [productos]);
+  }, [productos, cfg]);
 
   function toggle(id: string) {
     setSeleccion(prev => {
@@ -224,7 +225,7 @@ export function ModalRenovarValidezPrecios({ productos, onClose, onRenovado }: {
               <div className="space-y-1">
                 {visibles.map(p => {
                   const checked = elegidos.has(p.id);
-                  const est = ESTADO_UI[estadoPrecio(p)];
+                  const est = ESTADO_UI[estadoPrecio(p, cfg)];
                   const dias = p.precio_actualizado_at ? diasDesde(p.precio_actualizado_at) : null;
                   return (
                     <button key={p.id} type="button" onClick={() => toggleProducto(p.id)} aria-pressed={checked}

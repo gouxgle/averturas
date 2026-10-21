@@ -136,13 +136,14 @@ function TarjetaModeloMosaico({ nombre, variantes, priceColor, onSelectVariante,
 }
 
 export function GridMosaico({
-  productos, priceColor, onSelect, onToggle, onToggleSalon,
+  productos, priceColor, onSelect, onToggle, onToggleSalon, onRenovarValidez,
   onAgregar, cantidadEnCarrito, mostrarVenderAhora, onSelectVariante, zModales,
 }: {
   productos: Producto[]; priceColor: string;
   onSelect: (p: Producto) => void;
   onToggle?: (p: Producto) => void;
   onToggleSalon?: (p: Producto) => void | Promise<void>;
+  onRenovarValidez?: (p: Producto) => void | Promise<void>;
   /** Modo selección: botón "+" en la tarjeta (agrega al presupuesto/carrito). */
   onAgregar?: (p: Producto) => void;
   cantidadEnCarrito?: (p: Producto) => number;
@@ -159,7 +160,7 @@ export function GridMosaico({
         ? <TarjetaModeloMosaico key={`modelo-${it.modeloId}`} nombre={it.nombre} variantes={it.variantes}
             priceColor={priceColor} onSelectVariante={elegirVariante} zModales={zModales}/>
         : <TarjetaProductoMosaico key={it.producto.id} producto={it.producto} priceColor={priceColor}
-            onSelect={onSelect} onToggle={onToggle} onToggleSalon={onToggleSalon}
+            onSelect={onSelect} onToggle={onToggle} onToggleSalon={onToggleSalon} onRenovarValidez={onRenovarValidez}
             onAgregar={onAgregar} mostrarVenderAhora={mostrarVenderAhora}
             cantidadEnCarrito={cantidadEnCarrito?.(it.producto) ?? 0}/>
       )}

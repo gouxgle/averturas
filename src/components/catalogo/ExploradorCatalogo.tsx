@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  SORT_LABEL, buildFacets, productoMatchTexto, productoPasaFacets, sortProductos,
+  FACET_PROVEEDOR, SORT_LABEL, buildFacets, productoMatchTexto, productoPasaFacets, sortProductos,
   type SortKey,
 } from '@/lib/catalogoFiltros';
 import { ningunProveedorConPlazo } from '@/lib/disponibilidad';
@@ -38,6 +38,7 @@ export interface ExploradorCatalogoProps {
   // Modo gestión
   onToggleActivo?: (p: Producto) => void;
   onToggleSalon?: (p: Producto) => void | Promise<void>;
+  onRenovarValidez?: (p: Producto) => void | Promise<void>;
   mostrarVenderAhora?: boolean;
 
   // Modo selección
@@ -59,6 +60,9 @@ export interface ExploradorCatalogoProps {
   renderFooter?: () => React.ReactNode;
   vacio?: React.ReactNode;
 
+  /** Selector de proveedor siempre visible arriba (gestión de catálogo): no depende de la familia elegida. */
+  selectorProveedor?: boolean;
+
   /** Sube los modales anidados por encima del contenedor (ver ModalCatalogoProductos). */
   zDrawer?: string;
   zModales?: string;
@@ -66,9 +70,9 @@ export interface ExploradorCatalogoProps {
 
 export function ExploradorCatalogo({
   productos, loading = false,
-  onSelect, onToggleActivo, onToggleSalon, mostrarVenderAhora,
+  onSelect, onToggleActivo, onToggleSalon, onRenovarValidez, mostrarVenderAhora,
   onAgregar, cantidadEnCarrito, onSelectVariante,
-  facetasTransversalesEnBusqueda = false,
+  facetasTransversalesEnBusqueda = false, selectorProveedor = false,
   renderHeader, renderFooter, vacio,
   zDrawer = 'z-50', zModales,
 }: ExploradorCatalogoProps) {
@@ -166,11 +170,23 @@ export function ExploradorCatalogo({
     if (familiaSel) {
       const nombreFamilia = trasCascada[0]?.tipo_abertura?.nombre ?? '';
       const keyTipologia = tipologiaKeyDeFamilia(nombreFamilia);
-      return buildFacets(trasCascada, { excludeAttrKeys: keyTipologia ? [keyTipologia] : [] });
+      return buildFacets(trasCascada, { excludeAttrKeys: keyTipologia ? [keyTipologia] : [], sinProveedor: selectorProveedor });
     }
     if (!facetasTransversalesEnBusqueda) return [];
-    return buildFacets(trasCascada, { soloTransversales: true });
-  }, [familiaSel, trasCascada, facetasTransversalesEnBusqueda]);
+    return buildFacets(trasCascada, { soloTransversales: true, sinProveedor: selectorProveedor });
+  }, [familiaSel, trasCascada, facetasTransversalesEnBusqueda, selectorProveedor]);
+
+  // Proveedores de TODO el catálogo (no del set filtrado): el selector no desaparece ni cambia al navegar.
+  const proveedoresTodos = useMemo(() => {
+    const m = new Map<string, { nombre: string; count: number }>();
+    productos.forEach(p => {
+      if (!p.proveedor?.id) return;
+      const prev = m.get(p.proveedor.id);
+      if (prev) prev.count++; else m.set(p.proveedor.id, { nombre: p.proveedor.nombre, count: 1 });
+    });
+    return [...m.entries()].sort((a, b) => a[1].nombre.localeCompare(b[1].nombre));
+  }, [productos]);
+  const proveedorSel = facetFilters[FACET_PROVEEDOR]?.[0] ?? '';
 
   const visibles = useMemo(() => {
     let out = trasCascada.filter(p => productoPasaFacets(p, facetFilters));
@@ -180,11 +196,11 @@ export function ExploradorCatalogo({
   }, [trasCascada, facetFilters, soloInmediata, soloEnSalon, sortBy]);
 
   const hayFiltroDeLista = activeFacetCount > 0 || soloInmediata || soloEnSalon || cascadaActiva(cascada);
-  const sinPlazoCargado = facetasTransversalesEnBusqueda && !loading && productos.length > 0
+  const sinPlazoCargado = facetasTransversalesEnBusqueda && !selectorProveedor && !loading && productos.length > 0
     && ningunProveedorConPlazo(productos);
 
   const propsGrilla = {
-    onSelect, onToggle: onToggleActivo, onToggleSalon, onAgregar,
+    onSelect, onToggle: onToggleActivo, onToggleSalon, onRenovarValidez, onAgregar,
     cantidadEnCarrito, mostrarVenderAhora, onSelectVariante, zModales,
   };
 
@@ -217,6 +233,21 @@ export function ExploradorCatalogo({
             ))}
           </select>
         </div>
+        {selectorProveedor && proveedoresTodos.length > 0 && (
+          <select
+            value={proveedorSel} aria-label="Filtrar por proveedor" data-testid="selector-proveedor"
+            onChange={e => setFacetFilters(prev => {
+              const copy = { ...prev };
+              if (e.target.value) copy[FACET_PROVEEDOR] = [e.target.value]; else delete copy[FACET_PROVEEDOR];
+              return copy;
+            })}
+            className={cn('shrink-0 px-3 py-2.5 border rounded-xl text-sm font-medium bg-white shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer max-w-full sm:max-w-[16rem]',
+              proveedorSel ? 'border-sky-400 text-sky-700' : 'border-gray-200 text-gray-600')}
+          >
+            <option value="">Todos los proveedores</option>
+            {proveedoresTodos.map(([id, v]) => <option key={id} value={id}>{v.nombre} ({v.count})</option>)}
+          </select>
+        )}
         <button
           onClick={() => setSoloInmediata(v => !v)}
           title="Solo productos con stock — se entregan sin esperar al proveedor"

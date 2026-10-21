@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Package, ToggleLeft, ToggleRight, Tag, Store, Play, Globe,
-  Percent, ShoppingCart, Star, ThumbsUp, Sparkles, Loader2, Plus,
+  Percent, ShoppingCart, Star, ThumbsUp, Sparkles, Loader2, Plus, RefreshCw,
 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { colorProveedor } from '@/lib/coloresProveedor';
@@ -11,6 +11,7 @@ import { BadgeDisponibilidad } from '@/components/BadgeDisponibilidad';
 import {
   buildSubtitle, isPromoActiva, LINEA_COLOR,
 } from '@/lib/catalogoFiltros';
+import { COLOR_VALIDEZ, useConfigValidez, validezPrecio } from '@/lib/validezPrecio';
 import type { Producto, TipoOperacion } from '@/types';
 
 // `isPromoActiva` y `buildSubtitle` viven en @/lib/catalogoFiltros — se re-exportan
@@ -40,19 +41,10 @@ export const ETIQUETA_CONFIG = {
   recomendado: { label: 'Recomendado', cls: 'bg-orange-500 text-white',  Icon: ThumbsUp  },
   nuevo:       { label: 'Nuevo',       cls: 'bg-emerald-500 text-white', Icon: Sparkles  },
 } as const;
-// Antigüedad del precio: verde <=7 días, amarillo 8-10, rojo >10 — para detectar
-// a simple vista precios que no se están actualizando (manual o por lista de proveedor).
-function colorPorAntiguedadPrecio(fechaIso: string): string {
-  const dias = Math.floor((Date.now() - new Date(fechaIso).getTime()) / 86400000);
-  if (dias <= 7) return 'text-emerald-600';
-  if (dias <= 10) return 'text-amber-600';
-  return 'text-red-600';
-}
-
 // ── Tarjeta mosaico — el mismo recuadro se usa en Catálogo (Productos.tsx) y en
 // Venta rápida de mostrador, para que un producto se vea igual en los dos lugares.
 export function TarjetaProductoMosaico({
-  producto, priceColor, onSelect, onToggle, onToggleSalon, onAgregar,
+  producto, priceColor, onSelect, onToggle, onToggleSalon, onAgregar, onRenovarValidez,
   mostrarVenderAhora = true, cantidadEnCarrito = 0,
 }: {
   producto: Producto;
@@ -60,6 +52,8 @@ export function TarjetaProductoMosaico({
   onSelect: (p: Producto) => void;
   onToggle?: (p: Producto) => void;
   onToggleSalon?: (p: Producto) => void | Promise<void>;
+  /** Renueva la validez del precio sin cambiarlo (acceso rápido desde la tarjeta). */
+  onRenovarValidez?: (p: Producto) => void | Promise<void>;
   /**
    * Modo selección (armar presupuesto / pedido): botón "+" abajo a la derecha.
    * OJO: comparte esquina con el toggle de activo (`onToggle`, modo gestión). Nunca
@@ -80,7 +74,10 @@ export function TarjetaProductoMosaico({
   const precioOrig  = promoOk && producto.promocion?.precio_oferta ? producto.precio_base : null;
   const descPct     = precioOrig ? Math.round((1 - precioFinal / precioOrig) * 100) : 0;
   const subtitle    = buildSubtitle(producto);
-  const precioColorEdad = producto.precio_actualizado_at ? colorPorAntiguedadPrecio(producto.precio_actualizado_at) : priceColor;
+  const cfgValidez  = useConfigValidez();
+  const validez     = validezPrecio(producto.precio_actualizado_at, cfgValidez);
+  const precioColorEdad = producto.precio_actualizado_at ? COLOR_VALIDEZ[validez.estado] : priceColor;
+  const [renovando, setRenovando] = useState(false);
   const etiquetaCfg = producto.etiqueta ? ETIQUETA_CONFIG[producto.etiqueta] : null;
   const colorProv   = colorProveedor(producto.proveedor);
   const navigate    = useNavigate();
@@ -222,11 +219,23 @@ export function TarjetaProductoMosaico({
             </div>
           ) : (
             <span className={cn('text-[15px] font-black leading-none', precioColorEdad)}
-              title={producto.precio_actualizado_at ? `Precio actualizado: ${new Date(producto.precio_actualizado_at).toLocaleDateString('es-AR')}` : undefined}>
+              title={producto.precio_actualizado_at ? `Precio actualizado: ${new Date(producto.precio_actualizado_at).toLocaleDateString('es-AR')}${validez.dias != null ? ` (hace ${validez.dias} d)` : ''}` : undefined}>
               {formatCurrency(precioFinal)}
             </span>
           )}
           {producto.precio_por_m2 && <span className="text-[10px] text-gray-600 ml-0.5">/m²</span>}
+          {onRenovarValidez && validez.estado !== 'al_dia' && (
+            <button type="button" disabled={renovando} data-testid="renovar-validez-tarjeta"
+              onClick={async e => {
+                e.stopPropagation();
+                setRenovando(true);
+                try { await onRenovarValidez(producto); } finally { setRenovando(false); }
+              }}
+              title="Renovar la validez del precio (sin cambiarlo)"
+              className="ml-1.5 inline-flex items-center gap-1 align-middle h-6 px-1.5 rounded-md border border-gray-300 bg-white text-[10px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+              <RefreshCw size={11} className={renovando ? 'animate-spin' : ''}/> Renovar
+            </button>
+          )}
           {producto.costo_base > 0 && (
             <p className="text-[10px] text-gray-600 leading-none mt-1">
               Costo: {formatCurrency(Number(producto.costo_base))}

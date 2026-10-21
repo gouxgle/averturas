@@ -20,6 +20,8 @@ import { colorProveedor } from '@/lib/coloresProveedor';
 import { buildSubtitle, isPromoActiva } from '@/lib/catalogoFiltros';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
+import { useAuth } from '@/hooks/useAuth';
+import { COLOR_VALIDEZ, useConfigValidez, validezPrecio } from '@/lib/validezPrecio';
 import type { Producto } from '@/types';
 
 function lastDayOfMonth(): string {
@@ -28,9 +30,11 @@ function lastDayOfMonth(): string {
 }
 // ── Modal de detalle ──────────────────────────────────────────────────────────
 
-export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onToggleWeb, onDelete, onAgregar, zClass = 'z-50' }: {
+export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onToggleWeb, onRenovarValidez, onDelete, onAgregar, zClass = 'z-50' }: {
   producto: Producto; onClose: () => void; onToggle?: () => void; onToggleSalon?: () => Promise<void>;
   onToggleWeb?: () => Promise<void>;
+  /** Renueva la validez del precio sin cambiarlo. */
+  onRenovarValidez?: () => Promise<void>;
   onDelete?: (id: string) => void; onAgregar?: () => void;
   /** Sube por encima de un modal contenedor (ver ModalCatalogoProductos). */
   zClass?: string;
@@ -41,6 +45,9 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onTo
   const [dolarCompra, setDolarCompra] = useState<number | null>(null);
   const [togglingSalon, setTogglingSalon] = useState(false);
   const [togglingWeb, setTogglingWeb]     = useState(false);
+  const [renovando, setRenovando]          = useState(false);
+  const cfgValidez = useConfigValidez();
+  const validez    = validezPrecio(producto.precio_actualizado_at, cfgValidez);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -227,6 +234,23 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onTo
                 </span>
               </div>
             )}
+            <div className="flex items-center justify-between gap-2" data-testid="validez-precio">
+              <span className="text-xs text-gray-600">Validez del precio</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className={cn('text-xs font-semibold text-right', COLOR_VALIDEZ[validez.estado])}>
+                  {validez.dias == null ? 'Sin fecha'
+                    : validez.estado === 'al_dia' ? `Al día · vence el ${validez.venceEl?.split('-').reverse().join('/')}`
+                    : `Vencido hace ${validez.dias - cfgValidez.dias_al_dia} d`}
+                </span>
+                {onRenovarValidez && (
+                  <button type="button" disabled={renovando} data-testid="renovar-validez-modal"
+                    onClick={async () => { setRenovando(true); try { await onRenovarValidez(); } finally { setRenovando(false); } }}
+                    className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 shrink-0">
+                    <RefreshCw size={12} className={renovando ? 'animate-spin' : ''}/> Renovar validez
+                  </button>
+                )}
+              </span>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-600">Costo</span>
               <span className="text-sm text-gray-600">{formatCurrency(costo)}</span>
@@ -347,6 +371,8 @@ const MARKETING = [
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export function Productos() {
+  const { user } = useAuth();
+  const puedeRenovar = user?.rol !== 'consulta';
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState<Producto | null>(null);
@@ -369,6 +395,19 @@ export function Productos() {
     const { activo } = await api.patch<{ id: string; activo: boolean }>(`/productos/${producto.id}/toggle`);
     setProductos(prev => prev.map(p => p.id === producto.id ? { ...p, activo } : p));
     if (selected?.id === producto.id) setSelected(prev => prev ? { ...prev, activo } : null);
+  }
+  // Renovar validez del precio sin cambiarlo (acceso rápido desde la tarjeta y el detalle)
+  async function renovarValidez(producto: Producto) {
+    try {
+      const r = await api.patch<{ actualizados: number; precio_actualizado_at: string }>(
+        '/productos/renovar-validez-precios', { producto_ids: [producto.id] });
+      const fecha = r.precio_actualizado_at ?? new Date().toISOString();
+      setProductos(prev => prev.map(p => p.id === producto.id ? { ...p, precio_actualizado_at: fecha } : p));
+      if (selected?.id === producto.id) setSelected(prev => prev ? { ...prev, precio_actualizado_at: fecha } : null);
+      toast.success('Validez del precio renovada');
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo renovar la validez' });
+    }
   }
   function eliminarProducto(id: string) { setProductos(prev => prev.filter(p => p.id !== id)); }
 
@@ -501,6 +540,9 @@ export function Productos() {
         onSelect={setSelected}
         onToggleActivo={toggleActivo}
         onToggleSalon={toggleSalonRapido}
+        onRenovarValidez={puedeRenovar ? renovarValidez : undefined}
+        selectorProveedor
+        facetasTransversalesEnBusqueda
         renderHeader={BarraValorStock}
         renderFooter={() => (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
@@ -531,6 +573,7 @@ export function Productos() {
           onToggle={() => toggleActivo(selected)}
           onToggleSalon={() => toggleSalonRapido(selected)}
           onToggleWeb={() => toggleWebRapido(selected)}
+          onRenovarValidez={puedeRenovar ? () => renovarValidez(selected) : undefined}
           onDelete={eliminarProducto}
         />
       )}

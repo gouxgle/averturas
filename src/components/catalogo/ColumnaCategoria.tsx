@@ -8,7 +8,7 @@ const COL_INIT = 6;
 
 export function ColumnaCategoria({
   titulo, productos, icono: Icono, headerBg, headerText, badgeBg, badgeText, borderCol, priceColor,
-  onSelect, onToggle, onToggleSalon, onAgregar, cantidadEnCarrito, mostrarVenderAhora, zModales,
+  onSelect, onToggle, onToggleSalon, onRenovarValidez, onAgregar, cantidadEnCarrito, mostrarVenderAhora, zModales,
 }: {
   titulo: string; productos: Producto[]; icono: React.ElementType;
   headerBg: string; headerText: string; badgeBg: string; badgeText: string;
@@ -16,6 +16,7 @@ export function ColumnaCategoria({
   onSelect: (p: Producto) => void;
   onToggle?: (p: Producto) => void;
   onToggleSalon?: (p: Producto) => void | Promise<void>;
+  onRenovarValidez?: (p: Producto) => void | Promise<void>;
   onAgregar?: (p: Producto) => void;
   cantidadEnCarrito?: (p: Producto) => number;
   mostrarVenderAhora?: boolean;
@@ -43,7 +44,7 @@ export function ColumnaCategoria({
         <>
           <div className="p-4">
             <GridMosaico productos={visibles} priceColor={priceColor} onSelect={onSelect}
-              onToggle={onToggle} onToggleSalon={onToggleSalon} onAgregar={onAgregar}
+              onToggle={onToggle} onToggleSalon={onToggleSalon} onRenovarValidez={onRenovarValidez} onAgregar={onAgregar}
               cantidadEnCarrito={cantidadEnCarrito} mostrarVenderAhora={mostrarVenderAhora} zModales={zModales}/>
           </div>
 

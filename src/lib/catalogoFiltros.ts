@@ -232,7 +232,7 @@ export function attrValueLabel(key: string, v: string): string {
  * materiales (búsqueda libre, "Todos"). Proveedor, color, nivel y medida sí son
  * transversales: valen en cualquier set.
  */
-export function buildFacets(items: Producto[], opts?: { soloTransversales?: boolean; excludeAttrKeys?: string[] }): FacetDef[] {
+export function buildFacets(items: Producto[], opts?: { soloTransversales?: boolean; excludeAttrKeys?: string[]; sinProveedor?: boolean }): FacetDef[] {
   const facets: FacetDef[] = [];
 
   // Proveedor — el eje que permite comparar de quién viene cada opción del resultado
@@ -246,7 +246,8 @@ export function buildFacets(items: Producto[], opts?: { soloTransversales?: bool
       nombre: p.proveedor.nombre, plazo: p.proveedor.plazo_entrega_dias ?? null, count: 1,
     });
   });
-  if (provCounts.size >= 2) {
+  // Con 1 solo proveedor el filtro igual se muestra (antes se ocultaba y parecía que "no andaba").
+  if (provCounts.size >= 1 && !opts?.sinProveedor) {
     facets.push({
       key: FACET_PROVEEDOR, label: 'Proveedor',
       options: [...provCounts.entries()]

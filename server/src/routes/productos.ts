@@ -98,6 +98,7 @@ productos.get('/', async (c) => {
 // solo para resetear el semáforo de antigüedad (verde ≤7d / amarillo 8-10 / rojo >10,
 // ver colorPorAntiguedadPrecio en TarjetaProductoMosaico.tsx).
 productos.patch('/renovar-validez-precios', async (c) => {
+  if (c.get('user')?.rol === 'consulta') return c.json({ error: 'Sin permiso para renovar precios' }, 403);
   // Por familias (tipo_abertura_ids) o por productos elegidos a mano (producto_ids).
   const body = await c.req.json().catch(() => ({})) as { tipo_abertura_ids?: unknown; producto_ids?: unknown };
   const uuids = (v: unknown) => Array.isArray(v) && v.length > 0 && v.length <= 5000
@@ -118,7 +119,14 @@ productos.patch('/renovar-validez-precios', async (c) => {
     costo_anterior: r.costo, costo_nuevo: r.costo, origen: 'revision',
     criterio: familias ? 'renovación por familia' : 'renovación de validez',
   })), c.get('user')?.id ?? null);
-  return c.json({ actualizados: rows.length });
+  return c.json({ actualizados: rows.length, precio_actualizado_at: new Date().toISOString() });
+});
+
+// GET /config-validez — días del semáforo de antigüedad del precio (los mismos que usa la
+// revisión de precios), para que tarjeta, detalle y renovación pinten igual.
+productos.get('/config-validez', async (c) => {
+  const cfg = await leerConfigPrecios();
+  return c.json({ dias_al_dia: cfg.dias_al_dia, dias_vencido: cfg.dias_vencido });
 });
 
 
@@ -468,7 +476,7 @@ productos.put('/:id', async (c) => {
       alto             = $7,
       costo_base       = $8,
       precio_base      = $9,
-      precio_actualizado_at = CASE WHEN precio_base IS DISTINCT FROM $9 THEN now() ELSE precio_actualizado_at END,
+      precio_actualizado_at = CASE WHEN precio_base IS DISTINCT FROM $9 OR costo_base IS DISTINCT FROM $8 THEN now() ELSE precio_actualizado_at END,
       precio_por_m2    = $10,
       activo           = $11,
       codigo           = $12,

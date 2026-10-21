@@ -150,9 +150,14 @@ describe('buildFacets', () => {
     expect(prov.options.map(o => o.label)).toEqual(['Alumar · ≈7d', 'Monpat']);
   });
 
-  it('la faceta de proveedor necesita al menos 2 proveedores distintos', () => {
+  it('la faceta de proveedor se muestra aun con un solo proveedor (antes se ocultaba y parecía que no andaba)', () => {
     const unoSolo = [items[0], prod({ id: '3', proveedor: items[0].proveedor } as unknown as Partial<Producto> & { id: string })];
-    expect(buildFacets(unoSolo).some(f => f.key === FACET_PROVEEDOR)).toBe(false);
+    const prov = buildFacets(unoSolo).find(f => f.key === FACET_PROVEEDOR)!;
+    expect(prov.options.map(o => [o.label, o.count])).toEqual([['Alumar · ≈7d', 2]]);
+  });
+
+  it('sinProveedor la omite (cuando hay un selector de proveedor aparte)', () => {
+    expect(buildFacets(items, { sinProveedor: true }).some(f => f.key === FACET_PROVEEDOR)).toBe(false);
   });
 
   // "__medida" salió de buildFacets cuando la medida pasó a ser el 4º paso de la

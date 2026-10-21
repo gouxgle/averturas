@@ -92,7 +92,7 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
         t: 'tabla',
         cols: ['Color', 'Qué significa'],
         filas: [
-          ['**Verde**', 'Revisado hace 7 días o menos. Está al día.'],
+          ['**Verde**', 'Revisado hace 7 días o menos (o los días que diga Parámetros). Está al día.'],
           ['**Amarillo**', 'Revisado hace 8 a 10 días. Mirarlo pronto.'],
           ['**Rojo**', 'Más de 10 días sin revisar. Renovarlo o actualizarlo.'],
         ],
@@ -153,6 +153,9 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
         ],
       },
       { t: 'p', texto: 'Resultado: pasan a verde, **el precio no cambia**, y en el historial de cada uno queda que se renovó, quién lo hizo y el dólar de ese día.' },
+      { t: 'subtitulo', texto: 'Renovar de un solo toque desde Productos' },
+      { t: 'p', texto: 'No hace falta entrar acá para renovar un producto suelto. En **Productos**, las tarjetas con el precio en amarillo o rojo tienen un botón **Renovar**, y el **detalle del producto** muestra "Validez del precio" con el botón **Renovar validez**. En los dos casos el precio no cambia: solo se renueva la fecha y vuelve a verde. Los usuarios de solo consulta no ven el botón.' },
+      { t: 'aviso', tono: 'regla', texto: '**Cualquier actualización de precio renueva la validez sola**: al editar el costo o el precio de un producto, al aplicar la revisión, al cargar una lista de proveedor o al actualizar desde la lista del proveedor. El producto queda verde y con un período nuevo contado desde ese día.' },
       { t: 'subtitulo', texto: 'Renovar otros productos a mano o una familia entera' },
       { t: 'p', texto: 'Si querés renovar productos que el sistema no sugirió (por ejemplo, confirmaste los precios por teléfono con el proveedor), tocá **"Elegir a mano o por familia"**:' },
       {
