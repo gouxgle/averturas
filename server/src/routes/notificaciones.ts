@@ -163,6 +163,25 @@ notificaciones.get('/', async (c) => {
     WHERE $1::boolean AND dv.estado = 'emitida' AND dv.notif_leida = false
       AND u.rol IS DISTINCT FROM 'admin'
 
+    UNION ALL
+
+    -- Post venta: el cliente respondió la encuesta y algún puntaje es 2 o menos (cliente insatisfecho)
+    SELECT 'postventa_insatisfecho' AS tipo, ps.id, op.numero, NULL::timestamptz, NULL::text,
+      NULL::numeric, ps.respondido_at AS evento_at,
+      NULL::text AS recepcion_estado, NULL::text AS recepcion_obs,
+      ps.comentario AS detalle,
+      jsonb_build_object('productos', ps.puntaje_productos, 'entrega', ps.puntaje_entrega, 'atencion', ps.puntaje_atencion,
+        'telefono', cl.telefono) AS data,
+      json_build_object(
+        'nombre', cl.nombre, 'apellido', cl.apellido,
+        'razon_social', cl.razon_social, 'tipo_persona', cl.tipo_persona
+      ) AS cliente
+    FROM postventa_seguimientos ps
+    JOIN clientes cl ON cl.id = ps.cliente_id
+    JOIN operaciones op ON op.id = ps.operacion_id
+    WHERE ps.estado = 'respondido' AND ps.notif_leida = false
+      AND LEAST(COALESCE(ps.puntaje_productos, 5), COALESCE(ps.puntaje_entrega, 5), COALESCE(ps.puntaje_atencion, 5)) <= 2
+
     ORDER BY evento_at DESC
     LIMIT 50
   `, [esAdmin]);
@@ -181,6 +200,7 @@ const MARCAR_UNA: Record<string, string> = {
   compra_demorada:    `UPDATE pedidos SET demora_notif_leida = true WHERE id = $1`,
   reintegro:          `UPDATE reintegros SET notif_leida = true WHERE id = $1`,
   devolucion:         `UPDATE devoluciones SET notif_leida = true WHERE id = $1`,
+  postventa_insatisfecho: `UPDATE postventa_seguimientos SET notif_leida = true WHERE id = $1`,
 };
 
 notificaciones.patch('/vista', async (c) => {
@@ -223,6 +243,7 @@ notificaciones.patch('/marcar-leidas', async (c) => {
        AND estado_logistica NOT IN ('borrador','recibida','cerrada','cancelada')
        AND demora_notif_leida = false`
   );
+  await db.query(`UPDATE postventa_seguimientos SET notif_leida = true WHERE estado = 'respondido' AND notif_leida = false`);
   // Solo un admin marca como leídos los avisos de reintegros: un vendedor que toca "marcar leídas"
   // no puede borrarle al administrador un aviso que nunca vio.
   if ((c.get('user') as { rol?: string } | undefined)?.rol === 'admin') {

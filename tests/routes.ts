@@ -9,6 +9,8 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Visitas de Relevamiento de Datos',   path: '/presupuestos/visitas-tecnicas' },
   { label: 'Operaciones',                        path: '/operaciones' },
   { label: 'Remitos',                            path: '/remitos' },
+  { label: 'Post venta',                         path: '/postventa' },
+  { label: 'Post venta: respondidos',            path: '/postventa?tab=respondidos' },
   { label: 'Devoluciones',                       path: '/devoluciones' },
   { label: 'Devoluciones: dinero devuelto',      path: '/devoluciones?tab=reintegros' },
   { label: 'Manual: devoluciones',               path: '/ayuda/devoluciones' },

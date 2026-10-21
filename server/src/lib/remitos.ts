@@ -1,3 +1,4 @@
+import { crearSeguimientoPorEntrega } from './postventa.js';
 import { db } from '../db.js';
 import { liberarReservas } from './reservas.js';
 
@@ -227,6 +228,9 @@ export async function aplicarTransicionRemito(
   if ((entrega || nuevoEstado === 'cancelado') && remito.tarea_id) {
     await completarTareaDeEntrega(client, remito.id);
   }
+
+  // Entregado: se agenda el seguimiento post venta (a los N días se le pregunta al cliente cómo le fue)
+  if (entrega) await crearSeguimientoPorEntrega(client, remito.id);
 }
 
 // Entrega en el lugar: un borrador se emite (descuenta stock) y se entrega en el mismo paso.

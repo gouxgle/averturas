@@ -14,7 +14,7 @@ empresa.get('/', async (c) => {
 // empresa como "Mi Empresa" sin CUIT, teléfono, email ni dirección; el panel de
 // Configuración, a su vez, borraba logo_url y el objetivo porque no los manda.
 const CAMPOS_TEXTO = ['nombre', 'cuit', 'telefono', 'email', 'direccion', 'logo_url', 'instagram', 'terminos_url'] as const;
-const CAMPOS_NUMERO = ['objetivo_ventas_mensual', 'costo_visita_tecnica'] as const;
+const CAMPOS_NUMERO = ['objetivo_ventas_mensual', 'costo_visita_tecnica', 'postventa_dias'] as const;
 
 empresa.put('/', async (c) => {
   const body = await c.req.json().catch(() => null);
@@ -35,6 +35,7 @@ empresa.put('/', async (c) => {
     if (v === '' || v === null || v === undefined) continue;
     const n = typeof v === 'number' ? v : parseFloat(String(v));
     if (!Number.isFinite(n) || n < 0) return c.json({ error: `${campo} inválido` }, 400);
+    if (campo === 'postventa_dias' && (!Number.isInteger(n) || n > 60)) return c.json({ error: 'Los días de post venta van de 0 a 60' }, 400);
     cols.push(campo); vals.push(n);
   }
 

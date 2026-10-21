@@ -58,6 +58,8 @@ const ImprimirVisitaTecnica    = lazy(() => import('@/pages/print/ImprimirVisita
 const ImprimirManual           = lazy(() => import('@/pages/print/ImprimirManual').then(m => ({ default: m.ImprimirManual })));
 const VistaPublicaPresupuesto  = lazy(() => import('@/pages/VistaPublicaPresupuesto').then(m => ({ default: m.VistaPublicaPresupuesto })));
 const VistaPublicaRemito       = lazy(() => import('@/pages/VistaPublicaRemito').then(m => ({ default: m.VistaPublicaRemito })));
+const VistaPublicaEncuesta     = lazy(() => import('@/pages/VistaPublicaEncuesta').then(m => ({ default: m.VistaPublicaEncuesta })));
+const Postventa                = lazy(() => import('@/pages/Postventa'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -93,6 +95,7 @@ export default function App() {
               <Route path="/p/:token" element={<VistaPublicaPresupuesto />} />
               <Route path="/p/:token/imprimir" element={<ImprimirPresupuestoPublico />} />
               <Route path="/r/:token" element={<VistaPublicaRemito />} />
+              <Route path="/e/:token" element={<VistaPublicaEncuesta />} />
               <Route element={<ProtectedRoute />}>
                 {/* Páginas de impresión — sin AppLayout */}
                 <Route path="/imprimir/presupuesto/:id"  element={<ImprimirPresupuesto />} />
@@ -120,6 +123,7 @@ export default function App() {
                   <Route path="/clientes/:id/estado-cuenta" element={<EstadoCuenta />} />
                   <Route path="/clientes/:id" element={<ClienteDetalle />} />
                   <Route path="/crm" element={<CRM />} />
+                  <Route path="/postventa" element={<Postventa />} />
                   <Route path="/presupuestos" element={<Presupuestos />} />
                   <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />
                   <Route path="/presupuestos/visita-tecnica" element={<VisitaTecnica />} />

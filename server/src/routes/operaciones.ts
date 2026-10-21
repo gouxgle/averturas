@@ -1,4 +1,5 @@
 import { guardarBonificacion } from '../lib/bonificacion.js';
+import { descartarSeguimientoDeOperacion } from '../lib/postventa.js';
 import { Hono } from 'hono';
 import { bloquearYValidarStock, insertarItemsOperacion, entregarDeMostrador, VentaError } from '../lib/ventaRapida.js';
 import { liberarReservas } from '../lib/reservas.js';
@@ -1715,6 +1716,9 @@ operaciones.patch('/:id/estado', async (c) => {
     row = upd.rows[0] as typeof row;
     if (row && ['cancelado', 'rechazado', 'presupuesto', 'enviado'].includes(estado)) {
       await liberarReservas(client, id, `Reserva liberada: presupuesto ${estado}`, row.numero, c.get('user')?.id ?? null);
+    }
+    if (row && ['cancelado', 'rechazado'].includes(estado)) {
+      await descartarSeguimientoDeOperacion(client, id, `Operación ${estado}`);
     }
     await client.query('COMMIT');
   } catch (err) {

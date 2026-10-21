@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck, XCircle, CalendarClock, Banknote, Undo2 } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Target, X, Truck, XCircle, CalendarClock, Banknote, Undo2, Frown } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AccionesEntrega } from '@/components/remitos/AccionesEntrega';
 
 interface Notif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro' | 'devolucion';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro' | 'devolucion' | 'postventa_insatisfecho';
   id: string; numero: string | null; precio_total: number | null;
   aprobado_online_at: string | null;
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
@@ -22,6 +22,8 @@ interface Notif {
     por?: string | null; forma_pago?: string | null; devolucion_numero?: string | null;
     /** Devoluciones de un vendedor (solo admin): el cambio que se llevó, si hubo. */
     cambio?: string | null;
+    /** Post venta: puntajes de la encuesta (1 a 5). */
+    productos?: number | null; entrega?: number | null; atencion?: number | null;
     /** Presente cuando el cliente rechazó la proforma desde el link público. */
     rechazado_online_at?: string | null; comentario_rechazo?: string | null;
   } | null;
@@ -35,6 +37,7 @@ const RECHAZO_NOTIF = { texto: 'rechazó la proforma', color: '#fca5a5', bg: 'rg
 const DEMORA_NOTIF = { color: '#fdba74', bg: 'rgba(249,115,22,0.18)' };
 const REINTEGRO_NOTIF = { color: '#fcd34d', bg: 'rgba(251,191,36,0.18)' };
 const DEVOLUCION_NOTIF = { color: '#7dd3fc', bg: 'rgba(56,189,248,0.15)' };
+const POSTVENTA_NOTIF = { color: '#fda4af', bg: 'rgba(251,113,133,0.18)' };
 
 const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
   remito:              () => '/remitos',
@@ -45,6 +48,7 @@ const IR_A_NOTIF: Record<Notif['tipo'], (n: Notif) => string> = {
   compra_demorada:     n  => `/compras?tab=ordenes&oc=${n.id}`,
   reintegro:           () => '/devoluciones?tab=reintegros',
   devolucion:          () => '/devoluciones',
+  postventa_insatisfecho: () => '/postventa?tab=respondidos',
 };
 
 const RESP_NOTIF: Record<string, { texto: string; color: string; bg: string }> = {
@@ -238,16 +242,17 @@ export function NotificationBell() {
                 const esDemora = n.tipo === 'compra_demorada';
                 const esReintegro = n.tipo === 'reintegro';
                 const esDevolucion = n.tipo === 'devolucion';
+                const esPostventa = n.tipo === 'postventa_insatisfecho';
                 const esRemito = n.tipo === 'remito';
                 const esOportunidad = n.tipo === 'oportunidad';
                 const esEntregaDia = n.tipo === 'entrega_dia_antes';
                 const esEntregaHora = n.tipo === 'entrega_hora_antes';
                 const esEntrega = esEntregaDia || esEntregaHora;
                 const rm = esRemito && n.recepcion_estado ? REMITO_NOTIF[n.recepcion_estado] : null;
-                const esRechazo = !esReintegro && !esDevolucion && !esRemito && !esOportunidad && !esEntrega && !n.aprobado_online_at && !!n.data?.rechazado_online_at;
-                const esRespuesta = !esReintegro && !esDevolucion && !esRemito && !esOportunidad && !esEntrega && !esRechazo && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
+                const esRechazo = !esPostventa && !esReintegro && !esDevolucion && !esRemito && !esOportunidad && !esEntrega && !n.aprobado_online_at && !!n.data?.rechazado_online_at;
+                const esRespuesta = !esPostventa && !esReintegro && !esDevolucion && !esRemito && !esOportunidad && !esEntrega && !esRechazo && !n.aprobado_online_at && n.respuesta_cliente && RESP_NOTIF[n.respuesta_cliente];
                 const rc = esRespuesta ? RESP_NOTIF[n.respuesta_cliente!] : null;
-                const acento = rm ?? rc ?? (esRechazo ? RECHAZO_NOTIF : null) ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null) ?? (esDemora ? DEMORA_NOTIF : null) ?? (esReintegro ? REINTEGRO_NOTIF : null) ?? (esDevolucion ? DEVOLUCION_NOTIF : null);
+                const acento = rm ?? rc ?? (esRechazo ? RECHAZO_NOTIF : null) ?? (esOportunidad ? OPORTUNIDAD_NOTIF : null) ?? (esEntrega ? ENTREGA_NOTIF : null) ?? (esDemora ? DEMORA_NOTIF : null) ?? (esReintegro ? REINTEGRO_NOTIF : null) ?? (esDevolucion ? DEVOLUCION_NOTIF : null) ?? (esPostventa ? POSTVENTA_NOTIF : null);
                 return (
                 <div
                   key={`${n.tipo}-${n.id}`}
@@ -259,7 +264,9 @@ export function NotificationBell() {
                   {/* Icono */}
                   <div className="mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                     style={{ backgroundColor: acento ? acento.bg : 'rgba(34,197,94,0.15)' }}>
-                    {esDevolucion
+                    {esPostventa
+                      ? <Frown size={16} style={{ color: POSTVENTA_NOTIF.color }} />
+                      : esDevolucion
                       ? <Undo2 size={16} style={{ color: DEVOLUCION_NOTIF.color }} />
                       : esReintegro
                       ? <Banknote size={16} style={{ color: REINTEGRO_NOTIF.color }} />
@@ -281,7 +288,8 @@ export function NotificationBell() {
                       {esDemora ? (n.data?.proveedor ?? nombreCliente(n.cliente)) : nombreCliente(n.cliente)}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                      {esDevolucion ? <>{n.data?.por ?? 'Un vendedor'} registró la devolución <b>{formatCurrency(Number(n.precio_total ?? 0))}</b>{n.data?.cambio ? ` con cambio por ${n.data.cambio}` : ''} — <span className="font-mono" style={{ color: DEVOLUCION_NOTIF.color }}>{n.numero}</span></>
+                      {esPostventa ? <>Cliente insatisfecho en la encuesta post venta (producto {n.data?.productos ?? '–'}, entrega {n.data?.entrega ?? '–'}, atención {n.data?.atencion ?? '–'}) — <span className="font-mono" style={{ color: POSTVENTA_NOTIF.color }}>{n.numero?.replace(/^OP-/, 'PRO-')}</span></>
+                       : esDevolucion ? <>{n.data?.por ?? 'Un vendedor'} registró la devolución <b>{formatCurrency(Number(n.precio_total ?? 0))}</b>{n.data?.cambio ? ` con cambio por ${n.data.cambio}` : ''} — <span className="font-mono" style={{ color: DEVOLUCION_NOTIF.color }}>{n.numero}</span></>
                        : esReintegro ? <>{n.data?.por ?? 'Un usuario'} devolvió <b>{formatCurrency(Number(n.precio_total ?? 0))}</b> en {n.data?.forma_pago ?? 'dinero'} — <span className="font-mono" style={{ color: REINTEGRO_NOTIF.color }}>{n.numero}</span></>
                        : esDemora ? <>no entregó — <span className="font-mono" style={{ color: DEMORA_NOTIF.color }}>{n.numero}</span> · {n.data?.dias_demora} día{n.data?.dias_demora === 1 ? '' : 's'} de atraso</>
                        : rm ? <>{rm.texto} — <span className="font-mono" style={{ color: rm.color }}>{n.numero}</span></>

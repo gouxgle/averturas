@@ -1,4 +1,4 @@
-import { FileText, MapPin, Zap, ShoppingCart, Scale, Undo2, type LucideIcon } from 'lucide-react';
+import { FileText, MapPin, Zap, ShoppingCart, Scale, Undo2, HeartHandshake, type LucideIcon } from 'lucide-react';
 import type { SeccionManual } from './tipos';
 import { MANUAL_PRESUPUESTOS } from './manualPresupuestos';
 import { MANUAL_VISITAS } from './manualVisitas';
@@ -6,6 +6,7 @@ import { MANUAL_VENTA_RAPIDA } from './manualVentaRapida';
 import { MANUAL_COMPRAS } from './manualCompras';
 import { MANUAL_PRECIOS } from './manualPrecios';
 import { MANUAL_DEVOLUCIONES } from './manualDevoluciones';
+import { MANUAL_POSTVENTA } from './manualPostventa';
 
 export interface Manual {
   /** Va en la URL: `/ayuda/:slug` y `/imprimir/manual/:slug`. No cambiarlo sin migrar los links. */
@@ -85,6 +86,16 @@ export const MANUALES: Manual[] = [
     ruta: '/devoluciones',
     rutaLabel: 'Ir a Devoluciones',
     secciones: MANUAL_DEVOLUCIONES,
+  },
+  {
+    slug: 'postventa',
+    titulo: 'Post venta',
+    sub: 'Preguntarle al cliente cómo le fue después de la entrega y registrar su opinión',
+    icono: HeartHandshake,
+    seccion: 'crm',
+    ruta: '/postventa',
+    rutaLabel: 'Ir a Post venta',
+    secciones: MANUAL_POSTVENTA,
   },
 ];
 

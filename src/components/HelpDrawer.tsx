@@ -17,7 +17,7 @@ type HelpSection = {
   tip?: string;
 };
 type HelpTopicData = { label: string; color: string; sections: HelpSection[] };
-export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda' | 'precios' | 'devoluciones';
+export type HelpTopic = 'presupuestos' | 'recibos' | 'remitos' | 'stock' | 'circuito' | 'compras' | 'facturacion' | 'agenda' | 'precios' | 'devoluciones' | 'postventa';
 
 /** Temas que además tienen manual completo en Manuales del sistema (`/ayuda/:slug`). */
 const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
@@ -25,6 +25,7 @@ const MANUAL_DE_TEMA: Partial<Record<HelpTopic, string>> = {
   compras: 'compras',
   precios: 'precios',
   devoluciones: 'devoluciones',
+  postventa: 'postventa',
 };
 
 // ── Contenido de ayuda ────────────────────────────────────────────────────────
@@ -315,6 +316,45 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { text: 'Se revierte el stock y el saldo a favor; la deuda de la venta vuelve a ser la de antes' },
         ],
         warning: 'Si el saldo a favor ya se usó, salió dinero, fue un cambio o la mercadería ya se vendió, el sistema dice qué hay que deshacer primero.',
+      },
+    ],
+  },
+  postventa: {
+    label: 'Post venta',
+    color: 'text-rose-600',
+    sections: [
+      {
+        id: 'como-funciona',
+        emoji: '💬',
+        title: 'Cómo funciona',
+        steps: [
+          { text: 'Al entregar un pedido (remito entregado) se crea solo un seguimiento para unos días después' },
+          { text: 'Post venta → "Para contactar": revisá el mensaje (plantilla editable) y tocá "Enviar WhatsApp"' },
+          { text: 'El mensaje lleva un link a una encuesta de 3 preguntas; la respuesta queda guardada sola' },
+          { text: 'Si el cliente contestó por chat o teléfono, usá "Cargar respuesta"' },
+        ],
+        tip: 'Aparece también en la Agenda del día. No sale nada automático: siempre lo mandás vos.',
+      },
+      {
+        id: 'respuestas',
+        emoji: '⭐',
+        title: 'Las respuestas',
+        table: [
+          { label: 'Producto, entrega, atención', value: 'Tres notas de 1 a 5 y un comentario opcional' },
+          { label: 'Nota baja (2 o menos)', value: 'Avisa como "cliente insatisfecho" (campanita y cartel) para llamarlo' },
+          { label: 'Sin respuesta', value: 'Queda en "Sin respuesta": podés reenviar el mensaje' },
+        ],
+        warning: 'Cliente sin teléfono cargado: no se crea el seguimiento. Cargá el teléfono en su ficha.',
+      },
+      {
+        id: 'ajustes',
+        emoji: '⚙️',
+        title: 'Ajustes',
+        steps: [
+          { text: 'Los días entre la entrega y el contacto se cambian arriba en Post venta (administrador)' },
+          { text: 'El texto del mensaje: Configuración → Mensajes → "Post venta: consulta de satisfacción"' },
+          { text: 'Reprogramar mueve la fecha; Descartar saca el seguimiento (con motivo)' },
+        ],
       },
     ],
   },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock, Banknote, Undo2,
+  CheckCircle2, XCircle, AlertTriangle, Target, Truck, MessageSquare, Bell, CalendarClock, Banknote, Undo2, Frown,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,7 +22,7 @@ import { formatCurrency, cn } from '@/lib/utils';
  */
 
 export interface AvisoNotif {
-  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro' | 'devolucion';
+  tipo: 'presupuesto' | 'remito' | 'oportunidad' | 'entrega_dia_antes' | 'entrega_hora_antes' | 'compra_demorada' | 'reintegro' | 'devolucion' | 'postventa_insatisfecho';
   id: string;
   numero: string | null;
   precio_total: number | null;
@@ -121,6 +121,16 @@ export function presentar(n: AvisoNotif): Presentacion {
     };
   }
 
+  if (n.tipo === 'postventa_insatisfecho') {
+    const p = [n.data?.productos, n.data?.entrega, n.data?.atencion].map(x => (x == null ? '–' : String(x)));
+    return {
+      titulo: 'Cliente insatisfecho',
+      detalle: `${quien} calificó la post venta: producto ${p[0]}, entrega ${p[1]}, atención ${p[2]} (de 5).`,
+      cita: n.detalle, tono: 'rojo', Icono: Frown,
+      ruta: '/postventa?tab=respondidos', prioridad: 1,
+    };
+  }
+
   if (n.tipo === 'devolucion') {
     const cambio = n.data?.cambio ? ` Se llevó a cambio ${n.data.cambio}.` : '';
     return {
@@ -174,6 +184,7 @@ const EMERGE: Record<AvisoNotif['tipo'], boolean> = {
   compra_demorada:    true,   // el proveedor se pasó de la fecha prometida
   reintegro:          true,   // salió dinero de caja hacia un cliente (solo le llega al admin)
   devolucion:         true,   // un vendedor registró una devolución (solo le llega al admin)
+  postventa_insatisfecho: true, // la encuesta post venta volvió con un puntaje bajo
   oportunidad:        false,
   entrega_dia_antes:  false,
 };

@@ -1,3 +1,4 @@
+import { sincronizarSeguimientoDesdeTarea } from './postventa.js';
 import { db } from '../db.js';
 import { sincronizarDesdeTarea } from './oportunidades.js';
 
@@ -75,6 +76,7 @@ export async function completarTarea(q: Queryable, id: string, completada: boole
   }
 
   if (row.tipo_accion === 'oportunidad') await sincronizarDesdeTarea(q, row.id, completada);
+  if (row.tipo_accion === 'postventa') await sincronizarSeguimientoDesdeTarea(q, row.id, completada);
   delete row.vencimiento_txt;
   return row;
 }

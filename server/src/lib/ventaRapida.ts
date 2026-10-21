@@ -1,3 +1,4 @@
+import { crearSeguimientoPorEntrega } from './postventa.js';
 import type { PoolClient } from 'pg';
 import { siguienteNumero } from './numeracion.js';
 
@@ -110,6 +111,7 @@ export async function entregarDeMostrador(client: Queryable, d: {
       UPDATE remitos SET estado='entregado', fecha_entrega_real=CURRENT_DATE, recepcion_estado='conforme' WHERE id=$1
     `, [remito.id]);
     await client.query(`UPDATE operaciones SET estado='entregado', updated_at=now() WHERE id=$1`, [d.operacion_id]);
+    await crearSeguimientoPorEntrega(client, remito.id);
   }
   return { id: remito.id as string, numero: numeroRemito, estado: d.retiraAhora ? 'entregado' : 'emitido' };
 }

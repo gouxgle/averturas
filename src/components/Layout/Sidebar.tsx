@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users,
   FileText, Hammer, Layers, Boxes, TrendingUp,
-  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, ReceiptText, BookOpen, GitBranch, ShoppingCart, Factory, Zap, Ruler, History, Activity, CalendarDays, Undo2
+  SlidersHorizontal, ChevronRight, LogOut, X, Truck, Receipt, ReceiptText, BookOpen, GitBranch, ShoppingCart, Factory, Zap, Ruler, History, Activity, CalendarDays, Undo2, HeartHandshake
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: 'Comercial',
     items: [
       { to: '/crm',           label: 'CRM',              icon: GitBranch,       activeColor: 'text-rose-400',    activeBg: 'bg-rose-500/10' },
+      { to: '/postventa',    label: 'Post venta',       icon: HeartHandshake,  activeColor: 'text-rose-400',    activeBg: 'bg-rose-500/10' },
       { to: '/ventas/rapida', label: 'Venta rápida',     icon: Zap,             activeColor: 'text-emerald-400', activeBg: 'bg-emerald-500/10' },
       { to: '/presupuestos',  label: 'Presupuestos',     icon: FileText,        activeColor: 'text-violet-400',  activeBg: 'bg-violet-500/10' },
       { to: '/presupuestos/visitas-tecnicas', label: 'Visitas de Relevamiento de Datos', icon: Ruler, activeColor: 'text-slate-400', activeBg: 'bg-slate-500/10' },

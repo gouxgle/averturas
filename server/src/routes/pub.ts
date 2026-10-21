@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
+import { nombreItem } from '../lib/nombreItem.js';
 import { db } from '../db.js';
 import { agendarRecotizacion } from '../lib/tareas.js';
 import {
@@ -12,7 +14,7 @@ const pub = new Hono();
 // WhatsApp) hacía fallar el SELECT con "invalid input syntax for type uuid" → 500. Con
 // formato inválido respondemos lo mismo que para un token inexistente.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-for (const ruta of ['/presupuesto/:token', '/presupuesto/:token/*', '/remito/:token', '/remito/:token/*']) {
+for (const ruta of ['/presupuesto/:token', '/presupuesto/:token/*', '/remito/:token', '/remito/:token/*', '/encuesta/:token', '/encuesta/:token/*']) {
   pub.use(ruta, async (c, next) => {
     if (!UUID_RE.test(c.req.param('token') ?? '')) return c.json({ error: 'Link inválido o expirado' }, 404);
     await next();
@@ -531,6 +533,57 @@ pub.post('/remito/:token/confirmar', async (c) => {
   );
 
   return c.json({ ok: true, ya_confirmado: false });
+});
+
+// ── Encuesta post venta ──────────────────────────────────────────────────────
+// El link sale en el WhatsApp de post venta (routes/postventa.ts). Vale desde que se envió (como los demás
+// links públicos) y se responde una sola vez.
+const SQL_ENCUESTA = `
+  SELECT ps.id, ps.estado, ps.operacion_id, ps.respondido_at, ps.puntaje_productos, ps.puntaje_entrega, ps.puntaje_atencion,
+         cl.tipo_persona, cl.nombre, cl.razon_social
+    FROM postventa_seguimientos ps JOIN clientes cl ON cl.id = ps.cliente_id
+   WHERE ps.token = $1 AND ps.estado IN ('enviado', 'respondido') AND ps.enviado_at IS NOT NULL AND ${LINK_VIGENTE_SQL('ps.enviado_at')}`;
+
+// GET /pub/encuesta/:token
+pub.get('/encuesta/:token', async (c) => {
+  const { rows: [s] } = await db.query(SQL_ENCUESTA, [c.req.param('token')]);
+  if (!s) return c.json({ error: 'Link inválido o expirado' }, 404);
+  const [{ rows: [empresa] }, { rows: items }] = await Promise.all([
+    db.query(`SELECT nombre, telefono, logo_url, instagram FROM empresa ORDER BY updated_at DESC LIMIT 1`),
+    db.query(`
+      SELECT oi.descripcion, cp.codigo, ta.nombre AS tipo FROM operacion_items oi
+        LEFT JOIN catalogo_productos cp ON cp.id = oi.producto_id LEFT JOIN tipos_abertura ta ON ta.id = oi.tipo_abertura_id
+       WHERE oi.operacion_id = $1 AND COALESCE(oi.tipo_item, 'estandar') <> 'servicio' ORDER BY oi.orden, oi.id`, [s.operacion_id]),
+  ]);
+  return c.json({
+    empresa,
+    cliente: s.tipo_persona === 'juridica' ? (s.razon_social ?? s.nombre) : s.nombre,
+    productos: [...new Set(items.map(i => nombreItem(i.descripcion, i.codigo, i.tipo)))],
+    respondida: s.estado === 'respondido',
+  });
+});
+
+const PuntajeEncuesta = z.number().int().min(1).max(5);
+const EncuestaSchema = z.object({
+  puntaje_productos: PuntajeEncuesta, puntaje_entrega: PuntajeEncuesta, puntaje_atencion: PuntajeEncuesta,
+  comentario: z.string().trim().max(1000).optional(),
+});
+
+// POST /pub/encuesta/:token — el cliente responde (una sola vez)
+pub.post('/encuesta/:token', async (c) => {
+  const body = EncuestaSchema.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: 'Calificá los tres puntos de 1 a 5' }, 400);
+  const { rows: [s] } = await db.query(SQL_ENCUESTA, [c.req.param('token')]);
+  if (!s) return c.json({ error: 'Link inválido o expirado' }, 404);
+  const b = body.data;
+  // Solo si sigue sin responder: dos envíos a la vez no pisan la primera respuesta
+  const { rowCount } = await db.query(`
+    UPDATE postventa_seguimientos SET estado = 'respondido', canal_respuesta = 'link', respondido_at = now(),
+           puntaje_productos = $2, puntaje_entrega = $3, puntaje_atencion = $4, comentario = $5, notif_leida = false, updated_at = now()
+     WHERE id = $1 AND estado = 'enviado'`,
+    [s.id, b.puntaje_productos, b.puntaje_entrega, b.puntaje_atencion, b.comentario || null]);
+  if (!rowCount) return c.json({ ok: true, ya_respondida: true });
+  return c.json({ ok: true, ya_respondida: false });
 });
 
 export default pub;

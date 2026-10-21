@@ -562,6 +562,22 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   api.argentinadatos.com). Listas en Excel/CSV: `src/lib/listaPrecios.ts` (`read-excel-file`,
   importes "1.234,56").
 
+## Post venta (`/postventa`)
+
+- `postventa_seguimientos` (uno vigente por operación, índice único parcial): lo crea `crearSeguimientoPorEntrega()`
+  (`lib/postventa.ts`) desde `aplicarTransicionRemito` (al pasar a entregado) y desde la venta rápida con retiro inmediato,
+  dentro de un SAVEPOINT (nunca rompe la entrega). No se crea si el cliente no tiene teléfono. `fecha_contacto` = entrega +
+  `empresa.postventa_dias` (3). Tarea espejo `tipo_accion='postventa'` (se completa al enviar, descartar o responder;
+  completarla desde la Agenda cuenta como contacto hecho). Cancelar/rechazar la operación lo descarta
+  (`descartarSeguimientoDeOperacion`, en `PATCH /operaciones/:id/estado`).
+- **No manda nada solo** (sin cron): `GET /:id/mensaje` arma el texto con la plantilla `postventa_satisfaccion`
+  (`{{nombre}} {{productos}} {{empresa}} {{link}}`; si falta `{{link}}` se agrega) y `POST /:id/enviar` exige que el mensaje
+  lleve el link `/e/:token`, manda por `enviarWhatsapp`, anota la `interaccion` y cierra la tarea. Rol consulta: 403.
+- Encuesta pública `GET|POST /pub/encuesta/:token` (página `/e/:token`, `VistaPublicaEncuesta`): solo si ya se envió, vale
+  `PUB_LINK_DIAS` desde `enviado_at`, tres notas 1-5 + comentario, una sola respuesta (el UPDATE condicionado a `estado='enviado'`).
+  Nota ≤ 2 → fuente `postventa_insatisfecho` de `/notificaciones` (todos los roles; `notif_leida`). Carga manual:
+  `POST /:id/respuesta-manual`. Manual: `manualPostventa.ts` (+ tema `postventa` del HelpDrawer).
+
 ## Notificaciones y avisos
 
 - `GET /notificaciones`: UNION de 6 fuentes no leídas — `presupuesto` (aprobación online,

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import {
   Phone, MessageCircle, Package, Zap, ShoppingBag, Cake, RefreshCw, Ruler, Target, Mail, StickyNote,
-  FilePenLine, ShoppingCart, Factory, Wallet, Wrench, UserRound, CircleDot, Users,
+  FilePenLine, ShoppingCart, Factory, Wallet, Wrench, UserRound, CircleDot, Users, HeartHandshake,
   type LucideIcon,
 } from 'lucide-react';
 import { TZ_AR } from '@/lib/utils';
@@ -64,6 +64,7 @@ export const TIPO_META: Record<string, Meta> = {
   seguimiento: { label: 'Seguimiento',     icon: RefreshCw,     color: 'text-gray-600',    bg: 'bg-gray-100' },
   oportunidad: { label: 'Oportunidad',     icon: Target,        color: 'text-fuchsia-600', bg: 'bg-fuchsia-100' },
   recotizar:   { label: 'Recotizar',       icon: FilePenLine,   color: 'text-orange-600',  bg: 'bg-orange-100' },
+  postventa:   { label: 'Post venta',      icon: HeartHandshake, color: 'text-rose-600',   bg: 'bg-rose-100' },
   nota:        { label: 'Tarea',           icon: StickyNote,    color: 'text-gray-600',    bg: 'bg-gray-100' },
 };
 
@@ -100,6 +101,7 @@ export function telefonoDe(t: TareaAgenda): string | null {
 /** Adónde lleva "Ir": la proforma a recotizar en edición, la visita, el remito, el proveedor o el cliente. */
 export function destinoDe(t: TareaAgenda): string | null {
   if (t.tipo_accion === 'recotizar' && t.operacion_id) return `/presupuestos/${t.operacion_id}/editar`;
+  if (t.tipo_accion === 'postventa') return '/postventa';
   if (t.visita_id) return `/presupuestos/visitas-tecnicas/${t.visita_id}`;
   if (t.remito_id && t.remito_numero) return `/remitos?q=${encodeURIComponent(t.remito_numero)}`;
   if (t.ambito === 'interna') return t.proveedor_nombre ? `/proveedores?q=${encodeURIComponent(t.proveedor_nombre)}` : null;
