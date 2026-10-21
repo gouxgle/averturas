@@ -4,7 +4,7 @@ import {
   Plus, Pencil, ToggleLeft, ToggleRight, Layers, Package,
   X, Tag, CalendarDays, RefreshCw, Play, Scale,
   Trash2, AlertTriangle, Store, DollarSign, Globe,
-  Shield, Truck, Headphones, Award, Factory,
+  Shield, Truck, Headphones, Award, Factory, FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
@@ -21,6 +21,7 @@ import { buildSubtitle, isPromoActiva } from '@/lib/catalogoFiltros';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
 import { PreciosYListas } from '@/components/productos/PreciosYListas';
+import { ModalExportarPlanilla } from '@/components/productos/ModalExportarPlanilla';
 import { useAuth } from '@/hooks/useAuth';
 import { COLOR_VALIDEZ, useConfigValidez, validezPrecio } from '@/lib/validezPrecio';
 import type { Producto } from '@/types';
@@ -379,6 +380,7 @@ export function Productos() {
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState<Producto | null>(null);
   const [showAjusteStock, setShowAjusteStock] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [ajusteProductoId, setAjusteProductoId] = useState<string | null>(null);
   // Si se abrió el ajuste porque se intentó marcar "en salón" sin stock, al guardar
   // el ajuste activamos "en salón" directo — no hace falta un segundo click.
@@ -523,6 +525,12 @@ export function Productos() {
         sub={`Catálogo de aberturas y precios base · ${productos.length} productos`}
         actions={
           <>
+            {puedeRenovar && (
+              <button type="button" onClick={() => setExportando(true)} data-testid="abrir-exportar-planilla"
+                className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-400 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
+                <FileSpreadsheet size={16}/> Exportar planilla de precios
+              </button>
+            )}
             <Link to="/productos/precios"
               className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-400 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all">
               <Scale size={16}/> Revisión integral de precios
@@ -579,6 +587,7 @@ export function Productos() {
           onDelete={eliminarProducto}
         />
       )}
+      {exportando && <ModalExportarPlanilla productos={productos} onClose={() => setExportando(false)} />}
       {showAjusteStock && ajusteProductoId && (
         <ModalAjusteStock
           productos={[(() => {

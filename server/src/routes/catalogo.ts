@@ -974,7 +974,9 @@ const AnalizarListaSchema = z.object({
   filas: z.array(FilaListaSchema).max(20_000).optional(),
   pct: z.number().min(-90).max(500).optional(),
   enlaces: z.array(z.object({ sku: z.string().trim().min(1), producto_id: z.string().uuid() })).max(5000).optional(),
-}).refine(b => (b.filas && b.filas.length > 0) || b.pct !== undefined, { message: 'Cargá la lista o indicá un porcentaje' });
+  /** Planilla exportada por el sistema: el nuevo precio de lista (costo) ya viene por producto, sin códigos que enlazar. */
+  por_producto: z.array(z.object({ producto_id: z.string().uuid(), precio: z.number().positive().max(1_000_000_000) })).max(20_000).optional(),
+}).refine(b => (b.filas && b.filas.length > 0) || (b.por_producto && b.por_producto.length > 0) || b.pct !== undefined, { message: 'Cargá la lista o indicá un porcentaje' });
 const AplicarListaSchema = z.object({
   proveedor_id: z.string().uuid(),
   filas: z.array(FilaListaSchema).max(20_000).optional(),
@@ -1050,6 +1052,18 @@ catalogo.post('/proveedor-precios/analizar-lista', async (c) => {
     };
   };
 
+  if (b.por_producto?.length) {
+    // Planilla del sistema: una fila por producto (id propio). Las que no son de este proveedor se ignoran.
+    const ultimo = new Map<string, number>();
+    for (const f of b.por_producto) ultimo.set(f.producto_id, f.precio);
+    const coincidencias = [...ultimo.entries()].flatMap(([id, precio]) => {
+      const p = prodPorId.get(id);
+      return p ? [fila(p, precio, skuDeProducto.get(p.id) ?? null, null)] : [];
+    });
+    const ignoradas = ultimo.size - coincidencias.length;
+    return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: [], faltantes: [], duplicados: [], ignoradas });
+  }
+
   if (!b.filas?.length) {
     const coincidencias = prods.map(p => fila(p, Math.round(p.costo * (1 + b.pct! / 100) * 100) / 100, skuDeProducto.get(p.id) ?? null, null));
     return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: [], faltantes: [] });
@@ -1089,7 +1103,7 @@ catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
     const { rows: [lista] } = await client.query(
       `INSERT INTO listas_precios_importadas (proveedor_id, origen, archivo, detalle, filas_leidas, usuario_id)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [b.proveedor_id, b.origen, b.archivo || null, b.detalle, b.filas?.length ?? 0, c.get('user')?.id ?? null]);
+      [b.proveedor_id, b.origen, b.archivo || null, b.detalle, b.filas?.length ?? b.items.length, c.get('user')?.id ?? null]);
     // 1. La lista del proveedor queda guardada tal cual vino
     for (const f of filasUnicas) {
       await client.query(`
@@ -1127,8 +1141,17 @@ catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
       const precio = it.precio_nuevo != null && !a.precio_manual ? Math.round(it.precio_nuevo * 100) / 100 : a.precio;
       await client.query(
         `UPDATE catalogo_productos SET costo_base = $2, precio_base = $3, precio_actualizado_at = now() WHERE id = $1`, [a.id, costo, precio]);
-      await client.query(
+      const { rowCount } = await client.query(
         `UPDATE proveedor_precios SET precio = $3, updated_at = now() WHERE proveedor_id = $1 AND producto_id = $2`, [b.proveedor_id, a.id, costo]);
+      if (!rowCount) {
+        // Producto sin renglón en la lista del proveedor (sin código, p. ej. cargado a mano): se crea con un código
+        // propio para que la próxima planilla exportada ya traiga su precio de lista.
+        await client.query(`
+          INSERT INTO proveedor_precios (proveedor_id, sku, descripcion, precio, producto_id)
+          SELECT $1, COALESCE(NULLIF(trim(proveedor_sku), ''), NULLIF(trim(codigo), ''), 'INT-' || left(id::text, 8)), nombre, $3, id
+            FROM catalogo_productos WHERE id = $2
+          ON CONFLICT (proveedor_id, sku) DO NOTHING`, [b.proveedor_id, a.id, costo]);
+      }
       cambios.push({ producto_id: a.id, tipo: precio !== a.precio ? 'cambio_precio' : 'cambio_costo', precio_anterior: a.precio, precio_nuevo: precio,
         costo_anterior: a.costo, costo_nuevo: costo, origen: 'lista_proveedor', criterio: 'lista del proveedor', detalle: b.detalle, lista_id: lista.id });
       filasLista.push([lista.id, a.id, it.sku ?? null, it.costo_nuevo, 'actualizar', a.costo, costo, a.precio, precio]);

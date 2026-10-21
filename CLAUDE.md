@@ -545,6 +545,11 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   (`lib/precios.ts`) marca la fila "revisar" y la saca de la preselección; la lista del proveedor solo cuenta para el costo de
   reposición si está entre 1/3 y 3× el costo cargado. Validez del precio: un solo cálculo, `src/lib/validezPrecio.ts`
   (días de `precios_config` vía `GET /productos/config-validez`); cualquier cambio de costo/precio renueva `precio_actualizado_at`.
+- **Planilla Excel por proveedor**: `GET /productos/planilla-precios?proveedor_id=` da las filas y el navegador arma el `.xlsx`
+  (`src/lib/planillaPrecios.ts`, `write-excel-file/universal`; botón en Productos y en la pestaña Lista del proveedor). La columna
+  "ID (no modificar)" es el id del producto: `leerPlanilla()` reconoce el archivo por esa columna + "Nuevo precio de lista (costo)"
+  y `analizar-lista` acepta `por_producto` (sin códigos que enlazar). Se aplica con `aplicar-lista` (origen `planilla`), que además crea
+  el renglón de `proveedor_precios` con código propio `INT-…` a los productos que no tenían.
 - **Fórmula de precio** (pestaña "Por fórmula", `TabFormula.tsx`; tabla `formulas_precio`):
   precio = costo ÷ divisor × (1 + recargo) + costo × adicional → `redondearTerminacion` (paso
   1000, termina en 900). Solo `tipo='estandar'` sin `precio_manual`; gana la más específica

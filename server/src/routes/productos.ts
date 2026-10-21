@@ -122,6 +122,26 @@ productos.patch('/renovar-validez-precios', async (c) => {
   return c.json({ actualizados: rows.length, precio_actualizado_at: new Date().toISOString() });
 });
 
+// GET /planilla-precios?proveedor_id=&solo_activos=&familia_id= — filas para la planilla Excel de un proveedor
+// (código, producto, precio de lista actual, precio de venta actual); el archivo lo arma el navegador.
+productos.get('/planilla-precios', async (c) => {
+  const proveedor = c.req.query('proveedor_id') ?? '';
+  const familia = c.req.query('familia_id') || null;
+  if (!/^[0-9a-f-]{36}$/i.test(proveedor) || (familia && !/^[0-9a-f-]{36}$/i.test(familia))) return c.json({ error: 'Elegí un proveedor' }, 422);
+  const soloActivos = c.req.query('solo_activos') !== 'false';
+  const { rows: [prov] } = await db.query(`SELECT id, nombre FROM proveedores WHERE id = $1`, [proveedor]);
+  if (!prov) return c.json({ error: 'Proveedor no encontrado' }, 404);
+  const { rows } = await db.query(`
+    SELECT cp.id, cp.codigo, cp.proveedor_sku AS sku, cp.nombre, cp.descripcion, ta.nombre AS familia, cp.activo,
+           COALESCE(pp.precio, cp.costo_base)::float AS lista_actual, cp.precio_base::float AS venta_actual
+      FROM catalogo_productos cp
+      LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
+      LEFT JOIN LATERAL (SELECT precio FROM proveedor_precios WHERE proveedor_id = cp.proveedor_id AND producto_id = cp.id ORDER BY updated_at DESC LIMIT 1) pp ON true
+     WHERE cp.proveedor_id = $1 AND ($2::boolean IS FALSE OR cp.activo) AND ($3::uuid IS NULL OR cp.tipo_abertura_id = $3)
+     ORDER BY ta.nombre NULLS LAST, cp.nombre`, [proveedor, soloActivos, familia]);
+  return c.json({ proveedor: prov, filas: rows });
+});
+
 // GET /config-validez — días del semáforo de antigüedad del precio (los mismos que usa la
 // revisión de precios), para que tarjeta, detalle y renovación pinten igual.
 productos.get('/config-validez', async (c) => {

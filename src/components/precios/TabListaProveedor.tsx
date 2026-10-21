@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
-import { Upload, Percent, Loader2, FileSpreadsheet, AlertTriangle, Link2, PackageX, CheckCircle2 } from 'lucide-react';
+import { Upload, Percent, Loader2, FileSpreadsheet, AlertTriangle, Link2, PackageX, CheckCircle2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { leerArchivoLista, filasDesdeTabla, type FilaLista, type ColumnasLista } from '@/lib/listaPrecios';
+import { exportarPlanilla, leerPlanilla, type PlanillaLeida } from '@/lib/planillaPrecios';
 import { type Revision, fmt$, fmtPct, fmtFecha } from './tipos';
 
 interface Coincidencia {
@@ -20,9 +21,12 @@ interface Resultado {
   sin_enlazar: FilaLista[];
   faltantes: { producto_id: string; nombre: string; codigo: string | null; sku: string | null; costo_actual: number }[];
   duplicados?: string[];
+  ignoradas?: number;
 }
 
 interface ArchivoLeido {
+  /** Si el archivo es una planilla exportada por el sistema: nuevos precios por producto. */
+  planilla: PlanillaLeida | null;
   nombre: string; filas: FilaLista[]; descartadas: number; columnas: string; tabla: unknown[][];
   detectadas: ColumnasLista; elegidas: ColumnasLista; encabezados: string[]; ejemplos: FilaLista[]; duplicados: string[]; conEncabezado: boolean;
 }
@@ -58,14 +62,31 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
   const [cargando, setCargando] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
+  const [exportando, setExportando] = useState(false);
+
+  async function exportar() {
+    if (!proveedorId || exportando) return;
+    setExportando(true);
+    try {
+      const r = await exportarPlanilla(proveedorId);
+      toast.success(`Planilla de ${r.proveedor} descargada (${r.filas} productos)`, { description: 'Completá "Nuevo precio de lista (costo)" y volvé a subirla acá.' });
+    } catch (e) {
+      toast.error('No se pudo exportar', { description: (e as Error).message });
+    } finally {
+      setExportando(false);
+    }
+  }
+
   const reiniciar = () => { setRes(null); setAcciones({}); setEnlaces({}); };
 
   async function elegirArchivo(f: File) {
     try {
       const r = await leerArchivoLista(f);
-      if (!r.filas.length) { toast.error('No se encontraron filas con código y precio en el archivo'); return; }
-      setArchivo({ nombre: f.name, ...r, elegidas: r.detectadas });
-      setCambiandoColumnas(!r.conEncabezado);
+      const planilla = leerPlanilla(r.tabla);
+      if (planilla && !planilla.items.length) { toast.error('La planilla no tiene ningún "Nuevo precio de lista" cargado'); return; }
+      if (!planilla && !r.filas.length) { toast.error('No se encontraron filas con código y precio en el archivo'); return; }
+      setArchivo({ nombre: f.name, ...r, planilla, elegidas: r.detectadas });
+      setCambiandoColumnas(!planilla && !r.conEncabezado);
       reiniciar();
     } catch (e) {
       toast.error('No se pudo leer el archivo', { description: (e as Error).message });
@@ -86,7 +107,7 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
     setCargando(true);
     try {
       const body = modo === 'archivo'
-        ? { proveedor_id: proveedorId, filas: archivo?.filas ?? [], enlaces: Object.entries(enl).filter(([, v]) => v).map(([sku, producto_id]) => ({ sku, producto_id })) }
+        ? (archivo?.planilla ? { proveedor_id: proveedorId, por_producto: archivo.planilla.items } : { proveedor_id: proveedorId, filas: archivo?.filas ?? [], enlaces: Object.entries(enl).filter(([, v]) => v).map(([sku, producto_id]) => ({ sku, producto_id })) })
         : { proveedor_id: proveedorId, pct };
       const r = await api.post<Resultado>('/catalogo/proveedor-precios/analizar-lista', body);
       setRes(r);
@@ -94,6 +115,7 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
       setAcciones(Object.fromEntries(r.coincidencias.map(c => [c.producto_id,
         c.estado === 'igual' ? 'renovar' : c.estado === 'sube' && !c.revisar ? 'actualizar' : 'nada'])));
       // Códigos repetidos en el archivo: gana la última fila
+      if (r.ignoradas) toast.warning(`${r.ignoradas} fila(s) de la planilla no son de este proveedor y se ignoraron`);
       if (r.duplicados?.length) toast.warning(`${r.duplicados.length} código(s) repetidos en el archivo: se usa la última fila de cada uno`);
     } catch (e) {
       toast.error('No se pudo analizar la lista', { description: (e as Error).message });
@@ -114,12 +136,12 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
       }));
       const r = await api.post<{ actualizados: number; renovados: number; lista: number }>('/catalogo/proveedor-precios/aplicar-lista', {
         proveedor_id: proveedorId,
-        filas: modo === 'archivo' ? archivo?.filas : undefined,
+        filas: modo === 'archivo' && !archivo?.planilla ? archivo?.filas : undefined,
         enlaces: Object.entries(enlaces).filter(([, v]) => v).map(([sku, producto_id]) => ({ sku, producto_id })),
         items,
-        origen: modo === 'archivo' ? 'archivo' : 'porcentaje',
+        origen: modo === 'archivo' ? (archivo?.planilla ? 'planilla' : 'archivo') : 'porcentaje',
         archivo: modo === 'archivo' ? archivo?.nombre : undefined,
-        detalle: modo === 'archivo' ? `Lista de ${res.proveedor.nombre} (${archivo?.nombre})` : `${res.proveedor.nombre} ${fmtPct(pct)}`,
+        detalle: modo === 'archivo' ? `${archivo?.planilla ? 'Planilla' : 'Lista'} de ${res.proveedor.nombre} (${archivo?.nombre})` : `${res.proveedor.nombre} ${fmtPct(pct)}`,
       });
       toast.success(`Listo: ${r.actualizados} actualizados, ${r.renovados} con validez renovada${r.lista ? ` · lista de ${r.lista} códigos guardada` : ''}`);
       reiniciar();
@@ -144,6 +166,14 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
               {proveedores.map(([k, v]) => <option key={k} value={k}>{v.nombre} ({v.n} productos)</option>)}
             </select>
           </label>
+          <div className="flex flex-wrap items-center gap-2">
+          {proveedorId && (
+            <button type="button" onClick={exportar} disabled={exportando} data-testid="exportar-planilla"
+              title="Descarga un Excel con los productos del proveedor y una columna en blanco para cargar el nuevo precio"
+              className="h-10 px-3 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-900 text-xs font-bold inline-flex items-center gap-1.5 hover:bg-emerald-100 disabled:opacity-50">
+              {exportando ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Exportar planilla
+            </button>
+          )}
           <div className="flex gap-1 p-1 bg-gray-100 rounded-xl" role="tablist">
             {([['archivo', 'Lista en archivo', FileSpreadsheet], ['porcentaje', 'Porcentaje', Percent]] as const).map(([v, l, I]) => (
               <button key={v} type="button" role="tab" aria-selected={modo === v} onClick={() => { setModo(v); reiniciar(); }}
@@ -152,11 +182,12 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
               </button>
             ))}
           </div>
+          </div>
         </div>
 
         {proveedorId && (modo === 'archivo' ? (
           <div className="space-y-1.5">
-            <p className="text-xs font-bold text-gray-800">2. Lista del proveedor (Excel .xlsx o CSV, con código y precio)</p>
+            <p className="text-xs font-bold text-gray-800">2. Lista del proveedor (Excel .xlsx o CSV, con código y precio) o la planilla exportada con los nuevos precios</p>
             <div className="flex flex-wrap items-center gap-2">
               <input ref={input} type="file" accept=".xlsx,.csv,.txt" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) elegirArchivo(f); e.target.value = ''; }} />
               <button type="button" onClick={() => input.current?.click()}
@@ -165,12 +196,23 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
               </button>
               {archivo && (
                 <p className="text-xs text-gray-700">
-                  <b>{archivo.nombre}</b>: {archivo.filas.length} códigos con precio{archivo.descartadas ? `, ${archivo.descartadas} filas sin código o precio descartadas` : ''}.
-                  <span className="block text-gray-600">{archivo.columnas}</span>
+                  <b>{archivo.nombre}</b>{archivo.planilla ? '' : `: ${archivo.filas.length} códigos con precio${archivo.descartadas ? `, ${archivo.descartadas} filas sin código o precio descartadas` : ''}.`}
+                  {!archivo.planilla && <span className="block text-gray-600">{archivo.columnas}</span>}
                 </p>
               )}
             </div>
-            {archivo && (
+            {archivo?.planilla && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-gray-800 space-y-1" data-testid="planilla-leida">
+                <p><b>Planilla del sistema</b>: {archivo.planilla.items.length} producto{archivo.planilla.items.length !== 1 ? 's' : ''} con nuevo precio de lista
+                  {archivo.planilla.vacias ? `, ${archivo.planilla.vacias} sin cargar (no se modifican)` : ''}.</p>
+                {archivo.planilla.invalidas > 0 && (
+                  <p className="text-yellow-900 bg-yellow-100 rounded-lg px-2 py-1"><AlertTriangle size={12} className="inline mr-1" />
+                    {archivo.planilla.invalidas} fila(s) con un precio que no es un número válido (o un ID dañado) se descartaron.</p>
+                )}
+                <p className="text-gray-600">El precio de venta se recalcula con el margen o la fórmula de cada producto: lo ves en la vista previa antes de aplicar.</p>
+              </div>
+            )}
+            {archivo && !archivo.planilla && (
               <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 space-y-2" data-testid="columnas-detectadas">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-gray-800">
                   <b>Así se leyó el archivo</b>

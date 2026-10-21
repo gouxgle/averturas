@@ -336,6 +336,18 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         tip: 'El precio sugerido mantiene el recargo sobre el costo de reposición (o lo lleva al objetivo si estaba por debajo), o sigue al dólar: el mayor de los dos, no los suma. Nunca propone bajar un precio solo.',
       },
       {
+        id: 'planilla',
+        emoji: '📊',
+        title: 'Planilla Excel por proveedor',
+        steps: [
+          { text: 'Productos → "Exportar planilla de precios" → elegir proveedor → Descargar Excel' },
+          { text: 'Completar solo la columna amarilla "Nuevo precio de lista (costo)"; las vacías no se modifican' },
+          { text: 'Revisión de precios → Lista del proveedor → subir el mismo archivo' },
+          { text: 'Revisar la vista previa (precio de venta recalculado) y "Aplicar"' },
+        ],
+        warning: 'No cambies la primera columna (ID): es la que identifica cada producto.',
+      },
+      {
         id: 'listas-subidas',
         emoji: '📋',
         title: 'Listas subidas y revertir',
