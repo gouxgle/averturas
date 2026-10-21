@@ -537,6 +537,14 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   `catalogo_productos.proveedor_sku`; enlaces manuales).
 - `producto_precio_historial` se escribe desde la ficha (PUT), renovar validez, la revisión, la
   lista por proveedor y `aplicar-actualizacion` (que ahora renueva `precio_actualizado_at`).
+- **Listas subidas** (`listas_precios_importadas` + `lista_precio_import_items`, `routes/listasPrecios.ts` en `/api/listas-precios`):
+  `aplicar-lista` guarda la cabecera y una fila por producto (valor leído, costo/precio antes y después) y enlaza el
+  historial con `producto_precio_historial.lista_id`. Las subidas anteriores (lista_id NULL, origen `lista_proveedor`) se
+  **reconstruyen** del historial agrupando por proveedor + fecha + detalle. `POST /:id/revertir` (solo admin) devuelve costo y precio
+  a "antes" solo en los productos que siguen con lo que puso la lista (origen `reversion`, no toca la validez). `motivoCambioRaro()`
+  (`lib/precios.ts`) marca la fila "revisar" y la saca de la preselección; la lista del proveedor solo cuenta para el costo de
+  reposición si está entre 1/3 y 3× el costo cargado. Validez del precio: un solo cálculo, `src/lib/validezPrecio.ts`
+  (días de `precios_config` vía `GET /productos/config-validez`); cualquier cambio de costo/precio renueva `precio_actualizado_at`.
 - **Fórmula de precio** (pestaña "Por fórmula", `TabFormula.tsx`; tabla `formulas_precio`):
   precio = costo ÷ divisor × (1 + recargo) + costo × adicional → `redondearTerminacion` (paso
   1000, termina en 900). Solo `tipo='estandar'` sin `precio_manual`; gana la más específica

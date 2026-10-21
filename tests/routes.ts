@@ -18,6 +18,7 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Manual: revisión de precios',        path: '/ayuda/precios' },
   { label: 'Revisión de precios: actualizar',    path: '/productos/precios?tab=actualizar' },
   { label: 'Revisión de precios: proveedor',     path: '/productos/precios?tab=proveedor' },
+  { label: 'Revisión de precios: listas subidas', path: '/productos/precios?tab=listas' },
   { label: 'Agenda: internas',                   path: '/agenda?tab=internas' },
   { label: 'Facturación',                        path: '/facturacion' },
   { label: 'Facturación: por facturar',          path: '/facturacion?tab=por-facturar' },

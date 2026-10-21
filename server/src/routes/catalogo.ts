@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { getCotizacionDolar } from '../lib/cotizacionDolar.js';
-import { registrarHistorial, leerConfigPrecios, type CambioHistorial } from '../lib/precios.js';
+import { registrarHistorial, leerConfigPrecios, motivoCambioRaro, type CambioHistorial } from '../lib/precios.js';
 import {
   TipoAberturaSchema, SistemaSchema, ColorSchema, MaterialSchema, LineaSchema, VidrioSchema, ServicioSchema, CategoriaSchema, ModeloSchema,
   ProveedorSchema, ProveedorPrecioSchema, ProveedorPrecioPatchSchema, FormaPagoCatalogoSchema,
@@ -984,12 +984,22 @@ const AplicarListaSchema = z.object({
     costo_nuevo: z.number().positive().max(1_000_000_000),
     precio_nuevo: z.number().positive().max(1_000_000_000).nullable(),
     solo_renovar: z.boolean().default(false),
+    sku: z.string().trim().max(100).nullish(),
   })).max(5000),
   detalle: z.string().trim().max(200),
+  /** De dónde salió la lista: archivo (por defecto), planilla exportada por el sistema o un porcentaje. */
+  origen: z.enum(['archivo', 'planilla', 'porcentaje']).default('archivo'),
+  archivo: z.string().trim().max(200).nullish(),
 });
 
 const normSku = (s: string) => s.trim().toUpperCase();
-const VARIACION_RARA = 30;
+
+/** Una fila se marca "revisar" (no se preselecciona) si el cambio es raro: ver motivoCambioRaro. */
+function revisarFila(p: { costo: number; precio: number }, costoNuevo: number, precioNuevo: number) {
+  const motivo = p.costo > 0 && Math.abs(costoNuevo / p.costo - 1) * 100 < 0.5 ? null
+    : motivoCambioRaro({ costo_actual: p.costo, costo_nuevo: costoNuevo, precio_actual: p.precio, precio_nuevo: precioNuevo });
+  return { revisar: motivo !== null, motivo_revisar: motivo };
+}
 
 catalogo.post('/proveedor-precios/analizar-lista', async (c) => {
   const b = await validateBody(c, AnalizarListaSchema);
@@ -1036,7 +1046,7 @@ catalogo.post('/proveedor-precios/analizar-lista', async (c) => {
       precio_nuevo: p.precio_manual || igual ? p.precio : Math.max(precioCalc, 0.01),
       precio_manual: p.precio_manual, precio_actualizado_at: p.precio_actualizado_at,
       estado: igual ? 'igual' : variacion === null ? 'sin_costo' : variacion < 0 ? 'baja' : 'sube',
-      revisar: variacion !== null && (variacion < 0 || variacion > VARIACION_RARA),
+      ...revisarFila(p, costoNuevo, igual || p.precio_manual ? p.precio : Math.max(precioCalc, 0.01)),
     };
   };
 
@@ -1045,17 +1055,23 @@ catalogo.post('/proveedor-precios/analizar-lista', async (c) => {
     return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: [], faltantes: [] });
   }
 
+  // Códigos repetidos en el archivo: gana la ÚLTIMA fila (es la que después guarda `aplicar-lista`)
+  const ultimaPorSku = new Map<string, number>();
+  b.filas.forEach((f, i) => ultimaPorSku.set(normSku(f.sku), i));
+  const duplicados = [...new Set(b.filas.filter((f, i) => ultimaPorSku.get(normSku(f.sku)) !== i).map(f => f.sku))];
+  const filasUnicas = b.filas.filter((f, i) => ultimaPorSku.get(normSku(f.sku)) === i);
+
   const vistos = new Set<string>();
   const coincidencias: ReturnType<typeof fila>[] = [];
   const sinEnlazar: { sku: string; descripcion: string; precio: number }[] = [];
-  for (const f of b.filas) {
+  for (const f of filasUnicas) {
     const pid = productoDeSku.get(normSku(f.sku));
     const p = pid ? prodPorId.get(pid) : undefined;
     if (p && !vistos.has(p.id)) { vistos.add(p.id); coincidencias.push(fila(p, f.precio, f.sku, f.descripcion || null)); }
     else if (!p) sinEnlazar.push(f);
   }
   const faltantes = prods.filter(p => !vistos.has(p.id)).map(p => ({ producto_id: p.id, nombre: p.nombre, codigo: p.codigo, sku: skuDeProducto.get(p.id) ?? null, costo_actual: p.costo }));
-  return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: sinEnlazar, faltantes });
+  return c.json({ proveedor: prov, umbral_pct: cfg.umbral_pct, productos_del_proveedor: prods.length, coincidencias, sin_enlazar: sinEnlazar, faltantes, duplicados });
 });
 
 catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
@@ -1065,8 +1081,17 @@ catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    // Códigos repetidos en el archivo: se guarda la última fila de cada uno (igual que en el análisis)
+    const ultimaFila = new Map<string, number>();
+    (b.filas ?? []).forEach((f, i) => ultimaFila.set(normSku(f.sku), i));
+    const filasUnicas = (b.filas ?? []).filter((f, i) => ultimaFila.get(normSku(f.sku)) === i);
+    // Cabecera de la subida: queda registrada para poder verla y, si hace falta, revertirla
+    const { rows: [lista] } = await client.query(
+      `INSERT INTO listas_precios_importadas (proveedor_id, origen, archivo, detalle, filas_leidas, usuario_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [b.proveedor_id, b.origen, b.archivo || null, b.detalle, b.filas?.length ?? 0, c.get('user')?.id ?? null]);
     // 1. La lista del proveedor queda guardada tal cual vino
-    for (const f of b.filas ?? []) {
+    for (const f of filasUnicas) {
       await client.query(`
         INSERT INTO proveedor_precios (proveedor_id, sku, descripcion, precio) VALUES ($1, $2, $3, $4)
         ON CONFLICT (proveedor_id, sku) DO UPDATE SET precio = EXCLUDED.precio,
@@ -1086,6 +1111,7 @@ catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
         WHERE id = ANY($1::uuid[]) AND proveedor_id = $2 AND activo FOR UPDATE`, [b.items.map(i => i.producto_id), b.proveedor_id]);
     const porId = new Map(antes.map(r => [r.id, r]));
     const cambios: CambioHistorial[] = [];
+    const filasLista: unknown[][] = [];
     let ignorados = 0;
     for (const it of b.items) {
       const a = porId.get(it.producto_id);
@@ -1093,7 +1119,8 @@ catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
       if (it.solo_renovar) {
         await client.query(`UPDATE catalogo_productos SET precio_actualizado_at = now() WHERE id = $1`, [a.id]);
         cambios.push({ producto_id: a.id, tipo: 'renovacion', precio_anterior: a.precio, precio_nuevo: a.precio,
-          costo_anterior: a.costo, costo_nuevo: a.costo, origen: 'lista_proveedor', criterio: 'sin cambios en la lista', detalle: b.detalle });
+          costo_anterior: a.costo, costo_nuevo: a.costo, origen: 'lista_proveedor', criterio: 'sin cambios en la lista', detalle: b.detalle, lista_id: lista.id });
+        filasLista.push([lista.id, a.id, it.sku ?? null, it.costo_nuevo, 'renovar', a.costo, a.costo, a.precio, a.precio]);
         continue;
       }
       const costo = Math.round(it.costo_nuevo * 100) / 100;
@@ -1103,11 +1130,20 @@ catalogo.post('/proveedor-precios/aplicar-lista', async (c) => {
       await client.query(
         `UPDATE proveedor_precios SET precio = $3, updated_at = now() WHERE proveedor_id = $1 AND producto_id = $2`, [b.proveedor_id, a.id, costo]);
       cambios.push({ producto_id: a.id, tipo: precio !== a.precio ? 'cambio_precio' : 'cambio_costo', precio_anterior: a.precio, precio_nuevo: precio,
-        costo_anterior: a.costo, costo_nuevo: costo, origen: 'lista_proveedor', criterio: 'lista del proveedor', detalle: b.detalle });
+        costo_anterior: a.costo, costo_nuevo: costo, origen: 'lista_proveedor', criterio: 'lista del proveedor', detalle: b.detalle, lista_id: lista.id });
+      filasLista.push([lista.id, a.id, it.sku ?? null, it.costo_nuevo, 'actualizar', a.costo, costo, a.precio, precio]);
     }
     await registrarHistorial(client, cambios, c.get('user')?.id ?? null);
+    for (const f of filasLista) {
+      await client.query(
+        `INSERT INTO lista_precio_import_items (lista_id, producto_id, sku, precio_leido, accion, costo_antes, costo_despues, precio_antes, precio_despues)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, f);
+    }
+    const actualizados = cambios.filter(x => x.tipo !== 'renovacion').length;
+    const renovados = cambios.filter(x => x.tipo === 'renovacion').length;
+    await client.query(`UPDATE listas_precios_importadas SET actualizados = $2, renovados = $3 WHERE id = $1`, [lista.id, actualizados, renovados]);
     await client.query('COMMIT');
-    return c.json({ actualizados: cambios.filter(x => x.tipo !== 'renovacion').length, renovados: cambios.filter(x => x.tipo === 'renovacion').length, ignorados, lista: b.filas?.length ?? 0 });
+    return c.json({ actualizados, renovados, ignorados, lista: b.filas?.length ?? 0, lista_id: lista.id });
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

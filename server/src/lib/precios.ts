@@ -141,7 +141,15 @@ export function analizarProducto(d: DatosAnalisis, cfg: ConfigPrecios): Analisis
     return { ...vacio, var_dolar: varDolar, precio_por_dolar: precioPorDolar };
   }
 
-  const varLista = d.costo_lista && d.costo_lista > 0 ? pct(d.costo_lista, d.costo) : null;
+  // La lista del proveedor solo cuenta si es razonable respecto del costo cargado (entre un tercio y el
+  // triple): fuera de eso casi siempre es un costo mal cargado (o una lista leída mal), y propagarlo
+  // multiplicaría el precio de venta. Se avisa para revisarlo a mano.
+  let varLista: number | null = null;
+  if (d.costo_lista && d.costo_lista > 0) {
+    const ratioLista = d.costo_lista / d.costo;
+    if (ratioLista >= 1 / 3 && ratioLista <= 3) varLista = pct(d.costo_lista, d.costo);
+    else motivos.push({ tipo: 'aviso', texto: `La lista del proveedor (${ratioLista.toLocaleString('es-AR', { maximumFractionDigits: 2 })} veces el costo cargado) difiere demasiado: revisar el costo o la lista` });
+  }
   // La última compra solo cuenta si es posterior a la última actualización y razonable
   // (entre la mitad y el doble del costo cargado: fuera de eso suele ser un error de carga
   // o una compra de otra presentación).
@@ -360,6 +368,8 @@ export interface CambioHistorial {
   producto_id: string; tipo: 'renovacion' | 'cambio_precio' | 'cambio_costo';
   precio_anterior?: number | null; precio_nuevo?: number | null; costo_anterior?: number | null; costo_nuevo?: number | null;
   criterio?: string | null; origen: string; detalle?: string | null;
+  /** Lista de proveedor que originó el cambio (listas_precios_importadas). */
+  lista_id?: string | null;
 }
 
 /** Registra cambios de precio/costo/validez con el dólar del día. */
@@ -368,9 +378,30 @@ export async function registrarHistorial(q: Q, cambios: CambioHistorial[], usuar
   const col = <K extends keyof CambioHistorial>(k: K) => cambios.map(c => c[k] ?? null);
   await q.query(`
     INSERT INTO producto_precio_historial
-      (producto_id, tipo, precio_anterior, precio_nuevo, costo_anterior, costo_nuevo, criterio, origen, detalle, usuario_id, dolar_blue)
-    SELECT u.*, $10::uuid, (SELECT venta FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1)
-      FROM unnest($1::uuid[], $2::text[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[], $7::text[], $8::text[], $9::text[]) u`,
+      (producto_id, tipo, precio_anterior, precio_nuevo, costo_anterior, costo_nuevo, criterio, origen, detalle, lista_id, usuario_id, dolar_blue)
+    SELECT u.*, $11::uuid, (SELECT venta FROM cotizacion_dolar_historial ORDER BY fecha DESC LIMIT 1)
+      FROM unnest($1::uuid[], $2::text[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[], $7::text[], $8::text[], $9::text[], $10::uuid[]) u`,
     [col('producto_id'), col('tipo'), col('precio_anterior'), col('precio_nuevo'), col('costo_anterior'), col('costo_nuevo'),
-     col('criterio'), col('origen'), col('detalle'), usuarioId]);
+     col('criterio'), col('origen'), col('detalle'), col('lista_id'), usuarioId]);
+}
+
+/**
+ * ¿Un cambio de costo/precio de una lista es "raro"? (para frenar la preselección y marcarlo en pantalla).
+ * Devuelve el motivo o null. Cubre lo que pasó en prod: costo viejo mal cargado que multiplica el precio,
+ * importes leídos con un cero de más, o columnas equivocadas.
+ */
+export function motivoCambioRaro(e: { costo_actual: number; costo_nuevo: number; precio_actual: number; precio_nuevo: number }): string | null {
+  const { costo_actual, costo_nuevo, precio_actual, precio_nuevo } = e;
+  if (costo_actual > 0) {
+    const v = (costo_nuevo / costo_actual - 1) * 100;
+    if (v < 0) return `El costo baja ${Math.abs(Math.round(v))} %`;
+    if (v > 30) return `El costo sube ${Math.round(v)} %`;
+  }
+  if (precio_actual > 0 && precio_nuevo > precio_actual * 3) return `El precio de venta se multiplicaría por ${(precio_nuevo / precio_actual).toLocaleString('es-AR', { maximumFractionDigits: 1 })}`;
+  if (costo_nuevo > 0 && precio_nuevo > 0) {
+    const m = precio_nuevo / costo_nuevo;
+    if (m < 1.2) return 'El precio de venta quedaría casi igual o por debajo del costo';
+    if (m > 4) return `El precio de venta sería ${m.toLocaleString('es-AR', { maximumFractionDigits: 1 })} veces el costo`;
+  }
+  return null;
 }

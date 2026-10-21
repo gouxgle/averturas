@@ -15,9 +15,10 @@ export function parseImporte(v: unknown): number | null {
     // El separador que aparece último es el decimal
     s = coma > punto ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   } else if (coma >= 0) {
-    s = /^-?\d{1,3}(,\d{3})+$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
-  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) {
-    s = s.replace(/\./g, '');            // "12.500" = doce mil quinientos
+    // "12,500" = doce mil quinientos, pero "0,125" es un decimal (un importe no empieza con 0 y miles)
+    s = /^-?[1-9]\d{0,2}(,\d{3})+$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
+  } else if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, '');            // "12.500" = doce mil quinientos ("0.125" queda como decimal)
   }
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
@@ -28,7 +29,16 @@ const RE_DESC = /(desc|art[ií]culo|producto|detalle|nombre)/i;
 const RE_PRECIO = /(precio|importe|valor|lista|costo|neto|p\.?\s?unit)/i;
 
 /** Filas de la planilla (ya separadas en celdas) → filas de lista. */
-export function filasDesdeTabla(tabla: unknown[][]): { filas: FilaLista[]; descartadas: number; columnas: string } {
+export interface ColumnasLista { cab: number; sku: number; desc: number; precio: number }
+
+/**
+ * Detecta las columnas por el encabezado; `forzadas` permite elegirlas a mano (índices de columna).
+ * `encabezados` son las celdas de la fila de encabezado (para mostrarlas) y `ejemplos` las primeras filas leídas.
+ */
+export function filasDesdeTabla(tabla: unknown[][], forzadas?: Partial<ColumnasLista>): {
+  filas: FilaLista[]; descartadas: number; columnas: string; detectadas: ColumnasLista; encabezados: string[];
+  ejemplos: FilaLista[]; duplicados: string[]; conEncabezado: boolean;
+} {
   const celdas = tabla.map(r => r.map(c => (c === null || c === undefined ? '' : String(c).trim())));
   // Encabezado: la primera fila (de las 10 primeras) que tenga una columna de precio y otra de código
   let cab = -1, iSku = 0, iDesc = 1, iPrecio = 2;
@@ -46,6 +56,13 @@ export function filasDesdeTabla(tabla: unknown[][]): { filas: FilaLista[]; desca
     // Sin encabezado: código, descripción, precio (o el último número de la fila)
     iDesc = 1;
     iPrecio = -1;
+  }
+  const detectadas: ColumnasLista = { cab, sku: iSku, desc: iDesc, precio: iPrecio };
+  if (forzadas) {
+    if (forzadas.sku !== undefined) iSku = forzadas.sku;
+    if (forzadas.desc !== undefined) iDesc = forzadas.desc;
+    if (forzadas.precio !== undefined) iPrecio = forzadas.precio;
+    if (forzadas.cab !== undefined) cab = forzadas.cab;
   }
   const filas: FilaLista[] = [];
   let descartadas = 0;
@@ -65,7 +82,13 @@ export function filasDesdeTabla(tabla: unknown[][]): { filas: FilaLista[]; desca
   const columnas = cab >= 0
     ? `Código: "${celdas[cab][iSku]}", precio: "${celdas[cab][iPrecio]}"${iDesc >= 0 ? `, descripción: "${celdas[cab][iDesc]}"` : ''}`
     : 'Sin encabezado: se toma código, descripción y precio en ese orden';
-  return { filas, descartadas, columnas };
+  // Códigos repetidos: gana la última fila (el servidor hace lo mismo); se avisa para revisarlo
+  const vistos = new Map<string, number>();
+  filas.forEach(f => vistos.set(f.sku.trim().toUpperCase(), (vistos.get(f.sku.trim().toUpperCase()) ?? 0) + 1));
+  const duplicados = [...vistos.entries()].filter(([, n]) => n > 1).map(([k]) => k);
+  return {
+    filas, descartadas, columnas, detectadas, encabezados: cab >= 0 ? celdas[cab] : [], ejemplos: filas.slice(0, 3), duplicados, conEncabezado: cab >= 0,
+  };
 }
 
 /** Separa un CSV (coma, punto y coma o tabulador, con comillas). */
@@ -90,12 +113,15 @@ export function tablaDesdeCsv(texto: string): string[][] {
 }
 
 /** Lee un archivo .csv/.txt o .xlsx elegido por el usuario. */
-export async function leerArchivoLista(file: File): Promise<ReturnType<typeof filasDesdeTabla>> {
+export async function leerArchivoLista(file: File): Promise<ReturnType<typeof filasDesdeTabla> & { tabla: unknown[][] }> {
+  let tabla: unknown[][];
   if (/\.xlsx$/i.test(file.name)) {
     const { readSheet } = await import('read-excel-file/browser');
-    const datos = await readSheet(file);
-    return filasDesdeTabla(datos as unknown[][]);
+    tabla = (await readSheet(file)) as unknown[][];
+  } else if (/\.xls$/i.test(file.name)) {
+    throw new Error('El formato .xls (Excel viejo) no se puede leer: guardalo como .xlsx o .csv');
+  } else {
+    tabla = tablaDesdeCsv(await file.text());
   }
-  if (/\.xls$/i.test(file.name)) throw new Error('El formato .xls (Excel viejo) no se puede leer: guardalo como .xlsx o .csv');
-  return filasDesdeTabla(tablaDesdeCsv(await file.text()));
+  return { ...filasDesdeTabla(tabla), tabla };
 }

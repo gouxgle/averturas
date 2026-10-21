@@ -20,6 +20,7 @@ import { colorProveedor } from '@/lib/coloresProveedor';
 import { buildSubtitle, isPromoActiva } from '@/lib/catalogoFiltros';
 import { ExploradorCatalogo } from '@/components/catalogo/ExploradorCatalogo';
 import { ModalAjusteStock } from '@/components/ModalAjusteStock';
+import { PreciosYListas } from '@/components/productos/PreciosYListas';
 import { useAuth } from '@/hooks/useAuth';
 import { COLOR_VALIDEZ, useConfigValidez, validezPrecio } from '@/lib/validezPrecio';
 import type { Producto } from '@/types';
@@ -266,6 +267,7 @@ export function ProductoModal({ producto, onClose, onToggle, onToggleSalon, onTo
               </div>
             )}
           </div>
+          {!onAgregar && <PreciosYListas productoId={producto.id} />}
           {producto.promocion && (
             <div className={cn('rounded-xl p-3 border', isPromoActiva(producto) ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200 opacity-60')}>
               <div className="flex items-center gap-1.5 mb-2 flex-wrap">

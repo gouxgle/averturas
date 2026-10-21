@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { db } from '../db.js';
 
-export type EntidadActividad = 'presupuesto' | 'recibo' | 'remito' | 'compra' | 'devolucion';
+export type EntidadActividad = 'presupuesto' | 'recibo' | 'remito' | 'compra' | 'devolucion' | 'lista_precios';
 
 interface RegistroActividad {
   entidad: EntidadActividad;

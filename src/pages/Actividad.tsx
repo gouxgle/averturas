@@ -29,6 +29,7 @@ const ENTIDAD_LABEL: Record<string, string> = {
   remito: 'Remito',
   compra: 'Compra',
   devolucion: 'Devolución',
+  lista_precios: 'Lista de precios',
 };
 
 const ACCION_CFG: Record<string, { label: string; cls: string }> = {
@@ -65,6 +66,7 @@ const ENTIDAD_FILTROS: { v: string; l: string }[] = [
   { v: 'remito', l: 'Remitos' },
   { v: 'devolucion', l: 'Devoluciones' },
   { v: 'compra', l: 'Compras' },
+  { v: 'lista_precios', l: 'Listas de precios' },
 ];
 
 const PAGE = 50;

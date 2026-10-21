@@ -336,6 +336,18 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         tip: 'El precio sugerido mantiene el recargo sobre el costo de reposición (o lo lleva al objetivo si estaba por debajo), o sigue al dólar: el mayor de los dos, no los suma. Nunca propone bajar un precio solo.',
       },
       {
+        id: 'listas-subidas',
+        emoji: '📋',
+        title: 'Listas subidas y revertir',
+        steps: [
+          { text: 'Revisión de precios → pestaña "Listas subidas": cada lista aplicada con antes → después de cada producto' },
+          { text: 'Los cambios raros salen en amarillo con el motivo ("Solo cambios raros" los filtra)' },
+          { text: 'En el detalle del producto, "Precios y listas" muestra su lista vigente, las últimas subidas y el historial' },
+          { text: 'Un administrador puede "Revertir esta lista": solo toca lo que sigue como lo dejó la lista' },
+        ],
+        tip: 'Al cargar una lista, "Cambiar columnas" permite elegir a mano cuál es el código y el precio si el sistema detectó mal.',
+      },
+      {
         id: 'renovar-rapido',
         emoji: '🔄',
         title: 'Renovar validez desde Productos',

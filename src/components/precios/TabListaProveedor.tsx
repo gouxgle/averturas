@@ -3,14 +3,14 @@ import { Upload, Percent, Loader2, FileSpreadsheet, AlertTriangle, Link2, Packag
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { leerArchivoLista, type FilaLista } from '@/lib/listaPrecios';
+import { leerArchivoLista, filasDesdeTabla, type FilaLista, type ColumnasLista } from '@/lib/listaPrecios';
 import { type Revision, fmt$, fmtPct, fmtFecha } from './tipos';
 
 interface Coincidencia {
   producto_id: string; nombre: string; codigo: string | null; familia: string | null; sku: string | null; descripcion_lista: string | null;
   costo_actual: number; costo_lista_anterior: number | null; costo_nuevo: number; variacion: number | null;
   precio_actual: number; recargo_referencia: number; precio_nuevo: number; precio_manual: boolean; precio_actualizado_at: string;
-  estado: 'sube' | 'baja' | 'igual' | 'sin_costo'; revisar: boolean;
+  estado: 'sube' | 'baja' | 'igual' | 'sin_costo'; revisar: boolean; motivo_revisar: string | null;
 }
 interface Resultado {
   proveedor: { id: string; nombre: string };
@@ -19,6 +19,12 @@ interface Resultado {
   coincidencias: Coincidencia[];
   sin_enlazar: FilaLista[];
   faltantes: { producto_id: string; nombre: string; codigo: string | null; sku: string | null; costo_actual: number }[];
+  duplicados?: string[];
+}
+
+interface ArchivoLeido {
+  nombre: string; filas: FilaLista[]; descartadas: number; columnas: string; tabla: unknown[][];
+  detectadas: ColumnasLista; elegidas: ColumnasLista; encabezados: string[]; ejemplos: FilaLista[]; duplicados: string[]; conEncabezado: boolean;
 }
 type Accion = 'actualizar' | 'renovar' | 'nada';
 
@@ -42,7 +48,8 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
   }, [revision]);
   const [proveedorId, setProveedorId] = useState(proveedorInicial && proveedores.some(([k]) => k === proveedorInicial) ? proveedorInicial : '');
   const [modo, setModo] = useState<'archivo' | 'porcentaje'>('archivo');
-  const [archivo, setArchivo] = useState<{ nombre: string; filas: FilaLista[]; descartadas: number; columnas: string } | null>(null);
+  const [archivo, setArchivo] = useState<ArchivoLeido | null>(null);
+  const [cambiandoColumnas, setCambiandoColumnas] = useState(false);
   const [pct, setPct] = useState(5);
   const [res, setRes] = useState<Resultado | null>(null);
   const [acciones, setAcciones] = useState<Record<string, Accion>>({});
@@ -57,11 +64,21 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
     try {
       const r = await leerArchivoLista(f);
       if (!r.filas.length) { toast.error('No se encontraron filas con código y precio en el archivo'); return; }
-      setArchivo({ nombre: f.name, ...r });
+      setArchivo({ nombre: f.name, ...r, elegidas: r.detectadas });
+      setCambiandoColumnas(!r.conEncabezado);
       reiniciar();
     } catch (e) {
       toast.error('No se pudo leer el archivo', { description: (e as Error).message });
     }
+  }
+
+  // Volver a leer la planilla con otras columnas (si el sistema detectó mal cuál es el precio o el código)
+  function elegirColumnas(c: Partial<ColumnasLista>) {
+    if (!archivo) return;
+    const elegidas = { ...archivo.elegidas, ...c };
+    const r = filasDesdeTabla(archivo.tabla, elegidas);
+    setArchivo({ ...archivo, ...r, elegidas, tabla: archivo.tabla, nombre: archivo.nombre });
+    reiniciar();
   }
 
   async function analizar(enl = enlaces) {
@@ -76,6 +93,8 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
       // Propuesta: lo que sube se actualiza, lo que no cambió se renueva; bajas y raros, a decidir
       setAcciones(Object.fromEntries(r.coincidencias.map(c => [c.producto_id,
         c.estado === 'igual' ? 'renovar' : c.estado === 'sube' && !c.revisar ? 'actualizar' : 'nada'])));
+      // Códigos repetidos en el archivo: gana la última fila
+      if (r.duplicados?.length) toast.warning(`${r.duplicados.length} código(s) repetidos en el archivo: se usa la última fila de cada uno`);
     } catch (e) {
       toast.error('No se pudo analizar la lista', { description: (e as Error).message });
     } finally {
@@ -91,13 +110,15 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
     try {
       const items = res.coincidencias.filter(c => acciones[c.producto_id] && acciones[c.producto_id] !== 'nada').map(c => ({
         producto_id: c.producto_id, costo_nuevo: c.costo_nuevo,
-        precio_nuevo: actualizarVenta ? c.precio_nuevo : null, solo_renovar: acciones[c.producto_id] === 'renovar',
+        precio_nuevo: actualizarVenta ? c.precio_nuevo : null, solo_renovar: acciones[c.producto_id] === 'renovar', sku: c.sku,
       }));
       const r = await api.post<{ actualizados: number; renovados: number; lista: number }>('/catalogo/proveedor-precios/aplicar-lista', {
         proveedor_id: proveedorId,
         filas: modo === 'archivo' ? archivo?.filas : undefined,
         enlaces: Object.entries(enlaces).filter(([, v]) => v).map(([sku, producto_id]) => ({ sku, producto_id })),
         items,
+        origen: modo === 'archivo' ? 'archivo' : 'porcentaje',
+        archivo: modo === 'archivo' ? archivo?.nombre : undefined,
         detalle: modo === 'archivo' ? `Lista de ${res.proveedor.nombre} (${archivo?.nombre})` : `${res.proveedor.nombre} ${fmtPct(pct)}`,
       });
       toast.success(`Listo: ${r.actualizados} actualizados, ${r.renovados} con validez renovada${r.lista ? ` · lista de ${r.lista} códigos guardada` : ''}`);
@@ -149,6 +170,46 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
                 </p>
               )}
             </div>
+            {archivo && (
+              <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3 space-y-2" data-testid="columnas-detectadas">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-800">
+                  <b>Así se leyó el archivo</b>
+                  {!archivo.conEncabezado && <span className="text-red-700 font-semibold">Sin encabezado: verificá que sean las columnas correctas.</span>}
+                  <button type="button" onClick={() => setCambiandoColumnas(v => !v)} className="ml-auto h-8 px-3 rounded-lg border border-orange-300 bg-white text-xs font-semibold text-orange-800">
+                    {cambiandoColumnas ? 'Listo' : 'Cambiar columnas'}
+                  </button>
+                </div>
+                {archivo.ejemplos.length > 0 && (
+                  <ul className="text-xs text-gray-800 space-y-0.5">
+                    {archivo.ejemplos.map((e, i) => (
+                      <li key={i} className="flex gap-2"><span className="font-mono">{e.sku}</span><span className="truncate flex-1 text-gray-600">{e.descripcion || '—'}</span><b className="tabular-nums">{fmt$(e.precio)}</b></li>
+                    ))}
+                  </ul>
+                )}
+                {cambiandoColumnas && (
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    {([['sku', 'Código'], ['precio', 'Precio (costo)'], ['desc', 'Descripción']] as const).map(([k, l]) => {
+                      const n = Math.max(archivo.tabla.reduce((m, r) => Math.max(m, r.length), 0), 1);
+                      return (
+                        <label key={k} className="text-[11px] font-bold text-gray-800">{l}
+                          <select value={archivo.elegidas[k]} onChange={e => elegirColumnas({ [k]: Number(e.target.value) })} className={cn(sel, 'w-full mt-1 font-normal text-xs')}>
+                            {k === 'desc' && <option value={-1}>— ninguna —</option>}
+                            {Array.from({ length: n }, (_, i) => (
+                              <option key={i} value={i}>{archivo.encabezados[i] ? archivo.encabezados[i] : `Columna ${i + 1}`}</option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {archivo.duplicados.length > 0 && (
+                  <p className="text-xs text-yellow-900 bg-yellow-100 rounded-lg px-2 py-1">
+                    <AlertTriangle size={12} className="inline mr-1" />{archivo.duplicados.length} código(s) repetidos ({archivo.duplicados.slice(0, 4).join(', ')}{archivo.duplicados.length > 4 ? '…' : ''}): se usa la última fila de cada uno.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <label className="text-xs font-bold text-gray-800 flex items-center gap-2">2. Aumento del proveedor
@@ -214,6 +275,9 @@ export function TabListaProveedor({ revision, soloLectura, proveedorInicial, onC
                       <option value="renovar">Solo renovar validez</option>
                       <option value="nada">No tocar</option>
                     </select>
+                    {c.revisar && c.motivo_revisar && (
+                      <p className="col-span-full -mt-0.5 text-[11px] font-semibold text-yellow-900 bg-yellow-50 rounded px-2 py-0.5" data-testid="motivo-revisar">⚠ Revisar: {c.motivo_revisar}. No se preselecciona.</p>
+                    )}
                   </div>
                 ))}
               </div>

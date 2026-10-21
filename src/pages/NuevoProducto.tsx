@@ -1,3 +1,4 @@
+import { PreciosYListas } from '@/components/productos/PreciosYListas';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -2494,6 +2495,7 @@ export function NuevoProducto() {
               <span className="text-black text-xs">(dólar blue: {formatCurrency(dolarCompra)})</span>
             </div>
           )}
+          {isEdit && id && <PreciosYListas productoId={id} />}
           {/* Margen override + precio_manual */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
             <div>

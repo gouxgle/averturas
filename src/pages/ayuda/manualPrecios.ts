@@ -386,8 +386,9 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
         items: [
           '**Excel (.xlsx)** o **CSV**. El Excel viejo (.xls) no se puede leer: abrilo y guardalo como .xlsx.',
           'Una columna con el **código** del proveedor y otra con el **precio**. La descripción es opcional.',
-          'El sistema encuentra solo las columnas por sus títulos ("Código", "SKU", "Precio", "Descripción"…), aunque estén en otro orden o haya filas de título arriba.',
-          'Los precios pueden venir como "$ 1.234,56", "1234.56" o "12.500".',
+          'El sistema encuentra solo las columnas por sus títulos ("Código", "SKU", "Precio", "Descripción"…), aunque estén en otro orden o haya filas de título arriba. **Después de elegir el archivo se muestra cómo lo leyó** (las primeras filas) y con **"Cambiar columnas"** podés elegir a mano cuál es el código y cuál el precio si detectó mal.',
+          'Los precios pueden venir como "$ 1.234,56", "1234.56" o "12.500". Un importe que empieza con cero ("0,125") se lee como decimal.',
+          'Si un **código se repite** en el archivo, se usa la **última** fila y el sistema lo avisa.',
           'Las filas sin código o sin precio (por ejemplo "consultar") se descartan y el sistema dice cuántas.',
         ],
       },
@@ -412,7 +413,7 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
           ['**Sube**', 'El proveedor cobra más que el costo cargado.', 'Actualizar costo y precio.'],
           ['**Sin cambio**', 'Mismo costo.', 'Solo renovar la fecha.'],
           ['**Baja**', 'El proveedor bajó el precio.', 'No tocar: decidís vos.'],
-          ['**A revisar**', 'Cambio raro (baja, o suba de más de 30 %): puede ser un error de la lista o un cambio de código.', 'No tocar: decidís vos.'],
+          ['**A revisar**', 'Cambio raro: el costo baja o sube más de 30 %, el precio de venta se multiplicaría por más de 3, o quedaría muy cerca o muy por encima del costo. Dice el motivo debajo del producto. Suele ser un error de la lista, un costo mal cargado o un cambio de código.', 'No tocar: decidís vos.'],
           ['**Códigos nuevos**', 'Códigos de la lista que no están enlazados a ningún producto nuestro.', 'Enlazarlos si corresponde.'],
           ['**No vinieron**', 'Productos del proveedor que no están en la lista.', 'Puede ser una baja o un cambio de código.'],
         ],
@@ -420,7 +421,8 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
       { t: 'p', texto: 'Cada producto muestra **costo actual → nuevo** y **precio actual → nuevo** (el precio nuevo mantiene lo que le sumabas al costo). Si solo querés actualizar el costo, destildá **"Actualizar también el precio de venta"**. A la derecha de cada uno podés cambiar la decisión: **Actualizar**, **Solo renovar** o **No tocar**.' },
       { t: 'subtitulo', texto: 'Enlazar códigos nuevos' },
       { t: 'p', texto: 'Si un código de la lista es un producto nuestro que el sistema no reconoció (por ejemplo, el proveedor cambió el código), elegí el producto en **"Enlazar con…"** y tocá **"Volver a analizar con los enlaces"**. Desde la próxima lista lo reconoce solo.' },
-      { t: 'aviso', tono: 'regla', texto: 'Al aplicar se guarda la lista completa del proveedor, se actualizan los costos y precios elegidos, se renueva la fecha de los que no cambiaron, y en el historial queda "Lista de [proveedor]".' },
+      { t: 'aviso', tono: 'regla', texto: 'Al aplicar se guarda la lista completa del proveedor, se actualizan los costos y precios elegidos, se renueva la fecha de los que no cambiaron, y en el historial queda "Lista de [proveedor]". Además la subida queda registrada en **Listas subidas**.' },
+      { t: 'aviso', tono: 'info', texto: 'Si el costo cargado de un producto está muy lejos de lo que dice la lista (más de 3 veces o menos de un tercio), la **Revisión de precios** no usa el valor de la lista para sugerir un precio y avisa "revisar el costo o la lista": casi siempre es un costo mal cargado, y propagarlo multiplicaría el precio de venta.' },
     ],
   },
 
@@ -462,6 +464,28 @@ export const MANUAL_PRECIOS: SeccionManual[] = [
       { t: 'p', texto: 'Cada cambio de precio o de costo, y cada renovación, queda anotado. Se ve tocando **"Historial"** (en Actualizar precios) o **"Detalle"** (en Por fórmula).' },
       { t: 'p', texto: 'Cada línea dice: **cuándo**, **qué pasó** (cambio de precio, de costo o renovación), **antes → después**, el **dólar blue de ese día**, **cómo se calculó** (por ejemplo "Fórmula Estándar" o "Lista de Alumar") y **quién** lo hizo.' },
       { t: 'p', texto: 'Se anota desde todos lados: la ficha del producto, esta revisión, la lista del proveedor y la renovación por familia.' },
+      { t: 'p', texto: 'El historial también se ve **dentro del producto**: en el detalle (y al editarlo), la sección **"Precios y listas"** muestra la lista vigente del proveedor para ese producto, las últimas listas que lo tocaron (valor leído, costo y venta antes → después) y todo su historial.' },
+    ],
+  },
+
+  // ── 11b ────────────────────────────────────────────────────────
+  {
+    id: 'listas-subidas',
+    titulo: 'Pestaña "Listas subidas": qué se aplicó y cómo deshacerlo',
+    corto: 'Listas subidas',
+    icono: History,
+    bloques: [
+      { t: 'p', texto: 'Cada vez que se aplica una lista de un proveedor (archivo, planilla o porcentaje) queda guardada acá con quién la subió, cuándo, de qué archivo, cuántos productos actualizó y cuántos renovó. Sirve para **encontrar de dónde salió un precio raro**.' },
+      { t: 'lista', items: [
+        'Tocá una lista para ver **cada producto**: el código, el costo y el precio de venta **antes → después** y la variación.',
+        'Los **cambios raros** se marcan en amarillo con el motivo, y se pueden filtrar con **"Solo cambios raros"**.',
+        '**"Ver lista vigente del proveedor"** abre la lista actual de ese proveedor.',
+        'Las subidas hechas **antes de que existiera este registro** aparecen igual, con la etiqueta **"Del historial"**: se arman desde el historial de precios (sin el valor leído del archivo, pero con el antes y después de cada producto).',
+      ] },
+      { t: 'subtitulo', texto: 'Revertir una lista (solo administradores)' },
+      { t: 'p', texto: 'Si una lista se cargó mal, **"Revertir esta lista"** devuelve el costo y el precio de venta a lo que había antes. Solo toca los productos que **todavía tienen lo que puso la lista**: los que se modificaron después (a mano o con otra lista) no se tocan y el sistema avisa cuántos fueron.' },
+      { t: 'aviso', tono: 'regla', texto: 'Revertir no cambia la validez del precio, queda anotado en el historial de cada producto (origen "reversión") y en Actividad, y una lista solo se puede revertir una vez.' },
+      { t: 'aviso', tono: 'ojo', texto: 'Para corregir un producto suelto sin revertir toda la lista, editá su costo o precio desde Productos.' },
     ],
   },
 
