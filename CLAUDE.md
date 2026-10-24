@@ -627,7 +627,9 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   (`GET /dashboard/resumen`), `entregas_hoy` como card aparte (no dentro del grid de 6 — wrap
   a 1366×768), `AlertaBackups` (admin, si el último backup exitoso tiene ≥2 días).
 - WhatsApp: siempre Evolution API (`EVOLUTION_API_URL/KEY/INSTANCE`), nunca `wa.me`;
-  números `549XXXXXXXXXX`. Plantillas editables en `mensajes_plantilla`.
+  números `549XXXXXXXXXX`. **Teléfonos del exterior**: se guardan con `+` y código de país (`"+595 972454770"`,
+  tilde "Número del exterior" en el formulario de cliente) y van tal cual; sin `+` todo es argentino y lleva 549.
+  Una sola regla: `normalizarNumeroAR()` (servidor) y `numeroWhatsapp()` en `src/lib/telefono.ts` (links wa.me). Plantillas editables en `mensajes_plantilla`.
 - PDFs: dos implementaciones que deben mantenerse iguales — navegador (`src/pages/print/*`,
   `window.print()`) y servidor (`server/src/lib/pdf.ts`, puppeteer, para WhatsApp). Para
   verificar el server-side sin enviar nada: llamar `generarPDF*()` directo con `tsx`. Firma

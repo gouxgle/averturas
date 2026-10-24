@@ -16,6 +16,7 @@ import { cuitValido } from '@/lib/cuit';
 import {
   ultimos10, partirTelefono, construirFusion, aplicarFusion, type FilaFusion, type ResultadoFusion, type ContactoExistente,
 } from '@/lib/fusionContacto';
+import { PAISES_TEL, armarExterior, esTelefonoExterior, numeroWhatsapp, partirExterior, validarExterior } from '@/lib/telefono';
 
 type TipoPersona = 'fisica' | 'juridica';
 
@@ -135,6 +136,11 @@ export function NuevoCliente() {
   const [localidades, setLocalidades] = useState<string[]>([]);
   const [telPrefijo, setTelPrefijo]     = useState('3704');
   const [telNumero,  setTelNumero]      = useState('');
+  // Número del exterior (Paraguay, Brasil…): se carga con su código de país y se guarda como "+595 972454770"
+  const [telExterior, setTelExterior]   = useState(false);
+  const [telPais,     setTelPais]       = useState('595');
+  const [telExtNumero, setTelExtNumero] = useState('');
+  const [telPaisOtro, setTelPaisOtro]   = useState(false);
   const [telWarning, setTelWarning]     = useState<string | null>(null);
   const [telDuplicado, setTelDuplicado] = useState<TelValidacionCliente | null>(null);
   const [showTelModal, setShowTelModal] = useState(false);
@@ -214,9 +220,17 @@ export function NuevoCliente() {
         setDniOriginal((c.documento_nro ?? '').replace(/\D/g, ''));
         if (fusionPendiente) setFusion(fusionPendiente);
         // Parsear teléfono en prefijo + número para los dos casilleros (sin recortar el de la agenda)
-        const partes = partirTelefono(c.telefono);
-        setTelPrefijo(partes.prefijo || '3704');
-        setTelNumero(partes.numero);
+        if (esTelefonoExterior(c.telefono)) {
+          const ext = partirExterior(c.telefono);
+          setTelExterior(true);
+          setTelPais(ext.codigo);
+          setTelPaisOtro(!PAISES_TEL.some(p => p.codigo === ext.codigo));
+          setTelExtNumero(ext.numero);
+        } else {
+          const partes = partirTelefono(c.telefono);
+          setTelPrefijo(partes.prefijo || '3704');
+          setTelNumero(partes.numero);
+        }
         setNombreCompleto(
           fusionPendiente?.nombreCompleto
             ?? (c.tipo_persona === 'fisica'
@@ -352,6 +366,10 @@ export function NuevoCliente() {
       return;
     }
     if (!form.telefono.trim()) { toast.error('El WhatsApp / celular es requerido'); return; }
+    if (telExterior) {
+      const problema = validarExterior(telPais, telExtNumero);
+      if (problema) { toast.error(problema); setTelWarning(problema); return; }
+    }
 
     // Re-validar DNI
     const dniClean = form.documento_nro.replace(/\D/g, '');
@@ -525,43 +543,94 @@ export function NuevoCliente() {
                 </div>
                 <div>
                   <label className={lbl}>WhatsApp / Celular *</label>
-                  <div className="flex items-center gap-1">
-                    <div className="relative">
-                      <Phone size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600" />
-                      {/* Prefijo editable (ej: 3704) */}
-                      <input
-                        type="tel"
-                        value={telPrefijo}
+                  {telExterior ? (
+                    <div className="flex items-center gap-1" data-testid="tel-exterior">
+                      <select
+                        value={telPaisOtro ? 'otro' : telPais}
+                        aria-label="Código de país"
                         onChange={e => {
-                          const v = e.target.value.replace(/\D/g, '').slice(0, 5);
-                          setTelPrefijo(v);
-                          // El número ya cargado puede exceder el nuevo máximo (ej: venía de
-                          // un prefijo corto tipo "11" y ahora se cambió a uno largo tipo "3704")
-                          const nuevoNumero = telNumero.slice(0, telNumeroMaxLen(v));
-                          if (nuevoNumero !== telNumero) setTelNumero(nuevoNumero);
-                          set('telefono', v + (nuevoNumero ? ' ' + nuevoNumero : ''));
+                          const otro = e.target.value === 'otro';
+                          setTelPaisOtro(otro);
+                          const cod = otro ? '' : e.target.value;
+                          setTelPais(cod);
+                          set('telefono', armarExterior(cod, telExtNumero));
                           setTelWarning(null);
                         }}
-                        placeholder="3704"
-                        className={cn(inp, 'pl-7 w-[88px] text-center font-mono tracking-wider', telWarning && 'border-amber-400 focus:ring-amber-400')}
+                        className={cn(inp, 'w-[118px] shrink-0 px-2 font-mono')}
+                      >
+                        {PAISES_TEL.map(p => <option key={p.codigo} value={p.codigo}>+{p.codigo} {p.pais}</option>)}
+                        <option value="otro">Otro país…</option>
+                      </select>
+                      {telPaisOtro && (
+                        <input type="tel" inputMode="numeric" value={telPais} aria-label="Código de país (otro)"
+                          onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setTelPais(v); set('telefono', armarExterior(v, telExtNumero)); setTelWarning(null); }}
+                          placeholder="+cód" className={cn(inp, 'w-[64px] shrink-0 text-center font-mono')} />
+                      )}
+                      <input
+                        type="tel" inputMode="numeric"
+                        value={telExtNumero}
+                        aria-label="Número del exterior"
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, Math.max(6, 15 - telPais.length));
+                          setTelExtNumero(v);
+                          set('telefono', armarExterior(telPais, v));
+                          setTelWarning(null);
+                        }}
+                        onBlur={() => { const p = validarExterior(telPais, telExtNumero); if (p && telExtNumero) setTelWarning(p); else checkTelefono(armarExterior(telPais, telExtNumero)); }}
+                        placeholder={PAISES_TEL.find(p => p.codigo === telPais)?.ejemplo ?? 'Número'}
+                        className={cn(inp, 'flex-1 min-w-0 text-center font-mono tracking-widest', telWarning && 'border-amber-400 focus:ring-amber-400')}
                       />
                     </div>
-                    <span className="text-gray-600 font-bold select-none">—</span>
-                    {/* Número local: largo dinámico según el código de área (área+número = 10 dígitos) */}
-                    <input
-                      type="tel"
-                      value={telNumero}
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <div className="relative">
+                        <Phone size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600" />
+                        {/* Prefijo editable (ej: 3704) */}
+                        <input
+                          type="tel"
+                          value={telPrefijo}
+                          onChange={e => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 5);
+                            setTelPrefijo(v);
+                            // El número ya cargado puede exceder el nuevo máximo (ej: venía de
+                            // un prefijo corto tipo "11" y ahora se cambió a uno largo tipo "3704")
+                            const nuevoNumero = telNumero.slice(0, telNumeroMaxLen(v));
+                            if (nuevoNumero !== telNumero) setTelNumero(nuevoNumero);
+                            set('telefono', v + (nuevoNumero ? ' ' + nuevoNumero : ''));
+                            setTelWarning(null);
+                          }}
+                          placeholder="3704"
+                          className={cn(inp, 'pl-7 w-[88px] text-center font-mono tracking-wider', telWarning && 'border-amber-400 focus:ring-amber-400')}
+                        />
+                      </div>
+                      <span className="text-gray-600 font-bold select-none">—</span>
+                      {/* Número local: largo dinámico según el código de área (área+número = 10 dígitos) */}
+                      <input
+                        type="tel"
+                        value={telNumero}
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, telNumeroMaxLen(telPrefijo));
+                          setTelNumero(v);
+                          set('telefono', (telPrefijo ? telPrefijo + ' ' : '') + v);
+                          setTelWarning(null);
+                        }}
+                        onBlur={() => checkTelefono((telPrefijo ? telPrefijo + ' ' : '') + telNumero)}
+                        placeholder={TEL_NUMERO_EJEMPLO.slice(0, telNumeroMaxLen(telPrefijo))}
+                        className={cn(inp, 'flex-1 text-center font-mono tracking-widest', telWarning && 'border-amber-400 focus:ring-amber-400')}
+                      />
+                    </div>
+                  )}
+                  <label className="mt-1.5 flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none w-fit min-h-[32px]">
+                    <input type="checkbox" checked={telExterior} data-testid="tel-exterior-check"
                       onChange={e => {
-                        const v = e.target.value.replace(/\D/g, '').slice(0, telNumeroMaxLen(telPrefijo));
-                        setTelNumero(v);
-                        set('telefono', (telPrefijo ? telPrefijo + ' ' : '') + v);
+                        const ext = e.target.checked;
+                        setTelExterior(ext);
                         setTelWarning(null);
+                        set('telefono', ext ? armarExterior(telPais, telExtNumero) : (telPrefijo ? telPrefijo + ' ' : '') + telNumero);
                       }}
-                      onBlur={() => checkTelefono((telPrefijo ? telPrefijo + ' ' : '') + telNumero)}
-                      placeholder={TEL_NUMERO_EJEMPLO.slice(0, telNumeroMaxLen(telPrefijo))}
-                      className={cn(inp, 'flex-1 text-center font-mono tracking-widest', telWarning && 'border-amber-400 focus:ring-amber-400')}
-                    />
-                  </div>
+                      className="w-4 h-4 rounded border-gray-400" />
+                    Número del exterior <span className="text-gray-500">(Paraguay, Brasil…)</span>
+                  </label>
                   {telWarning && (
                     <p className="flex items-center gap-1 mt-1 text-[11px] text-amber-700 font-medium flex-wrap">
                       <AlertCircle size={10} /> {telWarning}
@@ -1077,7 +1146,7 @@ export function NuevoCliente() {
                     </p>
                     {form.telefono && (
                       <a
-                        href={`https://wa.me/${form.telefono.replace(/\D/g, '')}?text=${encodeURIComponent('Hola! Te contactamos para completar tus datos.')}`}
+                        href={`https://wa.me/${numeroWhatsapp(form.telefono)}?text=${encodeURIComponent('Hola! Te contactamos para completar tus datos.')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors">

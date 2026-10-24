@@ -10,7 +10,7 @@ import {
   sincronizarTareaEntrega, cargarRemitoParaTransicion, aplicarTransicionRemito, entregarRemito,
   detalleEntrega, RemitoError, TRANSICIONES_REMITO,
 } from '../lib/remitos.js';
-import { enviarWhatsapp } from '../lib/whatsapp.js';
+import { enviarWhatsapp, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { hoyAR } from '../lib/fechas.js';
 import { siguienteNumero } from '../lib/numeracion.js';
@@ -299,13 +299,8 @@ remitos.post('/:id/enviar-whatsapp', async (c) => {
   const telefono: string | null = rem.telefono;
   if (!telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
 
-  // Normalizar número Argentina → 549XXXXXXXXXX
-  const digits = telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
+  // Evolution API: argentino → 549…, del exterior (+código de país) → tal cual
+  const numero = normalizarNumeroAR(telefono);
 
   // Generar/regenerar token de recepción
   const token = (typeof crypto !== 'undefined' && crypto.randomUUID)

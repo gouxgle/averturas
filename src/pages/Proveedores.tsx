@@ -1,3 +1,4 @@
+import { numeroWhatsapp } from '@/lib/telefono';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -592,7 +593,7 @@ function ProveedorRow({
         {/* Acciones contacto */}
         <div className="flex items-center justify-center gap-1">
           {prov.telefono && (
-            <a href={`https://wa.me/${prov.telefono.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/${numeroWhatsapp(prov.telefono)}`} target="_blank" rel="noopener noreferrer"
               className="p-1.5 hover:bg-emerald-50 text-emerald-600 rounded-lg" title="WhatsApp">
               <Phone size={13} />
             </a>

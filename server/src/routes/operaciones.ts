@@ -1,3 +1,4 @@
+import { normalizarNumeroAR } from '../lib/whatsapp.js';
 import { guardarBonificacion } from '../lib/bonificacion.js';
 import { descartarSeguimientoDeOperacion } from '../lib/postventa.js';
 import { Hono } from 'hono';
@@ -730,18 +731,8 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
   const telefono: string | null = op.telefono;
   if (!telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
 
-  // Normalizar a formato Evolution API: 549XXXXXXXXXX (Argentina)
-  const digits = telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) {
-    numero = digits;
-  } else if (digits.startsWith('54') && digits.length >= 12) {
-    numero = `549${digits.slice(2)}`;
-  } else if (digits.startsWith('0') && digits.length >= 11) {
-    numero = `549${digits.slice(1)}`;
-  } else {
-    numero = `549${digits}`;
-  }
+  // Evolution API: argentino → 549…, del exterior (+código de país) → tal cual
+  const numero = normalizarNumeroAR(telefono);
 
   let rev: RevisionResult;
   try {
@@ -906,12 +897,8 @@ operaciones.post('/:id/avisar-cliente', async (c) => {
   const telefono: string | null = op.telefono;
   if (!telefono) return c.json({ error: 'El cliente no tiene teléfono registrado' }, 422);
 
-  const digits = telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
+  // Evolution API: argentino → 549…, del exterior (+código de país) → tal cual
+  const numero = normalizarNumeroAR(telefono);
 
   const nombre = op.tipo_persona === 'juridica'
     ? (op.razon_social ?? 'estimado/a')

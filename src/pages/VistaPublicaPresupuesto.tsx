@@ -1,3 +1,4 @@
+import { numeroWhatsapp } from '@/lib/telefono';
 import { rotuloBonificacion } from '@/lib/bonificacion';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -301,7 +302,7 @@ export function VistaPublicaPresupuesto() {
   }
 
   const waLink = (tel: string | null) =>
-    tel ? `https://wa.me/${tel.replace(/\D/g, '')}` : null;
+    tel ? `https://wa.me/${numeroWhatsapp(tel)}` : null;
 
   // ── Pantallas de estado ───────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { normalizarNumeroAR } from '../lib/whatsapp.js';
 import { Hono } from 'hono';
 import { db } from '../db.js';
 import { sqlItemsTotal, sqlItemsCubiertos, sqlItemsPendientes } from '../lib/coverage.js';
@@ -225,13 +226,8 @@ pedidos.post('/:id/enviar-whatsapp', async (c) => {
   const prov = pedido.proveedor;
   if (!prov?.telefono) return c.json({ error: 'El proveedor no tiene teléfono registrado' }, 422);
 
-  // Normalizar número Argentina → 549XXXXXXXXXX
-  const digits = prov.telefono.replace(/\D/g, '');
-  let numero: string;
-  if (digits.startsWith('549') && digits.length >= 13) numero = digits;
-  else if (digits.startsWith('54') && digits.length >= 12) numero = `549${digits.slice(2)}`;
-  else if (digits.startsWith('0') && digits.length >= 11) numero = `549${digits.slice(1)}`;
-  else numero = `549${digits}`;
+  // Evolution API: argentino → 549…, del exterior (+código de país) → tal cual
+  const numero = normalizarNumeroAR(prov.telefono);
 
   // Validar longitud mínima del número resultante (Argentina: 549 + 10 dígitos = 13)
   if (numero.length < 13) {

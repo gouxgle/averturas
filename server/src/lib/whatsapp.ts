@@ -3,7 +3,17 @@
 // reusarlo desde otras rutas (oportunidades) sin duplicar la normalización
 // del número argentino ni el manejo de errores de Evolution.
 
+/**
+ * Número para Evolution API. Un número del exterior se carga con "+" y su código de país ("+595 972454770")
+ * y va tal cual; todo lo demás se trata como argentino y lleva 549 (antes al paraguayo se le agregaba 549 y
+ * el mensaje no llegaba). Misma regla que numeroWhatsapp() en src/lib/telefono.ts.
+ */
 export function normalizarNumeroAR(telefono: string): string {
+  const t = telefono.trim();
+  if (t.startsWith('+') || t.startsWith('00')) {
+    const intl = t.replace(/\D/g, '').replace(/^00/, '');
+    if (intl && !intl.startsWith('54')) return intl;
+  }
   const digits = telefono.replace(/\D/g, '');
   if (digits.startsWith('549') && digits.length >= 13) return digits;
   if (digits.startsWith('54') && digits.length >= 12) return `549${digits.slice(2)}`;

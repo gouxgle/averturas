@@ -1,3 +1,4 @@
+import { numeroWhatsapp } from '@/lib/telefono';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -515,7 +516,7 @@ export function CRM() {
                     )}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {t.telefono && (
-                        <a href={`https://wa.me/${t.telefono.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
+                        <a href={`https://wa.me/${numeroWhatsapp(t.telefono)}`} target="_blank" rel="noreferrer"
                           onClick={e => e.stopPropagation()} className="p-1 hover:bg-green-50 rounded-lg">
                           <MessageCircle size={11} className="text-green-500" />
                         </a>
@@ -627,7 +628,7 @@ export function CRM() {
                     </p>
                   </div>
                   {c.telefono && (
-                    <a href={`https://wa.me/${c.telefono.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
+                    <a href={`https://wa.me/${numeroWhatsapp(c.telefono)}`} target="_blank" rel="noreferrer"
                       className="p-1.5 hover:bg-green-50 rounded-lg shrink-0">
                       <MessageCircle size={12} className="text-green-400" />
                     </a>
@@ -937,7 +938,7 @@ export function CRM() {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {p.telefono && (
-                    <a href={`https://wa.me/${p.telefono.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
+                    <a href={`https://wa.me/${numeroWhatsapp(p.telefono)}`} target="_blank" rel="noreferrer"
                       className="p-1.5 hover:bg-green-50 rounded-lg">
                       <MessageCircle size={12} className="text-green-500" />
                     </a>
