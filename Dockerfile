@@ -11,7 +11,9 @@ RUN npm install
 ARG SERVER_HASH=
 RUN echo "server@${SERVER_HASH}" > /dev/null
 COPY server/ .
-RUN NODE_OPTIONS="--max-old-space-size=512" npm run build
+# tsc del backend sin los tests (tsconfig.build.json). Con 512 MB se quedaba sin memoria (2026-10-27,
+# ~450 MB de heap): 768 deja margen y entra en prod (2 GB + 2 GB de swap) y en test.
+RUN NODE_OPTIONS="--max-old-space-size=768" npm run build
 
 # Etapa 2: build del frontend
 FROM node:24-alpine AS frontend-build
