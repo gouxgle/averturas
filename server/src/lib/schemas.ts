@@ -277,6 +277,16 @@ export const SolicitudCompraSchema = z.object({
   items: b.items.map(it => esFichaConfigurada(it.especificaciones) ? { ...it, especificaciones: normalizarFicha(it.especificaciones) } : it),
 }));
 
+/** Nueva versión de un ítem de solicitud (otra configuración; la anterior queda intacta con sus cotizaciones). */
+export const NuevaVersionItemSchema = z.object({
+  descripcion:      z.string().trim().min(1, 'Descripción requerida').max(500),
+  cantidad:         z.number().positive('La cantidad debe ser mayor a 0').optional(),
+  especificaciones: z.record(z.string(), z.unknown()),
+  adjuntos:         zAdjuntos.optional(),
+  observaciones:    zText(1000).optional().nullable(),
+  motivo:           zText(300).optional().nullable(),
+}).transform(b => (esFichaConfigurada(b.especificaciones) ? { ...b, especificaciones: normalizarFicha(b.especificaciones) } : b));
+
 export const SolicitudEstadoSchema = z.object({
   estado: z.enum(['cancelada', 'cerrada', 'abierta']),
   motivo: zText(500).optional(),

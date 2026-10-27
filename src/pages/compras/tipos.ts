@@ -55,6 +55,10 @@ export interface SolicitudItem {
   costo_referencia: number | string | null;
   proveedor_sku: string | null;
   estado: EstadoItemSolicitud;
+  /** Versiones de la configuración: V1 es la original; las siguientes apuntan a ella con item_origen_id. */
+  version?: number;
+  item_origen_id?: string | null;
+  reemplazado_por_id?: string | null;
   orden_compra?: { id: string; numero: string; estado_logistica: EstadoLogistica } | null;
   cotizaciones?: { id: string; numero: string; estado: EstadoCotizacion }[];
 }

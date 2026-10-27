@@ -622,6 +622,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { text: 'Los ítems se autocompletan con su ficha técnica (medidas, color, vidrio, apertura, herrajes)' },
           { text: 'Revisar cantidades y fichas, adjuntar fotos o planos' },
           { text: 'Abertura a medida: el configurador pide tipo y tipología y muestra solo lo que corresponde, con el esquema al lado' },
+          { text: '¿El cliente cambió algo después de cotizar? "Nueva versión" en el ítem: la anterior queda con lo que se cotizó' },
           { text: '"¿Cómo seguimos?": pedir cotización, comprar directo o solo guardar' },
         ],
         tip: 'Desde un presupuesto aprobado o el kanban, "Pedido al proveedor" ya trae la solicitud armada con lo que falta comprar.',

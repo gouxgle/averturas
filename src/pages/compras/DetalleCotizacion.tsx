@@ -105,7 +105,10 @@ export function DetalleCotizacion({ id, onClose, onChanged, abrir }: { id: strin
           {pc.items.map(it => (
             <div key={it.id} className="flex items-start gap-3 p-2.5 border border-gray-200 rounded-xl">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">{it.descripcion}</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {(it.version ?? 1) > 1 && <span className="mr-1.5 text-[10px] font-bold text-violet-800 bg-violet-100 rounded px-1.5 py-0.5 align-middle">V{it.version}</span>}
+                  {it.descripcion}
+                </p>
                 <FichaTecnica e={it.especificaciones} completa />
               </div>
               <p className="text-sm font-bold text-gray-800 shrink-0">×{fmtCantidad(it.cantidad_cotizada ?? it.cantidad, it.unidad)}</p>

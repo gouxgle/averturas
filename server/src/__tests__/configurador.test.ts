@@ -158,3 +158,32 @@ describe('resumen de una línea', () => {
     expect(resumenEspecificaciones({ hojas: '2_hojas' })).toBe('2 hojas');
   });
 });
+
+describe('planos en PDF que viajan con el envío', () => {
+  it('tope de 10 MB en total y el PDF del pedido lista solo los que viajan', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { leerAnexosPDF, fichaCompraPDF } = await import('../lib/pdf.js');
+    const dir = path.join(process.cwd(), 'uploads', '_test_anexos');
+    fs.mkdirSync(dir, { recursive: true });
+    try {
+      const urls = ['a', 'b', 'c'].map(n => { fs.writeFileSync(path.join(dir, `${n}.pdf`), Buffer.alloc(4 * 1024 * 1024)); return `/uploads/_test_anexos/${n}.pdf`; });
+      const anexos = leerAnexosPDF([urls.slice(0, 2), [urls[2]]]);
+      expect(anexos.map(a => a.nombre)).toEqual(['a.pdf', 'b.pdf']);
+      const enviados = anexos.map(a => a.url);
+      expect(fichaCompraPDF({}, [urls[2]], enviados).anexos).toEqual([]);
+      expect(fichaCompraPDF({}, [urls[0]], enviados).anexos).toEqual(['a.pdf']);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('diferencias entre versiones', () => {
+  it('lista solo lo que cambió', async () => {
+    const { diferenciasFicha } = await import('../lib/configuradorAbertura.js');
+    const v1 = normalizarFicha({ esquema_version: 1, tipo_abertura: 'puerta', tipologia: 'de_abrir', ancho_m: 0.9, alto_m: 2.05, hojas: 1,
+      sentido: 'izquierda', composicion: 'vidriado', vidrio_color: 'incoloro' });
+    const v2 = normalizarFicha({ ...v1, vidrio_color: 'opalino' });
+    expect(diferenciasFicha(v1, v2)).toEqual([{ label: 'Vidrio', antes: 'incoloro', despues: 'opalino' }]);
+    expect(diferenciasFicha(v1, v1)).toEqual([]);
+  });
+});

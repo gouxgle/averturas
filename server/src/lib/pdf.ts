@@ -707,13 +707,25 @@ function uploadDataURI(url: string): string | null {
   } catch { return null; }
 }
 
-/** PDFs subidos a los ítems (planos, croquis): se mandan al proveedor junto al PDF de la PC/OC. Máx. 5. */
-export function leerAnexosPDF(adjuntosPorItem: unknown[]): { nombre: string; buffer: Buffer }[] {
+/** Tope de los planos que viajan con un envío (email y WhatsApp tienen límites; 10 MB entra en todos). */
+const MAX_BYTES_ANEXOS_PDF = 10 * 1024 * 1024;
+
+/**
+ * PDFs subidos a los ítems (planos, croquis) que se mandan al proveedor junto al PDF de la PC/OC: máx. 5 y 10 MB en
+ * total; los que no entran se omiten (el PDF del pedido lista solo los que viajan).
+ */
+export function leerAnexosPDF(adjuntosPorItem: unknown[]): { nombre: string; url: string; buffer: Buffer }[] {
   const urls = adjuntosPorItem.flatMap(a => (Array.isArray(a) ? a : [])).filter((u): u is string => typeof u === 'string');
-  const out: { nombre: string; buffer: Buffer }[] = [];
+  const out: { nombre: string; url: string; buffer: Buffer }[] = [];
+  let bytes = 0;
   for (const url of [...new Set(urls)]) {
     if (!/^\/uploads\/[\w./-]+\.pdf$/i.test(url) || url.includes('..')) continue;
-    try { out.push({ nombre: url.split('/').pop()!, buffer: fs.readFileSync(path.join(process.cwd(), url)) }); } catch { /* archivo faltante: se omite */ }
+    try {
+      const buffer = fs.readFileSync(path.join(process.cwd(), url));
+      if (bytes + buffer.length > MAX_BYTES_ANEXOS_PDF) continue;
+      out.push({ nombre: url.split('/').pop()!, url, buffer });
+      bytes += buffer.length;
+    } catch { /* archivo faltante: se omite */ }
     if (out.length >= 5) break;
   }
   return out;
@@ -723,11 +735,11 @@ export function leerAnexosPDF(adjuntosPorItem: unknown[]): { nombre: string; buf
  * Lo que va en el PDF de PC/OC además de la línea del ítem: la ficha completa y el esquema si salió del
  * configurador, las imágenes adjuntas (croquis, fotos; hasta 4) y los PDF adjuntos como anexo.
  */
-export function fichaCompraPDF(especificaciones: unknown, adjuntos: unknown): Pick<CompraItemPDF, 'ficha' | 'imagenes' | 'anexos'> {
+export function fichaCompraPDF(especificaciones: unknown, adjuntos: unknown, anexosEnviados: string[] = []): Pick<CompraItemPDF, 'ficha' | 'imagenes' | 'anexos'> {
   const e = (especificaciones && typeof especificaciones === 'object' ? especificaciones : {}) as Record<string, unknown>;
   const urls = Array.isArray(adjuntos) ? adjuntos.filter((u): u is string => typeof u === 'string') : [];
   const imagenes = urls.map(uploadDataURI).filter((u): u is string => !!u).slice(0, 4);
-  const anexos = leerAnexosPDF([urls]).map(a => a.nombre);   // solo los que existen (son los que se envían)
+  const anexos = urls.filter(u => anexosEnviados.includes(u)).map(u => u.split('/').pop() ?? u);   // solo los que viajan
   return {
     ficha: esFichaConfigurada(e) ? { filas: detalleFicha(e), svg: esquemaAberturaSVG(e, { ancho: 230 }) } : null,
     imagenes, anexos,

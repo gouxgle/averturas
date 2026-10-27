@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import {
-  SolicitudCompraSchema, SolicitudEstadoSchema, CotizacionCrearSchema, CotizacionRespuestaSchema,
+  SolicitudCompraSchema, SolicitudEstadoSchema, NuevaVersionItemSchema, CotizacionCrearSchema, CotizacionRespuestaSchema,
   CotizacionAdjudicarSchema, CotizacionCerrarSchema, OrdenDirectaSchema, OrdenConsolidarSchema,
   OrdenEditarSchema, EnviarCompraSchema, ConfirmacionOrdenSchema, EstadoLogisticaSchema,
   SeguimientoSchema, RecepcionSchema, IncidenciaEditarSchema, IncidenciaReclamarSchema,
@@ -485,7 +485,7 @@ compras.get('/solicitudes/:id', async (c) => {
   const { id } = c.req.param();
   const [{ rows: [sc] }, { rows: items }] = await Promise.all([
     db.query(`${SOLICITUD_SQL} WHERE sc.id = $1`, [id]),
-    db.query(`${SOLICITUD_ITEMS_SQL} WHERE i.solicitud_id = $1 ORDER BY i.orden`, [id]),
+    db.query(`${SOLICITUD_ITEMS_SQL} WHERE i.solicitud_id = $1 ORDER BY i.orden, i.version`, [id]),
   ]);
   if (!sc) return c.json({ error: 'Solicitud no encontrada' }, 404);
   return c.json({ ...sc, items });
@@ -502,6 +502,10 @@ compras.put('/solicitudes/:id', async (c) => {
       const { rows: [actual] } = await client.query(`SELECT estado, numero FROM compras_solicitudes WHERE id = $1 FOR UPDATE`, [id]);
       if (!actual) throw new ErrorNegocio(404, 'Solicitud no encontrada');
       if (actual.estado !== 'abierta') throw new ErrorNegocio(409, 'Solo se puede editar una solicitud abierta');
+      // Editar reemplaza los ítems: rompería la cadena de versiones y lo que se cotizó de cada una
+      const { rows: [conVersiones] } = await client.query(
+        `SELECT 1 AS si FROM compras_solicitud_items WHERE solicitud_id = $1 AND (version > 1 OR item_origen_id IS NOT NULL) LIMIT 1`, [id]);
+      if (conVersiones) throw new ErrorNegocio(409, 'La solicitud tiene ítems con versiones: los cambios se cargan con "Nueva versión" en el ítem');
 
       await client.query(`
         UPDATE compras_solicitudes SET origen=$2, operacion_id=$3, visita_tecnica_id=$4, cliente_id=$5, obra=$6,
@@ -530,6 +534,46 @@ compras.put('/solicitudes/:id', async (c) => {
     registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: sc.numero, accion: 'editar', detalle: 'Solicitud editada' });
     const { rows: [row] } = await db.query(`${SOLICITUD_SQL} WHERE sc.id = $1`, [id]);
     return c.json(row);
+  } catch (err) { return manejarErrorNegocio(c, err); }
+});
+
+// POST /solicitudes/:id/items/:itemId/nueva-version — otra configuración del mismo ítem (V2, V3…).
+// La versión de partida no se modifica: conserva su ficha y sus cotizaciones. La nueva queda pendiente para cotizarla.
+compras.post('/solicitudes/:id/items/:itemId/nueva-version', async (c) => {
+  const { id, itemId } = c.req.param();
+  const b = await validateBody(c, NuevaVersionItemSchema);
+  if (b instanceof Response) return b;
+  try {
+    const nuevo = await enTransaccion(async (client) => {
+      const { rows: [sc] } = await client.query(`SELECT estado, numero FROM compras_solicitudes WHERE id = $1 FOR UPDATE`, [id]);
+      if (!sc) throw new ErrorNegocio(404, 'Solicitud no encontrada');
+      if (!['abierta', 'en_cotizacion'].includes(sc.estado)) throw new ErrorNegocio(409, `La solicitud está ${sc.estado.replace('_', ' ')}`);
+      const { rows: [base] } = await client.query(
+        `SELECT * FROM compras_solicitud_items WHERE id = $1 AND solicitud_id = $2`, [itemId, id]);
+      if (!base) throw new ErrorNegocio(404, 'Ítem no encontrado');
+      if (!['pendiente', 'en_cotizacion'].includes(base.estado)) {
+        throw new ErrorNegocio(409, base.estado === 'comprado' ? 'Ese ítem ya se compró' : 'Ese ítem está cancelado');
+      }
+      const origen = (base.item_origen_id as string | null) ?? (base.id as string);
+      const { rows: [{ ultima, orden }] } = await client.query(`
+        SELECT MAX(version)::int AS ultima, MAX(orden)::int AS orden FROM compras_solicitud_items
+         WHERE id = $1 OR item_origen_id = $1`, [origen]);
+      const { rows: [row] } = await client.query(`
+        INSERT INTO compras_solicitud_items
+          (solicitud_id, orden, operacion_item_id, visita_tecnica_item_id, producto_id, descripcion, cantidad, unidad,
+           especificaciones, adjuntos, observaciones, costo_referencia, proveedor_sku, version, item_origen_id, estado)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pendiente')
+        RETURNING *`, [
+        id, (orden ?? base.orden) + 0, base.operacion_item_id, base.visita_tecnica_item_id, base.producto_id, b.descripcion,
+        b.cantidad ?? Number(base.cantidad), base.unidad, JSON.stringify(b.especificaciones),
+        JSON.stringify(b.adjuntos ?? base.adjuntos ?? []), b.observaciones ?? base.observaciones ?? null,
+        base.costo_referencia, base.proveedor_sku, (ultima ?? 1) + 1, origen]);
+      await recalcularEstadoSolicitud(client, id);
+      return { ...row, sc_numero: sc.numero };
+    });
+    registrarActividad(c, { entidad: 'compra', entidad_id: id, entidad_numero: nuevo.sc_numero, accion: 'nueva_version',
+      detalle: `${nuevo.descripcion} — versión ${nuevo.version}${b.motivo ? ` (${b.motivo})` : ''}` });
+    return c.json(nuevo, 201);
   } catch (err) { return manejarErrorNegocio(c, err); }
 });
 
@@ -611,7 +655,12 @@ compras.post('/cotizaciones', async (c) => {
       `, [numero, b.solicitud_id, b.fecha_limite ?? null, b.observaciones ?? null, user?.id ?? null]);
 
       for (const it of items as Row[]) {
-        await client.query(`INSERT INTO compras_cotizacion_items (cotizacion_id, solicitud_item_id, cantidad) VALUES ($1,$2,$3)`,
+        // Foto de lo que se pide cotizar: la ficha de esta versión queda fija aunque después haya otra
+        await client.query(`
+          INSERT INTO compras_cotizacion_items
+            (cotizacion_id, solicitud_item_id, cantidad, version, descripcion_snapshot, especificaciones_snapshot, adjuntos_snapshot)
+          SELECT $1, si.id, $3, si.version, si.descripcion, si.especificaciones, si.adjuntos
+            FROM compras_solicitud_items si WHERE si.id = $2`,
           [row.id, it.id, it.cantidad]);
       }
       for (const pid of new Set(b.proveedor_ids)) {
@@ -632,7 +681,12 @@ async function cargarCotizacion(id: string) {
   const [{ rows: [pc] }, { rows: items }, { rows: provs }] = await Promise.all([
     db.query(`${COTIZACION_SQL} WHERE pc.id = $1`, [id]),
     db.query(`
-      SELECT i.*, ci.cantidad AS cantidad_cotizada, prod.nombre AS producto_nombre, prod.imagen_url AS producto_imagen_url
+      SELECT i.*, ci.cantidad AS cantidad_cotizada, prod.nombre AS producto_nombre, prod.imagen_url AS producto_imagen_url,
+        -- Lo que se mandó a cotizar (foto); las PC anteriores a las versiones caen a la ficha del ítem
+        COALESCE(ci.descripcion_snapshot, i.descripcion) AS descripcion,
+        COALESCE(ci.especificaciones_snapshot, i.especificaciones) AS especificaciones,
+        COALESCE(ci.adjuntos_snapshot, i.adjuntos) AS adjuntos,
+        COALESCE(ci.version, i.version) AS version
       FROM compras_cotizacion_items ci
       JOIN compras_solicitud_items i ON i.id = ci.solicitud_item_id
       LEFT JOIN catalogo_productos prod ON prod.id = i.producto_id
@@ -662,10 +716,12 @@ async function pdfDeCotizacion(id: string, proveedorId: string): Promise<{ pdf: 
   const cp = (pc.proveedores as Row[]).find(p => p.proveedor_id === proveedorId);
   if (!cp) return null;
   const empresa = await empresaActual();
+  const anexos = leerAnexosPDF((pc.items as Row[]).map(i => i.adjuntos));
+  const enviados = anexos.map(a => a.url);
   const items: CompraItemPDF[] = (pc.items as Row[]).map(i => ({
     descripcion: i.descripcion,
     especificaciones: resumenEspecificaciones(i.especificaciones) || null,
-    ...fichaCompraPDF(i.especificaciones, i.adjuntos),
+    ...fichaCompraPDF(i.especificaciones, i.adjuntos, enviados),
     cantidad: Number(i.cantidad_cotizada ?? i.cantidad),
     unidad: i.unidad,
     proveedor_sku: i.proveedor_sku,
@@ -677,7 +733,7 @@ async function pdfDeCotizacion(id: string, proveedorId: string): Promise<{ pdf: 
     referencias: [pc.solicitud?.numero, pc.solicitud?.obra ? `Obra: ${pc.solicitud.obra}` : null].filter(Boolean) as string[],
   };
   const pdf = await generarPDFCompra(data, empresa);
-  return { pdf, pc, prov: cp.proveedor, empresa, anexos: leerAnexosPDF((pc.items as Row[]).map(i => i.adjuntos)) };
+  return { pdf, pc, prov: cp.proveedor, empresa, anexos };
 }
 
 compras.get('/cotizaciones/:id/pdf', async (c) => {
@@ -903,6 +959,8 @@ async function crearOrden(client: PoolClient, p: {
   adjuntos?: string[];
   items: ItemOC[];
   created_by: string | null;
+  /** Foto de la cotización adjudicada por ítem de solicitud (descripción, ficha y adjuntos que se cotizaron). */
+  fichas?: Map<string, { descripcion: string; especificaciones: unknown; adjuntos: unknown }>;
 }): Promise<Row> {
   const ids = p.items.map(i => i.solicitud_item_id);
   const { rows: siRows } = await client.query(`
@@ -914,6 +972,11 @@ async function crearOrden(client: PoolClient, p: {
   const si = siRows as Row[];
   const malo = si.find(i => i.estado === 'comprado' || i.estado === 'cancelado');
   if (malo) throw new ErrorNegocio(409, `El ítem "${malo.descripcion}" ya está ${malo.estado}`);
+  // Se compra una sola configuración de cada ítem (cotizar varias para comparar sí se puede)
+  const cadenas = si.map(i => (i.item_origen_id as string | null) ?? (i.id as string));
+  if (new Set(cadenas).size !== cadenas.length) {
+    throw new ErrorNegocio(409, 'Elegiste dos versiones del mismo ítem: la orden de compra lleva una sola');
+  }
 
   const solicitudes = [...new Set(si.map(i => i.solicitud_id as string))];
   const esConsolidada = solicitudes.length > 1;
@@ -949,6 +1012,10 @@ async function crearOrden(client: PoolClient, p: {
   const porId = new Map(si.map(i => [i.id, i]));
   for (const [idx, it] of p.items.entries()) {
     const s = porId.get(it.solicitud_item_id)!;
+    const foto = p.fichas?.get(it.solicitud_item_id);
+    const descripcion = foto?.descripcion ?? s.descripcion;
+    const especificaciones = foto?.especificaciones ?? s.especificaciones ?? {};
+    const adjuntosItem = foto?.adjuntos ?? s.adjuntos;
     const cant = it.cantidad ?? Number(s.cantidad);
     const neto = it.precio_unitario_neto ?? Number(s.costo_referencia ?? 0);
     await client.query(`
@@ -957,13 +1024,20 @@ async function crearOrden(client: PoolClient, p: {
          solicitud_item_id, especificaciones, unidad, proveedor_sku, precio_unitario_neto, descuento_pct, iva_pct, adjuntos)
       VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$6,$12,$13,$14)
     `, [
-      oc.id, s.operacion_item_id ?? null, s.producto_id ?? null, s.descripcion, cant, neto, idx,
-      s.id, JSON.stringify(s.especificaciones ?? {}), s.unidad ?? 'u', it.proveedor_sku ?? s.proveedor_sku ?? null,
-      it.descuento_pct ?? 0, it.iva_pct ?? 21, JSON.stringify(Array.isArray(s.adjuntos) ? s.adjuntos : []),
+      oc.id, s.operacion_item_id ?? null, s.producto_id ?? null, descripcion, cant, neto, idx,
+      s.id, JSON.stringify(especificaciones), s.unidad ?? 'u', it.proveedor_sku ?? s.proveedor_sku ?? null,
+      it.descuento_pct ?? 0, it.iva_pct ?? 21, JSON.stringify(Array.isArray(adjuntosItem) ? adjuntosItem : []),
     ]);
   }
   await recalcularTotalesOC(client, oc.id);
   await client.query(`UPDATE compras_solicitud_items SET estado = 'comprado' WHERE id = ANY($1::uuid[])`, [ids]);
+  // Las otras versiones del mismo ítem que seguían pendientes o en cotización quedan reemplazadas por la comprada
+  await client.query(`
+    UPDATE compras_solicitud_items o SET estado = 'cancelado', reemplazado_por_id = c.id
+      FROM compras_solicitud_items c
+     WHERE c.id = ANY($1::uuid[]) AND o.id <> c.id AND o.estado IN ('pendiente', 'en_cotizacion')
+       AND COALESCE(o.item_origen_id, o.id) = COALESCE(c.item_origen_id, c.id)
+       AND NOT (o.id = ANY($1::uuid[]))`, [ids]);
   for (const sid of solicitudes) await recalcularEstadoSolicitud(client, sid);
   return oc;
 }
@@ -987,7 +1061,8 @@ compras.post('/cotizaciones/:id/adjudicar', async (c) => {
       if (!['respondida', 'seleccionada'].includes(cp.estado)) throw new ErrorNegocio(409, 'Ese proveedor todavía no respondió la cotización');
 
       const [{ rows: ci }, { rows: ri }] = await Promise.all([
-        client.query(`SELECT ci.solicitud_item_id, ci.cantidad, si.costo_referencia FROM compras_cotizacion_items ci
+        client.query(`SELECT ci.solicitud_item_id, ci.cantidad, si.costo_referencia,
+            ci.descripcion_snapshot, ci.especificaciones_snapshot, ci.adjuntos_snapshot FROM compras_cotizacion_items ci
           JOIN compras_solicitud_items si ON si.id = ci.solicitud_item_id WHERE ci.cotizacion_id = $1`, [id]),
         client.query(`SELECT * FROM compras_cotizacion_respuesta_items WHERE cotizacion_proveedor_id = $1`, [cp.id]),
       ]);
@@ -1021,6 +1096,10 @@ compras.post('/cotizaciones/:id/adjudicar', async (c) => {
         proveedor_id: b.proveedor_id, solicitud_id: pc.solicitud_id, cotizacion_id: id, cotizacion_proveedor_id: cp.id,
         costo_envio: Number(cp.flete ?? 0), forma_pago: cp.forma_pago, fecha_prometida: fechaPrometida,
         notas: b.notas ?? null, adjuntos, items, created_by: user?.id ?? null,
+        // La OC se arma con la ficha que se cotizó, no con la del ítem vivo
+        fichas: new Map((ci as Row[]).filter(i => i.especificaciones_snapshot).map(i => [i.solicitud_item_id as string, {
+          descripcion: i.descripcion_snapshot as string, especificaciones: i.especificaciones_snapshot, adjuntos: i.adjuntos_snapshot,
+        }])),
       });
       await client.query(`UPDATE compras_cotizacion_proveedores SET estado = 'seleccionada' WHERE id = $1`, [cp.id]);
       await client.query(`UPDATE compras_cotizacion_proveedores SET estado = 'descartada' WHERE cotizacion_id = $1 AND id <> $2 AND estado IN ('respondida','pendiente','enviada','sin_respuesta')`, [id, cp.id]);
@@ -1175,10 +1254,12 @@ async function pdfDeOrden(id: string) {
   const oc = await cargarOrden(id);
   if (!oc) return null;
   const empresa = await empresaActual();
+  const anexos = leerAnexosPDF((oc.items as Row[]).map(i => i.adjuntos));
+  const enviados = anexos.map(a => a.url);
   const items: CompraItemPDF[] = (oc.items as Row[]).map(i => ({
     descripcion: i.descripcion,
     especificaciones: resumenEspecificaciones(i.especificaciones) || null,
-    ...fichaCompraPDF(i.especificaciones, i.adjuntos),
+    ...fichaCompraPDF(i.especificaciones, i.adjuntos, enviados),
     cantidad: Number(i.cantidad), unidad: i.unidad ?? 'u',
     referencia: oc.es_consolidada ? [nombreCliente(i.cliente), i.obra, i.operacion_numero].filter(Boolean).join(' · ') || null : null,
     proveedor_sku: i.proveedor_sku,
@@ -1197,7 +1278,7 @@ async function pdfDeOrden(id: string) {
     totales: { subtotal_neto: Number(oc.subtotal_neto), descuento_monto: Number(oc.descuento_monto), iva_monto: Number(oc.iva_monto),
       flete: Number(oc.costo_envio), total: Number(oc.total) },
   };
-  return { pdf: await generarPDFCompra(data, empresa), oc, empresa, anexos: leerAnexosPDF((oc.items as Row[]).map(i => i.adjuntos)) };
+  return { pdf: await generarPDFCompra(data, empresa), oc, empresa, anexos };
 }
 
 compras.get('/ordenes/:id/pdf', async (c) => {

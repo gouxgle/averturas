@@ -136,6 +136,18 @@ export const MANUAL_COMPRAS: SeccionManual[] = [
       },
       { t: 'p', texto: 'En el detalle de la solicitud, la cotización y la orden, **"Ver ficha completa"** muestra la tabla de características y el esquema.' },
       { t: 'aviso', tono: 'info', texto: 'Lo que recibe el proveedor: el PDF del pedido de cotización y el de la orden de compra traen, por cada abertura a medida, la **ficha completa con el esquema** y las **fotos o croquis** del ítem. Los planos en PDF se mandan **adjuntos en el mismo envío** (WhatsApp o email).' },
+      { t: 'subtitulo', texto: 'Si el cliente cambia algo: nueva versión' },
+      { t: 'p', texto: 'Si ya pediste cotización y el cliente cambia algo (por ejemplo, de vidrio incoloro a opalino), **no se modifica lo que ya se cotizó**. En el detalle de la solicitud, el ítem tiene **"Nueva versión"**: se abre el configurador con la ficha actual, cambiás lo necesario y se guarda como **V2**.' },
+      {
+        t: 'lista',
+        items: [
+          'La V1 queda tal cual, con sus cotizaciones: siempre se sabe qué se le pidió a cada proveedor y a qué configuración corresponde cada precio.',
+          'La V2 muestra **qué cambió** respecto de la V1 ("Vidrio: incoloro → opalino"). Se cotiza como cualquier ítem.',
+          'Podés cotizar las dos versiones para comparar, pero la **orden de compra lleva una sola**. Al comprar una, las demás versiones pendientes quedan "Reemplazada por V2".',
+          'Cada cotización guarda una **foto** de la ficha que se mandó: la comparativa, el PDF y la orden de compra salen de esa foto, aunque después haya otra versión.',
+          'Una solicitud con versiones ya no se edita entera: los cambios van siempre por "Nueva versión".',
+        ],
+      },
       { t: 'subtitulo', texto: 'Pantalla 3: ¿Cómo seguimos?' },
       {
         t: 'tabla',

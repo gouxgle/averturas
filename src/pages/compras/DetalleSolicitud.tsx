@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Edit, Scale, Zap, XCircle, Check, Calendar, User, Building2, Truck, Ban, RotateCcw } from 'lucide-react';
+import { ClipboardList, Edit, Scale, Zap, XCircle, Check, Calendar, User, Building2, Truck, Ban, RotateCcw, GitBranch } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -8,8 +8,10 @@ import { toastApiError } from '@/lib/apiError';
 import type { AbrirDetalle } from './Compras';
 import {
   ESTADO_SC, ESTADO_ITEM_SC, ORIGEN_LABEL, TIPO_PRODUCTO_LABEL, fmtFecha, fmtCantidad, fmtMoneda, nombreCliente,
-  type SolicitudDetalle as SC, type ProveedorMin,
+  type SolicitudDetalle as SC, type ProveedorMin, type SolicitudItem,
 } from './tipos';
+import { diferenciasFicha } from '@/lib/configuradorAbertura';
+import { PanelNuevaVersion } from './PanelNuevaVersion';
 import { ModalShell, Cargando, Badge, Seccion, FichaTecnica, AdjuntosGrid, ConfirmacionRoja, SelectorProveedores, inpCls, lblCls, btnPrimario, btnSecundario, btnPeligro } from './ui';
 import { FormOrden, type OrdenPayload } from './FormOrden';
 
@@ -20,6 +22,7 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
   const [sc, setSc] = useState<SC | null>(null);
   const [loading, setLoading] = useState(true);
   const [panel, setPanel] = useState<Panel>(null);
+  const [versionDe, setVersionDe] = useState<SolicitudItem | null>(null);
   const [sel, setSel] = useState<string[]>([]);
   const [enviando, setEnviando] = useState(false);
   // Panel cotizar
@@ -32,7 +35,13 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
     try {
       const d = await api.get<SC>(`/compras/solicitudes/${id}`);
       setSc(d);
-      setSel(d.items.filter(i => i.estado === 'pendiente').map(i => i.id));
+      // Por defecto, la última versión pendiente de cada ítem (las anteriores quedan como historial)
+      const ultima = new Map<string, { id: string; v: number }>();
+      for (const i of d.items.filter(x => x.estado === 'pendiente')) {
+        const k = i.item_origen_id ?? i.id;
+        if ((ultima.get(k)?.v ?? 0) < (i.version ?? 1)) ultima.set(k, { id: i.id, v: i.version ?? 1 });
+      }
+      setSel([...ultima.values()].map(x => x.id));
     } catch { toast.error('Error al cargar la solicitud'); onClose(); }
     finally { setLoading(false); }
   }, [id, onClose]);
@@ -57,6 +66,11 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
   const seleccionables = sc.items.filter(i => i.estado === 'pendiente' || i.estado === 'en_cotizacion');
   const itemsSel = sc.items.filter(i => sel.includes(i.id));
   const toggle = (iid: string) => setSel(s => s.includes(iid) ? s.filter(x => x !== iid) : [...s, iid]);
+  // Cadenas de versiones: V1 (sin item_origen_id) y las que apuntan a ella
+  const cadena = (it: SolicitudItem) => sc.items.filter(x => (x.item_origen_id ?? x.id) === (it.item_origen_id ?? it.id));
+  const anterior = (it: SolicitudItem) => cadena(it).find(x => (x.version ?? 1) === (it.version ?? 1) - 1);
+  const proximaVersion = (it: SolicitudItem) => Math.max(...cadena(it).map(x => x.version ?? 1)) + 1;
+  const porId = new Map(sc.items.map(x => [x.id, x]));
 
   async function pedirCotizacion() {
     if (!sc || !provSel.length || !sel.length) return;
@@ -102,7 +116,7 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
       titulo={sc.numero}
       subtitulo={<>{ORIGEN_LABEL[sc.origen]} · {TIPO_PRODUCTO_LABEL[sc.tipo_producto]} · creada el {fmtFecha(sc.created_at)}</>}
       badges={<Badge label={est.label} cls={est.cls} />}
-      acciones={sc.estado === 'abierta' && (
+      acciones={sc.estado === 'abierta' && !sc.items.some(i => (i.version ?? 1) > 1) && (
         <button onClick={() => navigate(`/compras/solicitudes/${id}/editar`)} className="w-11 h-11 sm:w-9 sm:h-9 rounded-lg hover:bg-gray-100 text-gray-600 flex items-center justify-center" title="Editar">
           <Edit size={16} />
         </button>
@@ -139,7 +153,11 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
         <div className="space-y-2">
           {sc.items.map(it => {
             const ie = ESTADO_ITEM_SC[it.estado];
-            const puede = activa && (it.estado === 'pendiente' || it.estado === 'en_cotizacion') && !panel;
+            const puede = activa && (it.estado === 'pendiente' || it.estado === 'en_cotizacion') && !panel && !versionDe;
+            const conVersiones = cadena(it).length > 1;
+            const prev = anterior(it);
+            const cambios = prev ? diferenciasFicha(prev.especificaciones, it.especificaciones) : [];
+            const reemplazo = it.reemplazado_por_id ? porId.get(it.reemplazado_por_id) : null;
             const marcado = sel.includes(it.id);
             return (
               <div key={it.id} onClick={() => puede && toggle(it.id)}
@@ -154,16 +172,29 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
                 {it.producto_imagen_url && <img src={it.producto_imagen_url} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {conVersiones && <Badge label={`V${it.version ?? 1}`} cls="bg-violet-100 text-violet-800" />}
                     <p className="text-sm font-semibold text-gray-900">{it.descripcion}</p>
-                    <Badge label={ie.label} cls={ie.cls} />
+                    <Badge label={reemplazo ? `Reemplazada por V${reemplazo.version ?? ''}` : ie.label} cls={reemplazo ? 'bg-gray-100 text-gray-700' : ie.cls} />
                   </div>
+                  {cambios.length > 0 && (
+                    <p className="text-[11px] text-violet-800 mt-0.5">
+                      Cambios respecto de V{prev!.version ?? 1}: {cambios.map(c => `${c.label}: ${c.antes} → ${c.despues}`).join(' · ')}
+                    </p>
+                  )}
                   <FichaTecnica e={it.especificaciones} className="mt-0.5" completa />
                   {it.observaciones && <p className="text-[11px] text-gray-500 italic mt-0.5">{it.observaciones}</p>}
                   <div className="flex items-center gap-2 mt-1 flex-wrap" onClick={e => e.stopPropagation()}>
                     {it.orden_compra && <button onClick={() => abrir('oc', it.orden_compra!.id)} className="text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 hover:bg-emerald-100">{it.orden_compra.numero}</button>}
-                    {(it.cotizaciones ?? []).filter(pc => pc.estado === 'abierta').map(pc => (
-                      <button key={pc.id} onClick={() => abrir('pc', pc.id)} className="text-[10px] font-mono text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5 hover:bg-sky-100">{pc.numero}</button>
+                    {/* Con versiones se ven todas las cotizaciones (historial de qué se pidió en cada una) */}
+                    {(it.cotizaciones ?? []).filter(pc => pc.estado === 'abierta' || conVersiones).map(pc => (
+                      <button key={pc.id} onClick={() => abrir('pc', pc.id)} title={pc.estado.replace('_', ' ')}
+                        className={cn('text-[10px] font-mono text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5 hover:bg-sky-100', pc.estado !== 'abierta' && 'opacity-60')}>{pc.numero}</button>
                     ))}
+                    {activa && !panel && !versionDe && (it.estado === 'pendiente' || it.estado === 'en_cotizacion') && sc.tipo_producto === 'abertura_medida' && (
+                      <button onClick={() => setVersionDe(it)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700 hover:underline">
+                        <GitBranch size={12} /> Nueva versión
+                      </button>
+                    )}
                     {it.adjuntos?.length > 0 && <AdjuntosGrid urls={it.adjuntos} size="sm" />}
                   </div>
                 </div>
@@ -195,8 +226,13 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
         </Seccion>
       )}
 
+      {versionDe && (
+        <PanelNuevaVersion solicitudId={sc.id} item={versionDe} version={proximaVersion(versionDe)}
+          onCancelar={() => setVersionDe(null)} onGuardada={() => { setVersionDe(null); cargar(); onChanged(); }} />
+      )}
+
       {/* ¿Cómo seguimos? */}
-      {activa && !panel && (
+      {activa && !panel && !versionDe && (
         <div className="pt-3 border-t border-gray-200">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">
             ¿Cómo seguimos? {itemsSel.length > 0 && <span className="normal-case font-normal text-gray-500">({itemsSel.length} ítem{itemsSel.length === 1 ? '' : 's'} seleccionado{itemsSel.length === 1 ? '' : 's'})</span>}

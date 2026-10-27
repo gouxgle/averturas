@@ -294,6 +294,18 @@ export function detalleFicha(f: Ficha): FilaFicha[] {
   return filas;
 }
 
+export interface CambioFicha { label: string; antes: string; despues: string }
+
+/** Qué cambió entre dos versiones de una ficha ("Vidrio: Incoloro → Opalino"), por característica legible. */
+export function diferenciasFicha(antes: Ficha, despues: Ficha): CambioFicha[] {
+  const a = new Map(detalleFicha(desdeFichaVieja(antes)).map(f => [f.label, f.valor]));
+  const b = new Map(detalleFicha(desdeFichaVieja(despues)).map(f => [f.label, f.valor]));
+  const labels = [...new Set([...a.keys(), ...b.keys()])];
+  return labels
+    .filter(l => (a.get(l) ?? '') !== (b.get(l) ?? ''))
+    .map(l => ({ label: l, antes: a.get(l) ?? '—', despues: b.get(l) ?? '—' }));
+}
+
 function textoVidrio(f: Ficha): string {
   const espesor = f.vidrio_espesor ? etiqueta(VIDRIO_ESPESORES, str(f.vidrio_espesor), f.vidrio_espesor_otro) : '';
   const tipo = str(f.vidrio_tipo);
