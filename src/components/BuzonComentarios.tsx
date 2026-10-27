@@ -1,25 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { StickyNote, X, Check, Trash2, RotateCcw, Send, Archive, ArchiveRestore } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { StickyNote, X, Check, Trash2, RotateCcw, Send, Archive, ArchiveRestore, Maximize2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { type Comentario, EVENTO_COMENTARIOS, avisarCambioComentarios, fmtFechaComentario as fmtFecha } from '@/lib/comentarios';
 
-interface Comentario {
-  id: string;
-  texto: string;
-  resuelto: boolean;
-  resuelto_at: string | null;
-  archivado: boolean;
-  archivado_at: string | null;
-  created_at: string;
-  created_by_nombre: string | null;
-  resuelto_by_nombre: string | null;
-}
-
-function fmtFecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
+// Globito flotante: aviso con el contador y anotador rápido. Para leer y trabajar cómodo está la página /comentarios.
 export function BuzonComentarios() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState('');
@@ -37,7 +26,11 @@ export function BuzonComentarios() {
     api.get<Comentario[]>('/comentarios?archivados=1').then(setArchivados).catch(() => {});
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    window.addEventListener(EVENTO_COMENTARIOS, load);
+    return () => window.removeEventListener(EVENTO_COMENTARIOS, load);
+  }, []);
   useEffect(() => { if (open) load(); }, [open]);
   useEffect(() => { if (verArchivados) loadArchivados(); }, [verArchivados]);
 
@@ -59,6 +52,7 @@ export function BuzonComentarios() {
       const nuevo = await api.post<Comentario>('/comentarios', { texto: texto.trim() });
       setItems(prev => [nuevo, ...prev]);
       setTexto('');
+      avisarCambioComentarios();
     } catch {
       toast.error('No se pudo guardar el comentario');
     } finally {
@@ -70,6 +64,7 @@ export function BuzonComentarios() {
     try {
       const actualizado = await api.patch<Comentario>(`/comentarios/${item.id}/resolver`, { resuelto: !item.resuelto });
       setItems(prev => prev.map(i => i.id === item.id ? actualizado : i));
+      avisarCambioComentarios();
     } catch {
       toast.error('No se pudo actualizar');
     }
@@ -79,6 +74,7 @@ export function BuzonComentarios() {
     try {
       await api.delete(`/comentarios/${id}`);
       setItems(prev => prev.filter(i => i.id !== id));
+      avisarCambioComentarios();
     } catch {
       toast.error('No se pudo eliminar');
     }
@@ -94,10 +90,14 @@ export function BuzonComentarios() {
         setArchivados(prev => prev.filter(i => i.id !== item.id));
         setItems(prev => [actualizado, ...prev]);
       }
+      avisarCambioComentarios();
     } catch {
       toast.error('No se pudo archivar');
     }
   }
+
+  // En la página completa el globito sobra (y en el celular taparía la lista)
+  if (pathname === '/comentarios') return null;
 
   return (
     <div ref={panelRef} className="fixed bottom-4 left-4 z-40">
@@ -107,9 +107,15 @@ export function BuzonComentarios() {
             <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
               <StickyNote size={14} className="text-amber-500" /> Buzón de comentarios
             </span>
-            <button onClick={() => setOpen(false)} className="p-1 text-gray-600 hover:text-gray-600 rounded hover:bg-white/60">
-              <X size={14} />
-            </button>
+            <span className="flex items-center gap-1">
+              <button onClick={() => { setOpen(false); navigate('/comentarios'); }} data-testid="buzon-abrir-completo"
+                className="flex items-center gap-1 px-2 h-7 text-[11px] font-semibold text-amber-800 rounded-md hover:bg-white/70">
+                <Maximize2 size={12} /> Abrir completo
+              </button>
+              <button onClick={() => setOpen(false)} className="p-1 text-gray-600 hover:text-gray-600 rounded hover:bg-white/60">
+                <X size={14} />
+              </button>
+            </span>
           </div>
 
           <div className="p-3 border-b border-gray-200 flex gap-2">

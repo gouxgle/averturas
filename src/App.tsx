@@ -41,6 +41,7 @@ const Ayuda                    = lazy(() => import('@/pages/ayuda/Ayuda'));
 const NuevaSolicitud           = lazy(() => import('@/pages/compras/NuevaSolicitud'));
 const Facturacion               = lazy(() => import('@/pages/facturacion/Facturacion'));
 const Agenda                    = lazy(() => import('@/pages/Agenda'));
+const Comentarios               = lazy(() => import('@/pages/Comentarios'));
 const RevisionPrecios           = lazy(() => import('@/pages/RevisionPrecios'));
 const NuevaFactura             = lazy(() => import('@/pages/facturacion/NuevaFactura'));
 const NuevoPedido              = lazy(() => import('@/pages/NuevoPedido'));
@@ -163,6 +164,7 @@ export default function App() {
                   <Route path="/reportes" element={<Reportes />} />
                   <Route path="/actividad" element={<Actividad />} />
                   <Route path="/novedades" element={<Changelog />} />
+                  <Route path="/comentarios" element={<Comentarios />} />
                   <Route path="/configuracion" element={<Configuracion />} />
                 </Route>
               </Route>

@@ -27,6 +27,7 @@ const SECTION_COLORS: Record<string, { icon: string; mark: string }> = {
   'venta-rapida': { icon: '#059669', mark: 'rgba(5,150,105,0.10)' },
   facturacion:  { icon: '#a21caf', mark: 'rgba(162,28,175,0.10)' },
   agenda:       { icon: '#ea580c', mark: 'rgba(234,88,12,0.10)' },
+  buzon:        { icon: '#b45309', mark: 'rgba(180,83,9,0.10)' },
 };
 
 export function SectionHero({ section, icon: Icon, title, sub, actions }: SectionHeroProps) {
