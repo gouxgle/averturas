@@ -8,6 +8,8 @@ import { db } from '../db.js';
 import { validateBody } from '../lib/validate.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { siguienteNumero } from '../lib/numeracion.js';
+import { generarPDFServicio } from '../lib/pdf.js';
+import { enviarWhatsappPdf } from '../lib/whatsapp.js';
 import {
   ESTADOS_SERVICIO, TIPO_SERVICIO_LABEL, productosEntregadosDelCliente, sincronizarTareaServicio, type EstadoServicio,
 } from '../lib/serviciosTecnicos.js';
@@ -423,4 +425,274 @@ serviciosTecnicos.patch('/:id/cancelar', async (c) => {
   } finally {
     client.release();
   }
+});
+
+// ── Visitas del técnico (intervenciones) ────────────────────────────────────────────────────────
+
+const TRABAJO_LABEL: Record<string, string> = {
+  ajuste: 'Ajuste', reparacion: 'Reparación', cambio_pieza: 'Cambio de pieza', reemplazo_completo: 'Reemplazo completo', otro: 'Otro',
+};
+const RESULTADO_LABEL: Record<string, string> = {
+  resuelto: 'Problema resuelto', nueva_visita: 'Requiere una nueva visita', pendiente_repuesto: 'Pendiente de repuesto',
+};
+const Fotos = z.array(z.string().startsWith('/uploads/').max(300)).max(20);
+const IntervencionSchema = z.object({
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  tecnico_id: uuid.nullish(),
+  tecnico_nombre: zTexto(120).nullish(),
+  problema_encontrado: zTexto(4000).nullish(),
+  trabajo_tipo: z.enum(['ajuste', 'reparacion', 'cambio_pieza', 'reemplazo_completo', 'otro']),
+  trabajo_detalle: zTexto(4000).min(3, 'Contá qué trabajo se hizo'),
+  materiales: z.array(z.object({ descripcion: zTexto(200).min(1), cantidad: z.number().positive().max(100000) })).max(50).default([]),
+  fotos_antes: Fotos.default([]),
+  fotos_despues: Fotos.default([]),
+  observaciones: zTexto(4000).nullish(),
+  pendientes: zTexto(4000).nullish(),
+  con_cargo: z.boolean(),
+  resultado: z.enum(['resuelto', 'nueva_visita', 'pendiente_repuesto']),
+});
+type IntervencionBody = z.infer<typeof IntervencionSchema>;
+
+const valoresIntervencion = (b: IntervencionBody) => [
+  b.fecha, b.tecnico_id ?? null, b.tecnico_id ? null : (b.tecnico_nombre?.trim() || null), b.problema_encontrado?.trim() || null,
+  b.trabajo_tipo, b.trabajo_detalle, JSON.stringify(b.materiales), JSON.stringify(b.fotos_antes), JSON.stringify(b.fotos_despues),
+  b.observaciones?.trim() || null, b.pendientes?.trim() || null, b.con_cargo, b.resultado,
+];
+
+/**
+ * Después de cargar la visita: la tarea de la agenda queda hecha (y se suelta, así la próxima visita crea otra) y el
+ * servicio pasa a "en proceso" si se resolvió (falta la firma) o a "repuesto o nueva visita" si no.
+ */
+async function aplicarResultadoVisita(q: { query: typeof db.query }, servicioId: string, resultado: string) {
+  const { rows: [s] } = await q.query(`SELECT tarea_id FROM servicios_tecnicos WHERE id = $1`, [servicioId]);
+  if (s?.tarea_id) {
+    await q.query(`UPDATE tareas SET completada = true, completada_at = COALESCE(completada_at, now()) WHERE id = $1`, [s.tarea_id]);
+    await q.query(`DELETE FROM tarea_recordatorios WHERE tarea_id = $1`, [s.tarea_id]);
+  }
+  await q.query(`
+    UPDATE servicios_tecnicos SET estado = $2, tarea_id = NULL, fecha_visita = NULL, hora_visita = NULL, updated_at = now()
+     WHERE id = $1`, [servicioId, resultado === 'resuelto' ? 'en_proceso' : 'pendiente_repuesto']);
+}
+
+// POST /:id/intervenciones — lo que hizo el técnico en una visita
+serviciosTecnicos.post('/:id/intervenciones', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const id = c.req.param('id');
+  if (!uuid.safeParse(id).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, IntervencionSchema);
+  if (b instanceof Response) return b;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [s] } = await client.query(`SELECT numero, estado FROM servicios_tecnicos WHERE id = $1 FOR UPDATE`, [id]);
+    if (!s) { await client.query('ROLLBACK'); return c.json({ error: 'Servicio no encontrado' }, 404); }
+    if (['finalizado', 'cancelado'].includes(s.estado)) {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'El servicio está cerrado: reabrilo para cargar otra visita' }, 409);
+    }
+    const { rows: [i] } = await client.query(`
+      INSERT INTO servicio_intervenciones (servicio_id, orden, fecha, tecnico_id, tecnico_nombre, problema_encontrado, trabajo_tipo,
+        trabajo_detalle, materiales, fotos_antes, fotos_despues, observaciones, pendientes, con_cargo, resultado, created_by)
+      SELECT $1, COALESCE(MAX(orden), 0) + 1, $2::date, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15
+        FROM servicio_intervenciones WHERE servicio_id = $1
+      RETURNING id, orden`, [id, ...valoresIntervencion(b), c.get('user').id]);
+    await aplicarResultadoVisita(client, id, b.resultado);
+    await client.query('COMMIT');
+    registrarActividad(c, { entidad: 'servicio_tecnico', entidad_id: id, entidad_numero: s.numero, accion: 'editar',
+      detalle: `Visita ${i.orden}: ${TRABAJO_LABEL[b.trabajo_tipo]} — ${RESULTADO_LABEL[b.resultado]}` });
+    return c.json(i, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+/** La visita del servicio, solo si todavía no se firmó (firmada no se toca: es el comprobante). */
+async function intervencionEditable(q: { query: typeof db.query }, servicioId: string, iid: string) {
+  const { rows: [i] } = await q.query(`
+    SELECT i.id, i.orden, i.firmada_at, s.numero, s.estado,
+           (SELECT MAX(orden) FROM servicio_intervenciones WHERE servicio_id = s.id) AS ultima
+      FROM servicio_intervenciones i JOIN servicios_tecnicos s ON s.id = i.servicio_id
+     WHERE i.id = $1 AND i.servicio_id = $2 FOR UPDATE OF i, s`, [iid, servicioId]);
+  if (!i) return { error: 'Visita no encontrada', status: 404 as const };
+  if (i.firmada_at) return { error: 'La visita ya está firmada por el cliente: no se puede modificar', status: 409 as const };
+  return { i };
+}
+
+serviciosTecnicos.put('/:id/intervenciones/:iid', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const { id, iid } = c.req.param();
+  if (!uuid.safeParse(id).success || !uuid.safeParse(iid).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, IntervencionSchema);
+  if (b instanceof Response) return b;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await intervencionEditable(client, id, iid);
+    if ('error' in r) { await client.query('ROLLBACK'); return c.json({ error: r.error }, r.status); }
+    await client.query(`
+      UPDATE servicio_intervenciones SET fecha = $2::date, tecnico_id = $3, tecnico_nombre = $4, problema_encontrado = $5,
+        trabajo_tipo = $6, trabajo_detalle = $7, materiales = $8::jsonb, fotos_antes = $9::jsonb, fotos_despues = $10::jsonb,
+        observaciones = $11, pendientes = $12, con_cargo = $13, resultado = $14, updated_at = now()
+      WHERE id = $1`, [iid, ...valoresIntervencion(b)]);
+    // Si es la última visita y el servicio sigue abierto, el estado acompaña al resultado corregido
+    if (r.i.orden === r.i.ultima && ['en_proceso', 'pendiente_repuesto'].includes(r.i.estado)) {
+      await client.query(`UPDATE servicios_tecnicos SET estado = $2, updated_at = now() WHERE id = $1`,
+        [id, b.resultado === 'resuelto' ? 'en_proceso' : 'pendiente_repuesto']);
+    }
+    await client.query('COMMIT');
+    return c.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+serviciosTecnicos.delete('/:id/intervenciones/:iid', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const { id, iid } = c.req.param();
+  if (!uuid.safeParse(id).success || !uuid.safeParse(iid).success) return c.json({ error: 'Id inválido' }, 422);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await intervencionEditable(client, id, iid);
+    if ('error' in r) { await client.query('ROLLBACK'); return c.json({ error: r.error }, r.status); }
+    if (r.i.orden !== r.i.ultima) { await client.query('ROLLBACK'); return c.json({ error: 'Solo se puede borrar la última visita' }, 409); }
+    await client.query(`DELETE FROM servicio_intervenciones WHERE id = $1`, [iid]);
+    await client.query('COMMIT');
+    registrarActividad(c, { entidad: 'servicio_tecnico', entidad_id: id, entidad_numero: r.i.numero, accion: 'eliminar', detalle: `Visita ${r.i.orden} (sin firmar)` });
+    return c.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+const FirmaSchema = z.object({
+  firma_url: z.string().startsWith('/uploads/').max(300).nullish(),
+  sin_firma_motivo: zTexto(300).nullish(),
+  recibio_nombre: zTexto(120).min(2, 'Indicá quién recibió el servicio'),
+  recibio_dni: z.string().regex(/^\d{7,11}$/, 'DNI inválido').nullish(),
+  conformidad: z.enum(['conforme', 'con_observaciones']),
+  conformidad_obs: zTexto(2000).nullish(),
+}).refine(b => !!b.firma_url || !!b.sin_firma_motivo?.trim(), { message: 'Falta la firma o el motivo por el que no firma' })
+  .refine(b => b.conformidad === 'conforme' || !!b.conformidad_obs?.trim(), { message: 'Escribí las observaciones del cliente' });
+
+// POST /:id/intervenciones/:iid/firmar — conformidad del cliente en el celular. Deja constancia del servicio recibido
+// (no impide reclamos futuros). Si la visita resolvió el problema, el servicio queda finalizado.
+serviciosTecnicos.post('/:id/intervenciones/:iid/firmar', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const { id, iid } = c.req.param();
+  if (!uuid.safeParse(id).success || !uuid.safeParse(iid).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, FirmaSchema);
+  if (b instanceof Response) return b;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await intervencionEditable(client, id, iid);
+    if ('error' in r) { await client.query('ROLLBACK'); return c.json({ error: r.error }, r.status); }
+    const { rows: [i] } = await client.query(`
+      UPDATE servicio_intervenciones SET firma_url = $2, sin_firma_motivo = $3, recibio_nombre = $4, recibio_dni = $5,
+        conformidad = $6, conformidad_obs = $7, firmada_at = now(), updated_at = now()
+      WHERE id = $1 RETURNING resultado, orden`,
+      [iid, b.firma_url ?? null, b.firma_url ? null : b.sin_firma_motivo!.trim(), b.recibio_nombre, b.recibio_dni ?? null,
+       b.conformidad, b.conformidad === 'conforme' ? null : b.conformidad_obs!.trim()]);
+    const { rows: [s] } = await client.query(`SELECT cliente_id, operacion_id, estado FROM servicios_tecnicos WHERE id = $1`, [id]);
+    const finaliza = i.resultado === 'resuelto' && r.i.orden === r.i.ultima && !['finalizado', 'cancelado'].includes(s.estado);
+    if (finaliza) {
+      await client.query(`UPDATE servicios_tecnicos SET estado = 'finalizado', finalizado_at = now(), updated_at = now() WHERE id = $1`, [id]);
+      await sincronizarTareaServicio(client, id);
+    }
+    await client.query(`INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by) VALUES ($1, $2, 'nota', $3, $4)`,
+      [s.cliente_id, s.operacion_id,
+       `Servicio ${r.i.numero}, visita ${i.orden}: ${b.conformidad === 'conforme' ? 'recibido conforme' : `recibido con observaciones (${b.conformidad_obs})`}`
+         + ` — ${b.firma_url ? `firmó ${b.recibio_nombre}` : `sin firma: ${b.sin_firma_motivo}`}${finaliza ? '. Servicio finalizado.' : ''}`,
+       c.get('user').id]);
+    await client.query('COMMIT');
+    registrarActividad(c, { entidad: 'servicio_tecnico', entidad_id: id, entidad_numero: r.i.numero, accion: 'firmar',
+      detalle: `Visita ${i.orden}: ${b.conformidad === 'conforme' ? 'conforme' : 'con observaciones'}` });
+    return c.json({ ok: true, finalizado: finaliza });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+/** Arma el PDF de la ficha de una visita, siempre desde la base. */
+async function pdfDeVisita(servicioId: string, iid: string) {
+  const { rows: [d] } = await db.query(`
+    SELECT s.numero, s.tipo, s.problema, s.producto_descripcion, o.numero AS operacion_numero, r.numero AS remito_numero,
+           ${NOMBRE_CLIENTE} AS cliente_nombre, cl.telefono, cl.documento_nro, cl.cuit, cl.direccion, cl.localidad,
+           i.*, i.fecha::text AS fecha, COALESCE(u.nombre, i.tecnico_nombre) AS tecnico,
+           (SELECT count(*)::int FROM servicio_intervenciones WHERE servicio_id = s.id) AS visitas
+      FROM servicio_intervenciones i
+      JOIN servicios_tecnicos s ON s.id = i.servicio_id
+      JOIN clientes cl ON cl.id = s.cliente_id
+      LEFT JOIN operaciones o ON o.id = s.operacion_id
+      LEFT JOIN remitos r ON r.id = s.remito_id
+      LEFT JOIN usuarios u ON u.id = i.tecnico_id
+     WHERE i.id = $1 AND i.servicio_id = $2`, [iid, servicioId]);
+  if (!d) return null;
+  const { rows: [empresa] } = await db.query(`SELECT nombre, cuit, telefono, email, direccion FROM empresa ORDER BY updated_at DESC LIMIT 1`);
+  const pdf = await generarPDFServicio({
+    numero: d.numero, tipo: TIPO_SERVICIO_LABEL[d.tipo] ?? d.tipo, visita: d.orden, visitas: d.visitas, fecha: d.fecha, tecnico: d.tecnico,
+    cliente: { nombre: d.cliente_nombre ?? '—', documento: d.cuit || d.documento_nro || null, telefono: d.telefono,
+      direccion: [d.direccion, d.localidad].filter(Boolean).join(', ') || null },
+    producto: d.producto_descripcion,
+    referencias: [d.operacion_numero?.replace(/^OP-/, 'PRO-'), d.remito_numero ? `Remito ${d.remito_numero}` : null].filter(Boolean),
+    problema_informado: d.problema, problema_encontrado: d.problema_encontrado,
+    trabajo_tipo: TRABAJO_LABEL[d.trabajo_tipo] ?? d.trabajo_tipo, trabajo_detalle: d.trabajo_detalle, materiales: d.materiales ?? [],
+    fotos_antes: d.fotos_antes ?? [], fotos_despues: d.fotos_despues ?? [], observaciones: d.observaciones, pendientes: d.pendientes,
+    con_cargo: d.con_cargo, resultado: RESULTADO_LABEL[d.resultado] ?? d.resultado,
+    firma_url: d.firma_url, recibio_nombre: d.recibio_nombre, recibio_dni: d.recibio_dni, conformidad: d.conformidad,
+    conformidad_obs: d.conformidad_obs, sin_firma_motivo: d.sin_firma_motivo, firmada_at: d.firmada_at,
+  }, empresa ?? { nombre: '', cuit: null, telefono: null, email: null, direccion: null });
+  return { pdf, d, empresa };
+}
+
+// GET /:id/intervenciones/:iid/pdf — la ficha de servicio de esa visita
+serviciosTecnicos.get('/:id/intervenciones/:iid/pdf', async (c) => {
+  const { id, iid } = c.req.param();
+  if (!uuid.safeParse(id).success || !uuid.safeParse(iid).success) return c.json({ error: 'Id inválido' }, 422);
+  const r = await pdfDeVisita(id, iid);
+  if (!r) return c.json({ error: 'Visita no encontrada' }, 404);
+  return new Response(new Uint8Array(r.pdf), { headers: {
+    'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${r.d.numero}-visita-${r.d.orden}.pdf"`,
+  } });
+});
+
+const EnviarSchema = z.object({ telefono: zTexto(30).nullish() });
+
+// POST /:id/intervenciones/:iid/enviar-whatsapp — manda la ficha firmada al cliente
+serviciosTecnicos.post('/:id/intervenciones/:iid/enviar-whatsapp', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const { id, iid } = c.req.param();
+  if (!uuid.safeParse(id).success || !uuid.safeParse(iid).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, EnviarSchema);
+  if (b instanceof Response) return b;
+  const { rows: [v] } = await db.query(`SELECT firmada_at FROM servicio_intervenciones WHERE id = $1 AND servicio_id = $2`, [iid, id]);
+  if (!v) return c.json({ error: 'Visita no encontrada' }, 404);
+  if (!v.firmada_at) return c.json({ error: 'Primero tiene que firmar el cliente' }, 409);
+  const r = await pdfDeVisita(id, iid);
+  if (!r) return c.json({ error: 'Visita no encontrada' }, 404);
+  const telefono = b.telefono?.trim() || r.d.telefono;
+  if (!telefono) return c.json({ error: 'El cliente no tiene teléfono cargado' }, 422);
+  const caption = `Hola${r.d.cliente_nombre ? ` ${String(r.d.cliente_nombre).split(',').pop()!.trim()}` : ''}, te enviamos la ficha del servicio `
+    + `${r.d.numero} (visita del ${String(r.d.fecha).split('-').reverse().join('/')}).${r.empresa?.nombre ? ` ${r.empresa.nombre}` : ''}`;
+  const env = await enviarWhatsappPdf(telefono, r.pdf, `${r.d.numero}-visita-${r.d.orden}.pdf`, caption);
+  if (!env.ok) return c.json({ error: env.error }, env.status as 422 | 500 | 502);
+  const { rows: [s] } = await db.query(`
+    WITH u AS (UPDATE servicio_intervenciones SET enviada_whatsapp_at = now() WHERE id = $1 RETURNING servicio_id)
+    SELECT st.cliente_id, st.operacion_id FROM servicios_tecnicos st JOIN u ON u.servicio_id = st.id`, [iid]);
+  await db.query(`INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by) VALUES ($1, $2, 'whatsapp', $3, $4)`,
+    [s.cliente_id, s.operacion_id, `Ficha del servicio ${r.d.numero} (visita ${r.d.orden}) enviada por WhatsApp`, c.get('user').id]);
+  return c.json({ ok: true });
 });

@@ -31,7 +31,8 @@ export async function sincronizarTareaServicio(q: Queryable, servicioId: string)
 
   if (s.estado !== 'visita_programada' || !s.fecha) {
     if (!s.tarea_id) return;
-    if (['en_proceso', 'finalizado', 'cancelado'].includes(s.estado)) {
+    // Volvió a "por coordinar" sin que la visita se hiciera → se quita; cualquier otro estado → la visita queda hecha
+    if (s.estado !== 'pendiente_coordinar') {
       await q.query(`UPDATE tareas SET completada = true, completada_at = COALESCE(completada_at, now()) WHERE id = $1`, [s.tarea_id]);
     } else {
       await q.query('DELETE FROM tareas WHERE id = $1 AND NOT completada', [s.tarea_id]);

@@ -1,4 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { existsSync } from 'node:fs';
+
+// El PDF necesita un Chrome/Chromium: el del host si no hay CHROMIUM_PATH (server/.env lo trae para el backend nativo).
+const CHROME = process.env.CHROMIUM_PATH ?? ['/usr/bin/google-chrome', '/usr/bin/chromium-browser', '/usr/bin/chromium'].find(p => existsSync(p));
+if (CHROME) process.env.CHROMIUM_PATH = CHROME;
 
 // Garantías y servicios técnicos contra la base local: alta desde un seguimiento de post venta, programación con
 // tarea espejo en la agenda, reprogramar desde la agenda, completar la visita, estados y permisos.
@@ -126,6 +131,55 @@ describe.skipIf(!process.env.DATABASE_URL)('servicios técnicos', () => {
     expect((await req('PATCH', `/servicios-tecnicos/${id}/estado`, { estado: 'finalizado' })).status).toBe(409);
     expect((await req('PATCH', `/servicios-tecnicos/${id}/estado`, { estado: 'pendiente_coordinar' })).status).toBe(200);
   });
+
+  it('visitas: nueva visita, segunda visita resuelta, firma, inmutable y PDF', async () => {
+    const id = servicios[0];   // en proceso
+    const visita = (extra: object) => ({ fecha: '2026-10-27', tecnico_nombre: 'Carlos', trabajo_tipo: 'ajuste',
+      trabajo_detalle: 'Se ajustaron las ruedas', con_cargo: false, resultado: 'resuelto', ...extra });
+
+    const v1 = await req('POST', `/servicios-tecnicos/${id}/intervenciones`, visita({ resultado: 'pendiente_repuesto', pendientes: 'Cambiar la rueda' }));
+    expect(v1.status).toBe(201);
+    expect(v1.json.orden).toBe(1);
+    expect((await req('GET', `/servicios-tecnicos/${id}`)).json.estado).toBe('pendiente_repuesto');
+
+    // Programar otra visita crea una tarea nueva (la anterior quedó hecha)
+    await req('PATCH', `/servicios-tecnicos/${id}/programar`, { fecha_visita: '2099-03-01' });
+    const tarea2 = (await req('GET', `/servicios-tecnicos/${id}`)).json.tarea_id;
+    expect(tarea2).toBeTruthy();
+
+    const v2 = await req('POST', `/servicios-tecnicos/${id}/intervenciones`, visita({ trabajo_tipo: 'cambio_pieza',
+      materiales: [{ descripcion: 'Rueda corrediza', cantidad: 2 }], fotos_antes: ['/uploads/servicios/a.webp'] }));
+    expect(v2.json.orden).toBe(2);
+    let d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    expect(d).toMatchObject({ estado: 'en_proceso', tarea_id: null, fecha_visita: null });
+    expect((await db.query(`SELECT completada FROM tareas WHERE id = $1`, [tarea2])).rows[0].completada).toBe(true);
+    expect(d.intervenciones.map((i: { orden: number }) => i.orden)).toEqual([1, 2]);
+
+    // Sin firma ni motivo → 400; con observaciones exige el texto
+    expect((await req('POST', `/servicios-tecnicos/${id}/intervenciones/${v2.json.id}/firmar`, { recibio_nombre: 'Juan', conformidad: 'conforme' })).status).toBe(400);
+    expect((await req('POST', `/servicios-tecnicos/${id}/intervenciones/${v2.json.id}/firmar`,
+      { recibio_nombre: 'Juan', conformidad: 'con_observaciones', firma_url: '/uploads/servicios/f.webp' })).status).toBe(400);
+    // No se puede enviar sin firmar
+    expect((await req('POST', `/servicios-tecnicos/${id}/intervenciones/${v2.json.id}/enviar-whatsapp`, {})).status).toBe(409);
+
+    const f = await req('POST', `/servicios-tecnicos/${id}/intervenciones/${v2.json.id}/firmar`,
+      { recibio_nombre: 'Juan Pérez', recibio_dni: '30111222', conformidad: 'con_observaciones', conformidad_obs: 'Quedó un leve ruido', firma_url: '/uploads/servicios/f.webp' });
+    expect(f.json).toMatchObject({ ok: true, finalizado: true });
+    d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    expect(d.estado).toBe('finalizado');
+
+    // Firmada: no se edita ni se borra
+    expect((await req('PUT', `/servicios-tecnicos/${id}/intervenciones/${v2.json.id}`, visita({}))).status).toBe(409);
+    expect((await req('DELETE', `/servicios-tecnicos/${id}/intervenciones/${v2.json.id}`)).status).toBe(409);
+    // La primera (sin firmar) no se borra porque no es la última
+    expect((await req('DELETE', `/servicios-tecnicos/${id}/intervenciones/${v1.json.id}`)).status).toBe(409);
+
+    if (!CHROME) return;   // sin navegador no hay PDF que probar
+    const pdf = await app.request(`/api/servicios-tecnicos/${id}/intervenciones/${v2.json.id}/pdf`);
+    expect(pdf.status).toBe(200);
+    const bytes = Buffer.from(await pdf.arrayBuffer());
+    expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
+  }, 60_000);
 
   it('valida el producto y el rol consulta solo lee', async () => {
     const ajeno = (await db.query(`INSERT INTO clientes (tipo_persona, nombre) VALUES ('fisica','Ajeno Zzz') RETURNING id`)).rows[0].id;

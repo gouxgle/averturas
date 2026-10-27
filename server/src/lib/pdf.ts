@@ -698,7 +698,7 @@ export interface CompraPDF {
 }
 
 /** Imagen subida (`/uploads/...`) como data URI para el PDF; null si no es una imagen local legible. */
-function uploadDataURI(url: string): string | null {
+export function uploadDataURI(url: string): string | null {
   if (!/^\/uploads\/[\w./-]+\.(webp|png|jpe?g|gif)$/i.test(url) || url.includes('..')) return null;
   try {
     const ext = url.split('.').pop()!.toLowerCase();
@@ -1064,4 +1064,129 @@ function buildEstadoCuentaProveedorHTML(d: EstadoCuentaProveedorPDF, empresa: Em
 
 export async function generarPDFEstadoCuentaProveedor(data: EstadoCuentaProveedorPDF, empresa: EmpresaPDF): Promise<Buffer> {
   return renderPDF(buildEstadoCuentaProveedorHTML(data, empresa));
+}
+
+// ── Ficha de servicio técnico (comprobante de cada visita, firmado por el cliente) ─────────────────
+
+export interface ServicioPDF {
+  numero: string;
+  tipo: string;                 // etiqueta: Garantía / Reparación con cargo / Mantenimiento
+  visita: number; visitas: number;
+  fecha: string;
+  tecnico: string | null;
+  cliente: { nombre: string; documento: string | null; telefono: string | null; direccion: string | null };
+  producto: string | null;
+  referencias: string[];        // presupuesto, remito
+  problema_informado: string;
+  problema_encontrado: string | null;
+  trabajo_tipo: string;         // etiqueta
+  trabajo_detalle: string;
+  materiales: { descripcion: string; cantidad: number }[];
+  fotos_antes: string[]; fotos_despues: string[];
+  observaciones: string | null; pendientes: string | null;
+  con_cargo: boolean;
+  resultado: string;            // etiqueta
+  firma_url: string | null; recibio_nombre: string | null; recibio_dni: string | null;
+  conformidad: 'conforme' | 'con_observaciones' | null; conformidad_obs: string | null;
+  sin_firma_motivo: string | null; firmada_at: string | null;
+}
+
+function buildServicioHTML(d: ServicioPDF, empresa: EmpresaPDF): string {
+  const logo = logoDataURI('logo2.png') ?? logoDataURI('logochico.png');
+  const contacto = [empresa.cuit ? `CUIT: ${esc(empresa.cuit)}` : null, empresa.telefono ? `Tel: ${esc(empresa.telefono)}` : null,
+    empresa.email ? esc(empresa.email) : null].filter(Boolean).join(' &nbsp;|&nbsp; ');
+  const bloque = (titulo: string, cuerpo: string) => `
+    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;margin-top:10px;page-break-inside:avoid;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:4px;">${titulo}</div>
+      ${cuerpo}
+    </div>`;
+  const texto = (t: string | null) => `<div style="font-size:11.5px;color:#222;white-space:pre-wrap;line-height:1.45;">${esc(t)}</div>`;
+  const fotos = (urls: string[]) => urls.map(uploadDataURI).filter(Boolean).slice(0, 4)
+    .map(src => `<img src="${src}" style="width:150px;height:110px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">`).join('');
+  const fotosAntes = fotos(d.fotos_antes), fotosDespues = fotos(d.fotos_despues);
+  const firma = d.firma_url ? uploadDataURI(d.firma_url) : null;
+  const conformidad = d.conformidad === 'conforme' ? 'Recibido conforme'
+    : d.conformidad === 'con_observaciones' ? 'Recibido con observaciones' : null;
+
+  return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: Arial, 'Helvetica Neue', sans-serif; color: #333; }</style>
+</head><body>
+<div style="max-width:750px;margin:0 auto;padding:14px 20px;min-height:265mm;display:flex;flex-direction:column;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:12px;">
+    <div style="flex:1;">
+      ${logo ? `<div style="display:flex;justify-content:center;margin-bottom:10px;"><img src="${logo}" style="height:64px;"></div>` : ''}
+      <div style="height:1px;background:#e5e7eb;margin-bottom:8px;"></div>
+      <div style="font-size:10.5px;color:#555;">${contacto}</div>
+      ${empresa.direccion ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${esc(empresa.direccion)}</div>` : ''}
+    </div>
+    <div style="width:1px;background:#d1d5db;align-self:stretch;margin:4px 0;"></div>
+    <div style="text-align:right;min-width:210px;">
+      <div style="color:${RED};font-size:22px;font-weight:900;letter-spacing:1px;line-height:1.05;text-transform:uppercase;font-family:Georgia,serif;">Ficha de servicio</div>
+      <div style="color:${NAVY};font-weight:800;font-size:16px;margin-top:8px;">${esc(d.numero)}</div>
+      <div style="font-size:11px;color:#555;margin-top:6px;"><strong style="color:${NAVY};">${esc(d.tipo)}</strong> &middot; Visita ${d.visita}${d.visitas > 1 ? ` de ${d.visitas}` : ''}</div>
+      <div style="font-size:11px;color:#555;margin-top:4px;"><strong style="color:${NAVY};">Fecha:</strong> ${fmtFecha(d.fecha)}</div>
+      ${d.tecnico ? `<div style="font-size:11px;color:#555;margin-top:2px;">T&eacute;cnico: ${esc(d.tecnico)}</div>` : ''}
+    </div>
+  </div>
+  <div style="height:4px;background:${NAVY};"></div>
+  <div style="height:1px;background:#3a5fad;margin-bottom:10px;"></div>
+
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px 12px;border-left:4px solid ${NAVY};">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:3px;">Cliente</div>
+      <div style="font-size:14px;font-weight:700;color:#1a1a1a;">${esc(d.cliente.nombre)}</div>
+      <div style="font-size:10.5px;color:#555;margin-top:2px;">${[d.cliente.documento ? `DNI/CUIT ${esc(d.cliente.documento)}` : '', d.cliente.telefono ? `Tel: ${esc(d.cliente.telefono)}` : ''].filter(Boolean).join(' &middot; ')}</div>
+      ${d.cliente.direccion ? `<div style="font-size:10.5px;color:#555;">${esc(d.cliente.direccion)}</div>` : ''}
+    </div>
+    <div style="flex:1;background:#f8f9fa;border-radius:8px;padding:8px 12px;border-left:4px solid ${NAVY};">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:3px;">Producto</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a1a;">${esc(d.producto ?? 'Sin producto vinculado')}</div>
+      ${d.referencias.length ? `<div style="font-size:10.5px;color:#555;margin-top:2px;">${d.referencias.map(esc).join(' &middot; ')}</div>` : ''}
+    </div>
+  </div>
+
+  ${bloque('Problema informado por el cliente', texto(d.problema_informado))}
+  ${d.problema_encontrado ? bloque('Problema encontrado', texto(d.problema_encontrado)) : ''}
+  ${bloque(`Trabajo realizado &mdash; ${esc(d.trabajo_tipo)}`, texto(d.trabajo_detalle))}
+  ${d.materiales.length ? bloque('Repuestos y materiales', `<ul style="font-size:11.5px;color:#222;padding-left:16px;">${d.materiales.map(m => `<li>${esc(m.cantidad)} &times; ${esc(m.descripcion)}</li>`).join('')}</ul>`) : ''}
+  ${fotosAntes || fotosDespues ? bloque('Fotos', `<div style="display:flex;gap:14px;flex-wrap:wrap;">
+    ${fotosAntes ? `<div><div style="font-size:10.5px;color:#555;margin-bottom:3px;">Antes</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${fotosAntes}</div></div>` : ''}
+    ${fotosDespues ? `<div><div style="font-size:10.5px;color:#555;margin-bottom:3px;">Despu&eacute;s</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${fotosDespues}</div></div>` : ''}
+  </div>`) : ''}
+  ${d.observaciones ? bloque('Observaciones', texto(d.observaciones)) : ''}
+  ${d.pendientes ? bloque('Trabajos pendientes', texto(d.pendientes)) : ''}
+
+  <div style="display:flex;gap:10px;margin-top:10px;font-size:11.5px;">
+    <div style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;"><span style="color:#888;">Cargo:</span> <strong>${d.con_cargo ? 'Con cargo al cliente' : 'Sin cargo (garant&iacute;a)'}</strong></div>
+    <div style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;"><span style="color:#888;">Resultado:</span> <strong>${esc(d.resultado)}</strong></div>
+  </div>
+
+  <div style="margin-top:14px;border:2px solid ${NAVY};border-radius:8px;padding:10px 14px;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${NAVY};margin-bottom:6px;">Conformidad del cliente</div>
+    ${d.firmada_at ? `
+      <div style="display:flex;gap:16px;align-items:flex-end;">
+        <div style="flex:1;font-size:11.5px;color:#222;">
+          ${conformidad ? `<div style="font-size:13px;font-weight:800;color:${d.conformidad === 'conforme' ? '#047857' : '#b45309'};">${conformidad}</div>` : ''}
+          ${d.conformidad_obs ? `<div style="margin-top:3px;white-space:pre-wrap;">${esc(d.conformidad_obs)}</div>` : ''}
+          ${d.recibio_nombre ? `<div style="margin-top:6px;">Recibi&oacute;: <strong>${esc(d.recibio_nombre)}</strong>${d.recibio_dni ? ` &middot; DNI ${esc(d.recibio_dni)}` : ''}</div>` : ''}
+          ${d.sin_firma_motivo ? `<div style="margin-top:6px;color:#b45309;">Sin firma: ${esc(d.sin_firma_motivo)}</div>` : ''}
+          <div style="margin-top:3px;color:#666;font-size:10.5px;">${fmtFecha(d.firmada_at)}</div>
+        </div>
+        ${firma ? `<div style="text-align:center;"><img src="${firma}" style="height:56px;max-width:220px;object-fit:contain;"><div style="border-top:1px solid #999;font-size:9.5px;color:#666;padding-top:2px;">Firma del cliente</div></div>` : ''}
+      </div>` : `<div style="font-size:11.5px;color:#666;">Pendiente de firma.</div>`}
+    <div style="margin-top:8px;font-size:9.5px;color:#666;">La firma deja constancia del servicio recibido y no impide reclamos futuros que correspondan.</div>
+  </div>
+
+  <div style="margin-top:auto;background:${NAVY};padding:10px 24px;display:flex;justify-content:center;flex-wrap:wrap;gap:0 28px;font-size:10px;color:#bfdbfe;">
+    ${empresa.telefono ? `<span>&#128222; ${esc(empresa.telefono)}</span>` : ''}
+    ${empresa.email ? `<span>&#9993; ${esc(empresa.email)}</span>` : ''}
+    ${empresa.direccion ? `<span>&#128205; ${esc(empresa.direccion)}</span>` : ''}
+  </div>
+</div>
+</body></html>`;
+}
+
+export async function generarPDFServicio(data: ServicioPDF, empresa: EmpresaPDF): Promise<Buffer> {
+  return renderPDF(buildServicioHTML(data, empresa));
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Wrench, Loader2, Phone, MapPin, Package, CalendarClock, Pencil, Ban, RotateCcw, CheckCircle2, Clock4,
-  PlayCircle, History, MessageCircle,
+  PlayCircle, History, MessageCircle, Plus, PenLine, FileDown, Send, Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -12,9 +12,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { numeroWhatsapp } from '@/lib/telefono';
 import { AdjuntosGrid } from '@/components/Adjuntos';
 import { NuevoServicio } from '@/components/servicios/NuevoServicio';
+import { ModalIntervencion } from '@/components/servicios/ModalIntervencion';
+import { FirmaServicio } from '@/components/servicios/FirmaServicio';
+import { abrirPdfApi } from '@/lib/abrirPdf';
 import { campoCls, btnPrim, btnSec, etiquetaCls } from '@/components/servicios/estilos';
 import {
-  ESTADO_SERVICIO, TIPO_SERVICIO, fechaCortaServicio, type EstadoServicio, type ServicioConIntervenciones,
+  ESTADO_SERVICIO, TIPO_SERVICIO, TRABAJO_TIPO, fechaCortaServicio, type EstadoServicio, type ServicioConIntervenciones, type Intervencion,
 } from '@/lib/servicios';
 
 // Ficha de un servicio técnico: datos del reclamo, programación de la visita (va a la agenda), visitas hechas y
@@ -71,11 +74,7 @@ export default function DetalleServicio() {
             <p className="text-[15px] leading-relaxed text-gray-900 whitespace-pre-wrap break-words">{s.problema}</p>
             {s.adjuntos.length > 0 && <div className="mt-3"><AdjuntosGrid urls={s.adjuntos} size="lg" /></div>}
           </Tarjeta>
-          <Tarjeta titulo="Visitas" icono={<History size={16} className="text-teal-700" />}>
-            {s.intervenciones.length === 0
-              ? <p className="text-sm text-gray-600">Todavía no se registró ninguna visita.</p>
-              : <p className="text-sm text-gray-600">{s.intervenciones.length} visita(s) registradas.</p>}
-          </Tarjeta>
+          <Visitas s={s} puede={puede} onCambio={cargar} />
         </div>
 
         <div className="space-y-4 min-w-0">
@@ -141,6 +140,134 @@ function Tarjeta({ titulo, icono, children, acciones }: { titulo: string; icono?
       </div>
       {children}
     </section>
+  );
+}
+
+const RESULTADO_LABEL: Record<Intervencion['resultado'], string> = {
+  resuelto: 'Quedó resuelto', nueva_visita: 'Hace falta otra visita', pendiente_repuesto: 'Falta un repuesto',
+};
+
+// Las visitas del técnico, la más nueva arriba. Cada una se firma en el momento (o después) y su ficha en PDF se
+// manda al cliente por WhatsApp; firmada ya no se modifica.
+function Visitas({ s, puede, onCambio }: { s: ServicioConIntervenciones; puede: boolean; onCambio: () => void }) {
+  const [form, setForm] = useState<{ visita?: Intervencion } | null>(null);
+  const [firmando, setFirmando] = useState<Intervencion | null>(null);
+  const [ofrecerFirma, setOfrecerFirma] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState<string | null>(null);
+  const abierto = s.estado !== 'finalizado' && s.estado !== 'cancelado';
+  const ultima = s.intervenciones.length ? s.intervenciones[s.intervenciones.length - 1].orden : 0;
+  const visitas = [...s.intervenciones].reverse();
+
+  async function enviar(v: Intervencion) {
+    setEnviando(v.id);
+    try {
+      await api.post(`/servicios-tecnicos/${s.id}/intervenciones/${v.id}/enviar-whatsapp`, {});
+      toast.success('Ficha enviada por WhatsApp');
+      onCambio();
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo enviar' }); }
+    finally { setEnviando(null); }
+  }
+  async function borrar(v: Intervencion) {
+    try {
+      await api.delete(`/servicios-tecnicos/${s.id}/intervenciones/${v.id}`);
+      toast.success('Visita borrada');
+      setBorrando(null); onCambio();
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo borrar' }); }
+  }
+  const pdf = (v: Intervencion) => abrirPdfApi(`/servicios-tecnicos/${s.id}/intervenciones/${v.id}/pdf`)
+    .catch(e => toast.error(e instanceof Error ? e.message : 'No se pudo abrir el PDF'));
+
+  return (
+    <Tarjeta titulo="Visitas" icono={<History size={16} className="text-teal-700" />}
+      acciones={puede && abierto && (
+        <button onClick={() => setForm({})} className={cn(btnPrim, 'h-10 sm:h-9 px-3 text-xs')} data-testid="registrar-visita"><Plus size={14} /> Registrar visita</button>
+      )}>
+      {visitas.length === 0 && <p className="text-sm text-gray-600">Todavía no se registró ninguna visita.</p>}
+      <div className="space-y-3">
+        {visitas.map(v => (
+          <article key={v.id} className="rounded-xl border border-gray-200 p-3" data-testid="visita">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div>
+                <p className="text-sm font-bold text-gray-900">Visita {v.orden} · {fechaCortaServicio(v.fecha)}</p>
+                <p className="text-xs text-gray-600">{[v.tecnico, TRABAJO_TIPO[v.trabajo_tipo], v.con_cargo ? 'con cargo' : 'sin cargo'].filter(Boolean).join(' · ')}</p>
+              </div>
+              <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full border',
+                v.resultado === 'resuelto' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-orange-50 text-orange-800 border-orange-200')}>
+                {RESULTADO_LABEL[v.resultado]}
+              </span>
+            </div>
+            {v.problema_encontrado && <p className="mt-2 text-sm text-gray-800"><b className="text-gray-600 font-semibold">Encontrado:</b> {v.problema_encontrado}</p>}
+            <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{v.trabajo_detalle}</p>
+            {v.materiales.length > 0 && <p className="mt-1 text-xs text-gray-700">Repuestos: {v.materiales.map(m => `${m.cantidad} × ${m.descripcion}`).join(', ')}</p>}
+            {(v.fotos_antes.length > 0 || v.fotos_despues.length > 0) && (
+              <div className="mt-2 flex flex-wrap gap-4">
+                {v.fotos_antes.length > 0 && <div><p className="text-[11px] text-gray-500 mb-1">Antes</p><AdjuntosGrid urls={v.fotos_antes} size="sm" /></div>}
+                {v.fotos_despues.length > 0 && <div><p className="text-[11px] text-gray-500 mb-1">Después</p><AdjuntosGrid urls={v.fotos_despues} size="sm" /></div>}
+              </div>
+            )}
+            {v.observaciones && <p className="mt-1 text-xs text-gray-700"><b>Observaciones:</b> {v.observaciones}</p>}
+            {v.pendientes && <p className="mt-1 text-xs text-orange-800"><b>Pendiente:</b> {v.pendientes}</p>}
+
+            <div className="mt-3 pt-2 border-t border-gray-100">
+              {v.firmada_at ? (
+                <p className={cn('text-xs font-semibold', v.conformidad === 'conforme' ? 'text-emerald-800' : 'text-amber-800')} data-testid="visita-firmada">
+                  {v.conformidad === 'conforme' ? 'Recibido conforme' : `Con observaciones: ${v.conformidad_obs}`}
+                  <span className="font-normal text-gray-600"> · {v.firma_url ? `firmó ${v.recibio_nombre}` : `sin firma (${v.sin_firma_motivo})`}{v.enviada_whatsapp_at ? ' · enviada por WhatsApp' : ''}</span>
+                </p>
+              ) : <p className="text-xs font-semibold text-amber-700">Falta la conformidad del cliente</p>}
+              {borrando === v.id ? (
+                <div className="mt-2 flex items-center gap-2 flex-wrap rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                  <span className="text-xs font-semibold text-red-800">¿Borrar esta visita?</span>
+                  <button onClick={() => borrar(v)} className="h-9 px-3 rounded-lg bg-red-600 text-white text-xs font-semibold">Borrar</button>
+                  <button onClick={() => setBorrando(null)} className="h-9 px-3 rounded-lg border border-gray-300 bg-white text-xs font-semibold">Cancelar</button>
+                </div>
+              ) : (
+                <div className="mt-2 flex gap-2 flex-wrap">
+                  {puede && !v.firmada_at && (
+                    <button onClick={() => setFirmando(v)} className={cn(btnPrim, 'h-10 sm:h-9 px-3 text-xs')} data-testid="firmar-visita"><PenLine size={14} /> Firmar conformidad</button>
+                  )}
+                  <button onClick={() => pdf(v)} className={cn(btnSec, 'h-10 sm:h-9 px-3 text-xs')}><FileDown size={14} /> Ver PDF</button>
+                  {puede && v.firmada_at && (
+                    <button onClick={() => enviar(v)} disabled={enviando === v.id} className={cn(btnSec, 'h-10 sm:h-9 px-3 text-xs text-green-800')}>
+                      {enviando === v.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} {v.enviada_whatsapp_at ? 'Reenviar' : 'Enviar'} por WhatsApp
+                    </button>
+                  )}
+                  {puede && !v.firmada_at && (
+                    <>
+                      <button onClick={() => setForm({ visita: v })} className={cn(btnSec, 'h-10 sm:h-9 px-3 text-xs')}><Pencil size={14} /> Editar</button>
+                      {v.orden === ultima && <button onClick={() => setBorrando(v.id)} className={cn(btnSec, 'h-10 sm:h-9 px-3 text-xs text-red-700')} aria-label="Borrar visita"><Trash2 size={14} /></button>}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {ofrecerFirma && (() => {
+        const v = s.intervenciones.find(x => x.id === ofrecerFirma);
+        if (!v || v.firmada_at) return null;
+        return (
+          <div className="mt-3 rounded-xl bg-teal-50 border border-teal-200 p-3 flex items-center gap-2 flex-wrap" data-testid="ofrecer-firma">
+            <p className="text-sm font-semibold text-teal-900 flex-1 min-w-[12rem]">¿Está el cliente? Que firme ahora la conformidad.</p>
+            <button onClick={() => { setOfrecerFirma(null); setFirmando(v); }} className={btnPrim}><PenLine size={15} /> Firmar ahora</button>
+            <button onClick={() => setOfrecerFirma(null)} className={btnSec}>Después</button>
+          </div>
+        );
+      })()}
+
+      {form && (
+        <ModalIntervencion servicioId={s.id} tipoServicio={s.tipo} responsableId={s.responsable_id} responsableNombre={s.responsable_nombre}
+          visita={form.visita} onClose={() => setForm(null)}
+          onGuardada={id => { const nueva = !form.visita; setForm(null); onCambio(); if (nueva) setOfrecerFirma(id); }} />
+      )}
+      {firmando && (
+        <FirmaServicio servicioId={s.id} numero={s.numero} cliente={s.cliente_nombre ?? ''} visita={firmando}
+          onClose={() => setFirmando(null)} onFirmada={() => { setFirmando(null); onCambio(); }} />
+      )}
+    </Tarjeta>
   );
 }
 
