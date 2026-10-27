@@ -106,6 +106,10 @@ cd server && npm run migrate   # lee server/.env
 - **Lo que no bloquea el reporte va en segundo plano**: deploy a test, rebuild de `:3000` y e2e
   se lanzan en background mientras se verifica o redacta; no esperar sentado a que terminen.
 
+**Revisión cruzada con Codex (siempre, regla del 2026-10-27)**: al terminar cada tarea, después del deploy a test,
+correr en segundo plano `~/bin/codex-revision.sh <repo> <rango> <contexto.md>` (Codex revisa el diff y corre las pruebas sin
+tocar archivos); verificar sus hallazgos, corregir lo real y reportar el veredicto.
+
 **Calibrar la verificación al tamaño del cambio** — elegir UN nivel, una sola pasada al final:
 
 | Cambio | Verificación suficiente |

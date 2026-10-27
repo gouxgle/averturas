@@ -48,17 +48,19 @@ export function BuscadorContacto({ tipo, valor, onChange, id, autoFocus }: Props
       setResultados(filas.slice(0, 30).map(p => ({ id: p.id, nombre: p.nombre, detalle: detalle(p.contacto, p.telefono) })));   // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
-    if (texto.length < 2) { setResultados([]); return; }
+    if (texto.length < 2) { setResultados([]); setBuscando(false); return; }
     setBuscando(true);
+    // Una respuesta de una búsqueda anterior que llega tarde no pisa la lista de la actual
+    let vigente = true;
     const h = setTimeout(() => {
       api.get<ClienteBusqueda[]>(`/clientes?search=${encodeURIComponent(texto)}`)
-        .then(cs => setResultados(cs.slice(0, 10).map(c => ({
+        .then(cs => { if (vigente) setResultados(cs.slice(0, 10).map(c => ({
           id: c.id, nombre: nombreCliente(c), detalle: detalle(c.telefono, c.documento_nro && `DNI ${c.documento_nro}`, c.localidad),
-        }))))
-        .catch(() => setResultados([]))
-        .finally(() => setBuscando(false));
+        }))); })
+        .catch(() => { if (vigente) setResultados([]); })
+        .finally(() => { if (vigente) setBuscando(false); });
     }, 250);
-    return () => clearTimeout(h);
+    return () => { vigente = false; clearTimeout(h); };
   }, [q, tipo, proveedores]);
 
   if (valor) {
