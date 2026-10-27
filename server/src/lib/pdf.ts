@@ -1,6 +1,8 @@
 import puppeteer, { type Browser } from 'puppeteer-core';
 import fs from 'fs';
 import path from 'path';
+import { detalleFicha, esFichaConfigurada, type FilaFicha } from './configuradorAbertura.js';
+import { esquemaAberturaSVG } from './esquemaAbertura.js';
 
 const NAVY = '#031d49';
 const RED  = '#e31e24';
@@ -670,6 +672,10 @@ export interface CompraItemPDF {
   /** Cliente / obra de origen (OC consolidada). */
   referencia?: string | null;
   proveedor_sku?: string | null;
+  /** Ficha completa del configurador de aberturas (tabla + esquema) y croquis del ítem. */
+  ficha?: { filas: FilaFicha[]; svg: string } | null;
+  imagenes?: string[];
+  anexos?: string[];
   // Solo OC:
   precio_unitario_neto?: number | null;
   descuento_pct?: number | null;
@@ -691,6 +697,43 @@ export interface CompraPDF {
   totales?: { subtotal_neto: number; descuento_monto: number; iva_monto: number; flete: number; total: number } | null;
 }
 
+/** Imagen subida (`/uploads/...`) como data URI para el PDF; null si no es una imagen local legible. */
+function uploadDataURI(url: string): string | null {
+  if (!/^\/uploads\/[\w./-]+\.(webp|png|jpe?g|gif)$/i.test(url) || url.includes('..')) return null;
+  try {
+    const ext = url.split('.').pop()!.toLowerCase();
+    const mime = ext === 'jpg' ? 'jpeg' : ext;
+    return `data:image/${mime};base64,${fs.readFileSync(path.join(process.cwd(), url)).toString('base64')}`;
+  } catch { return null; }
+}
+
+/** PDFs subidos a los ítems (planos, croquis): se mandan al proveedor junto al PDF de la PC/OC. Máx. 5. */
+export function leerAnexosPDF(adjuntosPorItem: unknown[]): { nombre: string; buffer: Buffer }[] {
+  const urls = adjuntosPorItem.flatMap(a => (Array.isArray(a) ? a : [])).filter((u): u is string => typeof u === 'string');
+  const out: { nombre: string; buffer: Buffer }[] = [];
+  for (const url of [...new Set(urls)]) {
+    if (!/^\/uploads\/[\w./-]+\.pdf$/i.test(url) || url.includes('..')) continue;
+    try { out.push({ nombre: url.split('/').pop()!, buffer: fs.readFileSync(path.join(process.cwd(), url)) }); } catch { /* archivo faltante: se omite */ }
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
+/**
+ * Lo que va en el PDF de PC/OC además de la línea del ítem: la ficha completa y el esquema si salió del
+ * configurador, las imágenes adjuntas (croquis, fotos; hasta 4) y los PDF adjuntos como anexo.
+ */
+export function fichaCompraPDF(especificaciones: unknown, adjuntos: unknown): Pick<CompraItemPDF, 'ficha' | 'imagenes' | 'anexos'> {
+  const e = (especificaciones && typeof especificaciones === 'object' ? especificaciones : {}) as Record<string, unknown>;
+  const urls = Array.isArray(adjuntos) ? adjuntos.filter((u): u is string => typeof u === 'string') : [];
+  const imagenes = urls.map(uploadDataURI).filter((u): u is string => !!u).slice(0, 4);
+  const anexos = leerAnexosPDF([urls]).map(a => a.nombre);   // solo los que existen (son los que se envían)
+  return {
+    ficha: esFichaConfigurada(e) ? { filas: detalleFicha(e), svg: esquemaAberturaSVG(e, { ancho: 230 }) } : null,
+    imagenes, anexos,
+  };
+}
+
 const fmtCant = (n: number, unidad: string) => {
   const v = Number(n);
   const s = Number.isInteger(v) ? String(v) : v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -699,6 +742,29 @@ const fmtCant = (n: number, unidad: string) => {
 
 const esc = (s: unknown) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Fichas técnicas completas: un bloque por ítem que tenga ficha del configurador, croquis o anexos. */
+function fichasHTML(items: CompraItemPDF[]): string {
+  let primero = true;
+  const bloques = items.map((it, i) => {
+    if (!it.ficha && !it.imagenes?.length && !it.anexos?.length) return '';
+    const tabla = it.ficha ? `<table style="border-collapse:collapse;width:100%;">${it.ficha.filas.map(f => `
+        <tr><td style="padding:3px 6px;font-size:10.5px;color:#6b7280;vertical-align:top;width:38%;border-bottom:1px solid #f0f0f0;">${esc(f.label)}</td>
+        <td style="padding:3px 6px;font-size:11px;color:#111;font-weight:600;border-bottom:1px solid #f0f0f0;">${esc(f.valor)}</td></tr>`).join('')}</table>` : '';
+    // El título va dentro del primer bloque: suelto quedaría al pie de la hoja anterior
+    const titulo = primero ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px;">Fichas t&eacute;cnicas</div>` : '';
+    primero = false;
+    const imgs = (it.imagenes ?? []).map(src => `<img src="${src}" alt="" style="max-height:200px;max-width:48%;object-fit:contain;border:1px solid #e5e7eb;border-radius:4px;">`).join('');
+    return `
+    <div style="page-break-inside:avoid;margin-top:12px;">${titulo}<div style="border:1px solid #d1d5db;border-radius:8px;padding:10px 12px;">
+      <div style="font-size:12px;font-weight:800;color:${NAVY};margin-bottom:6px;">&Iacute;tem ${i + 1} &mdash; ${esc(it.descripcion)} <span style="font-weight:600;color:#555;">(cant. ${fmtCant(Number(it.cantidad), it.unidad)})</span></div>
+      ${it.ficha ? `<div style="display:flex;gap:12px;align-items:flex-start;"><div style="flex:1;">${tabla}</div><div style="width:240px;flex-shrink:0;">${it.ficha.svg}</div></div>` : ''}
+      ${imgs ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${imgs}</div>` : ''}
+      ${it.anexos?.length ? `<div style="font-size:10.5px;color:#555;margin-top:6px;">Planos en PDF (van adjuntos a este env&iacute;o): ${it.anexos.map(esc).join(', ')}</div>` : ''}
+    </div></div>`;
+  }).filter(Boolean).join('');
+  return bloques ? `<div style="margin-top:4px;">${bloques}</div>` : '';
+}
 
 function buildCompraHTML(d: CompraPDF, empresa: EmpresaPDF): string {
   const esOrden = d.tipo === 'orden';
@@ -811,6 +877,8 @@ function buildCompraHTML(d: CompraPDF, empresa: EmpresaPDF): string {
   </table>
 
   ${totalesHTML}
+
+  ${fichasHTML(d.items)}
 
   ${condiciones ? `<div style="margin-top:14px;display:flex;gap:30px;flex-wrap:wrap;font-size:11.5px;color:#333;">${condiciones}</div>` : ''}
 

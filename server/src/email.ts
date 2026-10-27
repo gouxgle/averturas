@@ -366,6 +366,8 @@ interface EmailCompraParams {
   pdfNombre: string;
   empresaNombre: string;
   empresaTelefono: string | null;
+  /** PDFs adicionales (planos / croquis de los ítems). */
+  extras?: { nombre: string; buffer: Buffer }[];
 }
 
 /** Devuelve false si no hay SMTP configurado (el llamador decide qué decirle al usuario). */
@@ -384,7 +386,10 @@ export async function sendCompra(p: EmailCompraParams): Promise<boolean> {
     subject: p.asunto,
     html:    baseLayout(p.empresaNombre, content),
     fromNombre: p.empresaNombre,
-    attachments: [{ filename: p.pdfNombre, content: p.pdf, contentType: 'application/pdf' }],
+    attachments: [
+      { filename: p.pdfNombre, content: p.pdf, contentType: 'application/pdf' },
+      ...(p.extras ?? []).map(x => ({ filename: x.nombre, content: x.buffer, contentType: 'application/pdf' })),
+    ],
   });
 }
 

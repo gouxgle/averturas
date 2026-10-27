@@ -295,9 +295,13 @@ export function detalleFicha(f: Ficha): FilaFicha[] {
 }
 
 function textoVidrio(f: Ficha): string {
+  const espesor = f.vidrio_espesor ? etiqueta(VIDRIO_ESPESORES, str(f.vidrio_espesor), f.vidrio_espesor_otro) : '';
+  const tipo = str(f.vidrio_tipo);
+  // "Laminado" + "Laminado 3+3" / "DVH" + "DVH 4/9/4": el tipo ya está dicho en el espesor
+  const tipoRepetido = !!tipo && espesor.toLowerCase().startsWith(tipo.toLowerCase());
   return [
-    str(f.vidrio_tipo),
-    f.vidrio_espesor ? etiqueta(VIDRIO_ESPESORES, str(f.vidrio_espesor), f.vidrio_espesor_otro) : '',
+    tipoRepetido ? '' : tipo,
+    espesor,
     f.vidrio_color ? etiqueta(VIDRIO_COLORES, str(f.vidrio_color), f.vidrio_color_otro).toLowerCase() : '',
   ].filter(Boolean).join(' ');
 }

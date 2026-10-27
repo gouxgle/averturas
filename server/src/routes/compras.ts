@@ -33,7 +33,7 @@ import {
 } from '../lib/compras.js';
 import { sqlItemsTotal, sqlItemsPendientes, sqlItemsCubiertos } from '../lib/coverage.js';
 import { registrarActividad } from '../lib/actividad.js';
-import { generarPDFCompra, generarPDFEstadoCuentaProveedor, type CompraPDF, type CompraItemPDF, type EstadoCuentaProveedorPDF } from '../lib/pdf.js';
+import { generarPDFCompra, fichaCompraPDF, leerAnexosPDF, generarPDFEstadoCuentaProveedor, type CompraPDF, type CompraItemPDF, type EstadoCuentaProveedorPDF } from '../lib/pdf.js';
 import { enviarWhatsappPdf, enviarWhatsapp, enviarImagenWhatsapp } from '../lib/whatsapp.js';
 import { sendCompra, sendReclamo, emailDisponible } from '../email.js';
 import { hoyAR } from '../lib/fechas.js';
@@ -656,7 +656,7 @@ compras.get('/cotizaciones/:id', async (c) => {
 });
 
 /** Arma los datos del PDF de una PC para un proveedor. */
-async function pdfDeCotizacion(id: string, proveedorId: string): Promise<{ pdf: Buffer; pc: Row; prov: Row; empresa: Row } | null> {
+async function pdfDeCotizacion(id: string, proveedorId: string): Promise<{ pdf: Buffer; pc: Row; prov: Row; empresa: Row; anexos: { nombre: string; buffer: Buffer }[] } | null> {
   const pc = await cargarCotizacion(id);
   if (!pc) return null;
   const cp = (pc.proveedores as Row[]).find(p => p.proveedor_id === proveedorId);
@@ -665,6 +665,7 @@ async function pdfDeCotizacion(id: string, proveedorId: string): Promise<{ pdf: 
   const items: CompraItemPDF[] = (pc.items as Row[]).map(i => ({
     descripcion: i.descripcion,
     especificaciones: resumenEspecificaciones(i.especificaciones) || null,
+    ...fichaCompraPDF(i.especificaciones, i.adjuntos),
     cantidad: Number(i.cantidad_cotizada ?? i.cantidad),
     unidad: i.unidad,
     proveedor_sku: i.proveedor_sku,
@@ -676,7 +677,7 @@ async function pdfDeCotizacion(id: string, proveedorId: string): Promise<{ pdf: 
     referencias: [pc.solicitud?.numero, pc.solicitud?.obra ? `Obra: ${pc.solicitud.obra}` : null].filter(Boolean) as string[],
   };
   const pdf = await generarPDFCompra(data, empresa);
-  return { pdf, pc, prov: cp.proveedor, empresa };
+  return { pdf, pc, prov: cp.proveedor, empresa, anexos: leerAnexosPDF((pc.items as Row[]).map(i => i.adjuntos)) };
 }
 
 compras.get('/cotizaciones/:id/pdf', async (c) => {
@@ -723,17 +724,23 @@ async function mensajeOrden(oc: Row, empresa: Row) {
 }
 
 /** Envía un PDF por el medio indicado. Devuelve el error de negocio si no se pudo. */
-async function despachar(medio: 'whatsapp' | 'email' | 'manual', prov: Row, pdf: Buffer, nombre: string, mensaje: string, asunto: string, empresa: Row) {
+async function despachar(medio: 'whatsapp' | 'email' | 'manual', prov: Row, pdf: Buffer, nombre: string, mensaje: string, asunto: string, empresa: Row,
+  anexos: { nombre: string; buffer: Buffer }[] = []) {
   if (medio === 'manual') return;
   if (medio === 'whatsapp') {
     if (!prov.telefono) throw new ErrorNegocio(422, 'El proveedor no tiene teléfono registrado');
     const r = await enviarWhatsappPdf(prov.telefono, pdf, nombre, mensaje);
     if (!r.ok) throw new ErrorNegocio(r.status as 422, r.error);
+    // Los planos van después del pedido; si uno falla, el pedido ya salió: se avisa sin deshacer
+    for (const a of anexos) {
+      const ra = await enviarWhatsappPdf(prov.telefono, a.buffer, a.nombre, `Plano / croquis — ${nombre.replace(/\.pdf$/, '')}`);
+      if (!ra.ok) console.error('[compras] no se pudo enviar el anexo', a.nombre, ra.error);
+    }
     return;
   }
   if (!prov.email) throw new ErrorNegocio(422, 'El proveedor no tiene email registrado');
   if (!emailDisponible()) throw new ErrorNegocio(422, 'El envío por email no está configurado (SMTP). Usá WhatsApp o marcá como enviada manualmente.');
-  await sendCompra({ to: prov.email, asunto, mensaje, pdf, pdfNombre: nombre, empresaNombre: empresa.nombre, empresaTelefono: empresa.telefono });
+  await sendCompra({ to: prov.email, asunto, mensaje, pdf, pdfNombre: nombre, empresaNombre: empresa.nombre, empresaTelefono: empresa.telefono, extras: anexos });
 }
 
 // GET /cotizaciones/:id/mensaje — texto que recibiría el proveedor (para previsualizar / editar antes de enviar)
@@ -757,7 +764,7 @@ compras.post('/cotizaciones/:id/enviar', async (c) => {
 
     const mensaje = b.mensaje || await mensajeCotizacion(r.pc, r.empresa);
     const nombre = `${r.pc.numero}.pdf`;
-    await despachar(b.medio, r.prov, r.pdf, nombre, mensaje, `Pedido de cotización ${r.pc.numero} — ${r.empresa.nombre}`, r.empresa);
+    await despachar(b.medio, r.prov, r.pdf, nombre, mensaje, `Pedido de cotización ${r.pc.numero} — ${r.empresa.nombre}`, r.empresa, r.anexos);
 
     await db.query(`
       UPDATE compras_cotizacion_proveedores SET enviada_at = now(), enviada_medio = $3, contacto = COALESCE($4, contacto),
@@ -947,12 +954,12 @@ async function crearOrden(client: PoolClient, p: {
     await client.query(`
       INSERT INTO pedido_items
         (pedido_id, operacion_item_id, producto_id, descripcion, cantidad, costo_unitario, orden, es_reposicion,
-         solicitud_item_id, especificaciones, unidad, proveedor_sku, precio_unitario_neto, descuento_pct, iva_pct)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$6,$12,$13)
+         solicitud_item_id, especificaciones, unidad, proveedor_sku, precio_unitario_neto, descuento_pct, iva_pct, adjuntos)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$6,$12,$13,$14)
     `, [
       oc.id, s.operacion_item_id ?? null, s.producto_id ?? null, s.descripcion, cant, neto, idx,
       s.id, JSON.stringify(s.especificaciones ?? {}), s.unidad ?? 'u', it.proveedor_sku ?? s.proveedor_sku ?? null,
-      it.descuento_pct ?? 0, it.iva_pct ?? 21,
+      it.descuento_pct ?? 0, it.iva_pct ?? 21, JSON.stringify(Array.isArray(s.adjuntos) ? s.adjuntos : []),
     ]);
   }
   await recalcularTotalesOC(client, oc.id);
@@ -1171,6 +1178,7 @@ async function pdfDeOrden(id: string) {
   const items: CompraItemPDF[] = (oc.items as Row[]).map(i => ({
     descripcion: i.descripcion,
     especificaciones: resumenEspecificaciones(i.especificaciones) || null,
+    ...fichaCompraPDF(i.especificaciones, i.adjuntos),
     cantidad: Number(i.cantidad), unidad: i.unidad ?? 'u',
     referencia: oc.es_consolidada ? [nombreCliente(i.cliente), i.obra, i.operacion_numero].filter(Boolean).join(' · ') || null : null,
     proveedor_sku: i.proveedor_sku,
@@ -1189,7 +1197,7 @@ async function pdfDeOrden(id: string) {
     totales: { subtotal_neto: Number(oc.subtotal_neto), descuento_monto: Number(oc.descuento_monto), iva_monto: Number(oc.iva_monto),
       flete: Number(oc.costo_envio), total: Number(oc.total) },
   };
-  return { pdf: await generarPDFCompra(data, empresa), oc, empresa };
+  return { pdf: await generarPDFCompra(data, empresa), oc, empresa, anexos: leerAnexosPDF((oc.items as Row[]).map(i => i.adjuntos)) };
 }
 
 compras.get('/ordenes/:id/pdf', async (c) => {
@@ -1218,7 +1226,7 @@ compras.post('/ordenes/:id/enviar', async (c) => {
     if (['cancelada', 'recibida', 'cerrada'].includes(r.oc.estado_logistica)) throw new ErrorNegocio(409, `La orden está ${r.oc.estado_logistica}`);
 
     const mensaje = b.mensaje || await mensajeOrden(r.oc, r.empresa);
-    await despachar(b.medio, r.oc.proveedor, r.pdf, `${r.oc.numero}.pdf`, mensaje, `Orden de compra ${r.oc.numero} — ${r.empresa.nombre}`, r.empresa);
+    await despachar(b.medio, r.oc.proveedor, r.pdf, `${r.oc.numero}.pdf`, mensaje, `Orden de compra ${r.oc.numero} — ${r.empresa.nombre}`, r.empresa, r.anexos);
 
     // El PDF que se mandó queda guardado: la carpeta de la compra tiene el documento real,
     // no uno regenerado después con otros precios.

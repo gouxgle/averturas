@@ -135,6 +135,7 @@ export const MANUAL_COMPRAS: SeccionManual[] = [
         ],
       },
       { t: 'p', texto: 'En el detalle de la solicitud, la cotización y la orden, **"Ver ficha completa"** muestra la tabla de características y el esquema.' },
+      { t: 'aviso', tono: 'info', texto: 'Lo que recibe el proveedor: el PDF del pedido de cotización y el de la orden de compra traen, por cada abertura a medida, la **ficha completa con el esquema** y las **fotos o croquis** del ítem. Los planos en PDF se mandan **adjuntos en el mismo envío** (WhatsApp o email).' },
       { t: 'subtitulo', texto: 'Pantalla 3: ¿Cómo seguimos?' },
       {
         t: 'tabla',

@@ -52,7 +52,7 @@ describe('configurador de aberturas', () => {
     expect(f.panel).toBeUndefined();
     expect(f.herrajes_lista).toEqual(['cierre_embutido']);
     expect(f).toMatchObject({
-      apertura: 'Corrediza', vidrio: 'DVH DVH 4/9/4 incoloro', herrajes: 'Cierre embutido',
+      apertura: 'Corrediza', vidrio: 'DVH 4/9/4 incoloro', herrajes: 'Cierre embutido',
       mosquitero: true, premarco: true, esquema_version: 1, hojas: 2,
     });
     expect(normalizarFicha(f)).toEqual(f);   // idempotente
@@ -135,5 +135,17 @@ describe('esquema SVG', () => {
     const svg = esquemaAberturaSVG({ tipo_abertura: 'pano_fijo', tipologia: 'fijo' });
     expect(svg).not.toContain(' mm<');
     expect(svg).not.toMatch(/NaN|undefined/);
+  });
+});
+
+describe('ficha en el PDF al proveedor', () => {
+  it('ficha del configurador con esquema; vieja sin ficha; adjuntos inexistentes o ajenos se ignoran', async () => {
+    const { fichaCompraPDF } = await import('../lib/pdf.js');
+    const nueva = fichaCompraPDF(normalizarFicha({ esquema_version: 1, tipo_abertura: 'ventana', tipologia: 'corrediza', ancho_m: 1.2, alto_m: 1, hojas: 2 }),
+      ['/uploads/no-existe/plano.pdf', '/uploads/../../etc/passwd', 'https://afuera.com/x.png']);
+    expect(nueva.ficha?.svg.startsWith('<svg')).toBe(true);
+    expect(nueva.ficha?.filas.find(f => f.label === 'Medidas')?.valor).toBe('1200 × 1000 mm (ancho × alto)');
+    expect(nueva).toMatchObject({ imagenes: [], anexos: [] });
+    expect(fichaCompraPDF({ color: 'Blanco' }, null)).toEqual({ ficha: null, imagenes: [], anexos: [] });
   });
 });
