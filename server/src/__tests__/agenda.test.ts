@@ -240,11 +240,13 @@ describe.skipIf(!process.env.DATABASE_URL)('agenda del día contra la base', () 
     expect(await deHoy(r.json.id)).toMatchObject({ ambito: 'cliente', cliente_id: clienteId, categoria: null, tipo_accion: 'llamada' });
     expect((await req('PUT', `/agenda/tareas/${r.json.id}`, { ...base, cliente_id: clienteId, tipo_accion: 'whatsapp' })).status).toBe(200);
     expect(await deHoy(r.json.id)).toMatchObject({ tipo_accion: 'whatsapp' });
-    // Una tarea espejo (recotizar) no se toca desde acá
-    const { rows: [esp] } = await db.query(
-      `INSERT INTO tareas (cliente_id, operacion_id, descripcion, tipo_accion) VALUES ($1, $2, $3, 'recotizar') RETURNING id`,
-      [clienteId, operacionId, MARCA]).catch(() => ({ rows: [null] }));
-    if (esp) expect((await req('DELETE', `/agenda/tareas/${esp.id}`)).status).toBe(404);
+    // Una tarea espejo (la recotización de esta proforma, una sola pendiente) no se toca desde acá
+    const { rows: [{ f: manana }] } = await db.query(`SELECT (CURRENT_DATE + 1)::text AS f`);
+    const esp = await T.agendarRecotizacion(db, { operacionId, fecha: manana, nota: null, usuarioId: null });
+    expect(esp?.id).toBeTruthy();
+    expect((await req('DELETE', `/agenda/tareas/${esp!.id}`)).status).toBe(404);
+    expect((await req('PUT', `/agenda/tareas/${esp!.id}`, { ...base, cliente_id: clienteId })).status).toBe(404);
+    expect((await db.query(`SELECT tipo_accion FROM tareas WHERE id = $1`, [esp!.id])).rows[0]?.tipo_accion).toBe('recotizar');
     expect((await req('DELETE', `/agenda/tareas/${r.json.id}`)).status).toBe(200);
   });
 
