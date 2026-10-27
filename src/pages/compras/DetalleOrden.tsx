@@ -304,7 +304,7 @@ export function DetalleOrden({ id, onClose, onChanged, abrir }: { id: string; on
                       <p className="text-sm font-semibold text-gray-900">{it.descripcion}</p>
                       {it.es_reposicion && <Badge label="Reposición" cls="bg-sky-100 text-sky-800" />}
                     </div>
-                    <FichaTecnica e={it.especificaciones} className="mt-0.5" />
+                    <FichaTecnica e={it.especificaciones} className="mt-0.5" completa />
                     {(oc.es_consolidada || (it.cliente && !oc.operacion)) && it.cliente && (
                       <p className="text-[11px] text-violet-700 mt-0.5">{nombreCliente(it.cliente)}{it.obra ? ` · ${it.obra}` : ''}{it.operacion_numero ? ` · ${it.operacion_numero.replace(/^OP-/, 'PRO-')}` : ''} · {it.solicitud_numero}</p>
                     )}

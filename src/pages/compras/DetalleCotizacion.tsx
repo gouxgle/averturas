@@ -106,7 +106,7 @@ export function DetalleCotizacion({ id, onClose, onChanged, abrir }: { id: strin
             <div key={it.id} className="flex items-start gap-3 p-2.5 border border-gray-200 rounded-xl">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900">{it.descripcion}</p>
-                <FichaTecnica e={it.especificaciones} />
+                <FichaTecnica e={it.especificaciones} completa />
               </div>
               <p className="text-sm font-bold text-gray-800 shrink-0">×{fmtCantidad(it.cantidad_cotizada ?? it.cantidad, it.unidad)}</p>
             </div>

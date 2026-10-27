@@ -120,6 +120,21 @@ export const MANUAL_COMPRAS: SeccionManual[] = [
           'Arriba cargás la obra, la fecha en que se necesita, el proveedor sugerido y los adjuntos (planos, fotos, PDF).',
         ],
       },
+      { t: 'subtitulo', texto: 'Aberturas a medida: el configurador' },
+      { t: 'p', texto: 'Cuando la solicitud es de **abertura a medida**, la ficha técnica se arma con el configurador: elegís el **tipo** (puerta, ventana, paño fijo…) y la **tipología** (corrediza, de abrir, proyectante…), y el sistema muestra **solo lo que corresponde** a esa combinación.' },
+      {
+        t: 'lista',
+        items: [
+          'Medidas en milímetros (ancho × alto). Después: hojas, sentido de apertura (visto desde adentro), sistema y color de perfilería, composición (vidriado, ciego o combinado), vidrio, panel, travesaños, accesorios y herrajes.',
+          'El **esquema** de la derecha (arriba en el celular) se dibuja solo mientras cargás: hojas, sectores con vidrio (celeste) o ciegos (gris), travesaños y símbolo de apertura.',
+          'Sistemas, colores y vidrios salen de Configuración. Si no está en la lista, elegí **Otro** y escribilo.',
+          'El cartel amarillo avisa lo que falta para cotizar (medidas, hojas, sentido…). Cuando está todo, pasa a verde.',
+          'La descripción del ítem se arma sola ("Puerta de abrir 900 × 2050 mm") mientras no la escribas a mano.',
+          'Para algo especial, sumá el **croquis, la foto o el PDF** en los adjuntos del ítem.',
+          'Si el ítem vino de un presupuesto, el configurador toma lo que reconoce (tipo, apertura, hojas, vidrio, mosquitero) y vos completás el resto.',
+        ],
+      },
+      { t: 'p', texto: 'En el detalle de la solicitud, la cotización y la orden, **"Ver ficha completa"** muestra la tabla de características y el esquema.' },
       { t: 'subtitulo', texto: 'Pantalla 3: ¿Cómo seguimos?' },
       {
         t: 'tabla',

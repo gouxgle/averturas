@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
 import { esPdf, subirAdjunto, resumenEspecificaciones, type Especificaciones, type ProveedorMin } from './tipos';
+import { detalleFicha, esFichaConfigurada } from '@/lib/configuradorAbertura';
+import { esquemaAberturaSVG } from '@/lib/esquemaAbertura';
 
 export const inpCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 bg-white disabled:bg-gray-50 disabled:text-gray-500';
 export const lblCls = 'block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1';
@@ -115,11 +117,38 @@ export function Seccion({ titulo, children, accion, className }: { titulo: strin
   );
 }
 
-/** Chips de la ficha técnica de un ítem. */
-export function FichaTecnica({ e, className }: { e: Especificaciones | null | undefined; className?: string }) {
+/**
+ * Ficha técnica de un ítem en una línea. Con `completa`, si la ficha salió del configurador de aberturas,
+ * suma "Ver ficha completa": tabla de características agrupada + esquema (lo mismo que recibe el proveedor).
+ */
+export function FichaTecnica({ e, className, completa }: { e: Especificaciones | null | undefined; className?: string; completa?: boolean }) {
+  const [abierta, setAbierta] = useState(false);
   const txt = resumenEspecificaciones(e);
   if (!txt) return null;
-  return <p className={cn('text-[11px] text-gray-600 leading-snug', className)}>{txt}</p>;
+  const linea = <p className={cn('text-[11px] text-gray-600 leading-snug', className)}>{txt}</p>;
+  if (!completa || !e || !esFichaConfigurada(e)) return linea;
+  return (
+    <div>
+      {linea}
+      <button type="button" onClick={ev => { ev.stopPropagation(); setAbierta(a => !a); }}
+        className="text-[11px] font-semibold text-lime-700 hover:underline mt-0.5">
+        {abierta ? 'Ocultar ficha completa' : 'Ver ficha completa'}
+      </button>
+      {abierta && (
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3" onClick={ev => ev.stopPropagation()}>
+          <dl className="text-xs space-y-1 min-w-0">
+            {detalleFicha(e).map((fila, i) => (
+              <div key={i} className="grid grid-cols-[minmax(0,9rem)_1fr] gap-2">
+                <dt className="text-gray-500">{fila.label}</dt><dd className="text-gray-900 font-medium break-words">{fila.valor}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="rounded-lg bg-white border border-gray-200 p-1 flex justify-center [&>svg]:max-w-full [&>svg]:h-auto"
+            dangerouslySetInnerHTML={{ __html: esquemaAberturaSVG(e, { ancho: 210 }) }} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Miniaturas de adjuntos (imágenes y PDFs) con quitar opcional. */

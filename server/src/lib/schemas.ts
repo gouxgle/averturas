@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { zUUID, zEmail, zPhone, zText, zPosNum, zPct } from './validate.js';
+import { esFichaConfigurada, normalizarFicha } from './configuradorAbertura.js';
 
 // ── Auth ───────────────────────────────────────────────────────
 export const LoginSchema = z.object({
@@ -270,7 +271,11 @@ export const SolicitudCompraSchema = z.object({
       }
     }
   });
-});
+}).transform(b => ({
+  ...b,
+  // Fichas del configurador: se guardan coherentes (sin lo que no aplica al tipo/tipología)
+  items: b.items.map(it => esFichaConfigurada(it.especificaciones) ? { ...it, especificaciones: normalizarFicha(it.especificaciones) } : it),
+}));
 
 export const SolicitudEstadoSchema = z.object({
   estado: z.enum(['cancelada', 'cerrada', 'abierta']),

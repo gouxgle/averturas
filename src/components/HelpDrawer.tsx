@@ -621,6 +621,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { text: 'Compras → Nueva solicitud → elegir el origen (venta, relevamiento, reposición de stock, producción propia…)' },
           { text: 'Los ítems se autocompletan con su ficha técnica (medidas, color, vidrio, apertura, herrajes)' },
           { text: 'Revisar cantidades y fichas, adjuntar fotos o planos' },
+          { text: 'Abertura a medida: el configurador pide tipo y tipología y muestra solo lo que corresponde, con el esquema al lado' },
           { text: '"¿Cómo seguimos?": pedir cotización, comprar directo o solo guardar' },
         ],
         tip: 'Desde un presupuesto aprobado o el kanban, "Pedido al proveedor" ya trae la solicitud armada con lo que falta comprar.',

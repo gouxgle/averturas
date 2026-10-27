@@ -17,6 +17,8 @@ import {
   type OrigenCompra, type TipoProductoCompra, type Especificaciones, type ProveedorMin, type ClienteMin, type SolicitudDetalle,
 } from './tipos';
 import { inpCls, lblCls, btnPrimario, btnSecundario, AdjuntosGrid, DropzoneAdjuntos, SelectorProveedores, FichaTecnica, BotonEliminar } from './ui';
+import { ConfiguradorAbertura } from './ConfiguradorAbertura';
+import { descripcionSugerida } from '@/lib/configuradorAbertura';
 import { FormOrden, type OrdenPayload } from './FormOrden';
 import { scrollContenidoArriba } from '@/lib/scroll';
 
@@ -416,8 +418,17 @@ export default function NuevaSolicitud() {
                             <summary className="text-[11px] font-semibold text-gray-600 cursor-pointer select-none flex items-center gap-2">
                               Ficha técnica <span className="font-normal text-gray-500 truncate">{Object.keys(it.especificaciones).length ? '— ' : '(vacía, tocá para completar)'}<FichaTecnica e={it.especificaciones} className="inline" /></span>
                             </summary>
+                            {tipoProducto === 'abertura_medida' && (
+                              <div className="mt-2">
+                                <ConfiguradorAbertura ficha={it.especificaciones} onChange={e => upItem(it._key, {
+                                  especificaciones: e,
+                                  // La descripción se arma sola mientras nadie la escriba a mano
+                                  ...(!it.descripcion.trim() || it.descripcion === descripcionSugerida(it.especificaciones) ? { descripcion: descripcionSugerida(e) } : {}),
+                                })} />
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-2">
-                              {campos.map(c => (
+                              {tipoProducto !== 'abertura_medida' && campos.map(c => (
                                 <div key={c.key}>
                                   <label className={lblCls}>{c.label}{c.sufijo ? ` (${c.sufijo})` : ''}</label>
                                   {c.tipo === 'bool' ? (

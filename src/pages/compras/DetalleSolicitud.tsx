@@ -157,7 +157,7 @@ export function DetalleSolicitud({ id, onClose, onChanged, abrir }: { id: string
                     <p className="text-sm font-semibold text-gray-900">{it.descripcion}</p>
                     <Badge label={ie.label} cls={ie.cls} />
                   </div>
-                  <FichaTecnica e={it.especificaciones} className="mt-0.5" />
+                  <FichaTecnica e={it.especificaciones} className="mt-0.5" completa />
                   {it.observaciones && <p className="text-[11px] text-gray-500 italic mt-0.5">{it.observaciones}</p>}
                   <div className="flex items-center gap-2 mt-1 flex-wrap" onClick={e => e.stopPropagation()}>
                     {it.orden_compra && <button onClick={() => abrir('oc', it.orden_compra!.id)} className="text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 hover:bg-emerald-100">{it.orden_compra.numero}</button>}
