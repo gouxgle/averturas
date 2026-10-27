@@ -617,7 +617,10 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   cliente, oportunidad espejo, recordatorios, repetición). Internas: `ambito='interna'`, sin
   cliente, con `categoria`, `proveedor_id` y `repetir` (semanal/mensual/dias; al completar se
   crea la siguiente una sola vez, índice único `tarea_anterior_id`; mensual el 31 → fin de
-  mes). Pantalla `/agenda`. El CRM pide `/tareas/agenda?ambito=cliente`. `recotizar` = revisar
+  mes). Pantalla `/agenda`. Desde "Nueva tarea" (`ModalTarea`) también se cargan tareas **de cliente**
+  (`ambito='cliente'`, tipo llamada/whatsapp/email/visita/nota); cliente y proveedor se eligen con
+  `BuscadorContacto`, nunca texto libre. Editar/borrar desde la agenda: internas y de cliente manuales
+  (`EDITABLE` en `routes/agenda.ts`, `esEditable()` en el front); las espejo, nunca. El CRM pide `/tareas/agenda?ambito=cliente`. `recotizar` = revisar
   y adecuar una proforma: siempre con `operacion_id`, **una sola pendiente por proforma**
   (`agendarRecotizacion`); nace de la respuesta "modificar" del link público o a mano
   (`FranjaRecotizar` en el detalle del presupuesto); al guardar la proforma editada pregunta

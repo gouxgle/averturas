@@ -492,11 +492,13 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
       {
         id: 'internas',
         emoji: '🏢',
-        title: 'Tareas internas',
-        intro: 'Para lo que no es de un cliente: comprar insumos, llamar a un proveedor, pagar un servicio, mantenimiento.',
+        title: 'Cargar una tarea',
+        intro: 'Para la empresa (comprar insumos, llamar a un proveedor, pagar un servicio) o para un cliente (llamarlo, visitarlo, mandarle un WhatsApp).',
         steps: [
-          { text: 'Agenda → "Tarea interna" (o el + junto a la pastilla): qué hacer, fecha, hora, categoría y proveedor.' },
+          { text: 'Agenda → "Nueva tarea" (o el + junto a la pastilla) y elegí "La empresa" o "Un cliente".' },
+          { text: 'El cliente y el proveedor se buscan en la agenda de contactos (nombre, DNI o teléfono): no se escriben a mano. Si el cliente no existe, cargalo antes en Clientes.' },
           { text: 'Si se repite (cada semana, cada mes o cada tantos días), al marcarla hecha se agenda sola la próxima.' },
+          { text: 'Las tareas cargadas a mano se pueden editar o borrar con "Editar"; las que nacen solas (entregas, visitas, post venta…) se cambian desde su origen.' },
         ],
       },
     ],

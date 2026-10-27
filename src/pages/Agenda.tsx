@@ -8,7 +8,7 @@ import { SectionHero } from '@/components/SectionHero';
 import { CompactStatsBar } from '@/components/CompactStatsBar';
 import { HelpButton } from '@/components/HelpButton';
 import { ItemTarea } from '@/components/agenda/ItemTarea';
-import { ModalTareaInterna } from '@/components/agenda/ModalTareaInterna';
+import { ModalTarea } from '@/components/agenda/ModalTarea';
 import { completar, reprogramar } from '@/components/agenda/acciones';
 import { type TareaAgenda, type Categoria, CATEGORIAS, EVENTO_AGENDA, fechaCorta, diaAR } from '@/lib/agenda';
 
@@ -97,7 +97,7 @@ export default function Agenda() {
           {!soloLectura && (
             <button onClick={() => setModal({ tarea: null })}
               className="flex items-center gap-2 bg-orange-600 text-white text-sm font-semibold px-4 h-11 sm:h-10 rounded-xl hover:bg-orange-700 transition-colors shadow-md">
-              <Plus size={16} /> Tarea interna
+              <Plus size={16} /> Nueva tarea
             </button>
           )}
         </>}
@@ -163,7 +163,7 @@ export default function Agenda() {
         ))}
       </div>
 
-      {modal && <ModalTareaInterna tarea={modal.tarea} onClose={() => setModal(null)} onGuardada={recargar} />}
+      {modal && <ModalTarea tarea={modal.tarea} onClose={() => setModal(null)} onGuardada={recargar} />}
     </div>
   );
 }

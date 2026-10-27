@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, Eye, AlarmClock, CalendarClock, ArrowRight, Phone, Loader2, Repeat, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  type TareaAgenda, metaDe, sujetoDe, telefonoDe, destinoDe, horaCorta, cuandoRecuerda, fechaCorta, diaAR,
+  type TareaAgenda, metaDe, sujetoDe, telefonoDe, destinoDe, horaCorta, cuandoRecuerda, fechaCorta, diaAR, esEditable,
 } from '@/lib/agenda';
 
 export type OpcionRecordar = { en_minutos: number } | { a_las: string };
@@ -117,7 +117,7 @@ export function ItemTarea({ t, hoy, nuevo, soloLectura, conRecordar = true, onHe
                 <Phone size={14} />
               </a>
             )}
-            {onEditar && !soloLectura && t.ambito === 'interna' && (
+            {onEditar && !soloLectura && esEditable(t) && (
               <button type="button" onClick={() => onEditar(t)} className={cn(btn, 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50')}>
                 Editar
               </button>

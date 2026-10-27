@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { TZ_AR } from '@/lib/utils';
 import { type TareaAgenda, setAvisoAgendaAbierto, setBotonAgenda, EVENTO_AGENDA, diaAR } from '@/lib/agenda';
 import { ItemTarea, type OpcionRecordar } from './ItemTarea';
-import { ModalTareaInterna } from './ModalTareaInterna';
+import { ModalTarea } from './ModalTarea';
 import { completar, recordar, reprogramar, publicar, escuchar } from './acciones';
 
 // Aviso de la agenda del día. Reglas (pedido del usuario, 2026-10-01):
@@ -286,7 +286,7 @@ export function AgendaDelDia() {
               {!soloLectura && (
                 <button type="button" onClick={() => setModalInterna(true)}
                   className="h-10 px-3 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 inline-flex items-center gap-1.5">
-                  <Plus size={15} /> Tarea interna
+                  <Plus size={15} /> Nueva tarea
                 </button>
               )}
               <button type="button" onClick={() => { seguirTrabajando(); navigate('/agenda'); }}
@@ -303,7 +303,7 @@ export function AgendaDelDia() {
         </div>
       )}
 
-      {modalInterna && <ModalTareaInterna onClose={() => setModalInterna(false)} onGuardada={cargar} />}
+      {modalInterna && <ModalTarea onClose={() => setModalInterna(false)} onGuardada={cargar} />}
     </>
   );
 }

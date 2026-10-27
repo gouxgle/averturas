@@ -231,6 +231,23 @@ describe.skipIf(!process.env.DATABASE_URL)('agenda del día contra la base', () 
     usuarioActual = { id: u1, rol: 'admin' };
   });
 
+  it('tarea de cliente cargada a mano: exige el cliente, se edita y se borra; las espejo no', async () => {
+    const { rows: [{ f }] } = await db.query(`SELECT CURRENT_DATE::text AS f`);
+    const base = { ambito: 'cliente', descripcion: `${MARCA} llamar por medidas`, vencimiento: f, tipo_accion: 'llamada' };
+    expect((await req('POST', '/agenda/tareas', base)).status).toBe(400);
+    const r = await req('POST', '/agenda/tareas', { ...base, cliente_id: clienteId, categoria: 'compras' });
+    expect(r.status).toBe(201);
+    expect(await deHoy(r.json.id)).toMatchObject({ ambito: 'cliente', cliente_id: clienteId, categoria: null, tipo_accion: 'llamada' });
+    expect((await req('PUT', `/agenda/tareas/${r.json.id}`, { ...base, cliente_id: clienteId, tipo_accion: 'whatsapp' })).status).toBe(200);
+    expect(await deHoy(r.json.id)).toMatchObject({ tipo_accion: 'whatsapp' });
+    // Una tarea espejo (recotizar) no se toca desde acá
+    const { rows: [esp] } = await db.query(
+      `INSERT INTO tareas (cliente_id, operacion_id, descripcion, tipo_accion) VALUES ($1, $2, $3, 'recotizar') RETURNING id`,
+      [clienteId, operacionId, MARCA]).catch(() => ({ rows: [null] }));
+    if (esp) expect((await req('DELETE', `/agenda/tareas/${esp.id}`)).status).toBe(404);
+    expect((await req('DELETE', `/agenda/tareas/${r.json.id}`)).status).toBe(200);
+  });
+
   it('tarea mensual: al completarla se crea la siguiente una sola vez; reabrirla la quita', async () => {
     const { rows: [{ f }] } = await db.query(`SELECT CURRENT_DATE::text AS f`);
     const { json: { id } } = await req('POST', '/agenda/tareas', {

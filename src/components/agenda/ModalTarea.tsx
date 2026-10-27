@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Building2 } from 'lucide-react';
+import { X, Loader2, Building2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { CATEGORIAS, type Categoria, type TareaAgenda, diaAR, horaCorta } from '@/lib/agenda';
+import {
+  CATEGORIAS, TIPO_META, TIPOS_TAREA_CLIENTE, type Categoria, type TareaAgenda, type TipoTareaCliente,
+  diaAR, horaCorta, nombreClienteDe,
+} from '@/lib/agenda';
 import { avisarCambio } from './acciones';
-
-interface Proveedor { id: string; nombre: string; activo?: boolean }
+import { BuscadorContacto, type Contacto } from './BuscadorContacto';
 
 interface Props {
   tarea?: TareaAgenda | null;   // editar
@@ -15,24 +17,29 @@ interface Props {
   onGuardada?: () => void;
 }
 
-// Alta y edición de una tarea interna de la empresa (comprar insumos, llamar a un proveedor,
-// pagar un servicio…). Entra sola en el aviso del día el día que vence.
-export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
+// Alta y edición de una tarea cargada a mano: interna de la empresa (comprar insumos, llamar a un
+// proveedor, pagar un servicio…) o de un cliente elegido del buscador (llamarlo, visitarlo…). El
+// cliente y el proveedor se eligen de la agenda de contactos, nunca escritos a mano. Entra sola en
+// el aviso del día el día que vence.
+export function ModalTarea({ tarea, onClose, onGuardada }: Props) {
+  const [ambito, setAmbito] = useState<'interna' | 'cliente'>(tarea?.ambito ?? 'interna');
+  const [cliente, setCliente] = useState<Contacto | null>(tarea?.cliente_id
+    ? { id: tarea.cliente_id, nombre: nombreClienteDe(tarea), detalle: tarea.telefono ?? '' } : null);
+  const [tipoAccion, setTipoAccion] = useState<TipoTareaCliente>(
+    (TIPOS_TAREA_CLIENTE as readonly string[]).includes(tarea?.tipo_accion ?? '') ? tarea!.tipo_accion as TipoTareaCliente : 'llamada');
   const [descripcion, setDescripcion] = useState(tarea?.descripcion ?? '');
   const [vencimiento, setVencimiento] = useState(tarea?.vencimiento ?? diaAR(0));
   const [hora, setHora] = useState(horaCorta(tarea?.hora));
   const [prioridad, setPrioridad] = useState<'alta' | 'normal' | 'baja'>(tarea?.prioridad ?? 'normal');
   const [categoria, setCategoria] = useState<Categoria>(tarea?.categoria ?? 'compras');
-  const [proveedorId, setProveedorId] = useState(tarea?.proveedor_id ?? '');
+  const [proveedor, setProveedor] = useState<Contacto | null>(tarea?.proveedor_id
+    ? { id: tarea.proveedor_id, nombre: tarea.proveedor_nombre ?? 'Proveedor', detalle: tarea.proveedor_telefono ?? '' } : null);
   const [notas, setNotas] = useState(tarea?.notas ?? '');
   const [repetir, setRepetir] = useState<string>(tarea?.repetir ?? '');
   const [cadaDias, setCadaDias] = useState(tarea?.repetir_cada_dias ?? 15);
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [guardando, setGuardando] = useState(false);
-
-  useEffect(() => {
-    api.get<Proveedor[]>('/catalogo/proveedores').then(ps => setProveedores(ps.filter(p => p.activo !== false))).catch(() => {});
-  }, []);
+  const deCliente = ambito === 'cliente';
+  const completa = !!descripcion.trim() && !!vencimiento && (!deCliente || !!cliente);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -41,11 +48,12 @@ export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
   }, [onClose]);
 
   async function guardar() {
-    if (!descripcion.trim() || !vencimiento || guardando) return;
+    if (!completa || guardando) return;
     setGuardando(true);
     const body = {
-      descripcion: descripcion.trim(), vencimiento, hora: hora || null, prioridad, categoria,
-      proveedor_id: proveedorId || null, notas: notas.trim() || null,
+      ambito, cliente_id: deCliente ? cliente!.id : null, tipo_accion: deCliente ? tipoAccion : null,
+      descripcion: descripcion.trim(), vencimiento, hora: hora || null, prioridad, categoria: deCliente ? null : categoria,
+      proveedor_id: proveedor?.id ?? null, notas: notas.trim() || null,
       repetir: repetir || null, repetir_cada_dias: repetir === 'dias' ? Number(cadaDias) : null,
     };
     try {
@@ -63,7 +71,7 @@ export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
   }
 
   async function borrar() {
-    if (!tarea || guardando || !window.confirm('¿Borrar esta tarea interna?')) return;
+    if (!tarea || guardando || !window.confirm('¿Borrar esta tarea?')) return;
     setGuardando(true);
     try {
       await api.delete(`/agenda/tareas/${tarea.id}`);
@@ -86,21 +94,60 @@ export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[9100] flex items-end sm:items-center justify-center bg-black/50 sm:p-4" onClick={onClose}>
       <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92dvh] flex flex-col" onClick={e => e.stopPropagation()}
-        role="dialog" aria-modal="true" aria-label={tarea ? 'Editar tarea interna' : 'Nueva tarea interna'}>
+        role="dialog" aria-modal="true" aria-label={tarea ? 'Editar tarea' : 'Nueva tarea'}>
         <div className="px-5 py-4 border-b border-gray-200 flex items-center gap-2">
-          <Building2 size={18} className="text-orange-600" />
-          <h2 className="text-base font-bold text-gray-900">{tarea ? 'Editar tarea interna' : 'Nueva tarea interna'}</h2>
+          {deCliente ? <UserRound size={18} className="text-orange-600" /> : <Building2 size={18} className="text-orange-600" />}
+          <h2 className="text-base font-bold text-gray-900">{tarea ? 'Editar tarea' : 'Nueva tarea'}</h2>
           <button onClick={onClose} className="ml-auto p-1.5 rounded-lg hover:bg-gray-100" aria-label="Cerrar"><X size={18} /></button>
         </div>
 
         <div className="p-5 space-y-4 overflow-y-auto">
           <div>
+            <p className="text-xs font-semibold text-gray-700 mb-1.5">¿Para quién es?</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {([['interna', 'La empresa', Building2], ['cliente', 'Un cliente', UserRound]] as const).map(([v, l, Icono]) => (
+                <button key={v} type="button" onClick={() => setAmbito(v)} aria-pressed={ambito === v} data-testid={`ambito-${v}`}
+                  className={cn('flex items-center justify-center gap-1.5 h-10 px-2.5 rounded-lg border text-sm font-semibold transition-colors',
+                    ambito === v ? 'border-orange-500 bg-orange-50 text-orange-900 ring-1 ring-orange-400' : 'border-gray-200 text-gray-700 hover:bg-gray-50')}>
+                  <Icono size={15} /> {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {deCliente && (
+            <div>
+              <label className="text-xs font-semibold text-gray-700" htmlFor="ti-cli">Cliente</label>
+              <div className="mt-1"><BuscadorContacto id="ti-cli" tipo="cliente" valor={cliente} onChange={setCliente} autoFocus={!tarea} /></div>
+              <p className="text-[11px] text-gray-600 mt-1">Si todavía no está cargado, dalo de alta en Clientes y volvé.</p>
+            </div>
+          )}
+
+          <div>
             <label className="text-xs font-semibold text-gray-700" htmlFor="ti-desc">¿Qué hay que hacer?</label>
-            <input id="ti-desc" autoFocus value={descripcion} onChange={e => setDescripcion(e.target.value)} maxLength={500}
-              placeholder="Ej.: Comprar burletes y tornillos" className={cn(campo, 'mt-1')}
+            <input id="ti-desc" autoFocus={!deCliente} value={descripcion} onChange={e => setDescripcion(e.target.value)} maxLength={500}
+              placeholder={deCliente ? 'Ej.: Llamarlo para confirmar las medidas' : 'Ej.: Comprar burletes y tornillos'} className={cn(campo, 'mt-1')}
               onKeyDown={e => { if (e.key === 'Enter') guardar(); }} />
           </div>
 
+          {deCliente ? (
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-1.5">Tipo</p>
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                {TIPOS_TAREA_CLIENTE.map(k => {
+                  const m = TIPO_META[k];
+                  const Icono = m.icon;
+                  return (
+                    <button key={k} type="button" onClick={() => setTipoAccion(k)} aria-pressed={tipoAccion === k}
+                      className={cn('flex items-center gap-1.5 h-10 px-2.5 rounded-lg border text-xs font-semibold text-left transition-colors',
+                        tipoAccion === k ? 'border-orange-500 bg-orange-50 text-orange-900 ring-1 ring-orange-400' : 'border-gray-200 text-gray-700 hover:bg-gray-50')}>
+                      <Icono size={14} className={m.color} /> <span className="truncate">{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-1.5">Categoría</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -117,6 +164,7 @@ export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
               })}
             </div>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -160,10 +208,7 @@ export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
 
           <div>
             <label className="text-xs font-semibold text-gray-700" htmlFor="ti-prov">Proveedor <span className="font-normal text-gray-500">(opcional)</span></label>
-            <select id="ti-prov" value={proveedorId} onChange={e => setProveedorId(e.target.value)} className={cn(campo, 'mt-1')}>
-              <option value="">— Ninguno —</option>
-              {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
+            <div className="mt-1"><BuscadorContacto id="ti-prov" tipo="proveedor" valor={proveedor} onChange={setProveedor} /></div>
           </div>
 
           <div>
@@ -181,7 +226,7 @@ export function ModalTareaInterna({ tarea, onClose, onGuardada }: Props) {
             </button>
           )}
           <button onClick={onClose} className="h-10 px-4 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
-          <button onClick={guardar} disabled={!descripcion.trim() || !vencimiento || guardando}
+          <button onClick={guardar} disabled={!completa || guardando}
             className="h-10 px-5 rounded-lg bg-orange-600 text-white text-sm font-bold hover:bg-orange-700 disabled:opacity-50 inline-flex items-center gap-2">
             {guardando && <Loader2 size={15} className="animate-spin" />} {tarea ? 'Guardar' : 'Agendar'}
           </button>

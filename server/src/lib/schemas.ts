@@ -1105,17 +1105,25 @@ export const ReprogramarSchema = z.object({
   hora:      zHora.nullable().optional(),   // undefined = deja la hora; null = sin hora
 });
 
+// Tareas que se cargan a mano desde la Agenda: internas de la empresa (con categoría) o de un
+// cliente elegido del buscador (con el tipo de contacto). Las demás tareas de cliente nacen solas.
+export const TIPOS_TAREA_MANUAL = ['llamada', 'whatsapp', 'email', 'visita', 'nota'] as const;
 export const TareaInternaSchema = z.object({
+  ambito:            z.enum(['interna', 'cliente']).default('interna'),
+  cliente_id:        zUUID.nullable().optional(),
+  tipo_accion:       z.enum(TIPOS_TAREA_MANUAL).nullable().optional(),
   descripcion:       z.string().trim().min(1, 'Escribí qué hay que hacer').max(500),
   vencimiento:       zFecha,
   hora:              zHora.nullable().optional(),
   prioridad:         z.enum(['alta', 'normal', 'baja']).default('normal'),
-  categoria:         z.enum(['compras', 'proveedores', 'pagos', 'mantenimiento', 'personal', 'otro']),
+  categoria:         z.enum(['compras', 'proveedores', 'pagos', 'mantenimiento', 'personal', 'otro']).nullable().optional(),
   proveedor_id:      zUUID.nullable().optional(),
   notas:             zText(2000).nullable().optional(),
   repetir:           z.enum(['semanal', 'mensual', 'dias']).nullable().optional(),
   repetir_cada_dias: z.number().int().min(1).max(365).nullable().optional(),
-}).refine(t => t.repetir !== 'dias' || !!t.repetir_cada_dias, { message: 'Indicá cada cuántos días', path: ['repetir_cada_dias'] });
+}).refine(t => t.repetir !== 'dias' || !!t.repetir_cada_dias, { message: 'Indicá cada cuántos días', path: ['repetir_cada_dias'] })
+  .refine(t => t.ambito !== 'cliente' || !!t.cliente_id, { message: 'Elegí el cliente', path: ['cliente_id'] })
+  .refine(t => t.ambito !== 'interna' || !!t.categoria, { message: 'Elegí la categoría', path: ['categoria'] });
 
 export const RecotizacionSchema = z.object({
   operacion_id: zUUID,

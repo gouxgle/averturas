@@ -109,6 +109,16 @@ export function destinoDe(t: TareaAgenda): string | null {
   return t.cliente_id ? `/clientes/${t.cliente_id}` : null;
 }
 
+/** Tipos de contacto que se cargan a mano para un cliente desde la Agenda. */
+export const TIPOS_TAREA_CLIENTE = ['llamada', 'whatsapp', 'email', 'visita', 'nota'] as const;
+export type TipoTareaCliente = typeof TIPOS_TAREA_CLIENTE[number];
+
+/** Internas y las de cliente cargadas a mano; las espejo (entrega, visita, oportunidad…) se cambian en su origen. */
+export function esEditable(t: TareaAgenda): boolean {
+  if (t.ambito === 'interna') return true;
+  return (TIPOS_TAREA_CLIENTE as readonly string[]).includes(t.tipo_accion ?? '') && !t.visita_id && !t.remito_id && !t.oportunidad_id;
+}
+
 export const horaCorta = (h: string | null | undefined) => (h ? h.slice(0, 5) : '');
 
 /** "12:30" o "mañana 09:00" para la etiqueta "te recuerdo …". */

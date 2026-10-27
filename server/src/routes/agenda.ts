@@ -177,14 +177,23 @@ agenda.patch('/reprogramar', puedeEditar, async (c) => {
   }
 });
 
-// ── Tareas internas de la empresa ───────────────────────────────
+// ── Tareas cargadas a mano (internas o de un cliente) ───────────
 
-function datosInterna(b: ReturnType<typeof TareaInternaSchema.parse>) {
+// Se pueden editar y borrar las internas y las de cliente cargadas a mano (llamar, WhatsApp…);
+// nunca las espejo (entrega, visita, oportunidad, post venta, recotizar), que tienen su origen.
+const EDITABLE = `(t.ambito = 'interna' OR (t.tipo_accion IN ('llamada', 'whatsapp', 'email', 'visita', 'nota')
+  AND NOT EXISTS (SELECT 1 FROM visitas_tecnicas v WHERE v.tarea_id = t.id)
+  AND NOT EXISTS (SELECT 1 FROM remitos r WHERE r.tarea_id = t.id)
+  AND NOT EXISTS (SELECT 1 FROM oportunidades o WHERE o.tarea_id = t.id)))`;
+
+function datosTarea(b: ReturnType<typeof TareaInternaSchema.parse>) {
   const repetir = b.repetir ?? null;
+  const deCliente = b.ambito === 'cliente';
   return [
-    b.descripcion, b.vencimiento, b.hora || null, b.prioridad, b.categoria, b.proveedor_id || null, b.notas?.trim() || null,
-    repetir, repetir === 'dias' ? b.repetir_cada_dias : null,
+    b.descripcion, b.vencimiento, b.hora || null, b.prioridad, deCliente ? null : b.categoria, b.proveedor_id || null,
+    b.notas?.trim() || null, repetir, repetir === 'dias' ? b.repetir_cada_dias : null,
     repetir === 'mensual' ? Number(b.vencimiento.slice(8, 10)) : null,
+    b.ambito, deCliente ? b.cliente_id : null, deCliente ? (b.tipo_accion ?? 'nota') : 'nota',
   ];
 }
 
@@ -193,9 +202,9 @@ agenda.post('/tareas', puedeEditar, async (c) => {
   if (b instanceof Response) return b;
   const { rows: [row] } = await db.query(`
     INSERT INTO tareas (descripcion, vencimiento, hora, prioridad, categoria, proveedor_id, notas,
-                        repetir, repetir_cada_dias, repetir_dia_mes, ambito, tipo_accion, created_by)
-    VALUES ($1, $2::date, $3::time, $4, $5, $6, $7, $8, $9, $10, 'interna', 'nota', $11)
-    RETURNING id`, [...datosInterna(b), c.get('user').id]);
+                        repetir, repetir_cada_dias, repetir_dia_mes, ambito, cliente_id, tipo_accion, created_by)
+    VALUES ($1, $2::date, $3::time, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    RETURNING id`, [...datosTarea(b), c.get('user').id]);
   return c.json(row, 201);
 });
 
@@ -203,19 +212,20 @@ agenda.put('/tareas/:id', puedeEditar, async (c) => {
   const b = await validateBody(c, TareaInternaSchema);
   if (b instanceof Response) return b;
   const { rows: [row] } = await db.query(`
-    UPDATE tareas SET descripcion = $1, vencimiento = $2::date, hora = $3::time, prioridad = $4, categoria = $5,
-           proveedor_id = $6, notas = $7, repetir = $8, repetir_cada_dias = $9, repetir_dia_mes = $10
-     WHERE id = $11 AND ambito = 'interna'
-    RETURNING id`, [...datosInterna(b), c.req.param('id')]);
-  if (!row) return c.json({ error: 'Tarea interna no encontrada' }, 404);
+    UPDATE tareas t SET descripcion = $1, vencimiento = $2::date, hora = $3::time, prioridad = $4, categoria = $5,
+           proveedor_id = $6, notas = $7, repetir = $8, repetir_cada_dias = $9, repetir_dia_mes = $10,
+           ambito = $11, cliente_id = $12, tipo_accion = $13
+     WHERE t.id = $14 AND ${EDITABLE}
+    RETURNING t.id`, [...datosTarea(b), c.req.param('id')]);
+  if (!row) return c.json({ error: 'Tarea no encontrada o no se puede editar desde la agenda' }, 404);
   // Cambió la fecha o la hora: que vuelva a avisar
   await db.query('DELETE FROM tarea_recordatorios WHERE tarea_id = $1', [row.id]);
   return c.json({ id: row.id });
 });
 
 agenda.delete('/tareas/:id', puedeEditar, async (c) => {
-  const { rowCount } = await db.query(`DELETE FROM tareas WHERE id = $1 AND ambito = 'interna'`, [c.req.param('id')]);
-  if (!rowCount) return c.json({ error: 'Tarea interna no encontrada' }, 404);
+  const { rowCount } = await db.query(`DELETE FROM tareas t WHERE t.id = $1 AND ${EDITABLE}`, [c.req.param('id')]);
+  if (!rowCount) return c.json({ error: 'Tarea no encontrada o no se puede borrar desde la agenda' }, 404);
   return c.json({ ok: true });
 });
 
