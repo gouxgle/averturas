@@ -61,6 +61,8 @@ const VistaPublicaPresupuesto  = lazy(() => import('@/pages/VistaPublicaPresupue
 const VistaPublicaRemito       = lazy(() => import('@/pages/VistaPublicaRemito').then(m => ({ default: m.VistaPublicaRemito })));
 const VistaPublicaEncuesta     = lazy(() => import('@/pages/VistaPublicaEncuesta').then(m => ({ default: m.VistaPublicaEncuesta })));
 const Postventa                = lazy(() => import('@/pages/Postventa'));
+const ServiciosTecnicos        = lazy(() => import('@/pages/postventa/Servicios'));
+const DetalleServicio          = lazy(() => import('@/pages/postventa/DetalleServicio'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
@@ -125,6 +127,8 @@ export default function App() {
                   <Route path="/clientes/:id" element={<ClienteDetalle />} />
                   <Route path="/crm" element={<CRM />} />
                   <Route path="/postventa" element={<Postventa />} />
+                  <Route path="/postventa/servicios" element={<ServiciosTecnicos />} />
+                  <Route path="/postventa/servicios/:id" element={<DetalleServicio />} />
                   <Route path="/presupuestos" element={<Presupuestos />} />
                   <Route path="/presupuestos/nuevo" element={<NuevoPresupuesto />} />
                   <Route path="/presupuestos/visita-tecnica" element={<VisitaTecnica />} />

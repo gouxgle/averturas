@@ -5,7 +5,7 @@ import {
   Navigation, MessageCircle, Send, FileText, CheckCircle2, AlertTriangle,
   Shield, Building2, User, Hash, Calendar, Clock, Trash2,
   ChevronDown, ClipboardList, TrendingUp, Edit3, Receipt, Truck,
-  MoreVertical, Gift, Star, Target, DollarSign, Undo2,
+  MoreVertical, Gift, Star, Target, DollarSign, Undo2, Wrench,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -17,6 +17,9 @@ import { ElegirRemito } from '@/components/devoluciones/ElegirRemito';
 import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
 import { ModalOportunidad } from '@/components/oportunidades/ModalOportunidad';
 import type { Oportunidad } from '@/components/oportunidades/types';
+import { NuevoServicio } from '@/components/servicios/NuevoServicio';
+import { ListaServicios } from '@/pages/postventa/Servicios';
+import type { ServicioFila } from '@/lib/servicios';
 
 // ── Helpers ─────────────────────────────────────────────────
 const ESTADO_CLIENTE: Record<EstadoCliente, { label: string; color: string; bg: string; border: string }> = {
@@ -96,6 +99,7 @@ const TABS = [
   { key: 'operaciones',  label: 'Operaciones',  icon: ClipboardList },
   { key: 'remitos',      label: 'Remitos',      icon: Truck },
   { key: 'recibos',      label: 'Recibos',      icon: Receipt },
+  { key: 'servicios',    label: 'Servicios',    icon: Wrench },
   { key: 'beneficios',   label: 'Beneficios',   icon: Gift },
 ] as const;
 type TabKey = typeof TABS[number]['key'];
@@ -169,6 +173,9 @@ export function ClienteDetalle() {
   const [eligiendoRemito, setEligiendoRemito] = useState(false);
   const [devolverRemitoId, setDevolverRemitoId] = useState<string | null>(null);
   const [editandoOportunidad, setEditandoOportunidad] = useState<Oportunidad | null>(null);
+  // Garantías y servicios técnicos del cliente (todo su historial)
+  const [servicios, setServicios] = useState<ServicioFila[]>([]);
+  const [nuevoServicio, setNuevoServicio] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -189,8 +196,13 @@ export function ClienteDetalle() {
     } catch { /* silencioso */ }
   }
 
+  function cargarServicios() {
+    if (!id) return;
+    api.get<{ servicios: ServicioFila[] }>(`/servicios-tecnicos?cliente_id=${id}`).then(r => setServicios(r.servicios)).catch(() => {});
+  }
+
   useEffect(() => {
-    load(); cargarOportunidades();
+    load(); cargarOportunidades(); cargarServicios();
     if (id) api.get<{ saldo: number }>(`/clientes/${id}/saldo-favor`).then(r => setSaldoFavor(Number(r.saldo) || 0)).catch(() => setSaldoFavor(0));
   }, [id]);
 
@@ -441,6 +453,11 @@ export function ClienteDetalle() {
                     onClick={() => { setShowMore(false); setEligiendoRemito(true); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                     <Undo2 size={14} className="text-gray-600" /> Registrar devolución
+                  </button>
+                  <button type="button" data-testid="menu-nuevo-servicio"
+                    onClick={() => { setShowMore(false); setNuevoServicio(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Wrench size={14} className="text-gray-600" /> Servicio / garantía
                   </button>
                   <Link to={`/presupuestos/nuevo?cliente_id=${cliente.id}&cliente_nombre=${encodeURIComponent(nombre)}`}
                     className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -743,6 +760,7 @@ export function ClienteDetalle() {
                 else if (tab.key === 'operaciones') badge = operacionesActivas.length;
                 else if (tab.key === 'remitos') badge = remitos.length;
                 else if (tab.key === 'recibos') badge = recibos.length;
+                else if (tab.key === 'servicios') badge = servicios.length;
                 else if (tab.key === 'historial') badge = tareasPendientes.length;
                 return (
                   <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -1153,6 +1171,22 @@ export function ClienteDetalle() {
               </div>
             )}
 
+            {/* ── Tab: Servicios (garantías, reparaciones, mantenimientos) ── */}
+            {activeTab === 'servicios' && (
+              <div className="p-3 space-y-3" data-testid="tab-servicios-cliente">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-xs text-gray-600">Garantías, reparaciones y mantenimientos de este cliente, con cada visita y su firma.</p>
+                  <button onClick={() => setNuevoServicio(true)}
+                    className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold">
+                    <Wrench size={14} /> Nuevo servicio
+                  </button>
+                </div>
+                {servicios.length === 0
+                  ? <p className="py-8 text-center text-sm text-gray-500">Este cliente no tiene servicios técnicos.</p>
+                  : <ListaServicios servicios={servicios} onAbrir={sid => navigate(`/postventa/servicios/${sid}`)} />}
+              </div>
+            )}
+
             {/* ── Tab: Beneficios ──────────────────────── */}
             {activeTab === 'beneficios' && (
               <div className="py-14 text-center px-6">
@@ -1189,6 +1223,10 @@ export function ClienteDetalle() {
       {eligiendoRemito && (
         <ElegirRemito clienteId={cliente.id} clienteNombre={nombre} onClose={() => setEligiendoRemito(false)}
           onElegir={id => { setEligiendoRemito(false); setDevolverRemitoId(id); }} />
+      )}
+      {nuevoServicio && (
+        <NuevoServicio desde={{ cliente_id: cliente.id }} onClose={() => setNuevoServicio(false)}
+          onGuardado={sid => { setNuevoServicio(false); navigate(`/postventa/servicios/${sid}`); }} />
       )}
       {devolverRemitoId && (
         <AsistenteDevolucion origen={{ remito_id: devolverRemitoId }} onClose={() => setDevolverRemitoId(null)}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
-import { HeartHandshake, Loader2, Send, CalendarClock, X, Phone, MessageSquare, CheckCircle2, Ban, Settings2 } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { HeartHandshake, Loader2, Send, CalendarClock, X, Phone, MessageSquare, CheckCircle2, Ban, Settings2, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +10,9 @@ import { api } from '@/lib/api';
 import { cn, haceCuanto } from '@/lib/utils';
 import { SectionHero } from '@/components/SectionHero';
 import { Estrellas } from '@/components/postventa/Estrellas';
+import { VistasPostventa } from '@/components/servicios/VistasPostventa';
+import { NuevoServicio } from '@/components/servicios/NuevoServicio';
+import { ESTADO_SERVICIO, type EstadoServicio } from '@/lib/servicios';
 
 type Tab = 'hoy' | 'proximos' | 'enviados' | 'respondidos' | 'descartados';
 interface Seguimiento {
@@ -18,6 +21,7 @@ interface Seguimiento {
   comentario: string | null; motivo_descarte: string | null; operacion_id: string; cliente_id: string;
   puntaje_productos: number | null; puntaje_entrega: number | null; puntaje_atencion: number | null;
   operacion_numero: string; telefono: string | null; productos: string;
+  servicio: { id: string; numero: string; estado: EstadoServicio } | null;
   tipo_persona: string; nombre: string | null; apellido: string | null; razon_social: string | null;
 }
 interface Resumen {
@@ -47,7 +51,8 @@ export default function Postventa() {
   const [conteos, setConteos] = useState<Record<Tab, number> | null>(null);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [error, setError] = useState(false);
-  const [accion, setAccion] = useState<{ tipo: 'enviar' | 'respuesta' | 'reprogramar' | 'descartar'; s: Seguimiento } | null>(null);
+  const [accion, setAccion] = useState<{ tipo: 'enviar' | 'respuesta' | 'reprogramar' | 'descartar' | 'servicio'; s: Seguimiento } | null>(null);
+  const navigate = useNavigate();
 
   const cargar = useCallback(() => {
     api.get<{ seguimientos: Seguimiento[]; conteos: Record<Tab, number> }>(`/postventa?tab=${tab}`)
@@ -64,6 +69,8 @@ export default function Postventa() {
       <SectionHero section="crm" icon={HeartHandshake} title="Post venta"
         sub="Preguntarle al cliente cómo le fue unos días después de la entrega"
         actions={<HelpButton topic="postventa" />} />
+
+      <VistasPostventa />
 
       {resumen && <Indicadores r={resumen} esAdmin={user?.rol === 'admin'} onDias={cargar} />}
 
@@ -93,6 +100,10 @@ export default function Postventa() {
       {accion?.tipo === 'respuesta' && <ModalRespuesta s={accion.s} onClose={() => setAccion(null)} onHecho={hecho} />}
       {accion?.tipo === 'reprogramar' && <ModalReprogramar s={accion.s} onClose={() => setAccion(null)} onHecho={hecho} />}
       {accion?.tipo === 'descartar' && <ModalDescartar s={accion.s} onClose={() => setAccion(null)} onHecho={hecho} />}
+      {accion?.tipo === 'servicio' && (
+        <NuevoServicio desde={{ postventa_id: accion.s.id }} onClose={() => setAccion(null)}
+          onGuardado={id => { setAccion(null); navigate(`/postventa/servicios/${id}`); }} />
+      )}
     </div>
   );
 }
@@ -145,7 +156,7 @@ function Indicadores({ r, esAdmin, onDias }: { r: Resumen; esAdmin: boolean; onD
   );
 }
 
-function Tarjeta({ s, tab, puede, onAccion }: { s: Seguimiento; tab: Tab; puede: boolean; onAccion: (t: 'enviar' | 'respuesta' | 'reprogramar' | 'descartar') => void }) {
+function Tarjeta({ s, tab, puede, onAccion }: { s: Seguimiento; tab: Tab; puede: boolean; onAccion: (t: 'enviar' | 'respuesta' | 'reprogramar' | 'descartar' | 'servicio') => void }) {
   const btn = 'h-10 px-3 rounded-lg text-xs font-bold inline-flex items-center gap-1.5';
   return (
     <div className={cn('rounded-2xl border bg-white p-3 sm:p-4', s.estado === 'respondido' && bajo(s) ? 'border-red-400' : 'border-gray-300')} data-testid="postventa-tarjeta">
@@ -176,6 +187,19 @@ function Tarjeta({ s, tab, puede, onAccion }: { s: Seguimiento; tab: Tab; puede:
         </div>
       )}
       {s.estado === 'descartado' && s.motivo_descarte && <p className="mt-2 text-xs text-gray-600">Motivo: {s.motivo_descarte}</p>}
+
+      {s.servicio ? (
+        <Link to={`/postventa/servicios/${s.servicio.id}`} data-testid="postventa-servicio-vinculado"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-900 hover:bg-teal-100">
+          <Wrench size={13} /> Servicio {s.servicio.numero} · {ESTADO_SERVICIO[s.servicio.estado].label}
+        </Link>
+      ) : puede && s.estado !== 'descartado' && (
+        <button onClick={() => onAccion('servicio')} data-testid="postventa-generar-servicio"
+          className={cn('mt-2 h-10 px-3 rounded-lg text-xs font-bold inline-flex items-center gap-1.5',
+            s.estado === 'respondido' && bajo(s) ? 'bg-teal-700 text-white hover:bg-teal-800' : 'border border-teal-300 bg-white text-teal-800 hover:bg-teal-50')}>
+          <Wrench size={14} /> Generar servicio
+        </button>
+      )}
 
       {puede && ['pendiente', 'enviado'].includes(s.estado) && (
         <div className="mt-3 flex flex-wrap gap-2">

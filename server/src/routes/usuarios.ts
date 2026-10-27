@@ -11,6 +11,12 @@ function requireAdmin(rol: string) {
   return rol === 'admin';
 }
 
+// GET /activos — nombres para elegir un responsable (servicios técnicos); lo puede pedir cualquier usuario
+usuarios.get('/activos', async (c) => {
+  const { rows } = await db.query(`SELECT id, nombre FROM usuarios WHERE activo ORDER BY nombre`);
+  return c.json(rows);
+});
+
 usuarios.get('/', async (c) => {
   const user = c.get('user');
   if (!requireAdmin(user.rol)) return c.json({ error: 'Sin permisos' }, 403);

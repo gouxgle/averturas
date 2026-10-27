@@ -39,6 +39,8 @@ export interface TareaAgenda {
   remito_id: string | null;
   remito_numero: string | null;
   visita_id: string | null;
+  servicio_id?: string | null;
+  servicio_numero?: string | null;
   visita_numero: string | null;
   creada_por: string | null;
   completada_por: string | null;
@@ -65,6 +67,7 @@ export const TIPO_META: Record<string, Meta> = {
   oportunidad: { label: 'Oportunidad',     icon: Target,        color: 'text-fuchsia-600', bg: 'bg-fuchsia-100' },
   recotizar:   { label: 'Recotizar',       icon: FilePenLine,   color: 'text-orange-600',  bg: 'bg-orange-100' },
   postventa:   { label: 'Post venta',      icon: HeartHandshake, color: 'text-rose-600',   bg: 'bg-rose-100' },
+  servicio:    { label: 'Servicio técnico', icon: Wrench,       color: 'text-teal-700',    bg: 'bg-teal-100' },
   nota:        { label: 'Tarea',           icon: StickyNote,    color: 'text-gray-600',    bg: 'bg-gray-100' },
 };
 
@@ -102,6 +105,7 @@ export function telefonoDe(t: TareaAgenda): string | null {
 export function destinoDe(t: TareaAgenda): string | null {
   if (t.tipo_accion === 'recotizar' && t.operacion_id) return `/presupuestos/${t.operacion_id}/editar`;
   if (t.tipo_accion === 'postventa') return '/postventa';
+  if (t.servicio_id) return `/postventa/servicios/${t.servicio_id}`;
   if (t.visita_id) return `/presupuestos/visitas-tecnicas/${t.visita_id}`;
   if (t.remito_id && t.remito_numero) return `/remitos?q=${encodeURIComponent(t.remito_numero)}`;
   if (t.ambito === 'interna') return t.proveedor_nombre ? `/proveedores?q=${encodeURIComponent(t.proveedor_nombre)}` : null;

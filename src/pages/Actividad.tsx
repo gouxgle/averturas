@@ -30,6 +30,7 @@ const ENTIDAD_LABEL: Record<string, string> = {
   compra: 'Compra',
   devolucion: 'Devolución',
   lista_precios: 'Lista de precios',
+  servicio_tecnico: 'Servicio técnico',
 };
 
 const ACCION_CFG: Record<string, { label: string; cls: string }> = {
@@ -53,6 +54,7 @@ const ACCION_CFG: Record<string, { label: string; cls: string }> = {
   adjudicar:            { label: 'Adjudicó',         cls: 'bg-emerald-100 text-emerald-700' },
   cerrar_cotizacion:    { label: 'Cerró cotización', cls: 'bg-gray-100 text-gray-600' },
   crear_oc:             { label: 'Orden de compra',  cls: 'bg-lime-100 text-lime-700' },
+  programar:            { label: 'Programó',         cls: 'bg-orange-100 text-orange-700' },
 };
 
 function accionCfg(a: string) {
@@ -67,6 +69,7 @@ const ENTIDAD_FILTROS: { v: string; l: string }[] = [
   { v: 'devolucion', l: 'Devoluciones' },
   { v: 'compra', l: 'Compras' },
   { v: 'lista_precios', l: 'Listas de precios' },
+  { v: 'servicio_tecnico', l: 'Servicios técnicos' },
 ];
 
 const PAGE = 50;

@@ -34,7 +34,9 @@ const FILAS = `
   GREATEST(CURRENT_DATE - ps.fecha_contacto, 0)::int AS dias_atraso,
   ps.enviado_at, ps.respondido_at, ps.canal_respuesta, ps.comentario, ps.motivo_descarte, ps.operacion_id, ps.cliente_id,
   ps.puntaje_productos, ps.puntaje_entrega, ps.puntaje_atencion,
-  op.numero AS operacion_numero, cl.telefono, cl.tipo_persona, cl.nombre, cl.apellido, cl.razon_social`;
+  op.numero AS operacion_numero, cl.telefono, cl.tipo_persona, cl.nombre, cl.apellido, cl.razon_social,
+  (SELECT json_build_object('id', st.id, 'numero', st.numero, 'estado', st.estado) FROM servicios_tecnicos st
+    WHERE st.postventa_seguimiento_id = ps.id ORDER BY st.created_at DESC LIMIT 1) AS servicio`;
 
 const linkEncuesta = (token: string) => `${(process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')}/e/${token}`;
 

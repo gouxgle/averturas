@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { X, FileText, ImagePlus, RefreshCw, Trash2, Check, Search } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { X, RefreshCw, Trash2, Check, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { BadgeProveedor } from '@/components/BadgeProveedor';
-import { esPdf, subirAdjunto, resumenEspecificaciones, type Especificaciones, type ProveedorMin } from './tipos';
+import { resumenEspecificaciones, type Especificaciones, type ProveedorMin } from './tipos';
 import { detalleFicha, esFichaConfigurada } from '@/lib/configuradorAbertura';
 import { esquemaAberturaSVG } from '@/lib/esquemaAbertura';
 
@@ -151,63 +151,7 @@ export function FichaTecnica({ e, className, completa }: { e: Especificaciones |
   );
 }
 
-/** Miniaturas de adjuntos (imágenes y PDFs) con quitar opcional. */
-export function AdjuntosGrid({ urls, onRemove, size = 'md' }: { urls: string[]; onRemove?: (url: string) => void; size?: 'sm' | 'md' }) {
-  if (!urls?.length) return null;
-  const dim = size === 'sm' ? 'w-12 h-12' : 'w-20 h-20';
-  return (
-    <div className="flex flex-wrap gap-2">
-      {urls.map(u => (
-        <div key={u} className={cn('relative group rounded-lg border border-gray-200 overflow-hidden bg-gray-50', dim)}>
-          <a href={u} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-            {esPdf(u)
-              ? <div className="w-full h-full flex flex-col items-center justify-center text-red-600 gap-0.5"><FileText size={size === 'sm' ? 16 : 22} /><span className="text-[9px] font-bold">PDF</span></div>
-              : <img src={u} alt="" className="w-full h-full object-cover" />}
-          </a>
-          {onRemove && (
-            <button type="button" onClick={() => onRemove(u)} title="Quitar"
-              className="absolute top-0.5 right-0.5 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 sm:transition-opacity">
-              <X size={10} />
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Dropzone de adjuntos (click / arrastrar / pegar), sube a /compras/adjuntos. */
-export function DropzoneAdjuntos({ onAdd, compacto, accept = 'image/*,application/pdf' }: { onAdd: (url: string) => void; compacto?: boolean; accept?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [subiendo, setSubiendo] = useState(false);
-
-  async function subir(files: FileList | File[]) {
-    setSubiendo(true);
-    try {
-      for (const f of Array.from(files)) {
-        const r = await subirAdjunto(f);
-        onAdd(r.url);
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al subir');
-    } finally { setSubiendo(false); }
-  }
-
-  return (
-    <div tabIndex={0}
-      onPaste={e => { const fs = Array.from(e.clipboardData.files ?? []); if (fs.length) { e.preventDefault(); subir(fs); } }}
-      onDrop={e => { e.preventDefault(); if (e.dataTransfer.files?.length) subir(e.dataTransfer.files); }}
-      onDragOver={e => e.preventDefault()}
-      onClick={() => ref.current?.click()}
-      className={cn('flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-lime-400 hover:bg-lime-50/40 transition-colors focus:outline-none focus:ring-2 focus:ring-lime-300',
-        compacto ? 'py-2 px-3' : 'py-4 px-3')}>
-      {subiendo ? <RefreshCw size={18} className="text-gray-500 animate-spin" /> : <ImagePlus size={18} className="text-gray-500" />}
-      <p className="text-xs text-gray-600 text-center">{compacto ? 'Agregar foto o PDF' : 'Fotos, planos o PDF — hacé click, arrastrá o pegá (Ctrl+V)'}</p>
-      <input ref={ref} type="file" accept={accept} multiple className="hidden"
-        onChange={e => { if (e.target.files?.length) subir(e.target.files); e.target.value = ''; }} />
-    </div>
-  );
-}
+export { AdjuntosGrid, DropzoneAdjuntos } from '@/components/Adjuntos';
 
 /** Lista de proveedores con búsqueda y selección simple o múltiple. */
 export function SelectorProveedores({ proveedores, seleccionados, onChange, multiple = true, sugeridoId, max = 8 }: {

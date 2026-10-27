@@ -10,7 +10,7 @@ import {
   CreditCard, Truck, MapPin, Gift, Building2, Package,
   ChevronLeft, ChevronRight, MoreVertical, AlertTriangle,
   Clock, MessageSquare, List, LayoutGrid, Download, Flame, Receipt, ShoppingCart, Ruler, Target,
-  Eye, EyeOff, Undo2, Loader2,
+  Eye, EyeOff, Undo2, Loader2, Wrench,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
@@ -24,6 +24,7 @@ import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
 import { RevisionesEnviadas } from '@/components/RevisionesEnviadas';
 import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
 import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
+import { NuevoServicio } from '@/components/servicios/NuevoServicio';
 import { FranjaRecotizar } from '@/components/agenda/FranjaRecotizar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -378,6 +379,7 @@ function PresupuestoModal({
   const [cambiando, setCambiando]         = useState(false);
   const [confirmarDesaprobar, setConfirmarDesaprobar] = useState(false);
   const [devolviendo, setDevolviendo]     = useState(false);
+  const [generandoServicio, setGenerandoServicio] = useState(false);
   const [desaprobando, setDesaprobando]   = useState(false);
   const [resolviendo, setResolviendo]     = useState(false);
   const [linkUrl, setLinkUrl]             = useState<string | null>(null);
@@ -1127,12 +1129,20 @@ function PresupuestoModal({
             {/* Devolución: solo si ya se entregó o instaló algo (el asistente avisa si no hay mercadería entregada) */}
             {['instalado', 'entregado'].includes(op.estado) && (
               <div className="px-5 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Devolución</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Post venta</span>
                 <button onClick={() => setDevolviendo(true)}
                   className="h-11 sm:h-auto flex items-center justify-center gap-1.5 px-3 sm:py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold">
                   <Undo2 size={13} /> Registrar devolución
                 </button>
+                <button onClick={() => setGenerandoServicio(true)} data-testid="btn-generar-servicio-op"
+                  className="h-11 sm:h-auto flex items-center justify-center gap-1.5 px-3 sm:py-1.5 rounded-lg border border-teal-300 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold">
+                  <Wrench size={13} /> Generar servicio / garantía
+                </button>
               </div>
+            )}
+            {generandoServicio && (
+              <NuevoServicio desde={{ operacion_id: op.id }} onClose={() => setGenerandoServicio(false)}
+                onGuardado={sid => { setGenerandoServicio(false); navigate(`/postventa/servicios/${sid}`); }} />
             )}
             {devolviendo && (
               <AsistenteDevolucion origen={{ operacion_id: op.id }} onClose={() => setDevolviendo(false)}
