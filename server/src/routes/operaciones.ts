@@ -1431,6 +1431,13 @@ operaciones.post('/', async (c) => {
 
     await guardarBonificacion(client, op.id, b);
 
+    if (b.servicio_tecnico_id) {
+      // Solo si el servicio es del mismo cliente (si no, el presupuesto se guarda igual, sin vínculo)
+      await client.query(`
+        UPDATE operaciones o SET servicio_tecnico_id = s.id FROM servicios_tecnicos s
+         WHERE o.id = $1 AND s.id = $2 AND s.cliente_id = o.cliente_id`, [op.id, b.servicio_tecnico_id]);
+    }
+
     if (b.visita_tecnica_id) {
       await client.query(`
         UPDATE visitas_tecnicas SET operacion_id=$1, estado='convertida', updated_at=now()

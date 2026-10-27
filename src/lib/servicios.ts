@@ -35,6 +35,11 @@ export interface ServicioDetalle extends ServicioFila {
   otros_servicios: { id: string; numero: string; tipo: TipoServicio; estado: EstadoServicio; fecha_reclamo: string; problema: string }[];
   recibos: { id: string; numero: string; monto_total: string; forma_pago: string; estado: string; fecha: string }[];
   presupuestos: { id: string; numero: string; estado: string; precio_total: string }[];
+  reclamos: {
+    clase: 'incidencia' | 'solicitud'; id: string; numero: string; estado: string; tipo: string | null; descripcion: string | null;
+    solucion: string | null; respuesta_proveedor: string | null; created_at: string;
+    pedido_id: string | null; pedido_numero: string | null; proveedor: string | null;
+  }[];
 }
 export type ServicioConIntervenciones = Omit<ServicioDetalle, 'intervenciones'> & { intervenciones: Intervencion[] };
 

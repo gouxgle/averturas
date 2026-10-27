@@ -35,6 +35,9 @@ describe.skipIf(!process.env.DATABASE_URL)('servicios técnicos', () => {
     ids.ri = (await db.query(`INSERT INTO remito_items (remito_id, descripcion, cantidad, operacion_item_id) VALUES ($1, 'Ventana corrediza 150x110', 1, $2) RETURNING id`, [ids.rem, ids.oi])).rows[0].id;
     ids.pv = (await db.query(`INSERT INTO postventa_seguimientos (cliente_id, operacion_id, remito_id, fecha_entrega, fecha_contacto, estado, puntaje_productos, comentario)
       VALUES ($1, $2, $3, CURRENT_DATE - 60, CURRENT_DATE - 57, 'respondido', 2, 'La hoja se traba') RETURNING id`, [ids.cli, ids.op, ids.rem])).rows[0].id;
+    ids.prov = (await db.query(`INSERT INTO proveedores (nombre) VALUES ('__test_servicios__') RETURNING id`)).rows[0].id;
+    ids.ped = (await db.query(`INSERT INTO pedidos (numero, proveedor_id, operacion_id, estado_logistica) VALUES ('OC-TEST-SERV', $1, $2, 'recibida') RETURNING id`, [ids.prov, ids.op])).rows[0].id;
+    ids.pi = (await db.query(`INSERT INTO pedido_items (pedido_id, descripcion, cantidad, operacion_item_id) VALUES ($1, 'Ventana corrediza 150x110', 1, $2) RETURNING id`, [ids.ped, ids.oi])).rows[0].id;
     app = new Hono();
     app.use('*', async (c, next) => { (c as unknown as { set: (k: string, v: unknown) => void }).set('user', { id: ids.usr, rol, nombre: 'Técnico Test' }); await next(); });
     app.route('/api/servicios-tecnicos', (await import('../routes/serviciosTecnicos.js')).serviciosTecnicos);
@@ -47,6 +50,20 @@ describe.skipIf(!process.env.DATABASE_URL)('servicios técnicos', () => {
     for (const s of rows) {
       await db.query(`DELETE FROM servicios_tecnicos WHERE id = $1`, [s.id]);
       for (const t of [s.tarea_id, s.recontacto_tarea_id].filter(Boolean)) await db.query(`DELETE FROM tareas WHERE id = $1`, [t]);
+    }
+    await db.query(`DELETE FROM compras_incidencias WHERE pedido_id = $1`, [ids.ped]);
+    await db.query(`DELETE FROM pedido_items WHERE pedido_id = $1`, [ids.ped]);
+    await db.query(`DELETE FROM pedidos WHERE id = $1`, [ids.ped]);
+    await db.query(`DELETE FROM proveedores WHERE id = $1`, [ids.prov]);
+    const { rows: scs } = await db.query(`SELECT id FROM compras_solicitudes WHERE cliente_id = $1`, [ids.cli]);
+    for (const sc of scs) {
+      await db.query(`DELETE FROM compras_solicitud_items WHERE solicitud_id = $1`, [sc.id]);
+      await db.query(`DELETE FROM compras_solicitudes WHERE id = $1`, [sc.id]);
+    }
+    const { rows: recs } = await db.query(`SELECT id FROM recibos WHERE cliente_id = $1`, [ids.cli]);
+    for (const r of recs) {
+      await db.query(`DELETE FROM recibo_items WHERE recibo_id = $1`, [r.id]);
+      await db.query(`DELETE FROM recibos WHERE id = $1`, [r.id]);
     }
     await db.query(`DELETE FROM tareas WHERE cliente_id = $1`, [ids.cli]);
     await db.query(`DELETE FROM interacciones WHERE cliente_id = $1`, [ids.cli]);
@@ -180,6 +197,60 @@ describe.skipIf(!process.env.DATABASE_URL)('servicios técnicos', () => {
     const bytes = Buffer.from(await pdf.arrayBuffer());
     expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
   }, 60_000);
+
+  it('cobro, reclamo al proveedor (con OC y sin OC) y consulta posterior', async () => {
+    const id = servicios[0];   // finalizado por la firma
+    let d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    // La firma que cerró el servicio agendó la consulta posterior
+    expect(d.recontacto_fecha).toBeTruthy();
+    const { rows: [t] } = await db.query(`SELECT tipo_accion, completada FROM tareas WHERE id = (SELECT recontacto_tarea_id FROM servicios_tecnicos WHERE id = $1)`, [id]);
+    expect(t).toMatchObject({ tipo_accion: 'seguimiento', completada: false });
+
+    // Cobro directo
+    expect((await req('POST', `/servicios-tecnicos/${id}/cobrar`, { monto: 15000, forma_pago: 'Saldo a favor' })).status).toBe(400);
+    const cobro = await req('POST', `/servicios-tecnicos/${id}/cobrar`, { monto: 15000, forma_pago: 'Efectivo' });
+    expect(cobro.status).toBe(201);
+    d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    expect(d.recibos).toHaveLength(1);
+    expect(Number(d.recibos[0].monto_total)).toBe(15000);
+
+    // Sigue con problemas → se reabre y deja la consulta hecha
+    expect((await req('PATCH', `/servicios-tecnicos/${id}/recontacto`, { resultado: 'sigue_con_problemas' })).status).toBe(200);
+    d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    expect(d).toMatchObject({ estado: 'pendiente_coordinar', recontacto_resultado: 'sigue_con_problemas' });
+    expect((await req('PATCH', `/servicios-tecnicos/${id}/recontacto`, { resultado: 'funciona' })).status).toBe(409);
+
+    // Reclamo: el producto vino de una OC → incidencia sobre esa línea
+    const rec = await req('POST', `/servicios-tecnicos/${id}/reclamo-proveedor`, { tipo: 'error_fabricacion', descripcion: 'Rueda defectuosa', cantidad: 1 });
+    expect(rec.status).toBe(201);
+    expect(rec.json.clase).toBe('incidencia');
+    const { rows: [inc] } = await db.query(`SELECT pedido_item_id, servicio_tecnico_id, estado FROM compras_incidencias WHERE id = $1`, [rec.json.id]);
+    expect(inc).toMatchObject({ pedido_item_id: ids.pi, servicio_tecnico_id: id, estado: 'abierta' });
+    expect((await db.query(`SELECT estado_calidad FROM pedidos WHERE id = $1`, [ids.ped])).rows[0].estado_calidad).not.toBe('sin_reclamos');
+    d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    expect(d.estado).toBe('pendiente_repuesto');
+    expect(d.reclamos.map((r: { clase: string }) => r.clase)).toEqual(['incidencia']);
+
+    // Sin OC (producto escrito a mano) → solicitud de compra de garantía
+    const suelto = await req('POST', '/servicios-tecnicos', { cliente_id: ids.cli, tipo: 'reparacion', problema: 'Persiana trabada', fecha_reclamo: '2026-10-27', producto_descripcion: 'Persiana del dormitorio' });
+    servicios.push(suelto.json.id);
+    const sc = await req('POST', `/servicios-tecnicos/${suelto.json.id}/reclamo-proveedor`, { tipo: 'otro', descripcion: 'Necesitamos la cinta', cantidad: 2 });
+    expect(sc.json.clase).toBe('solicitud');
+    const { rows: [scr] } = await db.query(`SELECT origen, servicio_tecnico_id, (SELECT cantidad FROM compras_solicitud_items WHERE solicitud_id = s.id) AS cant FROM compras_solicitudes s WHERE id = $1`, [sc.json.id]);
+    expect(scr).toMatchObject({ origen: 'garantia', servicio_tecnico_id: suelto.json.id, cant: '2.00' });
+
+    // Finalizar a mano → nueva consulta; reabrir la anula; finalizar y "funciona" la cierra
+    expect((await req('PATCH', `/servicios-tecnicos/${id}/estado`, { estado: 'finalizado' })).status).toBe(200);
+    const tarea1 = (await db.query(`SELECT recontacto_tarea_id AS t FROM servicios_tecnicos WHERE id = $1`, [id])).rows[0].t;
+    expect(tarea1).toBeTruthy();
+    expect((await req('PATCH', `/servicios-tecnicos/${id}/estado`, { estado: 'pendiente_coordinar' })).status).toBe(200);
+    expect((await db.query(`SELECT count(*)::int AS n FROM tareas WHERE id = $1`, [tarea1])).rows[0].n).toBe(0);
+    await req('PATCH', `/servicios-tecnicos/${id}/estado`, { estado: 'finalizado' });
+    expect((await req('PATCH', `/servicios-tecnicos/${id}/recontacto`, { resultado: 'funciona' })).status).toBe(200);
+    d = (await req('GET', `/servicios-tecnicos/${id}`)).json;
+    expect(d).toMatchObject({ estado: 'finalizado', recontacto_resultado: 'funciona' });
+    expect((await db.query(`SELECT completada FROM tareas WHERE id = (SELECT recontacto_tarea_id FROM servicios_tecnicos WHERE id = $1)`, [id])).rows[0].completada).toBe(true);
+  });
 
   it('valida el producto y el rol consulta solo lee', async () => {
     const ajeno = (await db.query(`INSERT INTO clientes (tipo_persona, nombre) VALUES ('fisica','Ajeno Zzz') RETURNING id`)).rows[0].id;

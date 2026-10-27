@@ -11,8 +11,13 @@ import { siguienteNumero } from '../lib/numeracion.js';
 import { generarPDFServicio } from '../lib/pdf.js';
 import { enviarWhatsappPdf } from '../lib/whatsapp.js';
 import {
-  ESTADOS_SERVICIO, TIPO_SERVICIO_LABEL, productosEntregadosDelCliente, sincronizarTareaServicio, type EstadoServicio,
+  ESTADOS_SERVICIO, TIPO_SERVICIO_LABEL, productosEntregadosDelCliente, sincronizarTareaServicio, programarRecontacto,
+  anularRecontacto, type EstadoServicio,
 } from '../lib/serviciosTecnicos.js';
+import { nextNumeroRecibo } from './recibos.js';
+import { nextNumeroCompra, recalcularEstadoCalidad, actualizarCierreTotal } from '../lib/compras.js';
+import { TIPOS_INCIDENCIA } from '../lib/schemas.js';
+import { FORMA_PAGO_SALDO_FAVOR } from '../lib/saldoFavor.js';
 
 // Garantías y servicios técnicos (Post venta): la ficha de cada reclamo o pedido de servicio, desde que el cliente
 // avisa hasta que se cierra. Plan y decisiones en ~/.claude/plans (2026-10-27).
@@ -193,7 +198,7 @@ serviciosTecnicos.get('/:id', async (c) => {
       FROM servicios_tecnicos s ${JOINS} LEFT JOIN usuarios uc ON uc.id = s.created_by
      WHERE s.id = $1`, [id]);
   if (!s) return c.json({ error: 'Servicio no encontrado' }, 404);
-  const [{ rows: intervenciones }, { rows: otros }, { rows: recibos }, { rows: presupuestos }] = await Promise.all([
+  const [{ rows: intervenciones }, { rows: otros }, { rows: recibos }, { rows: presupuestos }, { rows: reclamos }] = await Promise.all([
     db.query(`
       SELECT i.*, i.fecha::text AS fecha, COALESCE(u.nombre, i.tecnico_nombre) AS tecnico
         FROM servicio_intervenciones i LEFT JOIN usuarios u ON u.id = i.tecnico_id
@@ -209,8 +214,18 @@ serviciosTecnicos.get('/:id', async (c) => {
       : Promise.resolve({ rows: [] }),
     db.query(`SELECT id, numero, monto_total, forma_pago, estado, fecha::text AS fecha FROM recibos WHERE servicio_tecnico_id = $1 ORDER BY created_at`, [id]),
     db.query(`SELECT id, numero, estado, precio_total FROM operaciones WHERE servicio_tecnico_id = $1 ORDER BY created_at`, [id]),
+    // Reclamos al proveedor: incidencias sobre la OC original o solicitudes de repuesto
+    db.query(`
+      SELECT 'incidencia' AS clase, i.id, i.numero, i.estado, i.tipo, i.descripcion, i.solucion, i.respuesta_proveedor, i.created_at,
+             p.id AS pedido_id, p.numero AS pedido_numero, pr.nombre AS proveedor
+        FROM compras_incidencias i JOIN pedidos p ON p.id = i.pedido_id LEFT JOIN proveedores pr ON pr.id = p.proveedor_id
+       WHERE i.servicio_tecnico_id = $1
+      UNION ALL
+      SELECT 'solicitud', sc.id, sc.numero, sc.estado, NULL, sc.observaciones, NULL, NULL, sc.created_at, NULL, NULL, NULL
+        FROM compras_solicitudes sc WHERE sc.servicio_tecnico_id = $1
+      ORDER BY created_at`, [id]),
   ]);
-  return c.json({ ...s, intervenciones, otros_servicios: otros, recibos, presupuestos });
+  return c.json({ ...s, intervenciones, otros_servicios: otros, recibos, presupuestos, reclamos });
 });
 
 // ── Alta y edición ─────────────────────────────────────────────────────────────────────────────
@@ -382,6 +397,8 @@ serviciosTecnicos.patch('/:id/estado', async (c) => {
         hora_visita = CASE WHEN $2 = 'pendiente_coordinar' THEN NULL ELSE hora_visita END
       WHERE id = $1`, [id, b.estado, reabre]);
     await sincronizarTareaServicio(client, id);
+    if (b.estado === 'finalizado') await programarRecontacto(client, id, c.get('user').id);
+    if (reabre) await anularRecontacto(client, id);
     if (reabre || b.estado === 'finalizado') {
       await client.query(`INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, 'nota', $2, $3)`,
         [s.cliente_id, `Servicio ${s.numero} ${reabre ? 'reabierto' : 'finalizado'}${b.nota ? `: ${b.nota}` : ''}`, c.get('user').id]);
@@ -608,6 +625,7 @@ serviciosTecnicos.post('/:id/intervenciones/:iid/firmar', async (c) => {
     if (finaliza) {
       await client.query(`UPDATE servicios_tecnicos SET estado = 'finalizado', finalizado_at = now(), updated_at = now() WHERE id = $1`, [id]);
       await sincronizarTareaServicio(client, id);
+      await programarRecontacto(client, id, c.get('user').id);
     }
     await client.query(`INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by) VALUES ($1, $2, 'nota', $3, $4)`,
       [s.cliente_id, s.operacion_id,
@@ -695,4 +713,156 @@ serviciosTecnicos.post('/:id/intervenciones/:iid/enviar-whatsapp', async (c) => 
   await db.query(`INSERT INTO interacciones (cliente_id, operacion_id, tipo, descripcion, created_by) VALUES ($1, $2, 'whatsapp', $3, $4)`,
     [s.cliente_id, s.operacion_id, `Ficha del servicio ${r.d.numero} (visita ${r.d.orden}) enviada por WhatsApp`, c.get('user').id]);
   return c.json({ ok: true });
+});
+
+// ── Cobro, reclamo al proveedor y consulta posterior ───────────────────────────────────────────
+
+const CobrarSchema = z.object({
+  monto: z.number().positive('El importe debe ser mayor a 0').max(1e10),
+  forma_pago: zTexto(150).min(1, 'Elegí la forma de pago').refine(f => f !== FORMA_PAGO_SALDO_FAVOR, 'El saldo a favor se usa desde Recibos'),
+  referencia_pago: zTexto(200).nullish(),
+  concepto: zTexto(300).nullish(),
+});
+
+// POST /:id/cobrar — recibo directo por un trabajo simple (sin presupuesto). Queda vinculado al servicio y en la cuenta
+// del cliente como cualquier recibo; si lleva repuestos o hay que pasar precio antes, se arma un presupuesto.
+serviciosTecnicos.post('/:id/cobrar', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const id = c.req.param('id');
+  if (!uuid.safeParse(id).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, CobrarSchema);
+  if (b instanceof Response) return b;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [s] } = await client.query(`SELECT numero, cliente_id, tipo, estado, producto_descripcion FROM servicios_tecnicos WHERE id = $1 FOR UPDATE`, [id]);
+    if (!s) { await client.query('ROLLBACK'); return c.json({ error: 'Servicio no encontrado' }, 404); }
+    if (s.estado === 'cancelado') { await client.query('ROLLBACK'); return c.json({ error: 'El servicio está cancelado' }, 409); }
+    const numero = await nextNumeroRecibo(client);
+    const concepto = b.concepto?.trim() || `Servicio técnico ${s.numero}${s.producto_descripcion ? ` — ${s.producto_descripcion}` : ''}`;
+    const { rows: [rec] } = await client.query(`
+      INSERT INTO recibos (numero, cliente_id, operacion_id, monto_total, forma_pago, referencia_pago, concepto,
+                           monto_lista, monto_descuento, descuento_pct, created_by, servicio_tecnico_id)
+      VALUES ($1, $2, NULL, $3, $4, $5, $6, $3, 0, 0, $7, $8) RETURNING id, numero, monto_total`,
+      [numero, s.cliente_id, b.monto, b.forma_pago, b.referencia_pago?.trim() || null, concepto, c.get('user').id, id]);
+    await client.query(`INSERT INTO recibo_items (recibo_id, descripcion, cantidad, monto, orden) VALUES ($1, $2, 1, $3, 0)`,
+      [rec.id, concepto, b.monto]);
+    await client.query('COMMIT');
+    registrarActividad(c, { entidad: 'recibo', entidad_id: rec.id, entidad_numero: rec.numero, accion: 'crear', detalle: `Cobro del servicio ${s.numero}` });
+    return c.json(rec, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+const ReclamoSchema = z.object({
+  tipo: z.enum(TIPOS_INCIDENCIA),
+  descripcion: zTexto(2000).min(3, 'Describí la falla'),
+  cantidad: z.number().positive().max(10000).default(1),
+});
+
+// POST /:id/reclamo-proveedor — si el producto salió de una orden de compra, abre el reclamo (REC-) sobre esa línea y
+// sigue el circuito de reclamos de Compras; si no (stock, fabricación propia, producto ajeno), crea una solicitud de
+// compra de garantía para pedir el repuesto. Las fotos y videos del servicio viajan con el reclamo.
+serviciosTecnicos.post('/:id/reclamo-proveedor', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const id = c.req.param('id');
+  if (!uuid.safeParse(id).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, ReclamoSchema);
+  if (b instanceof Response) return b;
+  const user = c.get('user');
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [s] } = await client.query(`
+      SELECT numero, cliente_id, operacion_id, operacion_item_id, producto_descripcion, adjuntos, estado
+        FROM servicios_tecnicos WHERE id = $1 FOR UPDATE`, [id]);
+    if (!s) { await client.query('ROLLBACK'); return c.json({ error: 'Servicio no encontrado' }, 404); }
+    if (['finalizado', 'cancelado'].includes(s.estado)) {
+      await client.query('ROLLBACK');
+      return c.json({ error: 'El servicio está cerrado: reabrilo para reclamar al proveedor' }, 409);
+    }
+    const detalle = `Servicio ${s.numero}: ${b.descripcion}`;
+    const { rows: [pi] } = s.operacion_item_id ? await client.query(`
+      SELECT pi.id, pi.pedido_id FROM pedido_items pi JOIN pedidos p ON p.id = pi.pedido_id
+       WHERE pi.operacion_item_id = $1 AND p.estado_logistica <> 'cancelada' AND NOT COALESCE(pi.es_reposicion_reclamo, false)
+       ORDER BY p.created_at DESC LIMIT 1`, [s.operacion_item_id]) : { rows: [] };
+
+    let resultado: { clase: 'incidencia' | 'solicitud'; id: string; numero: string };
+    if (pi) {
+      const numero = await nextNumeroCompra(client, 'REC');
+      const { rows: [inc] } = await client.query(`
+        INSERT INTO compras_incidencias (numero, pedido_id, pedido_item_id, tipo, cantidad_afectada, descripcion, adjuntos, created_by, servicio_tecnico_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9) RETURNING id, numero`,
+        [numero, pi.pedido_id, pi.id, b.tipo, b.cantidad, detalle, JSON.stringify(s.adjuntos ?? []), user.id, id]);
+      await recalcularEstadoCalidad(client, pi.pedido_id);
+      await actualizarCierreTotal(client, pi.pedido_id);
+      resultado = { clase: 'incidencia', ...inc };
+    } else {
+      const numero = await nextNumeroCompra(client, 'SC');
+      const { rows: [sc] } = await client.query(`
+        INSERT INTO compras_solicitudes (numero, origen, operacion_id, cliente_id, tipo_producto, observaciones, adjuntos, created_by, servicio_tecnico_id)
+        VALUES ($1, 'garantia', $2, $3, 'otro', $4, $5::jsonb, $6, $7) RETURNING id, numero`,
+        [numero, s.operacion_id, s.cliente_id, detalle, JSON.stringify(s.adjuntos ?? []), user.id, id]);
+      await client.query(`
+        INSERT INTO compras_solicitud_items (solicitud_id, orden, descripcion, cantidad, adjuntos, operacion_item_id)
+        VALUES ($1, 0, $2, $3, $4::jsonb, $5)`,
+        [sc.id, `Repuesto: ${s.producto_descripcion ?? b.descripcion}`.slice(0, 500), b.cantidad, JSON.stringify(s.adjuntos ?? []), s.operacion_item_id]);
+      resultado = { clase: 'solicitud', ...sc };
+    }
+    await client.query(`UPDATE servicios_tecnicos SET estado = 'pendiente_repuesto', fecha_visita = NULL, hora_visita = NULL, updated_at = now() WHERE id = $1`, [id]);
+    await sincronizarTareaServicio(client, id);
+    await client.query('COMMIT');
+    registrarActividad(c, { entidad: 'servicio_tecnico', entidad_id: id, entidad_numero: s.numero, accion: 'editar',
+      detalle: resultado.clase === 'incidencia' ? `Reclamo al proveedor ${resultado.numero}` : `Solicitud de repuesto ${resultado.numero}` });
+    return c.json(resultado, 201);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+const RecontactoSchema = z.object({ resultado: z.enum(['funciona', 'sigue_con_problemas']), nota: zTexto(500).nullish() });
+
+// PATCH /:id/recontacto — lo que dijo el cliente al volver a consultarlo. Si sigue con problemas, el servicio se reabre.
+serviciosTecnicos.patch('/:id/recontacto', async (c) => {
+  if (!noConsulta(c)) return c.json(SOLO_CONSULTA, 403);
+  const id = c.req.param('id');
+  if (!uuid.safeParse(id).success) return c.json({ error: 'Id inválido' }, 422);
+  const b = await validateBody(c, RecontactoSchema);
+  if (b instanceof Response) return b;
+  const user = c.get('user');
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [s] } = await client.query(`
+      SELECT numero, cliente_id, estado, recontacto_tarea_id FROM servicios_tecnicos WHERE id = $1 FOR UPDATE`, [id]);
+    if (!s) { await client.query('ROLLBACK'); return c.json({ error: 'Servicio no encontrado' }, 404); }
+    if (s.estado !== 'finalizado') { await client.query('ROLLBACK'); return c.json({ error: 'El servicio no está finalizado' }, 409); }
+    if (s.recontacto_tarea_id) {
+      await client.query(`UPDATE tareas SET completada = true, completada_at = COALESCE(completada_at, now()), completada_by = COALESCE(completada_by, $2) WHERE id = $1`,
+        [s.recontacto_tarea_id, user.id]);
+    }
+    await client.query(`UPDATE servicios_tecnicos SET recontacto_resultado = $2, recontacto_at = now(), updated_at = now() WHERE id = $1`, [id, b.resultado]);
+    if (b.resultado === 'sigue_con_problemas') {
+      await client.query(`UPDATE servicios_tecnicos SET estado = 'pendiente_coordinar', finalizado_at = NULL WHERE id = $1`, [id]);
+    }
+    await client.query(`INSERT INTO interacciones (cliente_id, tipo, descripcion, created_by) VALUES ($1, $2, $3, $4)`,
+      [s.cliente_id, b.resultado === 'funciona' ? 'nota' : 'reclamo',
+       `Servicio ${s.numero}: ${b.resultado === 'funciona' ? 'el cliente confirma que funciona bien' : 'el cliente sigue con problemas, se reabre'}${b.nota ? ` (${b.nota})` : ''}`, user.id]);
+    await client.query('COMMIT');
+    registrarActividad(c, { entidad: 'servicio_tecnico', entidad_id: id, entidad_numero: s.numero, accion: 'cambio_estado',
+      detalle: b.resultado === 'funciona' ? 'Consulta posterior: funciona' : 'Consulta posterior: sigue con problemas (reabierto)' });
+    return c.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });

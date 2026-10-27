@@ -15,6 +15,7 @@ import { NuevoServicio } from '@/components/servicios/NuevoServicio';
 import { ModalIntervencion } from '@/components/servicios/ModalIntervencion';
 import { FirmaServicio } from '@/components/servicios/FirmaServicio';
 import { abrirPdfApi } from '@/lib/abrirPdf';
+import { PanelCobro, PanelProveedor } from '@/components/servicios/PanelesServicio';
 import { campoCls, btnPrim, btnSec, etiquetaCls } from '@/components/servicios/estilos';
 import {
   ESTADO_SERVICIO, TIPO_SERVICIO, TRABAJO_TIPO, fechaCortaServicio, type EstadoServicio, type ServicioConIntervenciones, type Intervencion,
@@ -75,6 +76,10 @@ export default function DetalleServicio() {
             {s.adjuntos.length > 0 && <div className="mt-3"><AdjuntosGrid urls={s.adjuntos} size="lg" /></div>}
           </Tarjeta>
           <Visitas s={s} puede={puede} onCambio={cargar} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <PanelCobro s={s} puede={puede} onCambio={cargar} />
+            <PanelProveedor s={s} puede={puede} onCambio={cargar} />
+          </div>
         </div>
 
         <div className="space-y-4 min-w-0">
@@ -370,6 +375,15 @@ function Estado({ s, onCambio }: { s: ServicioConIntervenciones; onCambio: () =>
     } catch (e) { toastApiError(e, { fallback: 'No se pudo cambiar el estado' }); }
     finally { setEnviando(false); }
   }
+  async function recontacto(resultado: 'funciona' | 'sigue_con_problemas') {
+    setEnviando(true);
+    try {
+      await api.patch(`/servicios-tecnicos/${s.id}/recontacto`, { resultado });
+      toast.success(resultado === 'funciona' ? 'Listo: el cliente confirmó que funciona' : 'Servicio reabierto para coordinar otra visita');
+      onCambio();
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo guardar' }); }
+    finally { setEnviando(false); }
+  }
   async function cancelar() {
     setEnviando(true);
     try {
@@ -385,6 +399,20 @@ function Estado({ s, onCambio }: { s: ServicioConIntervenciones; onCambio: () =>
       {cerrado ? (
         <div className="space-y-2">
           <p className="text-sm text-gray-700">{s.estado === 'finalizado' ? `Finalizado${s.finalizado_at ? ` el ${fechaCortaServicio(s.finalizado_at)}` : ''}.` : 'Cancelado.'}</p>
+          {s.estado === 'finalizado' && s.recontacto_fecha && !s.recontacto_resultado && (
+            <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 space-y-2" data-testid="recontacto">
+              <p className="text-sm font-semibold text-sky-900">Volver a consultar al cliente el {fechaCortaServicio(s.recontacto_fecha)}: ¿quedó funcionando bien?</p>
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={() => recontacto('funciona')} disabled={enviando} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg bg-emerald-600 text-white text-xs font-bold" data-testid="recontacto-funciona"><CheckCircle2 size={14} /> Funciona bien</button>
+                <button onClick={() => recontacto('sigue_con_problemas')} disabled={enviando} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-lg border border-red-300 bg-white text-red-700 text-xs font-bold"><RotateCcw size={14} /> Sigue con problemas</button>
+              </div>
+            </div>
+          )}
+          {s.recontacto_resultado && (
+            <p className={cn('text-sm font-semibold', s.recontacto_resultado === 'funciona' ? 'text-emerald-700' : 'text-red-700')}>
+              Consulta posterior: {s.recontacto_resultado === 'funciona' ? 'funciona bien' : 'seguía con problemas'}{s.recontacto_at ? ` (${fechaCortaServicio(s.recontacto_at)})` : ''}
+            </p>
+          )}
           <button onClick={() => cambiar('pendiente_coordinar')} disabled={enviando} className={btnSec}><RotateCcw size={15} /> Reabrir</button>
         </div>
       ) : modo === 'cancelar' ? (

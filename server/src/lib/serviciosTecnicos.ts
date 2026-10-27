@@ -103,3 +103,31 @@ export async function productosEntregadosDelCliente(q: Queryable, clienteId: str
      LIMIT 200`, [clienteId, operacionId ?? null]);
   return rows;
 }
+
+/**
+ * Al cerrar un servicio, se agenda volver a consultar al cliente a los días de post venta configurados
+ * («¿quedó funcionando bien?»). Una sola consulta pendiente por servicio: si ya había una, se reemplaza.
+ */
+export async function programarRecontacto(q: Queryable, servicioId: string, usuarioId: string | null): Promise<void> {
+  const { rows: [s] } = await q.query(`
+    SELECT s.numero, s.cliente_id, s.operacion_id, s.recontacto_tarea_id, s.producto_descripcion,
+           (SELECT COALESCE(postventa_dias, 3) FROM empresa ORDER BY updated_at DESC LIMIT 1) AS dias
+      FROM servicios_tecnicos s WHERE s.id = $1`, [servicioId]);
+  if (!s) return;
+  if (s.recontacto_tarea_id) await q.query('DELETE FROM tareas WHERE id = $1 AND NOT completada', [s.recontacto_tarea_id]);
+  const { rows: [t] } = await q.query(`
+    INSERT INTO tareas (cliente_id, operacion_id, descripcion, vencimiento, prioridad, tipo_accion, created_by)
+    VALUES ($1, $2, $3, CURRENT_DATE + $4::int, 'normal', 'seguimiento', $5) RETURNING id, vencimiento::text AS v`,
+    [s.cliente_id, s.operacion_id, `Consultar si quedó bien el servicio ${s.numero}${s.producto_descripcion ? ` (${s.producto_descripcion})` : ''}`,
+     Number(s.dias ?? 3), usuarioId]);
+  await q.query(`
+    UPDATE servicios_tecnicos SET recontacto_fecha = $2::date, recontacto_tarea_id = $3, recontacto_resultado = NULL, recontacto_at = NULL
+     WHERE id = $1`, [servicioId, t.v, t.id]);
+}
+
+/** Al reabrir un servicio, la consulta posterior que todavía no se hizo deja de tener sentido. */
+export async function anularRecontacto(q: Queryable, servicioId: string): Promise<void> {
+  const { rows: [s] } = await q.query(`SELECT recontacto_tarea_id FROM servicios_tecnicos WHERE id = $1`, [servicioId]);
+  if (s?.recontacto_tarea_id) await q.query('DELETE FROM tareas WHERE id = $1 AND NOT completada', [s.recontacto_tarea_id]);
+  await q.query(`UPDATE servicios_tecnicos SET recontacto_fecha = NULL, recontacto_tarea_id = NULL WHERE id = $1 AND recontacto_resultado IS NULL`, [servicioId]);
+}

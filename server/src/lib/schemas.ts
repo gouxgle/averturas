@@ -101,6 +101,8 @@ export const OperacionSchema = z.object({
   notas_internas:   zText(2000).optional(),
   items:            z.array(OperacionItemSchema).min(1, 'Se requiere al menos 1 ítem'),
   visita_tecnica_id: zUUID.optional().nullable(),
+  /** Presupuesto de un servicio técnico con cargo (Post venta → Garantías y servicios). */
+  servicio_tecnico_id: zUUID.optional().nullable(),
   formas_pago_alternativas: z.array(OperacionFormaPagoSchema).optional().default([]),
   /** Bonificación opcional del presupuesto: % o monto fijo sobre los productos. El monto lo recalcula el servidor. */
   bonificacion_tipo:   z.enum(['porcentaje', 'monto']).optional().nullable(),

@@ -227,6 +227,7 @@ export function NuevoPresupuesto() {
   // propia no puede quedar registrada como un pedido suyo.
   const [versionOrigen, setVersionOrigen] = useState<'cliente' | 'interna'>('interna');
   const [visitaTecnicaId, setVisitaTecnicaId] = useState('');
+  const [servicioTecnicoId, setServicioTecnicoId] = useState('');
   const [imagenesVisita, setImagenesVisita] = useState<string[]>([]);
   const [visitaCredito, setVisitaCredito] = useState<{ numero: string; monto: number } | null>(null);
   const [numeroActual, setNumeroActual] = useState('');
@@ -525,6 +526,7 @@ export function NuevoPresupuesto() {
       visitaNumero?: string;
       visitaCobroEstado?: string;
       visitaCostoCobrado?: number | null;
+      servicioTecnicoId?: string;
     } | null;
     if (!state?.itemsPrecargados?.length) return;
     itemsPrecargadosRef.current = true;
@@ -576,6 +578,7 @@ export function NuevoPresupuesto() {
       api.get<Cliente>(`/clientes/${state.clienteId}`).then(cl => setClientes([cl])).catch(() => {});
     }
     if (state.visitaTecnicaId) setVisitaTecnicaId(state.visitaTecnicaId);
+    if (state.servicioTecnicoId) setServicioTecnicoId(state.servicioTecnicoId);
     if (state.imagenesVisita?.length) setImagenesVisita(state.imagenesVisita);
     if (state.visitaCobroEstado === 'cobrada' && state.visitaNumero) {
       setVisitaCredito({ numero: state.visitaNumero, monto: Number(state.visitaCostoCobrado ?? 0) });
@@ -786,6 +789,7 @@ export function NuevoPresupuesto() {
         forma_envio:    formaEnvio,
         costo_envio:    costoEnvio,
         visita_tecnica_id: !isEdit && visitaTecnicaId ? visitaTecnicaId : undefined,
+        servicio_tecnico_id: !isEdit && servicioTecnicoId ? servicioTecnicoId : undefined,
         formas_pago_alternativas: formaPago === 'Varias formas de pago' ? formasPagoAlternativas : [],
         bonificacion_tipo:   bonifMonto > 0 ? bonifTipo : null,
         bonificacion_valor:  bonifMonto > 0 ? bonifValorNum : null,

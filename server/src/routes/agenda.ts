@@ -35,7 +35,7 @@ const CAMPOS = `
   p.nombre AS proveedor_nombre, p.telefono AS proveedor_telefono,
   o.numero AS operacion_numero, o.estado AS operacion_estado,
   op.id AS oportunidad_id, r.id AS remito_id, r.numero AS remito_numero, vt.id AS visita_id, vt.numero AS visita_numero,
-  st.id AS servicio_id, st.numero AS servicio_numero,
+  COALESCE(st.id, st2.id) AS servicio_id, COALESCE(st.numero, st2.numero) AS servicio_numero,
   uc.nombre AS creada_por, uh.nombre AS completada_por`;
 const JOINS = `
   LEFT JOIN clientes c        ON c.id = t.cliente_id
@@ -45,6 +45,7 @@ const JOINS = `
   LEFT JOIN remitos r         ON r.tarea_id = t.id
   LEFT JOIN visitas_tecnicas vt ON vt.tarea_id = t.id
   LEFT JOIN servicios_tecnicos st ON st.tarea_id = t.id
+  LEFT JOIN servicios_tecnicos st2 ON st2.recontacto_tarea_id = t.id
   LEFT JOIN usuarios uc       ON uc.id = t.created_by
   LEFT JOIN usuarios uh       ON uh.id = t.completada_by`;
 
@@ -120,12 +121,13 @@ agenda.post('/recordar', async (c) => {
 async function reprogramarTarea(q: Q, id: string, fecha: string, hora: string | null | undefined, usuarioId: string): Promise<string | null> {
   const { rows: [t] } = await q.query(`
     SELECT t.id, t.completada, t.cliente_id, op.id AS oportunidad_id, r.id AS remito_id, r.estado AS remito_estado, vt.id AS visita_id,
-           st.id AS servicio_id, st.estado AS servicio_estado
+           st.id AS servicio_id, st.estado AS servicio_estado, st2.id AS recontacto_servicio_id
       FROM tareas t
       LEFT JOIN oportunidades op ON op.tarea_id = t.id
       LEFT JOIN remitos r ON r.tarea_id = t.id
       LEFT JOIN visitas_tecnicas vt ON vt.tarea_id = t.id
       LEFT JOIN servicios_tecnicos st ON st.tarea_id = t.id
+      LEFT JOIN servicios_tecnicos st2 ON st2.recontacto_tarea_id = t.id
      WHERE t.id = $1 FOR UPDATE OF t`, [id]);
   if (!t) return 'La tarea ya no existe';
   if (t.completada) return 'La tarea ya está hecha';
@@ -156,6 +158,8 @@ async function reprogramarTarea(q: Q, id: string, fecha: string, hora: string | 
              hora_visita = CASE WHEN $2 THEN $3::time ELSE hora_visita END, updated_at = now()
        WHERE id = $4`, [fecha, hora !== undefined, hora ?? null, t.servicio_id]);
     await sincronizarTareaServicio(q, t.servicio_id);
+  } else if (t.recontacto_servicio_id) {
+    await q.query(`UPDATE servicios_tecnicos SET recontacto_fecha = $1::date WHERE id = $2`, [fecha, t.recontacto_servicio_id]);
   }
 
   await q.query(`
