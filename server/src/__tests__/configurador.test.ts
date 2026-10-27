@@ -149,3 +149,12 @@ describe('ficha en el PDF al proveedor', () => {
     expect(fichaCompraPDF({ color: 'Blanco' }, null)).toEqual({ ficha: null, imagenes: [], anexos: [] });
   });
 });
+
+describe('resumen de una línea', () => {
+  it('muestra las hojas que el configurador guarda como número', async () => {
+    const { resumenEspecificaciones } = await import('../lib/compras.js');
+    const r = resumenEspecificaciones(normalizarFicha({ esquema_version: 1, tipo_abertura: 'ventana', tipologia: 'corrediza', ancho_m: 1.2, alto_m: 1, hojas: 2 }));
+    expect(r).toContain('2 hojas');
+    expect(resumenEspecificaciones({ hojas: '2_hojas' })).toBe('2 hojas');
+  });
+});

@@ -688,6 +688,8 @@ export function resumenEspecificaciones(e: Especificaciones | null | undefined):
   if (e.espesor_mm) partes.push(`${e.espesor_mm} mm`);
   for (const k of ['tipo_abertura', 'sistema', 'color', 'vidrio', 'apertura', 'hojas', 'tipo', 'marca', 'codigo']) {
     if (typeof e[k] === 'string' && e[k]) partes.push(hum(e[k]));
+    // El configurador guarda las hojas como número
+    else if (k === 'hojas' && typeof e[k] === 'number' && e[k] > 0) partes.push(e[k] === 1 ? '1 hoja' : `${e[k]} hojas`);
   }
   if (e.mosquitero === true) partes.push('con mosquitero');
   if (e.premarco === true) partes.push('con premarco');
