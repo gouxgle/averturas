@@ -265,8 +265,12 @@ export function ClienteDetalle() {
   }
 
   async function eliminarTarea(tareaId: string) {
-    await api.delete(`/tareas/${tareaId}`);
-    await load();
+    try {
+      await api.delete(`/tareas/${tareaId}`);
+      await load();
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo borrar la tarea' });
+    }
   }
 
   async function handleEliminar() {

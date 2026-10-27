@@ -246,6 +246,11 @@ describe.skipIf(!process.env.DATABASE_URL)('agenda del día contra la base', () 
     expect(esp?.id).toBeTruthy();
     expect((await req('DELETE', `/agenda/tareas/${esp!.id}`)).status).toBe(404);
     expect((await req('PUT', `/agenda/tareas/${esp!.id}`, { ...base, cliente_id: clienteId })).status).toBe(404);
+    // Tampoco por la ruta vieja de la ficha del cliente, y el rol consulta no borra nada
+    expect((await req('DELETE', `/tareas/${esp!.id}`)).status).toBe(409);
+    usuarioActual = { id: u2, rol: 'consulta' };
+    expect((await req('DELETE', `/tareas/${r.json.id}`)).status).toBe(403);
+    usuarioActual = { id: u1, rol: 'admin' };
     expect((await db.query(`SELECT tipo_accion FROM tareas WHERE id = $1`, [esp!.id])).rows[0]?.tipo_accion).toBe('recotizar');
     expect((await req('DELETE', `/agenda/tareas/${r.json.id}`)).status).toBe(200);
   });

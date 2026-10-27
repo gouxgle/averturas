@@ -163,3 +163,11 @@ export async function agendarRecotizacion(q: Queryable, p: {
   }
   return { id: t.id, creada: true };
 }
+
+// Se pueden editar y borrar a mano (Agenda, ficha del cliente) las internas y las de cliente cargadas a
+// mano (llamar, WhatsApp…); nunca las espejo (entrega, visita, oportunidad, post venta, recotizar…), que
+// se cambian en su origen. Condición SQL sobre la tabla `tareas` con alias `t`.
+export const SQL_TAREA_EDITABLE = `(t.ambito = 'interna' OR (t.tipo_accion IN ('llamada', 'whatsapp', 'email', 'visita', 'nota')
+  AND NOT EXISTS (SELECT 1 FROM visitas_tecnicas v WHERE v.tarea_id = t.id)
+  AND NOT EXISTS (SELECT 1 FROM remitos r WHERE r.tarea_id = t.id)
+  AND NOT EXISTS (SELECT 1 FROM oportunidades o WHERE o.tarea_id = t.id)))`;

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../db.js';
-import { completarTarea, agendarRecotizacion } from '../lib/tareas.js';
+import { completarTarea, agendarRecotizacion, SQL_TAREA_EDITABLE } from '../lib/tareas.js';
 
 const tareas = new Hono();
 
@@ -112,9 +112,11 @@ tareas.patch('/:id/completar', async (c) => {
   return c.json(row);
 });
 
+// Mismo criterio que la Agenda: solo las cargadas a mano; las espejo se resuelven en su origen.
 tareas.delete('/:id', async (c) => {
-  const { id } = c.req.param();
-  await db.query('DELETE FROM tareas WHERE id = $1', [id]);
+  if (c.get('user')?.rol === 'consulta') return c.json({ error: 'Tu usuario es de solo consulta' }, 403);
+  const { rowCount } = await db.query(`DELETE FROM tareas t WHERE t.id = $1 AND ${SQL_TAREA_EDITABLE}`, [c.req.param('id')]);
+  if (!rowCount) return c.json({ error: 'Esta tarea se generó sola (entrega, visita, post venta…): se resuelve desde su origen o marcándola hecha' }, 409);
   return c.json({ ok: true });
 });
 

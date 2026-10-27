@@ -5,7 +5,7 @@ import { validateBody } from '../lib/validate.js';
 import { RecordarSchema, ReprogramarSchema, TareaInternaSchema, RecotizacionSchema } from '../lib/schemas.js';
 import { sincronizarTarea } from '../lib/oportunidades.js';
 import { sincronizarTareaEntrega } from '../lib/remitos.js';
-import { sincronizarTareaVisita, agendarRecotizacion } from '../lib/tareas.js';
+import { sincronizarTareaVisita, agendarRecotizacion, SQL_TAREA_EDITABLE as EDITABLE } from '../lib/tareas.js';
 import { hoyAR } from '../lib/fechas.js';
 
 // Agenda del día: el aviso que ve cada operador al entrar y que vuelve a aparecer hasta que lo
@@ -178,13 +178,6 @@ agenda.patch('/reprogramar', puedeEditar, async (c) => {
 });
 
 // ── Tareas cargadas a mano (internas o de un cliente) ───────────
-
-// Se pueden editar y borrar las internas y las de cliente cargadas a mano (llamar, WhatsApp…);
-// nunca las espejo (entrega, visita, oportunidad, post venta, recotizar), que tienen su origen.
-const EDITABLE = `(t.ambito = 'interna' OR (t.tipo_accion IN ('llamada', 'whatsapp', 'email', 'visita', 'nota')
-  AND NOT EXISTS (SELECT 1 FROM visitas_tecnicas v WHERE v.tarea_id = t.id)
-  AND NOT EXISTS (SELECT 1 FROM remitos r WHERE r.tarea_id = t.id)
-  AND NOT EXISTS (SELECT 1 FROM oportunidades o WHERE o.tarea_id = t.id)))`;
 
 function datosTarea(b: ReturnType<typeof TareaInternaSchema.parse>) {
   const repetir = b.repetir ?? null;
