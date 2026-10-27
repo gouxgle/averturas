@@ -36,6 +36,7 @@ export const MAIN_ROUTES: { label: string; path: string }[] = [
   { label: 'Reportes',                           path: '/reportes' },
   { label: 'Novedades',                          path: '/novedades' },
   { label: 'Buzón de comentarios',               path: '/comentarios' },
+  { label: 'Post venta: garantías y servicios',  path: '/postventa/servicios' },
   { label: 'Configuración',                      path: '/configuracion' },
 ];
 

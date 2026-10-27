@@ -347,6 +347,19 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         warning: 'Cliente sin teléfono cargado: no se crea el seguimiento. Cargá el teléfono en su ficha.',
       },
       {
+        id: 'servicios',
+        emoji: '🔧',
+        title: 'Garantías y servicios',
+        steps: [
+          { text: 'Abrir: "Nuevo servicio", ⋮ de la ficha del cliente, "Generar servicio" en un remito, presupuesto o seguimiento' },
+          { text: 'Elegí el producto entregado, el tipo (garantía, reparación con cargo, mantenimiento), el problema y fotos o videos' },
+          { text: 'Asigná responsable y fecha: la visita va a la Agenda (reprogramable desde ahí)' },
+          { text: '"Registrar visita" → "Firmar ahora": conforme o con observaciones, firma en el celular; después Ver PDF / Enviar por WhatsApp' },
+          { text: 'Con cargo: "Cobrar" (recibo directo) o "Armar presupuesto". Falla de fábrica: "Reclamar al proveedor"' },
+        ],
+        tip: 'Firmada, la visita no se modifica. Al finalizar se agenda volver a consultar al cliente.',
+      },
+      {
         id: 'ajustes',
         emoji: '⚙️',
         title: 'Ajustes',

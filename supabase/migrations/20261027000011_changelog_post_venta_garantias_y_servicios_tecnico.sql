@@ -1,0 +1,5 @@
+-- Changelog: Post venta: garantías y servicios técnicos
+INSERT INTO changelog_cambios (fecha, titulo, descripcion, categoria) VALUES
+  (CURRENT_DATE, 'Post venta: garantías y servicios técnicos', 'Nueva sección en Post venta para garantías, reparaciones con cargo y mantenimientos. Cada reclamo es una ficha de servicio (ST-) con el cliente y el producto entregado, fotos y videos, responsable y visita en la Agenda. El técnico registra cada visita (trabajo, repuestos, fotos de antes y después) y el cliente firma en el celular conforme o con observaciones; la ficha se manda en PDF por WhatsApp. Se cobra con recibo directo o con presupuesto, se puede reclamar al proveedor y, al cerrar, se agenda volver a consultar al cliente. Se abre desde Post venta, la ficha del cliente, un remito o presupuesto entregado o el botón «Generar servicio» del seguimiento.', 'feature');
+
+INSERT INTO schema_migrations (filename) VALUES ('20261027000011_changelog_post_venta_garantias_y_servicios_tecnico.sql') ON CONFLICT DO NOTHING;

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Wrench, Plus, Loader2, Search, Phone, CalendarClock, UserRound, Inbox } from 'lucide-react';
+import { Wrench, Plus, Loader2, Search, Phone, CalendarClock, UserRound, Inbox, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
+import { toastApiError } from '@/lib/apiError';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -62,6 +64,7 @@ export default function Servicios() {
         </>} />
 
       <VistasPostventa />
+      <PlazoGarantia esAdmin={user?.rol === 'admin'} />
 
       <div className="flex gap-1 flex-wrap">
         {TABS.map(t => (
@@ -104,6 +107,39 @@ export default function Servicios() {
 
       {nuevo && <NuevoServicio onClose={() => setNuevo(false)} onGuardado={id => { setNuevo(false); abrir(id); }} />}
     </div>
+  );
+}
+
+/** Meses de garantía desde la entrega: solo para sugerir "Garantía" al abrir un servicio (no bloquea nada). */
+function PlazoGarantia({ esAdmin }: { esAdmin: boolean }) {
+  const [meses, setMeses] = useState<number | null>(null);
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState('');
+  useEffect(() => { api.get<{ garantia_meses?: number } | null>('/empresa').then(e => setMeses(Number(e?.garantia_meses ?? 12))).catch(() => {}); }, []);
+  async function guardar() {
+    try {
+      await api.put('/empresa', { garantia_meses: Number(valor) });
+      setMeses(Number(valor)); setEditando(false);
+      toast.success(`Garantía: ${valor} meses desde la entrega`);
+    } catch (e) { toastApiError(e, { fallback: 'No se pudo guardar' }); }
+  }
+  if (meses === null) return null;
+  return (
+    <p className="text-xs text-gray-700 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <ShieldCheck size={13} className="text-gray-500" /> Garantía:
+      {editando ? (
+        <>
+          <input type="number" min={0} max={120} value={valor} onChange={e => setValor(e.target.value)} className="h-9 w-16 px-2 rounded-lg border border-gray-300 text-sm" aria-label="Meses de garantía" />
+          meses <button onClick={guardar} className="h-9 px-3 rounded-lg bg-teal-700 text-white font-bold">Guardar</button>
+          <button onClick={() => setEditando(false)} className="h-9 px-3 rounded-lg border border-gray-300 bg-white">Cancelar</button>
+        </>
+      ) : (
+        <>
+          <b>{meses} meses</b> desde la entrega (sirve para sugerir el tipo al abrir un servicio).
+          {esAdmin && <button onClick={() => { setValor(String(meses)); setEditando(true); }} className="text-teal-800 font-semibold hover:underline">Cambiar</button>}
+        </>
+      )}
+    </p>
   );
 }
 

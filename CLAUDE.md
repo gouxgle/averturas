@@ -591,6 +591,19 @@ filtra por vencimiento. Entradas: ficha de cliente, presupuesto rechazado/vencid
   `PUB_LINK_DIAS` desde `enviado_at`, tres notas 1-5 + comentario, una sola respuesta (el UPDATE condicionado a `estado='enviado'`).
   Nota ≤ 2 → fuente `postventa_insatisfecho` de `/notificaciones` (todos los roles; `notif_leida`). Carga manual:
   `POST /:id/respuesta-manual`. Manual: `manualPostventa.ts` (+ tema `postventa` del HelpDrawer).
+- **Garantías y servicios técnicos** (`/postventa/servicios[/:id]`, API `/api/servicios-tecnicos`, `lib/serviciosTecnicos.ts`;
+  tablas `servicios_tecnicos` (`ST-`) y `servicio_intervenciones`): ficha por reclamo (garantía / reparación / mantenimiento)
+  vinculada si existe a `remito_item_id` → operación, ítem y producto. Estados `pendiente_coordinar → visita_programada →
+  en_proceso → pendiente_repuesto → finalizado | cancelado`. Responsable = usuario o nombre libre (`GET /usuarios/activos`).
+  Tarea espejo `tipo_accion='servicio'` (`sincronizarTareaServicio`): reprogramar desde la Agenda mueve la visita;
+  completarla pasa a en proceso; al cargar una visita la tarea queda hecha y se suelta (`tarea_id = NULL`). Cada visita
+  se firma (conforme / con observaciones, `FirmaServicio` sobre `FirmaDigital`); **firmada no se modifica** (409) y si
+  resolvió el problema finaliza el servicio. PDF `generarPDFServicio` (desde la base) + `enviarWhatsappPdf`. Cobro: recibo
+  directo (`recibos.servicio_tecnico_id`) o presupuesto precargado (`operaciones.servicio_tecnico_id`, vía `state` como la
+  visita de relevamiento). Reclamo al proveedor: incidencia `REC-` sobre el `pedido_item` de la OC original
+  (`operacion_item_id`) o SC `origen='garantia'`. Al finalizar, tarea `seguimiento` de reconsulta
+  (`recontacto_*`). Adjuntos en `uploads/servicios` (videos hasta 50 MB: **nginx de test/prod necesita
+  `client_max_body_size` ≥ 60M**). Adjuntos compartidos: `src/components/Adjuntos.tsx` (Compras los reexporta).
 
 ## Notificaciones y avisos
 
