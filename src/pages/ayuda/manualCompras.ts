@@ -148,6 +148,7 @@ export const MANUAL_COMPRAS: SeccionManual[] = [
           'Una solicitud con versiones ya no se edita entera: los cambios van siempre por "Nueva versión".',
         ],
       },
+      { t: 'aviso', tono: 'info', texto: 'Para ver qué se compra: Compras → pestaña **Análisis**. Agrupa las órdenes de compra por sistema, tipología, tipo de abertura, vidrio, color o proveedor, con unidades, m², monto, precio por m² y reclamos, en el período que elijas.' },
       { t: 'subtitulo', texto: 'Pantalla 3: ¿Cómo seguimos?' },
       {
         t: 'tabla',

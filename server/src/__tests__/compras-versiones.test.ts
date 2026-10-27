@@ -100,6 +100,11 @@ describe.skipIf(!process.env.DATABASE_URL)('compras: versiones de la ficha', () 
     expect(items.find(i => i.id === v1.id)).toMatchObject({ estado: 'cancelado', reemplazado_por_id: v2r.json.id });
     expect(items.find(i => i.id === v2r.json.id)?.estado).toBe('comprado');
 
+    // El análisis cuenta lo comprado (V2) por proveedor y por tipología, con m² y precio por m²
+    const porProv = (await req('GET', '/analisis/aberturas?agrupar=proveedor')).json as Record<string, string | number>[];
+    expect(porProv.find(r => r.grupo === MARCA)).toMatchObject({ ordenes: 1, unidades: '2.00', m2: '3.69', monto_neto: '300000.00', precio_m2: '81300.81', reclamos: 0 });
+    expect((await req('GET', '/analisis/aberturas?agrupar=cualquiera')).status).toBe(400);
+
     // Comprada: no se puede sacar otra versión de la V2 ni editar la SC
     expect((await req('POST', `/solicitudes/${scId}/items/${v2r.json.id}/nueva-version`, { descripcion: 'x', especificaciones: {} })).status).toBe(409);
   });

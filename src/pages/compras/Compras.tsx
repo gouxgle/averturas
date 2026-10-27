@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Plus, ClipboardList, Scale, PackageCheck, Zap, Layers, Truck, AlertTriangle, Wallet } from 'lucide-react';
+import { ShoppingCart, Plus, ClipboardList, Scale, PackageCheck, Zap, Layers, Truck, AlertTriangle, Wallet, BarChart3 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -14,13 +14,14 @@ import { TabOrdenes } from './TabOrdenes';
 import { TabRecepciones } from './TabRecepciones';
 import { TabReclamos } from './TabReclamos';
 import { TabCuentaCorriente } from './TabCuentaCorriente';
+import { TabAnalisis } from './TabAnalisis';
 import { DetalleSolicitud } from './DetalleSolicitud';
 import { DetalleCotizacion } from './DetalleCotizacion';
 import { DetalleOrden } from './DetalleOrden';
 import { DetalleIncidencia } from './DetalleIncidencia';
 import { ModalConsolidar } from './ModalConsolidar';
 
-type Tab = 'solicitudes' | 'cotizaciones' | 'ordenes' | 'recepciones' | 'reclamos' | 'cuenta';
+type Tab = 'solicitudes' | 'cotizaciones' | 'ordenes' | 'recepciones' | 'reclamos' | 'cuenta' | 'analisis';
 export type AbrirDetalle = (tipo: 'sc' | 'pc' | 'oc' | 'rec', id: string) => void;
 
 // Página del módulo Compras: SC → PC → OC en tres pestañas. Los modales de detalle se
@@ -78,6 +79,7 @@ export default function Compras() {
     { value: 'recepciones',  label: 'Recepciones',  icon: Truck,         count: s?.oc_por_recibir, dot: 'bg-teal-400' },
     { value: 'reclamos',     label: 'Reclamos',     icon: AlertTriangle, count: s?.reclamos_abiertos, dot: 'bg-red-500' },
     { value: 'cuenta',       label: 'Cuenta corriente', icon: Wallet,    count: s?.oc_a_pagar,        dot: 'bg-amber-400' },
+    { value: 'analisis',     label: 'Análisis',     icon: BarChart3,     count: undefined },
   ];
 
   return (
@@ -147,6 +149,7 @@ export default function Compras() {
       {tab === 'recepciones'  && <TabRecepciones  abrir={abrir} refresh={refresh} />}
       {tab === 'reclamos'     && <TabReclamos     abrir={abrir} refresh={refresh} />}
       {tab === 'cuenta'       && <TabCuentaCorriente abrir={abrir} refresh={refresh} onChanged={recargar} />}
+      {tab === 'analisis'     && <TabAnalisis />}
 
       {scId && <DetalleSolicitud id={scId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}
       {pcId && <DetalleCotizacion id={pcId} onClose={cerrarDetalle} onChanged={recargar} abrir={abrir} />}

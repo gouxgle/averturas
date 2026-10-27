@@ -234,6 +234,51 @@ function nombreCliente(c: Row | null | undefined): string {
 // Tablero
 // ═════════════════════════════════════════════════════════════════════════════
 
+// GET /analisis/aberturas?agrupar=sistema|tipologia|tipo|vidrio|color|proveedor&desde=&hasta=
+// Compras de aberturas (ítems de OC no canceladas con medidas) agrupadas por una característica de la ficha:
+// cuántas órdenes, unidades, m², monto neto, precio promedio por m² y reclamos. Base para analizar qué se compra.
+const AGRUPAR_ANALISIS: Record<string, string> = {
+  sistema:   `NULLIF(TRIM(pi.especificaciones->>'sistema'), '')`,
+  tipologia: `NULLIF(TRIM(pi.especificaciones->>'apertura'), '')`,
+  tipo:      `NULLIF(TRIM(pi.especificaciones->>'tipo_abertura'), '')`,
+  vidrio:    `NULLIF(TRIM(pi.especificaciones->>'vidrio'), '')`,
+  color:     `NULLIF(TRIM(pi.especificaciones->>'color'), '')`,
+  proveedor: `prov.nombre`,
+};
+compras.get('/analisis/aberturas', async (c) => {
+  const agrupar = c.req.query('agrupar') ?? 'sistema';
+  const clave = AGRUPAR_ANALISIS[agrupar];
+  if (!clave) return c.json({ error: 'Agrupación inválida' }, 400);
+  const fecha = /^\d{4}-\d{2}-\d{2}$/;
+  const desde = fecha.test(c.req.query('desde') ?? '') ? c.req.query('desde')! : null;
+  const hasta = fecha.test(c.req.query('hasta') ?? '') ? c.req.query('hasta')! : null;
+  const { rows } = await db.query(`
+    WITH lineas AS (
+      SELECT ${clave} AS grupo, p.id AS pedido_id, pi.id AS item_id, pi.cantidad::numeric AS cantidad,
+        pi.cantidad * pi.precio_unitario_neto * (1 - COALESCE(pi.descuento_pct, 0) / 100) AS neto,
+        pi.cantidad * NULLIF(pi.especificaciones->>'ancho_m', '')::numeric * NULLIF(pi.especificaciones->>'alto_m', '')::numeric AS m2
+      FROM pedido_items pi
+      JOIN pedidos p ON p.id = pi.pedido_id
+      JOIN proveedores prov ON prov.id = p.proveedor_id
+      WHERE p.estado <> 'cancelado' AND p.estado_logistica <> 'cancelada'
+        AND COALESCE(pi.estado_item, '') <> 'cancelado' AND NOT pi.es_reposicion
+        AND jsonb_typeof(pi.especificaciones) = 'object'
+        AND (pi.especificaciones ? 'ancho_m' OR pi.especificaciones ? 'tipo_abertura')
+        AND ($1::date IS NULL OR p.fecha_pedido >= $1::date) AND ($2::date IS NULL OR p.fecha_pedido <= $2::date)
+    )
+    SELECT COALESCE(l.grupo, 'Sin dato') AS grupo,
+      COUNT(DISTINCT l.pedido_id)::int AS ordenes,
+      SUM(l.cantidad)::numeric(14,2) AS unidades,
+      SUM(l.m2)::numeric(14,2) AS m2,
+      SUM(l.neto)::numeric(14,2) AS monto_neto,
+      CASE WHEN SUM(l.m2) > 0 THEN (SUM(l.neto) FILTER (WHERE l.m2 > 0) / SUM(l.m2))::numeric(14,2) END AS precio_m2,
+      (SELECT COUNT(*)::int FROM compras_incidencias inc WHERE inc.pedido_item_id = ANY(ARRAY_AGG(l.item_id))) AS reclamos
+    FROM lineas l
+    GROUP BY COALESCE(l.grupo, 'Sin dato')
+    ORDER BY SUM(l.neto) DESC NULLS LAST`, [desde, hasta]);
+  return c.json(rows);
+});
+
 compras.get('/tablero', async (c) => {
   const [{ rows: [s] }, { rows: esperando }, { rows: preparar }] = await Promise.all([
     db.query(`

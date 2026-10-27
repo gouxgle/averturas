@@ -483,6 +483,16 @@ conforme**; `stock_movimientos.cantidad` es INT, así que una cantidad decimal e
 `recibida` vs `recibida_parcial` contando como saldado lo que cubre un **reclamo cerrado**.
 Cancelar una OC recibida devuelve el stock (`revertirStockDeRecepciones`).
 
+**Configurador de aberturas a medida (2026-10-27)**: la ficha de un ítem `abertura_medida` sale de
+`lib/configuradorAbertura.ts` (reglas por tipo/tipología, `normalizarFicha`, `detalleFicha`, `diferenciasFicha`) y el esquema de
+`lib/esquemaAbertura.ts` (SVG en texto). **Los dos archivos existen idénticos en `src/lib/` y `server/src/lib/`** (test
+`configurador-espejo`): si se cambia uno, copiar sobre el otro. Fichas nuevas = `especificaciones.esquema_version: 1`, con claves
+viejas derivadas (`apertura`, `vidrio`, `hojas`, `herrajes`, `mosquitero`, `premarco`) para los lectores anteriores. PDF de PC/OC:
+`fichaCompraPDF` + `leerAnexosPDF` (planos PDF adjuntos al envío, tope 10 MB). **Versiones**: `compras_solicitud_items.version /
+item_origen_id / reemplazado_por_id`; la PC guarda la foto (`compras_cotizacion_items.*_snapshot`) y la OC adjudicada sale de esa
+foto; una OC no lleva dos versiones del mismo ítem; con versiones la SC no se edita entera (`POST …/items/:itemId/nueva-version`).
+Análisis: `GET /compras/analisis/aberturas?agrupar=` (pestaña Análisis).
+
 **Plata (etapa 3)**: `proveedor_cc_movimientos` es el libro mayor y **la única fuente del
 saldo** (vista `proveedor_saldos`); lo escribe SOLO `asentarMovimiento()` en `lib/compras.ts`
 — ninguna ruta inserta ahí. Convención: **monto positivo aumenta lo que debemos**, negativo lo
