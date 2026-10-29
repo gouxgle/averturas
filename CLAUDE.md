@@ -31,12 +31,11 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 | Ambiente | URL | Notas |
 |---|---|---|
 | Local | `http://localhost:3000` (contenedor) · `:5173`+`:3001` (nativo) | DB en `127.0.0.1:5434` |
-| Test | `http://aberturas.solucionesgps.com.ar` — `149.50.150.131:5889` | HTTP sin HTTPS; 1.9 GB RAM compartidos con ~11 contenedores ajenos; deploy en `/etc/docker/averturas` |
+| Test | `https://test.cesarbritez.com.ar` — mismo VPS que prod (`179.43.120.103:5912`) | Desde 2026-10-29. Compose propio en `/opt/docker/aberturas-test` (contenedor `aberturas-test-app`, `127.0.0.1:3001`, `mem_limit 512m`, `.env` ahí). Base **`aberturas_test`** dentro del `aberturas-db` de prod, rol `aberturas_test` (sin acceso a la base `postgres`). WhatsApp por el `evolution_api` de prod, **mismo número: lo que se prueba le llega al cliente**. El test viejo (`aberturas.solucionesgps.com.ar`) quedó andando sin deploys |
 | Prod | `https://aberturas.cesarbritez.com.ar` — `179.43.120.103:5912` | Repo en `/opt/docker/cesarbritez/aberturas`; **el compose real es `/opt/docker/cesarbritez/docker-compose.yml`, fuera del repo** — toda env var nueva para `aberturas-app`/`aberturas-db` va ahí a mano |
 
-- Reverse proxy: test = contenedor `nginx_proxy` (config dentro del contenedor en
-  `/etc/nginx/conf.d/aberturas.conf`, reload `docker exec nginx_proxy nginx -s reload`);
-  prod = nginx del sistema (`/etc/nginx/sites-enabled/aberturas.conf`, `systemctl reload nginx`).
+- Reverse proxy: nginx del sistema del VPS de prod, `systemctl reload nginx`. Test =
+  `/etc/nginx/sites-enabled/test-aberturas.conf` (60M, certbot); prod = `aberturas.conf`.
   Ambos con `client_max_body_size` ≥ 20M. Un "Error al subir imagen" genérico tras una subida
   grande es 413 del proxy, no un bug de la app — mirar el log del proxy, no solo el de la app.
 - Timezone: DB y app en `America/Argentina/Buenos_Aires` (migración
@@ -130,13 +129,15 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
 - Wizards de credenciales/OAuth (`rclone config update/reconnect`) se cuelgan esperando un
   navegador: editar el archivo de config directo.
 - **Deploy**: `bash deploy-env.sh test` **buildea la imagen acá y la transfiere** (~440 MB
-  gzip, ~2 min): el servidor de test no tiene RAM para buildear. Saltea build si solo
-  cambiaron migraciones/tests/docs. `DEPLOY_BUILD_REMOTO=1` fuerza el build viejo en el
-  servidor. **Prod solo a pedido explícito del usuario**: `echo si | bash deploy-env.sh prod`
+  gzip, ~2 min): test comparte los 2 GB de prod, nunca buildear allá. Saltea build si solo
+  cambiaron migraciones/tests/docs. Migraciones con `-U aberturas_test -d aberturas_test` y
+  `ON_ERROR_STOP` (una migración que necesite superusuario falla en test: correrla a mano como
+  `postgres` con `-d aberturas_test`). Guardas: el script aborta si apunta a `postgres`/`aberturas-app`. **Prod solo a pedido explícito del usuario**: `echo si | bash deploy-env.sh prod`
   (su `deploy.sh` sigue buildeando allá). **Prod no hace backup solo**:
   antes, por SSH, `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
-  /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz`. Si test se
-  cuelga durante un build, primero `free -h` / `swapon --show` (swap de 2 GB en `/swapfile`).
+  /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz`. El build
+  de prod en el servidor convive con test andando: si se queda sin memoria, `free -h` / `swapon --show`
+  y, de ser necesario, `docker stop aberturas-test-app` durante el build.
 
 ## Stack
 

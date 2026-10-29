@@ -11,13 +11,21 @@ set -e
 set -o pipefail
 
 # ── Config entornos ──────────────────────────────────────────
-TEST_HOST="149.50.150.131"
-TEST_PORT="5889"
+# Test vive en el MISMO VPS que prod desde 2026-10-29 (test.cesarbritez.com.ar): app propia
+# (/opt/docker/aberturas-test, contenedor aberturas-test-app en 127.0.0.1:3001) y base propia
+# "aberturas_test" dentro del aberturas-db de prod, con un rol sin permisos sobre la base de prod.
+# Todo lo que corre acá en test usa estas variables: nunca la base "postgres" ni aberturas-app.
+TEST_HOST="179.43.120.103"
+TEST_PORT="5912"
 TEST_USER="root"
-TEST_DIR="/etc/docker/averturas"
-TEST_COMPOSE_SERVICE="app"
-TEST_APP_CONTAINER="aberturas-app"
+TEST_URL="https://test.cesarbritez.com.ar"
+TEST_DIR="/opt/docker/aberturas-test"
+TEST_APP_DIR="${TEST_DIR}/app"
+TEST_IMAGE="aberturas-app:test"
+TEST_APP_CONTAINER="aberturas-test-app"
 TEST_DB_CONTAINER="aberturas-db"
+TEST_DB_NAME="aberturas_test"
+TEST_DB_USER="aberturas_test"
 
 PROD_HOST="179.43.120.103"
 PROD_PORT="5912"
@@ -37,7 +45,7 @@ if [ -z "$ENV" ]; then
   echo -e "${BOLD}  Aberturas — Deploy${NC}"
   echo -e "${BOLD}════════════════════════════════════════${NC}"
   echo ""
-  echo -e "  ${CYAN}1)${NC} Test   → ${TEST_HOST}"
+  echo -e "  ${CYAN}1)${NC} Test   → ${TEST_URL}"
   echo -e "  ${YELLOW}2)${NC} Prod   → ${PROD_HOST}  ${RED}[producción]${NC}"
   echo -e "  ${NC}q)${NC} Salir"
   echo ""
@@ -92,12 +100,16 @@ if [ "$ENV" = "prod" ]; then
 
 elif [ "$ENV" = "test" ]; then
 
+  # Guardas: el servidor es el de prod, así que el deploy de test no puede apuntar
+  # nunca a la base ni al contenedor de producción.
+  if [ "$TEST_DB_NAME" = "postgres" ] || [ "$TEST_APP_CONTAINER" = "aberturas-app" ]; then
+    echo -e "${RED}❌ La config de test apunta a recursos de prod. Abortado.${NC}"; exit 1
+  fi
+
   # ── Build LOCAL + transferencia de la imagen ──────────────────────────────
-  # El servidor de test tiene 1.9 GB de RAM compartidos con ~11 contenedores
-  # ajenos: buildear ahí colgaba la VPS entera (hasta sshd). Ahora la imagen se
-  # construye acá, con el mismo Dockerfile, y viaja ya armada (~440 MB gzip,
-  # ~2 min). El servidor solo la carga y la arranca. Fallback al build remoto:
-  #   DEPLOY_BUILD_REMOTO=1 bash deploy-env.sh test
+  # Test corre en el VPS de prod (2 GB): buildear ahí le sacaría la memoria a
+  # prod, así que la imagen se construye acá, con el mismo Dockerfile, y viaja
+  # ya armada (~440 MB gzip). El servidor solo la carga y la arranca.
   # Se compara contra el commit horneado en la imagen que ESTÁ CORRIENDO (label
   # git.sha), no contra el git del servidor: un deploy que falló después del
   # `git reset` deja el git actualizado y el contenedor viejo, y el siguiente
@@ -114,7 +126,7 @@ elif [ "$ENV" = "test" ]; then
   fi
 
   SUBIR_IMAGEN=0
-  if [ "$NECESITA_BUILD" -eq 1 ] && [ "${DEPLOY_BUILD_REMOTO:-0}" != "1" ]; then
+  if [ "$NECESITA_BUILD" -eq 1 ]; then
     echo -e "${BOLD}🔨 Build local de la imagen para test...${NC}"
     # El DSN de Sentry se hornea en el bundle del frontend: se toma el del .env
     # del servidor para que la imagen sea idéntica a la que se buildearía allá.
@@ -171,12 +183,14 @@ elif [ "$ENV" = "test" ]; then
     SUBIR_IMAGEN=1
   fi
 
-  echo -e "${BOLD}🧪 Ejecutando deploy en TEST (${TEST_HOST})...${NC}"
+  echo -e "${BOLD}🧪 Ejecutando deploy en TEST (${TEST_URL})...${NC}"
   echo "────────────────────────────────────────"
   ssh -o BatchMode=yes -p "${TEST_PORT}" "${TEST_USER}@${TEST_HOST}" \
-    "SUBIR_IMAGEN=${SUBIR_IMAGEN} NECESITA_BUILD=${NECESITA_BUILD} BUILD_REMOTO=${DEPLOY_BUILD_REMOTO:-0} bash -s" << 'REMOTE'
+    "SUBIR_IMAGEN=${SUBIR_IMAGEN} NECESITA_BUILD=${NECESITA_BUILD} TEST_DIR=${TEST_DIR} TEST_APP_DIR=${TEST_APP_DIR} TEST_IMAGE=${TEST_IMAGE} APP=${TEST_APP_CONTAINER} DB=${TEST_DB_CONTAINER} DB_NAME=${TEST_DB_NAME} DB_USER=${TEST_DB_USER} bash -s" << 'REMOTE'
 set -e
-cd /etc/docker/averturas
+[ "$DB_NAME" = "postgres" ] && { echo "❌ DB_NAME=postgres es la base de prod. Abortado."; exit 1; }
+PSQL="docker exec -i $DB psql -v ON_ERROR_STOP=1 -U $DB_USER -d $DB_NAME"
+cd "$TEST_APP_DIR"
 
 echo "📥 Actualizando código..."
 export GIT_TERMINAL_PROMPT=0
@@ -185,20 +199,22 @@ git reset --hard origin/main
 echo "✅ Código actualizado → $(git rev-parse --short HEAD)"
 
 echo ""
-echo "🗄️  Verificando migraciones..."
-docker exec -i aberturas-db psql -U postgres -d postgres > /dev/null <<'SQL'
+echo "🗄️  Verificando migraciones ($DB_NAME)..."
+$PSQL -q <<'SQL'
 CREATE TABLE IF NOT EXISTS schema_migrations (
   filename   TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 SQL
-APLICADAS=$(docker exec aberturas-db psql -U postgres -d postgres -tAc "SELECT filename FROM schema_migrations;")
+APLICADAS=$($PSQL -tAc "SELECT filename FROM schema_migrations;")
 PENDIENTES=0
 for file in $(ls supabase/migrations/*.sql | sort); do
   filename=$(basename "$file")
   if ! echo "$APLICADAS" | grep -qFx "$filename"; then
     echo "  ⏳ $filename — aplicando..."
-    docker exec -i aberturas-db psql -U postgres -d postgres < "$file"
+    # ON_ERROR_STOP: una migración que falla corta el deploy y NO queda registrada.
+    $PSQL < "$file"
+    $PSQL -qc "INSERT INTO schema_migrations (filename) VALUES ('$filename') ON CONFLICT DO NOTHING;"
     echo "  ✅ $filename"
     PENDIENTES=$((PENDIENTES + 1))
   fi
@@ -206,45 +222,45 @@ done
 [ "$PENDIENTES" -eq 0 ] && echo "  DB al día ($(echo "$APLICADAS" | grep -c .) migraciones)" || echo "  ✅ $PENDIENTES migración(es) nueva(s)"
 
 echo ""
+cd "$TEST_DIR"
 if [ "$NECESITA_BUILD" -eq 0 ]; then
   echo "🔨 Sin cambios de código — se saltea el build (solo migraciones/docs)"
 else
-  if [ "$SUBIR_IMAGEN" -eq 1 ]; then
-    echo "🔨 Usando la imagen buildeada localmente"
-    docker tag aberturas-app:deploy-test aberturas-app:latest
-    docker rmi aberturas-app:deploy-test > /dev/null 2>&1 || true
-    docker compose up -d --no-build app
-  else
-    echo "🔨 Rebuildeando en el servidor (DEPLOY_BUILD_REMOTO=1)..."
-    T0=$(date +%s)
-    docker compose build app
-    echo "   build: $(( $(date +%s) - T0 ))s"
-    docker compose up -d app
-  fi
+  echo "🔨 Usando la imagen buildeada localmente"
+  docker tag aberturas-app:deploy-test "$TEST_IMAGE"
+  docker rmi aberturas-app:deploy-test > /dev/null 2>&1 || true
+  docker compose up -d --no-build app
 
   echo ""
   echo "⏳ Verificando..."
   T0=$(date +%s)
   OK=0
   for i in $(seq 1 30); do
-    if docker exec aberturas-app wget -qO- -T2 http://localhost:3000 > /dev/null 2>&1; then
+    if docker exec "$APP" wget -qO- -T2 http://localhost:3000 > /dev/null 2>&1; then
       OK=1; break
     fi
     sleep 1
   done
   if [ "$OK" -eq 1 ]; then
-    echo "✅ App OK ($(( $(date +%s) - T0 ))s) · imagen git.sha=$(docker inspect aberturas-app --format '{{index .Config.Labels "git.sha"}}' | cut -c1-7)"
+    echo "✅ App OK ($(( $(date +%s) - T0 ))s) · imagen git.sha=$(docker inspect "$APP" --format '{{index .Config.Labels "git.sha"}}' | cut -c1-7)"
   else
-    echo "⚠️  La app no respondió en 30s — revisá: docker compose logs app -f"
+    echo "⚠️  La app no respondió en 30s — revisá: cd $TEST_DIR && docker compose logs app -f"
     exit 1
   fi
   docker image prune -f > /dev/null 2>&1 || true
 fi
 
+# Mismo servidor que prod: confirmar que producción sigue respondiendo.
+if curl -fsS -o /dev/null -m 5 http://127.0.0.1:3000; then
+  echo "✅ Prod sigue respondiendo (aberturas-app)"
+else
+  echo "⚠️  Prod (127.0.0.1:3000) NO respondió — revisar ya"
+fi
+
 echo ""
 echo "════════════════════════════"
 echo "✅ Deploy test completo"
-echo "Versión: $(git rev-parse --short HEAD)"
+echo "Versión: $(cd "$TEST_APP_DIR" && git rev-parse --short HEAD)"
 echo "════════════════════════════"
 REMOTE
 
