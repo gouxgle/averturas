@@ -189,7 +189,10 @@ elif [ "$ENV" = "test" ]; then
     "SUBIR_IMAGEN=${SUBIR_IMAGEN} NECESITA_BUILD=${NECESITA_BUILD} TEST_DIR=${TEST_DIR} TEST_APP_DIR=${TEST_APP_DIR} TEST_IMAGE=${TEST_IMAGE} APP=${TEST_APP_CONTAINER} DB=${TEST_DB_CONTAINER} DB_NAME=${TEST_DB_NAME} DB_USER=${TEST_DB_USER} bash -s" << 'REMOTE'
 set -e
 [ "$DB_NAME" = "postgres" ] && { echo "❌ DB_NAME=postgres es la base de prod. Abortado."; exit 1; }
+# El script entero llega por stdin (bash -s): solo se usa -i cuando se le pasa un archivo o heredoc,
+# si no docker exec se come el resto del script (pasó: el deploy cortaba después de las migraciones).
 PSQL="docker exec -i $DB psql -v ON_ERROR_STOP=1 -U $DB_USER -d $DB_NAME"
+PSQL_C="docker exec $DB psql -v ON_ERROR_STOP=1 -U $DB_USER -d $DB_NAME"
 cd "$TEST_APP_DIR"
 
 echo "📥 Actualizando código..."
@@ -201,12 +204,13 @@ echo "✅ Código actualizado → $(git rev-parse --short HEAD)"
 echo ""
 echo "🗄️  Verificando migraciones ($DB_NAME)..."
 $PSQL -q <<'SQL'
+SET client_min_messages = warning;
 CREATE TABLE IF NOT EXISTS schema_migrations (
   filename   TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 SQL
-APLICADAS=$($PSQL -tAc "SELECT filename FROM schema_migrations;")
+APLICADAS=$($PSQL_C -tAc "SELECT filename FROM schema_migrations;")
 PENDIENTES=0
 for file in $(ls supabase/migrations/*.sql | sort); do
   filename=$(basename "$file")
@@ -214,7 +218,7 @@ for file in $(ls supabase/migrations/*.sql | sort); do
     echo "  ⏳ $filename — aplicando..."
     # ON_ERROR_STOP: una migración que falla corta el deploy y NO queda registrada.
     $PSQL < "$file"
-    $PSQL -qc "INSERT INTO schema_migrations (filename) VALUES ('$filename') ON CONFLICT DO NOTHING;"
+    $PSQL_C -qc "INSERT INTO schema_migrations (filename) VALUES ('$filename') ON CONFLICT DO NOTHING;"
     echo "  ✅ $filename"
     PENDIENTES=$((PENDIENTES + 1))
   fi
