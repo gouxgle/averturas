@@ -31,7 +31,7 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
 | Ambiente | URL | Notas |
 |---|---|---|
 | Local | `http://localhost:3000` (contenedor) · `:5173`+`:3001` (nativo) | DB en `127.0.0.1:5434` |
-| Test | `https://test.cesarbritez.com.ar` — mismo VPS que prod (`179.43.120.103:5912`) | Desde 2026-10-29. Compose propio en `/opt/docker/aberturas-test` (contenedor `aberturas-test-app`, `127.0.0.1:3001`, `mem_limit 512m`, `.env` ahí). Base **`aberturas_test`** dentro del `aberturas-db` de prod, rol `aberturas_test` (sin acceso a la base `postgres`). WhatsApp por el `evolution_api` de prod, **mismo número: lo que se prueba le llega al cliente**. El test viejo (`aberturas.solucionesgps.com.ar`) quedó andando sin deploys |
+| Test | `https://test.cesarbritez.com.ar` — mismo VPS que prod (`179.43.120.103:5912`) | Desde 2026-10-29. Compose propio en `/opt/docker/aberturas-test` (contenedor `aberturas-test-app`, `127.0.0.1:3001`, `mem_limit 512m`, `.env` ahí). Base **`aberturas_test`** dentro del `aberturas-db` de prod, rol `aberturas_test` (sin acceso a la base `postgres`). WhatsApp por el `evolution_api` de prod, **mismo número: lo que se prueba le llega al cliente**. El test viejo (`aberturas.solucionesgps.com.ar`) está apagado desde 2026-10-30 (`docker compose stop app db` en `/etc/docker/averturas`, datos intactos; nginx en `/etc/docker/nginx/aberturas.conf.apagado-20261030`) |
 | Prod | `https://aberturas.cesarbritez.com.ar` — `179.43.120.103:5912` | Repo en `/opt/docker/cesarbritez/aberturas`; **el compose real es `/opt/docker/cesarbritez/docker-compose.yml`, fuera del repo** — toda env var nueva para `aberturas-app`/`aberturas-db` va ahí a mano |
 
 - Reverse proxy: nginx del sistema del VPS de prod, `systemctl reload nginx`. Test =
