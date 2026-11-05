@@ -254,7 +254,7 @@ clientes.get('/panel', async (c) => {
           COUNT(*)::int AS count_deuda
         FROM compromisos_pago cp WHERE cp.cliente_id = c.id AND cp.estado = 'pendiente'
       ) deuda ON true
-      WHERE c.activo = true${searchWhere}
+      WHERE c.activo = true ${searchWhere}
       ORDER BY c.ultima_interaccion DESC NULLS LAST, c.created_at DESC
       ${clientesLimit}
     `, searchParams),

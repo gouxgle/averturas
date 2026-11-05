@@ -305,6 +305,12 @@ const ENTREGA_COMPLETA = `(
   )
 )`;
 
+// Tope de filas de la lista de Presupuestos. Era 200 y, con 227 presupuestos en estado visible, dejaba afuera los
+// aprobados más recientes (los ordena al final: baja prioridad + cliente con contacto reciente) — no aparecían en
+// la lista ni en la búsqueda, que filtra en el navegador. El navegador pagina de a PER_PAGE, así que alcanza con subir
+// el tope; si algún día pasa de acá, hay que paginar en el servidor y no volver a recortar sin avisar.
+export const LIMITE_LISTA_PRESUPUESTOS = 2000;
+
 operaciones.get('/', async (c) => {
   const estado     = c.req.query('estado');
   const estados    = c.req.query('estados');    // comma-separated
@@ -614,7 +620,7 @@ operaciones.get('/ventas-panel', async (c) => {
           ELSE 2
         END,
         o.precio_total DESC
-      LIMIT 200
+      LIMIT ${LIMITE_LISTA_PRESUPUESTOS}
     `),
 
     db.query(`
