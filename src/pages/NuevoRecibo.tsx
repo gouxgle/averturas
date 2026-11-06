@@ -762,17 +762,17 @@ export function NuevoRecibo() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
 
       {/* ── Header ───────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate('/recibos')} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0">
           <ArrowLeft size={17} className="text-gray-600" />
         </button>
         <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
           <Receipt size={16} className="text-emerald-600" />
         </div>
-        <h1 className="text-base font-bold text-gray-900 flex-1">
+        <h1 className="text-base font-bold text-gray-900 flex-1 min-w-0">
           {isEdit ? 'Editar recibo' : 'Nuevo recibo'}
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <HelpButton topic="recibos" />
           <button onClick={() => navigate('/recibos')}
             className="px-3.5 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
@@ -1599,8 +1599,8 @@ export function NuevoRecibo() {
       {/* ── 8. Resumen final ──────────────────────────────── */}
       {operacionId && (
         <div className="bg-white rounded-xl border border-gray-400 shadow-lg p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-600 uppercase tracking-wide font-semibold mb-1">Total del recibo</p>
               <p className={cn('text-3xl font-bold', montoFinal > 0 ? 'text-gray-900' : 'text-gray-600')}>
                 {montoFinal > 0
@@ -1617,6 +1617,10 @@ export function NuevoRecibo() {
               ) : tipoPago === 'total' ? (
                 <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1">
                   <Check size={13} /> PAGO TOTAL — cancela todo el saldo
+                </p>
+              ) : montoFinal > 0 && saldoTrasRecibo <= 0.01 ? (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1">
+                  <Check size={13} /> Este pago cancela el saldo
                 </p>
               ) : (
                 <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
@@ -1652,7 +1656,7 @@ export function NuevoRecibo() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2 shrink-0">
+            <div className="flex flex-col-reverse sm:flex-col gap-2 shrink-0">
               <button onClick={() => navigate('/recibos')}
                 className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
                 Cancelar
