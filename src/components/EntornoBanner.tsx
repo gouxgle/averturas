@@ -1,7 +1,4 @@
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-
-type Entorno = 'test' | 'produccion' | 'local';
+import { useEntorno, type Entorno } from '@/lib/entorno';
 
 // Franja + badge que identifican a simple vista si se está en test o producción.
 // Se detecta solo (GET /pub/entorno, deriva de APP_URL) — nada que cambiar a mano
@@ -13,13 +10,7 @@ const ESTILOS: Record<Entorno, { franja: string; badge: string; label: string } 
 };
 
 export function EntornoBanner() {
-  const [entorno, setEntorno] = useState<Entorno | null>(null);
-
-  useEffect(() => {
-    api.get<{ entorno: Entorno }>('/pub/entorno')
-      .then(d => setEntorno(d.entorno))
-      .catch(() => {});
-  }, []);
+  const entorno = useEntorno();
 
   if (!entorno) return null;
   const s = ESTILOS[entorno];

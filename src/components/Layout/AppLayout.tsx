@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { AvisosEmergentes } from '@/components/AvisosEmergentes';
 import { BuzonComentarios } from '@/components/BuzonComentarios';
+import { useEntorno } from '@/lib/entorno';
 import { AgendaDelDia } from '@/components/agenda/AgendaDelDia';
 import { BotonAgenda } from '@/components/agenda/BotonAgenda';
 
@@ -93,6 +94,7 @@ function Watermark() {
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { pathname } = useLocation();
+  const entorno = useEntorno();
 
   // Cada pantalla nueva arranca arriba: en una SPA el navegador no resetea el scroll al
   // navegar, y la pantalla nueva abría a la altura que traía la anterior. Solo con el
@@ -185,7 +187,8 @@ export function AppLayout() {
         </main>
       </div>
 
-      <BuzonComentarios />
+      {/* El globito del buzón es para probar en test/local: en producción molesta sobre el menú lateral */}
+      {entorno !== null && entorno !== 'produccion' && <BuzonComentarios />}
 
       {/* Agenda del día: aviso al entrar y recordatorios de lo pendiente (no bloquea) */}
       <AgendaDelDia />
