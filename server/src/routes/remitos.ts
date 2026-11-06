@@ -201,12 +201,17 @@ remitos.get('/tablero', async (c) => {
 remitos.get('/', async (c) => {
   const estado = c.req.query('estado') ?? '';
   const search = c.req.query('search') ?? '';
+  const operacionId = c.req.query('operacion_id') ?? '';
   const params: unknown[] = [];
   let where = 'WHERE 1=1';
 
   if (estado && estado !== 'todos') {
     params.push(estado);
     where += ` AND r.estado = $${params.length}`;
+  }
+  if (operacionId) {
+    params.push(operacionId);
+    where += ` AND r.operacion_id = $${params.length}`;
   }
   if (search.trim()) {
     params.push(`%${search.trim()}%`);

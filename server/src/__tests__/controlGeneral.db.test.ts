@@ -91,6 +91,14 @@ describe.skipIf(!process.env.DATABASE_URL)('control general: saldos, listas y en
     expect(j.clientes.filter(c => c.apellido === `${NOMBRE}Lote`).length).toBe(510);
   });
 
+  it('GET /remitos?operacion_id trae solo los remitos de esa operación', async () => {
+    const de = async (id: string) => await (await app.request(`/remitos?operacion_id=${id}`)).json() as { operacion_id: string }[];
+    expect(await de(ids.sinRemito)).toEqual([]);
+    const conRemito = await de(ids.conRemito);
+    expect(conRemito.length).toBe(1);
+    expect(conRemito[0].operacion_id).toBe(ids.conRemito);
+  });
+
   it('una venta no pasa a entregada sin remito entregado', async () => {
     const patch = (id: string) => app.request(`/operaciones/${id}/estado`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: 'entregado' }),
