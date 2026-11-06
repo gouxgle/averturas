@@ -395,6 +395,8 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
 - **Saldo de una operación = vista `operacion_cobranza`** (cobrado, descuentos, `devuelto_a_saldo`,
   saldo): única definición; no volver a copiar `precio_total − cobrado − descuentos`. `GET /operaciones/:id`
   devuelve `saldo` y `devuelto_a_saldo`.
+- **Una operación pasa a `entregado` solo con su remito entregado**: `PATCH /operaciones/:id/estado` responde 409
+  sin él, porque el remito es lo que descuenta stock, guarda quién recibió y agenda el post venta.
 - **Bonificación del presupuesto** (opcional, % o monto fijo, `operaciones.bonificacion_*`): `precio_total` sigue
   siendo el precio de LISTA; la bonificación se calcula solo sobre productos (sin instalación ni envío), la fija
   el servidor (`lib/bonificacion.ts` → `guardarBonificacion`, espejo en `src/lib/bonificacion.ts`) y sale en la

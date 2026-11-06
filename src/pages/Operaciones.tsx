@@ -16,7 +16,7 @@ import { CompactStatsBar } from '@/components/CompactStatsBar';
 
 interface TOp {
   id: string; numero: string; estado: string; tipo: string;
-  precio_total: number; cobrado_total: number;
+  precio_total: number; cobrado_total: number; saldo: number;
   created_at: string; fecha_entrega_estimada: string | null;
   fecha_validez: string | null;
   updated_at: string; dias_en_estado: number;
@@ -84,8 +84,9 @@ function fmtLlegada(iso: string | null): string | null {
 
 // ── Sub-componentes ──────────────────────────────────────────────────
 
-function PagoBadge({ cobrado, total }: { cobrado: number; total: number }) {
-  if (cobrado >= total * 0.99)
+function PagoBadge({ cobrado, total, saldo }: { cobrado: number; total: number; saldo: number }) {
+  // Por saldo, no por lo cobrado: una venta bonificada queda saldada cobrando menos que el precio de lista.
+  if (Number(saldo) <= Number(total) * 0.01)
     return <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Pago total</span>;
   if (cobrado > 0)
     return <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">Señado</span>;
@@ -157,7 +158,7 @@ function TCard({ op, col }: { op: TOp; col: ColKey }) {
 
       <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-black/10">
         <p className="text-[12px] font-extrabold text-gray-900 tabular-nums">{formatCurrency(op.precio_total)}</p>
-        {showPago && <PagoBadge cobrado={op.cobrado_total} total={op.precio_total} />}
+        {showPago && <PagoBadge cobrado={op.cobrado_total} total={op.precio_total} saldo={op.saldo} />}
         {col === 'canceladas' && <XCircle size={14} className="text-red-400 shrink-0" />}
         {col === 'entregadas' && <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />}
       </div>

@@ -211,7 +211,7 @@ export function Clientes() {
   // Buscar en el backend (mismo criterio que Nuevo Presupuesto — incluye teléfono)
   // cuando hay 3+ caracteres (2 es demasiado amplio, ej. prefijos de área
   // como "37" matchean casi todo el padrón); con el campo vacío vuelve al
-  // panel completo (top 500).
+  // panel completo.
   useEffect(() => {
     const t = setTimeout(() => {
       if (busqueda.trim().length >= 3) cargar(busqueda);

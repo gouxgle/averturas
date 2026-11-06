@@ -248,8 +248,9 @@ remitos.get('/listos-para-enviar', async (c) => {
     FROM operaciones o
     JOIN clientes cl ON cl.id = o.cliente_id
     LEFT JOIN cobros co ON co.operacion_id = o.id
+    JOIN operacion_cobranza oc ON oc.operacion_id = o.id
     WHERE o.estado = 'aprobado'
-      AND COALESCE(co.cobrado_total, 0) >= o.precio_total - 0.01
+      AND oc.saldo <= 0.01
       AND NOT EXISTS (
         SELECT 1 FROM remitos rm
         WHERE rm.operacion_id = o.id AND rm.estado IN ('emitido', 'entregado')

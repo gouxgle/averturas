@@ -5,6 +5,7 @@ import {
   Receipt, Truck, XCircle, RotateCcw, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { toastApiError } from '@/lib/apiError';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import type { Operacion, OperacionItem, EstadoOperacion } from '@/types';
 
@@ -43,7 +44,7 @@ const SIGUIENTE_ESTADO: Partial<Record<EstadoOperacion, EstadoOperacion>> = {
   aprobado:      'en_produccion',
   rechazado:     'presupuesto',
   en_produccion: 'listo',
-  listo:         'entregado',
+  // listo → entregado no va acá: la entrega se registra en el remito (botón "Registrar entrega")
 };
 
 const SIGUIENTE_LABEL: Partial<Record<EstadoOperacion, string>> = {
@@ -52,7 +53,6 @@ const SIGUIENTE_LABEL: Partial<Record<EstadoOperacion, string>> = {
   aprobado:      'En producción',
   rechazado:     'Revisar (borrador)',
   en_produccion: 'Listo',
-  listo:         'Entregado',
 };
 
 interface EstadoHistorial {
@@ -82,6 +82,7 @@ interface RemitoResumen {
 interface OperacionDetalle extends Operacion {
   items: OperacionItem[];
   historial: EstadoHistorial[];
+  saldo: number;
 }
 
 const FORMA_PAGO_LABEL: Record<string, string> = {
@@ -129,9 +130,14 @@ export function OperacionDetalle() {
   async function cambiarEstado(nuevoEstado: EstadoOperacion) {
     if (!operacion) return;
     setCambiandoEstado(true);
-    await api.patch(`/operaciones/${operacion.id}/estado`, { estado: nuevoEstado });
-    await load();
-    setCambiandoEstado(false);
+    try {
+      await api.patch(`/operaciones/${operacion.id}/estado`, { estado: nuevoEstado });
+      await load();
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo cambiar el estado' });
+    } finally {
+      setCambiandoEstado(false);
+    }
   }
 
   async function cancelar() {
@@ -166,7 +172,10 @@ export function OperacionDetalle() {
   const estadoLabel = ESTADOS.find(e => e.value === operacion.estado)?.label ?? operacion.estado;
 
   const totalCobrado = recibos.reduce((s, r) => s + Number(r.monto_total), 0);
-  const saldoPendiente = Number(operacion.precio_total) - totalCobrado;
+  // De la vista operacion_cobranza: descuenta bonificaciones y devoluciones
+  const saldoPendiente = Number(operacion.saldo);
+  // Un remito ya armado se entrega desde él; si no hay ninguno, se crea
+  const remitoPendiente = remitos.find(r => r.estado !== 'entregado');
 
   // Mostrar paneles recibos/remitos solo en estados del flujo comercial
   const esComercial = ['presupuesto', 'enviado', 'aprobado', 'rechazado',
@@ -216,6 +225,15 @@ export function OperacionDetalle() {
               className="px-3 py-2 text-xs border border-red-200 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50">
               Cancelar
             </button>
+          )}
+          {operacion.estado === 'listo' && (
+            <Link
+              to={remitoPendiente
+                ? `/remitos/${remitoPendiente.id}/editar`
+                : `/remitos/nuevo?operacion_id=${operacion.id}&cliente_id=${cliente?.id ?? ''}`}
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium">
+              Registrar entrega <ChevronRight size={14} />
+            </Link>
           )}
           {siguiente && operacion.estado !== 'rechazado' && (
             <button onClick={() => cambiarEstado(siguiente)} disabled={cambiandoEstado}

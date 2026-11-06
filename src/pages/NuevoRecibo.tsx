@@ -45,6 +45,7 @@ interface Operacion {
   precio_total: number;
   cobrado_total: number;
   devuelto_a_saldo?: number;
+  saldo: number;
   forma_pago: string | null;
   cliente: { nombre: string | null; apellido: string | null };
 }
@@ -248,8 +249,11 @@ export function NuevoRecibo() {
       return;
     }
     api.get<Operacion[]>(`/operaciones?cliente_id=${clienteId}&estado=aprobado`)
-      .then(ops => setOperaciones(ops.filter(o => Number(o.cobrado_total) + Number(o.devuelto_a_saldo ?? 0) < Number(o.precio_total) - 0.01)))
+      // Con saldo real (ya descuenta bonificaciones y devoluciones). La que ya está elegida se conserva:
+      // al editar un recibo su operación puede estar saldada.
+      .then(ops => setOperaciones(ops.filter(o => Number(o.saldo) > 0.01 || o.id === operacionId)))
       .catch(() => setOperaciones([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId]);
 
   // ── Al cambiar operación → detalle + cobrado ──────────────

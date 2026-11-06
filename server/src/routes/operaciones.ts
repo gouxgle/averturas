@@ -354,6 +354,7 @@ operaciones.get('/', async (c) => {
     SELECT o.*,
       COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
       COALESCE((SELECT oc.devuelto_a_saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS devuelto_a_saldo,
+      COALESCE((SELECT oc.saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS saldo,
       json_build_object(
         'id', c.id, 'nombre', c.nombre,
         'apellido', c.apellido, 'telefono', c.telefono
@@ -384,6 +385,7 @@ operaciones.get('/tablero', async (c) => {
         SELECT SUM(r2.monto_total) FROM recibos r2
         WHERE r2.operacion_id = o.id AND r2.estado = 'emitido'
       ), 0)::numeric AS cobrado_total,
+      COALESCE((SELECT oc.saldo FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS saldo,
       json_build_object(
         'id', c.id, 'nombre', c.nombre, 'apellido', c.apellido,
         'razon_social', c.razon_social, 'tipo_persona', c.tipo_persona,
@@ -417,7 +419,7 @@ operaciones.get('/tablero', async (c) => {
     // 1. Sin confirmar: presupuestos enviados o en borrador
     db.query(`${baseSelect}
       WHERE o.estado IN ('presupuesto', 'enviado')
-      ORDER BY o.created_at DESC LIMIT 50`),
+      ORDER BY o.created_at DESC LIMIT ${LIMITE_LISTA_PRESUPUESTOS}`),
 
     // 2. Confirmadas: aprobadas sin pedido activo al proveedor.
     //    Excluye las que ya están 100% cubiertas por stock (esas van a "lista p/ entregar").
@@ -427,7 +429,7 @@ operaciones.get('/tablero', async (c) => {
           SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado != 'cancelado'
         )
         AND NOT ${STOCK_CUBRE_TODO}
-      ORDER BY o.created_at DESC LIMIT 50`),
+      ORDER BY o.created_at DESC LIMIT ${LIMITE_LISTA_PRESUPUESTOS}`),
 
     // 3. Con pedido al proveedor: tiene al menos un pedido activo no recibido
     db.query(`${baseSelect}
@@ -436,7 +438,7 @@ operaciones.get('/tablero', async (c) => {
           SELECT 1 FROM pedidos p
           WHERE p.operacion_id = o.id AND p.estado NOT IN ('cancelado', 'recibido')
         )
-      ORDER BY o.created_at DESC LIMIT 50`),
+      ORDER BY o.created_at DESC LIMIT ${LIMITE_LISTA_PRESUPUESTOS}`),
 
     // 4. Lista p/ entregar: sin remito activo, sin pedido pendiente, Y
     //    (todos los pedidos fueron recibidos) O (aprobada + todo cubierto por stock, sin necesidad de pedido)
@@ -450,7 +452,7 @@ operaciones.get('/tablero', async (c) => {
           EXISTS (SELECT 1 FROM pedidos p WHERE p.operacion_id = o.id AND p.estado = 'recibido')
           OR (o.estado = 'aprobado' AND ${STOCK_CUBRE_TODO})
         )
-      ORDER BY o.created_at DESC LIMIT 50`),
+      ORDER BY o.created_at DESC LIMIT ${LIMITE_LISTA_PRESUPUESTOS}`),
 
     // 5. Entregadas: estado entregado O tiene remito activo
     db.query(`${baseSelect}
@@ -459,12 +461,12 @@ operaciones.get('/tablero', async (c) => {
           o.estado = 'entregado'
           OR ${ENTREGA_COMPLETA}
         )
-      ORDER BY o.updated_at DESC LIMIT 50`),
+      ORDER BY o.updated_at DESC LIMIT ${LIMITE_LISTA_PRESUPUESTOS}`),
 
     // 6. Canceladas
     db.query(`${baseSelect}
       WHERE o.estado IN ('cancelado', 'rechazado')
-      ORDER BY o.updated_at DESC LIMIT 30`),
+      ORDER BY o.updated_at DESC LIMIT ${LIMITE_LISTA_PRESUPUESTOS}`),
 
     db.query(`
       SELECT o.id, o.numero, o.precio_total::numeric, o.estado, o.fecha_entrega_estimada,
@@ -1690,6 +1692,19 @@ operaciones.patch('/:id/estado', async (c) => {
     const vtPendiente = await visitaPendiente(id);
     if (vtPendiente) {
       return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente} antes de aprobar este presupuesto` }, 409);
+    }
+  }
+
+  // La entrega se registra con su remito: es lo que descuenta stock, guarda quién recibió y agenda el
+  // seguimiento post venta. Marcarla a mano dejaba ventas "entregadas" sin nada de eso.
+  if (estado === 'entregado') {
+    const { rows: [e] } = await db.query<{ actual: string; con_remito: boolean }>(`
+      SELECT o.estado AS actual,
+             EXISTS (SELECT 1 FROM remitos r WHERE r.operacion_id = o.id AND r.estado = 'entregado') AS con_remito
+      FROM operaciones o WHERE o.id = $1
+    `, [id]);
+    if (e && e.actual !== 'entregado' && !e.con_remito) {
+      return c.json({ error: 'Para marcarla como entregada, registrá la entrega en su remito' }, 409);
     }
   }
 

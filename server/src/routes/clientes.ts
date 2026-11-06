@@ -181,10 +181,8 @@ clientes.get('/panel', async (c) => {
   // Mismo criterio de búsqueda que GET /clientes (incluye teléfono)
   const searchParams: unknown[] = [];
   const searchWhere = clienteSearchSql('c', search, searchParams);
-  // Con búsqueda: cap a 200 — evita transferir cientos de filas (ej. prefijos
-  // de área como "3704" matchean casi todo el padrón) cuando el frontend solo
-  // pagina de a 10. Sin búsqueda: 500 (listado general reciente).
-  const clientesLimit = search.trim() ? 'LIMIT 200' : 'LIMIT 500';
+  // Sin tope: pestañas, filtro de estado y orden se aplican en el navegador sobre estas filas, así que un
+  // LIMIT los dejaba incompletos sin avisar (500 de 2084 en prod). Medido en prod: 19 ms y 742 KB sin comprimir.
 
   const [
     statsRows,
@@ -256,7 +254,6 @@ clientes.get('/panel', async (c) => {
       ) deuda ON true
       WHERE c.activo = true ${searchWhere}
       ORDER BY c.ultima_interaccion DESC NULLS LAST, c.created_at DESC
-      ${clientesLimit}
     `, searchParams),
 
     db.query(`

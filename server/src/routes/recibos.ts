@@ -168,13 +168,16 @@ recibos.get('/tablero', async (c) => {
         cobros.total_cobrado,
         CASE
           WHEN r.estado = 'anulado' THEN 'anulado'
-          WHEN op.id IS NOT NULL AND COALESCE(cobros.total_cobrado, 0) < COALESCE(op.precio_total, 0) - 0.01 THEN 'parcial'
+          WHEN op.id IS NOT NULL AND COALESCE(oc.saldo, 0) > 0.01 THEN 'parcial'
           ELSE 'cobrado'
         END AS estado_cobro,
-        GREATEST(0, COALESCE(op.precio_total, 0) - COALESCE(cobros.total_cobrado, 0)) AS saldo_pendiente
+        GREATEST(0, COALESCE(oc.saldo, 0)) AS saldo_pendiente
       FROM recibos r
       JOIN clientes cl ON cl.id = r.cliente_id
       LEFT JOIN operaciones op ON op.id = r.operacion_id
+      -- El saldo sale de la vista: descuenta bonificaciones y devoluciones (antes una venta saldada con
+      -- descuento figuraba "parcial" y ofrecía cobrar de nuevo el importe bonificado).
+      LEFT JOIN operacion_cobranza oc ON oc.operacion_id = op.id
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(r2.monto_total), 0) AS total_cobrado
         FROM recibos r2 WHERE r2.operacion_id = op.id AND r2.estado = 'emitido'
@@ -278,10 +281,7 @@ recibos.get('/tablero', async (c) => {
       FROM operaciones op
       WHERE op.estado NOT IN ('cancelado', 'presupuesto', 'enviado')
         AND EXISTS (SELECT 1 FROM recibos r WHERE r.operacion_id = op.id AND r.estado = 'emitido')
-        AND (
-          SELECT COALESCE(SUM(r.monto_total), 0) FROM recibos r
-          WHERE r.operacion_id = op.id AND r.estado = 'emitido'
-        ) < op.precio_total - 0.01
+        AND (SELECT oc.saldo FROM operacion_cobranza oc WHERE oc.operacion_id = op.id) > 0.01
     `, []),
   ]);
 

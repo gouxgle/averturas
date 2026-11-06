@@ -6,6 +6,7 @@ Backup diario automático de `aberturas-db`, corre **en el host de prod** (179.4
 - Cron `0 3 * * *` → `/usr/local/bin/backup-dbs.sh` (root, no versionado en el repo)
 - `pg_dump` (via `docker exec aberturas-db`) → gzip → `/var/lib/docker-data/backups/*.sql.gz` (retención 7 días)
 - `rclone copy` a Google Drive (`gdrive:backups-sistemas/aberturas/`)
+- Desde 2026-11-05 también los archivos (`/var/lib/docker-data/aberturas/uploads`: fotos, firmas, comprobantes, PDFs), que el `pg_dump` no incluye: `rclone copy` incremental a `gdrive:backups-sistemas/aberturas-uploads/`, sin borrar en Drive lo que se borre en el servidor. Si falla no se loguea "Backup completado" y Configuración → Backups lo marca como fallo.
 - Log en texto plano: `/var/log/backup-aberturas.log`
 - El script usa `set -e`: si `rclone` falla (ej. token OAuth vencido), aborta antes de loguear "Backup completado" y antes de limpiar retención — el `.sql.gz` local igual queda creado (pg_dump ya corrió bien), solo no sube a Drive.
 - **Gotcha real, ya pasó DOS veces (2026-07-23 y de nuevo 2026-08-18)**: token OAuth de rclone expira (`invalid_grant`), y como el script usa `set -e` el `pg_dump` local sigue funcionando perfecto pero la subida a Drive falla en silencio — nadie se entera hasta revisar Drive a mano (la 2ª vez fueron 13 días sin subir nada, detectado por el usuario, no por el sistema).
