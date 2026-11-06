@@ -510,7 +510,7 @@ describe.skipIf(!process.env.DATABASE_URL)('emisión de comprobantes contra ARCA
       expect(await O.facturadoDe('recibo_id', reciboId)).toBe(121_000);
       const anular = () => app.request(`/recibos/${reciboId}/anular`, { method: 'PATCH', body: JSON.stringify({ motivo_anulacion: 'Devolución' }), headers: { 'Content-Type': 'application/json' } });
       expect((await anular()).status).toBe(409);
-      const editar = await app.request(`/recibos/${reciboId}`, { method: 'PUT', body: JSON.stringify({ monto_total: 100_000, cliente_id: clienteId }), headers: { 'Content-Type': 'application/json' } });
+      const editar = await app.request(`/recibos/${reciboId}`, { method: 'PUT', body: JSON.stringify({ monto_total: 100_000, cliente_id: clienteId, operacion_id: operacionId, forma_pago: 'Contado' }), headers: { 'Content-Type': 'application/json' } });
       expect(editar.status).toBe(409);
       const nc = await E.crearBorrador(nota('nota_credito', f, cf, 121_000), null);
       expect(nc.problemas).toEqual([]);

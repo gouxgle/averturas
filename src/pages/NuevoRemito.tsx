@@ -131,6 +131,11 @@ export function NuevoRemito() {
   const { id }       = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const isEdit       = Boolean(id);
+  // Al editar: cuánto de cada ítem del presupuesto tiene este mismo remito. No cuenta como "ya está en otro remito".
+  const [propioPorItem, setPropioPorItem] = useState<Map<string, number>>(new Map());
+  // La operación de este remito, aunque no figure en la lista (ya cubierta por este mismo remito).
+  const [opActual, setOpActual] = useState<Operacion | null>(null);
+  const cubiertoEnOtros = (it: OpItem) => Math.max(0, (it.cantidad_entregada ?? 0) - (propioPorItem.get(it.id) ?? 0));
 
   const [saving, setSaving]         = useState(false);
   const [savedId, setSavedId]       = useState<string | null>(null);
@@ -211,15 +216,16 @@ export function NuevoRemito() {
     }
     setLoadingOp(true);
     Promise.all([
-      api.get<{ items: OpItem[]; precio_total: number; cobrado_total: number; total_descuentos: number; saldo?: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
+      api.get<{ id: string; numero: string; estado: string; items: OpItem[]; precio_total: number; cobrado_total: number; total_descuentos: number; saldo?: number; forma_envio?: string }>(`/operaciones/${operacionId}`),
       api.get<Array<{ id: string; numero: string; estado: string; proveedor: { nombre: string } }>>(`/pedidos?operacion_id=${operacionId}`),
     ]).then(([op, peds]) => {
       const itemsOp = op.items ?? [];
       setOpItems(itemsOp);
+      setOpActual({ id: op.id, numero: op.numero, estado: op.estado, precio_total: op.precio_total });
       // No preseleccionar lo que ya salió en otro remito — si no, la segunda
       // entrega parcial vuelve a ofrecer la cantidad completa por defecto.
       setSelectedOp(new Set(
-        itemsOp.flatMap((it, i) => (it.cantidad_entregada ?? 0) < it.cantidad ? [i] : [])
+        itemsOp.flatMap((it, i) => cubiertoEnOtros(it) < it.cantidad ? [i] : [])
       ));
       // `saldo` viene de la vista operacion_cobranza y ya descuenta lo devuelto
       const saldo = op.saldo != null ? Number(op.saldo) : Number(op.precio_total) - Number(op.cobrado_total ?? 0) - Number(op.total_descuentos ?? 0);
@@ -244,6 +250,18 @@ export function NuevoRemito() {
   useEffect(() => {
     if (!isEdit || !id) return;
     api.get<RemitoDetalle>(`/remitos/${id}`).then(r => {
+      // Los links llegan acá en cualquier estado, pero solo el borrador se edita: mejor avisar antes de cargar
+      // todo que rechazarlo recién al guardar. En la lista se lo ve y se entrega.
+      if (r.estado !== 'borrador') {
+        toast.info(`El remito ${r.numero} ya no está en borrador: no se puede editar`);
+        navigate(`/remitos?q=${encodeURIComponent(r.numero)}`, { replace: true });
+        return;
+      }
+      const propio = new Map<string, number>();
+      r.items.forEach(it => {
+        if (it.operacion_item_id) propio.set(it.operacion_item_id, (propio.get(it.operacion_item_id) ?? 0) + it.cantidad);
+      });
+      setPropioPorItem(propio);
       setClienteId(r.cliente_id);
       setClienteSearch('');
       setOperacionId(r.operacion_id ?? '');
@@ -279,7 +297,7 @@ export function NuevoRemito() {
       // Si ya salió parte en otro remito, importar solo lo que falta — si no,
       // una segunda entrega parcial vuelve a ofrecer la cantidad completa y el
       // backend termina rechazándolo por sobre-entrega.
-      const pendiente = Math.max(1, it.cantidad - (it.cantidad_entregada ?? 0));
+      const pendiente = Math.max(1, it.cantidad - cubiertoEnOtros(it));
       return {
         // Se conservan las dos referencias del ítem original: el producto (sin él
         // la emisión no descuenta stock) y el ítem del presupuesto (sin él no se
@@ -580,7 +598,7 @@ export function NuevoRemito() {
                 Presupuesto vinculado
               </h2>
 
-              {operaciones.length === 0 && !operacionFromUrl ? (
+              {operaciones.length === 0 && !operacionFromUrl && !operacionId ? (
                 <p className="text-xs text-gray-600 italic">No hay presupuestos aprobados para este cliente</p>
               ) : (
                 <>
@@ -618,6 +636,11 @@ export function NuevoRemito() {
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 mb-3"
                   >
                     <option value="">— Sin vincular —</option>
+                    {opActual && !operaciones.some(op => op.id === opActual.id) && (
+                      <option value={opActual.id}>
+                        {opActual.numero} · {opActual.estado} · ${Number(opActual.precio_total).toLocaleString('es-AR')}
+                      </option>
+                    )}
                     {operaciones.map(op => (
                       <option key={op.id} value={op.id}>
                         {op.numero} · {op.estado} · ${Number(op.precio_total).toLocaleString('es-AR')}
@@ -671,7 +694,7 @@ export function NuevoRemito() {
                       </div>
                     ) : opItems.length > 0 ? (() => {
                       const seleccionables = opItems.flatMap((it, i) =>
-                        (it.cantidad - (it.cantidad_entregada ?? 0)) > 0 ? [i] : []);
+                        (it.cantidad - cubiertoEnOtros(it)) > 0 ? [i] : []);
                       return (
                       <div className="border border-gray-200 rounded-xl overflow-hidden">
                         {/* Header con seleccionar todos */}
@@ -698,7 +721,7 @@ export function NuevoRemito() {
 
                         {/* Lista de ítems */}
                         {opItems.map((it, i) => {
-                          const entregado = it.cantidad_entregada ?? 0;
+                          const entregado = cubiertoEnOtros(it);
                           const pendiente = it.cantidad - entregado;
                           const agotado = pendiente <= 0;
                           return (

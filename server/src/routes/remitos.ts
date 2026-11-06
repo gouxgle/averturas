@@ -7,7 +7,7 @@ import { facturadoDe } from '../lib/fiscal/origenes.js';
 import { validateBody } from '../lib/validate.js';
 import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema, RemitoEntregaSchema, RemitoFirmaSchema } from '../lib/schemas.js';
 import {
-  sincronizarTareaEntrega, cargarRemitoParaTransicion, aplicarTransicionRemito, entregarRemito,
+  sincronizarTareaEntrega, completarTareaDeEntrega, cargarRemitoParaTransicion, aplicarTransicionRemito, entregarRemito,
   detalleEntrega, RemitoError, TRANSICIONES_REMITO,
 } from '../lib/remitos.js';
 import { enviarWhatsapp, normalizarNumeroAR } from '../lib/whatsapp.js';
@@ -490,6 +490,15 @@ remitos.get('/:id', async (c) => {
 async function validarNoSobreEntrega(
   operacionId: string, items: { operacion_item_id?: string | null; cantidad?: number }[], excluirRemitoId?: string
 ): Promise<string | null> {
+  // Lo que pide este remito, sumando un mismo ítem repetido en varios renglones
+  const pedidas = new Map<string, number>();
+  for (const item of items) {
+    if (item.operacion_item_id) {                // sin vínculo: renglón cargado a mano, no se valida
+      pedidas.set(item.operacion_item_id, (pedidas.get(item.operacion_item_id) ?? 0) + (item.cantidad || 1));
+    }
+  }
+  if (!pedidas.size) return null;
+
   const { rows: yaCubierto } = await db.query(`
     SELECT ri.operacion_item_id, SUM(ri.cantidad)::int AS cubierto,
            min(r.numero) AS remito
@@ -501,8 +510,6 @@ async function validarNoSobreEntrega(
     GROUP BY ri.operacion_item_id
   `, [operacionId, excluirRemitoId ?? null]);
 
-  if (!yaCubierto.length) return null;
-
   const { rows: opItems } = await db.query(
     `SELECT id, cantidad, descripcion FROM operacion_items WHERE operacion_id = $1`,
     [operacionId]
@@ -510,17 +517,23 @@ async function validarNoSobreEntrega(
   const cant = new Map(opItems.map((o: { id: string; cantidad: number; descripcion: string }) => [o.id, o]));
   const cubierto = new Map(yaCubierto.map((y: { operacion_item_id: string; cubierto: number; remito: string }) => [y.operacion_item_id, y]));
 
-  for (const item of items) {
-    const oid = item.operacion_item_id;
-    if (!oid) continue;                       // renglón cargado a mano: no se valida
-    const ya = cubierto.get(oid);
+  for (const [oid, pedido] of pedidas) {
     const op = cant.get(oid);
-    if (!ya || !op) continue;
-    if (ya.cubierto + (item.cantidad || 1) > op.cantidad) {
-      return `"${op.descripcion}" ya está en el remito ${ya.remito} (${ya.cubierto} de ${op.cantidad}). Sacalo de este remito o ajustá la cantidad.`;
+    if (!op) return 'Hay ítems que no son de la operación elegida: volvé a importarlos.';
+    const ya = cubierto.get(oid);
+    if ((ya?.cubierto ?? 0) + pedido > op.cantidad) {
+      return ya
+        ? `"${op.descripcion}" ya está en el remito ${ya.remito} (${ya.cubierto} de ${op.cantidad}). Sacalo de este remito o ajustá la cantidad.`
+        : `"${op.descripcion}": la operación tiene ${op.cantidad} y este remito pide ${pedido}. Ajustá la cantidad.`;
     }
   }
   return null;
+}
+
+// La operación vinculada tiene que ser del cliente del remito.
+async function operacionDeOtroCliente(operacionId: string, clienteId: string): Promise<boolean> {
+  const { rows: [op] } = await db.query(`SELECT cliente_id FROM operaciones WHERE id = $1`, [operacionId]);
+  return !op || op.cliente_id !== clienteId;
 }
 
 // POST / — crear en borrador
@@ -530,6 +543,9 @@ remitos.post('/', async (c) => {
   if (b instanceof Response) return b;
 
   if (b.operacion_id) {
+    if (await operacionDeOtroCliente(b.operacion_id, b.cliente_id)) {
+      return c.json({ error: 'La operación elegida no es de este cliente.' }, 409);
+    }
     const error = await validarNoSobreEntrega(b.operacion_id, b.items);
     if (error) return c.json({ error }, 409);
   }
@@ -572,7 +588,7 @@ remitos.post('/', async (c) => {
         item.precio_unitario ?? null,
         item.estado_producto || 'nuevo',
         item.notas_item      || null,
-        item.operacion_item_id || null,
+        b.operacion_id ? (item.operacion_item_id || null) : null,
       ]);
     }
 
@@ -613,11 +629,14 @@ remitos.put('/:id', async (c) => {
   const b = await validateBody(c, RemitoSchema);
   if (b instanceof Response) return b;
 
-  const { rows: [actual] } = await db.query(`SELECT estado FROM remitos WHERE id=$1`, [id]);
+  const { rows: [actual] } = await db.query(`SELECT estado, tarea_id, fecha_entrega_est FROM remitos WHERE id=$1`, [id]);
   if (!actual)                    return c.json({ error: 'Remito no encontrado' }, 404);
   if (actual.estado !== 'borrador') return c.json({ error: 'Solo se puede editar un remito en borrador' }, 409);
 
   if (b.operacion_id) {
+    if (await operacionDeOtroCliente(b.operacion_id, b.cliente_id)) {
+      return c.json({ error: 'La operación elegida no es de este cliente.' }, 409);
+    }
     const error = await validarNoSobreEntrega(b.operacion_id, b.items ?? [], id);
     if (error) return c.json({ error }, 409);
   }
@@ -662,8 +681,20 @@ remitos.put('/:id', async (c) => {
         item.precio_unitario ?? null,
         item.estado_producto || 'nuevo',
         item.notas_item      || null,
-        item.operacion_item_id || null,
+        b.operacion_id ? (item.operacion_item_id || null) : null,
       ]);
+    }
+
+    // La fecha manda también en la Agenda: una entrega movida vuelve a avisar y, si se le quitó la fecha, deja
+    // de figurar como pendiente.
+    const fechaAnterior = actual.fecha_entrega_est ? new Date(actual.fecha_entrega_est).toISOString().slice(0, 10) : null;
+    if (fechaAnterior !== (b.fecha_entrega_est ?? null)) {
+      await client.query(
+        `UPDATE remitos SET recordatorio_dia_antes_visto = false, recordatorio_hora_antes_visto = false WHERE id = $1`, [id]);
+      if (actual.tarea_id) {
+        if (b.fecha_entrega_est) await sincronizarTareaEntrega(client, id);
+        else await completarTareaDeEntrega(client, id);
+      }
     }
 
     await client.query('COMMIT');

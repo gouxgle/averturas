@@ -397,6 +397,8 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   devuelve `saldo` y `devuelto_a_saldo`.
 - **Una operación pasa a `entregado` solo con su remito entregado**: `PATCH /operaciones/:id/estado` responde 409
   sin él, porque el remito es lo que descuenta stock, guarda quién recibió y agenda el post venta.
+- **Editar un recibo conserva su descuento** (`PUT /recibos/:id` ignora `monto_descuento`, `descuento_pct` y la bonificación que
+  mande el navegador y recalcula `monto_lista`). Para cambiarlos: anular y emitir otro. Subir el importe por encima del saldo responde 409.
 - **Bonificación del presupuesto** (opcional, % o monto fijo, `operaciones.bonificacion_*`): `precio_total` sigue
   siendo el precio de LISTA; la bonificación se calcula solo sobre productos (sin instalación ni envío), la fija
   el servidor (`lib/bonificacion.ts` → `guardarBonificacion`, espejo en `src/lib/bonificacion.ts`) y sale en la

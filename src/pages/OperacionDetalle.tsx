@@ -229,7 +229,7 @@ export function OperacionDetalle() {
           {operacion.estado === 'listo' && (
             <Link
               to={remitoPendiente
-                ? `/remitos/${remitoPendiente.id}/editar`
+                ? `/remitos?q=${encodeURIComponent(remitoPendiente.numero)}`
                 : `/remitos/nuevo?operacion_id=${operacion.id}&cliente_id=${cliente?.id ?? ''}`}
               className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium">
               Registrar entrega <ChevronRight size={14} />

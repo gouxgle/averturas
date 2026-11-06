@@ -625,11 +625,41 @@ recibos.post('/', async (c) => {
 // PUT /:id — editar (solo emitidos)
 recibos.put('/:id', async (c) => {
   const { id } = c.req.param();
-  const b      = await c.req.json();
+  const b      = await validateBody(c, ReciboSchema);
+  if (b instanceof Response) return b;
 
-  const { rows: [existing] } = await db.query('SELECT estado FROM recibos WHERE id=$1', [id]);
+  const { rows: [existing] } = await db.query(
+    `SELECT estado, cliente_id, operacion_id, monto_total, monto_descuento, bonificacion_presupuesto_monto
+     FROM recibos WHERE id=$1`, [id]);
   if (!existing)                      return c.json({ error: 'No encontrado' }, 404);
   if (existing.estado === 'anulado')  return c.json({ error: 'No se puede editar un recibo anulado' }, 400);
+
+  const opNueva = b.operacion_id || null;
+  const cambiaOperacion = opNueva !== existing.operacion_id;
+  const descuentoGuardado = Number(existing.monto_descuento);
+  const totalAnterior = Number(existing.monto_total);
+  // El descuento pertenece a la operación con la que se emitió: moverlo dejaría a una sin él y a otra con él de más.
+  if (cambiaOperacion && (descuentoGuardado > 0.009 || Number(existing.bonificacion_presupuesto_monto) > 0.009)) {
+    return c.json({ error: 'Este recibo tiene una bonificación aplicada: para pasarlo a otro presupuesto, anulalo y emití otro.' }, 409);
+  }
+  if (cambiaOperacion && opNueva) {
+    const { rows: [op] } = await db.query(`SELECT cliente_id FROM operaciones WHERE id = $1`, [opNueva]);
+    if (!op || op.cliente_id !== existing.cliente_id) {
+      return c.json({ error: 'El presupuesto elegido no es de este cliente.' }, 409);
+    }
+  }
+  // Subir el importe no puede dejar el presupuesto cobrado de más. Si no sube, se puede corregir cualquier otro dato.
+  if (opNueva && (cambiaOperacion || b.monto_total > totalAnterior + 0.009)) {
+    const { rows: [cob] } = await db.query(`SELECT saldo FROM operacion_cobranza WHERE operacion_id = $1`, [opNueva]);
+    const disponible = Number(cob?.saldo ?? 0) + (cambiaOperacion ? 0 : totalAnterior);
+    if (b.monto_total > disponible + 0.009) {
+      return c.json({
+        error: `El recibo quedaría en $ ${b.monto_total.toLocaleString('es-AR')} y lo máximo que admite el saldo del presupuesto es ` +
+          `$ ${Math.max(disponible, 0).toLocaleString('es-AR')}.`,
+      }, 409);
+    }
+  }
+
   const facturadoRec = await facturadoDe('recibo_id', id);
   if (facturadoRec > 0.009 && Number(b.monto_total) + 0.009 < facturadoRec) {
     return c.json({
@@ -652,40 +682,40 @@ recibos.put('/:id', async (c) => {
   const client: pkg.PoolClient = await db.connect();
   try {
     await client.query('BEGIN');
-    const updMontoLista     = Number(b.monto_lista     ?? b.monto_total);
-    const updMontoDescuento = Number(b.monto_descuento ?? 0);
-    const updDescuentoPct   = Number(b.descuento_pct   ?? 0);
+    // La pantalla de edición no ofrece la bonificación: el descuento se conserva tal como se emitió y solo se
+    // recalcula el importe de lista. Antes se pisaba con cero y el saldo de la operación subía (OP-00231).
+    const updMontoLista = Math.round((b.monto_total + descuentoGuardado) * 100) / 100;
+    const updFormaPago = pagosUpd ? FORMA_PAGO_COMBINADO : b.forma_pago;
 
     const { rows: [rec] } = await client.query(`
       UPDATE recibos SET
-        fecha = $1, operacion_id = $2, remito_id = $3,
-        monto_total = $4, forma_pago = $5, referencia_pago = $6,
+        fecha = COALESCE($1::date, fecha), operacion_id = $2, remito_id = $3,
+        monto_total = $4,
+        forma_pago_alternativa_id = CASE WHEN forma_pago = $5 THEN forma_pago_alternativa_id END,
+        forma_pago = $5, referencia_pago = $6,
         concepto = $7, notas = $8,
-        descuento_pct = $9, monto_lista = $10, monto_descuento = $11,
-        comprobante_url = $12, forma_pago_alternativa_id = $13,
-        comprobantes = $15,
+        monto_lista = $9,
+        comprobante_url = $10,
+        comprobantes = $12,
         updated_at = now()
-      WHERE id = $14 RETURNING *
+      WHERE id = $11 RETURNING *
     `, [
-      b.fecha,
-      b.operacion_id    || null,
+      b.fecha ?? null,
+      opNueva,
       b.remito_id       || null,
       b.monto_total,
-      pagosUpd ? FORMA_PAGO_COMBINADO : b.forma_pago,
+      updFormaPago,
       pagosUpd ? null : (b.referencia_pago || null),
       b.concepto        || null,
       b.notas           || null,
-      updDescuentoPct,
       updMontoLista,
-      updMontoDescuento,
       comprobantesUpd.primero,
-      b.forma_pago_alternativa_id || null,
       id,
       JSON.stringify(comprobantesUpd.lista),
     ]);
 
     await client.query('DELETE FROM recibo_items WHERE recibo_id=$1', [id]);
-    const items: { descripcion: string; producto_id?: string; cantidad?: number; monto: number }[] = b.items ?? [];
+    const items = b.items ?? [];
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       await client.query(`
@@ -697,10 +727,14 @@ recibos.put('/:id', async (c) => {
     await guardarPagos(client, id, pagosUpd);
 
     await client.query('COMMIT');
+    if (opNueva) await cerrarCompromisosSiSaldado(opNueva);
+    const totalNuevo = Number(rec.monto_total);
     registrarActividad(c, {
       entidad: 'recibo', entidad_id: rec.id, entidad_numero: rec.numero,
       accion: 'editar',
-      detalle: `Total $${Number(rec.monto_total).toLocaleString('es-AR')}`,
+      detalle: Math.abs(totalNuevo - totalAnterior) > 0.009
+        ? `Total $${totalAnterior.toLocaleString('es-AR')} → $${totalNuevo.toLocaleString('es-AR')}`
+        : `Total $${totalNuevo.toLocaleString('es-AR')}`,
     });
     return c.json(rec);
   } catch (err) {

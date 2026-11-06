@@ -167,6 +167,8 @@ export function NuevoRecibo() {
   // Ítems ya guardados (modo edición). Sin esto, guardar una edición los borraba:
   // PUT /recibos/:id hace DELETE + re-INSERT de recibo_items con lo que llega.
   const [itemsExistentes, setItemsExistentes] = useState<ReciboItemPayload[]>([]);
+  // Descuento con que se emitió (modo edición): no se edita acá y el servidor lo conserva.
+  const [descuentoOriginal, setDescuentoOriginal] = useState(0);
 
   // ── UI ────────────────────────────────────────────────────
   const [saving,        setSaving]        = useState(false);
@@ -210,6 +212,7 @@ export function NuevoRecibo() {
         setComprobantes(Array.isArray(data.comprobantes) && data.comprobantes.length ? data.comprobantes : (data.comprobante_url ? [data.comprobante_url] : []));
         setTipoPago('parcial');
         setMontoParcial(String(data.monto_total));
+        setDescuentoOriginal(Number(data.monto_descuento ?? 0));
         setConceptoManual(true);
         setItemsExistentes((data.items ?? []).map((it: {
           descripcion: string; producto_id: string | null; cantidad: number | null; monto: number;
@@ -270,6 +273,8 @@ export function NuevoRecibo() {
     api.get<PresupuestoDetalle>(`/operaciones/${operacionId}`)
       .then(detail => {
         setPresupuestoDetalle(detail);
+        // Al editar, el presupuesto del recibo puede no estar en la lista (entregado, saldado): igual se muestra.
+        if (!op) setOperacionSel(detail as unknown as Operacion);
         const tiene = !!detail.bonificacion_tipo && Number(detail.bonificacion_valor) > 0;
         setBpActiva(tiene);
         setBpTipo(detail.bonificacion_tipo ?? 'porcentaje');
@@ -286,10 +291,12 @@ export function NuevoRecibo() {
       .then(data => setTienePedido(data.some(p => p.estado !== 'cancelado')))
       .catch(() => setTienePedido(false));
 
-    api.get<{ monto_total: number; monto_descuento?: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)
+    api.get<{ id: string; monto_total: number; monto_descuento?: number; estado: string }[]>(`/recibos?operacion_id=${operacionId}`)
       .then(data => {
         const emitidos = data.filter(r => r.estado === 'emitido');
-        setCobradoOp(emitidos.reduce((s, r) => s + Number(r.monto_total), 0));
+        // Al editar, lo que cobró este mismo recibo no cuenta: es justo lo que se está corrigiendo. Si contara, el
+        // saldo daría 0 y cualquier importe parecería "de más", con lo que el aviso dejaba de servir (OP-00143).
+        setCobradoOp(emitidos.filter(r => r.id !== id).reduce((s, r) => s + Number(r.monto_total), 0));
         setDescuentosOp(emitidos.reduce((s, r) => s + Number(r.monto_descuento ?? 0), 0));
       })
       .catch(() => { setCobradoOp(0); setDescuentosOp(0); });
@@ -315,7 +322,8 @@ export function NuevoRecibo() {
   const aplicaBonificacion = !isEdit && !!presupuestoDetalle;
 
   // Presupuesto con "Varias formas de pago" → obliga a elegir cuál de las ofrecidas se usó
-  const alternativasOfrecidas = presupuestoDetalle?.forma_pago === 'Varias formas de pago'
+  // (Al editar no se vuelve a elegir: la forma de pago ya está y se puede corregir en su selector.)
+  const alternativasOfrecidas = !isEdit && presupuestoDetalle?.forma_pago === 'Varias formas de pago'
     ? (presupuestoDetalle.formas_pago_alternativas ?? [])
     : [];
 
@@ -557,7 +565,7 @@ export function NuevoRecibo() {
   // Al llegar el detalle de una operación con varias alternativas ofrecidas, no
   // preseleccionar ninguna — obliga a elegir antes de poder calcular/guardar.
   useEffect(() => {
-    if (presupuestoDetalle?.forma_pago === 'Varias formas de pago' && (presupuestoDetalle.formas_pago_alternativas?.length ?? 0) > 0) {
+    if (!isEdit && presupuestoDetalle?.forma_pago === 'Varias formas de pago' && (presupuestoDetalle.formas_pago_alternativas?.length ?? 0) > 0) {
       setFormaPago('');
       setFormaPagoAlternativaId('');
       resetBonificacion();
@@ -833,7 +841,7 @@ export function NuevoRecibo() {
       {/* ── 2. Presupuesto aprobado ──────────────────────── */}
       {clienteId && (
         <SectionCard title="Presupuesto aprobado *" icon={Receipt}>
-          {operaciones.length === 0 ? (
+          {operaciones.length === 0 && !operacionId ? (
             <p className="text-xs text-gray-600 italic">
               Este cliente no tiene presupuestos aprobados.
             </p>
@@ -842,9 +850,15 @@ export function NuevoRecibo() {
               <select
                 value={operacionId}
                 onChange={e => setOperacionId(e.target.value)}
+                disabled={isEdit && descuentoOriginal > 0}
                 className={inputCls}
               >
                 <option value="">— Seleccioná el presupuesto —</option>
+                {operacionSel && !operaciones.some(op => op.id === operacionSel.id) && (
+                  <option value={operacionSel.id}>
+                    {operacionSel.numero} — {formatCurrency(Number(operacionSel.precio_total))}
+                  </option>
+                )}
                 {operaciones.map(op => (
                   <option key={op.id} value={op.id}>
                     {op.numero} — {formatCurrency(Number(op.precio_total))}
@@ -853,6 +867,13 @@ export function NuevoRecibo() {
                 ))}
               </select>
 
+              {isEdit && descuentoOriginal > 0 && (
+                <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Este recibo se emitió con {formatCurrency(descuentoOriginal)} de bonificación y se conserva al guardar.
+                  Para cambiarla o pasarlo a otro presupuesto, anulalo y emití otro.
+                </p>
+              )}
+
               {operacionSel && (<>
                 <div className={cn('mt-3 grid grid-cols-1 gap-2', descuentosOp > 0 ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3')}>
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
@@ -860,7 +881,7 @@ export function NuevoRecibo() {
                     <p className="text-sm font-bold text-gray-800">{formatCurrency(totalPresupuesto)}</p>
                   </div>
                   <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Ya cobrado</p>
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{isEdit ? 'Otros recibos' : 'Ya cobrado'}</p>
                     <p className="text-sm font-bold text-emerald-700">{formatCurrency(cobradoOp)}</p>
                   </div>
                   {/* Sin este dato la cuenta parecía no cerrar: total − cobrado ≠ saldo, porque
