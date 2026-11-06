@@ -182,14 +182,14 @@ export function OperacionDetalle() {
     'en_produccion', 'listo', 'instalado', 'entregado'].includes(operacion.estado);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft size={18} className="text-gray-600" />
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="text-xl font-bold text-gray-800">{operacion.numero}</h1>
             <span className={cn('text-xs px-2.5 py-1 rounded-full font-medium border', ESTADO_COLOR[operacion.estado])}>
               {estadoLabel}
@@ -198,7 +198,7 @@ export function OperacionDetalle() {
           </div>
           <p className="text-sm text-gray-600 mt-0.5">Creada el {formatDate(operacion.created_at)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => window.open(`/imprimir/presupuesto/${operacion.id}`, '_blank')}
             className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50">
