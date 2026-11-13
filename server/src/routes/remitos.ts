@@ -5,10 +5,10 @@ import sharp from 'sharp';
 import { db } from '../db.js';
 import { facturadoDe } from '../lib/fiscal/origenes.js';
 import { validateBody } from '../lib/validate.js';
-import { RemitoSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema, RemitoEntregaSchema, RemitoFirmaSchema } from '../lib/schemas.js';
+import { RemitoSchema, RemitoVerificarStockSchema, RemitoEstadoSchema, RemitoProgramarEntregaSchema, RemitoEntregaSchema, RemitoFirmaSchema } from '../lib/schemas.js';
 import {
   sincronizarTareaEntrega, completarTareaDeEntrega, cargarRemitoParaTransicion, aplicarTransicionRemito, entregarRemito,
-  detalleEntrega, RemitoError, TRANSICIONES_REMITO,
+  detalleEntrega, RemitoError, TRANSICIONES_REMITO, faltantesDeStock,
 } from '../lib/remitos.js';
 import { enviarWhatsapp, normalizarNumeroAR } from '../lib/whatsapp.js';
 import { registrarActividad } from '../lib/actividad.js';
@@ -226,6 +226,14 @@ remitos.get('/', async (c) => {
   `, params);
 
   return c.json(rows);
+});
+
+// POST /verificar-stock — qué renglones no tienen stock registrado. Lo usa NuevoRemito para avisar al
+// armar el remito (y no recién en la puerta del cliente, al entregar). Mismo cálculo que la emisión.
+remitos.post('/verificar-stock', async (c) => {
+  const b = await validateBody(c, RemitoVerificarStockSchema);
+  if (b instanceof Response) return b;
+  return c.json({ faltantes: await faltantesDeStock(db, b.items, b.operacion_id ?? null) });
 });
 
 // GET /listos-para-enviar — operaciones con pago completo + pedidos recibidos + sin remito emitido
@@ -609,14 +617,14 @@ remitos.post('/', async (c) => {
       registrarActividad(c, {
         entidad: 'remito', entidad_id: remito.id, entidad_numero: remito.numero,
         accion: 'entregar',
-        detalle: `${detalleEntrega(b.entrega)} (creado en el lugar)`,
+        detalle: `${detalleEntrega(b.entrega)} (creado en el lugar)${b.entrega.forzar_sin_stock ? ' · sin stock registrado (recordatorio creado)' : ''}`,
         meta: { estado_anterior: 'borrador', estado_nuevo: 'entregado', con_firma: !!b.entrega.firma_url },
       });
     }
     return c.json(remito, 201);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (err instanceof RemitoError) return c.json({ error: err.message }, err.status);
+    if (err instanceof RemitoError) return c.json({ error: err.message, ...err.extra }, err.status);
     throw err;
   } finally {
     client.release();
@@ -719,7 +727,7 @@ remitos.patch('/:id/estado', async (c) => {
   const user   = c.get('user');
   const bEstado = await validateBody(c, RemitoEstadoSchema);
   if (bEstado instanceof Response) return bEstado;
-  const { estado: nuevoEstado, fecha_entrega_real, firma_url } = bEstado;
+  const { estado: nuevoEstado, fecha_entrega_real, firma_url, forzar_sin_stock } = bEstado;
 
   const remito = await cargarRemitoParaTransicion(db, id);
   if (!remito) return c.json({ error: 'Remito no encontrado' }, 404);
@@ -736,11 +744,11 @@ remitos.patch('/:id/estado', async (c) => {
   try {
     await client.query('BEGIN');
     const bloqueado = await cargarRemitoParaTransicion(client, id, true);
-    await aplicarTransicionRemito(client, bloqueado!, nuevoEstado, { fecha_entrega_real, firma_url }, user?.id || null);
+    await aplicarTransicionRemito(client, bloqueado!, nuevoEstado, { fecha_entrega_real, firma_url, forzar_sin_stock }, user?.id || null);
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
-    if (err instanceof RemitoError) return c.json({ error: err.message }, err.status);
+    if (err instanceof RemitoError) return c.json({ error: err.message, ...err.extra }, err.status);
     throw err;
   } finally {
     client.release();
@@ -754,8 +762,8 @@ remitos.patch('/:id/estado', async (c) => {
   registrarActividad(c, {
     entidad: 'remito', entidad_id: id, entidad_numero: remito.numero,
     accion: accionEstado,
-    detalle: `${estadoActual} → ${nuevoEstado}`,
-    meta: { estado_anterior: estadoActual, estado_nuevo: nuevoEstado },
+    detalle: `${estadoActual} → ${nuevoEstado}${forzar_sin_stock ? ' · sin stock registrado (recordatorio creado)' : ''}`,
+    meta: { estado_anterior: estadoActual, estado_nuevo: nuevoEstado, sin_stock: !!forzar_sin_stock },
   });
   return c.json(updated);
 });
@@ -781,7 +789,7 @@ remitos.post('/:id/entregar', async (c) => {
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
-    if (err instanceof RemitoError) return c.json({ error: err.message }, err.status);
+    if (err instanceof RemitoError) return c.json({ error: err.message, ...err.extra }, err.status);
     throw err;
   } finally {
     client.release();
@@ -791,8 +799,8 @@ remitos.post('/:id/entregar', async (c) => {
   registrarActividad(c, {
     entidad: 'remito', entidad_id: id, entidad_numero: numero,
     accion: 'entregar',
-    detalle: detalleEntrega(b),
-    meta: { estado_anterior: estadoAnterior, estado_nuevo: 'entregado', con_firma: !!b.firma_url },
+    detalle: `${detalleEntrega(b)}${b.forzar_sin_stock ? ' · sin stock registrado (recordatorio creado)' : ''}`,
+    meta: { estado_anterior: estadoAnterior, estado_nuevo: 'entregado', con_firma: !!b.firma_url, sin_stock: !!b.forzar_sin_stock },
   });
   return c.json(updated);
 });

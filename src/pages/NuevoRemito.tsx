@@ -3,8 +3,9 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Save, Truck, Package,
   MapPin, Hash, RefreshCw, Search, X as XIcon,
-  CheckSquare, Square, Download, ChevronDown, CalendarClock, PenLine
+  CheckSquare, Square, Download, ChevronDown, CalendarClock, PenLine, AlertTriangle
 } from 'lucide-react';
+import { textoFaltante, type FaltanteStock } from '@/lib/stockFaltante';
 import { api } from '@/lib/api';
 import { cn, fechaDiaAR } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -434,6 +435,43 @@ export function NuevoRemito() {
     }
   }
 
+  // ── Stock: avisar al armar el remito, no recién al entregar en la casa del cliente ──
+  // Mismo cálculo que la emisión (POST /remitos/verificar-stock). Se sugiere cargar el ingreso; si no se
+  // carga, al entregar se puede "Entregar igual" y queda un recordatorio para revisar el stock.
+  const [faltantes, setFaltantes] = useState<FaltanteStock[]>([]);
+  const [verifStock, setVerifStock] = useState(0);
+  const [cargandoIngreso, setCargandoIngreso] = useState<string | null>(null);
+  const renglonesConProducto = items.filter(it => it.producto_id).map(it => ({ producto_id: it.producto_id, cantidad: it.cantidad || 1 }));
+  const claveStock = JSON.stringify([operacionId, renglonesConProducto]);
+  useEffect(() => {
+    if (!renglonesConProducto.length) { setFaltantes([]); return; }
+    const t = setTimeout(() => {
+      api.post<{ faltantes: FaltanteStock[] }>('/remitos/verificar-stock', { operacion_id: operacionId || null, items: renglonesConProducto })
+        .then(r => setFaltantes(r.faltantes)).catch(() => setFaltantes([]));
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveStock, verifStock]);
+
+  async function cargarIngreso(f: FaltanteStock) {
+    setCargandoIngreso(f.producto_id);
+    try {
+      const cliente = clienteSeleccionado ? clienteLabel(clienteSeleccionado) : 'un cliente';
+      await api.post('/stock/ajustar', {
+        producto_id: f.producto_id,
+        cantidad: f.pedido - f.disponible,
+        motivo: 'Ingreso cargado al armar un remito',
+        notas: `Faltaba stock registrado para el remito de ${cliente}`,
+      });
+      toast.success(`Stock cargado: ${f.nombre}`);
+      setVerifStock(n => n + 1);
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo cargar el ingreso' });
+    } finally {
+      setCargandoIngreso(null);
+    }
+  }
+
   const necesitaTransportista = ['encomienda','flete_propio','flete_tercero','correo_argentino'].includes(medioEnvio);
 
   function seleccionarListoParaEnviar(listo: ListoParaEnviar) {
@@ -791,6 +829,32 @@ export function NuevoRemito() {
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* Aviso de stock: antes de salir, no en la puerta del cliente */}
+          {faltantes.length > 0 && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4" data-testid="aviso-sin-stock">
+              <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                <AlertTriangle size={16} className="shrink-0" /> Hay productos sin stock registrado
+              </p>
+              <p className="text-xs text-amber-800 mt-1">
+                Si la mercadería está, cargá el ingreso ahora así la entrega no se traba. Si no, al entregar vas a poder
+                hacerlo igual y quedará un recordatorio para revisar el stock.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {faltantes.map(f => (
+                  <li key={f.producto_id}
+                    className="flex flex-col sm:flex-row sm:items-center gap-2 bg-white rounded-xl border border-amber-200 px-3 py-2">
+                    <span className="text-sm text-gray-800 flex-1 min-w-0">{textoFaltante(f)}</span>
+                    <button type="button" onClick={() => cargarIngreso(f)} disabled={cargandoIngreso === f.producto_id}
+                      className="shrink-0 inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold disabled:opacity-60">
+                      {cargandoIngreso === f.producto_id ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                      Cargar ingreso de {f.pedido - f.disponible}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

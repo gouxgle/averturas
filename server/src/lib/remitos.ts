@@ -61,7 +61,45 @@ export const TRANSICIONES_REMITO: Record<string, string[]> = {
 };
 
 export class RemitoError extends Error {
-  constructor(message: string, public status: 404 | 409 | 422) { super(message); }
+  /** `extra` viaja en el cuerpo de la respuesta (p. ej. `codigo` y `faltantes` del stock). */
+  constructor(message: string, public status: 404 | 409 | 422, public extra: Record<string, unknown> = {}) { super(message); }
+}
+
+export interface FaltanteStock { producto_id: string; nombre: string; codigo: string | null; disponible: number; pedido: number }
+
+// Qué productos no alcanzan para estos renglones. Cuenta como disponible lo que esta misma operación tiene
+// reservado (al emitir esa reserva se libera y la toma el remito). Mismo cálculo que la emisión, para que
+// el aviso al armar el remito y el rechazo al entregar digan lo mismo.
+export async function faltantesDeStock(
+  q: Queryable, items: { producto_id?: string | null; cantidad: number }[], operacionId: string | null,
+): Promise<FaltanteStock[]> {
+  const pedido = new Map<string, number>();
+  for (const it of items) {
+    if (it.producto_id) pedido.set(it.producto_id, (pedido.get(it.producto_id) ?? 0) + it.cantidad);
+  }
+  if (!pedido.size) return [];
+  const { rows } = await q.query(`
+    SELECT cp.id, cp.nombre, cp.codigo,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE((
+        SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
+      ), 0) - COALESCE((
+        SELECT SUM(m.cantidad) FROM stock_movimientos m
+        WHERE m.producto_id = cp.id AND m.tipo = 'reserva' AND m.operacion_id = $2
+      ), 0))::int AS disponible
+    FROM catalogo_productos cp WHERE cp.id = ANY($1::uuid[])
+  `, [[...pedido.keys()], operacionId]);
+  const porId = new Map(rows.map(r => [r.id as string, r]));
+  const faltantes: FaltanteStock[] = [];
+  for (const [id, cant] of pedido) {
+    const p = porId.get(id);
+    const disponible = Number(p?.disponible ?? 0);
+    if (disponible < cant) faltantes.push({ producto_id: id, nombre: p?.nombre ?? id, codigo: p?.codigo ?? null, disponible, pedido: cant });
+  }
+  return faltantes;
+}
+
+export function mensajeFaltantes(f: FaltanteStock[]): string {
+  return f.map(x => `"${x.nombre}": disponible ${x.disponible}, pedido ${x.pedido}`).join(' · ');
 }
 
 export interface RemitoParaTransicion {
@@ -72,6 +110,8 @@ export interface RemitoParaTransicion {
   stock_descontado: boolean;
   tarea_id: string | null;
   items: { producto_id: string | null; cantidad: number }[];
+  /** Lo que se emitió sin stock registrado (entrega forzada), para el recordatorio y la actividad. */
+  sin_stock?: FaltanteStock[];
 }
 
 export interface DatosEntrega {
@@ -80,6 +120,9 @@ export interface DatosEntrega {
   recibio_nombre?: string | null;
   recibio_dni?: string | null;
   sin_firma_motivo?: string | null;
+  /** Entregar aunque el sistema no tenga stock registrado (error de carga): el stock queda en negativo y se
+   *  crea un recordatorio de prioridad alta para revisarlo. Sin esto, la falta de stock frena la entrega. */
+  forzar_sin_stock?: boolean;
 }
 
 // `bloquear` toma la fila con FOR UPDATE: dos celulares entregando el mismo remito a la
@@ -134,27 +177,12 @@ export async function aplicarTransicionRemito(
       await client.query(`
         SELECT id FROM catalogo_productos WHERE id = ANY($1::uuid[]) FOR UPDATE
       `, [productoIds]);
-      const { rows: productosLock } = await client.query(`
-        SELECT cp.id, cp.nombre,
-          (COALESCE(cp.stock_inicial, 0) + COALESCE((
-            SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-          ), 0))::int AS stock_actual
-        FROM catalogo_productos cp
-        WHERE cp.id = ANY($1::uuid[])
-      `, [productoIds]);
-      const stockPorProducto = new Map(productosLock.map(p => [p.id as string, p]));
-      const cantidadPorProducto = new Map<string, number>();
-      for (const it of items) {
-        const key = it.producto_id as string;
-        cantidadPorProducto.set(key, (cantidadPorProducto.get(key) ?? 0) + it.cantidad);
+      const faltantes = await faltantesDeStock(client, items, remito.operacion_id);
+      if (faltantes.length && !datos.forzar_sin_stock) {
+        throw new RemitoError(`Stock insuficiente para ${mensajeFaltantes(faltantes)}`, 422,
+          { codigo: 'stock_insuficiente', faltantes });
       }
-      for (const [prodId, cantidad] of cantidadPorProducto) {
-        const prod = stockPorProducto.get(prodId);
-        if (!prod || prod.stock_actual < cantidad) {
-          throw new RemitoError(
-            `Stock insuficiente para "${prod?.nombre ?? prodId}": disponible ${prod?.stock_actual ?? 0}, pedido ${cantidad}`, 422);
-        }
-      }
+      remito.sin_stock = faltantes;
     }
 
     for (const item of items) {
@@ -166,6 +194,21 @@ export async function aplicarTransicionRemito(
     }
     await client.query(`UPDATE remitos SET stock_descontado=true WHERE id=$1`, [remito.id]);
     remito.stock_descontado = true;
+
+    // Entregado sin stock registrado: un recordatorio de prioridad alta por producto, para hoy, para que
+    // alguien cargue el stock real. La entrega no se frena por un error de carga, pero tampoco se olvida.
+    for (const f of remito.sin_stock ?? []) {
+      const quedo = f.disponible - f.pedido;
+      await client.query(`
+        INSERT INTO tareas (ambito, categoria, prioridad, tipo_accion, vencimiento, descripcion, notas, created_by)
+        VALUES ('interna', 'otro', 'alta', 'nota', CURRENT_DATE, $1, $2, $3)
+      `, [
+        `MUY IMPORTANTE · Revisar stock de "${f.nombre}"${f.codigo ? ` (${f.codigo})` : ''}: se entregó sin stock en ${remito.numero}`,
+        `El remito ${remito.numero} se entregó sin stock registrado: había ${f.disponible} y salieron ${f.pedido}, ` +
+          `así que el sistema quedó en ${quedo}. Contá lo que hay y corregilo desde Stock (ajuste) para que la próxima entrega no falle.`,
+        userId,
+      ]);
+    }
 
     // Si el stock de algún producto quedó en 0, ya no puede seguir "exhibido en salón"
     if (items.length) {
@@ -241,7 +284,9 @@ export async function entregarRemito(
     throw new RemitoError(
       remito.estado === 'entregado' ? 'Este remito ya está entregado' : 'Un remito cancelado no se puede entregar', 409);
   }
-  if (remito.estado === 'borrador') await aplicarTransicionRemito(client, remito, 'emitido', {}, userId);
+  if (remito.estado === 'borrador') {
+    await aplicarTransicionRemito(client, remito, 'emitido', { forzar_sin_stock: datos.forzar_sin_stock }, userId);
+  }
   await aplicarTransicionRemito(client, remito, 'entregado', datos, userId);
 }
 

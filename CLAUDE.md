@@ -379,8 +379,16 @@ cobrado - total_descuentos** (la bonificación no es deuda). Parcial genera `com
 cancelado` (revierte con `devolucion`). Link público para confirmar recepción
 (`recepcion_estado: conforme|con_observaciones|no_conforme`). Programación de entrega
 (`fecha/hora_entrega_est`, tarea espejo `tipo_accion='entrega'`, recordatorios día antes /
-hora antes evaluados en cada poll, `recordatorio_*_visto` se resetea al reprogramar).
-Entregas parciales soportadas.
+hora antes evaluados en cada poll, `recordatorio_*_visto` se resetea al reprogramar; también al
+cambiar la fecha en `PUT`). Entregas parciales soportadas. Solo se edita en `borrador`; la cantidad
+se valida contra el presupuesto (`validarNoSobreEntrega`) y la operación tiene que ser del cliente.
+**Stock al entregar** (2026-11-12, caso Morel): `faltantesDeStock()` en `lib/remitos.ts` es el único
+cálculo (stock + reserva de la propia operación). `POST /remitos/verificar-stock` lo usa NuevoRemito
+para avisar al armar el remito y ofrecer "Cargar ingreso" (`POST /stock/ajustar`). Al emitir/entregar
+sin stock responde 422 `{codigo:'stock_insuficiente', faltantes}`; con `forzar_sin_stock: true`
+("Entregar igual" en `EntregaEnSitio`, confirm en ModalEstado) emite igual, el stock queda negativo
+y crea una tarea interna `prioridad='alta'` "MUY IMPORTANTE · Revisar stock de…" por producto. La
+entrega nunca se traba por un error de carga.
 
 **Devoluciones** (`DEV-`, `server/src/lib/devoluciones.ts`, plan en `~/.claude/plans`): un comprobante
 nuevo que **no modifica** remito, recibo ni operación (cuenta contra-documentos). Se devuelve de

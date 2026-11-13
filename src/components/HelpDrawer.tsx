@@ -204,6 +204,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
           { text: 'Remito nuevo en el lugar: cargarlo y tocar "Crear y entregar ahora"' },
           { text: 'Completar quién recibe (aclaración y DNI) y que el cliente firme con el dedo' },
           { text: '"Confirmar entrega": si estaba en borrador se emite (descuenta stock) y queda entregado' },
+          { text: 'Si el sistema no tiene stock registrado avisa al armar el remito ("Cargar ingreso" lo corrige ahí mismo). Si igual falta al entregar, "Entregar igual" registra la entrega y deja en la Agenda un recordatorio de prioridad alta para revisar el stock' },
         ],
         tip: 'La firma, la aclaración, el DNI y la hora salen impresos en el remito.',
         warning: 'Se puede entregar sin firma, pero hay que indicar el motivo y el remito queda marcado "Sin firma". La firma se puede agregar después desde el detalle.',

@@ -825,6 +825,8 @@ export const RemitoEntregaSchema = z.object({
   recibio_nombre:     zText(120),
   recibio_dni:        z.union([z.literal(''), z.string().regex(/^\d{7,11}$/, 'El DNI va solo con números (7 a 11)')]).optional().nullable(),
   sin_firma_motivo:   zText(300),
+  // Entregar aunque no haya stock registrado: queda un recordatorio de prioridad alta (lib/remitos.ts).
+  forzar_sin_stock:   z.boolean().optional(),
 }).refine(b => !!b.firma_url || !!b.sin_firma_motivo?.trim(), {
   message: 'Falta la firma del cliente o el motivo de entregar sin firma',
   path: ['firma_url'],
@@ -904,6 +906,16 @@ export const RemitoEstadoSchema = z.object({
   fecha_entrega_real: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   // Firma de conformidad, capturada al marcar "entregado" — ver FirmaDigital.tsx.
   firma_url:          zText(300).optional().nullable(),
+  forzar_sin_stock:   z.boolean().optional(),
+});
+
+// POST /remitos/verificar-stock: los renglones que se van a armar, para avisar lo que no tiene stock.
+export const RemitoVerificarStockSchema = z.object({
+  operacion_id: zUUID.optional().nullable(),
+  items: z.array(z.object({
+    producto_id: zUUID.optional().nullable(),
+    cantidad:    z.number().int().positive(),
+  })).max(200),
 });
 
 export const RemitoProgramarEntregaSchema = z.object({

@@ -5,6 +5,7 @@ import { FirmaDigital, type FirmaDigitalHandle } from '@/components/FirmaDigital
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
 import { cn, fechaDiaAR } from '@/lib/utils';
+import { faltantesDeError, textoFaltante, type FaltanteStock } from '@/lib/stockFaltante';
 
 export interface DatosEntrega {
   fecha_entrega_real?: string;
@@ -12,6 +13,8 @@ export interface DatosEntrega {
   recibio_nombre?: string | null;
   recibio_dni?: string | null;
   sin_firma_motivo?: string | null;
+  /** Entregar aunque el sistema no tenga stock registrado (queda un recordatorio para revisarlo). */
+  forzar_sin_stock?: boolean;
 }
 
 export interface ResumenEntrega {
@@ -47,6 +50,9 @@ export function EntregaEnSitio({ resumen, modo = 'entregar', nombreSugerido, onC
   const [motivo, setMotivo] = useState('');
   const [motivoOtro, setMotivoOtro] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Rechazo por falta de stock: se guarda lo que se iba a mandar (con la firma ya subida) para reenviarlo
+  // con "Entregar igual" sin volver a firmar.
+  const [sinStock, setSinStock] = useState<{ faltantes: FaltanteStock[]; datos: DatosEntrega } | null>(null);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !enviando) onClose(); };
@@ -71,15 +77,35 @@ export function EntregaEnSitio({ resumen, modo = 'entregar', nombreSugerido, onC
           return;
         }
       }
-      await onConfirmar({
+      const datos: DatosEntrega = {
         fecha_entrega_real: modo === 'entregar' ? fecha : undefined,
         firma_url: conFirma ? url : null,
         recibio_nombre: nombre.trim() || null,
         recibio_dni: dni || null,
         sin_firma_motivo: conFirma ? null : motivoFinal,
-      });
+      };
+      try {
+        await onConfirmar(datos);
+      } catch (e) {
+        const faltantes = faltantesDeError(e);
+        if (faltantes && modo === 'entregar') { setSinStock({ faltantes, datos }); return; }
+        throw e;
+      }
     } catch (e) {
       toastApiError(e, { fallback: modo === 'firmar' ? 'No se pudo guardar la firma' : 'No se pudo registrar la entrega' });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function entregarSinStock() {
+    if (!sinStock) return;
+    setEnviando(true);
+    try {
+      await onConfirmar({ ...sinStock.datos, forzar_sin_stock: true });
+      toast.warning('Quedó un recordatorio de prioridad alta en la Agenda para revisar el stock', { duration: 8000 });
+    } catch (e) {
+      toastApiError(e, { fallback: 'No se pudo registrar la entrega' });
     } finally {
       setEnviando(false);
     }
@@ -112,7 +138,26 @@ export function EntregaEnSitio({ resumen, modo = 'entregar', nombreSugerido, onC
           </button>
         </div>
 
-        {sinFirma ? (
+        {sinStock ? (
+          /* El sistema no tiene stock registrado: se puede entregar igual (error de carga, la mercadería está) */
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-amber-50/40" data-testid="entrega-sin-stock">
+            <div className="flex gap-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900">
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-sm">El sistema no tiene stock registrado</p>
+                <p className="text-xs mt-0.5">
+                  Si la mercadería está acá, entregá igual: la entrega queda registrada con la firma y se crea un
+                  recordatorio de prioridad alta para que alguien revise y corrija el stock.
+                </p>
+              </div>
+            </div>
+            <ul className="rounded-xl border border-amber-200 bg-white divide-y divide-amber-100">
+              {sinStock.faltantes.map(f => (
+                <li key={f.producto_id} className="px-3 py-2 text-sm text-gray-800">{textoFaltante(f)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : sinFirma ? (
           /* Confirmación destructiva dentro del modal: entregar sin firma */
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-red-50/40">
             <div className="flex gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800">
@@ -197,7 +242,18 @@ export function EntregaEnSitio({ resumen, modo = 'entregar', nombreSugerido, onC
 
         {/* Pie fijo */}
         <div className="shrink-0 border-t border-gray-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2 bg-white sm:rounded-b-2xl">
-          {sinFirma ? (
+          {sinStock ? (
+            <>
+              <button type="button" onClick={() => setSinStock(null)} disabled={enviando}
+                className="h-12 px-4 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 flex items-center gap-1">
+                <ChevronLeft size={16} /> Volver
+              </button>
+              <button type="button" onClick={entregarSinStock} disabled={enviando}
+                className="flex-1 h-12 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+                {enviando ? <RefreshCw size={15} className="animate-spin" /> : <CheckCircle2 size={16} />} Entregar igual
+              </button>
+            </>
+          ) : sinFirma ? (
             <>
               <button type="button" onClick={() => setSinFirma(false)} disabled={enviando}
                 className="h-12 px-4 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 flex items-center gap-1">

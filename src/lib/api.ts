@@ -46,8 +46,10 @@ async function request<T>(method: string, path: string, body?: unknown, opts?: R
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: string; detalle?: { campo: string; mensaje: string }[] };
-    const e = new Error(err.error ?? `Error ${res.status}`) as Error & { detalle?: typeof err.detalle };
+    const e = new Error(err.error ?? `Error ${res.status}`) as Error & { detalle?: typeof err.detalle; datos?: Record<string, unknown> };
     e.detalle = err.detalle;
+    // El cuerpo completo, para errores que traen datos para resolverlos (p. ej. los faltantes de stock)
+    e.datos = err as Record<string, unknown>;
     throw e;
   }
 

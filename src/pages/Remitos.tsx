@@ -23,6 +23,7 @@ import { NuevoServicio } from '@/components/servicios/NuevoServicio';
 import { describirItemRemito, textoItemRemito, type ItemRemitoDescribible } from '@/lib/itemRemito';
 import { toast } from 'sonner';
 import { toastApiError } from '@/lib/apiError';
+import { faltantesDeError, textoFaltante } from '@/lib/stockFaltante';
 
 // ── Tipos ────────────────────────────────────────────────────────────
 
@@ -474,7 +475,16 @@ function ModalEstado({ remito, onClose, onSaved, onEntregar }: {
     if (!nuevoEstado) { toast.error('Seleccioná un estado'); return; }
     setSaving(true);
     try {
-      await api.patch(`/remitos/${remito.id}/estado`, { estado: nuevoEstado });
+      try {
+        await api.patch(`/remitos/${remito.id}/estado`, { estado: nuevoEstado });
+      } catch (e) {
+        // Sin stock registrado: se puede emitir igual (queda un recordatorio de prioridad alta para revisarlo)
+        const faltantes = faltantesDeError(e);
+        if (!faltantes) throw e;
+        if (!window.confirm(`El sistema no tiene stock registrado:\n\n${faltantes.map(textoFaltante).join('\n')}\n\n` +
+          '¿Emitir igual? Se crea un recordatorio de prioridad alta para revisar el stock.')) { setSaving(false); return; }
+        await api.patch(`/remitos/${remito.id}/estado`, { estado: nuevoEstado, forzar_sin_stock: true });
+      }
       toast.success('Estado actualizado');
       onSaved();
     } catch (e) {
