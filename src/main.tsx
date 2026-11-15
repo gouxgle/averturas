@@ -6,7 +6,8 @@ import App from './App';
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
-  environment: import.meta.env.MODE,
+  // Una sola imagen sirve a test y prod (deploy por registro): el entorno sale del dominio, no del build.
+  environment: location.hostname.startsWith('test.') ? 'test' : location.hostname === 'localhost' ? 'local' : 'production',
   // Captura el 100% de errores, 10% de trazas de performance
   tracesSampleRate: 0.1,
   // No enviar en desarrollo local

@@ -1,5 +1,4 @@
 # Etapa 1: build del backend
-# Va primero para que BuildKit no lo paralelice con el frontend
 FROM node:24-alpine AS server-build
 WORKDIR /server
 COPY server/package.json ./
@@ -18,12 +17,8 @@ RUN NODE_OPTIONS="--max-old-space-size=768" npm run build
 # Etapa 2: build del frontend
 FROM node:24-alpine AS frontend-build
 WORKDIR /app
-# Fuerza a que este stage espere a que termine server-build. Sin esto, BuildKit
-# corre ambos stages en paralelo (son independientes hasta la imagen final) sin
-# importar el orden en que están escritos acá — en un servidor con poca RAM
-# (como el de test) los dos "npm run build" (tsc + vite) al mismo tiempo pueden
-# saturar la memoria y el build queda colgado haciendo swap sin avanzar.
-COPY --from=server-build /server/dist /tmp/.server-build-done
+# Backend y frontend se buildean EN PARALELO: la imagen se arma solo en la PC (deploy-env.sh)
+# y viaja por el registro del VPS. Nunca buildear en el servidor (2 GB compartidos con prod).
 COPY package.json package-lock.json* bun.lock* ./
 RUN npm install --legacy-peer-deps
 # Se copia SOLO lo que vite necesita, en vez de `COPY . .`. Con el copiado
