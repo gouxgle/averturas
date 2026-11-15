@@ -355,7 +355,9 @@ hace un `UPDATE` plano). Bloqueado con 409 si ya hay recibo emitido, pedido acti
 cancelado sobre la operación — a partir de ahí es una cancelación con pasos propios (nota de
 crédito, devolución de stock), no un simple deshacer.
 La proforma numera como `PRO-` (reemplazo visual de `OP-`). Si la visita de relevamiento
-vinculada quedó `sin_cargo`, la proforma lo aclara como bonificada.
+vinculada quedó `sin_cargo`, la proforma lo aclara como bonificada. Si quedó `cobrada` o `bonificada`, la proforma
+la descuenta como renglón bajo el total (`proforma-visita`) con lo que queda a pagar; el pago de la visita se
+acredita con `POST /visitas-tecnicas/:id/bonificar`, nunca como descuento manual del recibo.
 
 **Respuesta intermedia** del link (`POST /pub/.../responder`): no cambia `estado`, guarda
 `respuesta_cliente`, crea `interaccion` + `tarea` de seguimiento. Se limpia al reenviar, al

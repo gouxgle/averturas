@@ -583,18 +583,25 @@ export function ProformaDocumento({ op, empresa, revisionFijada = null }: {
               <div style={{ color: '#6b7280', fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>
                 Son: {numToWords(total)}
               </div>
-              {op.visita_tecnica?.cobro_estado === 'cobrada' && (
-                <div style={{ background: '#ede9fe', color: '#6d28d9', fontSize: 9.5, fontWeight: 600, borderRadius: 6, padding: '4px 8px', marginTop: 5, maxWidth: 260 }}>
-                  El cargo por la visita de relevamiento ({fmtM(Number(op.visita_tecnica.costo_cobrado ?? 0))})
-                  se descuenta del total del presupuesto si lo aceptás.
-                </div>
-              )}
-              {op.visita_tecnica?.cobro_estado === 'bonificada' && (
-                <div style={{ background: '#ede9fe', color: '#6d28d9', fontSize: 9.5, fontWeight: 600, borderRadius: 6, padding: '4px 8px', marginTop: 5, maxWidth: 260 }}>
-                  El cargo por la visita de relevamiento ({fmtM(Number(op.visita_tecnica.costo_cobrado ?? 0))})
-                  ya fue descontado del total de este presupuesto.
-                </div>
-              )}
+              {/* Visita de relevamiento ya pagada: se descuenta como renglón, con el total
+                  resultante (antes era una nota chica y el total seguía sin el descuento). */}
+              {(op.visita_tecnica?.cobro_estado === 'cobrada' || op.visita_tecnica?.cobro_estado === 'bonificada')
+                && Number(op.visita_tecnica.costo_cobrado ?? 0) > 0.01 && (() => {
+                const pagoVisita = Number(op.visita_tecnica!.costo_cobrado);
+                const acreditada = op.visita_tecnica!.cobro_estado === 'bonificada';
+                return (
+                  <div data-testid="proforma-visita" style={{ background: '#f5f3ff', border: '1.5px solid #8b5cf6', borderRadius: 8, padding: '8px 12px', marginTop: 8, minWidth: 280 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 11.5, color: '#6d28d9', fontWeight: 700 }}>
+                      <span>Visita de relevamiento {op.visita_tecnica!.numero} (ya pagada)</span>
+                      <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>−{fmtM(pagoVisita)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, color: NAVY, fontWeight: 900, marginTop: 4, borderTop: '1px solid #ddd6fe', paddingTop: 4 }}>
+                      <span>{acreditada ? 'Total a pagar descontando la visita' : 'A pagar si lo aceptás'}</span>
+                      <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{fmtM(Math.max(0, total - pagoVisita))}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Visita hecha sin cobrar: se explicita como bonificación para que el cliente
                   vea el beneficio. 'pendiente' queda mudo a propósito — todavía puede cobrarse. */}
               {op.visita_tecnica?.cobro_estado === 'sin_cargo' && (

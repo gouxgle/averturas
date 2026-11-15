@@ -132,6 +132,8 @@ export const MANUAL_VISITAS: SeccionManual[] = [
     bloques: [
       { t: 'p', texto: 'Es lo más común del circuito: **se le cobró la visita, después compró, y esa plata se le descuenta de la compra**. En el sistema se llama **bonificar**.' },
       { t: 'p', texto: 'Al bonificar, el recibo de la visita deja de estar suelto y pasa a contar como **pago a cuenta del presupuesto**. El cliente no pagó dos veces: pagó una y se le acreditó.' },
+      { t: 'p', texto: 'En la **proforma** (impresa y por link) la visita aparece como un renglón descontado debajo del total, con lo que queda a pagar: "A pagar si lo aceptás" mientras está cobrada y "Total a pagar descontando la visita" una vez acreditada.' },
+      { t: 'aviso', tono: 'ojo', texto: '**No cargues el importe de la visita como descuento en el recibo.** Acreditá la visita: así el recibo de la visita cuenta como pago, la visita queda bonificada y la proforma lo muestra. Un descuento manual deja la visita como cobrada sin usar.' },
       { t: 'aviso', tono: 'regla', texto: 'Para poder bonificar tienen que darse **todas** estas condiciones: la visita está cobrada y su recibo sigue emitido (no anulado), el recibo no está ya acreditado a otro presupuesto, el presupuesto es **del mismo cliente**, el presupuesto **salió de esa visita**, y no está cancelado ni rechazado.' },
       { t: 'p', texto: 'Si el presupuesto después se cae, se puede **desbonificar**: el recibo vuelve a ser de la visita y la visita vuelve a estar cobrada.' },
       { t: 'aviso', tono: 'ojo', texto: 'El crédito de la visita **no cuenta como seña del cliente**. Un presupuesto cuyo único pago es la visita acreditada no habilita a comprarle al proveedor — para eso hace falta plata puesta por el cliente sobre el presupuesto.' },
