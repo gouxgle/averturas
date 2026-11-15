@@ -174,7 +174,7 @@ export function TarjetaProductoMosaico({
           'absolute bottom-2 left-2 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md leading-none',
           (producto.stock_actual ?? 0) > 0 ? 'bg-white/90 text-gray-600' : 'bg-red-100 text-red-600'
         )}>
-          stock {producto.stock_actual ?? 0}
+          stock {producto.stock_actual ?? 0}{(producto.stock_reservado ?? 0) > 0 ? ` · ${producto.stock_reservado} señado${producto.stock_reservado === 1 ? '' : 's'}` : ''}
         </span>
 
         {/* Ya está en el carrito (Venta rápida) */}

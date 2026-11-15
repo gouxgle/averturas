@@ -129,7 +129,8 @@ export function VentaRapida() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formaEntrega, clienteDireccion]);
 
-  const conStock = catalogo.filter(p => p.activo && (p.stock_actual ?? 0) > 0);
+  // Se vende lo DISPONIBLE: lo señado por otros clientes no sale del mostrador.
+  const conStock = catalogo.filter(p => p.activo && (p.stock_disponible ?? p.stock_actual ?? 0) > 0);
   const q = prodSearch.trim().toLowerCase();
   const galeria = conStock
     .filter(p => !q || p.nombre.toLowerCase().includes(q) || p.codigo?.toLowerCase().includes(q))
@@ -196,7 +197,7 @@ export function VentaRapida() {
         descripcion: p.nombre,
         cantidad: 1,
         precio_unitario: precioPromo ?? Number(p.precio_base),
-        stock_actual: p.stock_actual ?? 0,
+        stock_actual: p.stock_disponible ?? p.stock_actual ?? 0,
       }];
     });
     toast.success(`${p.nombre} agregado${precioPromo ? ' con precio promocional' : ''}`);

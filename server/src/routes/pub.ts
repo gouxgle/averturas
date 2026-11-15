@@ -180,19 +180,8 @@ pub.post('/presupuesto/:token/aprobar', async (c) => {
   );
   await db.query(`UPDATE operacion_revisiones SET aprobada_at = now() WHERE id = $1`, [rev.revision_id]);
 
-  // Reserva de stock: un movimiento 'reserva' por cada item con producto_id
-  db.query(`
-    SELECT oi.producto_id, oi.cantidad
-    FROM operacion_items oi
-    WHERE oi.operacion_id = $1 AND oi.producto_id IS NOT NULL AND oi.cantidad > 0
-  `, [rev.operacion_id]).then(async ({ rows: items }) => {
-    for (const item of items) {
-      await db.query(`
-        INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, operacion_id)
-        VALUES ($1, 'reserva', $2, 'Proforma aprobada', $3)
-      `, [item.producto_id, -Math.abs(item.cantidad), rev.operacion_id]);
-    }
-  }).catch(err => console.error('[stock] Error al crear reserva:', err));
+  // La aprobación ya NO reserva stock (2026-11-14): la reserva nace con el primer pago
+  // (reservarPorPago en lib/reservas.ts). "Lo que no tiene seña no está reservado".
 
   // Emails (fire and forget)
   fetchCtxEmail(rev.operacion_id).then(ctx => {

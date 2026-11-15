@@ -15,9 +15,9 @@ const productos = new Hono();
 
 const withJoins = `
   SELECT cp.*,
-    (COALESCE(cp.stock_inicial, 0) + COALESCE((
-      SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-    ), 0))::int AS stock_actual,
+    stock_fisico(cp.id) AS stock_actual,
+    stock_reservado(cp.id) AS stock_reservado,
+    stock_disponible(cp.id) AS stock_disponible,
     CASE WHEN ta.id IS NOT NULL
       THEN json_build_object('id', ta.id, 'nombre', ta.nombre)
       ELSE NULL END AS tipo_abertura,
@@ -62,7 +62,9 @@ productos.get('/', async (c) => {
 
   const { rows } = await db.query(`
     SELECT cp.*,
-      (COALESCE(cp.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'), 0))::int AS stock_actual,
+      (-COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'reserva'), 0))::int AS stock_reservado,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_disponible,
       CASE WHEN ta.id IS NOT NULL
         THEN json_build_object('id', ta.id, 'nombre', ta.nombre)
         ELSE NULL END AS tipo_abertura,
@@ -471,7 +473,7 @@ productos.put('/:id', async (c) => {
 
   if (b.en_salon) {
     const { rows: [mov] } = await db.query(
-      `SELECT COALESCE(SUM(cantidad),0)::int AS suma FROM stock_movimientos WHERE producto_id = $1`,
+      `SELECT COALESCE(SUM(cantidad),0)::int AS suma FROM stock_movimientos WHERE producto_id = $1 AND tipo <> 'reserva'`,
       [c.req.param('id')]
     );
     const stockActual = (b.stock_inicial ?? 0) + Number(mov?.suma ?? 0);
@@ -620,9 +622,7 @@ productos.patch('/:id/toggle-salon', async (c) => {
 
   const { rows: [actual] } = await db.query(`
     SELECT cp.en_salon,
-      (COALESCE(cp.stock_inicial, 0) + COALESCE((
-        SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-      ), 0))::int AS stock_actual
+      stock_fisico(cp.id) AS stock_actual
     FROM catalogo_productos cp WHERE cp.id = $1
   `, [id]);
   if (!actual) return c.json({ error: 'Producto no encontrado' }, 404);

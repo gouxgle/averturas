@@ -50,8 +50,8 @@ stock.get('/', async (c) => {
   }
 
   let having = '';
-  if (filtro === 'sin_stock')   having = 'HAVING (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad),0)) <= 0';
-  if (filtro === 'bajo_minimo') having = 'HAVING (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad),0)) > 0 AND (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad),0)) <= p.stock_minimo';
+  if (filtro === 'sin_stock')   having = `HAVING (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'),0)) <= 0`;
+  if (filtro === 'bajo_minimo') having = `HAVING (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'),0)) > 0 AND (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'),0)) <= p.stock_minimo`;
 
   const { rows } = await db.query(`
     SELECT
@@ -59,7 +59,8 @@ stock.get('/', async (c) => {
       p.precio_base, p.costo_base, p.color, p.imagen_url,
       json_build_object('id', ta.id, 'nombre', ta.nombre) AS tipo_abertura,
       json_build_object('id', s.id,  'nombre', s.nombre)  AS sistema,
-      (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual,
+      (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'), 0))::int AS stock_actual,
+          (-COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'reserva'), 0))::int AS stock_reservado,
       COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'ingreso'), 0)::int       AS total_ingresado,
       COALESCE(SUM(-m.cantidad) FILTER (WHERE m.tipo LIKE 'egreso%'), 0)::int   AS total_egresado
     FROM catalogo_productos p
@@ -91,7 +92,8 @@ stock.get('/tablero', async (c) => {
           CASE WHEN pr.id IS NOT NULL
             THEN json_build_object('id', pr.id, 'nombre', pr.nombre, 'color', pr.color, 'plazo_entrega_dias', pr.plazo_entrega_dias)
             ELSE NULL END AS proveedor,
-          (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad), 0))::int AS stock_actual,
+          (COALESCE(p.stock_inicial, 0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'), 0))::int AS stock_actual,
+          (-COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'reserva'), 0))::int AS stock_reservado,
           COALESCE(SUM(-m.cantidad) FILTER (WHERE m.tipo LIKE 'egreso%' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS ventas_30d,
           COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo = 'ingreso' AND m.created_at >= now() - INTERVAL '30 days'), 0)::int AS entradas_30d,
           MAX(m.created_at) FILTER (WHERE m.tipo LIKE 'egreso%') AS ultima_venta_fecha,
@@ -321,7 +323,7 @@ stock.post('/egresar', async (c) => {
 
   // Verificar stock suficiente
   const { rows: [{ actual }] } = await db.query(
-    `SELECT (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad),0))::int AS actual
+    `SELECT (COALESCE(p.stock_inicial,0) + COALESCE(SUM(m.cantidad) FILTER (WHERE m.tipo <> 'reserva'),0))::int AS actual
      FROM catalogo_productos p
      LEFT JOIN stock_movimientos m ON m.producto_id = p.id
      WHERE p.id = $1 GROUP BY p.id, p.stock_inicial`,
@@ -379,9 +381,7 @@ stock.post('/ajustar', async (c) => {
     const { rows: [desactivado] } = await client.query(`
       UPDATE catalogo_productos cp SET en_salon = false
       WHERE cp.id = $1 AND cp.en_salon = true
-        AND (COALESCE(cp.stock_inicial, 0) + COALESCE((
-          SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-        ), 0)) <= 0
+        AND stock_fisico(cp.id) <= 0
       RETURNING id
     `, [b.producto_id]);
 

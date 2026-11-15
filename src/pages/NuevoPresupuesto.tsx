@@ -707,7 +707,7 @@ export function NuevoPresupuesto() {
       _prod_ancho:         p.ancho              ?? null,
       _prod_alto:          p.alto               ?? null,
       _prod_atributos:     p.atributos          ?? {},
-      _prod_stock:         p.stock_actual        ?? 0,
+      _prod_stock:         p.stock_disponible ?? p.stock_actual ?? 0,
       _prod_tipo_nombre:   p.tipo_abertura?.nombre ?? '',
       _prod_sistema_nombre: p.sistema?.nombre    ?? '',
       _prod_imagen_url:    p.imagenes?.[0] ?? p.imagen_url ?? null,

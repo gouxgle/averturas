@@ -239,6 +239,10 @@ export interface Producto {
   stock_inicial: number;
   stock_minimo: number;
   stock_actual: number;
+  /** Comprometido por ventas señadas (no baja el físico). */
+  stock_reservado?: number;
+  /** Físico menos reservado: lo que se puede vender. */
+  stock_disponible?: number;
   proveedor_id: string | null;
   proveedor?: Proveedor;
   imagen_url: string | null;

@@ -329,8 +329,11 @@ al catálogo del sitio, DEFAULT false, exige imagen) + `nombre_web`. `atributos`
 familia (puerta / ventana / puerta-balcón / mosquitera, detectada por nombre); `imagenes[]`
 (la [0] es la principal, `imagen_url` la espeja), `promocion` JSONB, `etiqueta`
 (`mas_vendido|recomendado|nuevo`), `material`/`vidrio`/`color` texto libre alimentado por las
-tablas de catálogo (sin FK), `linea_id` (FK). Stock: `stock_actual = stock_inicial +
-SUM(stock_movimientos.cantidad)`; tipos `ingreso|egreso_remito|egreso_retiro|devolucion|ajuste`.
+tablas de catálogo (sin FK), `linea_id` (FK). **Stock = funciones SQL `stock_fisico(p)`, `stock_reservado(p, excluir_op)`,
+`stock_disponible(p, excluir_op)`** (migración `20261115000004`): físico = `stock_inicial` + movimientos **menos los `reserva`**;
+nunca volver a escribir `stock_inicial + SUM(...)` a mano. `stock_actual` en las respuestas = físico (+ `stock_reservado` /
+`stock_disponible` en `/productos` y `/stock`); para VENDER se usa el disponible (venta rápida, `faltantesDeStock` con la
+reserva propia excluida, coverage, `_prod_stock` del presupuesto); `en_salon` y alertas de mínimo miran el físico.
 Contexto real: solo lo `en_salon` tiene stock confiable, el resto está en 0 desde un ajuste
 masivo (2026-07).
 
@@ -477,8 +480,13 @@ previa en `src/lib/devolucion.ts`, con tests de los mismos casos — si cambia u
   devoluciones y `devoluciones_mes`. Manual: `src/pages/ayuda/manualDevoluciones.ts` (+ tema `devoluciones` del HelpDrawer).
 - Stock: `devolucion_cliente` es el tipo de lo que vuelve de un cliente; el viejo `devolucion` se usa con 3
   sentidos (cancelar remito +, cancelar OC −, egreso manual −) y no se toca.
-- **Reservas**: la aprobación online reserva stock (`reserva` −); `liberarReservas()` (`lib/reservas.ts`) las
-  netea a cero al emitir remito, cancelar/rechazar o deshacer la aprobación (misma transacción).
+- **Reservas (2026-11-14, "lo que no tiene seña no está reservado")**: un presupuesto/aprobado SIN pago no reserva (la aprobación
+  online ya no reserva). `sincronizarReserva()` (`lib/reservas.ts`) deja la reserva = lo que falta entregar (ítems estándar −
+  remitos emitidos/entregados) hasta lo disponible, si hay un recibo del cliente emitido (el de una visita acreditada no cuenta);
+  si no, cero. Se llama al crear y anular recibos y al emitir/cancelar remitos; `POST /recibos` devuelve `reserva {reservado,
+  sin_stock}` (NuevoRecibo avisa lo que hay que pedir). Mantiene una tarea "Reserva de stock de OP-x: ¿entregar o liberar?"
+  a 30 días. `liberarReservas()` la suelta entera (anular, rechazar, cancelar, deshacer aprobación, `POST /operaciones/:id/liberar-reserva`,
+  `PanelReserva` en el detalle). Test `reservaPorPago.db.test.ts`.
 
 **Pedidos a proveedor** — contra-reembolso: `costo_envio` va al transporte, `monto_total =
 items + costo_envio`. Coverage stock-aware (`items_cubiertos`): un ítem está cubierto si tiene

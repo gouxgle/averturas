@@ -85,13 +85,13 @@ dashboard.get('/resumen', async (c) => {
 
     db.query(`
       SELECT p.id, p.nombre, p.stock_minimo,
-        p.stock_inicial + COALESCE(SUM(sm.cantidad), 0) AS stock_actual
+        p.stock_inicial + COALESCE(SUM(sm.cantidad) FILTER (WHERE sm.tipo <> 'reserva'), 0) AS stock_actual
       FROM catalogo_productos p
       LEFT JOIN stock_movimientos sm ON sm.producto_id = p.id
       WHERE p.activo = true AND p.stock_minimo > 0
       GROUP BY p.id, p.nombre, p.stock_minimo, p.stock_inicial
-      HAVING p.stock_inicial + COALESCE(SUM(sm.cantidad), 0) <= p.stock_minimo
-      ORDER BY (p.stock_inicial + COALESCE(SUM(sm.cantidad), 0)) ASC
+      HAVING p.stock_inicial + COALESCE(SUM(sm.cantidad) FILTER (WHERE sm.tipo <> 'reserva'), 0) <= p.stock_minimo
+      ORDER BY (p.stock_inicial + COALESCE(SUM(sm.cantidad) FILTER (WHERE sm.tipo <> 'reserva'), 0)) ASC
       LIMIT 10
     `),
 

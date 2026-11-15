@@ -88,9 +88,7 @@ informes.get('/resumen', async (c) => {
         (SELECT COALESCE(SUM(monto), 0)::numeric FROM compromisos_pago WHERE estado = 'pendiente') AS pendiente_cobro,
         (SELECT COUNT(*)::int FROM catalogo_productos cp
          WHERE cp.activo = true AND cp.stock_minimo > 0
-           AND (cp.stock_inicial + COALESCE(
-             (SELECT SUM(sm.cantidad) FROM stock_movimientos sm WHERE sm.producto_id = cp.id), 0
-           )) <= cp.stock_minimo
+           AND stock_fisico(cp.id) <= cp.stock_minimo
         ) AS stock_critico,
         (SELECT COUNT(*)::int FROM remitos
          WHERE estado = 'emitido' AND fecha_entrega_est IS NOT NULL AND fecha_entrega_est < CURRENT_DATE
@@ -195,9 +193,7 @@ informes.get('/resumen', async (c) => {
         ) AS sin_movimiento_30d,
         (SELECT COUNT(*)::int FROM catalogo_productos cp
          WHERE cp.activo = true AND cp.stock_minimo > 0
-           AND (cp.stock_inicial + COALESCE(
-             (SELECT SUM(sm.cantidad) FROM stock_movimientos sm WHERE sm.producto_id = cp.id), 0
-           )) <= 0
+           AND stock_fisico(cp.id) <= 0
         ) AS sin_stock
     `),
 

@@ -26,6 +26,7 @@ import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas'
 import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
 import { AnularPresupuesto, BannerAnulado } from '@/components/presupuestos/AnularPresupuesto';
 import { MOTIVOS_ANULACION } from '@/lib/anulacion';
+import { PanelReserva } from '@/components/presupuestos/PanelReserva';
 import { NuevoServicio } from '@/components/servicios/NuevoServicio';
 import { FranjaRecotizar } from '@/components/agenda/FranjaRecotizar';
 
@@ -118,6 +119,8 @@ interface OpDetalle {
   motivo_rechazo: string | null;
   anulado_at?: string | null; anulado_por_nombre?: string | null; anulacion_motivo?: string | null;
   anulacion_detalle?: string | null; anulado_desde?: string | null;
+  /** Stock reservado por esta venta: nace con el primer pago (lib/reservas.ts). */
+  reservas?: { producto_id: string; nombre: string; codigo: string | null; cantidad: number }[];
   credito_visita: number;
   tiene_items_a_relevar: boolean;
   visita_tecnica: {
@@ -1190,6 +1193,11 @@ function PresupuestoModal({
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Stock reservado: la venta está señada (nace con el primer pago) */}
+            {(op.reservas?.length ?? 0) > 0 && (
+              <PanelReserva operacionId={op.id} reservas={op.reservas!} onLiberada={() => void cargarDetalle()} />
             )}
 
             {/* Anular: presupuesto cargado por error, cliente equivocado, duplicado… (con motivo y detalle) */}

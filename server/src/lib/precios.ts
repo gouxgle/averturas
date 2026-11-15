@@ -308,7 +308,7 @@ export async function filasRevision(ids?: string[]) {
              WHERE mes > (date_trunc('month', cp.precio_actualizado_at) + interval '1 month - 1 day')::date)::float AS ipc_pct,
            COALESCE(ventas.unidades, 0)::int AS ventas_90d,
            COALESCE(abiertas.n, 0)::int AS proformas_abiertas,
-           cp.stock_inicial + COALESCE((SELECT SUM(cantidad) FROM stock_movimientos sm WHERE sm.producto_id = cp.id), 0) AS stock
+           stock_fisico(cp.id) AS stock
       FROM catalogo_productos cp
       LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
       LEFT JOIN sistemas s ON s.id = cp.sistema_id

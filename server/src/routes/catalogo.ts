@@ -1190,7 +1190,8 @@ catalogo.get('/productos', async (c) => {
         THEN json_build_object('id', pr.id, 'nombre', pr.nombre, 'color', pr.color, 'plazo_entrega_dias', pr.plazo_entrega_dias)
         ELSE NULL END AS proveedor,
       mo.nombre AS modelo_nombre,
-      (COALESCE(cp.stock_inicial, 0) + COALESCE(st.mov_total, 0))::int AS stock_actual
+      (COALESCE(cp.stock_inicial, 0) + COALESCE(st.mov_total, 0))::int AS stock_actual,
+      (COALESCE(cp.stock_inicial, 0) + COALESCE(st.mov_total, 0) + COALESCE(st.reservado, 0))::int AS stock_disponible
     FROM catalogo_productos cp
     LEFT JOIN tipos_abertura ta ON ta.id = cp.tipo_abertura_id
     LEFT JOIN sistemas s        ON s.id  = cp.sistema_id
@@ -1198,7 +1199,8 @@ catalogo.get('/productos', async (c) => {
     LEFT JOIN proveedores pr    ON pr.id = cp.proveedor_id
     LEFT JOIN catalogo_modelos mo ON mo.id = cp.modelo_id
     LEFT JOIN LATERAL (
-      SELECT SUM(cantidad)::int AS mov_total
+      SELECT (SUM(cantidad) FILTER (WHERE tipo <> 'reserva'))::int AS mov_total,
+             (SUM(cantidad) FILTER (WHERE tipo = 'reserva'))::int AS reservado
       FROM stock_movimientos WHERE producto_id = cp.id
     ) st ON true
     WHERE cp.activo = true

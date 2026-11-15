@@ -294,6 +294,13 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
     icono: Clock,
     bloques: [
       { t: 'p', texto: 'Un presupuesto aprobado sigue su vida en otras pantallas:' },
+      { t: 'aviso', tono: 'regla', texto: '**El stock se reserva con el primer pago, no al aprobar.** Un presupuesto enviado o aprobado sin seña no compromete stock (puede que la venta nunca se haga). Cuando se hace el primer recibo, el sistema reserva lo que falta entregar: ese stock deja de estar disponible para otros clientes, pero sigue contando como stock físico del local. Si no alcanza, el recibo avisa qué hay que pedir.' },
+      { t: 'lista', items: [
+        'La reserva se ve en el detalle del presupuesto (**Stock reservado**) y en Existencias como "señado".',
+        'Al emitir el remito, lo entregado deja de estar reservado; en una entrega parcial, lo que falta sigue reservado.',
+        'Se libera sola al anular el presupuesto, al rechazarlo, al deshacer la aprobación o al anular el último recibo.',
+        'Si a los 30 días sigue sin entregarse aparece en la agenda una tarea **¿entregar o liberar?**; desde el detalle, **Liberar reserva** la suelta a mano.',
+      ] },
       {
         t: 'tabla',
         cols: ['Si…', 'Entonces…'],

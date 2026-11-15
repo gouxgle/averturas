@@ -14,11 +14,8 @@
  * Un ítem está CUBIERTO si se cumple cualquiera de los tres.
  */
 
-/** Stock actual del producto del ítem, con la fórmula canónica del proyecto. */
-const STOCK_ACTUAL_DEL_ITEM = `(
-  COALESCE((SELECT stock_inicial FROM catalogo_productos WHERE id = oi.producto_id), 0)
-  + COALESCE((SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = oi.producto_id), 0)
-)`;
+/** Stock disponible para el ítem: físico menos lo reservado por OTRAS ventas (su propia reserva le sirve). */
+const STOCK_ACTUAL_DEL_ITEM = `stock_disponible(oi.producto_id, oi.operacion_id)`;
 
 /** El ítem tiene producto de catálogo y stock suficiente para su cantidad. */
 export const ITEM_STOCK_SUFICIENTE =

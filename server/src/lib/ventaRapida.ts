@@ -36,9 +36,8 @@ export async function bloquearYValidarStock(
   await client.query(`SELECT id FROM catalogo_productos WHERE id = ANY($1::uuid[]) FOR UPDATE`, [productoIds]);
   const { rows: productosLock } = await client.query(`
     SELECT cp.id, cp.nombre,
-      (COALESCE(cp.stock_inicial, 0) + COALESCE((
-        SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-      ), 0))::int AS stock_actual
+      -- Se vende lo DISPONIBLE: lo señado por otros clientes no se puede vender en el mostrador.
+      stock_disponible(cp.id) AS stock_actual
     FROM catalogo_productos cp
     WHERE cp.id = ANY($1::uuid[])
   `, [productoIds]);
@@ -100,9 +99,7 @@ export async function entregarDeMostrador(client: Queryable, d: {
   await client.query(`
     UPDATE catalogo_productos cp SET en_salon = false
     WHERE cp.id = ANY($1::uuid[]) AND cp.en_salon = true
-      AND (COALESCE(cp.stock_inicial,0) + COALESCE((
-        SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-      ), 0)) <= 0
+      AND stock_fisico(cp.id) <= 0
   `, [d.items.map(i => i.producto_id)]);
 
   // Si el cliente retira ahora: emitido → entregado, y la operación queda cerrada

@@ -27,6 +27,7 @@ interface ProductoExistencias {
   stock_minimo: number;
   stock_inicial: number;
   stock_actual: number;
+  stock_reservado?: number;
   precio_base: number | null;
   costo_base: number | null;
   tipo_abertura: { id: string; nombre: string } | null;
@@ -67,6 +68,7 @@ interface ProductoStock {
   stock_minimo: number;
   stock_inicial: number;
   stock_actual: number;
+  stock_reservado?: number;
   total_ingresado: number;
   total_egresado: number;
   precio_base: number | null;
@@ -910,6 +912,9 @@ function ProductoRow({
             {producto.stock_minimo > 0 && (
               <span className="text-[10px] text-gray-600 ml-1">mín {producto.stock_minimo}</span>
             )}
+            {(producto.stock_reservado ?? 0) > 0 && (
+              <p className="text-[10px] text-amber-700 font-semibold">{producto.stock_reservado} señado · disp. {producto.stock_actual - (producto.stock_reservado ?? 0)}</p>
+            )}
           </div>
           <div className="bg-gray-50 rounded-lg px-2.5 py-2">
             <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">Ventas 30d</p>
@@ -949,6 +954,9 @@ function ProductoRow({
         {/* Stock */}
         <div className="text-center">
           <span className={`text-lg font-bold ${estadoCfg.text}`}>{producto.stock_actual}</span>
+          {(producto.stock_reservado ?? 0) > 0 && (
+            <p className="text-[10px] text-amber-700 font-semibold whitespace-nowrap">{producto.stock_reservado} señado · disp. {producto.stock_actual - (producto.stock_reservado ?? 0)}</p>
+          )}
           {producto.stock_minimo > 0 && (
             <p className="text-[10px] text-gray-600">mín {producto.stock_minimo}</p>
           )}

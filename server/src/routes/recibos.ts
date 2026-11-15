@@ -14,6 +14,7 @@ import { siguienteNumero } from '../lib/numeracion.js';
 import { tomarBonificacionEnRecibo, BonificacionError } from '../lib/bonificacion.js';
 import { facturadoDe } from '../lib/fiscal/origenes.js';
 import { asentarSaldoFavor, saldoFavorDe, montoEnSaldoFavor } from '../lib/saldoFavor.js';
+import { sincronizarReserva, type ReservaResultado } from '../lib/reservas.js';
 
 const recibos = new Hono();
 
@@ -596,6 +597,10 @@ recibos.post('/', async (c) => {
       ]);
     }
 
+    // Con el primer pago la venta queda señada: se reserva el stock de lo que falta entregar.
+    let reserva: ReservaResultado | null = null;
+    if (b.operacion_id) reserva = await sincronizarReserva(client, b.operacion_id, rec.numero, user?.id || null);
+
     await client.query('COMMIT');
 
     // Cerrar compromisos pendientes si la operación quedó completamente pagada
@@ -612,7 +617,7 @@ recibos.post('/', async (c) => {
         accion: 'editar', detalle: `Bonificación cambiada al cobrar ${rec.numero}: de ${bonif.cambio.antes} a ${bonif.cambio.despues}`,
       });
     }
-    return c.json(rec, 201);
+    return c.json({ ...rec, reserva }, 201);
   } catch (err) {
     await client.query('ROLLBACK');
     if (err instanceof BonificacionError) return c.json({ error: err.message }, 409);
@@ -793,6 +798,9 @@ recibos.patch('/:id/anular', async (c) => {
       SET cobro_estado='pendiente', recibo_id=NULL, bonificada_at=NULL, bonificada_por=NULL, updated_at=now()
       WHERE recibo_id=$1
     `, [id]);
+
+    // Sin ningún pago vigente, la venta deja de estar señada: se libera la reserva.
+    if (rec.operacion_id) await sincronizarReserva(client, rec.operacion_id, rec.numero, c.get('user')?.id ?? null);
 
     await client.query('COMMIT');
     registrarActividad(c, {

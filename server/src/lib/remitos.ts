@@ -1,6 +1,6 @@
 import { crearSeguimientoPorEntrega } from './postventa.js';
 import { db } from '../db.js';
-import { liberarReservas } from './reservas.js';
+import { sincronizarReserva } from './reservas.js';
 
 type Queryable = { query: typeof db.query };
 
@@ -80,12 +80,8 @@ export async function faltantesDeStock(
   if (!pedido.size) return [];
   const { rows } = await q.query(`
     SELECT cp.id, cp.nombre, cp.codigo,
-      (COALESCE(cp.stock_inicial, 0) + COALESCE((
-        SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-      ), 0) - COALESCE((
-        SELECT SUM(m.cantidad) FROM stock_movimientos m
-        WHERE m.producto_id = cp.id AND m.tipo = 'reserva' AND m.operacion_id = $2
-      ), 0))::int AS disponible
+      -- Físico menos lo reservado por OTRAS ventas: la reserva propia es justamente para esta entrega.
+      stock_disponible(cp.id, $2::uuid) AS disponible
     FROM catalogo_productos cp WHERE cp.id = ANY($1::uuid[])
   `, [[...pedido.keys()], operacionId]);
   const porId = new Map(rows.map(r => [r.id as string, r]));
@@ -155,13 +151,8 @@ export async function aplicarTransicionRemito(
   if (estadoActual === 'borrador' && nuevoEstado === 'emitido' && !remito.stock_descontado) {
     const items = remito.items.filter(i => i.producto_id);
 
-    // Cancelar reservas existentes para esta operación (netear a cero)
-    if (remito.operacion_id) {
-      await liberarReservas(client, remito.operacion_id, 'Cancelación reserva por remito', remito.numero, userId);
-    }
-
-    // Bloquear + validar stock disponible (ya neteada la reserva propia cancelada
-    // arriba) antes de descontar — evita que dos remitos emitidos en simultáneo
+    // Bloquear + validar stock disponible (faltantesDeStock no cuenta la reserva de la propia
+    // operación: es justamente para esta entrega) antes de descontar — evita que dos remitos emitidos en simultáneo
     // sobrevendan el mismo producto. El FOR UPDATE serializa cualquier otra
     // transacción que también bloquee estas mismas filas (incluida venta rápida).
     //
@@ -215,9 +206,7 @@ export async function aplicarTransicionRemito(
       await client.query(`
         UPDATE catalogo_productos cp SET en_salon = false
         WHERE cp.id = ANY($1::uuid[]) AND cp.en_salon = true
-          AND (COALESCE(cp.stock_inicial,0) + COALESCE((
-            SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-          ), 0)) <= 0
+          AND stock_fisico(cp.id) <= 0
       `, [items.map(i => i.producto_id)]);
     }
   }
@@ -274,6 +263,12 @@ export async function aplicarTransicionRemito(
 
   // Entregado: se agenda el seguimiento post venta (a los N días se le pregunta al cliente cómo le fue)
   if (entrega) await crearSeguimientoPorEntrega(client, remito.id);
+
+  // Emitido o cancelado cambia lo que falta entregar: la reserva se reajusta (lo que salió deja de
+  // estar reservado; si se cancela, lo que vuelve se reserva de nuevo si la venta sigue señada).
+  if (remito.operacion_id && (nuevoEstado === 'emitido' || nuevoEstado === 'cancelado')) {
+    await sincronizarReserva(client, remito.operacion_id, remito.numero, userId);
+  }
 }
 
 // Entrega en el lugar: un borrador se emite (descuenta stock) y se entrega en el mismo paso.

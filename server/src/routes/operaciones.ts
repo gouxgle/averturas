@@ -1147,6 +1147,11 @@ operaciones.get('/:id', async (c) => {
     db.query(`
       SELECT o.*,
         (SELECT u.nombre FROM usuarios u WHERE u.id = o.anulado_por) AS anulado_por_nombre,
+        -- Stock reservado por esta venta (nace con el primer pago, ver lib/reservas.ts)
+        (SELECT COALESCE(json_agg(json_build_object('producto_id', x.producto_id, 'nombre', cp.nombre, 'codigo', cp.codigo, 'cantidad', x.cant)), '[]'::json)
+           FROM (SELECT producto_id, (-SUM(cantidad))::int AS cant FROM stock_movimientos
+                  WHERE operacion_id = o.id AND tipo = 'reserva' GROUP BY producto_id HAVING SUM(cantidad) < 0) x
+           JOIN catalogo_productos cp ON cp.id = x.producto_id) AS reservas,
         COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
         COALESCE((SELECT oc.descuentos FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS total_descuentos,
         -- Bonificación del presupuesto ya tomada por recibos emitidos (el recibo toma solo lo que falta)
@@ -1212,9 +1217,7 @@ operaciones.get('/:id', async (c) => {
           LIMIT 1
         ) AS covered_by,
         CASE WHEN cp.id IS NOT NULL THEN
-          (COALESCE(cp.stock_inicial,0) + COALESCE((
-            SELECT SUM(m.cantidad) FROM stock_movimientos m WHERE m.producto_id = cp.id
-          ),0))::int
+          stock_disponible(cp.id, oi.operacion_id)
           ELSE NULL END AS stock_actual,
         -- Cuánto de este ítem ya salió en remitos no cancelados — lo que necesita
         -- NuevoRemito.tsx para no volver a ofrecer la cantidad completa en una
@@ -1685,6 +1688,31 @@ operaciones.post('/:id/desaprobar', async (c) => {
     meta: { estado_anterior: 'aprobado', estado_nuevo: estadoDestino },
   });
   return c.json(row);
+});
+
+// POST /:id/liberar-reserva — suelta el stock reservado de una venta señada que no se va a entregar
+// (o no por ahora). Si después se emite un remito o entra otro pago, la reserva se recalcula sola.
+operaciones.post('/:id/liberar-reserva', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  if (user?.rol === 'consulta') return c.json({ error: 'Tu usuario es de solo consulta' }, 403);
+  const { rows: [op] } = await db.query(`SELECT id, numero FROM operaciones WHERE id = $1`, [id]);
+  if (!op) return c.json({ error: 'Presupuesto no encontrado' }, 404);
+  const client = await db.connect();
+  let n = 0;
+  try {
+    await client.query('BEGIN');
+    n = await liberarReservas(client, id, 'Reserva liberada a mano', op.numero, user?.id ?? null);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+  if (n) registrarActividad(c, { entidad: 'presupuesto', entidad_id: id, entidad_numero: op.numero, accion: 'editar',
+    detalle: `Reserva de stock liberada a mano (${n} producto${n === 1 ? '' : 's'})` });
+  return c.json({ liberados: n });
 });
 
 async function estaAnulado(id: string): Promise<boolean> {

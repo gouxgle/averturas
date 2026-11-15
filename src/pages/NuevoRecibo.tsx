@@ -744,7 +744,13 @@ export function NuevoRecibo() {
         toast.success('Recibo actualizado');
         navigate('/recibos');
       } else {
-        const rec = await api.post<{ id: string }>('/recibos', payload);
+        const rec = await api.post<{ id: string; reserva?: { reservado: number; sin_stock: { nombre: string; faltan: number }[] } | null }>('/recibos', payload);
+        // Con el pago la venta queda señada y se reserva el stock; si no alcanza, avisar qué hay que pedir.
+        if (rec.reserva?.sin_stock.length) {
+          toast.warning(`Sin stock para reservar: ${rec.reserva.sin_stock.map(f => `${f.faltan} × ${f.nombre}`).join(', ')}. Hay que pedirlo al proveedor.`, { duration: 10000 });
+        } else if (rec.reserva && rec.reserva.reservado > 0) {
+          toast.info(`Stock reservado para esta venta: ${rec.reserva.reservado} unidad${rec.reserva.reservado === 1 ? '' : 'es'}`);
+        }
         toast.success(payload.compromiso ? 'Recibo creado y compromiso registrado' : 'Recibo creado');
         setSavedId(rec.id);
       }
