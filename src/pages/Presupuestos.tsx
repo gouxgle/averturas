@@ -24,6 +24,8 @@ import { VersionesPresupuesto } from '@/components/VersionesPresupuesto';
 import { RevisionesEnviadas } from '@/components/RevisionesEnviadas';
 import { FacturasVinculadas } from '@/components/facturacion/FacturasVinculadas';
 import { AsistenteDevolucion } from '@/components/devoluciones/AsistenteDevolucion';
+import { AnularPresupuesto, BannerAnulado } from '@/components/presupuestos/AnularPresupuesto';
+import { MOTIVOS_ANULACION } from '@/lib/anulacion';
 import { NuevoServicio } from '@/components/servicios/NuevoServicio';
 import { FranjaRecotizar } from '@/components/agenda/FranjaRecotizar';
 
@@ -57,6 +59,7 @@ interface PresupuestoPanel {
   respuesta_cliente: 'mas_tiempo' | 'consulta' | 'llamada' | 'modificar' | null;
   respuesta_cliente_at: string | null;
   motivo_rechazo: string | null;
+  anulacion_motivo?: string | null; anulacion_detalle?: string | null;
   dias_vencido: number | null;
   dias_hasta_vencimiento: number | null;
   dias_sin_respuesta: number;
@@ -113,6 +116,8 @@ interface OpDetalle {
   /** Lo que las devoluciones aplicaron a la deuda (vista operacion_cobranza). */
   devuelto_a_saldo?: number;
   motivo_rechazo: string | null;
+  anulado_at?: string | null; anulado_por_nombre?: string | null; anulacion_motivo?: string | null;
+  anulacion_detalle?: string | null; anulado_desde?: string | null;
   credito_visita: number;
   tiene_items_a_relevar: boolean;
   visita_tecnica: {
@@ -193,7 +198,7 @@ const ESTADO_DOC: Record<string, { label: string; solid: string; franja: string 
   enviado:       { label: 'Enviado',                 solid: 'bg-blue-600 text-white', franja: 'border-l-blue-500' },
   aprobado:      { label: 'Aprobado',                solid: 'bg-emerald-600 text-white', franja: 'border-l-emerald-600' },
   rechazado:     { label: 'Rechazado',               solid: 'bg-red-600 text-white', franja: 'border-l-red-600' },
-  cancelado:     { label: 'Cancelado',               solid: 'bg-gray-500 text-white', franja: 'border-l-gray-300' },
+  cancelado:     { label: 'Anulado',                 solid: 'bg-gray-500 text-white', franja: 'border-l-gray-300' },
   en_produccion: { label: 'En producción',           solid: 'bg-amber-600 text-white', franja: 'border-l-amber-500' },
   listo:         { label: 'Listo',                   solid: 'bg-teal-600 text-white', franja: 'border-l-teal-500' },
   instalado:     { label: 'Instalado',               solid: 'bg-violet-600 text-white', franja: 'border-l-violet-500' },
@@ -636,7 +641,8 @@ function PresupuestoModal({
   }
 
   const esAprobado  = op?.estado === 'aprobado';
-  const puedeEditar = op && !esAprobado;
+  const esAnulado = op?.estado === 'cancelado';
+  const puedeEditar = op && !esAprobado && !esAnulado;
   // Chequeo primario: ¿quedan ítems "a relevar" sin resolver? Cubre tanto el caso con
   // visita ya generada como el de un ítem recién agregado que todavía no tiene visita.
   const tienePendientes = !!op?.tiene_items_a_relevar;
@@ -725,6 +731,7 @@ function PresupuestoModal({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg font-medium transition-colors">
                   <Printer size={13} /> PDF
                 </button>
+                {!esAnulado && (
                 <button onClick={generarLink} disabled={generandoLink || esVencido || tienePendientes}
                   title={
                     tienePendientes
@@ -741,6 +748,7 @@ function PresupuestoModal({
                   }`}>
                   <Share2 size={13} /> {generandoLink ? '...' : 'Compartir'}
                 </button>
+                )}
               </>
             )}
             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -819,6 +827,7 @@ function PresupuestoModal({
           <div className="flex items-center justify-center py-20 text-red-500 text-sm">{error}</div>
         ) : op ? (
           <div className="divide-y divide-gray-100">
+            {op.estado === 'cancelado' && <BannerAnulado op={op} />}
             <div className="px-5 py-4">
               <div className="flex items-center gap-2 mb-2.5">
                 <User size={13} className="text-gray-600" />
@@ -1094,7 +1103,7 @@ function PresupuestoModal({
               );
             })()}
 
-            {!esAprobado && (
+            {!esAprobado && !esAnulado && (
               <div className="px-5 py-3 flex items-center gap-2 bg-gray-50 rounded-b-2xl">
                 <span className="text-xs text-gray-600 mr-1">Cambiar estado:</span>
                 {op.estado !== 'aprobado' && (
@@ -1180,6 +1189,14 @@ function PresupuestoModal({
                     No, volver
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Anular: presupuesto cargado por error, cliente equivocado, duplicado… (con motivo y detalle) */}
+            {!['cancelado', 'entregado', 'instalado'].includes(op.estado) && !confirmarDesaprobar && (
+              <div className="px-5 py-3 flex justify-end bg-gray-50">
+                <AnularPresupuesto id={op.id} numero={op.numero}
+                  onAnulado={() => { onEstadoChange(id, 'cancelado'); onRefresh(); void cargarDetalle(); }} />
               </div>
             )}
 
@@ -1909,7 +1926,7 @@ export function Presupuestos() {
                 <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
                   <XCircle size={13} className="text-red-600" />
                 </div>
-                <span className="text-xs text-gray-700 font-medium flex-1">Presupuestos cancelados</span>
+                <span className="text-xs text-gray-700 font-medium flex-1">Presupuestos anulados</span>
                 {cancelados.length > 0 && (
                   <span className="text-[10px] font-extrabold bg-red-400 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                     {cancelados.length}
@@ -1924,10 +1941,10 @@ export function Presupuestos() {
           {showCancelados && (
             <div className="bg-white rounded-xl border border-red-200 shadow-lg p-4">
               <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2">
-                Cancelados
+                Anulados
               </p>
               {cancelados.length === 0 ? (
-                <p className="text-xs text-gray-600 text-center py-4">Sin presupuestos cancelados</p>
+                <p className="text-xs text-gray-600 text-center py-4">Sin presupuestos anulados</p>
               ) : (
                 <div className="space-y-1.5">
                   {cancelados.map(p => (
@@ -1941,6 +1958,11 @@ export function Presupuestos() {
                         <span className="text-[10px] font-bold text-gray-800 tabular-nums">{formatCurrency(p.precio_total)}</span>
                       </div>
                       <p className="text-xs font-semibold text-gray-800 truncate mt-0.5">{nombreCliente(p.cliente)}</p>
+                      {p.anulacion_motivo && (
+                        <p className="text-[10px] text-red-600 truncate" title={p.anulacion_detalle ?? undefined}>
+                          {MOTIVOS_ANULACION.find(m => m.valor === p.anulacion_motivo)?.label}{p.anulacion_detalle ? ` — ${p.anulacion_detalle}` : ''}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

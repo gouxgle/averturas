@@ -309,6 +309,25 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
     ],
   },
   {
+    id: 'anular',
+    titulo: 'Anular un presupuesto',
+    corto: 'Anular',
+    icono: AlertTriangle,
+    bloques: [
+      { t: 'p', texto: 'Si un presupuesto se cargó por error (cliente equivocado, duplicado, armado por fuera de la visita de relevamiento) o ya no corresponde, se **anula**: no se borra, queda guardado como **Anulado** con quién lo anuló, cuándo, el motivo y el detalle.' },
+      { t: 'flujo', nodos: ['Abrir el presupuesto', '**Anular presupuesto** (abajo, en el detalle)', 'Elegir el motivo', 'Escribir el detalle', '**Sí, anular**'] },
+      { t: 'lista', items: [
+        'Motivos: error de carga, cliente equivocado, presupuesto duplicado, reemplazado por otro, el cliente desistió u otro motivo (con **otro** el detalle es obligatorio).',
+        'En el detalle conviene anotar lo que sirva después: qué pasó y, si se rehízo, **con qué presupuesto se reemplazó**.',
+        'Al anular se libera el stock reservado, se descarta el seguimiento post venta y se cierran las tareas pendientes de ese presupuesto.',
+        'Si salió de una **visita de relevamiento**, la visita vuelve a quedar libre (y si se había acreditado, se desacredita): desde ella se arma el presupuesto correcto.',
+        'Un presupuesto anulado no se edita, no se comparte y no se puede aprobar. Se ve en la lista **Presupuestos anulados**, con su motivo.',
+      ] },
+      { t: 'aviso', tono: 'regla', texto: 'No se puede anular si tiene **recibos, pedidos al proveedor, remitos o facturas**: primero hay que anular esos documentos (la factura, con una nota de crédito). El recibo de una visita de relevamiento acreditada no lo impide.' },
+      { t: 'aviso', tono: 'ojo', texto: 'Anular no es lo mismo que **rechazar**: rechazado es una respuesta del cliente (se puede retomar como oportunidad); anulado es un presupuesto que no debió existir o que ya no vale.' },
+    ],
+  },
+  {
     id: 'problemas',
     titulo: 'Cuando algo no sale',
     corto: 'Problemas',
@@ -321,6 +340,7 @@ export const MANUAL_PRESUPUESTOS: SeccionManual[] = [
           ['El botón Compartir está apagado', 'El presupuesto está vencido, o hay ítems a relevar', 'Extendé la validez, o completá la visita'],
           ['No puedo editarlo', 'Ya está aprobado', 'Armá uno nuevo'],
           ['Lo aprobé/aprobó el cliente por error', 'Pasa', 'Detalle → Deshacer aprobación (si no hay recibo, pedido ni remito generados)'],
+          ['Lo cargué con otro cliente, duplicado o por fuera de la visita', 'Pasa', 'Detalle → Anular presupuesto, con el motivo y el detalle'],
           ['El cliente dice que el link no anda', 'Pasaron 30 días del envío', 'Volvé a compartir: genera un link nuevo'],
           ['El cliente no puede aprobar', 'Se editó después de enviar y ya no coincide', 'Reenviale el presupuesto — se arma una revisión nueva'],
           ['No me deja emitir el recibo', 'El presupuesto no está aprobado', 'Aprobalo primero'],

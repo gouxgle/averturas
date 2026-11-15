@@ -8,10 +8,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { db } from '../db.js';
-import { sincronizarTareaVisita } from '../lib/tareas.js';
+import { sincronizarTareaVisita, completarTarea } from '../lib/tareas.js';
 import { sqlStockCubreTodo, sqlItemsTotal, sqlItemsEnPedidoInclReposicion } from '../lib/coverage.js';
 import { validateBody } from '../lib/validate.js';
-import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema } from '../lib/schemas.js';
+import { OperacionSchema, EstadoOperacionSchema, VentaRapidaSchema, CompletarRelevamientoSchema, AnularOperacionSchema } from '../lib/schemas.js';
 import { sendProformaCompartida } from '../email.js';
 import { registrarActividad } from '../lib/actividad.js';
 import { siguienteNumero } from '../lib/numeracion.js';
@@ -542,7 +542,7 @@ operaciones.get('/ventas-panel', async (c) => {
     db.query(`
       SELECT
         o.id, o.numero, o.tipo, o.estado, o.precio_total::numeric,
-        o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo,
+        o.created_at, o.fecha_validez, o.aprobado_online_at, o.motivo_rechazo, o.anulacion_motivo, o.anulacion_detalle,
         (o.token_acceso IS NOT NULL) AS link_enviado,
         -- Si el cliente abrió el último link enviado (y cuándo): "ya lo vio".
         (SELECT r.primera_vista_at FROM operacion_revisiones r
@@ -683,6 +683,8 @@ operaciones.post('/:id/generar-link', async (c) => {
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
 
+  if (await estaAnulado(id)) return c.json({ error: 'Este presupuesto está anulado' }, 409);
+
   const vtPendiente = await visitaPendiente(id);
   if (vtPendiente) {
     return c.json({ error: `Falta relevar la Visita de Relevamiento de Datos ${vtPendiente} antes de compartir este presupuesto` }, 409);
@@ -730,6 +732,8 @@ operaciones.post('/:id/enviar-whatsapp', async (c) => {
     [id]
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  if (await estaAnulado(id)) return c.json({ error: 'Este presupuesto está anulado' }, 409);
 
   const vtPendienteWa = await visitaPendiente(id);
   if (vtPendienteWa) {
@@ -828,6 +832,8 @@ operaciones.post('/:id/enviar-email', async (c) => {
     [id]
   );
   if (!op) return c.json({ error: 'No encontrado' }, 404);
+
+  if (await estaAnulado(id)) return c.json({ error: 'Este presupuesto está anulado' }, 409);
 
   const vtPendienteEmail = await visitaPendiente(id);
   if (vtPendienteEmail) {
@@ -1140,6 +1146,7 @@ operaciones.get('/:id', async (c) => {
   const [{ rows: [op] }, { rows: items }, { rows: historial }, { rows: formas_pago_alternativas }, versiones, revisionVigente] = await Promise.all([
     db.query(`
       SELECT o.*,
+        (SELECT u.nombre FROM usuarios u WHERE u.id = o.anulado_por) AS anulado_por_nombre,
         COALESCE((SELECT oc.cobrado FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS cobrado_total,
         COALESCE((SELECT oc.descuentos FROM operacion_cobranza oc WHERE oc.operacion_id = o.id), 0)::numeric AS total_descuentos,
         -- Bonificación del presupuesto ya tomada por recibos emitidos (el recibo toma solo lo que falta)
@@ -1479,6 +1486,9 @@ operaciones.put('/:id', async (c) => {
     'SELECT estado FROM operaciones WHERE id=$1', [id]
   );
   if (!existing) return c.json({ error: 'No encontrada' }, 404);
+  if (existing.estado === 'cancelado') {
+    return c.json({ error: 'No se puede editar un presupuesto anulado' }, 409);
+  }
   if (existing.estado === 'aprobado') {
     return c.json({ error: 'No se puede editar un presupuesto aprobado' }, 409);
   }
@@ -1677,6 +1687,104 @@ operaciones.post('/:id/desaprobar', async (c) => {
   return c.json(row);
 });
 
+async function estaAnulado(id: string): Promise<boolean> {
+  const { rows: [r] } = await db.query(`SELECT estado FROM operaciones WHERE id = $1`, [id]);
+  return r?.estado === 'cancelado';
+}
+
+// POST /:id/anular — anula un presupuesto cargado por error (cliente equivocado, duplicado, etc.).
+// Queda en estado 'cancelado' con quién, cuándo, motivo y detalle. Solo si no hay plata ni mercadería
+// en juego: facturas, recibos del cliente, pedidos activos o remitos vigentes → 409 (anularlos primero).
+// El recibo de una visita de relevamiento acreditada NO bloquea: se desacredita y la visita vuelve a
+// quedar libre ("relevada", sin presupuesto) para armar el presupuesto correcto desde ella.
+const MOTIVO_ANULACION_TXT: Record<string, string> = {
+  error_carga: 'Error de carga', cliente_equivocado: 'Cliente equivocado', duplicado: 'Presupuesto duplicado',
+  cliente_desistio: 'El cliente desistió', reemplazado: 'Reemplazado por otro presupuesto', otro: 'Otro motivo',
+};
+operaciones.post('/:id/anular', async (c) => {
+  const { id } = c.req.param();
+  const user = c.get('user');
+  if (user?.rol === 'consulta') return c.json({ error: 'Tu usuario es de solo consulta' }, 403);
+  const b = await validateBody(c, AnularOperacionSchema);
+  if (b instanceof Response) return b;
+
+  const facturadoOp = await facturadoDe('operacion_id', id);
+  if (facturadoOp > 0.009) {
+    return c.json({ error: `Tiene facturas vigentes por $ ${facturadoOp.toLocaleString('es-AR')}: primero anulalas con una nota de crédito.` }, 409);
+  }
+
+  const client = await db.connect();
+  let op: { id: string; numero: string; estado: string };
+  try {
+    await client.query('BEGIN');
+    const { rows: [o] } = await client.query(`SELECT id, numero, estado FROM operaciones WHERE id = $1 FOR UPDATE`, [id]);
+    if (!o) { await client.query('ROLLBACK'); return c.json({ error: 'Presupuesto no encontrado' }, 404); }
+    op = o;
+    if (op.estado === 'cancelado') { await client.query('ROLLBACK'); return c.json({ error: 'Este presupuesto ya está anulado' }, 409); }
+
+    const { rows: [t] } = await client.query(`
+      SELECT
+        (SELECT string_agg(r.numero, ', ') FROM recibos r WHERE r.operacion_id = $1 AND r.estado = 'emitido'
+           AND NOT EXISTS (SELECT 1 FROM visitas_tecnicas vt WHERE vt.recibo_id = r.id)) AS recibos,
+        (SELECT string_agg(COALESCE(p.numero, 'pedido'), ', ') FROM pedidos p WHERE p.operacion_id = $1 AND p.estado != 'cancelado') AS pedidos,
+        (SELECT string_agg(rm.numero, ', ') FROM remitos rm WHERE rm.operacion_id = $1 AND rm.estado != 'cancelado') AS remitos
+    `, [id]);
+    const bloqueos = [
+      t.recibos && `recibos ${t.recibos}`, t.pedidos && `pedidos al proveedor ${t.pedidos}`, t.remitos && `remitos ${t.remitos}`,
+    ].filter(Boolean);
+    if (bloqueos.length) {
+      await client.query('ROLLBACK');
+      return c.json({ error: `No se puede anular: tiene ${bloqueos.join(' y ')}. Anulá esos documentos primero.` }, 409);
+    }
+
+    await client.query(`
+      UPDATE operaciones SET estado = 'cancelado', anulado_at = now(), anulado_por = $2,
+        anulacion_motivo = $3, anulacion_detalle = $4, anulado_desde = estado, aprobado_online_at = NULL, updated_at = now()
+      WHERE id = $1
+    `, [id, user?.id ?? null, b.motivo, b.detalle?.trim() || null]);
+
+    await liberarReservas(client, id, 'Reserva liberada: presupuesto anulado', op.numero, user?.id ?? null);
+    await descartarSeguimientoDeOperacion(client, id, 'Presupuesto anulado');
+
+    // Visita de relevamiento: se desacredita su recibo y queda libre para otro presupuesto.
+    const { rows: visitas } = await client.query(
+      `SELECT id, numero, recibo_id, cobro_estado FROM visitas_tecnicas WHERE operacion_id = $1 AND estado != 'cancelada' FOR UPDATE`, [id]);
+    for (const v of visitas) {
+      if (v.cobro_estado === 'bonificada' && v.recibo_id) {
+        await client.query(`UPDATE recibos SET operacion_id = NULL, updated_at = now() WHERE id = $1`, [v.recibo_id]);
+      }
+      await client.query(`
+        UPDATE visitas_tecnicas SET operacion_id = NULL,
+          estado = CASE WHEN estado = 'convertida' THEN 'relevada' ELSE estado END,
+          cobro_estado = CASE WHEN cobro_estado = 'bonificada' THEN 'cobrada' ELSE cobro_estado END,
+          bonificada_at = NULL, bonificada_por = NULL, updated_at = now()
+        WHERE id = $1`, [v.id]);
+      await sincronizarTareaVisita(client, v.id);
+    }
+
+    // Lo pendiente de la agenda sobre este presupuesto ya no tiene sentido.
+    const { rows: tareas } = await client.query(
+      `SELECT id FROM tareas WHERE operacion_id = $1 AND NOT completada`, [id]);
+    for (const tr of tareas) await completarTarea(client, tr.id, true, user?.id ?? null);
+
+    await client.query('COMMIT');
+
+    registrarActividad(c, {
+      entidad: 'presupuesto', entidad_id: op.id, entidad_numero: op.numero,
+      accion: 'anular',
+      detalle: `Anulado: ${MOTIVO_ANULACION_TXT[b.motivo]}${b.detalle?.trim() ? ` — ${b.detalle.trim()}` : ''}`
+        + (visitas.length ? ` · visita ${visitas.map(v => v.numero).join(', ')} liberada` : ''),
+      meta: { estado_anterior: op.estado, estado_nuevo: 'cancelado', motivo: b.motivo, visitas_liberadas: visitas.map(v => v.numero) },
+    });
+    return c.json({ ok: true, numero: op.numero, visitas_liberadas: visitas.map(v => v.numero) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
 operaciones.patch('/:id/estado', async (c) => {
   const { id } = c.req.param();
   const b = await validateBody(c, EstadoOperacionSchema);
@@ -1687,6 +1795,7 @@ operaciones.patch('/:id/estado', async (c) => {
   if (!estadosValidos.includes(estado)) {
     return c.json({ error: 'Estado inválido' }, 400);
   }
+  if (await estaAnulado(id)) return c.json({ error: 'Este presupuesto está anulado: no cambia de estado' }, 409);
 
   if (estado === 'aprobado') {
     const vtPendiente = await visitaPendiente(id);

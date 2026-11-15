@@ -97,6 +97,18 @@ const HELP_CONTENT: Record<HelpTopic, HelpTopicData> = {
         warning: 'Si el presupuesto está vencido (fecha de validez pasada), no se puede generar link. Editarlo para actualizar la fecha.',
       },
       {
+        id: 'anular',
+        emoji: '🚫',
+        title: 'Anular un presupuesto',
+        intro: 'Para un presupuesto cargado por error (cliente equivocado, duplicado, armado por fuera de la visita).',
+        steps: [
+          { text: 'Abrir el presupuesto → "Anular presupuesto" (abajo)' },
+          { text: 'Elegir el motivo y escribir el detalle (con "Otro motivo" es obligatorio)' },
+          { text: 'Queda "Anulado" con quién, cuándo y por qué; la visita de relevamiento vuelve a quedar libre' },
+        ],
+        warning: 'Con recibos, pedidos al proveedor, remitos o facturas no se anula: primero anular esos documentos.',
+      },
+      {
         id: 'bonificacion',
         emoji: '🎁',
         title: 'Bonificar un presupuesto',

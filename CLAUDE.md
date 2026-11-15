@@ -357,6 +357,12 @@ un estado que ya no es `aprobado` — el bug que motivó separar esto de `PATCH 
 hace un `UPDATE` plano). Bloqueado con 409 si ya hay recibo emitido, pedido activo o remito no
 cancelado sobre la operación — a partir de ahí es una cancelación con pasos propios (nota de
 crédito, devolución de stock), no un simple deshacer.
+**Anular un presupuesto** (`POST /operaciones/:id/anular {motivo, detalle}`, 2026-11-14): estado `cancelado` (la UI dice
+"Anulado") + `anulado_at/por`, `anulacion_motivo` (lista cerrada, `src/lib/anulacion.ts` ↔ `AnularOperacionSchema`),
+`anulacion_detalle` (obligatorio con `otro`) y `anulado_desde`. 409 con facturas, recibos del cliente, pedidos activos o
+remitos vigentes (el recibo de una visita acreditada no bloquea: se desacredita y la visita vuelve a `relevada` sin presupuesto).
+Libera reservas, descarta el post venta y completa las tareas pendientes. Un anulado no se edita, comparte ni cambia de estado
+(`estaAnulado()` en PUT, share y `PATCH /estado`). Rol consulta: 403. Test `anularPresupuesto.db.test.ts`.
 La proforma numera como `PRO-` (reemplazo visual de `OP-`). Si la visita de relevamiento
 vinculada quedó `sin_cargo`, la proforma lo aclara como bonificada. Si quedó `cobrada` o `bonificada`, la proforma
 la descuenta como renglón bajo el total (`proforma-visita`) con lo que queda a pagar; el pago de la visita se

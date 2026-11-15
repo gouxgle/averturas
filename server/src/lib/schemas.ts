@@ -121,6 +121,15 @@ export const EstadoOperacionSchema = z.object({
   motivo_rechazo: zText(500).optional(),
 });
 
+// Anular un presupuesto: motivo de una lista cerrada + detalle libre (obligatorio con 'otro').
+export const MOTIVOS_ANULACION = ['error_carga', 'cliente_equivocado', 'duplicado', 'cliente_desistio', 'reemplazado', 'otro'] as const;
+export const AnularOperacionSchema = z.object({
+  motivo: z.enum(MOTIVOS_ANULACION),
+  detalle: zText(1000).optional(),
+}).refine(b => b.motivo !== 'otro' || (b.detalle?.trim().length ?? 0) >= 5, {
+  message: 'Con "Otro motivo" contá en el detalle por qué se anula', path: ['detalle'],
+});
+
 // ── Recibos ────────────────────────────────────────────────────
 const ReciboItemSchema = z.object({
   descripcion: z.string().min(1).max(500),
