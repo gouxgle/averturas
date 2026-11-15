@@ -24,7 +24,7 @@ Flujo: presupuesto → aprobación → recibo de pago → remito de entrega.
   `compras_*`, `proveedor_*` y columnas nuevas en `pedidos`/`pedido_items`/`proveedores`).
   **Antes de ir a prod**: correr el `SELECT` de control de la migración de saldos (ver abajo)
   y revisar el módulo entero en test. Deploy solo cuando el usuario lo pida (backup previo +
-  `echo si | bash deploy-env.sh prod`).
+  `bash deploy-env.sh prod -y`).
 
 ## Ambientes
 
@@ -50,7 +50,7 @@ El usuario prioriza bajar los tiempos y **no quiere preguntas de confirmación a
 → verificación post-deploy → rebuild del `:3000` local — y reportar. **PROD NUNCA se deploya
 automáticamente**: lo hace el usuario cuando decide, después de probar en test (regla del
 2026-09-17). El reporte final cierra siempre con el estado: commit · GitHub · test ✅ · prod ⏳
-pendiente (`echo si | bash deploy-env.sh prod`, con backup previo). Preguntar solo ante algo
+pendiente (`bash deploy-env.sh prod -y`, hace el backup solo). Preguntar solo ante algo
 irreversible o ambiguo con impacto real distinto. Ante ambigüedad menor, decidir lo más
 consistente con el código y mencionarlo en el resumen.
 
@@ -128,16 +128,19 @@ Changelog obligatorio para cambios visibles: `cd server && npm run changelog:add
   login por contraseña (el clasificador lo bloquea).
 - Wizards de credenciales/OAuth (`rclone config update/reconnect`) se cuelgan esperando un
   navegador: editar el archivo de config directo.
-- **Deploy**: `bash deploy-env.sh test` **buildea la imagen acá y la transfiere** (~440 MB
-  gzip, ~2 min): test comparte los 2 GB de prod, nunca buildear allá. Saltea build si solo
-  cambiaron migraciones/tests/docs. Migraciones con `-U aberturas_test -d aberturas_test` y
-  `ON_ERROR_STOP` (una migración que necesite superusuario falla en test: correrla a mano como
-  `postgres` con `-d aberturas_test`). Guardas: el script aborta si apunta a `postgres`/`aberturas-app`. **Prod solo a pedido explícito del usuario**: `echo si | bash deploy-env.sh prod`
-  (su `deploy.sh` sigue buildeando allá). **Prod no hace backup solo**:
-  antes, por SSH, `docker exec aberturas-db pg_dump -U postgres -d postgres | gzip >
-  /var/lib/docker-data/backups/aberturas_predeploy_$(date +%Y%m%d_%H%M%S).sql.gz`. El build
-  de prod en el servidor convive con test andando: si se queda sin memoria, `free -h` / `swapon --show`
-  y, de ser necesario, `docker stop aberturas-test-app` durante el build.
+- **Deploy (desde 2026-11-14, por registro)**: `bash deploy-env.sh test` y `bash deploy-env.sh prod -y`.
+  La imagen se buildea en la PC (~30 s con caché) y viaja por un **registro privado en el VPS** (contenedor
+  `registry`, `127.0.0.1:5000`, datos en `/var/lib/docker-data/registry`) mediante un túnel SSH que abre el
+  script: `docker push` sube **solo las capas nuevas** (~6 MB por un cambio de código; Chromium y node_modules ya
+  están allá). Etiqueta = commit completo. **Prod usa la misma imagen que test** (si el commit ya está en el
+  registro no se buildea): sin build en el servidor. Prod hace **backup automático** antes de migrar (aborta si
+  sale chico; guarda los 10 últimos `aberturas_predeploy_*`). Las migraciones corren en paralelo con el `docker pull`;
+  el repo del servidor (`git reset --hard <sha>`) queda solo para leer `supabase/migrations`. Composes: test
+  `image: aberturas-app:test`, prod `image: aberturas-app:prod` (antes `build: ./aberturas`; copia
+  `docker-compose.yml.bak_registry_*`). El `deploy.sh` del servidor quedó desactivado (sale con aviso).
+  Migraciones de test con `-U aberturas_test -d aberturas_test` (una que necesite superusuario: a mano como
+  `postgres -d aberturas_test`). Guardas: test aborta si apunta a `postgres`/`aberturas-app`. **Prod solo a pedido
+  explícito del usuario.** Sentry: el DSN va horneado igual en las dos; el `environment` sale del dominio (`main.tsx`).
 
 ## Stack
 
@@ -879,5 +882,5 @@ revisión del usuario, no la lee el sistema).
 docker compose exec db psql -U postgres -d postgres          # DB local
 docker compose logs app -f --tail=30                          # logs del contenedor
 docker compose build app && docker compose up -d --force-recreate app   # solo pre-deploy
-bash deploy-env.sh test    /    echo si | bash deploy-env.sh prod
+bash deploy-env.sh test    /    bash deploy-env.sh prod -y
 ```
